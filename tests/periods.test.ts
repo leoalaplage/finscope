@@ -85,9 +85,17 @@ describe("TTM construction", () => {
   });
 
   it("makes historical share counts comparable across subsequent stock splits", () => {
-    const quarters = normalizeQuarterlyPeriods(standardYear(), "USD");
+    const quarters = normalizeQuarterlyPeriods(standardYear().map((fact)=>({...fact,filed:"2026-01-01"})), "USD");
     const adjusted = adjustPeriodsForSplits(quarters, [{ date: "2026-01-15", ratio: 4 }]);
     expect(adjusted[0].facts.dilutedShares?.value).toBe(400);
     expect(adjusted[0].facts.dilutedShares?.provenance.formula).toContain("4:1");
+  });
+
+  it("never split-adjusts currency facts and does not double-adjust later restatements", () => {
+    const quarters = normalizeQuarterlyPeriods(standardYear().map((fact)=>({...fact,filed:"2026-02-01"})), "USD");
+    quarters[0].facts.cashAndEquivalents = { ...quarters[0].facts.revenue!, metric:"cashAndEquivalents", value:50, unit:"currency" };
+    const adjusted = adjustPeriodsForSplits(quarters, [{ date:"2026-01-15", ratio:4 }]);
+    expect(adjusted[0].facts.cashAndEquivalents?.value).toBe(50);
+    expect(adjusted[0].facts.dilutedShares?.value).toBe(100);
   });
 });

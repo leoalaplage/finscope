@@ -18,7 +18,7 @@ type SecUnit = z.infer<typeof SecUnitSchema>;
 type ConceptSpec = { namespace: "us-gaap" | "dei"; tags: string[]; unit: "currency" | "shares" };
 
 export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepurchases">, ConceptSpec> = {
-  revenue: { namespace: "us-gaap", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "SalesRevenueNet"], unit: "currency" },
+  revenue: { namespace: "us-gaap", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "Revenues", "SalesRevenueNet"], unit: "currency" },
   grossProfit: { namespace: "us-gaap", tags: ["GrossProfit"], unit: "currency" },
   operatingIncome: { namespace: "us-gaap", tags: ["OperatingIncomeLoss"], unit: "currency" },
   netIncome: { namespace: "us-gaap", tags: ["NetIncomeLoss", "ProfitLoss"], unit: "currency" },
@@ -26,12 +26,19 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   capitalExpenditures: { namespace: "us-gaap", tags: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"], unit: "currency" },
   dilutedShares: { namespace: "us-gaap", tags: ["WeightedAverageNumberOfDilutedSharesOutstanding"], unit: "shares" },
   basicShares: { namespace: "us-gaap", tags: ["WeightedAverageNumberOfSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"], unit: "shares" },
-  sharesOutstanding: { namespace: "us-gaap", tags: ["CommonStockSharesOutstanding"], unit: "shares" },
+  sharesOutstanding: { namespace: "dei", tags: ["EntityCommonStockSharesOutstanding"], unit: "shares" },
   sharesIssued: { namespace: "us-gaap", tags: ["CommonStockSharesIssued"], unit: "shares" },
   treasuryShares: { namespace: "us-gaap", tags: ["TreasuryStockShares"], unit: "shares" },
   stockBasedCompensation: { namespace: "us-gaap", tags: ["ShareBasedCompensation", "AllocatedShareBasedCompensationExpense"], unit: "currency" },
   shareRepurchases: { namespace: "us-gaap", tags: ["PaymentsForRepurchaseOfCommonStock"], unit: "currency" },
   shareIssuance: { namespace: "us-gaap", tags: ["ProceedsFromStockOptionsExercised", "ProceedsFromIssuanceOfCommonStock", "ProceedsFromIssuanceOfSharesUnderIncentiveAndShareBasedCompensationPlansIncludingStockOptions"], unit: "currency" },
+  cashAndEquivalents: { namespace: "us-gaap", tags: ["CashAndCashEquivalentsAtCarryingValue", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"], unit: "currency" },
+  totalDebt: { namespace: "us-gaap", tags: ["LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent", "LongTermDebtCurrent", "LongTermDebtNoncurrent"], unit: "currency" },
+  currentAssets: { namespace: "us-gaap", tags: ["AssetsCurrent"], unit: "currency" },
+  currentLiabilities: { namespace: "us-gaap", tags: ["LiabilitiesCurrent"], unit: "currency" },
+  incomeBeforeTax: { namespace: "us-gaap", tags: ["IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest", "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"], unit: "currency" },
+  incomeTaxExpense: { namespace: "us-gaap", tags: ["IncomeTaxExpenseBenefit"], unit: "currency" },
+  depreciationAndAmortization: { namespace: "us-gaap", tags: ["DepreciationDepletionAndAmortization", "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment", "Depreciation"], unit: "currency" },
 };
 
 function sourceUrl(cik: string, accession: string) {
@@ -68,9 +75,10 @@ function extractFacts(
   return output;
 }
 
-export function normalizeSecPayload(payload: unknown, ticker: string, retrievedAt = new Date().toISOString()): CompanyDataset {
-  const company = COMPANIES.find((item) => item.ticker === ticker.toUpperCase());
+export function normalizeSecPayload(payload: unknown, ticker: string, retrievedAt = new Date().toISOString(), resolvedCompany?: CompanyDataset["company"]): CompanyDataset {
+  const company = resolvedCompany ?? COMPANIES.find((item) => item.ticker === ticker.toUpperCase());
   if (!company) throw new Error("Ticker not supported by the SEC adapter registry.");
+  if (!company.cik) throw new Error(company.resolutionNote || "No reliable regulatory identifier is available for this instrument.");
   const parsed = SecResponseSchema.parse(payload);
   const rawFacts = extractFacts(parsed.facts, company.cik, company.currency, retrievedAt);
   const annual = adjustPeriodsForSplits(normalizeAnnualPeriods(rawFacts, company.currency), company.stockSplits);
@@ -87,13 +95,26 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
 }
 
 export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
-  const company = COMPANIES.find((item) => item.ticker === ticker.toUpperCase());
-  if (!company) throw new Error("Ticker not supported by the SEC adapter registry.");
+  const company = COMPANIES.find((item) => item.ticker === ticker.toUpperCase()) ?? await resolveSecCompany(ticker);
+  if (!company.cik) throw new Error(company.resolutionNote || "No reliable regulatory identifier is available for this instrument.");
   const retrievedAt = new Date().toISOString();
   const response = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${company.cik}.json`, {
     headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com", Accept: "application/json" },
     next: { revalidate: 21_600 },
   });
   if (!response.ok) throw new Error(`SEC returned ${response.status}.`);
-  return normalizeSecPayload(await response.json(), ticker, retrievedAt);
+  return normalizeSecPayload(await response.json(), ticker, retrievedAt, company);
+}
+
+interface SecTickerEntry { cik_str: number; ticker: string; title: string }
+export async function searchSecCompanies(query: string) {
+  const response = await fetch("https://www.sec.gov/files/company_tickers.json", { headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" }, next: { revalidate: 86_400 } });
+  if (!response.ok) throw new Error(`SEC company registry returned ${response.status}.`);
+  const entries = Object.values(await response.json() as Record<string, SecTickerEntry>); const needle = query.trim().toUpperCase();
+  return entries.filter((entry) => entry.ticker.includes(needle) || entry.title.toUpperCase().includes(needle)).slice(0, 12).map((entry) => ({ name: entry.title, ticker: entry.ticker, cik: String(entry.cik_str).padStart(10,"0"), regulatoryId: `CIK ${String(entry.cik_str).padStart(10,"0")}`, exchange: "US exchange · verify in Yahoo", currency: "USD", yahooTicker: entry.ticker, sector: "Unclassified", description: "Dynamically resolved from the SEC company registry.", resolutionStatus: "partial" as const, resolutionNote: "CIK verified by SEC; exchange and instrument identity should be confirmed before relying on market data.", businessType: "operating" as const }));
+}
+async function resolveSecCompany(ticker: string) {
+  const results = await searchSecCompanies(ticker); const exact = results.find((entry) => entry.ticker === ticker.toUpperCase());
+  if (!exact) throw new Error("Ticker could not be resolved uniquely in the SEC registry.");
+  return exact;
 }

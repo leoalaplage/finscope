@@ -1,6 +1,6 @@
 import { FORMULAS } from "./finance";
 
-export type MetricKind = "currency" | "shares" | "percent" | "perShare";
+export type MetricKind = "currency" | "shares" | "percent" | "perShare" | "ratio";
 export interface MetricDefinition { label: string; short: string; color: string; kind: MetricKind; formula?: string }
 
 export const METRICS: Record<string, MetricDefinition> = {
@@ -37,6 +37,30 @@ export const METRICS: Record<string, MetricDefinition> = {
   stockBasedCompensationToRevenue: { label: "SBC / Revenue", short: "SBC / Revenue", color: "#f59e0b", kind: "percent", formula: "Stock-based compensation / Revenue" },
   stockBasedCompensationToFcf: { label: "SBC / FCF", short: "SBC / FCF", color: "#f97316", kind: "percent", formula: "Stock-based compensation / Free cash flow" },
   cashConversion: { label: "Cash conversion", short: "FCF / Net income", color: "#2dd4bf", kind: "percent", formula: "Free cash flow / Net income" },
+  cashAndEquivalents: { label: "Cash and equivalents", short: "Cash", color: "#32D5E2", kind: "currency" },
+  totalDebt: { label: "Total debt", short: "Debt", color: "#FF647C", kind: "currency" },
+  currentAssets: { label: "Current assets", short: "Current assets", color: "#4DA3FF", kind: "currency" },
+  currentLiabilities: { label: "Current liabilities", short: "Current liabilities", color: "#FF9F43", kind: "currency" },
+  incomeBeforeTax: { label: "Income before tax", short: "Pre-tax income", color: "#A78BFA", kind: "currency" },
+  incomeTaxExpense: { label: "Income tax expense", short: "Tax expense", color: "#F472B6", kind: "currency" },
+  depreciationAndAmortization: { label: "Depreciation & amortization", short: "D&A", color: "#94A3B8", kind: "currency" },
+  effectiveTaxRate: { label: "Effective tax rate", short: "Tax rate", color: "#F472B6", kind: "percent", formula: "Income tax expense / Income before tax" },
+  netDebt: { label: "Net debt", short: "Net debt", color: "#FF647C", kind: "currency", formula: "Total debt − Cash and equivalents" },
+  netWorkingCapital: { label: "Net working capital", short: "NWC", color: "#FF9F43", kind: "currency", formula: "Current assets − Current liabilities − Cash" },
+  revenueGrowth: { label: "Revenue growth", short: "Revenue growth", color: "#4DA3FF", kind: "percent", formula: "Current revenue / Previous revenue − 1" },
+  freeCashFlowGrowth: { label: "FCF growth", short: "FCF growth", color: "#D8FF5F", kind: "percent", formula: "Current FCF / Previous FCF − 1" },
+  freeCashFlowPerShareGrowth: { label: "FCF per share growth", short: "FCF/share growth", color: "#84CC16", kind: "percent", formula: "Current FCF/share / Previous FCF/share − 1" },
+  revenueCagr: { label: "Revenue CAGR", short: "Revenue CAGR", color: "#4DA3FF", kind: "percent" },
+  freeCashFlowCagr: { label: "FCF CAGR", short: "FCF CAGR", color: "#D8FF5F", kind: "percent" },
+  freeCashFlowPerShareCagr: { label: "FCF per share CAGR", short: "FCF/share CAGR", color: "#84CC16", kind: "percent" },
+  marketCapitalization: { label: "Market capitalization", short: "Market cap", color: "#36D399", kind: "currency" },
+  priceToSales: { label: "Price / Sales", short: "P/S", color: "#4DA3FF", kind: "ratio" },
+  priceToEarnings: { label: "Price / Earnings", short: "P/E", color: "#A78BFA", kind: "ratio" },
+  priceToFreeCashFlow: { label: "Price / FCF", short: "P/FCF", color: "#D8FF5F", kind: "ratio" },
+  freeCashFlowYield: { label: "FCF yield", short: "FCF yield", color: "#36D399", kind: "percent" },
+  stockPrice: { label: "Stock price", short: "Stock price", color: "#4DA3FF", kind: "perShare" },
+  marginStability: { label: "Margin stability", short: "Margin stability", color: "#32D5E2", kind: "percent" },
+  roic: { label: "Return on invested capital", short: "ROIC", color: "#A78BFA", kind: "percent" },
 };
 
 export const VIEW_METRICS = {

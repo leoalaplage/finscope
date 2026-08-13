@@ -17,7 +17,14 @@ export type MetricKey =
   | "stockBasedCompensation"
   | "shareRepurchases"
   | "shareIssuance"
-  | "netShareRepurchases";
+  | "netShareRepurchases"
+  | "cashAndEquivalents"
+  | "totalDebt"
+  | "currentAssets"
+  | "currentLiabilities"
+  | "incomeBeforeTax"
+  | "incomeTaxExpense"
+  | "depreciationAndAmortization";
 
 export interface Provenance {
   provider: "SEC" | "Yahoo Finance" | "Calculated" | "Demo fixture";
@@ -72,6 +79,10 @@ export interface CompanyProfile {
   yahooTicker?: string;
   tickerHistory?: Array<{ ticker: string; from?: string; to?: string }>;
   stockSplits?: Array<{ date: string; ratio: number }>;
+  regulatoryId?: string;
+  businessType?: "operating" | "financial" | "international";
+  resolutionStatus?: "verified" | "partial" | "unresolved";
+  resolutionNote?: string;
 }
 
 export interface CompanyDataset {

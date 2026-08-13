@@ -127,6 +127,9 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     stockBasedCompensationToRevenue: safeDivide(valueOf(period, "stockBasedCompensation"), revenue),
     stockBasedCompensationToFcf: safeDivide(valueOf(period, "stockBasedCompensation"), fcf),
     cashConversion: safeDivide(fcf, valueOf(period, "netIncome")),
+    effectiveTaxRate: safeDivide(valueOf(period, "incomeTaxExpense"), valueOf(period, "incomeBeforeTax")),
+    netDebt: valueOf(period, "totalDebt") == null && valueOf(period, "cashAndEquivalents") == null ? null : (valueOf(period, "totalDebt") ?? 0) - (valueOf(period, "cashAndEquivalents") ?? 0),
+    netWorkingCapital: valueOf(period, "currentAssets") == null || valueOf(period, "currentLiabilities") == null ? null : valueOf(period, "currentAssets")! - valueOf(period, "currentLiabilities")! - (valueOf(period, "cashAndEquivalents") ?? 0),
   };
   return map[key] ?? valueOf(period, key as MetricKey);
 }

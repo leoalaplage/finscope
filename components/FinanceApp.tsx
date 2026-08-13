@@ -6,8 +6,13 @@ import {
   FileDown, Gauge, Heart, Home, Info, Loader2, Menu, Moon, MoreHorizontal,
   PanelLeftClose, Search, Settings, ShieldCheck, Sun, Table2, TrendingDown,
   TrendingUp, Users, X, Activity, Target, CalendarDays,
+  GitCompareArrows, LineChart, Database, Plus,
 } from "lucide-react";
 import { AdvancedChart, type ChartMode, type Unit } from "./AdvancedChart";
+import { CompanyManager } from "./CompanyManager";
+import { CoverageMatrix } from "./CoverageMatrix";
+import { DcfValuation } from "./DcfValuation";
+import { MultiStockComparison } from "./MultiStockComparison";
 import { COMPANIES, findCompany } from "@/lib/company-registry";
 import {
   FORMULAS, cagrBetweenDates, cagrForPeriods, convertUnit, derivedValue,
@@ -16,7 +21,7 @@ import {
 import { GROWTH_METRICS, METRICS, VIEW_METRICS } from "@/lib/metrics";
 import type { CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, Periodicity, PricePoint } from "@/lib/types";
 
-type ViewKey = "overview" | "income" | "cashflow" | "margins" | "pershare" | "shares" | "growth" | "valuation" | "sources" | "settings";
+type ViewKey = "overview" | "income" | "cashflow" | "margins" | "pershare" | "shares" | "growth" | "valuation" | "dcf" | "comparison" | "coverage" | "sources" | "settings";
 
 const NAV: Array<{ key: ViewKey; label: string; icon: typeof Home; section?: string }> = [
   { key: "overview", label: "Quality overview", icon: Home, section: "QUALITY ANALYSIS" },
@@ -27,6 +32,9 @@ const NAV: Array<{ key: ViewKey; label: string; icon: typeof Home; section?: str
   { key: "cashflow", label: "Cash flow", icon: Activity },
   { key: "shares", label: "Shares & buybacks", icon: Users, section: "CAPITAL" },
   { key: "valuation", label: "Valuation", icon: CircleDollarSign },
+  { key: "dcf", label: "DCF Valuation", icon: LineChart },
+  { key: "comparison", label: "Multi-Stock Comparison", icon: GitCompareArrows, section: "PORTFOLIO" },
+  { key: "coverage", label: "Data coverage", icon: Database },
   { key: "sources", label: "Sources & methodology", icon: BookOpen, section: "SYSTEM" },
   { key: "settings", label: "Settings", icon: Settings },
 ];
@@ -38,6 +46,7 @@ function compactCurrency(value: number | null, currency = "USD") {
 function formatValue(value: number | null, kind: string, unit: Unit, currency = "USD") {
   if (value == null || Number.isNaN(value)) return "—";
   if (kind === "percent") return `${(value * 100).toFixed(1)}%`;
+  if (kind === "ratio") return `${value.toFixed(1)}×`;
   if (kind === "perShare") return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(convertUnit(value, unit) ?? 0);
 }
@@ -69,6 +78,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   const [dark, setDark] = useState(true); const [sidebarOpen, setSidebarOpen] = useState(true);
   const [favorite, setFavorite] = useState(false); const [selectedFact, setSelectedFact] = useState<NormalizedFact | null>(null);
   const [toast, setToast] = useState("");
+  const [managerOpen,setManagerOpen]=useState(false);
 
   useEffect(() => { document.documentElement.dataset.theme = dark ? "dark" : "light"; }, [dark]);
   useEffect(() => {
@@ -116,7 +126,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
         <div className="search-wrap"><Search size={17}/><input value={query} onFocus={() => setSearchOpen(true)} onChange={(event) => { setQuery(event.target.value); setSearchOpen(true); }} onKeyDown={(event) => event.key === "Enter" && suggestions[0] && selectTicker(suggestions[0].ticker)} placeholder="Search quality company or ticker…" aria-label="Search company or ticker"/><kbd><Command size={11}/> K</kbd>
           {searchOpen && <div className="search-results"><div className="search-caption">{query ? "MATCHING COMPANIES" : "VALIDATION UNIVERSE"}</div>{suggestions.map((company) => <button key={company.ticker} onMouseDown={() => selectTicker(company.ticker)}><span className="ticker-avatar">{company.ticker[0]}</span><span><b>{company.name}</b><small>{company.ticker} · {company.exchange}</small></span><span className="result-sector">{company.sector}</span></button>)}</div>}
         </div>
-        <div className="top-actions"><span className="verified"><ShieldCheck size={15}/> Traceable</span><button className="icon-button" onClick={() => setDark((value) => !value)} aria-label="Toggle theme">{dark ? <Sun size={17}/> : <Moon size={17}/>}</button><button className="avatar" aria-label="User menu">LR</button></div>
+        <div className="top-actions"><button className="button secondary top-add-company" onClick={()=>setManagerOpen(true)}><Plus size={14}/> Add company</button><span className="verified"><ShieldCheck size={15}/> Traceable</span><button className="icon-button" onClick={() => setDark((value) => !value)} aria-label="Toggle theme">{dark ? <Sun size={17}/> : <Moon size={17}/>}</button><button className="avatar" aria-label="User menu">LR</button></div>
       </header>
       <main>
         <section className="company-header"><div className="company-id"><span className="company-logo">{dataset.company.ticker[0]}</span><div><div className="eyebrow">QUALITY STOCK RESEARCH · {dataset.company.exchange} · {dataset.company.currency}</div><h1>{dataset.company.name} <span>{dataset.company.ticker}</span></h1><p>{dataset.company.description}</p></div></div><div className="company-actions"><button className={`icon-button ${favorite ? "favorite" : ""}`} onClick={() => setFavorite((value) => !value)} aria-label="Toggle favorite"><Heart size={17} fill={favorite ? "currentColor" : "none"}/></button><button className="button secondary" onClick={() => exportCsv(Object.keys(METRICS), true)}><FileDown size={15}/> Export all</button><button className="icon-button"><MoreHorizontal size={18}/></button></div></section>
@@ -134,12 +144,16 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
           {periods.length > 0 && (["income","cashflow","margins","pershare","shares"] as ViewKey[]).includes(view) && <StatementView view={view as keyof typeof VIEW_METRICS} periods={periods} unit={unit} mode={chartMode} currency={dataset.company.currency} periodicity={periodicity} onFact={setSelectedFact} onExport={(metrics) => exportCsv(metrics)} onCopy={() => notify("Visible table copied")}/>}
           {view === "growth" && <GrowthView annualPeriods={dataset.periods.filter((period) => period.periodicity === "annual").sort((a,b) => a.periodEnd.localeCompare(b.periodEnd))}/>}
           {view === "valuation" && <ValuationView key={`${dataset.company.ticker}-${latest.periodEnd}`} latest={latest} company={dataset.company}/>}
+          {view === "dcf" && <DcfValuation key={dataset.company.ticker} dataset={dataset}/>}
+          {view === "comparison" && <MultiStockComparison initialData={dataset}/>}
+          {view === "coverage" && <CoverageMatrix initialData={dataset}/>}
           {view === "sources" && <SourcesView dataset={dataset}/>}
           {view === "settings" && <SettingsView dark={dark} setDark={setDark}/>}
         </div>
       </main>
     </div>
     {selectedFact && <FactDrawer fact={selectedFact} onClose={() => setSelectedFact(null)}/>}
+    {managerOpen&&<CompanyManager onClose={()=>setManagerOpen(false)} onSelect={(next)=>{setDataset(next);setManagerOpen(false);}}/>}
     {toast && <div className="toast"><Check size={15}/>{toast}</div>}
   </div>;
 }

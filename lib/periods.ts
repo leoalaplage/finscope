@@ -3,10 +3,11 @@ import type { FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } fro
 export const FLOW_METRICS: MetricKey[] = [
   "revenue", "grossProfit", "operatingIncome", "netIncome", "operatingCashFlow",
   "capitalExpenditures", "stockBasedCompensation", "shareRepurchases", "shareIssuance",
+  "incomeBeforeTax", "incomeTaxExpense", "depreciationAndAmortization",
 ];
 export const WEIGHTED_SHARE_METRICS: MetricKey[] = ["basicShares", "dilutedShares"];
-export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares"];
-const SPLIT_ADJUSTED_METRICS: MetricKey[] = [...WEIGHTED_SHARE_METRICS, ...POINT_METRICS];
+export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities"];
+const SPLIT_ADJUSTED_METRICS: MetricKey[] = [...WEIGHTED_SHARE_METRICS, "sharesOutstanding", "sharesIssued", "treasuryShares"];
 
 export function daysBetween(start?: string, end?: string) {
   if (!start || !end) return 0;
@@ -28,12 +29,14 @@ export function dedupeFacts(facts: RawFinancialFact[]) {
 
 export function adjustPeriodsForSplits(periods: FinancialPeriod[], splits: Array<{ date: string; ratio: number }> = []) {
   return periods.map((period) => {
-    const applicable = splits.filter((split) => period.periodEnd < split.date);
-    const factor = applicable.reduce((product, split) => product * split.ratio, 1);
-    if (factor === 1) return period;
     const facts = { ...period.facts };
     for (const metric of SPLIT_ADJUSTED_METRICS) {
       const fact = facts[metric]; if (fact?.value == null) continue;
+      // A later filing commonly restates comparative share counts for a split.
+      // Only facts filed before the split still require our adjustment.
+      const applicable = splits.filter((split) => period.periodEnd < split.date && (!fact.provenance.filingDate || fact.provenance.filingDate < split.date));
+      const factor = applicable.reduce((product, split) => product * split.ratio, 1);
+      if (factor === 1) continue;
       facts[metric] = { ...fact, value: fact.value * factor, provenance: { ...fact.provenance, provider: "Calculated", status: "calculated", formula: `Reported share count × ${factor}:1 cumulative subsequent split factor`, note: `Split-adjusted for ${applicable.map((split) => `${split.ratio}:1 on ${split.date}`).join(", ")}. Original SEC source remains linked.` } };
     }
     return { ...period, facts };
