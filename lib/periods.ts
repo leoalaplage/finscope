@@ -24,7 +24,57 @@ export function dedupeFacts(facts: RawFinancialFact[]) {
     const key = [fact.metric, fact.start ?? "instant", fact.end, fact.fiscalYear, fact.fiscalPeriod, fact.form, fact.concept].join("|");
     groups.set(key, [...(groups.get(key) ?? []), fact]);
   }
-  return [...groups.values()].map((group) => ({ ...latest(group)!, restated: group.length > 1 && new Set(group.map((fact) => fact.value)).size > 1 })).sort((a, b) => a.end.localeCompare(b.end));
+  return [...groups.values()].map((group) => {
+    const distinct = [...new Set(group.map((fact) => fact.value))];
+    const magnitude = (value: number) => value === 0 ? 0 : Math.floor(Math.log10(Math.abs(value)));
+    const buckets = new Map<number, RawFinancialFact[]>();
+    for (const fact of group) {
+      const key = magnitude(fact.value);
+      buckets.set(key, [...(buckets.get(key) ?? []), fact]);
+    }
+    const ranked = [...buckets.entries()].sort((left, right) => right[0] - left[0] || right[1].length - left[1].length);
+    const hasUnitConflict = ranked.length > 1 && ranked.some(([power]) => Math.abs(power - ranked[0][0]) >= 2);
+    const selected = latest(hasUnitConflict ? ranked[0][1] : group)!;
+    const inheritedConflicts = group.flatMap((fact)=>fact.sourceConflictValues??[]); const conflictValues=[...new Set([...distinct,...inheritedConflicts])];
+    const conflict = hasUnitConflict || inheritedConflicts.length > 0;
+    return {
+      ...selected,
+      restated: group.length > 1 && distinct.length > 1,
+      sourceConflictValues: conflict ? conflictValues : undefined,
+      normalizationNote: conflict ? (group.find((fact)=>fact.normalizationNote)?.normalizationNote ?? `Conflicting SEC magnitudes (${distinct.join(", ")}); selected the magnitude consistent with the SEC shares unit before split adjustment.`) : undefined,
+    };
+  }).sort((a, b) => a.end.localeCompare(b.end));
+}
+
+export function normalizeShareUnitScales(input: RawFinancialFact[]) {
+  const shareMetrics = new Set(SPLIT_ADJUSTED_METRICS);
+  const medians = new Map<MetricKey, number>();
+  for (const metric of shareMetrics) {
+    const powers=input.filter((fact)=>fact.metric===metric&&fact.value>0).map((fact)=>Math.log10(fact.value)).sort((a,b)=>a-b);
+    if(powers.length)medians.set(metric,powers[Math.floor(powers.length/2)]);
+  }
+  return input.map((fact)=>{
+    const median=medians.get(fact.metric); if(median==null||fact.value<=0)return fact;
+    let value=fact.value; while(Math.log10(value)<median-2)value*=1000;
+    if(value===fact.value)return fact;
+    return {...fact,value,sourceConflictValues:[fact.value,value],normalizationNote:`SEC shares-unit inconsistency: raw ${fact.value} was ${value/fact.value}× below the company-level filing magnitude. Normalized to ${value}; raw value retained in the audit.`};
+  });
+}
+
+/**
+ * SEC `fy` identifies the fiscal year of the filing, not always the comparative
+ * period carried inside it. Relabeling from the actual period end makes older
+ * restatements compete in the same context instead of becoming duplicate years.
+ */
+export function relabelFiscalYears(input: RawFinancialFact[]) {
+  const annualEnds = input.filter((fact) => fact.fiscalPeriod === "FY" && fact.form === "10-K").map((fact) => fact.end.slice(5));
+  const fiscalEnd = [...new Set(annualEnds)].sort((left,right)=>annualEnds.filter((item)=>item===right).length-annualEnds.filter((item)=>item===left).length)[0] ?? "12-31";
+  return input.map((fact) => {
+    const calendarYear = Number(fact.end.slice(0,4));
+    const endMonthDay = fact.end.slice(5);
+    const fiscalYear = fact.fiscalPeriod === "FY" ? calendarYear : endMonthDay > fiscalEnd ? calendarYear + 1 : calendarYear;
+    return { ...fact, fiscalYear };
+  });
 }
 
 export function adjustPeriodsForSplits(periods: FinancialPeriod[], splits: Array<{ date: string; ratio: number }> = []) {
@@ -37,7 +87,8 @@ export function adjustPeriodsForSplits(periods: FinancialPeriod[], splits: Array
       const applicable = splits.filter((split) => period.periodEnd < split.date && (!fact.provenance.filingDate || fact.provenance.filingDate < split.date));
       const factor = applicable.reduce((product, split) => product * split.ratio, 1);
       if (factor === 1) continue;
-      facts[metric] = { ...fact, value: fact.value * factor, provenance: { ...fact.provenance, provider: "Calculated", status: "calculated", formula: `Reported share count × ${factor}:1 cumulative subsequent split factor`, note: `Split-adjusted for ${applicable.map((split) => `${split.ratio}:1 on ${split.date}`).join(", ")}. Original SEC source remains linked.` } };
+      const value = fact.value * factor;
+      facts[metric] = { ...fact, value, validation: fact.validation ? { ...fact.validation, normalizedValue: value, correction: `${fact.validation.correction ?? "Corroborated magnitude selected"}; then adjusted by the ${factor}:1 cumulative subsequent split factor.` } : fact.validation, provenance: { ...fact.provenance, provider: "Calculated", status: "calculated", formula: `Reported share count × ${factor}:1 cumulative subsequent split factor`, note: `Split-adjusted for ${applicable.map((split) => `${split.ratio}:1 on ${split.date}`).join(", ")}. Original SEC source remains linked.` } };
     }
     return { ...period, facts };
   });
@@ -50,8 +101,12 @@ function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", 
     provenance: {
       provider: "SEC", sourceUrl: raw.sourceUrl, accession: raw.accession, filingDate: raw.filed,
       retrievedAt: raw.retrievedAt, concept: raw.concept, status: raw.restated ? "restated" : "reported",
-      note: raw.restated ? "Latest filing selected for a duplicated SEC context with a changed value." : "Directly reported standardized XBRL fact.",
+      note: raw.normalizationNote ?? (raw.restated ? "Latest filing selected for a duplicated SEC context with a changed value." : "Directly reported standardized XBRL fact."),
     },
+    validation: raw.sourceConflictValues ? {
+      status: "Source conflict", reason: raw.normalizationNote, rawValue: raw.sourceConflictValues.find((value)=>value!==raw.value) ?? raw.value,
+      normalizedValue: raw.value, correction: "Corroborated SEC magnitude selected; conflicting raw observations remain recorded in the quality audit.", checkedAt: raw.retrievedAt,
+    } : undefined,
   };
 }
 
@@ -91,10 +146,13 @@ function selectAnnual(candidates: RawFinancialFact[]) {
   }));
 }
 
-function quarterFact(facts: RawFinancialFact[], metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4") {
+function quarterFact(facts: RawFinancialFact[], metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4"): NormalizedFact | undefined {
   const fp = quarter === "Q4" ? "FY" : quarter;
   const candidates = contexts(facts, metric, fy, fp);
-  const direct = selectDirectQuarter(candidates);
+  // FY contexts can contain later comparative quarter facts carrying fp=FY.
+  // Q4 must therefore be isolated from the full-year fact and Q3 YTD, never
+  // selected merely because an FY-tagged duration happens to be ~90 days.
+  const direct = quarter === "Q4" ? undefined : selectDirectQuarter(candidates);
   if (direct) return normalized(direct, "quarterly", quarter);
 
   if (quarter === "Q1") return undefined;
@@ -102,6 +160,19 @@ function quarterFact(facts: RawFinancialFact[], metric: MetricKey, fy: number, q
   const priorFp = quarter === "Q2" ? "Q1" : quarter === "Q3" ? "Q2" : "Q3";
   const priorCandidates = contexts(facts, metric, fy, priorFp);
   const prior = quarter === "Q2" ? selectDirectQuarter(priorCandidates) : selectCumulative(priorCandidates);
+  if (quarter === "Q4" && current && !prior && current.start) {
+    const directQuarters = (["Q1", "Q2", "Q3"] as const).map((item) => selectDirectQuarter(contexts(facts, metric, fy, item)));
+    if (directQuarters.every((fact): fact is RawFinancialFact => fact != null)) {
+      const totalDays = daysBetween(current.start, current.end); const priorDays = directQuarters.reduce((sum, fact) => sum + daysBetween(fact.start, fact.end), 0); const isolatedDays = totalDays - priorDays;
+      if (isolatedDays >= 55 && isolatedDays <= 125) {
+        const value = WEIGHTED_SHARE_METRICS.includes(metric)
+          ? (current.value * totalDays - directQuarters.reduce((sum, fact) => sum + fact.value * daysBetween(fact.start, fact.end), 0)) / isolatedDays
+          : current.value - directQuarters.reduce((sum, fact) => sum + fact.value, 0);
+        const start = new Date(Date.parse(directQuarters[2].end) + 86_400_000).toISOString().slice(0,10);
+        return { metric, value, currency: current.currency, unit: current.unit, periodStart:start, periodEnd:current.end, periodicity:"quarterly", fiscalYear:fy, fiscalQuarter:"Q4", provenance:{provider:"Calculated",sourceUrl:current.sourceUrl,accession:current.accession,filingDate:current.filed,retrievedAt:current.retrievedAt,concept:current.concept,status:"calculated",formula:WEIGHTED_SHARE_METRICS.includes(metric)?"Q4 weighted shares = (annual weighted shares × annual days − Σ(Q1–Q3 weighted shares × quarter days)) / Q4 days":"Q4 = annual − Q1 − Q2 − Q3",sourceAccessions:[...new Set([current.accession,...directQuarters.map((fact)=>fact.accession)])],note:"Q4 isolated from the annual fact and three direct fiscal quarters; no value was imputed."} };
+      }
+    }
+  }
   if (!current || !prior || !current.start || current.start !== prior.start || current.end <= prior.end) return undefined;
   const quarterStart = new Date(Date.parse(prior.end) + 86_400_000).toISOString().slice(0, 10);
 
@@ -124,7 +195,7 @@ function instantFact(facts: RawFinancialFact[], metric: MetricKey, fy: number, q
 }
 
 export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: string) {
-  const facts = dedupeFacts(input);
+  const facts = dedupeFacts(relabelFiscalYears(normalizeShareUnitScales(input)));
   const years = [...new Set(facts.filter((fact) => fact.fiscalPeriod === "FY" && fact.form === "10-K").map((fact) => fact.fiscalYear))].sort();
   return years.map((fiscalYear): FinancialPeriod | null => {
     const annualFacts: FinancialPeriod["facts"] = {};
@@ -152,7 +223,7 @@ export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: stri
 }
 
 export function normalizeQuarterlyPeriods(input: RawFinancialFact[], currency: string) {
-  const facts = dedupeFacts(input);
+  const facts = dedupeFacts(relabelFiscalYears(normalizeShareUnitScales(input)));
   const years = [...new Set(facts.filter((fact) => fact.form === "10-Q" || fact.form === "10-K").map((fact) => fact.fiscalYear))].sort();
   const periods: FinancialPeriod[] = [];
   for (const fiscalYear of years) {

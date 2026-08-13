@@ -13,6 +13,7 @@ import { CompanyManager } from "./CompanyManager";
 import { CoverageMatrix } from "./CoverageMatrix";
 import { DcfValuation } from "./DcfValuation";
 import { MultiStockComparison } from "./MultiStockComparison";
+import { DataQuality } from "./DataQuality";
 import { COMPANIES, findCompany } from "@/lib/company-registry";
 import {
   FORMULAS, cagrBetweenDates, cagrForPeriods, convertUnit, derivedValue,
@@ -21,7 +22,7 @@ import {
 import { GROWTH_METRICS, METRICS, VIEW_METRICS } from "@/lib/metrics";
 import type { CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, Periodicity, PricePoint } from "@/lib/types";
 
-type ViewKey = "overview" | "income" | "cashflow" | "margins" | "pershare" | "shares" | "growth" | "valuation" | "dcf" | "comparison" | "coverage" | "sources" | "settings";
+type ViewKey = "overview" | "income" | "cashflow" | "margins" | "pershare" | "shares" | "growth" | "valuation" | "dcf" | "comparison" | "coverage" | "quality" | "sources" | "settings";
 
 const NAV: Array<{ key: ViewKey; label: string; icon: typeof Home; section?: string }> = [
   { key: "overview", label: "Quality overview", icon: Home, section: "QUALITY ANALYSIS" },
@@ -35,6 +36,7 @@ const NAV: Array<{ key: ViewKey; label: string; icon: typeof Home; section?: str
   { key: "dcf", label: "DCF Valuation", icon: LineChart },
   { key: "comparison", label: "Multi-Stock Comparison", icon: GitCompareArrows, section: "PORTFOLIO" },
   { key: "coverage", label: "Data coverage", icon: Database },
+  { key: "quality", label: "Data Quality", icon: ShieldCheck },
   { key: "sources", label: "Sources & methodology", icon: BookOpen, section: "SYSTEM" },
   { key: "settings", label: "Settings", icon: Settings },
 ];
@@ -69,10 +71,10 @@ function downloadText(filename: string, content: string, type: string) {
 export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   const [dataset, setDataset] = useState(initialData);
   const [view, setView] = useState<ViewKey>("overview");
-  const [periodicity, setPeriodicity] = useState<Periodicity>("annual");
-  const [unit, setUnit] = useState<Unit>("billion");
-  const [chartMode, setChartMode] = useState<ChartMode>("absolute");
-  const [range, setRange] = useState(10);
+  const [periodicity, setPeriodicity] = useState<Periodicity>(() => typeof window === "undefined" ? "annual" : (localStorage.getItem("finscope.periodicity") as Periodicity) || "annual");
+  const [unit, setUnit] = useState<Unit>(() => typeof window === "undefined" ? "billion" : (localStorage.getItem("finscope.unit") as Unit) || "billion");
+  const [chartMode, setChartMode] = useState<ChartMode>(() => typeof window === "undefined" ? "absolute" : (localStorage.getItem("finscope.chartMode") as ChartMode) || "absolute");
+  const [range, setRange] = useState(() => typeof window === "undefined" ? 999 : Number(localStorage.getItem("finscope.historyRange")) || 999);
   const [query, setQuery] = useState(""); const [searchOpen, setSearchOpen] = useState(false);
   const [loading, setLoading] = useState(false); const [error, setError] = useState("");
   const [dark, setDark] = useState(true); const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -81,6 +83,10 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   const [managerOpen,setManagerOpen]=useState(false);
 
   useEffect(() => { document.documentElement.dataset.theme = dark ? "dark" : "light"; }, [dark]);
+  useEffect(() => { localStorage.setItem("finscope.periodicity", periodicity); }, [periodicity]);
+  useEffect(() => { localStorage.setItem("finscope.unit", unit); }, [unit]);
+  useEffect(() => { localStorage.setItem("finscope.chartMode", chartMode); }, [chartMode]);
+  useEffect(() => { localStorage.setItem("finscope.historyRange", String(range)); }, [range]);
   useEffect(() => {
     if (window.innerWidth <= 800) window.requestAnimationFrame(() => setSidebarOpen(false));
   }, []);
@@ -94,7 +100,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
     setSearchOpen(false); setQuery(""); if (ticker === dataset.company.ticker) return;
     setLoading(true); setError("");
     try {
-      const response = await fetch(`/api/company/${ticker}`); const payload = await response.json() as CompanyDataset & { error?: string };
+      const response = await fetch(`/api/company/${ticker}?refresh=${Date.now()}`, { cache: "no-store" }); const payload = await response.json() as CompanyDataset & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Data unavailable");
       setDataset(payload); history.replaceState(null, "", `/?ticker=${ticker}&view=${view}`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Data unavailable"); }
@@ -132,7 +138,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
         <section className="company-header"><div className="company-id"><span className="company-logo">{dataset.company.ticker[0]}</span><div><div className="eyebrow">QUALITY STOCK RESEARCH · {dataset.company.exchange} · {dataset.company.currency}</div><h1>{dataset.company.name} <span>{dataset.company.ticker}</span></h1><p>{dataset.company.description}</p></div></div><div className="company-actions"><button className={`icon-button ${favorite ? "favorite" : ""}`} onClick={() => setFavorite((value) => !value)} aria-label="Toggle favorite"><Heart size={17} fill={favorite ? "currentColor" : "none"}/></button><button className="button secondary" onClick={() => exportCsv(Object.keys(METRICS), true)}><FileDown size={15}/> Export all</button><button className="icon-button"><MoreHorizontal size={18}/></button></div></section>
         {error && <div className="error-banner"><Info size={16}/><span>{error}. The last verified dataset remains displayed.</span><button onClick={() => setError("")}><X size={15}/></button></div>}
         {loading && <div className="loading-overlay"><Loader2 className="spin" size={24}/><span>Resolving SEC periods and TTM windows…</span></div>}
-        <div className="control-bar"><div className="segmented" aria-label="Periodicity">{(["annual","quarterly","ttm"] as const).map((item) => <button key={item} className={periodicity === item ? "active" : ""} onClick={() => { setPeriodicity(item); setRange(item === "annual" ? 10 : 12); }}>{item.toUpperCase()}</button>)}</div><div className="control-divider"/>
+        <div className="control-bar"><div className="segmented" aria-label="Periodicity">{(["annual","quarterly","ttm"] as const).map((item) => <button key={item} className={periodicity === item ? "active" : ""} onClick={() => { setPeriodicity(item); setRange(999); }}>{item.toUpperCase()}</button>)}</div><div className="control-divider"/>
           <label>History <select value={range} onChange={(event) => setRange(Number(event.target.value))}>{rangeOptions.map((value) => <option value={value} key={value}>{value === 999 ? "Max" : `${value} periods`}</option>)}</select></label>
           <label>Units <select value={unit} onChange={(event) => setUnit(event.target.value as Unit)}><option value="unit">Units</option><option value="thousand">Thousands</option><option value="million">Millions</option><option value="billion">Billions</option></select></label>
           <label>Chart view <select value={chartMode} onChange={(event) => setChartMode(event.target.value as ChartMode)}><option value="absolute">Absolute</option><option value="perShare">Per share</option><option value="margins">Margins</option><option value="growth">Growth</option><option value="cagr">CAGR</option></select></label>
@@ -147,6 +153,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
           {view === "dcf" && <DcfValuation key={dataset.company.ticker} dataset={dataset}/>}
           {view === "comparison" && <MultiStockComparison initialData={dataset}/>}
           {view === "coverage" && <CoverageMatrix initialData={dataset}/>}
+          {view === "quality" && <DataQuality dataset={dataset} onRefresh={setDataset}/>}
           {view === "sources" && <SourcesView dataset={dataset}/>}
           {view === "settings" && <SettingsView dark={dark} setDark={setDark}/>}
         </div>

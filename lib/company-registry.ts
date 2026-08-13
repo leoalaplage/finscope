@@ -26,7 +26,7 @@ export const DEFAULT_WATCHLIST: CompanyProfile[] = [
   us({ name: "Veeva Systems Inc.", ticker: "VEEV", yahooTicker: "VEEV", cik: "0001393052", exchange: "NYSE", sector: "Life-sciences software", description: "Cloud software for the life-sciences industry." }),
   us({ name: "Zoetis Inc.", ticker: "ZTS", yahooTicker: "ZTS", cik: "0001555280", exchange: "NYSE", sector: "Animal health", description: "Animal medicines, vaccines and diagnostics." }),
   us({ name: "Cboe Global Markets, Inc.", ticker: "CBOE", yahooTicker: "CBOE", cik: "0001374310", exchange: "Cboe BZX", sector: "Exchanges", description: "Options, equities and derivatives market infrastructure.", businessType: "financial" }),
-  us({ name: "Copart, Inc.", ticker: "CPRT", yahooTicker: "CPRT", cik: "0000900075", exchange: "NASDAQ", sector: "Business services", description: "Online vehicle auctions and remarketing.", stockSplits: [{ date: "2023-08-22", ratio: 2 }] }),
+  us({ name: "Copart, Inc.", ticker: "CPRT", yahooTicker: "CPRT", cik: "0000900075", exchange: "NASDAQ", sector: "Business services", description: "Online vehicle auctions and remarketing.", stockSplits: [{ date: "2012-03-29", ratio: 2 }, { date: "2017-04-11", ratio: 2 }, { date: "2022-11-03", ratio: 2 }, { date: "2023-08-22", ratio: 2 }] }),
   us({ name: "FactSet Research Systems Inc.", ticker: "FDS", yahooTicker: "FDS", cik: "0001013237", exchange: "NYSE", sector: "Financial data", description: "Financial data, analytics and workflow solutions." }),
 ];
 

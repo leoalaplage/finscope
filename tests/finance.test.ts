@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   annualizedDilution, cagr, convertUnit, dilutionRate, freeCashFlow, margin,
-  perShare, splitAdjustedShares, ttm, valuationMetrics,
+  perShare, splitAdjustedShares, ttm, valuationMetrics, cagrForPeriods,
 } from "../lib/finance";
 import { APPLE_DATASET } from "../lib/demo-data";
 import type { FinancialPeriod } from "../lib/types";
@@ -58,6 +58,9 @@ describe("financial calculations", () => {
 });
 
 describe("data integrity and market-dependent calculations", () => {
+  it("never presents a shorter or much longer span as exact 15Y/20Y CAGR",()=>{const periods=Array.from({length:12},(_,index)=>{const year=2014+index;return {label:`FY ${year}`,fiscalYear:year,periodEnd:`${year}-12-31`,periodicity:"annual" as const,filingDate:"",accession:"",currency:"USD",facts:{revenue:{metric:"revenue" as const,value:100*Math.pow(1.1,index),currency:"USD",unit:"currency" as const,periodEnd:`${year}-12-31`,periodicity:"annual" as const,fiscalYear:year,provenance:{provider:"SEC" as const,sourceUrl:"sec",retrievedAt:"now",concept:"Revenue",status:"reported" as const}}}}});const exact=cagrForPeriods(periods,"revenue",15);const maximum=cagrForPeriods(periods,"revenue","max");expect(exact.value).toBeNull();expect(exact.reason).toContain("maximum exact available");expect(maximum.value).toBeCloseTo(.1);expect(maximum.years).toBeCloseTo(11,1)});
+
+  it("excludes confirmed-invalid CAGR endpoints",()=>{const make=(year:number,value:number):FinancialPeriod=>({label:"",fiscalYear:year,periodEnd:`${year}-12-31`,periodicity:"annual",filingDate:"",accession:"",currency:"USD",facts:{revenue:{metric:"revenue",value,currency:"USD",unit:"currency",periodEnd:`${year}-12-31`,periodicity:"annual",fiscalYear:year,provenance:{provider:"SEC",sourceUrl:"sec",retrievedAt:"now",concept:"Revenue",status:"reported"}}}});const periods=[make(2005,10),make(2010,20),make(2025,40)];periods[0].facts.revenue!.validation={status:"Confirmed invalid",checkedAt:"now"};expect(cagrForPeriods(periods,"revenue",20).value).toBeNull()});
   it("preserves missing periods instead of fabricating values", () => {
     const fiscal2016 = APPLE_DATASET.periods.find((period) => period.fiscalYear === 2016)!;
     expect(fiscal2016.facts.operatingCashFlow).toBeUndefined();

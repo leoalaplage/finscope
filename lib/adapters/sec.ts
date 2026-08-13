@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { COMPANIES } from "../company-registry";
 import { adjustPeriodsForSplits, buildTtmPeriods, normalizeAnnualPeriods, normalizeQuarterlyPeriods } from "../periods";
+import { validateCompanyDataset } from "../data-quality";
 import type { CompanyDataset, MetricKey, RawFinancialFact } from "../types";
 
 const SecUnitSchema = z.object({
@@ -84,14 +85,14 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
   const annual = adjustPeriodsForSplits(normalizeAnnualPeriods(rawFacts, company.currency), company.stockSplits);
   const quarterly = adjustPeriodsForSplits(normalizeQuarterlyPeriods(rawFacts, company.currency), company.stockSplits);
   const ttm = buildTtmPeriods(quarterly, company.currency);
-  return {
+  return validateCompanyDataset({
     company: { ...company, name: parsed.entityName }, periods: [...annual, ...quarterly, ...ttm], retrievedAt,
     warnings: [
       "Quarterly cash-flow facts may be isolated from year-to-date disclosures; every derived quarter is marked calculated with its source accessions.",
       ttm.length ? `TTM is available through ${ttm.at(-1)!.periodEnd} from four consecutive fiscal quarters.` : "TTM unavailable: four consecutive reliable quarters were not found.",
       "Standardized concepts only: company extensions and non-GAAP values remain separate and are not imputed.",
     ],
-  };
+  });
 }
 
 export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {

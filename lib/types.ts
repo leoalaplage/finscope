@@ -1,5 +1,29 @@
 export type Periodicity = "annual" | "quarterly" | "ttm";
 export type FactStatus = "reported" | "restated" | "calculated" | "unavailable";
+export type ValidationStatus = "Verified" | "Calculated and verified" | "Suspected anomaly" | "Confirmed invalid" | "Missing" | "Restated" | "Source conflict" | "Verified outlier";
+
+export interface ValidationInfo {
+  status: ValidationStatus;
+  reason?: string;
+  rawValue?: number | null;
+  normalizedValue?: number | null;
+  correction?: string;
+  checkedAt: string;
+}
+
+export interface DataQualityIssue {
+  id: string;
+  ticker: string;
+  metric: string;
+  period: string;
+  rawValue: number | null;
+  normalizedValue: number | null;
+  status: ValidationStatus;
+  cause: string;
+  sourceUrl: string;
+  action: string;
+  detectedAt: string;
+}
 
 export type MetricKey =
   | "revenue"
@@ -50,6 +74,7 @@ export interface NormalizedFact {
   fiscalYear: number;
   fiscalQuarter?: "Q1" | "Q2" | "Q3" | "Q4";
   provenance: Provenance;
+  validation?: ValidationInfo;
 }
 
 export interface FinancialPeriod {
@@ -90,6 +115,12 @@ export interface CompanyDataset {
   periods: FinancialPeriod[];
   retrievedAt: string;
   warnings: string[];
+  quality?: {
+    issues: DataQualityIssue[];
+    coverage: Array<{ periodicity: Periodicity; firstPeriod: string | null; lastPeriod: string | null; periodCount: number }>;
+    stockSplits: Array<{ date: string; ratio: number }>;
+    lastValidatedAt: string;
+  };
 }
 
 export interface PricePoint {
@@ -121,4 +152,6 @@ export interface RawFinancialFact {
   sourceUrl: string;
   retrievedAt: string;
   restated?: boolean;
+  sourceConflictValues?: number[];
+  normalizationNote?: string;
 }

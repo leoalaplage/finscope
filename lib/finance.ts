@@ -79,16 +79,21 @@ export function cagrBetweenDates(startValue: number | null, endValue: number | n
 }
 
 export function cagrForPeriods(periods: FinancialPeriod[], metric: string, targetYears: number | "max") {
-  const complete = periods.filter((period) => derivedValue(period, metric) != null).sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+  const dependencyMap: Record<string, MetricKey[]> = { freeCashFlow: ["operatingCashFlow","capitalExpenditures"], revenuePerShare:["revenue","dilutedShares"], netIncomePerShare:["netIncome","dilutedShares"], freeCashFlowPerShare:["operatingCashFlow","capitalExpenditures","dilutedShares"] };
+  const valid = (period: FinancialPeriod) => {
+    const keys = dependencyMap[metric] ?? [metric as MetricKey];
+    return keys.every((key) => period.facts[key]?.validation?.status !== "Confirmed invalid");
+  };
+  const complete = periods.filter((period) => valid(period) && derivedValue(period, metric) != null).sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
   const end = complete.at(-1);
   if (!end) return { value: null, years: 0, startDate: "", endDate: "", startValue: null, endValue: null, reason: "Insufficient data" } satisfies CagrResult;
-  const start = targetYears === "max"
-    ? complete[0]
-    : [...complete].reverse().find((period) => {
-        const years = (Date.parse(end.periodEnd) - Date.parse(period.periodEnd)) / (365.2425 * 86_400_000);
-        return years >= targetYears - 0.35;
-      });
-  if (!start || start === end) return { value: null, years: 0, startDate: start?.periodEnd ?? "", endDate: end.periodEnd, startValue: start ? derivedValue(start, metric) : null, endValue: derivedValue(end, metric), reason: `No observation spans ${targetYears} years` } satisfies CagrResult;
+  const yearsFromEnd = (period: FinancialPeriod) => (Date.parse(end.periodEnd) - Date.parse(period.periodEnd)) / (365.2425 * 86_400_000);
+  const maximumStart = complete[0]; const maximumYears = yearsFromEnd(maximumStart);
+  const start = targetYears === "max" ? maximumStart : complete
+    .map((period) => ({ period, distance: Math.abs(yearsFromEnd(period) - targetYears), years: yearsFromEnd(period) }))
+    .filter((candidate) => candidate.years > 0 && candidate.distance <= 0.5)
+    .sort((left, right) => left.distance - right.distance)[0]?.period;
+  if (!start || start === end) return { value: null, years: maximumYears, startDate: maximumStart.periodEnd, endDate: end.periodEnd, startValue: derivedValue(maximumStart, metric), endValue: derivedValue(end, metric), reason: `Requested ${targetYears}Y; maximum exact available history is ${maximumYears.toFixed(2)}Y. Maximum-available CAGR is reported separately.` } satisfies CagrResult;
   return cagrBetweenDates(derivedValue(start, metric), derivedValue(end, metric), start.periodEnd, end.periodEnd);
 }
 

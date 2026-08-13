@@ -12,6 +12,19 @@ export const CHART_PALETTE = [
 ] as const;
 
 export type ScaleMode = "zero" | "auto" | "custom" | "log";
+export type CurveStyle = "straight" | "curved" | "step";
+export type AnomalyMode = "validated" | "raw";
+export const CHART_DEFAULTS = { window: "max" as const, curve: "straight" as CurveStyle, anomalyMode: "validated" as AnomalyMode, robustScale: false };
+
+export function rechartsCurve(style: CurveStyle) { return style === "curved" ? "monotone" as const : style === "step" ? "stepAfter" as const : "linear" as const; }
+
+export function robustValues(values: Array<number | null | undefined>) {
+  const finite = values.filter((value): value is number => value != null && Number.isFinite(value)).sort((a,b)=>a-b);
+  if (finite.length < 5) return finite;
+  const at = (fraction: number) => finite[Math.min(finite.length - 1, Math.max(0, Math.floor((finite.length - 1) * fraction)))];
+  const q1 = at(.25); const q3 = at(.75); const iqr = q3 - q1;
+  return finite.filter((value) => value >= q1 - 1.5 * iqr && value <= q3 + 1.5 * iqr);
+}
 
 export function chartDomain(values: Array<number | null | undefined>, mode: ScaleMode, custom?: { min: number; max: number }) {
   const finite = values.filter((value): value is number => value != null && Number.isFinite(value));

@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { CHART_PALETTE,chartDomain,convertHistoricalCurrency,indexedTo100 } from "../lib/charting";
+import { CHART_DEFAULTS,CHART_PALETTE,chartDomain,convertHistoricalCurrency,indexedTo100,rechartsCurve,robustValues } from "../lib/charting";
 
 describe("truthful chart semantics",()=>{
   it("starts positive absolute data at zero",()=>expect(chartDomain([90,100,110],"zero").domain[0]).toBe(0));
@@ -10,4 +10,6 @@ describe("truthful chart semantics",()=>{
   it("provides exactly ten named, unique preset colors",()=>{expect(CHART_PALETTE).toHaveLength(10);expect(new Set(CHART_PALETTE.map((color)=>color.value)).size).toBe(10);expect(CHART_PALETTE.map((color)=>color.name)).toContain("Fluorescent yellow")});
   it("indexes multiple-company series to a common base of 100",()=>expect(indexedTo100([null,20,30,40])).toEqual([null,100,150,200]));
   it("converts only with a verified historical rate",()=>{expect(convertHistoricalCurrency(100,1.1)).toBeCloseTo(110);expect(convertHistoricalCurrency(100,null)).toBeNull()});
+  it("uses straight, unsmoothed lines by default with optional curved and step modes",()=>{expect(CHART_DEFAULTS.curve).toBe("straight");expect(rechartsCurve("straight")).toBe("linear");expect(rechartsCurve("curved")).toBe("monotone");expect(rechartsCurve("step")).toBe("stepAfter")});
+  it("robust scaling excludes display outliers without mutating observations",()=>{const values=[1,2,3,4,5,1_000];expect(robustValues(values)).not.toContain(1_000);expect(values).toContain(1_000)});
 });

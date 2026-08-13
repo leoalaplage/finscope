@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adjustPeriodsForSplits, buildTtmPeriods, normalizeQuarterlyPeriods } from "../lib/periods";
+import { adjustPeriodsForSplits, buildTtmPeriods, dedupeFacts, normalizeAnnualPeriods, normalizeQuarterlyPeriods, relabelFiscalYears } from "../lib/periods";
 import type { MetricKey, RawFinancialFact } from "../lib/types";
 
 function raw(metric: MetricKey, value: number, start: string | undefined, end: string, fiscalPeriod: RawFinancialFact["fiscalPeriod"], fiscalYear = 2025, filed = "2025-11-01"): RawFinancialFact {
@@ -19,12 +19,14 @@ function standardYear(start = "2025-01-01", fiscalYear = 2025) {
   }
   for (const [quarterStart, end, fp, shares] of [
     ["2025-01-01", "2025-03-31", "Q1", 100], ["2025-04-01", "2025-06-30", "Q2", 101],
-    ["2025-07-01", "2025-09-30", "Q3", 102], ["2025-10-01", "2025-12-31", "FY", 103],
+    ["2025-07-01", "2025-09-30", "Q3", 102], ["2025-01-01", "2025-12-31", "FY", 101.5],
   ] as const) facts.push(raw("dilutedShares", shares, quarterStart, end, fp, fiscalYear));
   return facts;
 }
 
 describe("quarterly SEC normalization", () => {
+  it("relabels comparative SEC facts from actual fiscal ends instead of the filing fy",()=>{const old=raw("revenue",100,"2013-08-01","2014-07-31","FY",2016,"2016-09-01");expect(relabelFiscalYears([old])[0].fiscalYear).toBe(2014);expect(normalizeAnnualPeriods([old],"USD")[0].fiscalYear).toBe(2014)});
+  it("resolves thousand-versus-unit source conflicts by corroborated magnitude",()=>{const facts=[raw("dilutedShares",131_230,"2013-08-01","2014-07-31","FY",2014,"2014-09-01"),raw("dilutedShares",131_230_000,"2013-08-01","2014-07-31","FY",2015,"2015-09-01"),raw("dilutedShares",131_230_000,"2013-08-01","2014-07-31","FY",2016,"2016-09-01")];const selected=dedupeFacts(relabelFiscalYears(facts))[0];expect(selected.value).toBe(131_230_000);expect(selected.sourceConflictValues).toContain(131_230)});
   it("isolates cumulative cash-flow and annual Q4 facts without dividing by four", () => {
     const quarters = normalizeQuarterlyPeriods(standardYear(), "USD");
     expect(quarters.map((period) => period.facts.operatingCashFlow?.value)).toEqual([10, 15, 20, 25]);
