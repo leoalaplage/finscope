@@ -124,15 +124,37 @@ export interface CompanyDataset {
 }
 
 export interface PricePoint {
+  /** Legacy selected price. Kept for API compatibility; now always the split-adjusted price close. */
   close: number;
+  /** Yahoo chart close: adjusted for stock splits, but not cash dividends. */
+  priceClose?: number;
+  /** Total-return proxy: adjusted for splits and cash distributions when supplied by the provider. */
+  totalReturnClose?: number | null;
   adjustedClose: number | null;
   date: string;
   requestedDate: string;
   currency: string;
   ticker: string;
-  type: "close" | "adjusted close";
+  type: "split-adjusted close" | "total-return adjusted close" | "close" | "adjusted close";
   fallback: "exact date" | "previous trading session" | "next trading session";
   distanceDays: number;
+  sourceUrl: string;
+}
+
+export type MarketFrequency = "daily" | "weekly" | "monthly" | "quarterly" | "annual";
+
+export interface MarketBar {
+  date: string;
+  periodStart: string;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number;
+  adjustedClose: number | null;
+  volume: number | null;
+  currency: string;
+  ticker: string;
+  frequency: MarketFrequency;
   sourceUrl: string;
 }
 

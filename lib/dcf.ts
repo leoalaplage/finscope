@@ -84,7 +84,8 @@ export function calculateDcf(base: DcfBase, assumptions: DcfAssumptions): DcfRes
   const warnings: string[] = [];
   const years = Math.max(1, Math.min(30, Math.round(assumptions.forecastYears)));
   if (years !== assumptions.forecastYears) warnings.push("Forecast period was constrained to 1–30 whole years.");
-  if (assumptions.wacc <= -1) warnings.push("WACC must be greater than -100%.");
+  if (!Number.isFinite(assumptions.wacc) || assumptions.wacc <= 0) warnings.push("WACC must be a finite positive rate.");
+  if (base.dilutedShares <= 0) warnings.push("Diluted shares must be positive; per-share value is unavailable.");
   let revenue = base.revenue; let shares = base.dilutedShares; const projections: DcfProjection[] = [];
   for (let index = 0; index < years; index++) {
     const revenueGrowth = at(assumptions.revenueGrowth, index); revenue *= 1 + revenueGrowth;
@@ -102,12 +103,17 @@ export function calculateDcf(base: DcfBase, assumptions: DcfAssumptions): DcfRes
   }
   const last = projections.at(-1)!; let terminalValue: number | null;
   if (assumptions.terminalMethod === "perpetual-growth") {
-    if (assumptions.terminalGrowth >= assumptions.wacc) {
+    if (!Number.isFinite(assumptions.wacc) || assumptions.wacc <= 0) {
+      terminalValue = null; warnings.push("Perpetual-growth terminal value is unavailable until WACC is positive.");
+    } else if (last.freeCashFlow <= 0) {
+      terminalValue = null; warnings.push("Perpetual-growth terminal value is unavailable because final-year FCFF is not positive.");
+    } else if (assumptions.terminalGrowth >= assumptions.wacc) {
       terminalValue = null; warnings.push("Terminal growth must be lower than WACC.");
     } else terminalValue = last.freeCashFlow * (1 + assumptions.terminalGrowth) / (assumptions.wacc - assumptions.terminalGrowth);
   } else {
-    terminalValue = last.freeCashFlow * assumptions.exitMultiple;
-    warnings.push("Exit multiple is a relative valuation assumption, not an intrinsic-growth identity.");
+    if (last.freeCashFlow <= 0 || assumptions.exitMultiple <= 0 || !Number.isFinite(assumptions.exitMultiple)) {
+      terminalValue = null; warnings.push("Exit-multiple terminal value requires positive final-year FCFF and a positive finite multiple.");
+    } else { terminalValue = last.freeCashFlow * assumptions.exitMultiple; warnings.push("Exit multiple is a relative valuation assumption, not an intrinsic-growth identity."); }
   }
   if (terminalValue != null && terminalValue < 0) warnings.push("Terminal value is negative because final-year free cash flow or the selected multiple is negative.");
   const presentValueForecast = projections.reduce((sum, projection) => sum + projection.presentValue, 0);
@@ -116,7 +122,7 @@ export function calculateDcf(base: DcfBase, assumptions: DcfAssumptions): DcfRes
   const equityValue = enterpriseValue == null ? null : enterpriseValue + base.cash - base.debt - assumptions.otherClaims;
   const intrinsicValuePerShare = equityValue == null || last.dilutedShares <= 0 ? null : equityValue / last.dilutedShares;
   const terminalValueWeight = enterpriseValue == null || enterpriseValue === 0 || presentValueTerminal == null ? null : presentValueTerminal / enterpriseValue;
-  if (terminalValueWeight != null && terminalValueWeight > .8) warnings.push("Terminal value exceeds 80% of enterprise value; the result is highly assumption-sensitive.");
+  if (terminalValueWeight != null && terminalValueWeight > .75) warnings.push("Terminal value exceeds 75% of enterprise value; the result is highly assumption-sensitive.");
   return { projections, terminalValue, presentValueTerminal, presentValueForecast, enterpriseValue, equityValue, intrinsicValuePerShare, terminalValueWeight, warnings };
 }
 

@@ -1,20 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Area, Bar, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Download, Eye, EyeOff, GripVertical, ImageDown, Plus, Search, Settings2, Trash2, X } from "lucide-react";
 import { cagrBetweenDates, convertUnit, safeDivide } from "@/lib/finance";
+import { analyzeVisibleSeries, formatVisibleAnalysis } from "@/lib/series-analysis";
 import { CHART_DEFAULTS, CHART_PALETTE, CHART_PRESETS, METRIC_CATEGORIES, chartDomain, rechartsCurve, robustValues, type AnomalyMode, type CurveStyle, type ScaleMode } from "@/lib/charting";
 import { validatedDerivedValue, validationForMetric } from "@/lib/data-quality";
 import { METRICS } from "@/lib/metrics";
-import type { FinancialPeriod, MetricKey, PricePoint } from "@/lib/types";
+import type { FinancialPeriod, MarketBar, MarketFrequency, MetricKey, PricePoint } from "@/lib/types";
 
 export type Unit = "unit" | "thousand" | "million" | "billion";
 export type ChartMode = "absolute" | "perShare" | "margins" | "growth" | "cagr";
 type ChartType = "line" | "bar" | "area";
 type Axis = "left" | "right";
 interface SeriesConfig { metric: string; type: ChartType; axis: Axis; color: string; visible: boolean }
-const MARKET_METRICS = new Set(["stockPrice", "marketCapitalization", "priceToSales", "priceToEarnings", "priceToFreeCashFlow", "freeCashFlowYield"]);
+const MARKET_METRICS = new Set(["stockPrice", "stockTotalReturn", "marketCapitalization", "priceToSales", "priceToEarnings", "priceToFreeCashFlow", "freeCashFlowYield"]);
 
 function suffix(unit: Unit) { return unit === "unit" ? "" : unit === "thousand" ? "K" : unit === "million" ? "M" : "B"; }
 function isPercent(metric: string, mode: ChartMode) { return METRICS[metric]?.kind === "percent" || mode === "growth" || mode === "cagr" || metric.endsWith("Growth") || metric.endsWith("Cagr"); }
@@ -32,8 +33,10 @@ function absoluteSeriesValue(period: FinancialPeriod, metric: string, price: Pri
   const value = (key: string) => validatedDerivedValue(period, key, anomalyMode);
   if (!MARKET_METRICS.has(metric)) return value(metric);
   const shares = value("dilutedShares") ?? value("sharesOutstanding");
-  const marketCap = price?.close != null && shares != null ? price.close * shares : null;
-  if (metric === "stockPrice") return price?.close ?? null;
+  const priceClose = price?.priceClose ?? price?.close ?? null;
+  const marketCap = priceClose != null && shares != null ? priceClose * shares : null;
+  if (metric === "stockPrice") return priceClose;
+  if (metric === "stockTotalReturn") return price?.totalReturnClose ?? price?.adjustedClose ?? null;
   if (metric === "marketCapitalization") return marketCap;
   if (metric === "priceToSales") return safeDivide(marketCap, value("revenue"));
   if (metric === "priceToEarnings") return safeDivide(marketCap, value("netIncome"));
@@ -62,15 +65,24 @@ export function AdvancedChart({ periods, metrics, unit, currency, mode, title, c
   const [configOpen, setConfigOpen] = useState(false); const [metricSearch, setMetricSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState<number | "max">(() => typeof window === "undefined" ? "max" : (localStorage.getItem("finscope.chartWindow") === "max" ? "max" : Number(localStorage.getItem("finscope.chartWindow"))) || "max"); const [dragged, setDragged] = useState<number | null>(null);
   const [prices, setPrices] = useState<Record<string, PricePoint | null>>({}); const [priceLoading, setPriceLoading] = useState(false); const [priceError, setPriceError] = useState("");
+  const [showCagr, setShowCagr] = useState(() => typeof window === "undefined" ? true : localStorage.getItem("finscope.showCagr") !== "false");
+  const [showLatest, setShowLatest] = useState(() => typeof window === "undefined" ? true : localStorage.getItem("finscope.showLatest") !== "false");
+  const [legendMode, setLegendMode] = useState<"compact" | "detailed">(() => typeof window === "undefined" ? "detailed" : localStorage.getItem("finscope.legendMode") === "compact" ? "compact" : "detailed");
+  const [marketFrequency,setMarketFrequency]=useState<"period-end"|MarketFrequency>("period-end"); const [marketBars,setMarketBars]=useState<MarketBar[]>([]);
   const chartRef = useRef<HTMLDivElement>(null);
   useEffect(() => { localStorage.setItem("finscope.chartScale", scaleMode); }, [scaleMode]);
   useEffect(() => { localStorage.setItem("finscope.curveStyle", curveStyle); }, [curveStyle]);
   useEffect(() => { localStorage.setItem("finscope.anomalyMode", anomalyMode); }, [anomalyMode]);
   useEffect(() => { localStorage.setItem("finscope.robustScale", String(robustScale)); }, [robustScale]);
   useEffect(() => { localStorage.setItem("finscope.chartWindow", String(visibleCount)); }, [visibleCount]);
+  useEffect(() => { localStorage.setItem("finscope.showCagr", String(showCagr)); }, [showCagr]);
+  useEffect(() => { localStorage.setItem("finscope.showLatest", String(showLatest)); }, [showLatest]);
+  useEffect(() => { localStorage.setItem("finscope.legendMode", legendMode); }, [legendMode]);
 
   const effectiveVisibleCount = visibleCount === "max" ? periods.length : Math.min(visibleCount, periods.length); const visiblePeriods = periods.slice(-effectiveVisibleCount);
-  const needsPrices = series.some((item) => item.visible && MARKET_METRICS.has(item.metric));
+  const visible = series.filter((item) => item.visible); const priceOnly=visible.length>0&&visible.every((item)=>item.metric==="stockPrice"||item.metric==="stockTotalReturn"); const usesMarketBars=priceOnly&&marketFrequency!=="period-end";
+  const marketStart=visiblePeriods[0]?.periodEnd??`${new Date().getUTCFullYear()-10}-01-01`;
+  const needsPrices = series.some((item) => item.visible && MARKET_METRICS.has(item.metric))&&!usesMarketBars;
   const requestedDates = visiblePeriods.map((period) => period.periodEnd).join(",");
   useEffect(() => {
     if (!needsPrices || !ticker || !requestedDates) return;
@@ -84,17 +96,27 @@ export function AdvancedChart({ periods, metrics, unit, currency, mode, title, c
     }).catch((error) => active && setPriceError(error instanceof Error ? error.message : "Market prices unavailable.")).finally(() => active && setPriceLoading(false));
     return () => { active = false; };
   }, [needsPrices, requestedDates, ticker]);
-  const data = useMemo(() => visiblePeriods.map((period, periodIndex) => {
+  useEffect(()=>{if(!usesMarketBars||!ticker)return;let active=true;const end=new Date().toISOString().slice(0,10);queueMicrotask(()=>{setPriceLoading(true);setPriceError("")});fetch(`/api/market/${encodeURIComponent(ticker)}?start=${marketStart}&end=${end}&frequency=${marketFrequency}`).then(async(response)=>{const payload=await response.json() as {bars?:MarketBar[];error?:string};if(!response.ok)throw new Error(payload.error);if(active)setMarketBars(payload.bars??[])}).catch((error)=>active&&setPriceError(error instanceof Error?error.message:"Market history unavailable")).finally(()=>active&&setPriceLoading(false));return()=>{active=false}},[usesMarketBars,ticker,marketFrequency,marketStart]);
+  const data = usesMarketBars?marketBars.map((bar)=>({date:bar.date,price:null,period:null,stockPrice:bar.close,stockTotalReturn:bar.adjustedClose})):visiblePeriods.map((period, periodIndex) => {
     const values: Record<string, unknown> = { date: period.periodEnd, period, price: prices[period.periodEnd] ?? null };
     for (const item of series) { const raw = rawSeriesValue(visiblePeriods, periodIndex, item.metric, mode, anomalyMode, prices); values[item.metric] = raw == null ? null : isPercent(item.metric, mode) ? raw * 100 : METRICS[item.metric]?.kind === "perShare" || METRICS[item.metric]?.kind === "ratio" ? raw : convertUnit(raw, unit); }
     return values;
-  }), [visiblePeriods, series, unit, mode, anomalyMode, prices]);
-  const visible = series.filter((item) => item.visible); const allValues = data.flatMap((row) => visible.map((item) => row[item.metric] as number | null)).filter((value): value is number => value != null);
+  });
+  const allValues = data.flatMap((row) => visible.map((item) => (row as Record<string,unknown>)[item.metric] as number | null)).filter((value): value is number => value != null);
   const logAllowed = allValues.length > 0 && allValues.every((value) => value > 0); const effectiveScale = scaleMode === "log" && !logAllowed ? "auto" : scaleMode;
   const hasRight = visible.some((item) => item.axis === "right") && visible.length > 1; const effectiveSeries = visible.map((item) => hasRight ? item : { ...item, axis: "left" as const });
-  const axisValues = (axis: Axis) => data.flatMap((row) => effectiveSeries.filter((item) => item.axis === axis).map((item) => row[item.metric] as number | null));
+  const axisValues = (axis: Axis) => data.flatMap((row) => effectiveSeries.filter((item) => item.axis === axis).map((item) => (row as Record<string,unknown>)[item.metric] as number | null));
   const domainValues = (axis: Axis) => robustScale ? robustValues(axisValues(axis)) : axisValues(axis);
   const leftDomain = chartDomain(domainValues("left"), effectiveScale, customRange); const rightDomain = chartDomain(domainValues("right"), effectiveScale, customRange);
+  const legendAnalyses = Object.fromEntries(series.map((item) => {
+    const marginSeries = METRICS[item.metric]?.kind === "percent" && !item.metric.endsWith("Growth") && !item.metric.endsWith("Cagr") && mode !== "growth" && mode !== "cagr";
+    const observations = usesMarketBars?marketBars.map((bar)=>({date:bar.date,value:item.metric==="stockPrice"?bar.close:bar.adjustedClose,valid:true})):visiblePeriods.map((period, index) => ({
+      date: period.periodEnd,
+      value: rawSeriesValue(visiblePeriods, index, item.metric, mode, anomalyMode, prices),
+      valid: MARKET_METRICS.has(item.metric) || validationForMetric(period, item.metric).status !== "Confirmed invalid",
+    }));
+    return [item.metric, analyzeVisibleSeries(observations, marginSeries ? "margin" : "cagr")];
+  }));
 
   function axisFormatter(axis: Axis) { const axisSeries = effectiveSeries.filter((item) => item.axis === axis); const percentOnly = axisSeries.length > 0 && axisSeries.every((item) => isPercent(item.metric, mode)); const perShareOnly = axisSeries.length > 0 && axisSeries.every((item) => METRICS[item.metric]?.kind === "perShare"); const ratioOnly = axisSeries.length > 0 && axisSeries.every((item) => METRICS[item.metric]?.kind === "ratio"); return (value: number) => percentOnly ? `${value.toFixed(0)}%` : perShareOnly ? new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 1 }).format(value) : ratioOnly ? `${value.toFixed(1)}×` : `${new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value)}${suffix(unit)}`; }
   function update(index: number, patch: Partial<SeriesConfig>) { setSeries((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item)); }
@@ -109,6 +131,10 @@ export function AdvancedChart({ periods, metrics, unit, currency, mode, title, c
   return <article className="panel advanced-chart-panel">
     <div className="panel-head chart-head"><div><span className="panel-kicker">INTERACTIVE ANALYSIS</span><h2>{title}</h2></div><div className="chart-actions">
       <label>Window <select value={visibleCount} onChange={(event) => setVisibleCount(event.target.value === "max" ? "max" : Number(event.target.value))}>{[5,8,12,20].filter((value)=>value<periods.length).map((value)=><option value={value} key={value}>{value}</option>)}<option value="max">Max</option></select></label>
+      {priceOnly&&<label>Market frequency <select value={marketFrequency} onChange={(event)=>setMarketFrequency(event.target.value as "period-end"|MarketFrequency)}><option value="period-end">Financial period end</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></label>}
+      <label title="Persisted across charts"><input type="checkbox" checked={showCagr} onChange={(event)=>setShowCagr(event.target.checked)}/> CAGR / Δ</label>
+      <label title="Persisted across charts"><input type="checkbox" checked={showLatest} onChange={(event)=>setShowLatest(event.target.checked)}/> Latest</label>
+      <label>Legend <select value={legendMode} onChange={(event)=>setLegendMode(event.target.value as "compact"|"detailed")}><option value="detailed">Detailed</option><option value="compact">Compact</option></select></label>
       <label>Curve <select value={curveStyle} onChange={(event)=>setCurveStyle(event.target.value as CurveStyle)}><option value="straight">Straight</option><option value="curved">Curved</option><option value="step">Step</option></select></label>
       <label>Data <select value={anomalyMode} onChange={(event)=>setAnomalyMode(event.target.value as AnomalyMode)}><option value="validated">Validated</option><option value="raw">Raw</option></select></label>
       <label title="Scale the axis from the central distribution without changing or deleting observations"><input type="checkbox" checked={robustScale} onChange={(event)=>setRobustScale(event.target.checked)}/> Robust scale</label>
@@ -117,10 +143,10 @@ export function AdvancedChart({ periods, metrics, unit, currency, mode, title, c
       <button className="button secondary add-metric-button" onClick={()=>setConfigOpen(true)}><Plus size={14}/> Add metric</button><button className="icon-button" onClick={exportSvg} title="Download SVG"><Download size={15}/></button><button className="icon-button" onClick={exportPng} title="Download PNG"><ImageDown size={15}/></button><button className={`icon-button ${configOpen?"active":""}`} onClick={()=>setConfigOpen((value)=>!value)} title="Configure series"><Settings2 size={15}/></button>
     </div></div>
     {scaleMode === "log" && !logAllowed && <div className="chart-warning">Logarithmic scale is unavailable because at least one visible value is zero or negative.</div>}
-    {priceLoading && needsPrices && <div className="chart-warning">Loading historically matched market sessions…</div>}
-    {priceError && needsPrices && <div className="chart-warning">Market prices unavailable: {priceError}</div>}
+    {priceLoading && (needsPrices||usesMarketBars) && <div className="chart-warning">Loading historically matched market sessions…</div>}
+    {priceError && (needsPrices||usesMarketBars) && <div className="chart-warning">Market prices unavailable: {priceError}</div>}
     {series.length > 6 && <div className="chart-warning">{series.length} series selected. The chart remains available, but reducing the selection will improve readability.</div>}
-    <div className="interactive-legend">{series.map((item,index)=><button key={item.metric} className={item.visible?"active":""} onClick={()=>update(index,{visible:!item.visible})}><i style={{background:item.color}}/>{METRICS[item.metric]?.short??item.metric}{item.visible?<Eye size={12}/>:<EyeOff size={12}/>}</button>)}</div>
+    <div className={`interactive-legend ${legendMode}`}>{series.map((item,index)=>{const analysis=legendAnalyses[item.metric]; const latest=analysis?.endValue; return <button key={item.metric} className={item.visible?"active":""} onClick={()=>update(index,{visible:!item.visible})} title={analysis?`${analysis.startDate} → ${analysis.endDate} · ${analysis.years.toFixed(2)} years${analysis.reason?` · ${analysis.reason}`:""}`:undefined}><i style={{background:item.color}}/><span>{METRICS[item.metric]?.short??item.metric}{legendMode==="detailed"&&<small>{showLatest&&latest!=null?`Latest ${isPercent(item.metric,mode)?`${(latest*100).toFixed(1)}%`:latest.toLocaleString(undefined,{maximumFractionDigits:2})}`:""}{showCagr&&analysis?`${showLatest&&latest!=null?" · ":""}${formatVisibleAnalysis(analysis)}`:""}</small>}</span>{item.visible?<Eye size={12}/>:<EyeOff size={12}/>}</button>})}</div>
     {configOpen && <div className="metric-selector"><div className="selector-head"><div><span className="panel-kicker">METRIC SELECTOR</span><h3>Add, remove and configure series</h3></div><button className="icon-button" onClick={()=>setConfigOpen(false)}><X size={15}/></button></div>
       <div className="preset-row">{Object.keys(CHART_PRESETS).map((name)=><button key={name} onClick={()=>applyPreset(name)}>{name}</button>)}</div>
       <div className="selector-layout"><div className="metric-library"><label className="metric-search"><Search size={13}/><input value={metricSearch} onChange={(event)=>setMetricSearch(event.target.value)} placeholder="Search metrics…"/></label>{filteredCategories.map(([category,categoryMetrics])=><section key={category}><b>{category}</b>{categoryMetrics.map((metric)=><label key={metric}><input type="checkbox" checked={series.some((item)=>item.metric===metric)} onChange={(event)=>event.target.checked?addMetric(metric):setSeries((current)=>current.filter((item)=>item.metric!==metric))}/>{METRICS[metric].label}</label>)}</section>)}</div>
@@ -131,4 +157,4 @@ export function AdvancedChart({ periods, metrics, unit, currency, mode, title, c
   </article>;
 }
 
-function DetailedTooltip({active,payload,label,series,unit,currency,mode}:{active?:boolean;payload?:Array<{dataKey:string;value:number;payload:{period:FinancialPeriod;price:PricePoint|null}}>;label?:string;series:SeriesConfig[];unit:Unit;currency:string;mode:ChartMode}) { if(!active||!payload?.length)return null; const period=payload[0].payload.period; return <div className="chart-tooltip detailed"><b>{label} · {period.periodEnd}</b>{payload.map((entry)=>{const definition=METRICS[entry.dataKey];const config=series.find((item)=>item.metric===entry.dataKey);const fact=period.facts[entry.dataKey as MetricKey];const market=MARKET_METRICS.has(entry.dataKey);const price=entry.payload.price;const formatted=isPercent(entry.dataKey,mode)?`${entry.value.toFixed(1)}%`:definition?.kind==="perShare"?new Intl.NumberFormat("en-US",{style:"currency",currency,maximumFractionDigits:2}).format(entry.value):definition?.kind==="ratio"?`${entry.value.toFixed(2)}×`:`${entry.value.toLocaleString(undefined,{maximumFractionDigits:2})}${suffix(unit)}`;return <span key={entry.dataKey}><i style={{background:config?.color}}/><span>{definition?.label}<small>{market?`Yahoo Finance · ${price?.type??"price unavailable"}`:`${fact?.provenance.provider??"Calculated"} · ${fact?.provenance.status??"formula"}`}<br/>{market&&price?`${price.date} · ${price.fallback}`:fact?.provenance.formula??definition?.formula??fact?.provenance.concept}</small></span><strong>{formatted}</strong></span>})}</div>; }
+function DetailedTooltip({active,payload,label,series,unit,currency,mode}:{active?:boolean;payload?:Array<{dataKey:string;value:number;payload:{period:FinancialPeriod|null;price:PricePoint|null}}>;label?:string;series:SeriesConfig[];unit:Unit;currency:string;mode:ChartMode}) { if(!active||!payload?.length)return null; const period=payload[0].payload.period; return <div className="chart-tooltip detailed"><b>{label}{period?` · ${period.periodEnd}`:""}</b>{payload.map((entry)=>{const definition=METRICS[entry.dataKey];const config=series.find((item)=>item.metric===entry.dataKey);const fact=period?.facts[entry.dataKey as MetricKey];const market=MARKET_METRICS.has(entry.dataKey);const price=entry.payload.price;const formatted=isPercent(entry.dataKey,mode)?`${entry.value.toFixed(1)}%`:definition?.kind==="perShare"?new Intl.NumberFormat("en-US",{style:"currency",currency,maximumFractionDigits:2}).format(entry.value):definition?.kind==="ratio"?`${entry.value.toFixed(2)}×`:`${entry.value.toLocaleString(undefined,{maximumFractionDigits:2})}${suffix(unit)}`;return <span key={entry.dataKey}><i style={{background:config?.color}}/><span>{definition?.label}<small>{market?`Yahoo Finance · ${price?.type??(period?"price unavailable":"aggregated market bar")}`:`${fact?.provenance.provider??"Calculated"} · ${fact?.provenance.status??"formula"}`}<br/>{market&&price?`${price.date} · ${price.fallback}`:fact?.provenance.formula??definition?.formula??fact?.provenance.concept}</small></span><strong>{formatted}</strong></span>})}</div>; }

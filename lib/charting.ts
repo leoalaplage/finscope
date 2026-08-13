@@ -55,7 +55,7 @@ export const METRIC_CATEGORIES: Record<string, string[]> = {
   "Shares and dilution": ["basicShares", "dilutedShares", "sharesOutstanding", "shareCountChange", "cumulativeDilution"],
   "Capital allocation": ["shareRepurchases", "shareIssuance", "netShareRepurchases", "stockBasedCompensation"],
   Valuation: ["marketCapitalization", "priceToSales", "priceToEarnings", "priceToFreeCashFlow", "freeCashFlowYield"],
-  "Stock price": ["stockPrice"],
+  "Stock price": ["stockPrice", "stockTotalReturn"],
   "Quality metrics": ["cashConversion", "stockBasedCompensationToRevenue", "stockBasedCompensationToFcf", "marginStability", "roic"],
 };
 

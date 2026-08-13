@@ -59,6 +59,7 @@ export const METRICS: Record<string, MetricDefinition> = {
   priceToFreeCashFlow: { label: "Price / FCF", short: "P/FCF", color: "#D8FF5F", kind: "ratio" },
   freeCashFlowYield: { label: "FCF yield", short: "FCF yield", color: "#36D399", kind: "percent" },
   stockPrice: { label: "Stock price", short: "Stock price", color: "#4DA3FF", kind: "perShare" },
+  stockTotalReturn: { label: "Total-return adjusted price", short: "Total return", color: "#D8FF5F", kind: "perShare", formula: "Yahoo adjusted close: stock splits and cash distributions reinvested" },
   marginStability: { label: "Margin stability", short: "Margin stability", color: "#32D5E2", kind: "percent" },
   roic: { label: "Return on invested capital", short: "ROIC", color: "#A78BFA", kind: "percent" },
 };

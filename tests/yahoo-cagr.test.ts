@@ -38,13 +38,14 @@ describe("Yahoo historical session matching", () => {
     expect(matchHistoricalSession([{ date: "2020-08-31", close: 500, adjustedClose: 125 }], "2020-08-31")?.price).toBe(125);
   });
 
-  it("loads a complete multi-period history in one provider request",async()=>{
+  it("loads a complete multi-period history in one provider request and separates price from total return",async()=>{
     const provider={chart:{result:[{meta:{currency:"USD",symbol:"TEST"},timestamp:[Date.parse("2020-12-31")/1000,Date.parse("2025-12-31")/1000],indicators:{quote:[{close:[10,20]}],adjclose:[{adjclose:[9,19]}]}}],error:null}};
     const request=vi.spyOn(globalThis,"fetch").mockResolvedValue(new Response(JSON.stringify(provider),{status:200,headers:{"content-type":"application/json"}}));
     const company={name:"Test",ticker:"TEST",yahooTicker:"TEST",cik:"1",exchange:"X",currency:"USD",sector:"",description:""};
     const points=await fetchYahooPrices(company,["2020-12-31","2025-12-31"]);
     expect(request).toHaveBeenCalledTimes(1);
-    expect(points.map((item)=>item.point?.close)).toEqual([9,19]);
+    expect(points.map((item)=>item.point?.close)).toEqual([10,20]);
+    expect(points.map((item)=>item.point?.totalReturnClose)).toEqual([9,19]);
     expect(points.every((item)=>item.point?.ticker==="TEST")).toBe(true);
   });
 });
