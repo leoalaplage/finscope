@@ -53,10 +53,9 @@ export function resolveYahooTicker(company: Pick<CompanyProfile, "ticker" | "yah
   return historical?.ticker ?? company.yahooTicker ?? company.ticker;
 }
 
-export async function fetchYahooPrice(company: CompanyProfile, requestedDate: string, previousDays = 7, nextDays = 2): Promise<PricePoint> {
-  const ticker = resolveYahooTicker(company, requestedDate);
-  const start = Math.floor((Date.parse(requestedDate) - (previousDays + 2) * 86_400_000) / 1000);
-  const end = Math.floor((Date.parse(requestedDate) + (nextDays + 2) * 86_400_000) / 1000);
+async function fetchYahooSessions(ticker: string, startDate: string, endDate: string) {
+  const start = Math.floor((Date.parse(startDate) - 9 * 86_400_000) / 1000);
+  const end = Math.floor((Date.parse(endDate) + 5 * 86_400_000) / 1000);
   const path = `/v8/finance/chart/${encodeURIComponent(ticker)}?period1=${start}&period2=${end}&interval=1d&events=history%2Cdiv%2Csplits`;
   let lastStatus = 0;
   for (const base of [process.env.YAHOO_FINANCE_BASE_URL || "https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"]) {
@@ -69,13 +68,41 @@ export async function fetchYahooPrice(company: CompanyProfile, requestedDate: st
     const closes = result.indicators.quote[0]?.close ?? [];
     const adjusted = result.indicators.adjclose?.[0]?.adjclose ?? [];
     const sessions = (result.timestamp ?? []).map((timestamp, index) => ({ date: new Date(timestamp * 1000).toISOString().slice(0, 10), close: closes[index] ?? null, adjustedClose: adjusted[index] ?? null }));
-    const match = matchHistoricalSession(sessions, requestedDate, { previousDays, nextDays, preferAdjusted: true });
-    if (!match) throw new Error(`No Yahoo Finance session found within ${previousDays} days before or ${nextDays} days after ${requestedDate}.`);
-    return {
-      close: match.price, adjustedClose: match.session.adjustedClose, date: match.session.date, requestedDate,
-      currency: result.meta.currency, ticker: result.meta.symbol, type: match.type, fallback: match.fallback,
-      distanceDays: match.distanceDays, sourceUrl: `https://finance.yahoo.com/quote/${encodeURIComponent(ticker)}/history`,
-    };
+    return { sessions, currency: result.meta.currency, symbol: result.meta.symbol };
   }
   throw new Error(`Yahoo Finance returned ${lastStatus || "no response"}.`);
+}
+
+export async function fetchYahooPrices(company: CompanyProfile, requestedDates: string[], previousDays = 7, nextDays = 2) {
+  const dates = [...new Set(requestedDates)].filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
+  if (!dates.length) return [];
+  const groups = new Map<string, string[]>();
+  for (const date of dates) {
+    const ticker = resolveYahooTicker(company, date);
+    groups.set(ticker, [...(groups.get(ticker) ?? []), date]);
+  }
+  const output: Array<{ requestedDate: string; point?: PricePoint; error?: string }> = [];
+  for (const [ticker, tickerDates] of groups) {
+    try {
+      const payload = await fetchYahooSessions(ticker, tickerDates[0], tickerDates.at(-1)!);
+      for (const requestedDate of tickerDates) {
+        const match = matchHistoricalSession(payload.sessions, requestedDate, { previousDays, nextDays, preferAdjusted: true });
+        if (!match) { output.push({ requestedDate, error: `No Yahoo Finance session found within ${previousDays} days before or ${nextDays} days after ${requestedDate}.` }); continue; }
+        output.push({ requestedDate, point: {
+          close: match.price, adjustedClose: match.session.adjustedClose, date: match.session.date, requestedDate,
+          currency: payload.currency, ticker: payload.symbol, type: match.type, fallback: match.fallback,
+          distanceDays: match.distanceDays, sourceUrl: `https://finance.yahoo.com/quote/${encodeURIComponent(ticker)}/history`,
+        } });
+      }
+    } catch (error) {
+      for (const requestedDate of tickerDates) output.push({ requestedDate, error: error instanceof Error ? error.message : "Price unavailable" });
+    }
+  }
+  return output.sort((left, right) => left.requestedDate.localeCompare(right.requestedDate));
+}
+
+export async function fetchYahooPrice(company: CompanyProfile, requestedDate: string, previousDays = 7, nextDays = 2): Promise<PricePoint> {
+  const result = (await fetchYahooPrices(company, [requestedDate], previousDays, nextDays))[0];
+  if (!result?.point) throw new Error(result?.error ?? "Price unavailable.");
+  return result.point;
 }
