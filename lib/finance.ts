@@ -57,6 +57,41 @@ export function cagr(start: number | null, end: number | null, years: number) {
   return Math.pow(end / start, 1 / years) - 1;
 }
 
+export interface CagrResult {
+  value: number | null;
+  years: number;
+  startDate: string;
+  endDate: string;
+  startValue: number | null;
+  endValue: number | null;
+  reason?: string;
+}
+
+export function cagrBetweenDates(startValue: number | null, endValue: number | null, startDate: string, endDate: string): CagrResult {
+  const years = (Date.parse(endDate) - Date.parse(startDate)) / (365.2425 * 86_400_000);
+  const base = { years, startDate, endDate, startValue, endValue };
+  if (!Number.isFinite(years) || years <= 0) return { ...base, value: null, reason: "Invalid or overlapping dates" };
+  if (startValue == null || endValue == null) return { ...base, value: null, reason: "Insufficient data" };
+  if (startValue === 0) return { ...base, value: null, reason: "Starting value is zero" };
+  if (Math.sign(startValue) !== Math.sign(endValue)) return { ...base, value: null, reason: "Endpoint signs differ" };
+  if (startValue < 0 || endValue < 0) return { ...base, value: null, reason: "CAGR is not meaningful for negative endpoints" };
+  return { ...base, value: Math.pow(endValue / startValue, 1 / years) - 1 };
+}
+
+export function cagrForPeriods(periods: FinancialPeriod[], metric: string, targetYears: number | "max") {
+  const complete = periods.filter((period) => derivedValue(period, metric) != null).sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+  const end = complete.at(-1);
+  if (!end) return { value: null, years: 0, startDate: "", endDate: "", startValue: null, endValue: null, reason: "Insufficient data" } satisfies CagrResult;
+  const start = targetYears === "max"
+    ? complete[0]
+    : [...complete].reverse().find((period) => {
+        const years = (Date.parse(end.periodEnd) - Date.parse(period.periodEnd)) / (365.2425 * 86_400_000);
+        return years >= targetYears - 0.35;
+      });
+  if (!start || start === end) return { value: null, years: 0, startDate: start?.periodEnd ?? "", endDate: end.periodEnd, startValue: start ? derivedValue(start, metric) : null, endValue: derivedValue(end, metric), reason: `No observation spans ${targetYears} years` } satisfies CagrResult;
+  return cagrBetweenDates(derivedValue(start, metric), derivedValue(end, metric), start.periodEnd, end.periodEnd);
+}
+
 export function ttm(values: Array<number | null>) {
   const lastFour = values.slice(-4);
   if (lastFour.length !== 4 || lastFour.some((value) => value == null)) return null;
@@ -89,6 +124,9 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     netIncomePerShare: perShare(valueOf(period, "netIncome"), diluted),
     operatingCashFlowPerShare: perShare(valueOf(period, "operatingCashFlow"), diluted),
     freeCashFlowPerShare: perShare(fcf, diluted),
+    stockBasedCompensationToRevenue: safeDivide(valueOf(period, "stockBasedCompensation"), revenue),
+    stockBasedCompensationToFcf: safeDivide(valueOf(period, "stockBasedCompensation"), fcf),
+    cashConversion: safeDivide(fcf, valueOf(period, "netIncome")),
   };
   return map[key] ?? valueOf(period, key as MetricKey);
 }
@@ -112,6 +150,7 @@ export function valuationMetrics(period: FinancialPeriod, price: PricePoint | nu
     freeCashFlowYield: safeDivide(fcf, marketCap),
     operatingCashFlowYield: safeDivide(valueOf(period, "operatingCashFlow"), marketCap),
     buybackYield: safeDivide(valueOf(period, "shareRepurchases"), marketCap),
+    netBuybackYield: safeDivide(valueOf(period, "netShareRepurchases"), marketCap),
   };
 }
 

@@ -14,7 +14,10 @@ All formulas are implemented in `lib/finance.ts`. A missing or invalid input ret
 | Dilution rate | Current diluted shares / Previous diluted shares − 1 | Cash buybacks are not inferred from this change. |
 | Annualized dilution | (Current shares / Prior shares)^(1 / years) − 1 | Requires positive endpoints. |
 | CAGR | (Ending value / Beginning value)^(1 / years) − 1 | Requires positive endpoints and a positive duration. |
-| TTM flow | Sum of latest four complete quarters | Missing quarter makes TTM unavailable. |
+| Isolated quarter | Current compatible YTD fact − prior compatible YTD fact | Q4 uses annual − Q3 YTD; source accessions remain attached. |
+| Isolated weighted shares | (Current YTD average × current days − prior YTD average × prior days) / isolated days | Requires a 55–125 day isolated period. |
+| TTM flow | Sum of four consecutive complete quarters | Missing, overlapping or implausibly spaced quarters make TTM unavailable. |
+| TTM weighted shares | Day-weighted mean of four quarterly weighted averages | Point-in-time share facts use the latest quarter instead. |
 | Market capitalization | Matched stock close × diluted shares | Price date and fiscal end must match by the price-selection rule. |
 | P/S, P/E, P/OCF, P/FCF | Market capitalization / matching flow | Never combines current price with historical flow data. |
 | FCF yield | Free cash flow / Market capitalization | Same matched price period. |

@@ -6,17 +6,19 @@ The repository is private-deployment ready. It uses Next.js-compatible App Route
 
 ## What is included
 
-- Search by ticker or company name for Apple, Microsoft, Amazon, NVIDIA and Tesla.
+- Search by ticker or company name for Apple, Microsoft, Amazon, NVIDIA, Tesla and Palantir.
 - Live SEC Company Facts adapter with schema validation, concept fallbacks, six-hour cache headers and explicit error handling.
 - Offline Apple fixture covering FY 2009–2025 so the application remains demonstrable when an upstream provider is unavailable.
 - Company overview, income statement, cash flow, margins, per-share, shares and buybacks, valuation, sources and settings views.
-- Annual financial tables with sticky period headers and metric columns.
-- Absolute, per-share, margin and growth presentation modes; units through billions.
+- Annual, real-quarter and rolling four-quarter TTM tables with sticky period headers.
+- Absolute, per-share, margin, growth and CAGR modes; units, K, M and B.
+- Configurable multi-series charts with line/bar/area types, independent axes, colors, visibility, log scale, zoom window and SVG/PNG export.
 - Revenue, profit, cash-flow and dilution analysis with CAGR and YoY comparisons.
 - CSV export containing company, period, unit, currency, provider, status, concept/formula and source URL.
 - Click-through provenance drawer for every reported SEC fact.
 - Dark/light themes and responsive desktop, tablet and mobile layouts.
-- Unit tests for financial math and a server-render integration test.
+- Historical Yahoo adjusted-close matching with an exact/previous-seven-day/next-two-day policy and explicit date lineage.
+- Unit tests for financial math, fiscal-period normalization, Yahoo session matching and a server-render integration test.
 
 ## Quick start
 
@@ -44,9 +46,12 @@ npm run test:integration # server-render smoke test after build
 ```text
 app/                       App Router pages and API endpoints
   api/company/[ticker]/    server-side SEC proxy and normalization endpoint
+  api/price/[ticker]/      historical Yahoo session-matching endpoint
 components/                interactive research workspace
 lib/
   adapters/sec.ts          official-filing provider adapter
+  adapters/yahoo.ts        historical adjusted-close adapter
+  periods.ts               annual/quarter/TTM normalization engine
   finance.ts               centralized, pure financial formulas
   demo-data.ts             traceable offline SEC fixture
   types.ts                 normalized facts and provenance model
@@ -58,7 +63,7 @@ The normalized fact is the audit boundary. A value carries its period, currency,
 
 ## Data providers
 
-Fundamentals come from the official SEC EDGAR Company Facts API. The adapter is server-only because `data.sec.gov` does not support browser CORS. A replaceable Yahoo Finance price adapter boundary is documented, but the production UI intentionally shows market-dependent values as unavailable until a historical price response can be verified. It never applies a current price to old fundamentals.
+Fundamentals come from the official SEC EDGAR Company Facts API. The adapter is server-only because `data.sec.gov` does not support browser CORS. Historical valuation uses Yahoo Finance adjusted close and preserves the requested fiscal date, trading date used, ticker, currency and fallback direction. It never applies a current price to old fundamentals.
 
 See [docs/SOURCES.md](docs/SOURCES.md), [docs/FORMULAS.md](docs/FORMULAS.md), [docs/LIMITATIONS.md](docs/LIMITATIONS.md), and [docs/VALIDATION.md](docs/VALIDATION.md).
 
@@ -83,13 +88,13 @@ GitHub Pages is not suitable because FinScope requires a server-side SEC adapter
 | Name | Required | Purpose |
 |---|---:|---|
 | `SEC_USER_AGENT` | Recommended | Identifies the automated SEC client with contact information. |
-| `YAHOO_FINANCE_BASE_URL` | No | Reserved for the isolated market-price adapter. |
+| `YAHOO_FINANCE_BASE_URL` | No | Optional Yahoo chart endpoint override. |
 | `CACHE_TTL_SECONDS` | No | Reserved provider cache override; default design is six hours. |
 
 No variable is prefixed with `NEXT_PUBLIC_`; secrets never enter the client bundle.
 
 ## Important scope notes
 
-The application is a production-quality research foundation, not a licensed market-data redistribution service. SEC fundamentals work live for the included U.S. registry. Full quarterly/TTM extraction, legacy pre-XBRL filings, international regulators, persistent cloud favorites, historical Yahoo price ingestion and non-GAAP reconciliation are explicit next adapters rather than silently simulated features.
+The application is a production-quality research foundation, not a licensed market-data redistribution service. SEC fundamentals work live for the included U.S. registry. Legacy pre-XBRL filings, international regulators, persistent cloud favorites, narrative repurchase authorizations and non-GAAP reconciliation remain explicit future adapters rather than silently simulated features.
 
 FinScope is for research and is not investment advice.

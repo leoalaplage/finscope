@@ -81,7 +81,7 @@ describe("data integrity and market-dependent calculations", () => {
         dilutedShares: { metric: "dilutedShares", value: 10, currency: "USD", unit: "shares", periodEnd: "2025-12-31", periodicity: "annual", fiscalYear: 2025, provenance: { provider: "SEC", sourceUrl: "sec", retrievedAt: "now", concept: "Shares", status: "reported" } },
       },
     };
-    const result = valuationMetrics(period, { close: 20, date: "2025-12-31", currency: "USD", ticker: "TEST", type: "fiscal-period close", sourceUrl: "https://finance.yahoo.com" });
+    const result = valuationMetrics(period, { close: 20, adjustedClose: 20, date: "2025-12-31", requestedDate: "2025-12-31", currency: "USD", ticker: "TEST", type: "adjusted close", fallback: "exact date", distanceDays: 0, sourceUrl: "https://finance.yahoo.com" });
     expect(result?.marketCap).toBe(200);
     expect(result?.priceToSales).toBeCloseTo(.2);
     expect(result?.priceToEarnings).toBe(2);

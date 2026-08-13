@@ -12,8 +12,12 @@ export type MetricKey =
   | "dilutedShares"
   | "basicShares"
   | "sharesOutstanding"
+  | "sharesIssued"
+  | "treasuryShares"
+  | "stockBasedCompensation"
   | "shareRepurchases"
-  | "shareIssuance";
+  | "shareIssuance"
+  | "netShareRepurchases";
 
 export interface Provenance {
   provider: "SEC" | "Yahoo Finance" | "Calculated" | "Demo fixture";
@@ -25,6 +29,7 @@ export interface Provenance {
   status: FactStatus;
   formula?: string;
   note?: string;
+  sourceAccessions?: string[];
 }
 
 export interface NormalizedFact {
@@ -36,12 +41,17 @@ export interface NormalizedFact {
   periodEnd: string;
   periodicity: Periodicity;
   fiscalYear: number;
+  fiscalQuarter?: "Q1" | "Q2" | "Q3" | "Q4";
   provenance: Provenance;
 }
 
 export interface FinancialPeriod {
   label: string;
   fiscalYear: number;
+  fiscalQuarter?: "Q1" | "Q2" | "Q3" | "Q4";
+  durationDays?: number;
+  ttmQuarterEnds?: string[];
+  unavailableReason?: string;
   periodStart?: string;
   periodEnd: string;
   periodicity: Periodicity;
@@ -59,6 +69,9 @@ export interface CompanyProfile {
   currency: string;
   sector: string;
   description: string;
+  yahooTicker?: string;
+  tickerHistory?: Array<{ ticker: string; from?: string; to?: string }>;
+  stockSplits?: Array<{ date: string; ratio: number }>;
 }
 
 export interface CompanyDataset {
@@ -70,9 +83,31 @@ export interface CompanyDataset {
 
 export interface PricePoint {
   close: number;
+  adjustedClose: number | null;
   date: string;
+  requestedDate: string;
   currency: string;
   ticker: string;
-  type: "fiscal-period close" | "current market price" | "period average";
+  type: "close" | "adjusted close";
+  fallback: "exact date" | "previous trading session" | "next trading session";
+  distanceDays: number;
   sourceUrl: string;
+}
+
+export interface RawFinancialFact {
+  metric: MetricKey;
+  value: number;
+  currency: string;
+  unit: "currency" | "shares";
+  start?: string;
+  end: string;
+  filed: string;
+  accession: string;
+  fiscalYear: number;
+  fiscalPeriod: "Q1" | "Q2" | "Q3" | "FY";
+  form: "10-Q" | "10-K";
+  concept: string;
+  sourceUrl: string;
+  retrievedAt: string;
+  restated?: boolean;
 }

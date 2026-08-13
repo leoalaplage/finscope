@@ -2,9 +2,9 @@
 
 ## SEC EDGAR
 
-The U.S. SEC is the primary provider for U.S. GAAP fundamentals. FinScope calls `https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json` server-side, validates the response, selects 10-K annual contexts with a 300–400 day duration, and uses concept fallbacks in declared priority order.
+The U.S. SEC is the primary provider for U.S. GAAP fundamentals. FinScope calls `https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json` server-side, validates the response, selects 10-K annual contexts with a 300–400 day duration, and uses concept fallbacks in declared priority order. Direct 55–125 day quarters are preferred. Compatible six- and nine-month cumulative facts are differenced, Q4 is annual minus Q3 year-to-date, and weighted shares use a day-weighted isolation formula.
 
-Each fact retains provider, source URL, accession number, filing date, retrieval time, fiscal year, period end, periodicity, currency, unit, XBRL concept and status. Duplicate annual facts are ordered by filing date and the most recently filed compatible context is selected, allowing restatements to supersede older presentations without losing lineage.
+Each fact retains provider, source URL, accession number, filing date, retrieval time, fiscal year, period end, periodicity, currency, unit, XBRL concept and status. Duplicate contexts are ordered by filing date and period end. The most recently filed compatible context is selected, allowing restatements to supersede older presentations without losing lineage. TTM flow values sum four consecutive quarters; weighted shares are day-weighted and point facts come from the latest quarter.
 
 The server cache response is six hours with a 24-hour stale-while-revalidate window. Automated use should identify itself through `SEC_USER_AGENT` and respect the SEC fair-access limit.
 
@@ -13,11 +13,13 @@ Official references:
 - https://www.sec.gov/search-filings/edgar-application-programming-interfaces
 - https://www.sec.gov/about/developer-resources
 
-## Yahoo Finance boundary
+## Yahoo Finance historical prices
 
-Yahoo Finance is the requested source for market prices, split history and market-dependent valuation. Its chart/download interfaces are unofficial, rate-limited and subject to licensing restrictions, so FinScope keeps this provider behind a replaceable adapter boundary.
+Yahoo Finance is the requested source for market prices and market-dependent valuation. Its chart interface is unofficial, rate-limited and subject to licensing restrictions, so FinScope keeps this provider behind a replaceable server adapter.
 
-The present build fails closed: when a historical close cannot be verified, valuation is shown as unavailable. A future price fact must carry ticker, exact date, price type, currency and source URL. The selection rule is the close on the fiscal period end, or the nearest preceding trading day.
+Adjusted close is preferred. Each price fact carries ticker, requested fiscal date, actual trading-session date, price type, currency, fallback direction and source URL. The selection order is exact session, previous session within seven calendar days, then a clearly marked next session within two days. Otherwise valuation is unavailable.
+
+Share-count histories are adjusted for validated stock-split events stored in the company registry. The calculation keeps the original SEC filing link and explicitly lists the cumulative factor and effective dates.
 
 Yahoo references:
 

@@ -25,7 +25,7 @@ const rows: Row[] = [
   [2025,"2025-09-27","2025-10-31","0000320193-25-000079",416161,195201,133050,112010,111482,12715,15004.697,90711],
 ];
 
-const concepts: Record<Exclude<MetricKey, "freeCashFlow" | "basicShares" | "sharesOutstanding" | "shareIssuance">, string> = {
+const concepts: Partial<Record<MetricKey, string>> = {
   revenue: "RevenueFromContractWithCustomerExcludingAssessedTax / SalesRevenueNet",
   grossProfit: "GrossProfit",
   operatingIncome: "OperatingIncomeLoss",
@@ -36,7 +36,7 @@ const concepts: Record<Exclude<MetricKey, "freeCashFlow" | "basicShares" | "shar
   shareRepurchases: "PaymentsForRepurchaseOfCommonStock",
 };
 
-function fact(metric: keyof typeof concepts, valueMillions: number | null, row: Row): NormalizedFact | undefined {
+function fact(metric: MetricKey, valueMillions: number | null, row: Row): NormalizedFact | undefined {
   if (valueMillions == null) return undefined;
   const [fy, end, filed, accession] = row;
   const isShares = metric === "dilutedShares";
@@ -54,7 +54,7 @@ function fact(metric: keyof typeof concepts, valueMillions: number | null, row: 
       accession,
       filingDate: filed,
       retrievedAt,
-      concept: concepts[metric],
+      concept: concepts[metric] ?? metric,
       status: "reported",
       note: "Offline fixture from SEC Company Facts; latest 10-K fact selected for the fiscal year.",
     },
@@ -65,7 +65,7 @@ const periods: FinancialPeriod[] = rows.map((row) => {
   const [fiscalYear, periodEnd, filingDate, accession, revenue, gross, operating, net, ocf, capex, shares, buybacks] = row;
   const facts: FinancialPeriod["facts"] = {};
   for (const [key, value] of Object.entries({ revenue, grossProfit: gross, operatingIncome: operating, netIncome: net, operatingCashFlow: ocf, capitalExpenditures: capex, dilutedShares: shares, shareRepurchases: buybacks })) {
-    const normalized = fact(key as keyof typeof concepts, value, row);
+    const normalized = fact(key as MetricKey, value, row);
     if (normalized) facts[key as MetricKey] = normalized;
   }
   return { label: `FY ${fiscalYear}`, fiscalYear, periodEnd, periodicity: "annual", filingDate, accession, currency: "USD", facts };

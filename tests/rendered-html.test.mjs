@@ -14,7 +14,10 @@ test("server-renders the FinScope research workspace", async () => {
   const html = await response.text();
   assert.match(html, /FinScope — Auditable financial research/);
   assert.match(html, /Apple Inc\./);
-  assert.match(html, /Revenue &amp; profitability/);
+  assert.match(html, /Per-share compounding, cash quality and dilution discipline/);
+  assert.match(html, /Growth &amp; CAGR/);
+  assert.match(html, /QUARTERLY/);
+  assert.match(html, /TTM/);
   assert.match(html, /Sources &amp; methodology/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
 });
