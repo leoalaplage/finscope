@@ -2,7 +2,7 @@ import { z } from "zod";
 import { COMPANIES } from "../company-registry";
 import { adjustPeriodsForSplits, buildTtmPeriods, normalizeAnnualPeriods, normalizeQuarterlyPeriods } from "../periods";
 import { validateCompanyDataset } from "../data-quality";
-import type { CompanyDataset, MetricKey, RawFinancialFact } from "../types";
+import type { CompanyDataset, FinancialPeriod, MetricKey, RawFinancialFact } from "../types";
 
 const SecUnitSchema = z.object({
   start: z.string().optional(), end: z.string(), val: z.number(), accn: z.string(),
@@ -16,7 +16,7 @@ const SecResponseSchema = z.object({
 });
 
 type SecUnit = z.infer<typeof SecUnitSchema>;
-type ConceptSpec = { namespace: "us-gaap" | "dei"; tags: string[]; unit: "currency" | "shares" };
+type ConceptSpec = { namespace: "us-gaap" | "dei"; tags: string[]; unit: "currency" | "shares" | "perShare" };
 
 export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepurchases">, ConceptSpec> = {
   revenue: { namespace: "us-gaap", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "Revenues", "SalesRevenueNet"], unit: "currency" },
@@ -33,7 +33,9 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   capitalExpenditures: { namespace: "us-gaap", tags: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForProceedsFromProductiveAssets", "PaymentsForSoftware"], unit: "currency" },
   acquisitions: { namespace: "us-gaap", tags: ["PaymentsToAcquireBusinessesNetOfCashAcquired", "PaymentsToAcquireBusinessesGross"], unit: "currency" },
   dividendsPaid: { namespace: "us-gaap", tags: ["PaymentsOfDividends", "PaymentsOfDividendsCommonStock", "PaymentsOfOrdinaryDividends"], unit: "currency" },
-  dilutedShares: { namespace: "us-gaap", tags: ["WeightedAverageNumberOfDilutedSharesOutstanding"], unit: "shares" },
+  dilutedShares: { namespace: "us-gaap", tags: ["WeightedAverageNumberOfDilutedSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"], unit: "shares" },
+  // Only used to recover a share count when the filer publishes none directly.
+  dilutedEpsReported: { namespace: "us-gaap", tags: ["EarningsPerShareDiluted"], unit: "perShare" },
   basicShares: { namespace: "us-gaap", tags: ["WeightedAverageNumberOfSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"], unit: "shares" },
   sharesOutstanding: { namespace: "dei", tags: ["EntityCommonStockSharesOutstanding"], unit: "shares" },
   sharesIssued: { namespace: "us-gaap", tags: ["CommonStockSharesIssued"], unit: "shares" },
@@ -68,12 +70,12 @@ function extractFacts(
     for (const tag of [...spec.tags].reverse()) {
       const node = namespace[tag];
       if (!node) continue;
-      const unitKey = spec.unit === "shares" ? "shares" : currency;
+      const unitKey = spec.unit === "shares" ? "shares" : spec.unit === "perShare" ? `${currency}/shares` : currency;
       const unitFacts: SecUnit[] = node.units[unitKey] ?? [];
       for (const fact of unitFacts) {
         if ((fact.form !== "10-Q" && fact.form !== "10-K") || fact.fy == null || !["Q1", "Q2", "Q3", "FY"].includes(fact.fp ?? "")) continue;
         output.push({
-          metric, value: fact.val, currency, unit: spec.unit, start: fact.start, end: fact.end,
+          metric, value: fact.val, currency, unit: spec.unit === "perShare" ? "currency" : spec.unit, start: fact.start, end: fact.end,
           filed: fact.filed, accession: fact.accn, fiscalYear: fact.fy,
           fiscalPeriod: fact.fp as RawFinancialFact["fiscalPeriod"], form: fact.form as RawFinancialFact["form"],
           concept: `${spec.namespace}:${tag}`, sourceUrl: sourceUrl(cik, fact.accn), retrievedAt,
@@ -84,14 +86,48 @@ function extractFacts(
   return output;
 }
 
+/**
+ * Recovers a diluted share count for filers that publish none directly.
+ *
+ * Diluted earnings per share is *defined* as net income over diluted shares, so
+ * dividing one reported fact by the other returns the denominator the filer
+ * used. This is arithmetic on published figures, not an estimate, and it is
+ * marked calculated with its formula like any other derived value.
+ *
+ * It matters for companies with several share classes: they tag each class
+ * separately, and the SEC's companyfacts endpoint carries only facts without
+ * dimensions, so no combined share count reaches us. Alphabet is the case in
+ * point — four usable years directly, twelve once EPS is used.
+ */
+function recoverDilutedShares(periods: FinancialPeriod[]): FinancialPeriod[] {
+  return periods.map((period) => {
+    if (period.facts.dilutedShares?.value != null) return period;
+    const netIncome = period.facts.netIncome;
+    const eps = period.facts.dilutedEpsReported;
+    if (!netIncome?.value || !eps?.value || eps.periodEnd !== period.periodEnd) return period;
+    const shares = netIncome.value / eps.value;
+    if (!Number.isFinite(shares) || shares <= 0) return period;
+    return { ...period, facts: { ...period.facts, dilutedShares: {
+      metric: "dilutedShares", value: shares, currency: period.currency, unit: "shares",
+      periodStart: period.periodStart, periodEnd: period.periodEnd, periodicity: period.periodicity, fiscalYear: period.fiscalYear,
+      provenance: {
+        provider: "Calculated", sourceUrl: eps.provenance.sourceUrl, retrievedAt: eps.provenance.retrievedAt,
+        concept: "DilutedSharesFromEps", status: "calculated",
+        formula: "Net income / Diluted earnings per share",
+        note: "The filer reports no combined diluted share count; several share classes are tagged separately and reach us only per class.",
+      },
+    } } };
+  });
+}
+
 export function normalizeSecPayload(payload: unknown, ticker: string, retrievedAt = new Date().toISOString(), resolvedCompany?: CompanyDataset["company"]): CompanyDataset {
   const company = resolvedCompany ?? COMPANIES.find((item) => item.ticker === ticker.toUpperCase());
   if (!company) throw new Error("Ticker not supported by the SEC adapter registry.");
   if (!company.cik) throw new Error(company.resolutionNote || "No reliable regulatory identifier is available for this instrument.");
   const parsed = SecResponseSchema.parse(payload);
   const rawFacts = extractFacts(parsed.facts, company.cik, company.currency, retrievedAt);
-  const annual = adjustPeriodsForSplits(normalizeAnnualPeriods(rawFacts, company.currency), company.stockSplits);
-  const quarterly = adjustPeriodsForSplits(normalizeQuarterlyPeriods(rawFacts, company.currency), company.stockSplits);
+  const annual = adjustPeriodsForSplits(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.stockSplits);
+  const quarterly = adjustPeriodsForSplits(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.stockSplits);
   const ttm = buildTtmPeriods(quarterly, company.currency);
   return validateCompanyDataset({
     company: { ...company, name: parsed.entityName }, periods: [...annual, ...quarterly, ...ttm], retrievedAt,

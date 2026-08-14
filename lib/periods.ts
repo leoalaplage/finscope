@@ -5,6 +5,9 @@ export const FLOW_METRICS: MetricKey[] = [
   "capitalExpenditures", "stockBasedCompensation", "shareRepurchases", "shareIssuance",
   "acquisitions", "dividendsPaid",
   "incomeBeforeTax", "incomeTaxExpense", "depreciationAndAmortization",
+  // Carried only so a share count can be recovered from it when the filer
+  // publishes none; see recoverDilutedShares in the SEC adapter.
+  "dilutedEpsReported",
 ];
 export const WEIGHTED_SHARE_METRICS: MetricKey[] = ["basicShares", "dilutedShares"];
 export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities"];

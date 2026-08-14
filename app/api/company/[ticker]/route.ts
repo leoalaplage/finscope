@@ -8,7 +8,9 @@ const CACHE_SECONDS = 86_400;
 // entries built by the previous mapping are retired instead of being served.
 // v2: capital expenditures gained fallback concepts, restoring free cash flow
 // for filers that stopped tagging property purchases.
-const KEY_VERSION = "v2";
+// v3: diluted share counts are recovered from reported EPS for filers that
+// publish none directly, which restores every per-share metric for them.
+const KEY_VERSION = "v3";
 const headers = {
   "Content-Type": "application/json",
   "Cache-Control": `public, s-maxage=21600, stale-while-revalidate=86400`,

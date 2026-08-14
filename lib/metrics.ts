@@ -74,7 +74,7 @@ export const VIEW_METRICS = {
   income: ["revenue", "grossProfit", "operatingIncome", "netIncome"],
   cashflow: ["operatingCashFlow", "capitalExpenditures", "freeCashFlow", "acquisitions", "stockBasedCompensation", "shareRepurchases", "shareIssuance", "dividendsPaid", "netShareRepurchases"],
   margins: ["grossMargin", "operatingMargin", "netMargin", "operatingCashFlowMargin", "freeCashFlowMargin", "cashConversion"],
-  pershare: ["revenuePerShare", "grossProfitPerShare", "operatingIncomePerShare", "netIncomePerShare", "operatingCashFlowPerShare", "freeCashFlowPerShare"],
+  pershare: ["revenuePerShare", "grossProfitPerShare", "operatingIncomePerShare", "netIncomePerShare", "operatingCashFlowPerShare", "freeCashFlowPerShare", "freeCashFlowAfterSbcPerShare"],
   shares: ["dilutedShares", "basicShares", "sharesOutstanding", "sharesIssued", "treasuryShares", "shareCountAbsoluteChange", "shareCountChange", "cumulativeDilution", "shareRepurchases", "stockBasedCompensation", "shareIssuance", "netShareRepurchases", "stockBasedCompensationToRevenue", "stockBasedCompensationToFcf"],
 } as const;
 
