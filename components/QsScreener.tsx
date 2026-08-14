@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const SOURCE = "/qs/index.html?embedded=1&theme=light";
+/** Directory form: the asset handler 307s /qs/index.html to /qs/, and paying
+ *  for that redirect on every mount is a round-trip for nothing. */
+const SOURCE = "/qs/?embedded=1&theme=light";
 /** Tall enough that nothing is clipped before the page reports its own size. */
 const INITIAL_HEIGHT = 900;
 const MIN_HEIGHT = 420;
@@ -31,9 +33,9 @@ export function QsScreener() {
         <h1>QS Screener</h1>
         <p>Paste an export from fiscal.ai, Excel, Google Sheets or a CSV file. The quality score is computed and rendered as a shareable image in your browser — nothing is uploaded.</p>
       </div>
-      <a className="qs-standalone" href="/qs/index.html" target="_blank" rel="noreferrer">Open full screen ↗</a>
+      <a className="qs-standalone" href="/qs/" target="_blank" rel="noreferrer">Open full screen ↗</a>
     </header>
-    {status === "failed" && <p className="notice">The embedded screener did not confirm that it loaded. <a href="/qs/index.html" target="_blank" rel="noreferrer">Open it in its own tab</a>.</p>}
+    {status === "failed" && <p className="notice">The embedded screener did not confirm that it loaded. <a href="/qs/" target="_blank" rel="noreferrer">Open it in its own tab</a>.</p>}
     {status === "loading" && <p className="simple-state">Loading the QS Screener…</p>}
     <iframe ref={frame} className="qs-frame" style={{ height }} onError={() => setStatus("failed")} src={SOURCE} title="QS Screener: paste data, scoring settings and generated dashboard"/>
   </div>;

@@ -71,8 +71,13 @@ const periods: FinancialPeriod[] = rows.map((row) => {
   return { label: `FY ${fiscalYear}`, fiscalYear, periodEnd, periodicity: "annual", filingDate, accession, currency: "USD", facts };
 });
 
+// Looked up by ticker, never by position: the rows below are Apple filings
+// (CIK 0000320193), and an index into the watchlist silently paired them with
+// whichever company happened to sit first in it.
+const APPLE = COMPANIES.find((company) => company.ticker === "AAPL")!;
+
 export const APPLE_DATASET: CompanyDataset = {
-  company: COMPANIES[0],
+  company: APPLE,
   periods,
   retrievedAt,
   warnings: [

@@ -31,7 +31,7 @@ describe("embedded QS screener", () => {
     const embed = readFileSync(new URL("../public/qs/js/qs-embed.js", import.meta.url), "utf8");
     expect(component).toContain('event.data?.type === "qs-ready"');
     expect(component).toContain('event.data?.type === "qs-height"');
-    expect(component).toContain('href="/qs/index.html"');
+    expect(component).toContain('href="/qs/"');
     expect(css).toContain(".qs-frame");
     expect(embed).toContain('type: "qs-ready"');
     expect(embed).toContain('type: "qs-height"');

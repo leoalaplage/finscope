@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { DEFAULT_COMPANY_FILTERS, DEFAULT_COMPANY_SORT, filterCompanyRows, preferredDirection, sortCompanyRows, type CompanyFilters, type CompanyRankingRow, type CompanySortKey, type SortDirection } from "@/lib/company-ranking";
 import { cagrForPeriods, derivedValue, valueOf } from "@/lib/finance";
@@ -53,6 +53,20 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   const [chartSeed, setChartSeed] = useState<{ ticker?: string; metric?: string; nonce: number }>();
   const [watchlist, setWatchlist] = useState<CompanyProfile[]>(() => { if (typeof window === "undefined") return DEFAULT_WATCHLIST; try { return JSON.parse(localStorage.getItem("finscope.watchlist") ?? "null") ?? DEFAULT_WATCHLIST; } catch { return DEFAULT_WATCHLIST; } });
   useEffect(() => { localStorage.setItem("finscope.watchlist", JSON.stringify(watchlist)); }, [watchlist]);
+  // The server renders the offline fixture; live filings arrive here. Keeping
+  // the 4 MB dataset out of the HTML is what lets the page render at all.
+  const seeded = useRef(initialData.company.ticker);
+  useEffect(() => {
+    const ticker = seeded.current; let active = true;
+    fetch(`/api/company/${encodeURIComponent(ticker)}`, { cache: "no-store" }).then(async (response) => {
+      const payload = await response.json() as CompanyDataset & { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Could not refresh company");
+      if (!active) return;
+      setDatasets((current) => ({ ...current, [ticker]: payload }));
+      setDataset((current) => current.company.ticker === ticker ? payload : current);
+    }).catch(() => { /* The fixture stays on screen and is labelled as such. */ });
+    return () => { active = false; };
+  }, []);
   useEffect(() => { document.documentElement.dataset.theme = "light"; document.documentElement.style.colorScheme = "light"; }, []);
 
   function navigate(next: MainView) {
