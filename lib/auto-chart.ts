@@ -160,18 +160,29 @@ export function familyLabel(family: UnitFamily) { return FAMILY_LABEL[family] ??
 /**
  * One formatter for axes, legends, tooltips and the data table, chosen from the
  * metric's own unit family. No unit, decimal or scale setting to get wrong.
+ *
+ * Large amounts are always abbreviated. Nobody reads $466,823,000,000 — they
+ * count digits — and the exact figure belongs in the CSV export, which is what
+ * it is for. `precise` only buys another decimal, so a tooltip reads $466.82B
+ * against an axis tick of $467B rather than switching to a different form.
+ *
+ * The minimum fraction digits matter: currency formatting defaults to two, and
+ * a lower maximum silently drags the minimum down with it, which is where the
+ * stray "$466,823,000,000.0" came from.
  */
-export function formatChartValue(value: number | null | undefined, family: UnitFamily, currency = "USD", compact = true): string {
+export function formatChartValue(value: number | null | undefined, family: UnitFamily, currency = "USD", precise = false): string {
   if (value == null || !Number.isFinite(value)) return "N/M";
-  if (family === "percent") return `${(value * 100).toFixed(1)}%`;
-  if (family === "ratio") return `${value.toFixed(1)}×`;
-  if (family === "indexed") return value.toFixed(0);
-  if (family === "shares") return new Intl.NumberFormat("en-US", { notation: Math.abs(value) >= 10_000 ? "compact" : "standard", maximumFractionDigits: 2 }).format(value);
+  const decimals = precise ? 2 : 1;
+  if (family === "percent") return `${(value * 100).toFixed(decimals)}%`;
+  if (family === "ratio") return `${value.toFixed(decimals)}×`;
+  if (family === "indexed") return value.toFixed(precise ? 1 : 0);
+  if (family === "shares") return new Intl.NumberFormat("en-US", { notation: Math.abs(value) >= 10_000 ? "compact" : "standard", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value);
   const small = Math.abs(value) < 1_000;
   return new Intl.NumberFormat("en-US", {
     style: "currency", currency, currencyDisplay: "narrowSymbol",
-    notation: compact && !small ? "compact" : "standard",
-    maximumFractionDigits: small ? 2 : 1,
+    notation: small ? "standard" : "compact",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: small ? 2 : decimals,
   }).format(value);
 }
 
