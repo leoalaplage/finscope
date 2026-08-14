@@ -17,6 +17,7 @@ import { MultiStockComparison } from "./MultiStockComparison";
 import { ValuationAnalysis } from "./ValuationAnalysis";
 import { DataQuality } from "./DataQuality";
 import { FormulaDataAudit } from "./FormulaDataAudit";
+import { QsScreener } from "./QsScreener";
 import { COMPANIES, findCompany } from "@/lib/company-registry";
 import {
   FORMULAS, cagrBetweenDates, cagrForPeriods, convertUnit, derivedValue,
@@ -25,10 +26,11 @@ import {
 import { GROWTH_METRICS, METRICS, VIEW_METRICS } from "@/lib/metrics";
 import type { CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, Periodicity } from "@/lib/types";
 
-type ViewKey = "overview" | "income" | "cashflow" | "margins" | "pershare" | "shares" | "growth" | "valuation" | "dcf" | "comparison" | "coverage" | "quality" | "audit" | "sources" | "settings";
+type ViewKey = "overview" | "qs" | "income" | "cashflow" | "margins" | "pershare" | "shares" | "growth" | "valuation" | "dcf" | "comparison" | "coverage" | "quality" | "audit" | "sources" | "settings";
 
 const NAV: Array<{ key: ViewKey; label: string; icon: typeof Home; section?: string }> = [
   { key: "overview", label: "Quality overview", icon: Home, section: "QUALITY ANALYSIS" },
+  { key: "qs", label: "QS Screener", icon: BarChart3 },
   { key: "growth", label: "Growth & CAGR", icon: TrendingUp },
   { key: "pershare", label: "Per share", icon: Calculator },
   { key: "margins", label: "Margins & conversion", icon: Gauge },
@@ -81,12 +83,12 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   const [range, setRange] = useState(() => typeof window === "undefined" ? 999 : Number(localStorage.getItem("finscope.historyRange")) || 999);
   const [query, setQuery] = useState(""); const [searchOpen, setSearchOpen] = useState(false);
   const [loading, setLoading] = useState(false); const [error, setError] = useState("");
-  const [dark, setDark] = useState(true); const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [dark, setDark] = useState(() => typeof window === "undefined" ? true : localStorage.getItem("finscope.theme") !== "light"); const [sidebarOpen, setSidebarOpen] = useState(true);
   const [favorite, setFavorite] = useState(false); const [selectedFact, setSelectedFact] = useState<NormalizedFact | null>(null);
   const [toast, setToast] = useState("");
   const [managerOpen,setManagerOpen]=useState(false);
 
-  useEffect(() => { document.documentElement.dataset.theme = dark ? "dark" : "light"; }, [dark]);
+  useEffect(() => { const theme=dark?"dark":"light";document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;localStorage.setItem("finscope.theme",theme); }, [dark]);
   useEffect(() => { localStorage.setItem("finscope.periodicity", periodicity); }, [periodicity]);
   useEffect(() => { localStorage.setItem("finscope.unit", unit); }, [unit]);
   useEffect(() => { localStorage.setItem("finscope.chartMode", chartMode); }, [chartMode]);
@@ -139,17 +141,18 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
         <div className="top-actions"><button className="button secondary top-add-company" onClick={()=>setManagerOpen(true)}><Plus size={14}/> Add company</button><span className="verified"><ShieldCheck size={15}/> Traceable</span><button className="icon-button" onClick={() => setDark((value) => !value)} aria-label="Toggle theme">{dark ? <Sun size={17}/> : <Moon size={17}/>}</button><button className="avatar" aria-label="User menu">LR</button></div>
       </header>
       <main>
-        <section className="company-header"><div className="company-id"><span className="company-logo">{dataset.company.ticker[0]}</span><div><div className="eyebrow">QUALITY STOCK RESEARCH · {dataset.company.exchange} · {dataset.company.currency}</div><h1>{dataset.company.name} <span>{dataset.company.ticker}</span></h1><p>{dataset.company.description}</p></div></div><div className="company-actions"><button className={`icon-button ${favorite ? "favorite" : ""}`} onClick={() => setFavorite((value) => !value)} aria-label="Toggle favorite"><Heart size={17} fill={favorite ? "currentColor" : "none"}/></button><button className="button secondary" onClick={() => exportCsv(Object.keys(METRICS), true)}><FileDown size={15}/> Export all</button><button className="icon-button"><MoreHorizontal size={18}/></button></div></section>
+        {view!=="qs"&&<section className="company-header"><div className="company-id"><span className="company-logo">{dataset.company.ticker[0]}</span><div><div className="eyebrow">QUALITY STOCK RESEARCH · {dataset.company.exchange} · {dataset.company.currency}</div><h1>{dataset.company.name} <span>{dataset.company.ticker}</span></h1><p>{dataset.company.description}</p></div></div><div className="company-actions"><button className={`icon-button ${favorite ? "favorite" : ""}`} onClick={() => setFavorite((value) => !value)} aria-label="Toggle favorite"><Heart size={17} fill={favorite ? "currentColor" : "none"}/></button><button className="button secondary" onClick={() => exportCsv(Object.keys(METRICS), true)}><FileDown size={15}/> Export all</button><button className="icon-button"><MoreHorizontal size={18}/></button></div></section>}
         {error && <div className="error-banner"><Info size={16}/><span>{error}. The last verified dataset remains displayed.</span><button onClick={() => setError("")}><X size={15}/></button></div>}
         {loading && <div className="loading-overlay"><Loader2 className="spin" size={24}/><span>Resolving SEC periods and TTM windows…</span></div>}
-        <div className="control-bar"><div className="segmented" aria-label="Periodicity">{(["annual","quarterly","ttm"] as const).map((item) => <button key={item} className={periodicity === item ? "active" : ""} onClick={() => { setPeriodicity(item); setRange(999); }}>{item.toUpperCase()}</button>)}</div><div className="control-divider"/>
+        {view!=="qs"&&<div className="control-bar"><div className="segmented" aria-label="Periodicity">{(["annual","quarterly","ttm"] as const).map((item) => <button key={item} className={periodicity === item ? "active" : ""} onClick={() => { setPeriodicity(item); setRange(999); }}>{item.toUpperCase()}</button>)}</div><div className="control-divider"/>
           <label>History <select value={range} onChange={(event) => setRange(Number(event.target.value))}>{rangeOptions.map((value) => <option value={value} key={value}>{value === 999 ? "Max" : `${value} periods`}</option>)}</select></label>
           <label>Units <select value={unit} onChange={(event) => setUnit(event.target.value as Unit)}><option value="unit">Units</option><option value="thousand">Thousands</option><option value="million">Millions</option><option value="billion">Billions</option></select></label>
           <label>Chart view <select value={chartMode} onChange={(event) => setChartMode(event.target.value as ChartMode)}><option value="absolute">Absolute</option><option value="perShare">Per share</option><option value="margins">Margins</option><option value="growth">Growth</option><option value="cagr">CAGR</option></select></label>
           <span className="as-of"><span className="pulse-dot"/> {periods.length ? `${periods.length} reliable periods · through ${periods.at(-1)!.periodEnd}` : `No reliable ${periodicity} periods`}</span>
-        </div>
+        </div>}
         <div className="content">
           {!periods.length && <div className="notice"><Info size={18}/><div><b>{periodicity.toUpperCase()} unavailable</b><p>{dataset.warnings.find((warning) => warning.includes("TTM")) ?? "The SEC dataset does not contain enough compatible standardized facts for this view."}</p></div></div>}
+          {view === "qs" && <QsScreener dark={dark}/>}
           {periods.length > 0 && view === "overview" && <Overview key={`overview-${chartMode}`} dataset={dataset} periods={periods} unit={unit} mode={chartMode} onView={navigate}/>}
           {periods.length > 0 && (["income","cashflow","margins","pershare","shares"] as ViewKey[]).includes(view) && <StatementView view={view as keyof typeof VIEW_METRICS} periods={periods} allPeriods={dataset.periods} unit={unit} mode={chartMode} currency={dataset.company.currency} periodicity={periodicity} ticker={dataset.company.ticker} company={dataset.company.name} onFact={setSelectedFact} onExport={(metrics) => exportCsv(metrics)} onCopy={() => notify("Visible table copied")}/>}
           {view === "growth" && <GrowthView annualPeriods={dataset.periods.filter((period) => period.periodicity === "annual").sort((a,b) => a.periodEnd.localeCompare(b.periodEnd))}/>}
