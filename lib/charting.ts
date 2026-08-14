@@ -25,6 +25,32 @@ export const CHART_PALETTE = [
   { name: "Red", value: "#e34948" },
 ] as const;
 
+/**
+ * The same eight hues stepped for a dark surface, not an inversion of the light
+ * set. Checked with the validator against #1a1a19: every slot inside the
+ * L 0.48-0.67 band, worst adjacent pair separable at delta-E 8.4 under colour
+ * vision deficiency and 19.3 for normal vision, and — unlike the light set —
+ * every slot clears 3:1 contrast outright.
+ *
+ * Running the light palette against a dark surface fails four slots on
+ * lightness, which is why this exists rather than a filter.
+ */
+export const CHART_PALETTE_DARK = [
+  { name: "Blue", value: "#3987e5" },
+  { name: "Orange", value: "#d95926" },
+  { name: "Aqua", value: "#199e70" },
+  { name: "Yellow", value: "#c98500" },
+  { name: "Magenta", value: "#d55181" },
+  { name: "Green", value: "#008300" },
+  { name: "Violet", value: "#9085e9" },
+  { name: "Red", value: "#e66767" },
+] as const;
+
+export type ThemeName = "light" | "dark";
+export function chartPalette(theme: ThemeName) {
+  return theme === "dark" ? CHART_PALETTE_DARK : CHART_PALETTE;
+}
+
 export type ScaleMode = "zero" | "auto" | "custom" | "log" | "fit";
 export type CurveStyle = "straight" | "curved" | "step";
 export type AnomalyMode = "validated" | "raw";

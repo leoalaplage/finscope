@@ -1,4 +1,4 @@
-import { CHART_PALETTE, chartDomain } from "./charting";
+import { CHART_PALETTE, chartDomain, type ThemeName, chartPalette } from "./charting";
 import { validatedDerivedValue } from "./data-quality";
 import { METRICS } from "./metrics";
 import type { CompanyDataset, SeriesFrequency, SeriesObservation } from "./types";
@@ -82,7 +82,7 @@ export function automaticChartType(metric: string, frequency: SeriesFrequency): 
  * collides, and two series in the same color is the one mistake a reader
  * cannot recover from.
  */
-function planColors(inputs: AutoSeriesInput[]) {
+function planColors(inputs: AutoSeriesInput[], palette: ReadonlyArray<{ value: string }> = CHART_PALETTE) {
   const byTicker = new Map<string, number>();
   for (const input of inputs) if (!byTicker.has(input.ticker)) byTicker.set(input.ticker, byTicker.size);
   const multiCompany = byTicker.size > 1;
@@ -91,11 +91,11 @@ function planColors(inputs: AutoSeriesInput[]) {
     // One company: colour by metric. Several: colour by company, so the eye
     // groups the comparison the way the chart is meant to be read.
     const index = multiCompany ? byTicker.get(input.ticker)! : metrics.indexOf(input.metric);
-    return CHART_PALETTE[index % CHART_PALETTE.length].value;
+    return palette[index % palette.length].value;
   });
 }
 
-export function createAutoChartPlan(inputs: AutoSeriesInput[]): AutoSeriesPlan[] {
+export function createAutoChartPlan(inputs: AutoSeriesInput[], theme: ThemeName = "light"): AutoSeriesPlan[] {
   const families = [...new Set(inputs.map((item) => unitFamily(item.metric, item.indexed)))];
   // One unit family per panel, always.
   //
@@ -107,7 +107,7 @@ export function createAutoChartPlan(inputs: AutoSeriesInput[]): AutoSeriesPlan[]
   // collapses the panels — but then it is their reading, not ours.
   const panelByFamily = new Map<UnitFamily, number>();
   families.forEach((family, index) => panelByFamily.set(family, families.length > 1 ? index : 0));
-  const colors = planColors(inputs);
+  const colors = planColors(inputs, chartPalette(theme));
   const frequencies = inputs.map((input) => input.frequency ?? automaticFrequency(input.metric, input.dataset));
   // A single market series turns the shared date axis into hundreds of
   // categories, which would squeeze annual bars into invisible hairlines.

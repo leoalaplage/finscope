@@ -11,13 +11,48 @@
   --warning: #8a5a00;
   --grid: #e8e8e8;
   --radius: 2px;
+  --card: #ffffff;
+  --card-border: #e2e2e2;
+  --card-radius: 2px;
+  --axis: #6a6a6a;
+  --chart-grid: #ececec;
+  --label-halo: #ffffff;
+  --shadow: none;
+}
+
+/*
+ * Dark is a selected palette, not an inversion. Surfaces are a cool near-black
+ * with a card one step lighter, so a panel reads as a raised object rather than
+ * a bordered hole; series colours are re-stepped for it in charting.ts.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #12141c;
+  --surface: #191c26;
+  --text: #e8eaf0;
+  --muted: #9aa1b1;
+  --border: #262a36;
+  --border-strong: #39404f;
+  --accent: #53d39c;
+  --accent-soft: #16302a;
+  --danger: #ff8a96;
+  --warning: #f0b849;
+  --grid: #242835;
+  --card: #191c26;
+  --card-border: #262a36;
+  --card-radius: 10px;
+  --axis: #9aa1b1;
+  --chart-grid: #242835;
+  --label-halo: #191c26;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3);
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: auto; background: var(--background); color-scheme: light; }
+html { scroll-behavior: auto; background: var(--background); }
+:root { color-scheme: light; }
 body { margin: 0; background: var(--background); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 14px; line-height: 1.45; }
 button, input, select, textarea { color: inherit; font: inherit; }
-button, select, input { min-height: 34px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: #fff; }
+button, select, input { min-height: 34px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); }
 button { padding: 6px 11px; cursor: pointer; }
 button:hover { border-color: var(--text); }
 button:disabled { cursor: not-allowed; color: #999; border-color: var(--border); }
@@ -30,7 +65,7 @@ h2 { margin-bottom: 12px; font-size: 19px; line-height: 1.25; }
 small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; }
 
 .site-shell { min-height: 100vh; display: flex; flex-direction: column; }
-.site-header { position: sticky; z-index: 20; top: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 54px; padding: 0 24px; border-bottom: 1px solid var(--border); background: #fff; }
+.site-header { position: sticky; z-index: 20; top: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 54px; padding: 0 24px; border-bottom: 1px solid var(--border); background: var(--background); }
 .wordmark { min-height: 0; padding: 0; border: 0; color: var(--text); font-size: 17px; font-weight: 700; text-decoration: none; }
 .site-header nav { display: flex; align-self: stretch; }
 .site-header nav button { min-height: auto; padding: 0 18px; border: 0; border-bottom: 2px solid transparent; background: transparent; }
@@ -40,7 +75,7 @@ small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; 
 .site-footer { display: flex; justify-content: space-between; align-items: flex-start; min-height: 58px; padding: 16px 24px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
 .site-footer details { position: relative; }
 .site-footer summary { cursor: pointer; }
-.site-footer details div { position: absolute; right: 0; bottom: 24px; width: 170px; padding: 5px; border: 1px solid var(--border); background: #fff; }
+.site-footer details div { position: absolute; right: 0; bottom: 24px; width: 170px; padding: 5px; border: 1px solid var(--border); background: var(--surface); }
 .site-footer details button { width: 100%; border: 0; text-align: left; }
 .global-message { display: flex; justify-content: space-between; gap: 20px; padding: 10px max(16px, calc((100vw - 1320px) / 2)); border-bottom: 1px solid #d8a1a1; background: #fff6f6; color: var(--danger); }
 
@@ -54,7 +89,7 @@ small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; 
 .company-facts div:last-child { border-right: 0; }
 .company-facts dt { color: var(--muted); font-size: 12px; }
 .company-facts dd { margin: 4px 0 0; font-weight: 650; }
-.anchor-nav { position: sticky; z-index: 10; top: 54px; display: flex; gap: 18px; overflow-x: auto; margin-bottom: 30px; padding: 11px 0; border-bottom: 1px solid var(--border); background: #fff; white-space: nowrap; }
+.anchor-nav { position: sticky; z-index: 10; top: 54px; display: flex; gap: 18px; overflow-x: auto; margin-bottom: 30px; padding: 11px 0; border-bottom: 1px solid var(--border); background: var(--background); white-space: nowrap; }
 .anchor-nav a { color: var(--muted); font-size: 12px; text-decoration: none; }
 .anchor-nav a:hover { color: var(--text); text-decoration: underline; }
 .plain-section { scroll-margin-top: 110px; margin: 0 0 42px; padding-top: 4px; }
@@ -65,9 +100,9 @@ small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; 
 .list-tools input { width: min(340px, 70vw); }
 
 .table-scroll { width: 100%; overflow-x: auto; border: 1px solid var(--border); }
-table { width: 100%; border-collapse: collapse; background: #fff; font-variant-numeric: tabular-nums; }
+table { width: 100%; border-collapse: collapse; background: var(--card); font-variant-numeric: tabular-nums; }
 th, td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: right; vertical-align: top; white-space: nowrap; }
-thead th { background: #f7f7f7; color: #333; font-size: 11px; font-weight: 650; }
+thead th { background: var(--grid); color: var(--text); font-size: 11px; font-weight: 650; }
 th:first-child, td:first-child { text-align: left; }
 tbody th { font-weight: 550; }
 tbody tr:last-child > * { border-bottom: 0; }
@@ -83,7 +118,7 @@ tbody tr:last-child > * { border-bottom: 0; }
 .company-filters summary, .layout-panel summary { cursor: pointer; font-weight: 600; }
 .company-filters .list-tools { margin: 14px 0 2px; }
 .company-filters .list-tools input { width: 190px; }
-.selected-row { background: #f7fbf9; }
+.selected-row { background: var(--accent-soft); }
 .text-button, .value-button { min-height: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: inherit; text-decoration: underline; text-decoration-color: #aaa; text-underline-offset: 3px; }
 .value-button { width: 100%; text-align: right; }
 .simple-state, .notice { padding: 16px; border: 1px solid var(--border); color: var(--muted); }
@@ -122,7 +157,8 @@ tbody tr:last-child > * { border-bottom: 0; }
 .series-palette { display: flex; gap: 4px; }
 .series-palette button { width: 22px; height: 22px; min-height: 22px; padding: 0; border: 2px solid transparent; border-radius: 50%; }
 .series-palette button.active { border-color: var(--text); }
-.series-options { margin-bottom: 16px; padding: 10px 12px; border: 1px solid var(--border); }
+.series-options, .company-picker, .column-picker, .scatter-panel, .callout-picker, .company-filters { border-radius: var(--card-radius); background: var(--card); }
+.series-options { margin-bottom: 16px; padding: 10px 12px; border: 1px solid var(--card-border); }
 .series-options summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; font-weight: 600; }
 .series-options summary small { display: inline; font-weight: 400; }
 .series-options[open] summary { margin-bottom: 12px; }
@@ -137,24 +173,24 @@ tbody tr:last-child > * { border-bottom: 0; }
 .series-options-note { margin-top: 10px; }
 .chart-stack { display: grid; gap: 10px; margin-bottom: 18px; }
 .chart-stack.grid { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-.chart-panel { border: 1px solid var(--border); }
+.chart-panel { border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); overflow: hidden; }
 .chart-panel-label { padding: 7px 11px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
 .chart-canvas { width: 100%; height: 380px; padding: 6px 4px 2px; }
 .chart-canvas.compact { height: 230px; }
 .chart-canvas.tiny { height: 190px; }
-.chart-tooltip { min-width: 190px; padding: 9px 11px; border: 1px solid var(--border-strong); background: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, .08); font-size: 12px; }
+.chart-tooltip { min-width: 190px; padding: 9px 11px; border: 1px solid var(--border-strong); border-radius: var(--card-radius); background: var(--surface); box-shadow: 0 4px 16px rgba(0, 0, 0, .28); font-size: 12px; }
 .chart-tooltip b { display: block; margin-bottom: 6px; color: var(--muted); font-size: 11px; font-weight: 600; }
 .chart-tooltip span { display: grid; grid-template-columns: 9px 1fr auto; align-items: center; gap: 8px; padding: 2px 0; }
 .chart-tooltip i { width: 9px; height: 9px; border-radius: 50%; }
 .chart-tooltip strong { font-variant-numeric: tabular-nums; }
-.recharts-text { fill: #6a6a6a; font-size: 10px; }
+.recharts-text { fill: var(--axis); font-size: 10px; }
 /* Values wear the interface's ink; the mark beside them carries identity. */
-.chart-end-label { fill: var(--text); font-size: 11px; font-weight: 650; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
-.chart-end-growth { fill: var(--muted); font-size: 10px; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
+.chart-end-label { fill: var(--text); font-size: 11px; font-weight: 650; paint-order: stroke; stroke: var(--label-halo); stroke-width: 3px; stroke-linejoin: round; }
+.chart-end-growth { fill: var(--muted); font-size: 10px; paint-order: stroke; stroke: var(--label-halo); stroke-width: 3px; stroke-linejoin: round; }
 .recharts-default-tooltip { color: var(--text); }
 
 .dialog-backdrop, .manager-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(0, 0, 0, .32); }
-.evidence-dialog, .company-manager { width: min(100%, 760px); max-height: calc(100vh - 40px); overflow: auto; padding: 22px; border: 1px solid var(--border-strong); background: #fff; }
+.evidence-dialog, .company-manager { width: min(100%, 760px); max-height: calc(100vh - 40px); overflow: auto; padding: 22px; border: 1px solid var(--border-strong); border-radius: var(--card-radius); background: var(--surface); }
 .evidence-dialog dl { display: grid; gap: 0; border-top: 1px solid var(--border); }
 .evidence-dialog dl div { display: grid; grid-template-columns: 120px 1fr; padding: 9px 0; border-bottom: 1px solid var(--border); }
 .evidence-dialog dt { color: var(--muted); }
@@ -170,7 +206,7 @@ tbody tr:last-child > * { border-bottom: 0; }
 .selected-head { padding: 12px 0; }
 
 /* Existing DCF and secondary engines are retained, but presented as flat documents. */
-.panel { margin-bottom: 28px; padding: 18px 0; border-top: 1px solid var(--border); background: #fff; }
+.panel { margin-bottom: 28px; padding: 18px 0; border-top: 1px solid var(--border); }
 .panel-kicker, .eyebrow { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .button { display: inline-flex; align-items: center; gap: 6px; }
 .verified { color: var(--muted); font-size: 11px; }
@@ -298,3 +334,7 @@ tbody tr:last-child > * { border-bottom: 0; }
 .scatter-canvas { width: 100%; height: 420px; }
 .scatter-canvas .recharts-scatter-symbol { cursor: pointer; }
 @media (max-width: 850px) { .scatter-canvas { height: 340px; } }
+
+.theme-toggle { min-height: 26px; margin-left: 10px; padding: 2px 8px; border-color: var(--border); background: transparent; color: var(--muted); font-size: 12px; line-height: 1; }
+.theme-toggle:hover { color: var(--text); border-color: var(--border-strong); }
+.header-company { display: inline-flex; align-items: center; }

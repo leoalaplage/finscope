@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Area, Bar, Brush, CartesianGrid, ComposedChart, LabelList, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { createAutoChartPlan, familyLabel, formatChartValue, indexToHundred, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
-import { chartDomain, niceTicks } from "@/lib/charting";
+import { chartDomain, niceTicks, type ThemeName } from "@/lib/charting";
 import { derivedValue, safeDivide } from "@/lib/finance";
 import { recessionBands, snapToAxis, splitMarks } from "@/lib/chart-annotations";
 import { addMetric, applyPreset, CHART_PRESETS, setCompanies, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type ValueMode, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
@@ -71,7 +71,7 @@ function parseStoredCharts(ticker: string): WorkspaceChart[] {
   catch { return defaultCharts(ticker); }
 }
 
-export function ChartsWorkspace({ initialData, seed }: { initialData: CompanyDataset; seed?: { ticker?: string; metric?: string; nonce: number } }) {
+export function ChartsWorkspace({ initialData, seed, theme = "dark" }: { initialData: CompanyDataset; seed?: { ticker?: string; metric?: string; nonce: number }; theme?: ThemeName }) {
   const [datasets, setDatasets] = useState<Record<string, CompanyDataset>>({ [initialData.company.ticker]: initialData });
   const [companyErrors, setCompanyErrors] = useState<Record<string, string>>({});
   const [charts, setCharts] = useState<WorkspaceChart[]>(() => parseStoredCharts(initialData.company.ticker));
@@ -118,7 +118,7 @@ export function ChartsWorkspace({ initialData, seed }: { initialData: CompanyDat
   return <div className="charts-page">
     <header className="page-heading"><div><h1>Charts</h1><p>Pick companies and metrics. Each unit gets its own panel on a shared date axis. Frequency, series type, colors and scales are chosen from the metrics themselves — open <b>Series options</b> to override any of them, or to overlay two units on one plot area.</p></div><button onClick={addChart}>Add chart</button></header>
     <div className="workspace-charts">{charts.map((chart, index) => <ChartEditor
-      key={chart.id} chart={chart} datasets={datasets} companyErrors={companyErrors} fallbackTicker={initialData.company.ticker} onlyChart={charts.length === 1}
+      key={chart.id} chart={chart} datasets={datasets} companyErrors={companyErrors} fallbackTicker={initialData.company.ticker} onlyChart={charts.length === 1} theme={theme}
       onChange={(update) => updateChart(chart.id, update)} onRetryCompany={retryCompany}
       onDuplicate={() => { const id = newChartId(); setCharts((current) => [...current.slice(0, index + 1), duplicateChart(chart, id), ...current.slice(index + 1)]); }}
       onMove={(direction) => setCharts((current) => moveItem(current, index, direction))}
@@ -129,8 +129,8 @@ export function ChartsWorkspace({ initialData, seed }: { initialData: CompanyDat
   </div>;
 }
 
-function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart, onChange, onRetryCompany, onDuplicate, onMove, onRemove, canMoveUp, canMoveDown }: {
-  chart: WorkspaceChart; datasets: Record<string, CompanyDataset>; companyErrors: Record<string, string>; fallbackTicker: string; onlyChart: boolean;
+function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart, theme, onChange, onRetryCompany, onDuplicate, onMove, onRemove, canMoveUp, canMoveDown }: {
+  chart: WorkspaceChart; datasets: Record<string, CompanyDataset>; companyErrors: Record<string, string>; fallbackTicker: string; onlyChart: boolean; theme: ThemeName;
   onChange: (update: (chart: WorkspaceChart) => WorkspaceChart) => void; onRetryCompany: (ticker: string) => void; onDuplicate: () => void; onMove: (direction: -1 | 1) => void; onRemove: () => void; canMoveUp: boolean; canMoveDown: boolean;
 }) {
   const [bars, setBars] = useState<Record<string, MarketBar[]>>({});
@@ -148,7 +148,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
   }, [chart, datasets]);
 
   const plans = useMemo(() => {
-    const automatic = createAutoChartPlan(chart.series.map((series) => ({ id: series.uid, ticker: series.ticker, metric: series.metric, dataset: datasets[series.ticker], frequency: series.frequency })));
+    const automatic = createAutoChartPlan(chart.series.map((series) => ({ id: series.uid, ticker: series.ticker, metric: series.metric, dataset: datasets[series.ticker], frequency: series.frequency })), theme);
     // Assigning an axis by hand only means something inside one plot area, so
     // the first manual axis collapses the automatic panel split. Left and right
     // then refer to the two axes the reader can actually see.
@@ -164,7 +164,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
         : series.axis ?? (overlay && families.indexOf(plan.family) === 1 ? "right" as const : plan.axis);
       return { ...plan, style: (series.style ?? plan.type) as SeriesStyle, axis, color: series.color ?? plan.color, panel: overlay ? 0 : plan.panel };
     });
-  }, [chart.series, chart.values, chart.overlay, datasets]);
+  }, [chart.series, chart.values, chart.overlay, datasets, theme]);
 
   const marketKey = plans.filter((plan) => providerMarketFrequency(plan.frequency)).map((plan) => `${plan.ticker}:${plan.frequency}`).sort().join("|");
   useEffect(() => {
@@ -284,7 +284,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     image.onload = () => {
       const canvas = document.createElement("canvas"); canvas.width = width * ratio; canvas.height = height * ratio;
       const context = canvas.getContext("2d"); if (!context) return;
-      context.fillStyle = "#ffffff"; context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--card").trim() || "#ffffff"; context.fillRect(0, 0, canvas.width, canvas.height);
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
       canvas.toBlob((blob) => blob && downloadBlob(`${chart.id}.png`, blob), "image/png");
     };
@@ -484,10 +484,10 @@ function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, 
     {!single && <div className="chart-panel-label">{heading}</div>}
     <div className={`chart-canvas${compact ? " tiny" : single ? "" : " compact"}`}><ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={rows} syncId={chart.id} margin={{ top: 16, right: 16, bottom: 4, left: 4 }} barGap={2} barCategoryGap="18%">
-        {chart.showGrid && <CartesianGrid vertical={false} stroke="#ececec"/>}
+        {chart.showGrid && <CartesianGrid vertical={false} stroke="var(--chart-grid)"/>}
         {bands.map((band) => <ReferenceArea key={band.label} x1={band.start} x2={band.end} yAxisId={axes.find((axis) => axis.items.length)?.side ?? "left"} fill="#111" fillOpacity={.05} strokeOpacity={0} label={compact ? undefined : { value: band.label, position: "insideTop", fontSize: 10, fill: "#7a7a7a" }}/>)}
         {splits.map((mark) => <ReferenceLine key={`${mark.ticker}-${mark.date}`} x={mark.at} yAxisId={axes.find((axis) => axis.items.length)?.side ?? "left"} stroke="#9a9a9a" strokeDasharray="3 3" label={compact ? undefined : { value: mark.label, position: "insideTopLeft", fontSize: 10, fill: "#7a7a7a" }}/>)}
-        <XAxis dataKey="date" tickFormatter={tickDate} minTickGap={44} tickLine={false} axisLine={{ stroke: "#d8d8d8" }}/>
+        <XAxis dataKey="date" tickFormatter={tickDate} minTickGap={44} tickLine={false} axisLine={{ stroke: "var(--border)" }}/>
         {axes.map((axis) => <YAxis key={axis.side} yAxisId={axis.side} orientation={axis.side} hide={!axis.items.length} width={64} tickLine={false} axisLine={false} domain={axis.domain} ticks={axis.ticks} tickFormatter={(value) => formatChartValue(Number(value), axis.family, axis.currency)}/>)}
         {axes.filter((axis) => axis.items.length && axis.hasNegative).map((axis) => <ReferenceLine key={`${axis.side}-zero`} yAxisId={axis.side} y={0} stroke="#b4b4b4"/>)}
         {chart.values === "indexed" && axes.filter((axis) => axis.items.length).slice(0, 1).map((axis) => <ReferenceLine key="base" yAxisId={axis.side} y={100} stroke="#b4b4b4" strokeDasharray="4 4"/>)}
@@ -508,9 +508,9 @@ function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, 
             return <Bar key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} fill={bundle.plan.color} maxBarSize={34} radius={[4, 4, 0, 0]} isAnimationActive={false}/>;
           }
           if (bundle.plan.style === "area") {
-            return <Area key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} fill={bundle.plan.color} fillOpacity={.14} dot={dot} activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }} type="linear" connectNulls isAnimationActive={false}>{label}</Area>;
+            return <Area key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} fill={bundle.plan.color} fillOpacity={.14} dot={dot} activeDot={{ r: 5, strokeWidth: 2, stroke: "var(--card)" }} type="linear" connectNulls isAnimationActive={false}>{label}</Area>;
           }
-          return <Line key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} dot={dot} activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }} type="linear" connectNulls isAnimationActive={false}>{label}</Line>;
+          return <Line key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} dot={dot} activeDot={{ r: 5, strokeWidth: 2, stroke: "var(--card)" }} type="linear" connectNulls isAnimationActive={false}>{label}</Line>;
         })}
         {showBrush && <Brush dataKey="date" height={22} travellerWidth={8} stroke="#b4b4b4" tickFormatter={tickDate}/>}
       </ComposedChart>
