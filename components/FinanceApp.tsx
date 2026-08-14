@@ -7,6 +7,7 @@ import {
   PanelLeftClose, Search, Settings, ShieldCheck, Sun, Table2, TrendingDown,
   TrendingUp, Users, X, Activity, Target, CalendarDays,
   GitCompareArrows, LineChart, Database, Plus,
+  ClipboardCheck,
 } from "lucide-react";
 import { AdvancedChart, type ChartMode, type Unit } from "./AdvancedChart";
 import { CompanyManager } from "./CompanyManager";
@@ -15,6 +16,7 @@ import { DcfValuation } from "./DcfValuation";
 import { MultiStockComparison } from "./MultiStockComparison";
 import { ValuationAnalysis } from "./ValuationAnalysis";
 import { DataQuality } from "./DataQuality";
+import { FormulaDataAudit } from "./FormulaDataAudit";
 import { COMPANIES, findCompany } from "@/lib/company-registry";
 import {
   FORMULAS, cagrBetweenDates, cagrForPeriods, convertUnit, derivedValue,
@@ -23,7 +25,7 @@ import {
 import { GROWTH_METRICS, METRICS, VIEW_METRICS } from "@/lib/metrics";
 import type { CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, Periodicity } from "@/lib/types";
 
-type ViewKey = "overview" | "income" | "cashflow" | "margins" | "pershare" | "shares" | "growth" | "valuation" | "dcf" | "comparison" | "coverage" | "quality" | "sources" | "settings";
+type ViewKey = "overview" | "income" | "cashflow" | "margins" | "pershare" | "shares" | "growth" | "valuation" | "dcf" | "comparison" | "coverage" | "quality" | "audit" | "sources" | "settings";
 
 const NAV: Array<{ key: ViewKey; label: string; icon: typeof Home; section?: string }> = [
   { key: "overview", label: "Quality overview", icon: Home, section: "QUALITY ANALYSIS" },
@@ -38,6 +40,7 @@ const NAV: Array<{ key: ViewKey; label: string; icon: typeof Home; section?: str
   { key: "comparison", label: "Multi-Stock Comparison", icon: GitCompareArrows, section: "PORTFOLIO" },
   { key: "coverage", label: "Data coverage", icon: Database },
   { key: "quality", label: "Data Quality", icon: ShieldCheck },
+  { key: "audit", label: "Formula & Data Audit", icon: ClipboardCheck },
   { key: "sources", label: "Sources & methodology", icon: BookOpen, section: "SYSTEM" },
   { key: "settings", label: "Settings", icon: Settings },
 ];
@@ -148,13 +151,14 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
         <div className="content">
           {!periods.length && <div className="notice"><Info size={18}/><div><b>{periodicity.toUpperCase()} unavailable</b><p>{dataset.warnings.find((warning) => warning.includes("TTM")) ?? "The SEC dataset does not contain enough compatible standardized facts for this view."}</p></div></div>}
           {periods.length > 0 && view === "overview" && <Overview key={`overview-${chartMode}`} dataset={dataset} periods={periods} unit={unit} mode={chartMode} onView={navigate}/>}
-          {periods.length > 0 && (["income","cashflow","margins","pershare","shares"] as ViewKey[]).includes(view) && <StatementView view={view as keyof typeof VIEW_METRICS} periods={periods} unit={unit} mode={chartMode} currency={dataset.company.currency} periodicity={periodicity} ticker={dataset.company.ticker} company={dataset.company.name} onFact={setSelectedFact} onExport={(metrics) => exportCsv(metrics)} onCopy={() => notify("Visible table copied")}/>}
+          {periods.length > 0 && (["income","cashflow","margins","pershare","shares"] as ViewKey[]).includes(view) && <StatementView view={view as keyof typeof VIEW_METRICS} periods={periods} allPeriods={dataset.periods} unit={unit} mode={chartMode} currency={dataset.company.currency} periodicity={periodicity} ticker={dataset.company.ticker} company={dataset.company.name} onFact={setSelectedFact} onExport={(metrics) => exportCsv(metrics)} onCopy={() => notify("Visible table copied")}/>}
           {view === "growth" && <GrowthView annualPeriods={dataset.periods.filter((period) => period.periodicity === "annual").sort((a,b) => a.periodEnd.localeCompare(b.periodEnd))}/>}
           {view === "valuation" && <ValuationAnalysis key={`${dataset.company.ticker}-${latest.periodEnd}`} dataset={dataset}/>}
           {view === "dcf" && <DcfValuation key={dataset.company.ticker} dataset={dataset}/>}
           {view === "comparison" && <MultiStockComparison initialData={dataset}/>}
           {view === "coverage" && <CoverageMatrix initialData={dataset}/>}
           {view === "quality" && <DataQuality dataset={dataset} onRefresh={setDataset}/>}
+          {view === "audit" && <FormulaDataAudit dataset={dataset}/>}
           {view === "sources" && <SourcesView dataset={dataset}/>}
           {view === "settings" && <SettingsView dark={dark} setDark={setDark}/>}
         </div>
@@ -180,7 +184,7 @@ function Overview({ dataset, periods, unit, mode, onView }: { dataset: CompanyDa
     <section className="quality-hero"><div><span className="panel-kicker">QUALITY OVERVIEW</span><h2>Per-share compounding, cash quality and dilution discipline</h2><p>Totals are useful. Per-share outcomes reveal whether shareholders actually benefited.</p></div><button className="button secondary" onClick={() => onView("growth")}>Open CAGR matrix <ExternalLink size={14}/></button></section>
     <section className="metrics-grid"><MetricCard label="Free cash flow / share" value={fcfPerShare} delta={change(fcfPerShare, priorFcfPerShare)} currency={dataset.company.currency} accent="#c8f169" detail={periodName(latest)}/><MetricCard label="Free cash flow" value={fcf} delta={change(fcf, prior ? derivedValue(prior,"freeCashFlow") : null)} currency={dataset.company.currency} accent="#53d39c" detail={periodName(latest)}/><MetricCard label="Revenue / share" value={derivedValue(latest,"revenuePerShare")} delta={change(derivedValue(latest,"revenuePerShare"), prior ? derivedValue(prior,"revenuePerShare") : null)} currency={dataset.company.currency} accent="#67b7ff" detail={periodName(latest)}/><MetricCard label="Diluted shares" value={valueOf(latest,"dilutedShares")} delta={change(valueOf(latest,"dilutedShares"), prior ? valueOf(prior,"dilutedShares") : null)} currency="USD" accent="#a78bfa" detail="lower is better" kind="shares"/></section>
     <QualityOverview periods={dataset.periods.filter((period) => period.periodicity === "annual").sort((a,b) => a.periodEnd.localeCompare(b.periodEnd))}/>
-    <AdvancedChart periods={periods} metrics={effectiveModeMetrics} unit={unit} currency={dataset.company.currency} mode={mode} title="FCF compounding & shareholder impact" ticker={dataset.company.ticker} company={dataset.company.name}/>
+    <AdvancedChart periods={periods} allPeriods={dataset.periods} metrics={effectiveModeMetrics} unit={unit} currency={dataset.company.currency} mode={mode} title="FCF compounding & shareholder impact" ticker={dataset.company.ticker} company={dataset.company.name}/>
   </>;
 }
 
@@ -212,11 +216,11 @@ function metricsForMode(view: keyof typeof VIEW_METRICS, mode: ChartMode) {
   return [...VIEW_METRICS[view]];
 }
 
-function StatementView({ view, periods, unit, mode, currency, periodicity, ticker, company, onFact, onExport, onCopy }: { view: keyof typeof VIEW_METRICS; periods: FinancialPeriod[]; unit: Unit; mode: ChartMode; currency: string; periodicity: Periodicity; ticker: string; company: string; onFact: (fact: NormalizedFact) => void; onExport: (metrics: string[]) => void; onCopy: () => void }) {
+function StatementView({ view, periods, allPeriods, unit, mode, currency, periodicity, ticker, company, onFact, onExport, onCopy }: { view: keyof typeof VIEW_METRICS; periods: FinancialPeriod[]; allPeriods: FinancialPeriod[]; unit: Unit; mode: ChartMode; currency: string; periodicity: Periodicity; ticker: string; company: string; onFact: (fact: NormalizedFact) => void; onExport: (metrics: string[]) => void; onCopy: () => void }) {
   const metrics = metricsForMode(view, mode); const title = NAV.find((item) => item.key === view)?.label ?? view;
   async function copyTable() { const header = ["Metric",...periods.map(periodName)].join("\t"); const rows = metrics.map((metric) => [METRICS[metric].label,...periods.map((_,index) => metricValue(periods,index,metric) ?? "")].join("\t")); await navigator.clipboard.writeText([header,...rows].join("\n")); onCopy(); }
   const chartMetrics = view === "shares" ? ["dilutedShares","sharesOutstanding","shareRepurchases","stockBasedCompensation","shareIssuance"] : metrics.slice(0,5);
-  return <><section className="view-title"><div><span className="panel-kicker">{view === "shares" ? "CAPITAL ALLOCATION" : "AUDITABLE FINANCIALS"}</span><h2>{title}</h2><p>{periods.length} {periodicity} periods · reported, restated and calculated values remain distinguishable.</p></div><div className="view-actions"><button className="button secondary" onClick={copyTable}><Copy size={14}/> Copy</button><button className="button secondary" onClick={() => onExport(metrics)}><FileDown size={14}/> Export CSV</button></div></section>{view === "shares" && <DilutionStrip periods={periods}/>}<AdvancedChart key={`${view}-${mode}`} periods={periods} metrics={chartMetrics} unit={unit} currency={currency} mode={mode} title={`${title} trends`} ticker={ticker} company={company}/><section className="panel table-panel"><div className="panel-head"><div><span className="panel-kicker">FINANCIAL TABLE</span><h2>{title} history</h2></div><div className="status-legend"><span><i className="reported"/>Reported</span><span><i className="calculated"/>Calculated</span><span><i className="missing"/>Unavailable</span></div></div><FinancialTable periods={periods} metrics={metrics} unit={unit} currency={currency} onFact={onFact} mode={mode} showCagr={periodicity === "annual"}/></section></>;
+  return <><section className="view-title"><div><span className="panel-kicker">{view === "shares" ? "CAPITAL ALLOCATION" : "AUDITABLE FINANCIALS"}</span><h2>{title}</h2><p>{periods.length} {periodicity} periods · reported, restated and calculated values remain distinguishable.</p></div><div className="view-actions"><button className="button secondary" onClick={copyTable}><Copy size={14}/> Copy</button><button className="button secondary" onClick={() => onExport(metrics)}><FileDown size={14}/> Export CSV</button></div></section>{view === "shares" && <DilutionStrip periods={periods}/>}<AdvancedChart key={`${view}-${mode}`} periods={periods} allPeriods={allPeriods} metrics={chartMetrics} unit={unit} currency={currency} mode={mode} title={`${title} trends`} ticker={ticker} company={company}/><section className="panel table-panel"><div className="panel-head"><div><span className="panel-kicker">FINANCIAL TABLE</span><h2>{title} history</h2></div><div className="status-legend"><span><i className="reported"/>Reported</span><span><i className="calculated"/>Calculated</span><span><i className="missing"/>Unavailable</span></div></div><FinancialTable periods={periods} metrics={metrics} unit={unit} currency={currency} onFact={onFact} mode={mode} showCagr={periodicity === "annual"}/></section></>;
 }
 
 function DilutionStrip({ periods }: { periods: FinancialPeriod[] }) {

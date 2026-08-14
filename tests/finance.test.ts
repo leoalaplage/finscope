@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   annualizedDilution, cagr, convertUnit, dilutionRate, freeCashFlow, margin,
-  perShare, splitAdjustedShares, ttm, valuationMetrics, cagrForPeriods,
+  perShare, splitAdjustedShares, ttm, valuationMetrics, cagrForPeriods, derivedValue,
 } from "../lib/finance";
 import { APPLE_DATASET } from "../lib/demo-data";
 import type { FinancialPeriod } from "../lib/types";
@@ -24,6 +24,8 @@ describe("financial calculations", () => {
     expect(perShare(1_000, 100)).toBe(10);
     expect(perShare(1_000, null)).toBeNull();
   });
+
+  it("rejects incompatible per-share units or period contexts",()=>{const period:FinancialPeriod={label:"FY",fiscalYear:2025,periodEnd:"2025-12-31",periodicity:"annual",filingDate:"2026-02-01",accession:"x",currency:"USD",facts:{revenue:{metric:"revenue",value:100,currency:"USD",unit:"currency",periodEnd:"2025-12-31",periodicity:"annual",fiscalYear:2025,provenance:{provider:"SEC",sourceUrl:"x",retrievedAt:"x",concept:"revenue",status:"reported"}},dilutedShares:{metric:"dilutedShares",value:10,currency:"USD",unit:"shares",periodEnd:"2024-12-31",periodicity:"annual",fiscalYear:2025,provenance:{provider:"SEC",sourceUrl:"x",retrievedAt:"x",concept:"shares",status:"reported"}}}};expect(derivedValue(period,"revenuePerShare")).toBeNull();period.facts.dilutedShares!.periodEnd="2025-12-31";expect(derivedValue(period,"revenuePerShare")).toBe(10)});
 
   it("calculates dilution and annualized dilution", () => {
     expect(dilutionRate(110, 100)).toBeCloseTo(.1);

@@ -28,10 +28,13 @@ export interface DataQualityIssue {
 export type MetricKey =
   | "revenue"
   | "grossProfit"
+  | "costOfRevenue"
   | "operatingIncome"
   | "netIncome"
   | "operatingCashFlow"
   | "capitalExpenditures"
+  | "acquisitions"
+  | "dividendsPaid"
   | "freeCashFlow"
   | "dilutedShares"
   | "basicShares"
@@ -117,10 +120,27 @@ export interface CompanyDataset {
   warnings: string[];
   quality?: {
     issues: DataQualityIssue[];
+    invariants?: AccountingInvariantResult[];
     coverage: Array<{ periodicity: Periodicity; firstPeriod: string | null; lastPeriod: string | null; periodCount: number }>;
     stockSplits: Array<{ date: string; ratio: number }>;
     lastValidatedAt: string;
   };
+}
+
+export interface AccountingInvariantResult {
+  id: string;
+  ticker: string;
+  metric: string;
+  period: string;
+  invariant: string;
+  observed: number | null;
+  recalculated: number | null;
+  absoluteDifference: number | null;
+  relativeDifference: number | null;
+  sources: string[];
+  probableCause: string;
+  severity: "info" | "warning" | "error";
+  status: "passed" | "failed" | "not-applicable";
 }
 
 export interface PricePoint {
@@ -142,6 +162,23 @@ export interface PricePoint {
 }
 
 export type MarketFrequency = "daily" | "weekly" | "monthly" | "quarterly" | "annual";
+export type SeriesFrequency = "daily" | "weekly" | "monthly" | "market-quarterly" | "market-annual" | Periodicity;
+export type TimeAlignment = "fiscal-period" | "as-reported";
+export type MissingDataMode = "report-points" | "step-until-next-report";
+
+export interface SeriesObservation {
+  date: string;
+  value: number | null;
+  fiscalPeriodEnd?: string;
+  filingDate?: string;
+  frequency: SeriesFrequency;
+  currency: string;
+  unit: string;
+  source: string;
+  sourceUrl?: string;
+  status: ValidationStatus | FactStatus | "Market data";
+  rawObservation: true;
+}
 
 export interface MarketBar {
   date: string;

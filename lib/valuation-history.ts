@@ -1,24 +1,26 @@
 import { derivedValue, safeDivide, valueOf } from "./finance";
-import type { FinancialPeriod, PricePoint } from "./types";
+import { runMarketInvariants } from "./accounting-invariants";
+import type { AccountingInvariantResult, FinancialPeriod, PricePoint } from "./types";
 
-export type ValuationMetric = "priceToEarnings"|"priceToSales"|"priceToFreeCashFlow"|"priceToOperatingCashFlow"|"enterpriseToSales"|"enterpriseToEbit"|"enterpriseToEbitda"|"enterpriseToFreeCashFlow"|"earningsYield"|"freeCashFlowYield"|"operatingCashFlowYield"|"buybackYield";
+export type ValuationMetric = "priceToEarnings"|"priceToSales"|"priceToFreeCashFlow"|"priceToOperatingCashFlow"|"enterpriseToSales"|"enterpriseToEbit"|"enterpriseToEbitda"|"enterpriseToFreeCashFlow"|"earningsYield"|"freeCashFlowYield"|"operatingCashFlowYield"|"buybackYield"|"shareholderYield";
 export const VALUATION_DEFINITIONS:Record<ValuationMetric,{label:string;short:string;yield:boolean}>={
   priceToEarnings:{label:"Price / Earnings",short:"P/E",yield:false}, priceToSales:{label:"Price / Sales",short:"P/S",yield:false},
   priceToFreeCashFlow:{label:"Price / Free cash flow",short:"P/FCF",yield:false}, priceToOperatingCashFlow:{label:"Price / Operating cash flow",short:"P/OCF",yield:false},
   enterpriseToSales:{label:"Enterprise value / Sales",short:"EV/Sales",yield:false}, enterpriseToEbit:{label:"Enterprise value / EBIT",short:"EV/EBIT",yield:false},
   enterpriseToEbitda:{label:"Enterprise value / EBITDA",short:"EV/EBITDA",yield:false}, enterpriseToFreeCashFlow:{label:"Enterprise value / FCF",short:"EV/FCF",yield:false},
   earningsYield:{label:"Earnings yield",short:"Earnings yield",yield:true}, freeCashFlowYield:{label:"Free cash flow yield",short:"FCF yield",yield:true},
-  operatingCashFlowYield:{label:"Operating cash flow yield",short:"OCF yield",yield:true}, buybackYield:{label:"Net buyback yield",short:"Buyback yield",yield:true},
+  operatingCashFlowYield:{label:"Operating cash flow yield",short:"OCF yield",yield:true}, buybackYield:{label:"Net buyback yield",short:"Buyback yield",yield:true}, shareholderYield:{label:"Shareholder yield",short:"Shareholder yield",yield:true},
 };
-export interface ValuationSnapshot { date:string; filingDate:string; periodEnd:string; price:number; shares:number; marketCap:number; enterpriseValue:number; metrics:Record<ValuationMetric,number|null> }
+export interface ValuationSnapshot { date:string; filingDate:string; periodEnd:string; price:number; shares:number; marketCap:number; enterpriseValue:number; metrics:Record<ValuationMetric,number|null>; invariants:AccountingInvariantResult[] }
 
 function positiveMultiple(numerator:number|null,denominator:number|null){return numerator!=null&&denominator!=null&&numerator>0&&denominator>0?numerator/denominator:null}
 export function valuationSnapshot(period:FinancialPeriod,point:PricePoint):ValuationSnapshot|null{
-  const shares=derivedValue(period,"dilutedShares")??derivedValue(period,"sharesOutstanding"); const price=point.priceClose??point.close;
+  const shares=derivedValue(period,"sharesOutstanding")??derivedValue(period,"dilutedShares"); const price=point.priceClose??point.close;
   if(shares==null||shares<=0||price<=0)return null;const marketCap=price*shares;const debt=valueOf(period,"totalDebt")??0;const cash=valueOf(period,"cashAndEquivalents")??0;const enterpriseValue=marketCap+debt-cash;
   const revenue=derivedValue(period,"revenue");const earnings=derivedValue(period,"netIncome");const ocf=derivedValue(period,"operatingCashFlow");const fcf=derivedValue(period,"freeCashFlow");const ebit=derivedValue(period,"operatingIncome");const da=derivedValue(period,"depreciationAndAmortization");const ebitda=ebit!=null&&da!=null?ebit+da:null;const buybacks=derivedValue(period,"netShareRepurchases");
-  const metrics:Record<ValuationMetric,number|null>={priceToEarnings:positiveMultiple(marketCap,earnings),priceToSales:positiveMultiple(marketCap,revenue),priceToFreeCashFlow:positiveMultiple(marketCap,fcf),priceToOperatingCashFlow:positiveMultiple(marketCap,ocf),enterpriseToSales:positiveMultiple(enterpriseValue,revenue),enterpriseToEbit:positiveMultiple(enterpriseValue,ebit),enterpriseToEbitda:positiveMultiple(enterpriseValue,ebitda),enterpriseToFreeCashFlow:positiveMultiple(enterpriseValue,fcf),earningsYield:earnings!=null&&earnings>0?safeDivide(earnings,marketCap):null,freeCashFlowYield:fcf!=null&&fcf>0?safeDivide(fcf,marketCap):null,operatingCashFlowYield:ocf!=null&&ocf>0?safeDivide(ocf,marketCap):null,buybackYield:buybacks!=null?safeDivide(buybacks,marketCap):null};
-  return {date:point.date,filingDate:period.filingDate,periodEnd:period.periodEnd,price,shares,marketCap,enterpriseValue,metrics};
+  const dividends=derivedValue(period,"dividendsPaid");const metrics:Record<ValuationMetric,number|null>={priceToEarnings:positiveMultiple(marketCap,earnings),priceToSales:positiveMultiple(marketCap,revenue),priceToFreeCashFlow:positiveMultiple(marketCap,fcf),priceToOperatingCashFlow:positiveMultiple(marketCap,ocf),enterpriseToSales:positiveMultiple(enterpriseValue,revenue),enterpriseToEbit:positiveMultiple(enterpriseValue,ebit),enterpriseToEbitda:positiveMultiple(enterpriseValue,ebitda),enterpriseToFreeCashFlow:positiveMultiple(enterpriseValue,fcf),earningsYield:earnings!=null&&earnings>0?safeDivide(earnings,marketCap):null,freeCashFlowYield:fcf!=null&&fcf>0?safeDivide(fcf,marketCap):null,operatingCashFlowYield:ocf!=null&&ocf>0?safeDivide(ocf,marketCap):null,buybackYield:buybacks!=null?safeDivide(buybacks,marketCap):null,shareholderYield:buybacks!=null||dividends!=null?safeDivide((buybacks??0)+(dividends??0),marketCap):null};
+  const fundamentalSources=Object.values(period.facts).flatMap((fact)=>fact?.provenance.sourceUrl?[fact.provenance.sourceUrl]:[]);const invariants=runMarketInvariants({ticker:point.ticker,date:point.date,price,shares,marketCap,debt,cash,otherAdjustments:0,enterpriseValue,freeCashFlow:fcf,priceToFreeCashFlow:metrics.priceToFreeCashFlow,freeCashFlowYield:metrics.freeCashFlowYield,priceToEarnings:metrics.priceToEarnings,earningsYield:metrics.earningsYield,priceSource:point.sourceUrl,fundamentalSources});
+  return {date:point.date,filingDate:period.filingDate,periodEnd:period.periodEnd,price,shares,marketCap,enterpriseValue,metrics,invariants};
 }
 export function buildValuationHistory(periods:FinancialPeriod[],points:Record<string,PricePoint|null>){
   return periods.filter((period)=>period.periodicity==="ttm").sort((a,b)=>a.filingDate.localeCompare(b.filingDate)).flatMap((period)=>{

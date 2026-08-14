@@ -1,4 +1,5 @@
 import { derivedValue } from "./finance";
+import { runDatasetInvariants } from "./accounting-invariants";
 import type { CompanyDataset, DataQualityIssue, FinancialPeriod, MetricKey, NormalizedFact, Periodicity, ValidationInfo, ValidationStatus } from "./types";
 
 export const METRIC_DEPENDENCIES: Record<string, MetricKey[]> = {
@@ -44,7 +45,8 @@ export function validatedDerivedValue(period: FinancialPeriod, metric: string, m
 
 function issueForFact(ticker: string, period: FinancialPeriod, metric: string, fact: NormalizedFact): DataQualityIssue | null {
   const validation = fact.validation;
-  if (!validation || ["Verified", "Calculated and verified", "Restated"].includes(validation.status)) return null;
+  const normalizationChanged = validation?.rawValue != null && validation.normalizedValue != null && validation.rawValue !== validation.normalizedValue;
+  if (!validation || (["Verified", "Calculated and verified", "Restated"].includes(validation.status) && !normalizationChanged)) return null;
   return {
     id: `${ticker}-${period.periodicity}-${period.periodEnd}-${metric}`, ticker, metric, period: period.periodEnd,
     rawValue: validation.rawValue ?? fact.value, normalizedValue: validation.normalizedValue ?? fact.value, status: validation.status,
@@ -75,5 +77,6 @@ export function validateCompanyDataset(dataset: CompanyDataset): CompanyDataset 
   }
   const issues = periods.flatMap((period) => Object.entries(period.facts).map(([metric, fact]) => fact ? issueForFact(dataset.company.ticker, period, metric, fact) : null).filter((issue): issue is DataQualityIssue => issue !== null));
   const coverage = (["annual", "quarterly", "ttm"] as Periodicity[]).map((periodicity) => { const items = periods.filter((period) => period.periodicity === periodicity).sort((a,b)=>a.periodEnd.localeCompare(b.periodEnd)); return { periodicity, firstPeriod: items[0]?.periodEnd ?? null, lastPeriod: items.at(-1)?.periodEnd ?? null, periodCount: items.length }; });
-  return { ...dataset, periods, quality: { issues, coverage, stockSplits: dataset.company.stockSplits ?? [], lastValidatedAt: checkedAt } };
+  const normalizedDataset={...dataset,periods};
+  return { ...normalizedDataset, quality: { issues, invariants:runDatasetInvariants(normalizedDataset), coverage, stockSplits: dataset.company.stockSplits ?? [], lastValidatedAt: checkedAt } };
 }

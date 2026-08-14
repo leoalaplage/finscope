@@ -6,10 +6,13 @@ export interface MetricDefinition { label: string; short: string; color: string;
 export const METRICS: Record<string, MetricDefinition> = {
   revenue: { label: "Revenue", short: "Revenue", color: "#53d39c", kind: "currency" },
   grossProfit: { label: "Gross profit", short: "Gross profit", color: "#67b7ff", kind: "currency" },
+  costOfRevenue: { label: "Cost of revenue", short: "Cost of revenue", color: "#94a3b8", kind: "currency" },
   operatingIncome: { label: "Operating income", short: "Operating income", color: "#a78bfa", kind: "currency" },
   netIncome: { label: "Net income", short: "Net income", color: "#f4bc56", kind: "currency" },
   operatingCashFlow: { label: "Operating cash flow", short: "Operating CF", color: "#48cbd4", kind: "currency" },
   capitalExpenditures: { label: "Capital expenditures", short: "Capex", color: "#f9737f", kind: "currency" },
+  acquisitions: { label: "Acquisitions", short: "Acquisitions", color: "#fb7185", kind: "currency" },
+  dividendsPaid: { label: "Dividends paid", short: "Dividends", color: "#f59e0b", kind: "currency" },
   freeCashFlow: { label: "Free cash flow", short: "Free cash flow", color: "#c8f169", kind: "currency", formula: FORMULAS.freeCashFlow },
   grossMargin: { label: "Gross margin", short: "Gross margin", color: "#67b7ff", kind: "percent", formula: FORMULAS.grossMargin },
   operatingMargin: { label: "Operating margin", short: "Operating margin", color: "#a78bfa", kind: "percent", formula: FORMULAS.operatingMargin },
@@ -66,7 +69,7 @@ export const METRICS: Record<string, MetricDefinition> = {
 
 export const VIEW_METRICS = {
   income: ["revenue", "grossProfit", "operatingIncome", "netIncome"],
-  cashflow: ["operatingCashFlow", "capitalExpenditures", "freeCashFlow", "stockBasedCompensation", "shareRepurchases", "shareIssuance", "netShareRepurchases"],
+  cashflow: ["operatingCashFlow", "capitalExpenditures", "freeCashFlow", "acquisitions", "stockBasedCompensation", "shareRepurchases", "shareIssuance", "dividendsPaid", "netShareRepurchases"],
   margins: ["grossMargin", "operatingMargin", "netMargin", "operatingCashFlowMargin", "freeCashFlowMargin", "cashConversion"],
   pershare: ["revenuePerShare", "grossProfitPerShare", "operatingIncomePerShare", "netIncomePerShare", "operatingCashFlowPerShare", "freeCashFlowPerShare"],
   shares: ["dilutedShares", "basicShares", "sharesOutstanding", "sharesIssued", "treasuryShares", "shareCountAbsoluteChange", "shareCountChange", "cumulativeDilution", "shareRepurchases", "stockBasedCompensation", "shareIssuance", "netShareRepurchases", "stockBasedCompensationToRevenue", "stockBasedCompensationToFcf"],

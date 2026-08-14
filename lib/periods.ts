@@ -1,8 +1,9 @@
 import type { FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "./types";
 
 export const FLOW_METRICS: MetricKey[] = [
-  "revenue", "grossProfit", "operatingIncome", "netIncome", "operatingCashFlow",
+  "revenue", "grossProfit", "costOfRevenue", "operatingIncome", "netIncome", "operatingCashFlow",
   "capitalExpenditures", "stockBasedCompensation", "shareRepurchases", "shareIssuance",
+  "acquisitions", "dividendsPaid",
   "incomeBeforeTax", "incomeTaxExpense", "depreciationAndAmortization",
 ];
 export const WEIGHTED_SHARE_METRICS: MetricKey[] = ["basicShares", "dilutedShares"];
@@ -94,25 +95,29 @@ export function adjustPeriodsForSplits(periods: FinancialPeriod[], splits: Array
   });
 }
 
+const POSITIVE_OUTFLOW_METRICS = new Set<MetricKey>(["capitalExpenditures","acquisitions","shareRepurchases","dividendsPaid"]);
+export function normalizeFinancialSign(metric: MetricKey, value: number) { return POSITIVE_OUTFLOW_METRICS.has(metric) ? Math.abs(value) : value; }
+
 function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", fiscalQuarter?: "Q1" | "Q2" | "Q3" | "Q4"): NormalizedFact {
+  const value = normalizeFinancialSign(raw.metric, raw.value); const signChanged = value !== raw.value;
   return {
-    metric: raw.metric, value: raw.value, currency: raw.currency, unit: raw.unit,
+    metric: raw.metric, value, currency: raw.currency, unit: raw.unit,
     periodStart: raw.start, periodEnd: raw.end, periodicity, fiscalYear: raw.fiscalYear, fiscalQuarter,
     provenance: {
       provider: "SEC", sourceUrl: raw.sourceUrl, accession: raw.accession, filingDate: raw.filed,
       retrievedAt: raw.retrievedAt, concept: raw.concept, status: raw.restated ? "restated" : "reported",
-      note: raw.normalizationNote ?? (raw.restated ? "Latest filing selected for a duplicated SEC context with a changed value." : "Directly reported standardized XBRL fact."),
+      note: raw.normalizationNote ?? (signChanged ? "Raw cash outflow sign normalized to the FinScope positive-outflow convention; raw value retained." : raw.restated ? "Latest filing selected for a duplicated SEC context with a changed value." : "Directly reported standardized XBRL fact."),
     },
-    validation: raw.sourceConflictValues ? {
-      status: "Source conflict", reason: raw.normalizationNote, rawValue: raw.sourceConflictValues.find((value)=>value!==raw.value) ?? raw.value,
-      normalizedValue: raw.value, correction: "Corroborated SEC magnitude selected; conflicting raw observations remain recorded in the quality audit.", checkedAt: raw.retrievedAt,
+    validation: raw.sourceConflictValues || signChanged ? {
+      status: raw.sourceConflictValues ? "Source conflict" : "Calculated and verified", reason: raw.normalizationNote ?? (signChanged ? "Provider outflow sign normalized." : undefined), rawValue: raw.sourceConflictValues?.find((item)=>item!==raw.value) ?? raw.value,
+      normalizedValue: value, correction: signChanged ? "Normalized once to a positive cash-outflow convention." : "Corroborated SEC magnitude selected; conflicting raw observations remain recorded in the quality audit.", checkedAt: raw.retrievedAt,
     } : undefined,
   };
 }
 
 function calculated(metric: MetricKey, value: number, current: RawFinancialFact, prior: RawFinancialFact, formula: string, quarter: "Q1" | "Q2" | "Q3" | "Q4", start: string): NormalizedFact {
   return {
-    metric, value, currency: current.currency, unit: current.unit, periodStart: start,
+    metric, value: normalizeFinancialSign(metric,value), currency: current.currency, unit: current.unit, periodStart: start,
     periodEnd: current.end, periodicity: "quarterly", fiscalYear: current.fiscalYear, fiscalQuarter: quarter,
     provenance: {
       provider: "Calculated", sourceUrl: current.sourceUrl, accession: current.accession, filingDate: current.filed,
@@ -169,7 +174,7 @@ function quarterFact(facts: RawFinancialFact[], metric: MetricKey, fy: number, q
           ? (current.value * totalDays - directQuarters.reduce((sum, fact) => sum + fact.value * daysBetween(fact.start, fact.end), 0)) / isolatedDays
           : current.value - directQuarters.reduce((sum, fact) => sum + fact.value, 0);
         const start = new Date(Date.parse(directQuarters[2].end) + 86_400_000).toISOString().slice(0,10);
-        return { metric, value, currency: current.currency, unit: current.unit, periodStart:start, periodEnd:current.end, periodicity:"quarterly", fiscalYear:fy, fiscalQuarter:"Q4", provenance:{provider:"Calculated",sourceUrl:current.sourceUrl,accession:current.accession,filingDate:current.filed,retrievedAt:current.retrievedAt,concept:current.concept,status:"calculated",formula:WEIGHTED_SHARE_METRICS.includes(metric)?"Q4 weighted shares = (annual weighted shares × annual days − Σ(Q1–Q3 weighted shares × quarter days)) / Q4 days":"Q4 = annual − Q1 − Q2 − Q3",sourceAccessions:[...new Set([current.accession,...directQuarters.map((fact)=>fact.accession)])],note:"Q4 isolated from the annual fact and three direct fiscal quarters; no value was imputed."} };
+        return { metric, value:normalizeFinancialSign(metric,value), currency: current.currency, unit: current.unit, periodStart:start, periodEnd:current.end, periodicity:"quarterly", fiscalYear:fy, fiscalQuarter:"Q4", provenance:{provider:"Calculated",sourceUrl:current.sourceUrl,accession:current.accession,filingDate:current.filed,retrievedAt:current.retrievedAt,concept:current.concept,status:"calculated",formula:WEIGHTED_SHARE_METRICS.includes(metric)?"Q4 weighted shares = (annual weighted shares × annual days − Σ(Q1–Q3 weighted shares × quarter days)) / Q4 days":"Q4 = annual − Q1 − Q2 − Q3",sourceAccessions:[...new Set([current.accession,...directQuarters.map((fact)=>fact.accession)])],note:"Q4 isolated from the annual fact and three direct fiscal quarters; no value was imputed; cash outflows use positive normalized magnitudes."} };
       }
     }
   }

@@ -31,6 +31,8 @@ export function safeDivide(numerator: number | null | undefined, denominator: nu
 
 export function freeCashFlow(operatingCashFlow: number | null, capex: number | null) {
   if (operatingCashFlow == null || capex == null) return null;
+  // Normalized data stores cash outflows as positive magnitudes. Math.abs keeps
+  // this helper safe for raw provider fixtures without applying the sign twice.
   return operatingCashFlow - Math.abs(capex);
 }
 
@@ -115,7 +117,10 @@ export function valueOf(period: FinancialPeriod, key: MetricKey) {
 export function derivedValue(period: FinancialPeriod, key: string): number | null {
   const revenue = valueOf(period, "revenue");
   const diluted = valueOf(period, "dilutedShares");
-  const fcf = freeCashFlow(valueOf(period, "operatingCashFlow"), valueOf(period, "capitalExpenditures"));
+  const compatibleCurrencyFacts = (keys: MetricKey[]) => keys.map((metric) => period.facts[metric]).every((fact) => fact?.unit === "currency" && fact.currency === period.currency && fact.periodEnd === period.periodEnd);
+  const compatibleShares = period.facts.dilutedShares?.unit === "shares" && period.facts.dilutedShares.currency === period.currency && period.facts.dilutedShares.periodEnd === period.periodEnd;
+  const fcf = compatibleCurrencyFacts(["operatingCashFlow","capitalExpenditures"]) ? freeCashFlow(valueOf(period, "operatingCashFlow"), valueOf(period, "capitalExpenditures")) : null;
+  const compatiblePerShare = (total: number | null, dependencies: MetricKey[]) => compatibleShares && compatibleCurrencyFacts(dependencies) ? perShare(total,diluted) : null;
   const map: Record<string, number | null> = {
     freeCashFlow: fcf,
     grossMargin: margin(valueOf(period, "grossProfit"), revenue),
@@ -123,12 +128,12 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     netMargin: margin(valueOf(period, "netIncome"), revenue),
     operatingCashFlowMargin: margin(valueOf(period, "operatingCashFlow"), revenue),
     freeCashFlowMargin: margin(fcf, revenue),
-    revenuePerShare: perShare(revenue, diluted),
-    grossProfitPerShare: perShare(valueOf(period, "grossProfit"), diluted),
-    operatingIncomePerShare: perShare(valueOf(period, "operatingIncome"), diluted),
-    netIncomePerShare: perShare(valueOf(period, "netIncome"), diluted),
-    operatingCashFlowPerShare: perShare(valueOf(period, "operatingCashFlow"), diluted),
-    freeCashFlowPerShare: perShare(fcf, diluted),
+    revenuePerShare: compatiblePerShare(revenue,["revenue"]),
+    grossProfitPerShare: compatiblePerShare(valueOf(period, "grossProfit"),["grossProfit"]),
+    operatingIncomePerShare: compatiblePerShare(valueOf(period, "operatingIncome"),["operatingIncome"]),
+    netIncomePerShare: compatiblePerShare(valueOf(period, "netIncome"),["netIncome"]),
+    operatingCashFlowPerShare: compatiblePerShare(valueOf(period, "operatingCashFlow"),["operatingCashFlow"]),
+    freeCashFlowPerShare: compatiblePerShare(fcf,["operatingCashFlow","capitalExpenditures"]),
     stockBasedCompensationToRevenue: safeDivide(valueOf(period, "stockBasedCompensation"), revenue),
     stockBasedCompensationToFcf: safeDivide(valueOf(period, "stockBasedCompensation"), fcf),
     cashConversion: safeDivide(fcf, valueOf(period, "netIncome")),
@@ -145,18 +150,19 @@ export function ttmFact(facts: NormalizedFact[]): number | null {
 }
 
 export function valuationMetrics(period: FinancialPeriod, price: PricePoint | null) {
-  const dilutedShares = valueOf(period, "dilutedShares");
-  if (!price || dilutedShares == null) return null;
-  const marketCap = price.close * dilutedShares;
+  const marketShares = valueOf(period, "sharesOutstanding") ?? valueOf(period, "dilutedShares");
+  if (!price || marketShares == null) return null;
+  const marketCap = (price.priceClose ?? price.close) * marketShares;
   const fcf = freeCashFlow(valueOf(period, "operatingCashFlow"), valueOf(period, "capitalExpenditures"));
+  const positiveMultiple=(denominator:number|null)=>denominator!=null&&denominator>0?marketCap/denominator:null;
   return {
     marketCap,
-    priceToSales: safeDivide(marketCap, valueOf(period, "revenue")),
-    priceToEarnings: safeDivide(marketCap, valueOf(period, "netIncome")),
-    priceToOperatingCashFlow: safeDivide(marketCap, valueOf(period, "operatingCashFlow")),
-    priceToFreeCashFlow: safeDivide(marketCap, fcf),
-    freeCashFlowYield: safeDivide(fcf, marketCap),
-    operatingCashFlowYield: safeDivide(valueOf(period, "operatingCashFlow"), marketCap),
+    priceToSales: positiveMultiple(valueOf(period, "revenue")),
+    priceToEarnings: positiveMultiple(valueOf(period, "netIncome")),
+    priceToOperatingCashFlow: positiveMultiple(valueOf(period, "operatingCashFlow")),
+    priceToFreeCashFlow: positiveMultiple(fcf),
+    freeCashFlowYield: fcf!=null&&fcf>0?safeDivide(fcf, marketCap):null,
+    operatingCashFlowYield: (valueOf(period,"operatingCashFlow")??0)>0?safeDivide(valueOf(period, "operatingCashFlow"), marketCap):null,
     buybackYield: safeDivide(valueOf(period, "shareRepurchases"), marketCap),
     netBuybackYield: safeDivide(valueOf(period, "netShareRepurchases"), marketCap),
   };
