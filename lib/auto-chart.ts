@@ -151,6 +151,32 @@ export function indexToHundred(observations: SeriesObservation[]): SeriesObserva
   return observations.map((item) => ({ ...item, value: item.value == null ? null : item.value / base * 100, unit: "indexed" }));
 }
 
+/**
+ * Rebases to zero: each point as its percentage change from the first drawn one.
+ *
+ * The same information as indexing to a hundred, read the way the question is
+ * asked. "Up 240 percent" is the answer; "340" is that answer with an addition
+ * left for the reader to do.
+ */
+export function indexToZero(observations: SeriesObservation[]): SeriesObservation[] {
+  const base = observations.find((item) => item.value != null && Number.isFinite(item.value))?.value;
+  if (base == null || base <= 0) return [];
+  return observations.map((item) => ({ ...item, value: item.value == null ? null : item.value / base - 1, unit: "percent" }));
+}
+
+/**
+ * Step-to-step change, which shows acceleration where a level shows only size.
+ * The first point has nothing to compare against and is left empty rather than
+ * reported as flat.
+ */
+export function periodChange(observations: SeriesObservation[]): SeriesObservation[] {
+  return observations.map((item, index) => {
+    const previous = index ? observations[index - 1].value : null;
+    const value = index && item.value != null && previous != null && previous !== 0 ? item.value / previous - 1 : null;
+    return { ...item, value, unit: "percent" };
+  });
+}
+
 const FAMILY_LABEL: Record<UnitFamily, string> = {
   currency: "Currency", perShare: "Per share", price: "Share price", percent: "Percent", shares: "Share count", ratio: "Ratio", indexed: "Indexed to 100",
 };
@@ -173,7 +199,14 @@ export function familyLabel(family: UnitFamily) { return FAMILY_LABEL[family] ??
 export function formatChartValue(value: number | null | undefined, family: UnitFamily, currency = "USD", precise = false): string {
   if (value == null || !Number.isFinite(value)) return "N/M";
   const decimals = precise ? 2 : 1;
-  if (family === "percent") return `${(value * 100).toFixed(decimals)}%`;
+  if (family === "percent") {
+    // A decimal is meaningful on a margin and noise past a hundred percent. The
+    // cut is at the same place for every value so one axis cannot mix -200.0%
+    // with 1000%, which reads as two different precisions on one scale.
+    const scaled = value * 100;
+    const places = Math.abs(scaled) >= 100 ? (precise ? 1 : 0) : decimals;
+    return `${scaled.toFixed(places)}%`;
+  }
   // Ticks are round by construction, so a forced decimal only adds noise.
   if (family === "ratio") return `${Number(value.toFixed(decimals))}×`;
   if (family === "indexed") return value.toFixed(precise ? 1 : 0);

@@ -117,9 +117,11 @@ export function niceTicks(minimum: number, maximum: number, count = 5): number[]
     const start = Math.floor(minimum / step) * step;
     const end = Math.ceil(maximum / step) * step;
     const steps = Math.round((end - start) / step);
-    // Three to six intervals: fewer leaves the axis unreadable, more turns it
-    // into a ruler. Waste is only worth minimising within that range.
-    if (steps < 3 || steps > 6) continue;
+    // Three to eight intervals: fewer leaves the axis unreadable, more turns it
+    // into a ruler. Waste is only worth minimising within that range, and the
+    // wider ceiling matters when a series dips just below its base — a coarse
+    // step would spend a whole interval on an excursion of half a percent.
+    if (steps < 3 || steps > 8) continue;
     const waste = (end - maximum) + (minimum - start);
     const distance = Math.abs(steps + 1 - count);
     if (best && (waste > best.waste + Number.EPSILON || (Math.abs(waste - best.waste) <= Number.EPSILON && distance >= best.distance))) continue;

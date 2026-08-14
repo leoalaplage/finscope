@@ -38,8 +38,9 @@ describe("readable axis bounds", () => {
     // The old bound was max x 1.08, so an axis over nine dollars of cash flow
     // per share read $0, $3, $6, $9, $9.99.
     expect(chartDomain([1, 9.25], "zero").domain).toEqual([0, 10]);
-    // Covers the data with the least wasted space, not the roundest big number.
-    expect(chartDomain([10, 314], "zero").domain).toEqual([0, 400]);
+    // Covers the data with the least wasted space, not the roundest big number:
+    // 350 in steps of 50 wastes less than 400 in steps of 100.
+    expect(chartDomain([10, 314], "zero").domain).toEqual([0, 350]);
     expect(chartDomain([0.02, 0.293], "zero").domain[1]).toBe(0.3);
   });
 
@@ -67,7 +68,7 @@ describe("evenly spaced ticks", () => {
     for (const [low, high] of [[0, 9.25], [0, 314], [0, 0.293], [0, 466_823_000_000]]) {
       const ticks = niceTicks(low, high);
       expect(ticks.length).toBeGreaterThanOrEqual(4);
-      expect(ticks.length).toBeLessThanOrEqual(7);
+      expect(ticks.length).toBeLessThanOrEqual(9);
       expect(ticks.at(-1)).toBeGreaterThanOrEqual(high);
     }
   });
@@ -90,5 +91,18 @@ describe("ratio labels", () => {
     expect(formatChartValue(10, "ratio")).toBe("10×");
     expect(formatChartValue(38.8, "ratio")).toBe("38.8×");
     expect(formatChartValue(0, "ratio")).toBe("0×");
+  });
+});
+
+describe("percentage labels", () => {
+  it("drops decimals a rebased series does not need", () => {
+    expect(formatChartValue(0.293, "percent")).toBe("29.3%");
+    expect(formatChartValue(1.5, "percent")).toBe("150%");
+    expect(formatChartValue(62.354, "percent")).toBe("6235%");
+    expect(formatChartValue(-20, "percent")).toBe("-2000%");
+    // One axis must not mix precisions.
+    for (const value of [-2, 2, 6, 10, 14]) expect(formatChartValue(value, "percent")).not.toMatch(/\./);
+    // The tooltip may be finer than the axis.
+    expect(formatChartValue(11.234, "percent", "USD", true)).toBe("1123.4%");
   });
 });

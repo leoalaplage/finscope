@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Area, Bar, Brush, CartesianGrid, ComposedChart, LabelList, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { createAutoChartPlan, familyLabel, formatChartValue, indexToHundred, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
+import { createAutoChartPlan, familyLabel, formatChartValue, indexToZero, periodChange, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
 import { chartDomain, niceTicks, type ThemeName } from "@/lib/charting";
 import { derivedValue, safeDivide } from "@/lib/finance";
 import { recessionBands, snapToAxis, splitMarks } from "@/lib/chart-annotations";
-import { addMetric, applyPreset, CHART_PRESETS, setCompanies, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type ValueMode, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
+import { addCompany, addMetric, applyPreset, CHART_PRESETS, removeCompany, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
-import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservations, marketObservations, providerMarketFrequency } from "@/lib/mixed-series";
+import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservations, marketObservations, providerMarketFrequency, MARKET_SERIES_METRICS } from "@/lib/mixed-series";
 import { CHART_METRIC_GROUPS as METRIC_GROUPS, METRICS, VALUATION_METRICS } from "@/lib/metrics";
 import { analyzeVisibleSeries } from "@/lib/series-analysis";
 import type { CompanyDataset, MarketBar, PricePoint, SeriesFrequency, SeriesObservation } from "@/lib/types";
@@ -149,23 +149,26 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
   }, [chart, datasets]);
 
   const plans = useMemo(() => {
-    const automatic = createAutoChartPlan(chart.series.map((series) => ({ id: series.uid, ticker: series.ticker, metric: series.metric, dataset: datasets[series.ticker], frequency: series.frequency })), theme);
+    const automatic = createAutoChartPlan(chart.series.map((series) => ({ id: series.uid, ticker: series.ticker, metric: series.metric, dataset: datasets[series.ticker],
+      // Per-series choice first, then the chart-wide one, then the metric decides.
+      frequency: series.frequency ?? (chart.frequency && !MARKET_SERIES_METRICS.has(series.metric) ? chart.frequency : undefined) })), theme);
     // Assigning an axis by hand only means something inside one plot area, so
     // the first manual axis collapses the automatic panel split. Left and right
     // then refer to the two axes the reader can actually see.
     // Overlaying is a request, never a default: either the reader asked for it
     // outright, or they assigned an axis by hand, which means the same thing.
-    const overlay = (chart.overlay || chart.series.some((series) => series.axis !== undefined)) && chart.values !== "indexed";
+    const rebased = chart.values !== "raw";
+    const overlay = (chart.overlay || chart.series.some((series) => series.axis !== undefined)) && !rebased;
     const families = [...new Set(automatic.map((plan) => plan.family))];
     return automatic.map((plan, index) => {
       const series = chart.series[index];
       // Rebased series are all percentages of their own base, so a second axis
       // with its own range would defeat the comparison the mode exists for.
-      const axis = chart.values === "indexed" ? "left" as const
+      const axis = rebased ? "left" as const
         : series.axis ?? (overlay && families.indexOf(plan.family) === 1 ? "right" as const : plan.axis);
       return { ...plan, style: (series.style ?? plan.type) as SeriesStyle, axis, color: series.color ?? plan.color, panel: overlay ? 0 : plan.panel };
     });
-  }, [chart.series, chart.values, chart.overlay, datasets, theme]);
+  }, [chart.series, chart.values, chart.overlay, chart.frequency, datasets, theme]);
 
   const marketKey = plans.filter((plan) => providerMarketFrequency(plan.frequency)).map((plan) => `${plan.ticker}:${plan.frequency}`).sort().join("|");
   useEffect(() => {
@@ -237,7 +240,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     const windowed = raw.filter((item) => item.date >= from && item.date <= to);
     // Rebasing happens after windowing, so 100 is the first point actually on
     // screen rather than the first the provider ever published.
-    const shaped = chart.values === "indexed" ? indexToHundred(windowed) : windowed;
+    const shaped = chart.values === "indexed" ? indexToZero(windowed) : chart.values === "change" ? periodChange(windowed) : windowed;
     const validation = validateSeries(shaped, plan.frequency, dataset.company.resolutionStatus !== "unresolved");
     return {
       series, plan, currency, observations: validation.observations,
@@ -309,32 +312,57 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       {CHART_PRESETS.map((preset) => <button key={preset.id} onClick={() => onChange((current) => applyPreset(current, preset, fallbackTicker))}>{preset.label}</button>)}
     </div>
 
-    <details className="company-picker"><summary>Companies<small>{tickers.length} selected</small></summary>
-      <div>{DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved").map((company) => <label key={company.ticker}>
-        <input type="checkbox" checked={tickers.includes(company.ticker)} onChange={(event) => onChange((current) => setCompanies(current, event.target.checked ? [...chartTickers(current), company.ticker] : chartTickers(current).filter((item) => item !== company.ticker)))}/>
-        {company.ticker}<small>{company.name}</small>
-      </label>)}</div>
-      <div className="company-picker-actions"><button onClick={() => onChange((current) => setCompanies(current, [fallbackTicker]))}>Just {fallbackTicker}</button><button onClick={() => onChange((current) => setCompanies(current, DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker)))}>All</button></div>
-    </details>
+    <div className="entity-row" aria-label="Companies on this chart">
+      {tickers.map((ticker) => {
+        const colour = bundles.find((bundle) => bundle.series.ticker === ticker)?.plan.color;
+        const hidden = chart.series.filter((series) => series.ticker === ticker).every((series) => !series.visible);
+        return <span className={`entity-chip${hidden ? " muted" : ""}`} key={ticker}>
+          <i style={{ background: colour }}/><b>{ticker}</b>
+          <button aria-label={`${hidden ? "Show" : "Hide"} ${ticker}`} title={hidden ? "Show" : "Hide"} onClick={() => onChange((current) => ({ ...current, series: current.series.map((series) => series.ticker === ticker ? { ...series, visible: hidden } : series) }))}>{hidden ? "◌" : "◉"}</button>
+          <button aria-label={`Remove ${ticker}`} title="Remove" onClick={() => onChange((current) => removeCompany(current, ticker))}>×</button>
+        </span>;
+      })}
+      <details className="add-chip"><summary>+ Company</summary>
+        <div>{DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved" && !tickers.includes(company.ticker)).map((company) => <button key={company.ticker} onClick={() => onChange((current) => addCompany(current, company.ticker))}>{company.ticker}<small>{company.name}</small></button>)}</div>
+      </details>
+    </div>
 
-    <section className="chart-controls">
-      <label>Add metric<select value="" onChange={(event) => { if (event.target.value) onChange((current) => addMetric(current, event.target.value, fallbackTicker)); }}>
-        <option value="">Metric…</option>
-        {METRIC_GROUPS.map(([group, items]) => { const available = items.filter((metric) => !metrics.includes(metric)); return available.length ? <optgroup key={group} label={group}>{available.map((metric) => <option key={metric} value={metric}>{METRICS[metric]?.label ?? metric}</option>)}</optgroup> : null; })}
-      </select></label>
-      <div className="range-buttons" role="group" aria-label="Time range">{RANGE_OPTIONS.map(([value, label]) => <button key={value} className={chart.range === value ? "active" : ""} onClick={() => onChange((current) => ({ ...current, range: value }))}>{label}</button>)}</div>
+    <div className="entity-row" aria-label="Metrics on this chart">
+      {metrics.map((metric) => {
+        const bundle = bundles.find((item) => item.series.metric === metric);
+        const style = chart.series.find((series) => series.metric === metric)?.style ?? bundle?.plan.type ?? "line";
+        const patchAll = (patch: Parameters<typeof patchSeries>[2]) => onChange((current) => current.series.filter((series) => series.metric === metric).reduce((chart, series) => patchSeries(chart, series.uid, patch), current));
+        return <span className="entity-chip" key={metric}>
+          <b>{METRICS[metric]?.short ?? metric}</b>
+          <button aria-label={`Draw ${metric} as ${style === "bar" ? "a line" : "bars"}`} title={style === "bar" ? "Draw as line" : "Draw as bars"} onClick={() => patchAll({ style: style === "bar" ? "line" : "bar" })}>{style === "bar" ? "▁▄█" : "∿"}</button>
+          <button aria-label={`Remove ${metric}`} title="Remove" onClick={() => onChange((current) => ({ ...current, series: current.series.filter((series) => series.metric !== metric) }))}>×</button>
+        </span>;
+      })}
+      <details className="add-chip"><summary>+ Metric</summary>
+        <div>{METRIC_GROUPS.map(([group, items]) => { const available = items.filter((metric) => !metrics.includes(metric)); return available.length ? <section key={group}><b>{group}</b>{available.map((metric) => <button key={metric} onClick={() => onChange((current) => addMetric(current, metric, fallbackTicker))}>{METRICS[metric]?.label ?? metric}</button>)}</section> : null; })}</div>
+      </details>
+    </div>
+
+    <section className="chart-toolbar">
+      <div className="segmented" role="group" aria-label="Frequency">
+        {([["annual", "Annual"], ["quarterly", "Quarterly"], ["ttm", "Quarterly TTM"]] as const).map(([value, label]) =>
+          <button key={value} className={chart.frequency === value ? "active" : ""} onClick={() => onChange((current) => ({ ...current, frequency: current.frequency === value ? undefined : value }))}>{label}</button>)}
+      </div>
+      <div className="segmented" role="group" aria-label="Time range">
+        {RANGE_OPTIONS.map(([value, label]) => <button key={value} className={chart.range === value ? "active" : ""} onClick={() => onChange((current) => ({ ...current, range: value }))}>{label}</button>)}
+      </div>
+      <button className={`pill${chart.values === "indexed" ? " active" : ""}`} onClick={() => onChange((current) => ({ ...current, values: current.values === "indexed" ? "raw" : "indexed" }))}>Index to zero</button>
+      <button className={`pill${chart.values === "change" ? " active" : ""}`} onClick={() => onChange((current) => ({ ...current, values: current.values === "change" ? "raw" : "change" }))}>% change</button>
+      <button className={`pill${chart.scale === "log" ? " active" : ""}`} onClick={() => onChange((current) => ({ ...current, scale: current.scale === "log" ? "auto" : "log" }))}>Log</button>
     </section>
 
     <section className="chart-appearance">
-      <label>Values<select value={chart.values} onChange={(event) => onChange((current) => ({ ...current, values: event.target.value as ValueMode }))}>
-        <option value="raw">Actual values</option><option value="indexed">Indexed to 100</option>
-      </select></label>
-      <label>Panels<select value={chart.overlay ? "overlay" : "split"} onChange={(event) => onChange((current) => ({ ...current, overlay: event.target.value === "overlay" }))} disabled={chart.values === "indexed"}>
+      <label>Panels<select value={chart.overlay ? "overlay" : "split"} onChange={(event) => onChange((current) => ({ ...current, overlay: event.target.value === "overlay" }))} disabled={chart.values !== "raw"}>
         <option value="split">One per unit</option><option value="overlay">Overlay on two axes</option>
-      </select>{chart.values === "indexed" && <small>Indexed values already share one axis</small>}</label>
-      <label>Scale<select value={chart.scale} onChange={(event) => onChange((current) => ({ ...current, scale: event.target.value as ScaleMode }))}>
+      </select>{chart.values !== "raw" && <small>Rebased series already share one axis</small>}</label>
+      <label>Scale<select value={chart.scale === "log" ? "auto" : chart.scale} onChange={(event) => onChange((current) => ({ ...current, scale: event.target.value as ScaleMode }))} disabled={chart.scale === "log"}>
         <option value="auto">Auto</option><option value="zero">Start at zero</option><option value="fit">Fit to data</option>
-      </select></label>
+      </select>{chart.scale === "log" && <small>Log is on</small>}</label>
       <label>Layout<select value={chart.layout} onChange={(event) => onChange((current) => ({ ...current, layout: event.target.value as LayoutMode }))} disabled={tickers.length < 2}>
         <option value="combined">One chart</option><option value="per-company">One per company</option><option value="grid">Grid: company × metric</option>
       </select>{tickers.length < 2 && <small>Add a second company to split</small>}</label>
@@ -393,7 +421,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     </details>}
     {!drawn.length && <p className="simple-state">{anyLoading ? "Loading data…" : chart.series.length ? "No observations in this window. Widen the time range or pick another metric." : "Add a company and a metric to draw this chart."}</p>}
     {drawn.length > 0 && <div className={`chart-stack${chart.layout === "grid" && groups.length > 1 ? " grid" : ""}`} ref={surface}>{groups.flatMap((group) => {
-      const panels = chart.values === "indexed" || chart.overlay || chart.series.some((series) => series.axis !== undefined) ? [0] : [...new Set(group.bundles.map((bundle) => bundle.plan.panel))].sort((a, b) => a - b);
+      const panels = chart.values !== "raw" || chart.overlay || chart.series.some((series) => series.axis !== undefined) ? [0] : [...new Set(group.bundles.map((bundle) => bundle.plan.panel))].sort((a, b) => a - b);
       return panels.map((panel) => {
         const bundles = panels.length === 1 ? group.bundles : group.bundles.filter((bundle) => bundle.plan.panel === panel);
         // In grid mode the group label already names the metric, so repeating
@@ -448,7 +476,7 @@ function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, 
   const axes = sides.map((side) => {
     const items = bundles.filter((bundle) => bundle.plan.axis === side);
     const values = rows.flatMap((row) => items.map((bundle) => typeof row[bundle.series.uid] === "number" ? row[bundle.series.uid] as number : null));
-    const family: UnitFamily = chart.values === "indexed" ? "indexed" : items[0] ? unitFamily(items[0].series.metric) : "currency";
+    const family: UnitFamily = chart.values !== "raw" ? "percent" : items[0] ? unitFamily(items[0].series.metric) : "currency";
     // "auto" defers to the metric, which floats a share price and anchors a
     // revenue line; the other two are the reader overruling that.
     const mode = chart.scale === "auto" ? (items.some((bundle) => bundle.plan.scale === "auto") ? "auto" : "zero") : chart.scale;
@@ -491,10 +519,10 @@ function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, 
         <XAxis dataKey="date" tickFormatter={tickDate} minTickGap={44} tickLine={false} axisLine={{ stroke: "var(--border)" }}/>
         {axes.map((axis) => <YAxis key={axis.side} yAxisId={axis.side} orientation={axis.side} hide={!axis.items.length} width={64} tickLine={false} axisLine={false} domain={axis.domain} ticks={axis.ticks} tickFormatter={(value) => formatChartValue(Number(value), axis.family, axis.currency)}/>)}
         {axes.filter((axis) => axis.items.length && axis.hasNegative).map((axis) => <ReferenceLine key={`${axis.side}-zero`} yAxisId={axis.side} y={0} stroke="#b4b4b4"/>)}
-        {chart.values === "indexed" && axes.filter((axis) => axis.items.length).slice(0, 1).map((axis) => <ReferenceLine key="base" yAxisId={axis.side} y={100} stroke="#b4b4b4" strokeDasharray="4 4"/>)}
+        {chart.values !== "raw" && axes.filter((axis) => axis.items.length).slice(0, 1).map((axis) => <ReferenceLine key="base" yAxisId={axis.side} y={0} stroke="var(--border-strong)" strokeDasharray="4 4"/>)}
         <Tooltip content={<ChartTooltip bundles={bundles}/>} cursor={{ stroke: "#b4b4b4", strokeDasharray: "3 3" }}/>
         {bundles.map((bundle) => {
-          const family = chart.values === "indexed" ? "indexed" as const : unitFamily(bundle.series.metric);
+          const family = chart.values !== "raw" ? "percent" as const : unitFamily(bundle.series.metric);
           // Past four series the labels collide more than they inform.
           const last = bundles.length > 4 ? -1 : lastIndexWithValue(bundle.series.uid);
           const analysis = bundle.observations.length > 1 ? analyzeVisibleSeries(bundle.observations, family === "percent" ? "margin" : "cagr") : null;

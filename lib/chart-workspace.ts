@@ -10,10 +10,15 @@ export type RangePreset = "1" | "3" | "5" | "10" | "max";
 
 export type SeriesStyle = "line" | "bar" | "area";
 export type SeriesAxis = "left" | "right";
-/** Auto reads the metric, zero anchors the axis, fit frames the data closely. */
-export type ScaleMode = "auto" | "zero" | "fit";
-/** Raw values, or every series rebased so shapes can be compared. */
-export type ValueMode = "raw" | "indexed";
+/** Auto reads the metric, zero anchors the axis, fit frames the data closely,
+ *  log compares rates of change rather than amounts. */
+export type ScaleMode = "auto" | "zero" | "fit" | "log";
+/**
+ * Raw values; every series rebased to a common zero so shapes compare; or the
+ * step-to-step change. Rebasing to zero rather than a hundred means the axis
+ * reads "+240%" instead of "340", which is the number the reader wanted anyway.
+ */
+export type ValueMode = "raw" | "indexed" | "change";
 /** One chart for everything, one per company, or a company-by-metric grid. */
 export type LayoutMode = "combined" | "per-company" | "grid";
 
@@ -60,6 +65,9 @@ export interface WorkspaceChart {
   showPoints: boolean;
   /** Overlay every unit on one plot area with a second axis, on request. */
   overlay: boolean;
+  /** One frequency for every fundamental on the chart, overriding the
+   *  automatic choice. Market series keep their own trading frequency. */
+  frequency?: "annual" | "quarterly" | "ttm";
   /** Mark disclosed stock splits on the date axis. */
   showSplits: boolean;
   /** Shade US recessions behind the series. */
@@ -257,8 +265,9 @@ export function deserializeWorkspace(value: string): WorkspaceChart[] {
     return [{
       ...base,
       showDataTable: chart.showDataTable === true,
-      scale: chart.scale === "zero" || chart.scale === "fit" ? chart.scale : base.scale,
-      values: chart.values === "indexed" ? "indexed" : base.values,
+      scale: chart.scale === "zero" || chart.scale === "fit" || chart.scale === "log" ? chart.scale : base.scale,
+      values: chart.values === "indexed" || chart.values === "change" ? chart.values : base.values,
+      frequency: chart.frequency === "annual" || chart.frequency === "quarterly" || chart.frequency === "ttm" ? chart.frequency : undefined,
       layout: chart.layout === "per-company" || chart.layout === "grid" ? chart.layout : base.layout,
       showGrid: chart.showGrid !== false,
       showPoints: chart.showPoints === true,
