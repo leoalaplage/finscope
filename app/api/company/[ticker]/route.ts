@@ -17,16 +17,17 @@ const headers = {
 /**
  * Serves a normalized company, from KV whenever one has been built before.
  *
- * Building one is the most expensive thing this application does: the SEC
- * companyfacts document is around 12 MB, `JSON.parse` expands it into a far
- * larger object graph, and normalization runs while that graph is still alive.
- * Peak memory approaches the 128 MB Worker isolate limit, so two of these at
- * once could end the isolate outright — which is what made "Load all" fail
- * most of its batch.
+ * Building one is by far the most expensive thing this application does. The
+ * SEC companyfacts document is around 12 MB, and parsing and normalizing it
+ * cost a median of 186 ms of CPU and up to 548 ms — measured from Worker
+ * telemetry, not estimated. That is enormous for a Worker, and under load the
+ * platform started refusing invocations outright with `exceededCpu`, which is
+ * what made "Load all" fail most of its batch.
  *
  * The cache hit path never parses anything. KV hands back a byte stream and it
  * goes straight out as the response body, so a warm company costs no more than
- * copying it. Only a genuine miss pays the parse, once per company per day.
+ * copying it: the same telemetry puts a warm request at 1-6 ms of CPU, around
+ * sixty times cheaper. Only a genuine miss pays the parse, once per day.
  */
 export async function GET(_request: Request, context: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await context.params;

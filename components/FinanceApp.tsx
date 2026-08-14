@@ -141,8 +141,7 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
   useEffect(() => { localStorage.setItem("finscope.companySort", JSON.stringify(sort)); }, [sort]);
   // Each newly loaded company would otherwise fan out into a price and a
   // valuation-history request straight away. During a bulk load that turns a
-  // deliberately sequential walk back into a stampede against a single Worker
-  // isolate, which is what made "Load all" fail most of its batch. These two
+  // deliberately sequential walk back into a stampede of concurrent work. These two
   // effects wait for the batch to finish, then fill in every company at once.
   useEffect(() => {
     if (bulkState.running) return;
@@ -194,10 +193,9 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
           setBulkState((current) => ({ ...current, done: current.done + 1, failed }));
         }
       }
-      // Normalizing a company is heavy enough that a busy Worker isolate can
-      // refuse one outright. A second attempt lands on a fresh isolate and, by
-      // then, often on a warm cache entry, so one pass recovers nearly all of
-      // them rather than leaving the reader with unexplained gaps.
+      // A busy Worker can still refuse a cold company outright. A second
+      // attempt usually finds a warm cache entry, so one pass recovers nearly
+      // all of them rather than leaving the reader with unexplained gaps.
       for (const ticker of retryable.splice(0)) {
         setBulkLoading((current) => new Set(current).add(ticker));
         try { await onLoad(ticker); } catch { failed += 1; }
@@ -207,9 +205,9 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
         }
       }
     };
-    // One at a time. Normalizing a company briefly holds most of a Worker
-    // isolate's memory, so parallel loads used to kill the isolate and fail
-    // most of the batch. Sequential is slower and finishes.
+    // One at a time. Normalizing a company costs enough CPU that parallel
+    // loads used to be refused outright by the platform, failing most of the
+    // batch. Sequential is slower and finishes.
     await worker();
     setBulkState((current) => ({ ...current, running: false, failed }));
   }
