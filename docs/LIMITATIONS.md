@@ -1,7 +1,8 @@
 # Known limitations
 
 - SEC standardized XBRL history generally begins in 2009. Pre-XBRL history requires a filing-document parser and company-specific validation.
-- The live registry currently includes AAPL, MSFT, AMZN, NVDA, TSLA and PLTR. Adding a company requires a profile/CIK registry entry; the provider adapters are reusable.
+- The live registry currently includes NVDA, AAPL, GOOGL, MSFT, META, V, MA, ANET, BKNG, NOW, SPGI, ABNB, CME, PAYX, IBKR, MSCI, VEEV, ZTS, CBOE, CPRT and FDS. Adding a company requires a profile/CIK registry entry; the provider adapters are reusable.
+- Some gaps are in the filings themselves and are reported rather than filled. Visa publishes no diluted share count recoverable from companyfacts, so its per-share series are unavailable. NVIDIA and Airbnb omit capital expenditures for some years, which removes free cash flow for those years only. Pre-IPO years computed under the two-class method fail the net income ÷ diluted EPS identity, so a share count is not recovered for them.
 - Quarterly normalization depends on standardized SEC concepts. Unsupported company extensions stay unavailable; cumulative facts are differenced only when their fiscal starts and durations are compatible.
 - TTM requires four consecutive reliable quarters totaling 330–380 days. A gap, overlap or missing metric produces no TTM value for that metric.
 - Yahoo Finance pricing uses an unofficial public interface and can be rate-limited. FinScope fails closed and never replaces an unavailable historical price with the current quote.

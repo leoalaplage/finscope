@@ -1,6 +1,6 @@
 import { validatedDerivedValue, validationForMetric } from "./data-quality";
 import { METRICS } from "./metrics";
-import type { CompanyDataset, FinancialPeriod, MarketBar, MissingDataMode, Periodicity, SeriesFrequency, SeriesObservation, TimeAlignment } from "./types";
+import type { CompanyDataset, FinancialPeriod, MarketBar, MissingDataMode, SeriesFrequency, SeriesObservation, TimeAlignment } from "./types";
 
 export const MARKET_SERIES_METRICS = new Set(["stockPrice", "stockTotalReturn"]);
 export const MARKET_SERIES_FREQUENCIES: SeriesFrequency[] = ["daily", "weekly", "monthly", "market-quarterly", "market-annual"];
@@ -37,10 +37,6 @@ export function frequencyLabel(frequency: SeriesFrequency) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export function defaultSeriesFrequency(metric: string, preferred: Periodicity = "annual"): SeriesFrequency {
-  return MARKET_SERIES_METRICS.has(metric) ? "weekly" : preferred;
-}
-
 export function updateSeriesDefinition(definitions: MixedSeriesDefinition[], id: string, patch: Partial<MixedSeriesDefinition>) {
   return definitions.map((item) => item.id === id ? { ...item, ...patch } : item);
 }
@@ -57,12 +53,8 @@ function observationDate(period: FinancialPeriod, alignment: TimeAlignment) {
 }
 
 export function fundamentalObservations(dataset: CompanyDataset, metric: string, frequency: SeriesFrequency, alignment: TimeAlignment): SeriesObservation[] {
-  return fundamentalObservationsFromPeriods(dataset.periods,metric,frequency,alignment);
-}
-
-export function fundamentalObservationsFromPeriods(periods: FinancialPeriod[], metric: string, frequency: SeriesFrequency, alignment: TimeAlignment): SeriesObservation[] {
   if (!FUNDAMENTAL_SERIES_FREQUENCIES.includes(frequency)) return [];
-  return periods
+  return dataset.periods
     .filter((period) => period.periodicity === frequency)
     .sort((a, b) => observationDate(a, alignment).localeCompare(observationDate(b, alignment)))
     .flatMap((period) => {
@@ -114,9 +106,4 @@ export function alignMixedSeries(series: Array<{ definition: MixedSeriesDefiniti
 
 export function visibleRawObservations(observations: SeriesObservation[], startDate: string, endDate: string) {
   return observations.filter((item) => item.date >= startDate && item.date <= endDate);
-}
-
-export function indexObservationsTo100(observations: SeriesObservation[]) {
-  const first = observations.find((item) => item.value != null && item.value !== 0)?.value;
-  return observations.map((item) => ({ ...item, value: first == null || item.value == null ? null : item.value / first * 100 }));
 }

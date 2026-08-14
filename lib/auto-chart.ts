@@ -137,21 +137,6 @@ export function createAutoChartPlan(inputs: AutoSeriesInput[], theme: ThemeName 
 }
 
 /**
- * Rebases a series so its first drawn observation is 100.
- *
- * This is what makes a share price and a cash-flow line comparable: after
- * rebasing both axes read in percent of their own starting point, so the eye
- * compares shapes rather than magnitudes. A series whose first value is zero or
- * negative has no meaningful base and is left out rather than scaled to
- * nonsense.
- */
-export function indexToHundred(observations: SeriesObservation[]): SeriesObservation[] {
-  const base = observations.find((item) => item.value != null && Number.isFinite(item.value))?.value;
-  if (base == null || base <= 0) return [];
-  return observations.map((item) => ({ ...item, value: item.value == null ? null : item.value / base * 100, unit: "indexed" }));
-}
-
-/**
  * Rebases to zero: each point as its percentage change from the first drawn one.
  *
  * The same information as indexing to a hundred, read the way the question is
@@ -237,10 +222,3 @@ export function validateSeries(observations: SeriesObservation[], knownFrequency
 export function automaticDomain(values: Array<number | null | undefined>, plan: Pick<AutoSeriesPlan, "scale">) {
   return chartDomain(values, plan.scale).domain;
 }
-
-export const AUTO_CHART_POLICY = {
-  price: "Weekly adjusted close on its real trading dates; auto-scaled without zero.",
-  fundamentals: "TTM when available, otherwise annual; never repeated between reports.",
-  axes: "One unit family per panel on a shared date axis; a second scale is never overlaid unless the reader asks for it.",
-  invalid: "Invalid values are excluded and reported per series without affecting peers.",
-} as const;

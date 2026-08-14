@@ -185,7 +185,10 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
     let active = true;
     for (const ticker of loadedTickers.split("|").filter(Boolean).filter((item) => prices[item] && !(item in valuationPremiums))) {
       const data = datasets[ticker]; const currentPrice = prices[ticker]; if (!data || !currentPrice) continue;
-      const periods = sortedPeriods(data, "ttm"); const dates = [...new Set(periods.map((period) => period.filingDate))];
+      const periods = sortedPeriods(data, "ttm"); const dates = [...new Set(periods.map((period) => period.filingDate).filter(Boolean))];
+      // A company with no TTM periods has no dates to price. Asking anyway
+      // returns 400 and logs an error for a question nobody asked.
+      if (!dates.length) continue;
       fetch(`/api/prices/${encodeURIComponent(ticker)}?dates=${dates.join(",")}&published=1`).then(async (response) => {
         const payload = await response.json() as { points?: Array<{ requestedDate: string; point?: PricePoint }>; error?: string }; if (!response.ok) throw new Error(payload.error || "Valuation history unavailable");
         const pointMap = Object.fromEntries((payload.points ?? []).map((item) => [item.requestedDate, item.point ?? null])); const latest = periods.at(-1) ?? sortedPeriods(data, "annual").at(-1); const snapshot = latest ? valuationSnapshot(latest, currentPrice) : null; const history = buildValuationHistory(periods, pointMap); const premium = valuationStatistics(history, "priceToFreeCashFlow", snapshot?.metrics.priceToFreeCashFlow ?? null, 5).premiumToAverage;

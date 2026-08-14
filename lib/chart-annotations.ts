@@ -12,7 +12,7 @@ export interface DateMark { date: string; label: string; ticker: string }
  * well after it ends, which is why the list stops where it does: an ongoing
  * contraction has no trough yet and would be a guess.
  */
-export const US_RECESSIONS: DateBand[] = [
+const US_RECESSIONS: DateBand[] = [
   { start: "2001-03-01", end: "2001-11-30", label: "2001 recession" },
   { start: "2007-12-01", end: "2009-06-30", label: "Great Recession" },
   { start: "2020-02-01", end: "2020-04-30", label: "COVID-19 recession" },

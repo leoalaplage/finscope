@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAutoChartPlan, formatChartValue, indexToHundred, unitFamily } from "../lib/auto-chart";
+import { createAutoChartPlan, formatChartValue, unitFamily } from "../lib/auto-chart";
 import { chartDomain } from "../lib/charting";
 import { addCompany, addMetric, addPair, addSeriesUnique, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, removeCompany, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries } from "../lib/chart-workspace";
 
@@ -204,7 +204,6 @@ describe("per-series overrides", () => {
 });
 
 describe("chart appearance", () => {
-  const obs = (date: string, value: number | null) => ({ date, value, frequency: "annual" as const, currency: "USD", unit: "currency", source: "SEC", status: "Verified" as const, rawObservation: true as const });
 
   it("offers exactly five colours and stores one as an override", () => {
     expect(SERIES_COLORS).toHaveLength(5);
@@ -216,21 +215,6 @@ describe("chart appearance", () => {
   it("refuses a colour that is not in the palette", () => {
     const stored = JSON.stringify([{ id: "chart-1", range: "max", series: [{ ticker: "AAPL", metric: "revenue", visible: true, color: "#ff00ff" }] }]);
     expect(deserializeWorkspace(stored)[0].series[0].color).toBeUndefined();
-  });
-
-  it("rebases a series so its first drawn value is 100", () => {
-    const indexed = indexToHundred([obs("2023-12-31", 50), obs("2024-12-31", 75), obs("2025-12-31", 100)]);
-    expect(indexed.map((item) => item.value)).toEqual([100, 150, 200]);
-    expect(indexed[0].unit).toBe("indexed");
-  });
-
-  it("refuses to rebase when the base is zero or negative", () => {
-    expect(indexToHundred([obs("2024-12-31", 0), obs("2025-12-31", 10)])).toEqual([]);
-    expect(indexToHundred([obs("2024-12-31", -5), obs("2025-12-31", 10)])).toEqual([]);
-  });
-
-  it("carries nulls through a rebase instead of dropping the dates", () => {
-    expect(indexToHundred([obs("2024-12-31", 20), obs("2025-12-31", null)]).map((item) => item.value)).toEqual([100, null]);
   });
 
   it("defaults to automatic scale, actual values and one chart", () => {

@@ -1,4 +1,4 @@
-import type { FinancialPeriod, MetricKey, NormalizedFact, PricePoint } from "./types";
+import type { FinancialPeriod, MetricKey } from "./types";
 
 export const FORMULAS = {
   grossMargin: "Gross profit / Revenue",
@@ -191,32 +191,3 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
   return map[key] ?? valueOf(period, key as MetricKey);
 }
 
-export function ttmFact(facts: NormalizedFact[]): number | null {
-  const ordered = [...facts].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
-  return ttm(ordered.map((fact) => fact.value));
-}
-
-export function valuationMetrics(period: FinancialPeriod, price: PricePoint | null) {
-  const marketShares = valueOf(period, "sharesOutstanding") ?? valueOf(period, "dilutedShares");
-  if (!price || marketShares == null) return null;
-  const marketCap = (price.priceClose ?? price.close) * marketShares;
-  const fcf = freeCashFlow(valueOf(period, "operatingCashFlow"), valueOf(period, "capitalExpenditures"));
-  const positiveMultiple=(denominator:number|null)=>denominator!=null&&denominator>0?marketCap/denominator:null;
-  return {
-    marketCap,
-    priceToSales: positiveMultiple(valueOf(period, "revenue")),
-    priceToEarnings: positiveMultiple(valueOf(period, "netIncome")),
-    priceToOperatingCashFlow: positiveMultiple(valueOf(period, "operatingCashFlow")),
-    priceToFreeCashFlow: positiveMultiple(fcf),
-    freeCashFlowYield: fcf!=null&&fcf>0?safeDivide(fcf, marketCap):null,
-    operatingCashFlowYield: (valueOf(period,"operatingCashFlow")??0)>0?safeDivide(valueOf(period, "operatingCashFlow"), marketCap):null,
-    buybackYield: safeDivide(valueOf(period, "shareRepurchases"), marketCap),
-    netBuybackYield: safeDivide(valueOf(period, "netShareRepurchases"), marketCap),
-  };
-}
-
-export function convertUnit(value: number | null, unit: "unit" | "thousand" | "million" | "billion") {
-  if (value == null) return null;
-  const divisors = { unit: 1, thousand: 1e3, million: 1e6, billion: 1e9 };
-  return value / divisors[unit];
-}

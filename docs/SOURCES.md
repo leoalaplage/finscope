@@ -8,6 +8,8 @@ Each fact retains provider, source URL, accession number, filing date, retrieval
 
 The server cache response is six hours with a 24-hour stale-while-revalidate window. Automated use should identify itself through `SEC_USER_AGENT` and respect the SEC fair-access limit.
 
+Normalized datasets are also cached in a Cloudflare KV namespace bound as `DATASET_CACHE`, under the key `company:<version>:<ticker>`. The version is bumped whenever normalization changes meaning — a new concept fallback, a corrected split direction, a new quarter rule — so a cached dataset is never served under semantics it was not built with. The bump history is recorded in `app/api/company/[ticker]/route.ts`. This cache is load-bearing rather than an optimization: normalizing a company from raw XBRL on every request exceeds the Worker CPU limit.
+
 Official references:
 
 - https://www.sec.gov/search-filings/edgar-application-programming-interfaces

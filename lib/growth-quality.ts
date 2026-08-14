@@ -17,7 +17,7 @@ export interface GrowthRow {
 }
 
 /** The metrics a growth comparison is normally read across, in reading order. */
-export const GROWTH_ROWS: Array<[string, string]> = [
+const GROWTH_ROWS: Array<[string, string]> = [
   ["revenue", "Revenue"],
   ["grossProfit", "Gross profit"],
   ["operatingIncome", "Operating profit"],

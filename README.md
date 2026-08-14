@@ -1,58 +1,80 @@
 # FinScope
 
-FinScope is an auditable financial-research web application. It searches supported U.S. public companies, normalizes official SEC XBRL facts, centralizes financial formulas, renders long-term statements and charts, and preserves the lineage of each reported or calculated value.
+FinScope is an auditable financial-research web application. It normalizes official SEC XBRL facts for a curated watchlist of U.S. public companies, centralizes every financial formula in one module, renders long-term statements and charts, and preserves the lineage of each reported or calculated value.
 
-The repository is private-deployment ready. It uses Next.js-compatible App Router semantics through Vinext, React 19, strict TypeScript and a Cloudflare Worker output.
+It uses Next.js App Router semantics through Vinext, React 19, strict TypeScript and a Cloudflare Worker output. It is deployed at [finscope-financial-research.leoalaplage.workers.dev](https://finscope-financial-research.leoalaplage.workers.dev).
 
 ## What is included
 
-- Search by ticker or company name for Apple, Microsoft, Amazon, NVIDIA, Tesla and Palantir.
-- Live SEC Company Facts adapter with schema validation, concept fallbacks, six-hour cache headers and explicit error handling.
-- Offline Apple fixture covering FY 2009–2025 so the application remains demonstrable when an upstream provider is unavailable.
-- Company overview, income statement, cash flow, margins, per-share, shares and buybacks, valuation, sources and settings views.
-- Annual, real-quarter and rolling four-quarter TTM tables with sticky period headers.
-- Absolute, per-share, margin, growth and CAGR modes; units, K, M and B.
-- Configurable multi-series charts with line/bar/area types, independent axes, colors, visibility, log scale, zoom window and SVG/PNG export.
-- Revenue, profit, cash-flow and dilution analysis with CAGR and YoY comparisons.
-- CSV export containing company, period, unit, currency, provider, status, concept/formula and source URL.
-- Click-through provenance drawer for every reported SEC fact.
-- Dark/light themes and responsive desktop, tablet and mobile layouts.
-- Historical Yahoo adjusted-close matching with an exact/previous-seven-day/next-two-day policy and explicit date lineage.
-- Unit tests for financial math, fiscal-period normalization, Yahoo session matching and a server-render integration test.
+### Coverage
+
+- A 21-company watchlist of quality-growth compounders: NVDA, AAPL, GOOGL, MSFT, META, V, MA, ANET, BKNG, NOW, SPGI, ABNB, CME, PAYX, IBKR, MSCI, VEEV, ZTS, CBOE, CPRT, FDS. Any other SEC filer can be added by ticker from the company manager.
+- Live SEC Company Facts adapter with schema validation, concept fallbacks and explicit error handling, backed by a Cloudflare KV cache.
+- Offline Apple fixture covering FY 2009–2025 so the application stays demonstrable when SEC EDGAR is unavailable.
+- Historical Yahoo adjusted close matched to an explicit fiscal date, with an exact / previous-seven-day / next-two-day fallback policy and full date lineage. A current price is never applied to old fundamentals.
+
+### Navigation
+
+- **Companies** — the ranked watchlist table, with a column picker so the visible metrics are the reader's choice, and a quality-versus-valuation scatter.
+- **Company** — Overview (a KPI card grid, one chart per measure), Margins, Growth & Cash Quality, Per Share, Capital Allocation and Valuation.
+- **Charts** — the multi-company, multi-metric workspace.
+- **DCF** — assumptions traceable to their historical base.
+- **QS Screener** — the standalone quality-score screen, with PNG export.
+- Secondary views reachable from a company: Data Quality, Formula Audit, Import status and Sources.
+
+### Data views
+
+- Annual, real-quarter and rolling four-quarter TTM periods.
+- Absolute, per-share, margin, growth and CAGR modes, with values abbreviated to K, M and B.
+- 5Y and 10Y CAGR for revenue, gross profit, operating profit, net income, FCF, FCF per share and share price; growth consistency as the R² of a log-linear fit; the revenue-versus-FCF growth gap in percentage points.
+- CSV export carrying company, period, unit, currency, provider, status, concept/formula and source URL.
+- A click-through provenance drawer on every reported SEC fact.
+
+### Charts
+
+- Any number of companies and metrics on one workspace, with per-series style (line, bar, area), colour, visibility and frequency (annual / quarterly / TTM for fundamentals, daily / weekly / monthly for price).
+- Presets, small multiples, indexed-to-zero and percent-change presentations, log scale, range selection, NBER recession bands, stock-split marks and a data table.
+- **One value axis per panel.** Two measures on different scales become two panels or a shared indexed base — a second y-scale is never overlaid, because the crossing point of two independent axes is an artefact of where they were placed.
+- SVG/PNG export.
+- Light and dark themes, each with its own validated categorical palette rather than an inversion of the other.
 
 ## Quick start
 
 Requirements: Node.js 22.13 or later and npm.
 
 ```bash
-cp .env.example .env.local
-npm install
-npm run dev
+npm install && npm run dev
 ```
 
-Open `http://localhost:3000`. Set `SEC_USER_AGENT` to a descriptive application name and real contact email before sustained SEC access; the SEC does not require an API key.
+Open `http://localhost:3000`. Set `SEC_USER_AGENT` to a descriptive application name and a real contact email before sustained SEC access; the SEC does not require an API key.
 
 ## Quality checks
 
 ```bash
-npm test                 # financial unit tests
-npx tsc --noEmit         # strict TypeScript validation
-npm run build            # production Worker build
-npm run test:integration # server-render smoke test after build
+npx vitest run && npx tsc --noEmit && npm run lint && npm run build
 ```
+
+`npm run test:integration` runs the server-render smoke test after a build.
 
 ## Architecture
 
 ```text
 app/                       App Router pages and API endpoints
-  api/company/[ticker]/    server-side SEC proxy and normalization endpoint
+  api/company/[ticker]/    SEC proxy, normalization and KV cache
   api/price/[ticker]/      historical Yahoo session-matching endpoint
+  api/prices/, api/market/ batch and market-series price endpoints
 components/                interactive research workspace
 lib/
   adapters/sec.ts          official-filing provider adapter
   adapters/yahoo.ts        historical adjusted-close adapter
   periods.ts               annual/quarter/TTM normalization engine
   finance.ts               centralized, pure financial formulas
+  metrics.ts               the metric registry and its display groups
+  growth-quality.ts        CAGR tables, consistency, incremental returns
+  charting.ts              palettes, axis bounds and tick selection
+  chart-workspace.ts       the chart model, presets and serialization
+  auto-chart.ts            automatic panel planning and value formatting
+  runtime-env.ts           Worker bindings handed to route handlers
   demo-data.ts             traceable offline SEC fixture
   types.ts                 normalized facts and provenance model
 tests/                     unit and rendered-output tests
@@ -63,25 +85,24 @@ The normalized fact is the audit boundary. A value carries its period, currency,
 
 ## Data providers
 
-Fundamentals come from the official SEC EDGAR Company Facts API. The adapter is server-only because `data.sec.gov` does not support browser CORS. Historical valuation uses Yahoo Finance adjusted close and preserves the requested fiscal date, trading date used, ticker, currency and fallback direction. It never applies a current price to old fundamentals.
+Fundamentals come from the official SEC EDGAR Company Facts API. The adapter is server-only because `data.sec.gov` does not support browser CORS.
+
+**Only undimensioned facts are carried.** A company with multiple share classes reports the same concept once per class and once in total; taking any dimensioned value would silently report one class as if it were the company.
 
 See [docs/SOURCES.md](docs/SOURCES.md), [docs/FORMULAS.md](docs/FORMULAS.md), [docs/LIMITATIONS.md](docs/LIMITATIONS.md), and [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## Deployment
 
-### Codex Sites / Cloudflare Worker
+The generated Worker output is deployed to Cloudflare. Two pieces of runtime configuration live in the Cloudflare environment rather than in this repository:
 
-The checked-in `.openai/hosting.json` is the Sites manifest. The generated Worker output is compatible with Cloudflare. In Codex, save a site version and deploy it with owner-only access for a private research workspace. Runtime variables should be set in the hosting environment, never committed.
+| Binding | Type | Purpose |
+|---|---|---|
+| `DATASET_CACHE` | KV namespace `finscope-datasets` | Caches normalized company datasets. |
+| `SEC_USER_AGENT` | Variable | Identifies the automated SEC client with contact information. |
 
-### Vercel alternative
+The KV cache is not an optimization detail — normalizing a company from raw XBRL exceeds the Worker CPU limit on a cold request, which returned error 1102 until the cache was added. `lib/runtime-env.ts` hands the bindings to the route handlers; a missing binding degrades to an uncached fetch rather than failing.
 
-Import the private GitHub repository in Vercel, select Next.js, use `npm run build`, and add `SEC_USER_AGENT` in Project Settings → Environment Variables. Keep the repository private; Vercel can deploy private repositories through its GitHub integration.
-
-### Cloudflare Pages/Workers alternative
-
-Connect the private GitHub repository to Cloudflare Workers Builds. Use Node.js 22+, `npm run build`, and publish the generated Worker entry/output according to the Vinext configuration. Add `SEC_USER_AGENT` as a runtime variable.
-
-GitHub Pages is not suitable because FinScope requires a server-side SEC adapter, cache headers and secret-safe runtime configuration.
+GitHub Pages is not suitable: FinScope requires a server-side SEC adapter, cache headers and secret-safe runtime configuration.
 
 ## Environment variables
 
@@ -89,12 +110,11 @@ GitHub Pages is not suitable because FinScope requires a server-side SEC adapter
 |---|---:|---|
 | `SEC_USER_AGENT` | Recommended | Identifies the automated SEC client with contact information. |
 | `YAHOO_FINANCE_BASE_URL` | No | Optional Yahoo chart endpoint override. |
-| `CACHE_TTL_SECONDS` | No | Reserved provider cache override; default design is six hours. |
 
 No variable is prefixed with `NEXT_PUBLIC_`; secrets never enter the client bundle.
 
-## Important scope notes
+## Scope notes
 
-The application is a production-quality research foundation, not a licensed market-data redistribution service. SEC fundamentals work live for the included U.S. registry. Legacy pre-XBRL filings, international regulators, persistent cloud favorites, narrative repurchase authorizations and non-GAAP reconciliation remain explicit future adapters rather than silently simulated features.
+FinScope is a research foundation, not a licensed market-data redistribution service. Legacy pre-XBRL filings, international regulators and non-GAAP reconciliation remain explicit future adapters rather than silently simulated features. Where a company's data genuinely cannot be recovered — Visa's share count is absent from companyfacts, and a handful of filers omit capital expenditures for some years — the gap is reported rather than filled with an estimate.
 
 FinScope is for research and is not investment advice.

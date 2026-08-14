@@ -32,11 +32,6 @@ export const DEFAULT_WATCHLIST: CompanyProfile[] = [
 
 export const COMPANIES = DEFAULT_WATCHLIST;
 
-export function findCompany(query: string, companies: CompanyProfile[] = DEFAULT_WATCHLIST) {
-  const needle = query.trim().toLowerCase();
-  return companies.filter((company) => company.ticker.toLowerCase().includes(needle) || company.name.toLowerCase().includes(needle));
-}
-
 export function companyByTicker(ticker: string) {
   return DEFAULT_WATCHLIST.find((company) => company.ticker.toUpperCase() === ticker.toUpperCase());
 }

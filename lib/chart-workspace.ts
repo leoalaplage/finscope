@@ -112,21 +112,11 @@ export function applyPreset(chart: WorkspaceChart, preset: ChartPreset, fallback
   return { ...chart, series, overlay: preset.overlay ?? false, values: preset.values ?? "raw", layout: preset.layout ?? "combined" };
 }
 
-/** Replaces the companies on a chart in one gesture, keeping its metrics. */
-export function setCompanies(chart: WorkspaceChart, tickers: string[]): WorkspaceChart {
-  const metrics = chartMetrics(chart);
-  const wanted = metrics.length ? metrics : ["stockPrice"];
-  return { ...chart, series: tickers.flatMap((ticker) => wanted.map((metric) => {
-    const existing = chart.series.find((item) => item.ticker === ticker && item.metric === metric);
-    return existing ?? createWorkspaceSeries(chart.id, ticker, metric);
-  })) };
-}
-
 export const RANGE_OPTIONS: Array<[RangePreset, string]> = [["1", "1Y"], ["3", "3Y"], ["5", "5Y"], ["10", "10Y"], ["max", "Max"]];
 const RANGE_VALUES = new Set(RANGE_OPTIONS.map(([value]) => value));
 const SERIES_FREQUENCIES = new Set<string>(["daily", "weekly", "monthly", "market-quarterly", "market-annual", "annual", "quarterly", "ttm"]);
 
-export function buildSeriesUid(chartId: string, ticker: string, metric: string) {
+function buildSeriesUid(chartId: string, ticker: string, metric: string) {
   return `${chartId}:${ticker}:${metric}`;
 }
 

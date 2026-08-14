@@ -108,9 +108,3 @@ export const CHART_METRIC_GROUPS: Array<[string, string[]]> = [
 export const VALUATION_METRICS = new Set(["priceToFreeCashFlow", "priceToEarnings", "priceToSales", "freeCashFlowYield"]);
 
 export const CHARTABLE_METRICS = new Set(CHART_METRIC_GROUPS.flatMap(([, items]) => items));
-
-export const GROWTH_METRICS = [
-  "revenue", "grossProfit", "operatingIncome", "netIncome", "operatingCashFlow", "freeCashFlow",
-  "revenuePerShare", "grossProfitPerShare", "operatingIncomePerShare", "netIncomePerShare",
-  "operatingCashFlowPerShare", "freeCashFlowPerShare", "basicShares", "dilutedShares", "sharesOutstanding",
-];

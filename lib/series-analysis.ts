@@ -31,9 +31,3 @@ export function analyzeVisibleSeries(observations: SeriesObservation[], kind: "c
   const cagr = cagrBetweenDates(start.value, end.value, start.date, end.date);
   return { kind, ...cagr, average };
 }
-
-export function formatVisibleAnalysis(analysis: VisibleSeriesAnalysis) {
-  if (analysis.value == null) return `N/M · ${analysis.reason ?? "not meaningful"}`;
-  if (analysis.kind === "margin") return `${analysis.value >= 0 ? "+" : ""}${(analysis.value * 100).toFixed(1)} pp · avg ${((analysis.average ?? 0) * 100).toFixed(1)}%`;
-  return `${analysis.value >= 0 ? "+" : ""}${(analysis.value * 100).toFixed(1)}% CAGR`;
-}
