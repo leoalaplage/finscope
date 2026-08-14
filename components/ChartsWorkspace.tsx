@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Area, Bar, Brush, CartesianGrid, ComposedChart, LabelList, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { AreaChart as AreaIcon, BarChart3, Brush as BrushIcon, Eye, EyeOff, LineChart as LineIcon, Palette, X } from "lucide-react";
 import { createAutoChartPlan, familyLabel, formatChartValue, indexToZero, periodChange, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
 import { chartDomain, niceTicks, type ThemeName } from "@/lib/charting";
 import { derivedValue, safeDivide } from "@/lib/finance";
@@ -316,10 +317,12 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       {tickers.map((ticker) => {
         const colour = bundles.find((bundle) => bundle.series.ticker === ticker)?.plan.color;
         const hidden = chart.series.filter((series) => series.ticker === ticker).every((series) => !series.visible);
+        const paintAll = (value: string | undefined) => onChange((current) => current.series.filter((series) => series.ticker === ticker).reduce((chart, series) => patchSeries(chart, series.uid, { color: value }), current));
         return <span className={`entity-chip${hidden ? " muted" : ""}`} key={ticker}>
           <i style={{ background: colour }}/><b>{ticker}</b>
-          <button aria-label={`${hidden ? "Show" : "Hide"} ${ticker}`} title={hidden ? "Show" : "Hide"} onClick={() => onChange((current) => ({ ...current, series: current.series.map((series) => series.ticker === ticker ? { ...series, visible: hidden } : series) }))}>{hidden ? "◌" : "◉"}</button>
-          <button aria-label={`Remove ${ticker}`} title="Remove" onClick={() => onChange((current) => removeCompany(current, ticker))}>×</button>
+          <Swatches label={ticker} icon={<BrushIcon size={13}/>} current={colour} onPick={paintAll}/>
+          <button aria-label={`${hidden ? "Show" : "Hide"} ${ticker}`} title={hidden ? "Show" : "Hide"} onClick={() => onChange((current) => ({ ...current, series: current.series.map((series) => series.ticker === ticker ? { ...series, visible: hidden } : series) }))}>{hidden ? <EyeOff size={13}/> : <Eye size={13}/>}</button>
+          <button aria-label={`Remove ${ticker}`} title="Remove" onClick={() => onChange((current) => removeCompany(current, ticker))}><X size={13}/></button>
         </span>;
       })}
       <details className="add-chip"><summary>+ Company</summary>
@@ -332,10 +335,16 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
         const bundle = bundles.find((item) => item.series.metric === metric);
         const style = chart.series.find((series) => series.metric === metric)?.style ?? bundle?.plan.type ?? "line";
         const patchAll = (patch: Parameters<typeof patchSeries>[2]) => onChange((current) => current.series.filter((series) => series.metric === metric).reduce((chart, series) => patchSeries(chart, series.uid, patch), current));
-        return <span className="entity-chip" key={metric}>
+        const hidden = chart.series.filter((series) => series.metric === metric).every((series) => !series.visible);
+        const shapes = [["line", "Line", <LineIcon key="l" size={13}/>], ["bar", "Bars", <BarChart3 key="b" size={13}/>], ["area", "Area", <AreaIcon key="a" size={13}/>]] as const;
+        return <span className={`entity-chip${hidden ? " muted" : ""}`} key={metric}>
           <b>{METRICS[metric]?.short ?? metric}</b>
-          <button aria-label={`Draw ${metric} as ${style === "bar" ? "a line" : "bars"}`} title={style === "bar" ? "Draw as line" : "Draw as bars"} onClick={() => patchAll({ style: style === "bar" ? "line" : "bar" })}>{style === "bar" ? "▁▄█" : "∿"}</button>
-          <button aria-label={`Remove ${metric}`} title="Remove" onClick={() => onChange((current) => ({ ...current, series: current.series.filter((series) => series.metric !== metric) }))}>×</button>
+          <span className="chip-shapes" role="group" aria-label={`Shape for ${metric}`}>
+            {shapes.map(([value, label, icon]) => <button key={value} className={style === value ? "active" : ""} aria-pressed={style === value} aria-label={`Draw as ${label.toLowerCase()}`} title={label} onClick={() => patchAll({ style: value })}>{icon}</button>)}
+          </span>
+          <Swatches label={METRICS[metric]?.short ?? metric} icon={<Palette size={13}/>} current={bundle?.plan.color} onPick={(value) => patchAll({ color: value })}/>
+          <button aria-label={`${hidden ? "Show" : "Hide"} ${metric}`} title={hidden ? "Show" : "Hide"} onClick={() => onChange((current) => ({ ...current, series: current.series.map((series) => series.metric === metric ? { ...series, visible: hidden } : series) }))}>{hidden ? <EyeOff size={13}/> : <Eye size={13}/>}</button>
+          <button aria-label={`Remove ${metric}`} title="Remove" onClick={() => onChange((current) => ({ ...current, series: current.series.filter((series) => series.metric !== metric) }))}><X size={13}/></button>
         </span>;
       })}
       <details className="add-chip"><summary>+ Metric</summary>
@@ -469,6 +478,24 @@ function endLabel(uid: string, lastIndex: number, formatter: (value: number) => 
       {growth && <text x={Number(props.x) - 6} y={y + 12} textAnchor="end" className="chart-end-growth">{growth}</text>}
     </g>;
   } as unknown as React.ComponentProps<typeof LabelList>["content"];
+}
+
+/**
+ * Colour picker as a small popover on a chip.
+ *
+ * "Automatic" is a real choice rather than a colour: it deletes the override so
+ * the series follows the palette again, including when the theme changes or a
+ * second company arrives and colour switches from meaning metric to meaning
+ * company.
+ */
+function Swatches({ label, icon, current, onPick }: { label: string; icon: React.ReactNode; current?: string; onPick: (value: string | undefined) => void }) {
+  return <details className="chip-swatches">
+    <summary aria-label={`Colour for ${label}`} title="Colour">{icon}</summary>
+    <div>
+      {SERIES_COLORS.map((colour) => <button key={colour.value} className={current === colour.value ? "active" : ""} style={{ background: colour.value }} aria-label={colour.name} title={colour.name} onClick={() => onPick(colour.value)}/>)}
+      <button className="swatch-auto" onClick={() => onPick(undefined)}>Automatic</button>
+    </div>
+  </details>;
 }
 
 function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, showBrush }: { chart: WorkspaceChart; rows: Array<Record<string, unknown>>; bundles: Bundle[]; heading: string; datasets: Record<string, CompanyDataset>; single: boolean; compact: boolean; showBrush: boolean }) {

@@ -360,8 +360,23 @@ tbody tr:last-child > * { border-bottom: 0; }
 .entity-chip.muted { opacity: .5; }
 .entity-chip i { width: 9px; height: 9px; border-radius: 50%; }
 .entity-chip b { font-weight: 650; }
-.entity-chip button { min-height: 22px; padding: 0 5px; border: 0; background: transparent; color: var(--muted); font-size: 12px; line-height: 1; }
-.entity-chip button:hover { color: var(--text); }
+.entity-chip button { display: inline-flex; align-items: center; justify-content: center; min-height: 24px; padding: 3px 5px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); line-height: 1; }
+.entity-chip button:hover { color: var(--text); background: var(--grid); }
+
+/* Shape buttons sit in their own group so the active one reads as a state,
+   not as a button that happens to be hovered. */
+.chip-shapes { display: inline-flex; gap: 1px; padding: 2px; border-radius: 6px; background: var(--grid); }
+.chip-shapes button.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+
+.chip-swatches { position: relative; display: inline-flex; }
+.chip-swatches summary { display: inline-flex; align-items: center; justify-content: center; min-height: 24px; padding: 3px 5px; border-radius: 5px; color: var(--muted); cursor: pointer; list-style: none; }
+.chip-swatches summary::-webkit-details-marker { display: none; }
+.chip-swatches summary:hover { color: var(--text); background: var(--grid); }
+.chip-swatches > div { position: absolute; z-index: 30; top: calc(100% + 6px); left: 50%; translate: -50% 0; display: flex; flex-wrap: wrap; gap: 5px; width: 152px; padding: 8px; border: 1px solid var(--border-strong); border-radius: var(--card-radius); background: var(--surface); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.chip-swatches > div button { width: 24px; height: 24px; min-height: 24px; padding: 0; border: 2px solid transparent; border-radius: 50%; }
+.chip-swatches > div button.active { border-color: var(--text); }
+.chip-swatches .swatch-auto { width: 100%; height: auto; min-height: 26px; border: 1px solid var(--border); border-radius: var(--radius); background: transparent; color: var(--muted); font-size: 12px; }
+.chip-swatches .swatch-auto:hover { color: var(--text); }
 .add-chip { position: relative; }
 .add-chip summary { padding: 6px 11px; border: 1px dashed var(--border-strong); border-radius: var(--card-radius); color: var(--muted); cursor: pointer; font-size: 13px; list-style: none; }
 .add-chip summary::-webkit-details-marker { display: none; }
