@@ -25,14 +25,31 @@ describe("embedded QS screener", () => {
     expect(result.poids).toEqual({ Quality: 45, Health: 20, Growth: 15, Value: 20 });
   });
 
-  it("ships a full-height embedded page with a ready handshake and direct fallback", () => {
+  it("sizes the embedded page to its own content and keeps a direct fallback", () => {
     const component = readFileSync(new URL("../components/QsScreener.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
     const embed = readFileSync(new URL("../public/qs/js/qs-embed.js", import.meta.url), "utf8");
     expect(component).toContain('event.data?.type === "qs-ready"');
+    expect(component).toContain('event.data?.type === "qs-height"');
     expect(component).toContain('href="/qs/index.html"');
-    expect(css).toContain(".qs-embed-panel iframe");
-    expect(css).toContain("min-height: 1180px");
+    expect(css).toContain(".qs-frame");
     expect(embed).toContain('type: "qs-ready"');
+    expect(embed).toContain('type: "qs-height"');
+    expect(embed).toContain("ResizeObserver");
+  });
+
+  it("gives the QS Screener its own page next to DCF", () => {
+    const app = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    expect(app).toContain('{ key: "qs", label: "QS Screener" }');
+    expect(app).toContain('view === "qs"');
+    // The screener no longer hides in the footer's secondary-tools menu.
+    expect(app).not.toContain('setSecondary("qs")');
+  });
+
+  it("does not link the screener to pages that were never shipped", () => {
+    const html = readFileSync(new URL("../public/qs/index.html", import.meta.url), "utf8");
+    for (const orphan of ["sp500.html", "chart.html", "fcf.html", "portfolio.html", "filings.html"]) {
+      expect(html).not.toContain(orphan);
+    }
   });
 });

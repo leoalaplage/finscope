@@ -14,10 +14,11 @@ const PILIERS = cfg.PILIERS;
 const NOMS_PILIERS_LONG = { Quality: "QUALITY", Health: "HEALTH", Growth: "GROWTH", Value: "VALUE" };
 
 const BLEU = "rgb(31,56,100)";
-const GRIS = "rgb(240,242,246)";
+const GRIS = "rgb(246,247,250)";
 const BLANC = "rgb(255,255,255)";
-const GRIS_BORD = "rgb(210,214,220)";
+const GRIS_BORD = "rgb(224,227,233)";
 const NOIR = "rgb(20,20,20)";
+const GRIS_TEXTE = "rgb(96,104,118)";
 
 /** Echelle 3 couleurs rouge(0) -> jaune(50) -> vert(100). */
 function couleurScore(v) {
@@ -38,25 +39,42 @@ function texteSur(c) {
 
 const f1 = (x) => (x === null || x === undefined ? "n/a" : Number(x).toFixed(1));
 
+/** Case a coche verte, ou case vide au fond de la ligne. Les traits sont
+ *  proportionnels a la hauteur de ligne, pour rester centres si elle change. */
+function coche(doc, w, h, actif, zebre) {
+  const x0 = doc.x, y0 = doc.y;
+  doc.traitCouleur(actif ? BLANC : GRIS_BORD).fondCouleur(actif ? "rgb(88,175,112)" : zebre);
+  doc.cell(w, h, "", { fill: true, border: true });
+  if (!actif) return;
+  const style = { couleur: BLANC, epaisseur: 0.55 };
+  doc.ligne(x0 + w * 0.32, y0 + h * 0.52, x0 + w * 0.44, y0 + h * 0.70, style);
+  doc.ligne(x0 + w * 0.44, y0 + h * 0.70, x0 + w * 0.70, y0 + h * 0.30, style);
+}
+
 // ---------------------------------------------------------------------
 // Elements communs
 // ---------------------------------------------------------------------
 function bandeau(doc, titre, sousTitre = "") {
-  doc.fondCouleur(BLEU).texteCouleur(BLANC).police(16, true);
+  doc.fondCouleur(BLEU).texteCouleur(BLANC).police(15, true);
   doc.x = doc.marge;
-  doc.cell(doc.epw, 11, "  " + titre, { fill: true });
-  doc.ln(11);
+  doc.cell(doc.epw, 13, titre, { fill: true, padding: 4 });
+  doc.ln(13);
   if (sousTitre) {
-    doc.police(8.5).texteCouleur("rgb(70,70,70)");
-    doc.cell(doc.epw, 6, sousTitre, { padding: 0 });
-    doc.ln(6);
+    //  La ligne de contexte vit dans sa propre bande claire : elle se lit
+    //  comme une legende de l'entete, pas comme la premiere ligne du tableau.
+    doc.fondCouleur(GRIS).texteCouleur(GRIS_TEXTE).police(8);
+    doc.cell(doc.epw, 7, sousTitre, { fill: true, padding: 4 });
+    doc.ln(7);
+    doc.ligne(doc.marge, doc.y, doc.marge + doc.epw, doc.y, { couleur: GRIS_BORD });
   }
-  doc.ln(2);
+  doc.ln(5);
   doc.texteCouleur(NOIR);
 }
 
-function enteteTable(doc, cols, h = 7) {
-  doc.police(8, true).fondCouleur(BLEU).texteCouleur(BLANC).traitCouleur(GRIS_BORD);
+function enteteTable(doc, cols, h = 8) {
+  //  Les filets de l'entete sont bleus sur bleu : les intitules se separent
+  //  sans qu'un quadrillage gris vienne hachurer la bande.
+  doc.police(7.5, true).fondCouleur(BLEU).texteCouleur(BLANC).traitCouleur(BLEU);
   doc.x = doc.marge;
   for (const [libelle, w] of cols) doc.cell(w, h, libelle, { align: "C", fill: true, border: true });
   doc.ln(h);
@@ -85,6 +103,8 @@ const COLS = [
   ["FCF", 14, "fcf"], ["vs Med", 12, "fcfmed"],
 ];
 const LARGEUR_TABLE = COLS.reduce((a, c) => a + c[1], 0);   // 218 mm
+/** Colonnes rendues en aplat colore plutot qu'en texte sur fond de ligne. */
+const PAVES = new Set([...PILIERS, "total", "conviction", "data", "valuation", "alertes", "fcf", "fcfmed", "qv"]);
 
 export function dessinerDashboard(retenus, tousTitres, poids, {
   preset = null, echelle = 8, triLibelle = null,
@@ -127,19 +147,22 @@ export function dessinerDashboard(retenus, tousTitres, poids, {
     (triLibelle ? `   |   sorted by ${triLibelle}` : "") +
     `   |   ${aujourdhui}`;
 
-  const H = 5.8;   // hauteur d'une ligne
+  const H = 6.6;   // hauteur d'une ligne
 
   const peindre = (doc) => {
-    bandeau(doc, "QS SCREENER  -  Dashboard", sous);
+    bandeau(doc, "QS Screener  ·  Dashboard", sous);
     enteteTable(doc, COLS);
     doc.police(8);
 
     titresTri.forEach((t, idx) => {
       const zebre = idx % 2 ? GRIS : BLANC;
       doc.x = doc.marge;
-      doc.traitCouleur(GRIS_BORD);
 
       for (const [, w, cle] of COLS) {
+        //  Une case coloree est un pave : on la borde de blanc pour la
+        //  detacher de sa voisine. Une case de texte reste dans le tableau,
+        //  et garde le filet gris.
+        doc.traitCouleur(PAVES.has(cle) ? BLANC : GRIS_BORD);
         if (PILIERS.includes(cle)) {
           const val = t.piliers[cle];
           const fond = couleurScore(val);
@@ -172,15 +195,17 @@ export function dessinerDashboard(retenus, tousTitres, poids, {
 
         } else if (cle === "alertes") {
           const a = t.alertes;
+          doc.traitCouleur(a ? BLANC : GRIS_BORD);
           doc.fondCouleur(a ? "rgb(255,199,206)" : zebre);
-          doc.texteCouleur(a ? "rgb(192,0,0)" : NOIR).police(8);
+          doc.texteCouleur(a ? "rgb(192,0,0)" : NOIR).police(8, !!a);
           doc.cell(w, H, String(a), { align: "C", fill: true, border: true });
+          doc.police(8);
 
         } else if (cle === "fcf") {
           const n = noteFcf(t.Ticker);
           if (n == null) {
-            doc.fondCouleur(zebre).texteCouleur("rgb(160,160,160)").police(8);
-            doc.cell(w, H, "-", { align: "C", fill: true, border: true });
+            doc.traitCouleur(GRIS_BORD).fondCouleur(zebre).texteCouleur("rgb(170,175,185)").police(8);
+            doc.cell(w, H, "–", { align: "C", fill: true, border: true });
           } else {
             const fond = couleurScore(n);
             doc.fondCouleur(rgb(fond)).texteCouleur(texteSur(fond)).police(8, true);
@@ -190,31 +215,13 @@ export function dessinerDashboard(retenus, tousTitres, poids, {
 
         } else if (cle === "fcfmed") {
           const n = noteFcf(t.Ticker);
-          const x0 = doc.x, y0 = doc.y;
-          if (n != null && medianeFcf != null && n >= medianeFcf) {
-            doc.fondCouleur("rgb(99,190,123)");
-            doc.cell(w, H, "", { fill: true, border: true });
-            doc.ligne(x0 + w * 0.30, y0 + 3.1, x0 + w * 0.44, y0 + 4.3, { couleur: BLANC, epaisseur: 0.6 });
-            doc.ligne(x0 + w * 0.44, y0 + 4.3, x0 + w * 0.72, y0 + 1.7, { couleur: BLANC, epaisseur: 0.6 });
-          } else {
-            doc.fondCouleur(zebre);
-            doc.cell(w, H, "", { fill: true, border: true });
-          }
+          coche(doc, w, H, n != null && medianeFcf != null && n >= medianeFcf, zebre);
 
         } else if (cle === "qv") {
-          const x0 = doc.x, y0 = doc.y;
-          if (t.qv_median) {
-            doc.fondCouleur("rgb(99,190,123)");
-            doc.cell(w, H, "", { fill: true, border: true });
-            // coche blanche
-            doc.ligne(x0 + w * 0.30, y0 + 3.1, x0 + w * 0.44, y0 + 4.3, { couleur: BLANC, epaisseur: 0.6 });
-            doc.ligne(x0 + w * 0.44, y0 + 4.3, x0 + w * 0.72, y0 + 1.7, { couleur: BLANC, epaisseur: 0.6 });
-          } else {
-            doc.fondCouleur(zebre);
-            doc.cell(w, H, "", { fill: true, border: true });
-          }
+          coche(doc, w, H, !!t.qv_median, zebre);
 
         } else {
+          doc.traitCouleur(GRIS_BORD);
           doc.fondCouleur(zebre).texteCouleur(NOIR);
           const texte = {
             rank: String(t.rang),
@@ -233,28 +240,46 @@ export function dessinerDashboard(retenus, tousTitres, poids, {
       doc.ln(H);
     });
 
-    // legende
-    doc.ln(2);
-    doc.police(7.5).texteCouleur("rgb(90,90,90)");
+    //  Legende : une entree par colonne plutot qu'un seul pave de texte.
+    //  Le contenu ne change pas, mais on peut enfin y chercher une colonne
+    //  precise sans relire le paragraphe entier.
     const pool = cfg.PERCENTILE_SECTORIEL ? "sector (else universe)" : "the whole universe";
     const base = cfg.MELANGE_ABSOLU > 0
-      ? `Every score (0-100) blends ${Math.round(cfg.MELANGE_RELATIF * 100)}% relative rank ` +
-        `(within ${pool}) + ${Math.round(cfg.MELANGE_ABSOLU * 100)}% absolute anchors`
-      : `Every score (0-100) is a relative percentile rank within ${pool}`;
-    doc.multiCell(doc.epw, 4,
-      base + " - see the Methodology page. Colors run red -> yellow -> green. Grade = TOTAL " +
-      "(NR = not rated: too little data). R.Adj = risk-adjusted score (TOTAL minus a penalty " +
-      "per risk alert). Data = % of the score backed by real data. Valuation = Value pillar " +
-      "(Attractive / Fair / Expensive). '*' = project target: attractive valuation, " +
-      `solid quality (Quality >= ${cfg.SWEET_SPOT_QUALITE}) AND sound balance sheet ` +
-      `(Health >= ${cfg.SWEET_SPOT_SANTE}). ` +
-      "Q+V (green check) = Quality AND Value both at or above the universe median. " +
-      "FCF = free cash flow consistency, averaging the 5-year and 10-year scores (each blends " +
-      "growth 40%, how regular that growth was - R2 of a log-linear fit - 40%, and how stable " +
-      "the FCF yield stayed 20%). Computed on the FCF page; '-' means the company has not been " +
-      "analysed there yet, or a negative FCF year makes the fit impossible. vs Med (green check) " +
-      "= at or above the MEDIAN of the companies shown here that have a score; companies without " +
-      "one do not count towards it. The 5-year and 10-year figures are in the CSV export.");
+      ? `blends ${Math.round(cfg.MELANGE_RELATIF * 100)}% relative rank (within ${pool}) ` +
+        `+ ${Math.round(cfg.MELANGE_ABSOLU * 100)}% absolute anchors`
+      : `is a relative percentile rank within ${pool}`;
+    const entrees = [
+      ["Scores", `Every score (0-100) ${base} — see the Methodology page. Colors run red → yellow → green.`],
+      ["Grade", "The letter for TOTAL. NR = not rated: too little data behind the score."],
+      ["R.Adj", "Risk-adjusted score: TOTAL minus a penalty per risk alert."],
+      ["Data", "Share of the score backed by real data, in percent."],
+      ["Valuation", "The Value pillar read as Attractive / Fair / Expensive."],
+      ["*", `Project target: attractive valuation, solid quality (Quality ≥ ${cfg.SWEET_SPOT_QUALITE}) and a sound balance sheet (Health ≥ ${cfg.SWEET_SPOT_SANTE}).`],
+      ["Q+V", "Green check: Quality and Value are both at or above the universe median."],
+      ["FCF", "Free cash flow consistency, averaging the 5-year and 10-year scores (each blends growth 40%, how regular that growth was — R² of a log-linear fit — 40%, and how stable the FCF yield stayed 20%). Computed on the FCF page; “–” means the company has not been analysed there yet, or a negative FCF year makes the fit impossible."],
+      ["vs Med", "Green check: at or above the median of the companies shown here that have an FCF score; companies without one do not count towards it. The 5-year and 10-year figures are in the CSV export."],
+    ];
+    doc.ln(5);
+    doc.ligne(doc.marge, doc.y, doc.marge + doc.epw, doc.y, { couleur: GRIS_BORD });
+    doc.ln(4);
+    const largeurTerme = 20;
+    for (const [terme, texte] of entrees) {
+      const haut = doc.y;
+      doc.police(7.2, true).texteCouleur(NOIR);
+      doc.x = doc.marge;
+      doc.cell(largeurTerme, 3.9, terme, { padding: 0 });
+      doc.x = doc.marge + largeurTerme;
+      doc.police(7.2).texteCouleur(GRIS_TEXTE);
+      //  multiCell revient toujours a la marge : on decale le bloc en
+      //  reduisant sa largeur et en le repositionnant ligne a ligne.
+      for (const ligne of doc.decouper(texte, doc.epw - largeurTerme, 0)) {
+        doc.texteDans(doc.marge + largeurTerme, doc.y, doc.epw - largeurTerme, 3.9, ligne, "L", 0);
+        doc.y += 3.9;
+      }
+      doc.x = doc.marge;
+      if (doc.y === haut) doc.y += 3.9;
+      doc.y += 1.2;
+    }
     doc.texteCouleur(NOIR);
   };
 

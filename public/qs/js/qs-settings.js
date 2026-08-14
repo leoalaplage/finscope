@@ -33,5 +33,6 @@ export function definirWorkerUrl(url) {
 /** Duree affichee par defaut sur la page Chart (annees). */
 export const ANNEES_DEFAUT = 15;
 
-/** Resolution des PNG exportes : pixels par millimetre (8 ~ 200 dpi). */
-export const ECHELLE_PNG = 8;
+/** Resolution des PNG exportes : pixels par millimetre (10 ~ 254 dpi).
+ *  Assez fin pour rester net une fois colle dans une note ou un rapport. */
+export const ECHELLE_PNG = 10;

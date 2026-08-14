@@ -1,104 +1,89 @@
-import type { AutoAxis, AutoChartType, AutoScale } from "./auto-chart";
-import type { MissingDataMode, SeriesFrequency, TimeAlignment } from "./types";
-
-export type SeriesTransform = "raw" | "per-share" | "yoy" | "qoq" | "cagr" | "indexed" | "percentage-change";
-export type DataMode = "validated" | "raw";
-export type SeriesChartType = AutoChartType | "area" | "step" | "scatter";
-export type CurveMode = "straight" | "curved" | "step";
-export type StrokeMode = "solid" | "dashed" | "dotted";
-export type LegendMode = "compact" | "detailed" | "hidden";
-export type UnitsMode = "split" | "indexed" | "remove";
-export type RangePreset = "1" | "3" | "5" | "10" | "15" | "20" | "max" | "custom";
-export type AverageMode = "none" | "visible" | "median" | "3y" | "5y" | "10y" | "max" | "rolling" | "custom";
-export type CagrHorizon = "visible" | "3" | "5" | "10" | "15" | "20" | "max" | "custom";
-
-export interface AxisConfig {
-  scale: AutoScale | "custom" | "log";
-  minimum: number | null;
-  maximum: number | null;
-  visible: boolean;
-  position: AutoAxis;
-  showZero: boolean;
-  unitScale: "unit" | "thousand" | "million" | "billion";
-  decimals: number;
-  format: "automatic" | "currency" | "percent" | "number";
-  unitLabel: string;
-  inverted: boolean;
-}
+/**
+ * Charts hold one decision only: which company/metric pairs to draw, and over
+ * which window. Frequency, series type, axes, panels, colors, scales and number
+ * formats are derived from the metrics themselves in `auto-chart.ts`, so two
+ * charts showing the same thing always look the same.
+ */
+export type RangePreset = "1" | "3" | "5" | "10" | "max";
 
 export interface WorkspaceSeries {
   uid: string;
   ticker: string;
   metric: string;
-  frequency: SeriesFrequency;
-  transform: SeriesTransform;
-  axis: AutoAxis;
   visible: boolean;
-  chartType: SeriesChartType;
-  curve: CurveMode;
-  stroke: StrokeMode;
-  thickness: "thin" | "normal" | "thick";
-  points: boolean;
-  barMode: "grouped" | "stacked";
-  barWidth: number;
-  showValues: boolean;
-  color: string;
-  fillColor: string;
-  opacity: number;
-  alignment: TimeAlignment;
-  missingData: MissingDataMode;
-  dataMode: DataMode;
-  commonCurrency: boolean;
-  average: AverageMode;
-  rollingWindow: number;
-  cagrHorizons: CagrHorizon[];
 }
 
 export interface WorkspaceChart {
   id: string;
-  name: string;
   series: WorkspaceSeries[];
   range: RangePreset;
-  customStart: string;
-  customEnd: string;
-  leftAxis: AxisConfig;
-  rightAxis: AxisConfig;
-  showGrid: boolean;
-  showTooltips: boolean;
   showDataTable: boolean;
-  showInvalid: boolean;
-  legendMode: LegendMode;
-  unitsMode: UnitsMode;
-  syncRange: boolean;
-  zoomEnabled: boolean;
-  legendFields: { ticker: boolean; metric: boolean; frequency: boolean; latest: boolean; cagr: boolean; average: boolean; axis: boolean; unit: boolean };
 }
 
-const axis = (position: AutoAxis): AxisConfig => ({ scale: "zero", minimum: null, maximum: null, visible: true, position, showZero: true, unitScale: "unit", decimals: 1, format: "automatic", unitLabel: "", inverted: false });
+export const RANGE_OPTIONS: Array<[RangePreset, string]> = [["1", "1Y"], ["3", "3Y"], ["5", "5Y"], ["10", "10Y"], ["max", "Max"]];
+const RANGE_VALUES = new Set(RANGE_OPTIONS.map(([value]) => value));
 
-export function buildSeriesUid(chartId: string, series: Pick<WorkspaceSeries, "ticker" | "metric" | "frequency" | "transform" | "axis">) {
-  return `${chartId}:${series.ticker}:${series.metric}:${series.frequency}:${series.transform}:${series.axis}`;
+export function buildSeriesUid(chartId: string, ticker: string, metric: string) {
+  return `${chartId}:${ticker}:${metric}`;
 }
 
-export function createWorkspaceSeries(chartId: string, ticker: string, metric: string, frequency: SeriesFrequency, color: string, axisSide: AutoAxis = "left", transform: SeriesTransform = "raw"): WorkspaceSeries {
-  const base = { ticker, metric, frequency, transform, axis: axisSide };
-  return { uid: buildSeriesUid(chartId, base), ...base, visible: true, chartType: "line", curve: "straight", stroke: "solid", thickness: "normal", points: false, barMode: "grouped", barWidth: 18, showValues: false, color, fillColor: color, opacity: 1, alignment: "fiscal-period", missingData: "report-points", dataMode: "validated", commonCurrency: false, average: "none", rollingWindow: 20, cagrHorizons: ["visible"] };
+export function createWorkspaceSeries(chartId: string, ticker: string, metric: string): WorkspaceSeries {
+  return { uid: buildSeriesUid(chartId, ticker, metric), ticker, metric, visible: true };
 }
 
-export function createWorkspaceChart(id: string, ticker: string, series: WorkspaceSeries[]): WorkspaceChart {
-  return { id, name: `Chart ${id.replace(/\D/g, "") || id}`, series, range: "max", customStart: "", customEnd: "", leftAxis: axis("left"), rightAxis: { ...axis("right"), scale: "auto" }, showGrid: true, showTooltips: true, showDataTable: false, showInvalid: false, legendMode: "compact", unitsMode: "split", syncRange: false, zoomEnabled: false, legendFields: { ticker: true, metric: true, frequency: true, latest: false, cagr: true, average: false, axis: false, unit: false } };
-}
-
-export function patchSeries(chart: WorkspaceChart, uid: string, patch: Partial<WorkspaceSeries>): WorkspaceChart {
-  return { ...chart, series: chart.series.map((item) => item.uid === uid ? (() => { const next = { ...item, ...patch }; return { ...next, uid: buildSeriesUid(chart.id, next) }; })() : item) };
+export function createWorkspaceChart(id: string, series: WorkspaceSeries[] = [], range: RangePreset = "max"): WorkspaceChart {
+  return { id, series, range, showDataTable: false };
 }
 
 export function addSeriesUnique(chart: WorkspaceChart, series: WorkspaceSeries): WorkspaceChart {
   return chart.series.some((item) => item.uid === series.uid) ? chart : { ...chart, series: [...chart.series, series] };
 }
 
+export function addPair(chart: WorkspaceChart, ticker: string, metric: string): WorkspaceChart {
+  return addSeriesUnique(chart, createWorkspaceSeries(chart.id, ticker, metric));
+}
+
 export function removeSeries(chart: WorkspaceChart, uid: string): WorkspaceChart {
   return { ...chart, series: chart.series.filter((series) => series.uid !== uid) };
+}
+
+export function toggleSeries(chart: WorkspaceChart, uid: string): WorkspaceChart {
+  return { ...chart, series: chart.series.map((series) => series.uid === uid ? { ...series, visible: !series.visible } : series) };
+}
+
+export function chartTickers(chart: WorkspaceChart) {
+  return [...new Set(chart.series.map((series) => series.ticker))];
+}
+
+export function chartMetrics(chart: WorkspaceChart) {
+  return [...new Set(chart.series.map((series) => series.metric))];
+}
+
+/** Adds a company to every metric already on the chart, so comparisons stay complete. */
+export function addCompany(chart: WorkspaceChart, ticker: string): WorkspaceChart {
+  const metrics = chartMetrics(chart);
+  return (metrics.length ? metrics : ["stockPrice"]).reduce((current, metric) => addPair(current, ticker, metric), chart);
+}
+
+/** Adds a metric for every company already on the chart, for the same reason. */
+export function addMetric(chart: WorkspaceChart, metric: string, fallbackTicker: string): WorkspaceChart {
+  const tickers = chartTickers(chart);
+  return (tickers.length ? tickers : [fallbackTicker]).reduce((current, ticker) => addPair(current, ticker, metric), chart);
+}
+
+export function removeCompany(chart: WorkspaceChart, ticker: string): WorkspaceChart {
+  return { ...chart, series: chart.series.filter((series) => series.ticker !== ticker) };
+}
+
+/**
+ * Points an existing chart at another company, keeping the metrics on screen.
+ * Opening a company in Charts should show that company, not append it forever.
+ */
+export function focusCompany(chart: WorkspaceChart, ticker: string, metric?: string): WorkspaceChart {
+  const metrics = chartMetrics(chart);
+  if (metric && !metrics.includes(metric)) metrics.push(metric);
+  const wanted = metrics.length ? metrics : ["stockPrice", "freeCashFlowPerShare"];
+  return { ...chart, series: wanted.map((item) => createWorkspaceSeries(chart.id, ticker, item)) };
 }
 
 export function moveItem<T>(items: T[], index: number, direction: -1 | 1) {
@@ -108,15 +93,43 @@ export function moveItem<T>(items: T[], index: number, direction: -1 | 1) {
 }
 
 export function duplicateChart(chart: WorkspaceChart, nextId: string): WorkspaceChart {
-  const copy = structuredClone(chart); copy.id = nextId; copy.name = `${chart.name} copy`; copy.series = copy.series.map((series) => ({ ...series, uid: buildSeriesUid(nextId, series) })); return copy;
+  return { ...chart, id: nextId, series: chart.series.map((series) => ({ ...series, uid: buildSeriesUid(nextId, series.ticker, series.metric) })) };
+}
+
+/** Human title for a chart, built from its own contents rather than a stored name. */
+export function chartTitle(chart: WorkspaceChart, label: (metric: string) => string) {
+  const tickers = chartTickers(chart); const metrics = chartMetrics(chart);
+  if (!chart.series.length) return "Empty chart";
+  const companies = tickers.length > 3 ? `${tickers.length} companies` : tickers.join(", ");
+  const subjects = metrics.length > 3 ? `${metrics.length} metrics` : metrics.map(label).join(" & ");
+  return `${companies} · ${subjects}`;
 }
 
 export function serializeWorkspace(charts: WorkspaceChart[]) {
   return JSON.stringify(charts);
 }
 
+/**
+ * Accepts anything previously stored and keeps only what the current model
+ * understands, so an older saved workspace degrades into a valid chart instead
+ * of leaving the page blank.
+ */
 export function deserializeWorkspace(value: string): WorkspaceChart[] {
   const parsed = JSON.parse(value) as unknown;
-  if (!Array.isArray(parsed) || parsed.some((chart) => !chart || typeof chart !== "object" || !("id" in chart) || !("series" in chart) || !Array.isArray(chart.series))) throw new Error("Invalid chart workspace");
-  return parsed as WorkspaceChart[];
+  if (!Array.isArray(parsed)) throw new Error("Invalid chart workspace");
+  const charts = parsed.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const chart = entry as Partial<WorkspaceChart> & { series?: unknown };
+    if (typeof chart.id !== "string" || !Array.isArray(chart.series)) return [];
+    const series = (chart.series as unknown[]).flatMap((entry) => {
+      const item = entry as Record<string, unknown>;
+      if (!item || typeof item.ticker !== "string" || typeof item.metric !== "string") return [];
+      return [{ ...createWorkspaceSeries(chart.id!, item.ticker, item.metric), visible: item.visible !== false }];
+    });
+    const unique = [...new Map(series.map((item) => [item.uid, item])).values()];
+    const range = typeof chart.range === "string" && RANGE_VALUES.has(chart.range as RangePreset) ? chart.range as RangePreset : "max";
+    return [{ ...createWorkspaceChart(chart.id, unique, range), showDataTable: chart.showDataTable === true }];
+  });
+  if (!charts.length) throw new Error("Invalid chart workspace");
+  return charts;
 }

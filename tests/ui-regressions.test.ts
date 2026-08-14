@@ -2,14 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("UI regressions", () => {
-  it("keeps the internal series frequency as the select option value", () => {
-    const source = readFileSync(new URL("../components/MultiStockComparison.tsx", import.meta.url), "utf8");
-    expect(source).toContain("<option key={frequency} value={frequency}>{frequencyLabel(frequency)}</option>");
-  });
-
   it("keeps the primary navigation intentionally limited", () => {
     const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
-    expect(source).toContain('{ key: "companies", label: "Companies" }, { key: "charts", label: "Charts" }, { key: "dcf", label: "DCF" }');
+    expect(source).toContain('{ key: "companies", label: "Companies" }, { key: "charts", label: "Charts" }, { key: "dcf", label: "DCF" }, { key: "qs", label: "QS Screener" }');
     expect(source).not.toContain('label: "Data Quality"');
     expect(source).not.toContain('label: "Formula Audit"');
   });
@@ -21,13 +16,18 @@ describe("UI regressions", () => {
     expect(css).toContain(".recharts-default-tooltip { color: var(--text)");
   });
 
-  it("keeps straight lines as the default while supporting advanced chart types", () => {
+  it("draws straight lines and never asks the reader to configure the chart", () => {
     const source = readFileSync(new URL("../components/ChartsWorkspace.tsx", import.meta.url), "utf8");
-    expect(source).toContain('type="linear" isAnimationActive={false}');
-    expect(source).toContain("<Area");
-    expect(source).toContain("<Scatter");
-    expect(source).toContain('const connectReportPoints = series.missingData === "report-points"');
-    expect(source).toContain("connectNulls={connectReportPoints}");
+    expect(source).toContain('type="linear" connectNulls isAnimationActive={false}');
+    for (const removed of ["AdvancedSettings", "AxisSettings", "SeriesSettings", "Saved layouts", "unitsMode", "rollingWindow"]) {
+      expect(source).not.toContain(removed);
+    }
+  });
+
+  it("loads every company referenced by a chart instead of leaving it loading", () => {
+    const source = readFileSync(new URL("../components/ChartsWorkspace.tsx", import.meta.url), "utf8");
+    expect(source).toContain("const requiredTickers =");
+    expect(source).toContain("/api/company/${encodeURIComponent(ticker)}");
   });
 
   it("keeps the Companies ranking columns focused on financial metrics", () => {

@@ -45,9 +45,25 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-html.embedded header, html.embedded footer { display: none; }
-html.embedded main { max-width: none; padding: 2px 0 60px; }
-html.embedded body { min-height: 100vh; }
+/* -- integration FinScope ---------------------------------------------
+   Le cadre est affiche a l'interieur de FinScope, dont la mise en page est
+   plate : fond blanc, angles droits, pas d'ombre. On s'y aligne plutot que
+   de poser une carte grise au milieu d'une page blanche. Le titre de la
+   page vient de FinScope, on ne le repete pas ici.
+   --------------------------------------------------------------------- */
+html.embedded header, html.embedded footer, html.embedded .entete-page { display: none; }
+html.embedded main { max-width: none; padding: 0 0 12px; }
+html.embedded body { min-height: 0; background: #fff; }
+html.embedded .carte { border-radius: 0; box-shadow: none; padding: 20px 22px; margin-bottom: 16px; }
+html.embedded textarea,
+html.embedded button, html.embedded .bouton,
+html.embedded input[type=text], html.embedded input[type=search],
+html.embedded input[type=number], html.embedded select { border-radius: 2px; }
+html.embedded button.primaire { background: #1f5f4a; border-color: #1f5f4a; }
+html.embedded button.primaire:hover { background: #17493a; }
+html.embedded .etape { background: #1f5f4a; }
+html.embedded .apercu { border-radius: 0; }
+html.embedded .message { border-radius: 2px; }
 
 :root[data-theme="dark"] textarea,
 :root[data-theme="dark"] button,
@@ -725,6 +741,17 @@ details.options > div { padding-top: 16px; }
 .audit td code { font-size: 11.5px; background: #eef1f5; padding: 1px 5px; border-radius: 4px; }
 .audit .drapeau { color: #92400e; }
 .audit .souci { color: var(--rouge); }
+
+/* -- page Tableau : etapes, action, livrables -------------------------- */
+.etape-carte > h2 { display: flex; align-items: center; gap: 0; color: var(--texte); font-size: 14px; }
+.barre-generer {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--bord);
+}
+.raccourci { color: var(--texte-faible); font-size: 12.5px; }
+.livrables ul { margin: 0; padding-left: 18px; color: var(--texte-doux); font-size: 13.5px; }
+.livrables li { margin-bottom: 5px; }
+.livrables li b { color: var(--texte); }
 
 /* -- divers ----------------------------------------------------------- */
 .aide { font-size: 12.5px; color: var(--texte-faible); margin-top: 8px; }

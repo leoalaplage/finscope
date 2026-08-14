@@ -1,30 +1,40 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ClipboardPaste, FileImage, ShieldCheck } from "lucide-react";
 
-export function QsScreener({ dark }: { dark: boolean }) {
+const SOURCE = "/qs/index.html?embedded=1&theme=light";
+/** Tall enough that nothing is clipped before the page reports its own size. */
+const INITIAL_HEIGHT = 900;
+const MIN_HEIGHT = 420;
+
+export function QsScreener() {
   const frame = useRef<HTMLIFrameElement>(null);
-  const theme = dark ? "dark" : "light";
-  const [source] = useState(() => `/qs/index.html?embedded=1&theme=${theme}`);
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
+  const [height, setHeight] = useState(INITIAL_HEIGHT);
 
   useEffect(() => {
+    // The screener reports its own content height, so the embedded page grows
+    // with the generated table instead of scrolling inside a fixed box.
     const onMessage = (event: MessageEvent) => {
-      if (event.origin === window.location.origin && event.data?.type === "qs-ready") setStatus("ready");
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "qs-ready") setStatus("ready");
+      if (event.data?.type === "qs-height" && typeof event.data.height === "number") setHeight(Math.max(MIN_HEIGHT, Math.ceil(event.data.height)));
     };
     window.addEventListener("message", onMessage);
-    frame.current?.contentWindow?.postMessage({ type: "finscope-theme", theme }, window.location.origin);
     const timeout = window.setTimeout(() => setStatus((current) => current === "ready" ? current : "failed"), 8_000);
     return () => { window.removeEventListener("message", onMessage); window.clearTimeout(timeout); };
-  }, [theme]);
+  }, []);
 
   return <div className="qs-page">
-    <section className="view-title qs-title"><div><span className="panel-kicker">QUALITY SCORING WORKSPACE</span><h2>QS Screener</h2><p>Paste an Excel, Google Sheets, fiscal.ai, CSV or TSV table. Scoring and image generation stay in your browser.</p></div><div className="qs-capabilities"><span><ClipboardPaste size={13}/> Paste or drop data</span><span><FileImage size={13}/> Dashboard + methodology PNG</span><span><ShieldCheck size={13}/> Local processing</span></div></section>
-    <section className="panel qs-embed-panel">
-      {status === "loading" && <p className="simple-state">Loading the QS Screener…</p>}
-      {status === "failed" && <p className="notice">The embedded view did not confirm that it was ready. <a href="/qs/index.html" target="_blank" rel="noreferrer">Open the QS Screener directly</a>.</p>}
-      <iframe ref={frame} onError={() => setStatus("failed")} onLoad={() => frame.current?.contentWindow?.postMessage({ type: "finscope-theme", theme }, window.location.origin)} src={source} title="QS Screener dashboard, methodology and data import"/>
-    </section>
+    <header className="page-heading">
+      <div>
+        <h1>QS Screener</h1>
+        <p>Paste an export from fiscal.ai, Excel, Google Sheets or a CSV file. The quality score is computed and rendered as a shareable image in your browser — nothing is uploaded.</p>
+      </div>
+      <a className="qs-standalone" href="/qs/index.html" target="_blank" rel="noreferrer">Open full screen ↗</a>
+    </header>
+    {status === "failed" && <p className="notice">The embedded screener did not confirm that it loaded. <a href="/qs/index.html" target="_blank" rel="noreferrer">Open it in its own tab</a>.</p>}
+    {status === "loading" && <p className="simple-state">Loading the QS Screener…</p>}
+    <iframe ref={frame} className="qs-frame" style={{ height }} onError={() => setStatus("failed")} src={SOURCE} title="QS Screener: paste data, scoring settings and generated dashboard"/>
   </div>;
 }
