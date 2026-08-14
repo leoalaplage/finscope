@@ -136,10 +136,12 @@ tbody tr:last-child > * { border-bottom: 0; }
 .series-option-name i { flex: none; width: 9px; height: 9px; border-radius: 50%; }
 .series-options-note { margin-top: 10px; }
 .chart-stack { display: grid; gap: 10px; margin-bottom: 18px; }
+.chart-stack.grid { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .chart-panel { border: 1px solid var(--border); }
 .chart-panel-label { padding: 7px 11px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
 .chart-canvas { width: 100%; height: 380px; padding: 6px 4px 2px; }
 .chart-canvas.compact { height: 230px; }
+.chart-canvas.tiny { height: 190px; }
 .chart-tooltip { min-width: 190px; padding: 9px 11px; border: 1px solid var(--border-strong); background: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, .08); font-size: 12px; }
 .chart-tooltip b { display: block; margin-bottom: 6px; color: var(--muted); font-size: 11px; font-weight: 600; }
 .chart-tooltip span { display: grid; grid-template-columns: 9px 1fr auto; align-items: center; gap: 8px; padding: 2px 0; }
@@ -268,3 +270,17 @@ tbody tr:last-child > * { border-bottom: 0; }
 
 .section-note { max-width: 78ch; margin: -8px 0 16px; color: var(--muted); font-size: 13px; }
 .pershare-history { margin-top: 18px; border: 0; }
+
+.chart-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-bottom: 14px; }
+.chart-presets span { color: var(--muted); font-size: 12px; }
+.chart-presets button { min-height: 30px; padding: 4px 10px; font-size: 12px; }
+.company-picker { margin-bottom: 14px; padding: 10px 12px; border: 1px solid var(--border); }
+.company-picker summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; font-weight: 600; }
+.company-picker summary small { display: inline; font-weight: 400; }
+.company-picker[open] summary { margin-bottom: 12px; }
+.company-picker > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px 16px; }
+.company-picker label { display: flex; align-items: baseline; gap: 7px; font-size: 13px; }
+.company-picker label input { min-height: 0; }
+.company-picker label small { display: inline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.company-picker-actions { display: flex; gap: 8px; margin-top: 12px; }
+@media (max-width: 850px) { .chart-stack.grid { grid-template-columns: 1fr; } }

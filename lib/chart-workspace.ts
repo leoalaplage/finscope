@@ -14,8 +14,8 @@ export type SeriesAxis = "left" | "right";
 export type ScaleMode = "auto" | "zero" | "fit";
 /** Raw values, or every series rebased so shapes can be compared. */
 export type ValueMode = "raw" | "indexed";
-/** One chart for everything, or one chart per company. */
-export type LayoutMode = "combined" | "per-company";
+/** One chart for everything, one per company, or a company-by-metric grid. */
+export type LayoutMode = "combined" | "per-company" | "grid";
 
 /**
  * Deliberately short: a palette you pick from, not a colour wheel. These are
@@ -60,6 +60,50 @@ export interface WorkspaceChart {
   showPoints: boolean;
   /** Overlay every unit on one plot area with a second axis, on request. */
   overlay: boolean;
+  /** Mark disclosed stock splits on the date axis. */
+  showSplits: boolean;
+  /** Shade US recessions behind the series. */
+  showRecessions: boolean;
+}
+
+/**
+ * Ready-made questions, so the common ones are one click rather than six.
+ * A preset replaces the metrics and keeps whichever companies are on screen.
+ */
+export interface ChartPreset {
+  id: string;
+  label: string;
+  metrics: string[];
+  /** Presets may also set the reading that makes them legible. */
+  overlay?: boolean;
+  values?: ValueMode;
+}
+
+export const CHART_PRESETS: ChartPreset[] = [
+  { id: "price-fcf", label: "Price vs FCF / share", metrics: ["stockPrice", "freeCashFlowPerShare"], overlay: true },
+  { id: "growth", label: "Growth", metrics: ["revenue", "freeCashFlow", "freeCashFlowPerShare"] },
+  { id: "margins", label: "Margins", metrics: ["grossMargin", "operatingMargin", "netMargin", "freeCashFlowMargin"] },
+  { id: "cash-quality", label: "Cash quality", metrics: ["freeCashFlow", "freeCashFlowAfterSbc", "stockBasedCompensation"] },
+  { id: "capital", label: "Capital allocation", metrics: ["shareRepurchases", "dividendsPaid", "stockBasedCompensation", "dilutedShares"] },
+  { id: "compare", label: "Compare companies", metrics: ["stockPrice"], values: "indexed" },
+];
+
+/** Applies a preset to a chart, keeping its companies. */
+export function applyPreset(chart: WorkspaceChart, preset: ChartPreset, fallbackTicker: string): WorkspaceChart {
+  const tickers = chartTickers(chart);
+  const companies = tickers.length ? tickers : [fallbackTicker];
+  const series = companies.flatMap((ticker) => preset.metrics.map((metric) => createWorkspaceSeries(chart.id, ticker, metric)));
+  return { ...chart, series, overlay: preset.overlay ?? false, values: preset.values ?? "raw" };
+}
+
+/** Replaces the companies on a chart in one gesture, keeping its metrics. */
+export function setCompanies(chart: WorkspaceChart, tickers: string[]): WorkspaceChart {
+  const metrics = chartMetrics(chart);
+  const wanted = metrics.length ? metrics : ["stockPrice"];
+  return { ...chart, series: tickers.flatMap((ticker) => wanted.map((metric) => {
+    const existing = chart.series.find((item) => item.ticker === ticker && item.metric === metric);
+    return existing ?? createWorkspaceSeries(chart.id, ticker, metric);
+  })) };
 }
 
 export const RANGE_OPTIONS: Array<[RangePreset, string]> = [["1", "1Y"], ["3", "3Y"], ["5", "5Y"], ["10", "10Y"], ["max", "Max"]];
@@ -75,7 +119,7 @@ export function createWorkspaceSeries(chartId: string, ticker: string, metric: s
 }
 
 export function createWorkspaceChart(id: string, series: WorkspaceSeries[] = [], range: RangePreset = "max"): WorkspaceChart {
-  return { id, series, range, showDataTable: false, scale: "auto", values: "raw", layout: "combined", showGrid: true, showPoints: false, overlay: false };
+  return { id, series, range, showDataTable: false, scale: "auto", values: "raw", layout: "combined", showGrid: true, showPoints: false, overlay: false, showSplits: false, showRecessions: false };
 }
 
 export function addSeriesUnique(chart: WorkspaceChart, series: WorkspaceSeries): WorkspaceChart {
@@ -201,10 +245,12 @@ export function deserializeWorkspace(value: string): WorkspaceChart[] {
       showDataTable: chart.showDataTable === true,
       scale: chart.scale === "zero" || chart.scale === "fit" ? chart.scale : base.scale,
       values: chart.values === "indexed" ? "indexed" : base.values,
-      layout: chart.layout === "per-company" ? "per-company" : base.layout,
+      layout: chart.layout === "per-company" || chart.layout === "grid" ? chart.layout : base.layout,
       showGrid: chart.showGrid !== false,
       showPoints: chart.showPoints === true,
       overlay: chart.overlay === true,
+      showSplits: chart.showSplits === true,
+      showRecessions: chart.showRecessions === true,
     }];
   });
   if (!charts.length) throw new Error("Invalid chart workspace");

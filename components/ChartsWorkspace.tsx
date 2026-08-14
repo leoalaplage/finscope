@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Area, Bar, Brush, CartesianGrid, ComposedChart, LabelList, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, Bar, Brush, CartesianGrid, ComposedChart, LabelList, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { createAutoChartPlan, familyLabel, formatChartValue, indexToHundred, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
 import { chartDomain } from "@/lib/charting";
-import { addCompany, addMetric, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type ValueMode, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
+import { recessionBands, snapToAxis, splitMarks } from "@/lib/chart-annotations";
+import { addMetric, applyPreset, CHART_PRESETS, setCompanies, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type ValueMode, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservations, marketObservations, providerMarketFrequency } from "@/lib/mixed-series";
 import { CHART_METRIC_GROUPS as METRIC_GROUPS, METRICS } from "@/lib/metrics";
@@ -183,6 +184,14 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
   // axis. Splitting by company answers "how did each of these do", where one
   // combined chart answers "how do these compare".
   const groups = useMemo<Array<{ key: string; label: string; bundles: Bundle[] }>>(() => {
+    if (chart.layout === "grid") {
+      // One plot per company and metric. The comparison is then read across the
+      // grid rather than through an axis two series happen to share.
+      return chartTickers(chart).flatMap((ticker) => chartMetrics(chart).map((metric) => ({
+        key: `${ticker}:${metric}`, label: `${ticker} · ${METRICS[metric]?.short ?? metric}`,
+        bundles: drawn.filter((bundle) => bundle.series.ticker === ticker && bundle.series.metric === metric),
+      }))).filter((group) => group.bundles.length);
+    }
     if (chart.layout !== "per-company") return [{ key: "all", label: "", bundles: drawn }];
     return chartTickers(chart)
       .map((ticker) => ({ key: ticker, label: ticker, bundles: drawn.filter((bundle) => bundle.series.ticker === ticker) }))
@@ -224,11 +233,20 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       </div>
     </header>
 
+    <div className="chart-presets" role="group" aria-label="Presets">
+      <span>Presets</span>
+      {CHART_PRESETS.map((preset) => <button key={preset.id} onClick={() => onChange((current) => applyPreset(current, preset, fallbackTicker))}>{preset.label}</button>)}
+    </div>
+
+    <details className="company-picker"><summary>Companies<small>{tickers.length} selected</small></summary>
+      <div>{DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved").map((company) => <label key={company.ticker}>
+        <input type="checkbox" checked={tickers.includes(company.ticker)} onChange={(event) => onChange((current) => setCompanies(current, event.target.checked ? [...chartTickers(current), company.ticker] : chartTickers(current).filter((item) => item !== company.ticker)))}/>
+        {company.ticker}<small>{company.name}</small>
+      </label>)}</div>
+      <div className="company-picker-actions"><button onClick={() => onChange((current) => setCompanies(current, [fallbackTicker]))}>Just {fallbackTicker}</button><button onClick={() => onChange((current) => setCompanies(current, DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker)))}>All</button></div>
+    </details>
+
     <section className="chart-controls">
-      <label>Add company<select value="" onChange={(event) => { if (event.target.value) onChange((current) => addCompany(current, event.target.value)); }}>
-        <option value="">Company…</option>
-        {DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved" && !tickers.includes(company.ticker)).map((company) => <option key={company.ticker} value={company.ticker}>{company.ticker} — {company.name}</option>)}
-      </select></label>
       <label>Add metric<select value="" onChange={(event) => { if (event.target.value) onChange((current) => addMetric(current, event.target.value, fallbackTicker)); }}>
         <option value="">Metric…</option>
         {METRIC_GROUPS.map(([group, items]) => { const available = items.filter((metric) => !metrics.includes(metric)); return available.length ? <optgroup key={group} label={group}>{available.map((metric) => <option key={metric} value={metric}>{METRICS[metric]?.label ?? metric}</option>)}</optgroup> : null; })}
@@ -247,10 +265,12 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
         <option value="auto">Auto</option><option value="zero">Start at zero</option><option value="fit">Fit to data</option>
       </select></label>
       <label>Layout<select value={chart.layout} onChange={(event) => onChange((current) => ({ ...current, layout: event.target.value as LayoutMode }))} disabled={tickers.length < 2}>
-        <option value="combined">One chart</option><option value="per-company">One chart per company</option>
+        <option value="combined">One chart</option><option value="per-company">One per company</option><option value="grid">Grid: company × metric</option>
       </select>{tickers.length < 2 && <small>Add a second company to split</small>}</label>
       <label className="chart-switch"><input type="checkbox" checked={chart.showGrid} onChange={(event) => onChange((current) => ({ ...current, showGrid: event.target.checked }))}/> Grid</label>
       <label className="chart-switch"><input type="checkbox" checked={chart.showPoints} onChange={(event) => onChange((current) => ({ ...current, showPoints: event.target.checked }))}/> Points</label>
+      <label className="chart-switch"><input type="checkbox" checked={chart.showSplits} onChange={(event) => onChange((current) => ({ ...current, showSplits: event.target.checked }))}/> Splits</label>
+      <label className="chart-switch"><input type="checkbox" checked={chart.showRecessions} onChange={(event) => onChange((current) => ({ ...current, showRecessions: event.target.checked }))}/> Recessions</label>
     </section>
 
     <section className="series-chips" aria-label="Series on this chart">{bundles.map((bundle) => {
@@ -301,13 +321,17 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       <small className="series-options-note">Units get a panel each so nothing implies a relationship the data has not shown. Assigning an axis by hand overlays everything on one plot area instead — useful, but where the lines cross is then decided by the two ranges rather than by the data.</small>
     </details>}
     {!drawn.length && <p className="simple-state">{anyLoading ? "Loading data…" : chart.series.length ? "No observations in this window. Widen the time range or pick another metric." : "Add a company and a metric to draw this chart."}</p>}
-    {drawn.length > 0 && <div className="chart-stack" ref={surface}>{groups.flatMap((group) => {
+    {drawn.length > 0 && <div className={`chart-stack${chart.layout === "grid" && groups.length > 1 ? " grid" : ""}`} ref={surface}>{groups.flatMap((group) => {
       const panels = chart.values === "indexed" || chart.overlay || chart.series.some((series) => series.axis !== undefined) ? [0] : [...new Set(group.bundles.map((bundle) => bundle.plan.panel))].sort((a, b) => a - b);
       return panels.map((panel) => {
         const bundles = panels.length === 1 ? group.bundles : group.bundles.filter((bundle) => bundle.plan.panel === panel);
-        const heading = [group.label, chart.values === "indexed" ? "Indexed to 100" : [...new Set(bundles.map((item) => familyLabel(unitFamily(item.series.metric))))].join(" · ")].filter(Boolean).join(" · ");
-        return <ChartPanel key={`${group.key}-${panel}`} chart={chart} rows={rows} bundles={bundles} heading={heading}
-          single={groups.length === 1 && panels.length === 1} showBrush={group.key === groups.at(-1)?.key && panel === panels.at(-1) && rows.length > 60}/>;
+        // In grid mode the group label already names the metric, so repeating
+        // its unit family would only pad the heading.
+        const family = chart.layout === "grid" ? "" : chart.values === "indexed" ? "Indexed to 100" : [...new Set(bundles.map((item) => familyLabel(unitFamily(item.series.metric))))].join(" · ");
+        const heading = [group.label, family].filter(Boolean).join(" · ");
+        return <ChartPanel key={`${group.key}-${panel}`} chart={chart} rows={rows} bundles={bundles} heading={heading} datasets={datasets}
+          single={groups.length === 1 && panels.length === 1} compact={chart.layout === "grid" && groups.length > 1}
+          showBrush={chart.layout !== "grid" && group.key === groups.at(-1)?.key && panel === panels.at(-1) && rows.length > 60}/>;
       });
     })}</div>}
     {chart.showDataTable && drawn.length > 0 && <DataTable bundles={drawn} rows={rows}/>}
@@ -341,7 +365,7 @@ function endLabel(uid: string, lastIndex: number, formatter: (value: number) => 
   } as unknown as React.ComponentProps<typeof LabelList>["content"];
 }
 
-function ChartPanel({ chart, rows, bundles, heading, single, showBrush }: { chart: WorkspaceChart; rows: Array<Record<string, unknown>>; bundles: Bundle[]; heading: string; single: boolean; showBrush: boolean }) {
+function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, showBrush }: { chart: WorkspaceChart; rows: Array<Record<string, unknown>>; bundles: Bundle[]; heading: string; datasets: Record<string, CompanyDataset>; single: boolean; compact: boolean; showBrush: boolean }) {
   const sides = ["left", "right"] as const;
   const axes = sides.map((side) => {
     const items = bundles.filter((bundle) => bundle.plan.axis === side);
@@ -360,13 +384,22 @@ function ChartPanel({ chart, rows, bundles, heading, single, showBrush }: { char
     }
     return -1;
   };
+  const axisDates = rows.map((row) => row.date as string);
+  const bands = chart.showRecessions && axisDates.length ? recessionBands(axisDates[0], axisDates.at(-1)!)
+    .flatMap((band) => { const start = snapToAxis(axisDates, band.start), end = snapToAxis(axisDates, band.end); return start && end && start !== end ? [{ ...band, start, end }] : []; }) : [];
+  const splits = chart.showSplits && axisDates.length
+    ? splitMarks([...new Set(bundles.map((bundle) => bundle.series.ticker))].flatMap((ticker) => datasets[ticker] ? [datasets[ticker]] : []), axisDates[0], axisDates.at(-1)!)
+      .flatMap((mark) => { const at = snapToAxis(axisDates, mark.date); return at ? [{ ...mark, at }] : []; })
+    : [];
   const spanYears = rows.length ? (Date.parse(rows.at(-1)!.date as string) - Date.parse(rows[0].date as string)) / (365.2425 * 86_400_000) : 0;
   const tickDate = (value: unknown) => spanYears > 6 ? String(value).slice(0, 4) : String(value).slice(0, 7);
   return <div className="chart-panel">
     {!single && <div className="chart-panel-label">{heading}</div>}
-    <div className={`chart-canvas${single ? "" : " compact"}`}><ResponsiveContainer width="100%" height="100%">
+    <div className={`chart-canvas${compact ? " tiny" : single ? "" : " compact"}`}><ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={rows} syncId={chart.id} margin={{ top: 16, right: 16, bottom: 4, left: 4 }} barGap={2} barCategoryGap="18%">
         {chart.showGrid && <CartesianGrid vertical={false} stroke="#ececec"/>}
+        {bands.map((band) => <ReferenceArea key={band.label} x1={band.start} x2={band.end} yAxisId={axes.find((axis) => axis.items.length)?.side ?? "left"} fill="#111" fillOpacity={.05} strokeOpacity={0} label={compact ? undefined : { value: band.label, position: "insideTop", fontSize: 10, fill: "#7a7a7a" }}/>)}
+        {splits.map((mark) => <ReferenceLine key={`${mark.ticker}-${mark.date}`} x={mark.at} yAxisId={axes.find((axis) => axis.items.length)?.side ?? "left"} stroke="#9a9a9a" strokeDasharray="3 3" label={compact ? undefined : { value: mark.label, position: "insideTopLeft", fontSize: 10, fill: "#7a7a7a" }}/>)}
         <XAxis dataKey="date" tickFormatter={tickDate} minTickGap={44} tickLine={false} axisLine={{ stroke: "#d8d8d8" }}/>
         {axes.map((axis) => <YAxis key={axis.side} yAxisId={axis.side} orientation={axis.side} hide={!axis.items.length} width={64} tickLine={false} axisLine={false} domain={axis.domain} tickFormatter={(value) => formatChartValue(Number(value), axis.family, axis.currency)}/>)}
         {axes.filter((axis) => axis.items.length && axis.hasNegative).map((axis) => <ReferenceLine key={`${axis.side}-zero`} yAxisId={axis.side} y={0} stroke="#b4b4b4"/>)}
