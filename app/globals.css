@@ -246,3 +246,12 @@ tbody tr:last-child > * { border-bottom: 0; }
    where numbers actually align vertically. */
 .quality-callouts dd { margin: 4px 0 6px; font-size: 20px; font-weight: 650; font-variant-numeric: proportional-nums; }
 @media (max-width: 850px) { .quality-callouts { grid-template-columns: 1fr; } .quality-callouts > div { border-right: 0; border-bottom: 1px solid var(--border); } .quality-callouts > div:last-child { border-bottom: 0; } }
+
+.callout-picker { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border); }
+.callout-picker summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; font-weight: 600; }
+.callout-picker summary small { display: inline; font-weight: 400; }
+.callout-picker[open] summary { margin-bottom: 12px; }
+.callout-picker > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 6px 16px; }
+.callout-picker label { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+.callout-picker label input { min-height: 0; }
+.callout-picker > small { margin-top: 10px; }

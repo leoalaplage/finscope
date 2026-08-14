@@ -4,8 +4,8 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { DEFAULT_COMPANY_FILTERS, DEFAULT_COMPANY_SORT, filterCompanyRows, preferredDirection, sortCompanyRows, type CompanyFilters, type CompanyRankingRow, type CompanySortKey, type SortDirection } from "@/lib/company-ranking";
 import { cagrBetweenDates, cagrForPeriods, derivedValue, valueOf } from "@/lib/finance";
-import { growthConsistency, growthGap, growthTable, HORIZONS, type Horizon } from "@/lib/growth-quality";
-import { METRICS, VIEW_METRICS } from "@/lib/metrics";
+import { CALLOUTS, DEFAULT_CALLOUTS, growthTable, HORIZONS, type Horizon } from "@/lib/growth-quality";
+import { CHARTABLE_METRICS, METRICS, VIEW_METRICS } from "@/lib/metrics";
 import { buildValuationHistory, valuationSnapshot, valuationStatistics } from "@/lib/valuation-history";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, MetricKey, Periodicity, PricePoint } from "@/lib/types";
 
@@ -228,20 +228,34 @@ function CompanyPage({ dataset, onBack, onCharts, onDcf }: { dataset: CompanyDat
   const openMetric = (metric: string, period = latest) => setEvidence({ label: METRICS[metric]?.label ?? metric, value: derivedValue(period, metric), period, metric });
   return <div className="company-page"><button className="back-button" onClick={onBack}>← Companies</button><header className="company-title"><div><h1>{dataset.company.name}</h1><p>{dataset.company.ticker} · {dataset.company.exchange} · {dataset.company.currency} · Updated {dataset.retrievedAt.slice(0, 10)}</p></div><div className="company-title-actions"><button onClick={() => onCharts(dataset.company.ticker)}>Open in Charts</button><button onClick={onDcf}>Open DCF</button></div></header><dl className="company-facts"><div><dt>Stock price</dt><dd>{priceError ? "Could not load stock price" : price ? currency(currentPrice, dataset.company.currency) : "Loading…"}</dd></div><div><dt>Market cap</dt><dd>{currency(marketCap, dataset.company.currency)}</dd></div><div><dt>Currency</dt><dd>{dataset.company.currency}</dd></div><div><dt>Latest period</dt><dd>{latest.periodEnd}</dd></div></dl>
     <nav className="anchor-nav" aria-label="Company sections">{["overview", "financials", "growth", "margins", "capital", "valuation", "sources"].map((id) => <a key={id} href={`#${id}`}>{id === "capital" ? "Capital Allocation" : id === "sources" ? "Sources & Data Quality" : id.replace(/^./, (value) => value.toUpperCase())}</a>)}</nav>
-    <section id="overview" className="plain-section"><SectionTitle title="Overview" onCharts={() => onCharts(dataset.company.ticker)}/><MetricSummaryTable dataset={dataset} price={currentPrice} onOpen={openMetric}/></section>
-    <section id="financials" className="plain-section"><div className="section-heading"><h2>Financials</h2><div className="period-buttons">{(["annual", "quarterly", "ttm"] as Periodicity[]).map((item) => <button className={periodicity === item ? "active" : ""} key={item} onClick={() => setPeriodicity(item)}>{item === "ttm" ? "TTM" : item[0].toUpperCase() + item.slice(1)}</button>)}</div></div>{selected.length ? <SimpleFinancialTable periods={selected.slice(-10)} metrics={[...VIEW_METRICS.income, ...VIEW_METRICS.cashflow.slice(0, 4)]} onOpen={openMetric} currencyCode={dataset.company.currency}/> : <p className="simple-state">No data available for {periodicity}.</p>}</section>
+    <section id="overview" className="plain-section"><SectionTitle title="Overview" onCharts={() => onCharts(dataset.company.ticker)}/><MetricSummaryTable dataset={dataset} price={currentPrice} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)}/></section>
+    <section id="financials" className="plain-section"><div className="section-heading"><h2>Financials</h2><div className="period-buttons">{(["annual", "quarterly", "ttm"] as Periodicity[]).map((item) => <button className={periodicity === item ? "active" : ""} key={item} onClick={() => setPeriodicity(item)}>{item === "ttm" ? "TTM" : item[0].toUpperCase() + item.slice(1)}</button>)}</div></div>{selected.length ? <SimpleFinancialTable periods={selected.slice(-10)} metrics={[...VIEW_METRICS.income, ...VIEW_METRICS.cashflow.slice(0, 4)]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/> : <p className="simple-state">No data available for {periodicity}.</p>}</section>
     <section id="growth" className="plain-section"><SectionTitle title="Growth & Cash Quality" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowPerShare")}/><GrowthQuality dataset={dataset} annual={annual}/></section>
-    <section id="margins" className="plain-section"><SectionTitle title="Margins" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowMargin")}/><CurrentAndAverageTable periods={annual} metrics={[...VIEW_METRICS.margins]} onOpen={openMetric} currencyCode={dataset.company.currency}/></section>
-    <section id="capital" className="plain-section"><SectionTitle title="Capital Allocation" onCharts={() => onCharts(dataset.company.ticker, "dilutedShares")}/><CurrentAndAverageTable periods={annual} metrics={["dilutedShares", "shareCountChange", "shareRepurchases", "shareIssuance", "dividendsPaid", "stockBasedCompensation"]} onOpen={openMetric} currencyCode={dataset.company.currency}/></section>
+    <section id="margins" className="plain-section"><SectionTitle title="Margins" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowMargin")}/><CurrentAndAverageTable periods={annual} metrics={[...VIEW_METRICS.margins]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/></section>
+    <section id="capital" className="plain-section"><SectionTitle title="Capital Allocation" onCharts={() => onCharts(dataset.company.ticker, "dilutedShares")}/><CurrentAndAverageTable periods={annual} metrics={["dilutedShares", "shareCountChange", "shareRepurchases", "shareIssuance", "dividendsPaid", "stockBasedCompensation"]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/></section>
     <section id="valuation" className="plain-section"><SectionTitle title="Valuation" onCharts={() => onCharts(dataset.company.ticker, "stockPrice")}/><ValuationTable dataset={dataset} price={price}/></section>
     <section id="sources" className="plain-section"><h2>Sources & Data Quality</h2><table><tbody><tr><th>Fundamentals</th><td>SEC EDGAR Company Facts</td></tr><tr><th>Market data</th><td>Yahoo Finance adjusted close</td></tr><tr><th>Validation</th><td>{dataset.quality?.lastValidatedAt?.slice(0, 10) ?? dataset.retrievedAt.slice(0, 10)}</td></tr><tr><th>Coverage</th><td>{dataset.quality?.coverage.map((item) => `${item.periodicity}: ${item.periodCount}`).join(" · ") ?? `${dataset.periods.length} periods`}</td></tr></tbody></table>{dataset.warnings.length ? <ul>{dataset.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : <p>No active data warnings.</p>}</section>
     {evidence && <EvidenceDialog evidence={evidence} onClose={() => setEvidence(null)}/>}
   </div>;
 }
 
+/**
+ * The metric's name opens it in Charts; its value opens the provenance drawer.
+ *
+ * Reading a figure and asking "what has this done over time" is the common
+ * move, so the name goes there. The audit trail stays one click away on the
+ * number itself, which is what someone questioning the figure clicks anyway.
+ */
+function MetricName({ metric, label, onCharts, onOpen }: { metric: string; label: string; onCharts?: (metric: string) => void; onOpen: () => void }) {
+  if (onCharts && CHARTABLE_METRICS.has(metric)) {
+    return <button className="text-button" title={`Open ${label} in Charts`} onClick={() => onCharts(metric)}>{label}</button>;
+  }
+  return <button className="text-button" title={`Show where ${label} comes from`} onClick={onOpen}>{label}</button>;
+}
+
 function SectionTitle({ title, onCharts }: { title: string; onCharts: () => void }) { return <div className="section-heading"><h2>{title}</h2><button onClick={onCharts}>Open in Charts</button></div>; }
 
-function MetricSummaryTable({ dataset, price, onOpen }: { dataset: CompanyDataset; price: number | null; onOpen: (metric: string) => void }) {
+function MetricSummaryTable({ dataset, price, onOpen, onCharts }: { dataset: CompanyDataset; price: number | null; onOpen: (metric: string) => void; onCharts: (metric: string) => void }) {
   const latest = latestPeriod(dataset)!; const annual = sortedPeriods(dataset, "annual"); const previous = annual.at(-2); const latestAnnual = annual.at(-1); const shares = derivedValue(latest, "dilutedShares"); const marketCap = price != null && shares != null ? price * shares : null; const pfcf = marketCap != null ? marketCap / (derivedValue(latest, "freeCashFlow") || Number.NaN) : null;
   const metrics: Array<[string, number | null, string]> = [
     ["Revenue", derivedValue(latest, "revenue"), "revenue"], ["Revenue growth", latestAnnual && previous ? change(derivedValue(latestAnnual, "revenue"), derivedValue(previous, "revenue")) : null, "revenueGrowth"],
@@ -249,10 +263,10 @@ function MetricSummaryTable({ dataset, price, onOpen }: { dataset: CompanyDatase
     ["FCF / share", derivedValue(latest, "freeCashFlowPerShare"), "freeCashFlowPerShare"], ["FCF / share CAGR 5Y", cagrForPeriods(annual, "freeCashFlowPerShare", 5).value, "freeCashFlowPerShareCagr"], ["EPS", derivedValue(latest, "netIncomePerShare"), "netIncomePerShare"],
     ["Diluted shares", shares, "dilutedShares"], ["Dilution 5Y", annual.length > 5 ? change(derivedValue(annual.at(-1)!, "dilutedShares"), derivedValue(annual.at(-6)!, "dilutedShares")) : null, "shareCountChange"], ["ROIC", derivedValue(latest, "roic"), "roic"], ["P / FCF", Number.isFinite(pfcf ?? NaN) ? pfcf : null, "priceToFreeCashFlow"],
   ];
-  return <table><thead><tr><th>Metric</th><th>Current</th><th>Period</th></tr></thead><tbody>{metrics.map(([label, value, metric]) => <tr key={label}><th><button className="text-button" onClick={() => onOpen(metric)}>{label}</button></th><td>{METRICS[metric]?.kind === "percent" || metric.toLowerCase().includes("growth") || metric.toLowerCase().includes("cagr") || metric.toLowerCase().includes("margin") || metric === "shareCountChange" || metric === "roic" ? percent(value) : metric === "priceToFreeCashFlow" ? ratio(value) : metric === "dilutedShares" ? number(value) : currency(value, dataset.company.currency)}</td><td>{latest.periodEnd}</td></tr>)}</tbody></table>;
+  return <table><thead><tr><th>Metric</th><th>Current</th><th>Period</th></tr></thead><tbody>{metrics.map(([label, value, metric]) => <tr key={label}><th><MetricName metric={metric} label={label} onCharts={onCharts} onOpen={() => onOpen(metric)}/></th><td>{METRICS[metric]?.kind === "percent" || metric.toLowerCase().includes("growth") || metric.toLowerCase().includes("cagr") || metric.toLowerCase().includes("margin") || metric === "shareCountChange" || metric === "roic" ? percent(value) : metric === "priceToFreeCashFlow" ? ratio(value) : metric === "dilutedShares" ? number(value) : currency(value, dataset.company.currency)}</td><td>{latest.periodEnd}</td></tr>)}</tbody></table>;
 }
 
-function SimpleFinancialTable({ periods, metrics, onOpen, currencyCode }: { periods: FinancialPeriod[]; metrics: string[]; onOpen: (metric: string, period: FinancialPeriod) => void; currencyCode: string }) { return <div className="table-scroll"><table><thead><tr><th>Metric</th>{periods.map((period) => <th key={period.periodEnd}>{period.label}<small>{period.periodEnd}</small></th>)}</tr></thead><tbody>{metrics.map((metric) => <tr key={metric}><th>{METRICS[metric]?.label ?? metric}</th>{periods.map((period) => <td key={period.periodEnd}><button className="value-button" onClick={() => onOpen(metric, period)}>{metricDisplay(derivedValue(period, metric), metric, currencyCode)}</button></td>)}</tr>)}</tbody></table></div>; }
+function SimpleFinancialTable({ periods, metrics, onOpen, onCharts, currencyCode }: { periods: FinancialPeriod[]; metrics: string[]; onOpen: (metric: string, period: FinancialPeriod) => void; onCharts: (metric: string) => void; currencyCode: string }) { return <div className="table-scroll"><table><thead><tr><th>Metric</th>{periods.map((period) => <th key={period.periodEnd}>{period.label}<small>{period.periodEnd}</small></th>)}</tr></thead><tbody>{metrics.map((metric) => <tr key={metric}><th><MetricName metric={metric} label={METRICS[metric]?.label ?? metric} onCharts={onCharts} onOpen={() => onOpen(metric, periods.at(-1)!)}/></th>{periods.map((period) => <td key={period.periodEnd}><button className="value-button" onClick={() => onOpen(metric, period)}>{metricDisplay(derivedValue(period, metric), metric, currencyCode)}</button></td>)}</tr>)}</tbody></table></div>; }
 
 function GrowthQuality({ dataset, annual }: { dataset: CompanyDataset; annual: FinancialPeriod[] }) {
   const [bars, setBars] = useState<Array<{ date: string; value: number }> | null>(null);
@@ -279,8 +293,15 @@ function GrowthQuality({ dataset, annual }: { dataset: CompanyDataset; annual: F
     if (!start || start.date > `${Number(target.slice(0, 4)) + 1}${target.slice(4)}`) return { value: null, reason: `Only ${((Date.parse(end.date) - Date.parse(bars[0].date)) / (365.2425 * 86_400_000)).toFixed(0)} years of prices` };
     return { value: cagrBetweenDates(start.value, end.value, start.date, end.date).value, reason: undefined };
   };
-  const gap = growthGap(annual, 10);
-  const consistency = HORIZONS.map((horizon) => [horizon, growthConsistency(annual, "freeCashFlow", horizon)] as const);
+  const [pinned, setPinned] = useState<string[]>(() => {
+    if (typeof window === "undefined") return DEFAULT_CALLOUTS;
+    try {
+      const saved = JSON.parse(localStorage.getItem("finscope.callouts") ?? "null") as string[] | null;
+      return Array.isArray(saved) ? saved.filter((id) => CALLOUTS.some((item) => item.id === id)) : DEFAULT_CALLOUTS;
+    } catch { return DEFAULT_CALLOUTS; }
+  });
+  useEffect(() => { localStorage.setItem("finscope.callouts", JSON.stringify(pinned)); }, [pinned]);
+  const shown = CALLOUTS.filter((item) => pinned.includes(item.id));
 
   return <>
     <div className="table-scroll"><table><thead><tr><th>Compound annual growth</th>{HORIZONS.map((horizon) => <th key={horizon}>{horizon}Y</th>)}</tr></thead><tbody>
@@ -291,20 +312,25 @@ function GrowthQuality({ dataset, annual }: { dataset: CompanyDataset; annual: F
       <tr><th>Share price</th>{HORIZONS.map((horizon) => { const item = priceCagr(horizon); return <td key={horizon} title={item.reason}>{item.value == null ? item.reason === "Loading" ? "…" : "—" : percent(item.value)}</td>; })}</tr>
     </tbody></table></div>
 
-    <div className="quality-callouts">
-      <div><dt>FCF vs revenue · 10Y</dt><dd>{gap.spread == null ? "—" : `${gap.spread >= 0 ? "+" : ""}${(gap.spread * 100).toFixed(1)} pp`}</dd>
-        <small>{gap.spread == null ? gap.reason : `Free cash flow ${percent(gap.freeCashFlow)} vs revenue ${percent(gap.revenue)}. ${gap.spread >= 0 ? "Cash grew faster than sales." : "Sales grew faster than cash."}`}</small></div>
-      {consistency.map(([horizon, item]) => <div key={horizon}><dt>FCF consistency · {horizon}Y</dt>
-        <dd>{item.rSquared == null ? "—" : item.rSquared.toFixed(2)}</dd>
-        <small>{item.rSquared == null ? item.reason : `R² of a log-linear fit over ${item.observations} years. ${item.rSquared >= 0.9 ? "Steady compounding." : item.rSquared >= 0.7 ? "Broadly steady, with visible swings." : "Lumpy: the average rate hides the path."}`}</small></div>)}
-    </div>
+    {shown.length > 0 && <div className="quality-callouts">{shown.map((item) => {
+      const result = item.compute(annual);
+      return <div key={item.id}><dt>{item.label}</dt><dd>{result.display}</dd><small>{result.note}</small></div>;
+    })}</div>}
+
+    <details className="callout-picker"><summary>Pinned measures<small>{shown.length} of {CALLOUTS.length}</small></summary>
+      <div>{CALLOUTS.map((item) => <label key={item.id}>
+        <input type="checkbox" checked={pinned.includes(item.id)} onChange={(event) => setPinned((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))}/>
+        {item.label}
+      </label>)}</div>
+      <small>Kept for every company you open.</small>
+    </details>
   </>;
 }
 
 
-function CurrentAndAverageTable({ periods, metrics, onOpen, currencyCode }: { periods: FinancialPeriod[]; metrics: string[]; onOpen: (metric: string, period: FinancialPeriod) => void; currencyCode: string }) {
+function CurrentAndAverageTable({ periods, metrics, onOpen, onCharts, currencyCode }: { periods: FinancialPeriod[]; metrics: string[]; onOpen: (metric: string, period: FinancialPeriod) => void; onCharts: (metric: string) => void; currencyCode: string }) {
   const latest = periods.at(-1); if (!latest) return <p className="simple-state">No data available</p>;
-  return <table><thead><tr><th>Metric</th><th>Current</th><th>5Y average</th><th>Period</th></tr></thead><tbody>{metrics.map((metric) => { const values = periods.slice(-5).map((period) => derivedValue(period, metric)).filter((value): value is number => value != null && Number.isFinite(value)); const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null; return <tr key={metric}><th><button className="text-button" onClick={() => onOpen(metric, latest)}>{METRICS[metric]?.label ?? metric}</button></th><td>{metricDisplay(derivedValue(latest, metric), metric, currencyCode)}</td><td>{metricDisplay(average, metric, currencyCode)}</td><td>{latest.periodEnd}</td></tr>; })}</tbody></table>;
+  return <table><thead><tr><th>Metric</th><th>Current</th><th>5Y average</th><th>Period</th></tr></thead><tbody>{metrics.map((metric) => { const values = periods.slice(-5).map((period) => derivedValue(period, metric)).filter((value): value is number => value != null && Number.isFinite(value)); const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null; return <tr key={metric}><th><MetricName metric={metric} label={METRICS[metric]?.label ?? metric} onCharts={onCharts} onOpen={() => onOpen(metric, latest)}/></th><td>{metricDisplay(derivedValue(latest, metric), metric, currencyCode)}</td><td>{metricDisplay(average, metric, currencyCode)}</td><td>{latest.periodEnd}</td></tr>; })}</tbody></table>;
 }
 
 function ValuationTable({ dataset, price }: { dataset: CompanyDataset; price: PricePoint | null }) {

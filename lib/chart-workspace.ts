@@ -58,6 +58,8 @@ export interface WorkspaceChart {
   layout: LayoutMode;
   showGrid: boolean;
   showPoints: boolean;
+  /** Overlay every unit on one plot area with a second axis, on request. */
+  overlay: boolean;
 }
 
 export const RANGE_OPTIONS: Array<[RangePreset, string]> = [["1", "1Y"], ["3", "3Y"], ["5", "5Y"], ["10", "10Y"], ["max", "Max"]];
@@ -73,7 +75,7 @@ export function createWorkspaceSeries(chartId: string, ticker: string, metric: s
 }
 
 export function createWorkspaceChart(id: string, series: WorkspaceSeries[] = [], range: RangePreset = "max"): WorkspaceChart {
-  return { id, series, range, showDataTable: false, scale: "auto", values: "raw", layout: "combined", showGrid: true, showPoints: false };
+  return { id, series, range, showDataTable: false, scale: "auto", values: "raw", layout: "combined", showGrid: true, showPoints: false, overlay: false };
 }
 
 export function addSeriesUnique(chart: WorkspaceChart, series: WorkspaceSeries): WorkspaceChart {
@@ -202,6 +204,7 @@ export function deserializeWorkspace(value: string): WorkspaceChart[] {
       layout: chart.layout === "per-company" ? "per-company" : base.layout,
       showGrid: chart.showGrid !== false,
       showPoints: chart.showPoints === true,
+      overlay: chart.overlay === true,
     }];
   });
   if (!charts.length) throw new Error("Invalid chart workspace");

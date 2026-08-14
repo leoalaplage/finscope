@@ -78,6 +78,23 @@ export const VIEW_METRICS = {
   shares: ["dilutedShares", "basicShares", "sharesOutstanding", "sharesIssued", "treasuryShares", "shareCountAbsoluteChange", "shareCountChange", "cumulativeDilution", "shareRepurchases", "stockBasedCompensation", "shareIssuance", "netShareRepurchases", "stockBasedCompensationToRevenue", "stockBasedCompensationToFcf"],
 } as const;
 
+/**
+ * Metrics a chart can actually draw, grouped for the metric picker.
+ *
+ * Shared so the company page can tell whether clicking a figure should open it
+ * in Charts, rather than offering a link that lands on an empty plot.
+ */
+export const CHART_METRIC_GROUPS: Array<[string, string[]]> = [
+  ["Market", ["stockPrice"]],
+  ["Income statement", ["revenue", "grossProfit", "operatingIncome", "netIncome"]],
+  ["Cash flow", ["operatingCashFlow", "capitalExpenditures", "freeCashFlow", "freeCashFlowAfterSbc"]],
+  ["Per share", ["revenuePerShare", "netIncomePerShare", "freeCashFlowPerShare", "freeCashFlowAfterSbcPerShare"]],
+  ["Margins", ["grossMargin", "operatingMargin", "netMargin", "freeCashFlowMargin", "freeCashFlowAfterSbcMargin"]],
+  ["Shares and capital", ["dilutedShares", "sharesOutstanding", "shareRepurchases", "shareIssuance", "dividendsPaid", "stockBasedCompensation"]],
+];
+
+export const CHARTABLE_METRICS = new Set(CHART_METRIC_GROUPS.flatMap(([, items]) => items));
+
 export const GROWTH_METRICS = [
   "revenue", "grossProfit", "operatingIncome", "netIncome", "operatingCashFlow", "freeCashFlow",
   "revenuePerShare", "grossProfitPerShare", "operatingIncomePerShare", "netIncomePerShare",

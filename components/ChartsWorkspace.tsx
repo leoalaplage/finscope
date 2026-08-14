@@ -7,18 +7,10 @@ import { chartDomain } from "@/lib/charting";
 import { addCompany, addMetric, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type ValueMode, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservations, marketObservations, providerMarketFrequency } from "@/lib/mixed-series";
-import { METRICS } from "@/lib/metrics";
+import { CHART_METRIC_GROUPS as METRIC_GROUPS, METRICS } from "@/lib/metrics";
 import { analyzeVisibleSeries } from "@/lib/series-analysis";
 import type { CompanyDataset, MarketBar, SeriesObservation } from "@/lib/types";
 
-const METRIC_GROUPS: Array<[string, string[]]> = [
-  ["Market", ["stockPrice"]],
-  ["Income statement", ["revenue", "grossProfit", "operatingIncome", "netIncome"]],
-  ["Cash flow", ["operatingCashFlow", "capitalExpenditures", "freeCashFlow"]],
-  ["Per share", ["revenuePerShare", "netIncomePerShare", "freeCashFlowPerShare"]],
-  ["Margins", ["grossMargin", "operatingMargin", "netMargin", "freeCashFlowMargin"]],
-  ["Shares and capital", ["dilutedShares", "sharesOutstanding", "shareRepurchases", "shareIssuance", "dividendsPaid", "stockBasedCompensation"]],
-];
 const DEFAULT_METRICS = ["stockPrice", "freeCashFlowPerShare"];
 const STORAGE_KEY = "finscope.chartWorkspace.v3";
 const today = () => new Date().toISOString().slice(0, 10);
@@ -125,15 +117,19 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     // Assigning an axis by hand only means something inside one plot area, so
     // the first manual axis collapses the automatic panel split. Left and right
     // then refer to the two axes the reader can actually see.
-    const manualAxis = chart.series.some((series) => series.axis !== undefined);
+    // Overlaying is a request, never a default: either the reader asked for it
+    // outright, or they assigned an axis by hand, which means the same thing.
+    const overlay = (chart.overlay || chart.series.some((series) => series.axis !== undefined)) && chart.values !== "indexed";
+    const families = [...new Set(automatic.map((plan) => plan.family))];
     return automatic.map((plan, index) => {
       const series = chart.series[index];
       // Rebased series are all percentages of their own base, so a second axis
       // with its own range would defeat the comparison the mode exists for.
-      const axis = chart.values === "indexed" ? "left" as const : series.axis ?? plan.axis;
-      return { ...plan, style: (series.style ?? plan.type) as SeriesStyle, axis, color: series.color ?? plan.color, panel: manualAxis ? 0 : plan.panel };
+      const axis = chart.values === "indexed" ? "left" as const
+        : series.axis ?? (overlay && families.indexOf(plan.family) === 1 ? "right" as const : plan.axis);
+      return { ...plan, style: (series.style ?? plan.type) as SeriesStyle, axis, color: series.color ?? plan.color, panel: overlay ? 0 : plan.panel };
     });
-  }, [chart.series, chart.values, datasets]);
+  }, [chart.series, chart.values, chart.overlay, datasets]);
 
   const marketKey = plans.filter((plan) => providerMarketFrequency(plan.frequency)).map((plan) => `${plan.ticker}:${plan.frequency}`).sort().join("|");
   useEffect(() => {
@@ -244,6 +240,9 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       <label>Values<select value={chart.values} onChange={(event) => onChange((current) => ({ ...current, values: event.target.value as ValueMode }))}>
         <option value="raw">Actual values</option><option value="indexed">Indexed to 100</option>
       </select></label>
+      <label>Panels<select value={chart.overlay ? "overlay" : "split"} onChange={(event) => onChange((current) => ({ ...current, overlay: event.target.value === "overlay" }))} disabled={chart.values === "indexed"}>
+        <option value="split">One per unit</option><option value="overlay">Overlay on two axes</option>
+      </select>{chart.values === "indexed" && <small>Indexed values already share one axis</small>}</label>
       <label>Scale<select value={chart.scale} onChange={(event) => onChange((current) => ({ ...current, scale: event.target.value as ScaleMode }))}>
         <option value="auto">Auto</option><option value="zero">Start at zero</option><option value="fit">Fit to data</option>
       </select></label>
@@ -303,9 +302,9 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     </details>}
     {!drawn.length && <p className="simple-state">{anyLoading ? "Loading data…" : chart.series.length ? "No observations in this window. Widen the time range or pick another metric." : "Add a company and a metric to draw this chart."}</p>}
     {drawn.length > 0 && <div className="chart-stack" ref={surface}>{groups.flatMap((group) => {
-      const panels = chart.values === "indexed" ? [0] : [...new Set(group.bundles.map((bundle) => bundle.plan.panel))].sort((a, b) => a - b);
+      const panels = chart.values === "indexed" || chart.overlay || chart.series.some((series) => series.axis !== undefined) ? [0] : [...new Set(group.bundles.map((bundle) => bundle.plan.panel))].sort((a, b) => a - b);
       return panels.map((panel) => {
-        const bundles = chart.values === "indexed" ? group.bundles : group.bundles.filter((bundle) => bundle.plan.panel === panel);
+        const bundles = panels.length === 1 ? group.bundles : group.bundles.filter((bundle) => bundle.plan.panel === panel);
         const heading = [group.label, chart.values === "indexed" ? "Indexed to 100" : [...new Set(bundles.map((item) => familyLabel(unitFamily(item.series.metric))))].join(" · ")].filter(Boolean).join(" · ");
         return <ChartPanel key={`${group.key}-${panel}`} chart={chart} rows={rows} bundles={bundles} heading={heading}
           single={groups.length === 1 && panels.length === 1} showBrush={group.key === groups.at(-1)?.key && panel === panels.at(-1) && rows.length > 60}/>;

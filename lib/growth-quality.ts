@@ -117,3 +117,65 @@ export function growthGap(annual: FinancialPeriod[], horizon: Horizon = 10): Gro
     reason: spread == null ? freeCashFlow.reason ?? revenue.reason ?? "Not comparable over this horizon" : undefined,
   };
 }
+
+export interface CalloutDefinition {
+  id: string;
+  label: string;
+  /** Computed against the annual periods; returns the figure and its reading. */
+  compute: (annual: FinancialPeriod[]) => { display: string; note: string };
+}
+
+const pp = (value: number | null) => value == null ? "—" : `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)} pp`;
+const pct = (value: number | null) => value == null ? "—" : `${(value * 100).toFixed(1)}%`;
+
+function gapCallout(horizon: Horizon): CalloutDefinition {
+  return {
+    id: `gap-${horizon}`, label: `FCF vs revenue · ${horizon}Y`,
+    compute: (annual) => {
+      const gap = growthGap(annual, horizon);
+      return {
+        display: pp(gap.spread),
+        note: gap.spread == null ? gap.reason ?? "Not comparable" :
+          `Free cash flow ${pct(gap.freeCashFlow)} vs revenue ${pct(gap.revenue)}. ${gap.spread >= 0 ? "Cash grew faster than sales." : "Sales grew faster than cash."}`,
+      };
+    },
+  };
+}
+
+function consistencyCallout(metric: string, name: string, horizon: Horizon): CalloutDefinition {
+  return {
+    id: `consistency-${metric}-${horizon}`, label: `${name} consistency · ${horizon}Y`,
+    compute: (annual) => {
+      const item = growthConsistency(annual, metric, horizon);
+      return {
+        display: item.rSquared == null ? "—" : item.rSquared.toFixed(2),
+        note: item.rSquared == null ? item.reason ?? "Not measurable" :
+          `R² of a log-linear fit over ${item.observations} years. ${item.rSquared >= 0.9 ? "Steady compounding." : item.rSquared >= 0.7 ? "Broadly steady, with visible swings." : "Lumpy: the average rate hides the path."}`,
+      };
+    },
+  };
+}
+
+function cagrCallout(metric: string, name: string, horizon: Horizon): CalloutDefinition {
+  return {
+    id: `cagr-${metric}-${horizon}`, label: `${name} CAGR · ${horizon}Y`,
+    compute: (annual) => {
+      const [row] = growthTable(annual, [[metric, name]]);
+      const item = row.cells[horizon];
+      return { display: pct(item.value), note: item.reason ?? `Compound annual growth over ${horizon} years.` };
+    },
+  };
+}
+
+/** Everything the reader can pin to the company page, in offer order. */
+export const CALLOUTS: CalloutDefinition[] = [
+  gapCallout(10), gapCallout(5),
+  consistencyCallout("freeCashFlow", "FCF", 10), consistencyCallout("freeCashFlow", "FCF", 5),
+  consistencyCallout("revenue", "Revenue", 10),
+  consistencyCallout("netIncome", "Net income", 10),
+  cagrCallout("freeCashFlowPerShare", "FCF / share", 10),
+  cagrCallout("freeCashFlowAfterSbc", "FCF after SBC", 10),
+  cagrCallout("dilutedShares", "Diluted shares", 10),
+];
+
+export const DEFAULT_CALLOUTS = ["gap-10", "consistency-freeCashFlow-5", "consistency-freeCashFlow-10"];
