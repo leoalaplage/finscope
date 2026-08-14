@@ -26,6 +26,8 @@ describe("UI regressions", () => {
     expect(source).toContain('type="linear" isAnimationActive={false}');
     expect(source).toContain("<Area");
     expect(source).toContain("<Scatter");
+    expect(source).toContain('const connectReportPoints = series.missingData === "report-points"');
+    expect(source).toContain("connectNulls={connectReportPoints}");
   });
 
   it("keeps the Companies ranking columns focused on financial metrics", () => {
@@ -36,5 +38,6 @@ describe("UI regressions", () => {
     expect(header).toContain("Market Cap");
     expect(header).toContain("Rank");
     expect(source).toContain('localStorage.setItem("finscope.companySort"');
+    expect(source).toContain('"Load all"');
   });
 });

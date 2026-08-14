@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { chargerTableau, parserTableau, toFloat } from "../public/qs/js/qs-parse.js";
 import { analyser } from "../public/qs/js/qs-engine.js";
@@ -22,5 +23,16 @@ describe("embedded QS screener", () => {
     expect(result.retenus[0].Ticker).toBe("AAA");
     expect(result.retenus[0].total).toBeGreaterThan(result.retenus[1].total);
     expect(result.poids).toEqual({ Quality: 45, Health: 20, Growth: 15, Value: 20 });
+  });
+
+  it("ships a full-height embedded page with a ready handshake and direct fallback", () => {
+    const component = readFileSync(new URL("../components/QsScreener.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+    const embed = readFileSync(new URL("../public/qs/js/qs-embed.js", import.meta.url), "utf8");
+    expect(component).toContain('event.data?.type === "qs-ready"');
+    expect(component).toContain('href="/qs/index.html"');
+    expect(css).toContain(".qs-embed-panel iframe");
+    expect(css).toContain("min-height: 1180px");
+    expect(embed).toContain('type: "qs-ready"');
   });
 });

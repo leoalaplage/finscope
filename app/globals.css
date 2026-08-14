@@ -173,7 +173,9 @@ tbody tr:last-child > * { border-bottom: 0; }
 .source-card { display: grid; grid-template-columns: auto 1fr; gap: 14px; }
 .source-icon { font-weight: 800; }
 .coverage-grid, .audit-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.qs-screener iframe { display: block; width: 100%; min-height: 780px; border: 1px solid var(--border); }
+.qs-embed-panel { padding: 0; border-top: 0; }
+.qs-embed-panel iframe, .qs-screener iframe { display: block; width: 100%; min-height: 1180px; border: 1px solid var(--border); background: #f6f7f9; }
+.qs-embed-panel .simple-state, .qs-embed-panel .notice { margin-bottom: 10px; }
 .spin { animation: none; }
 .positive-text { color: var(--accent); }
 .negative-text { color: var(--danger); }
@@ -192,6 +194,7 @@ tbody tr:last-child > * { border-bottom: 0; }
   .resolve-results > div, .watchlist-row { grid-template-columns: 1fr auto; }
   .import-progress { grid-column: 1 / -1; }
   .source-grid { grid-template-columns: 1fr; }
+  .qs-embed-panel iframe { min-height: 1320px; }
 }
 
 @media (max-width: 520px) {

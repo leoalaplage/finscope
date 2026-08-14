@@ -58,14 +58,19 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
     history.replaceState(null, "", `/?ticker=${dataset.company.ticker}&view=${next}`);
     window.scrollTo({ top: 0 });
   }
+  async function loadCompanyData(ticker: string) {
+    if (datasets[ticker]) return datasets[ticker];
+    const response = await fetch(`/api/company/${encodeURIComponent(ticker)}`, { cache: "no-store" }); const payload = await response.json() as CompanyDataset & { error?: string };
+    if (!response.ok) throw new Error(payload.error || "Could not load company");
+    setDatasets((current) => ({ ...current, [ticker]: payload }));
+    return payload;
+  }
   async function openCompany(ticker: string) {
     setSecondary(null); setError("");
     if (datasets[ticker]) { setDataset(datasets[ticker]); setView("company"); history.replaceState(null, "", `/?ticker=${ticker}&view=company`); return; }
     setLoading(ticker);
     try {
-      const response = await fetch(`/api/company/${encodeURIComponent(ticker)}`, { cache: "no-store" }); const payload = await response.json() as CompanyDataset & { error?: string };
-      if (!response.ok) throw new Error(payload.error || "Could not load company");
-      setDatasets((current) => ({ ...current, [ticker]: payload })); setDataset(payload); setView("company"); history.replaceState(null, "", `/?ticker=${ticker}&view=company`);
+      const payload = await loadCompanyData(ticker); setDataset(payload); setView("company"); history.replaceState(null, "", `/?ticker=${ticker}&view=company`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load company"); }
     finally { setLoading(""); }
   }
@@ -88,7 +93,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       {secondary === "coverage" && <SecondaryHeading title="Import status" onBack={() => setSecondary(null)}/>} {secondary === "coverage" && <Suspense fallback={<p className="simple-state">Loading…</p>}><CoverageMatrix initialData={dataset}/></Suspense>}
       {secondary === "sources" && <SourcesPage dataset={dataset} onBack={() => setSecondary(null)}/>}
       {secondary === "qs" && <SecondaryHeading title="QS Screener" onBack={() => setSecondary(null)}/>} {secondary === "qs" && <Suspense fallback={<p className="simple-state">Loading…</p>}><QsScreener dark={false}/></Suspense>}
-      {!secondary && view === "companies" && <CompaniesPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} loading={loading} onSearchAdd={() => setManagerOpen(true)} onOpen={openCompany} onCharts={(ticker) => openCharts(ticker)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/>}
+      {!secondary && view === "companies" && <CompaniesPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} loading={loading} onSearchAdd={() => setManagerOpen(true)} onLoad={loadCompanyData} onOpen={openCompany} onCharts={(ticker) => openCharts(ticker)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/>}
       {!secondary && view === "company" && <CompanyPage key={dataset.company.ticker} dataset={dataset} onBack={() => navigate("companies")} onCharts={openCharts} onDcf={openDcf}/>}
       {!secondary && view === "charts" && <Suspense fallback={<p className="simple-state">Loading…</p>}><ChartsWorkspace initialData={dataset} seed={chartSeed}/></Suspense>}
       {!secondary && view === "dcf" && <div><header className="page-heading"><div><h1>DCF</h1><p>{dataset.company.name} · assumptions remain traceable to their historical base.</p></div><button onClick={() => navigate("companies")}>Change company</button></header><Suspense fallback={<p className="simple-state">Loading…</p>}><DcfValuation key={dataset.company.ticker} dataset={dataset}/></Suspense></div>}
@@ -100,7 +105,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
 
 function SecondaryHeading({ title, onBack }: { title: string; onBack: () => void }) { return <header className="page-heading"><div><h1>{title}</h1><p>Secondary research tool for the selected company.</p></div><button onClick={onBack}>Back</button></header>; }
 
-function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd, onOpen, onCharts, onRemove }: { watchlist: CompanyProfile[]; datasets: Record<string, CompanyDataset>; activeTicker: string; loading: string; onSearchAdd: () => void; onOpen: (ticker: string) => void; onCharts: (ticker: string) => void; onRemove: (ticker: string) => void }) {
+function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd, onLoad, onOpen, onCharts, onRemove }: { watchlist: CompanyProfile[]; datasets: Record<string, CompanyDataset>; activeTicker: string; loading: string; onSearchAdd: () => void; onLoad: (ticker: string) => Promise<CompanyDataset>; onOpen: (ticker: string) => void; onCharts: (ticker: string) => void; onRemove: (ticker: string) => void }) {
   type RankingDisplayRow = CompanyRankingRow & { profile: CompanyProfile };
   const [filters, setFilters] = useState<CompanyFilters>(DEFAULT_COMPANY_FILTERS);
   const [sort, setSort] = useState<{ key: CompanySortKey; direction: SortDirection }>(() => {
@@ -112,6 +117,8 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
   });
   const [prices, setPrices] = useState<Record<string, PricePoint | null>>({});
   const [valuationPremiums, setValuationPremiums] = useState<Record<string, number | null>>({});
+  const [bulkLoading, setBulkLoading] = useState<Set<string>>(() => new Set());
+  const [bulkState, setBulkState] = useState({ running: false, done: 0, total: 0, failed: 0 });
   const loadedTickers = Object.keys(datasets).sort().join("|");
   useEffect(() => { localStorage.setItem("finscope.companySort", JSON.stringify(sort)); }, [sort]);
   useEffect(() => {
@@ -140,15 +147,32 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
   const rawRows = useMemo<RankingDisplayRow[]>(() => watchlist.map((profile) => {
     const data = datasets[profile.ticker]; const point = prices[profile.ticker]; const currentPrice = point?.priceClose ?? point?.close ?? null; const period = data ? latestPeriod(data) : undefined; const annual = data ? sortedPeriods(data, "annual") : []; const latestAnnual = annual.at(-1); const prior5 = annual.at(-6);
     const dilution = latestAnnual && prior5 ? change(valueOf(latestAnnual, "dilutedShares"), valueOf(prior5, "dilutedShares")) : null; const shares = period ? derivedValue(period, "sharesOutstanding") ?? derivedValue(period, "dilutedShares") : null; const fcf = period ? derivedValue(period, "freeCashFlow") : null; const marketCap = currentPrice != null && shares != null ? currentPrice * shares : null; const pfcf = marketCap != null && fcf != null && fcf > 0 ? marketCap / fcf : null;
-    return { profile, ticker: profile.ticker, marketCap, fcfMargin: period ? derivedValue(period, "freeCashFlowMargin") : null, fcfShareCagr: data ? cagrForPeriods(annual, "freeCashFlowPerShare", 5).value : null, revenueShareCagr: data ? cagrForPeriods(annual, "revenuePerShare", 5).value : null, operatingMargin: period ? derivedValue(period, "operatingMargin") : null, dilution, pfcf, valuationVsAverage: valuationPremiums[profile.ticker] ?? null, updated: data?.retrievedAt.slice(0, 10) ?? null, loading: loading === profile.ticker || Boolean(data && !(profile.ticker in prices)) };
-  }), [watchlist, datasets, prices, valuationPremiums, loading]);
+    return { profile, ticker: profile.ticker, marketCap, fcfMargin: period ? derivedValue(period, "freeCashFlowMargin") : null, fcfShareCagr: data ? cagrForPeriods(annual, "freeCashFlowPerShare", 5).value : null, revenueShareCagr: data ? cagrForPeriods(annual, "revenuePerShare", 5).value : null, operatingMargin: period ? derivedValue(period, "operatingMargin") : null, dilution, pfcf, valuationVsAverage: valuationPremiums[profile.ticker] ?? null, updated: data?.retrievedAt.slice(0, 10) ?? null, loading: loading === profile.ticker || bulkLoading.has(profile.ticker) || Boolean(data && !(profile.ticker in prices)) };
+  }), [watchlist, datasets, prices, valuationPremiums, loading, bulkLoading]);
   const rows = useMemo(() => sortCompanyRows(filterCompanyRows(rawRows, filters), sort.key, sort.direction), [rawRows, filters, sort]);
   const selectSort = (key: CompanySortKey) => setSort((current) => current.key === key ? { key, direction: current.direction === "desc" ? "asc" : "desc" } : { key, direction: preferredDirection(key) });
   const heading = (label: string, key: CompanySortKey) => <button className="sort-heading" onClick={() => selectSort(key)} aria-label={`Sort by ${label}`}>{label}<span aria-hidden="true">{sort.key === key ? sort.direction === "desc" ? " ↓" : " ↑" : ""}</span></button>;
   const setNumericFilter = (key: keyof CompanyFilters, value: string, multiplier: number) => setFilters((current) => ({ ...current, [key]: value === "" ? null : Number(value) * multiplier }));
   const missingReason = (row: RankingDisplayRow, label: string) => row.loading ? `${label} is still loading.` : row.profile.resolutionStatus === "unresolved" ? `${label} is unavailable because this ticker could not be resolved.` : !datasets[row.ticker] ? `Load ${row.ticker} to calculate ${label}.` : `${label} is not meaningful or is missing from the validated source data.`;
   const cell = (row: RankingDisplayRow, key: Exclude<CompanySortKey, "ticker" | "updated">, formatted: string, label: string) => row[key] == null || !Number.isFinite(row[key]!) ? <td title={missingReason(row, label)}>—</td> : <td>{formatted}</td>;
-  return <div><header className="page-heading"><div><h1>Companies</h1><p>{watchlist.length} companies in your local watchlist · ranked by {sort.key} {sort.direction === "desc" ? "descending" : "ascending"}.</p></div><button onClick={onSearchAdd}>Add company</button></header>
+  async function loadAll() {
+    const targets = watchlist.filter((company) => company.resolutionStatus !== "unresolved" && !datasets[company.ticker]).map((company) => company.ticker);
+    if (!targets.length) { setBulkState({ running: false, done: 0, total: 0, failed: 0 }); return; }
+    let cursor = 0; let failed = 0; setBulkState({ running: true, done: 0, total: targets.length, failed: 0 });
+    const worker = async () => {
+      while (cursor < targets.length) {
+        const ticker = targets[cursor++]; setBulkLoading((current) => new Set(current).add(ticker));
+        try { await onLoad(ticker); } catch { failed += 1; }
+        finally {
+          setBulkLoading((current) => { const next = new Set(current); next.delete(ticker); return next; });
+          setBulkState((current) => ({ ...current, done: current.done + 1, failed }));
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(3, targets.length) }, worker));
+    setBulkState((current) => ({ ...current, running: false, failed }));
+  }
+  return <div><header className="page-heading"><div><h1>Companies</h1><p>{watchlist.length} companies in your local watchlist · ranked by {sort.key} {sort.direction === "desc" ? "descending" : "ascending"}.</p>{bulkState.total > 0 && <small>{bulkState.running ? `Loading all companies: ${bulkState.done}/${bulkState.total}` : `Load all finished: ${bulkState.done - bulkState.failed} loaded${bulkState.failed ? `, ${bulkState.failed} failed` : ""}`}</small>}</div><div className="company-title-actions"><button disabled={bulkState.running} onClick={() => void loadAll()}>{bulkState.running ? `Loading ${bulkState.done}/${bulkState.total}…` : "Load all"}</button><button onClick={onSearchAdd}>Add company</button></div></header>
     <details className="company-filters"><summary>Filters</summary><section className="list-tools"><label>Search by ticker<input type="search" value={filters.query} onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))} placeholder="AAPL"/></label><label>Minimum Market Cap ($bn)<input type="number" value={filters.minimumMarketCap == null ? "" : filters.minimumMarketCap / 1_000_000_000} onChange={(event) => setNumericFilter("minimumMarketCap", event.target.value, 1_000_000_000)}/></label><label>Minimum FCF Margin (%)<input type="number" value={filters.minimumFcfMargin == null ? "" : filters.minimumFcfMargin * 100} onChange={(event) => setNumericFilter("minimumFcfMargin", event.target.value, .01)}/></label><label>Minimum FCF/share CAGR 5Y (%)<input type="number" value={filters.minimumFcfShareCagr == null ? "" : filters.minimumFcfShareCagr * 100} onChange={(event) => setNumericFilter("minimumFcfShareCagr", event.target.value, .01)}/></label><label>Maximum Dilution 5Y (%)<input type="number" value={filters.maximumDilution == null ? "" : filters.maximumDilution * 100} onChange={(event) => setNumericFilter("maximumDilution", event.target.value, .01)}/></label><button onClick={() => setFilters(DEFAULT_COMPANY_FILTERS)}>Reset filters</button></section></details>
     <div className="table-scroll"><table className="watchlist-table ranking-table"><thead><tr><th>Rank</th><th>{heading("Ticker", "ticker")}</th><th>{heading("Market Cap", "marketCap")}</th><th>{heading("FCF Margin", "fcfMargin")}</th><th>{heading("FCF/share CAGR 5Y", "fcfShareCagr")}</th><th>{heading("Revenue/share CAGR 5Y", "revenueShareCagr")}</th><th>{heading("Operating Margin", "operatingMargin")}</th><th>{heading("Dilution 5Y", "dilution")}</th><th>{heading("P/FCF", "pfcf")}</th><th>{heading("Valuation vs AVG 5Y", "valuationVsAverage")}</th><th>{heading("Updated", "updated")}</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.ticker} className={row.ticker === activeTicker ? "selected-row" : ""}><td className="rank-cell">{index + 1}</td><th><button className="text-button" onClick={() => onOpen(row.ticker)}>{row.ticker}</button><small>{row.profile.currency} · {row.profile.exchange}</small><div className="ticker-actions"><button onClick={() => onCharts(row.ticker)}>Charts</button><button onClick={() => onRemove(row.ticker)}>Remove</button></div></th>{cell(row, "marketCap", currency(row.marketCap, row.profile.currency), "Market Cap")}{cell(row, "fcfMargin", percent(row.fcfMargin), "FCF Margin")}{cell(row, "fcfShareCagr", percent(row.fcfShareCagr), "FCF/share CAGR 5Y")}{cell(row, "revenueShareCagr", percent(row.revenueShareCagr), "Revenue/share CAGR 5Y")}{cell(row, "operatingMargin", percent(row.operatingMargin), "Operating Margin")}{cell(row, "dilution", percent(row.dilution), "Dilution 5Y")}{cell(row, "pfcf", ratio(row.pfcf), "P/FCF")}{cell(row, "valuationVsAverage", percent(row.valuationVsAverage), "Valuation vs AVG 5Y")}<td title={row.updated ? undefined : missingReason(row, "Updated")}>{row.loading ? "Loading…" : row.updated ?? "—"}</td></tr>)}</tbody></table></div>{!rows.length && <p className="simple-state">No companies match the active filters.</p>}</div>;
 }
