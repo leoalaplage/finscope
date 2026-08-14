@@ -17,13 +17,17 @@ export type ValueMode = "raw" | "indexed";
 /** One chart for everything, or one chart per company. */
 export type LayoutMode = "combined" | "per-company";
 
-/** Deliberately short: a palette you pick from, not a colour wheel. */
+/**
+ * Deliberately short: a palette you pick from, not a colour wheel. These are
+ * five of the eight validated categorical slots, so a hand-picked colour is
+ * always one the automatic assignment could have chosen itself.
+ */
 export const SERIES_COLORS = [
-  { name: "Blue", value: "#4DA3FF" },
-  { name: "Green", value: "#36D399" },
-  { name: "Amber", value: "#FF9F43" },
-  { name: "Red", value: "#FF647C" },
-  { name: "Violet", value: "#A78BFA" },
+  { name: "Blue", value: "#2a78d6" },
+  { name: "Orange", value: "#eb6834" },
+  { name: "Aqua", value: "#1baf7a" },
+  { name: "Violet", value: "#4a3aa7" },
+  { name: "Red", value: "#e34948" },
 ] as const;
 const COLOR_VALUES = new Set<string>(SERIES_COLORS.map((color) => color.value));
 

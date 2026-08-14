@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Area, Bar, Brush, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, Bar, Brush, CartesianGrid, ComposedChart, LabelList, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { createAutoChartPlan, familyLabel, formatChartValue, indexToHundred, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
 import { chartDomain } from "@/lib/charting";
 import { addCompany, addMetric, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type ValueMode, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
@@ -315,6 +315,33 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
   </article>;
 }
 
+/**
+ * Value at the end of a series, drawn once.
+ *
+ * This is the secondary encoding the palette's contrast check requires, and it
+ * answers the question a legend cannot: which line ended where. The text wears
+ * the interface's ink rather than the series colour — position beside the line
+ * already carries identity, and coloured text on white is the part of the
+ * palette that reads worst. It is rendered through LabelList because Recharts
+ * draws a `label` element once per point, not once per series.
+ */
+function endLabel(uid: string, lastIndex: number, formatter: (value: number) => string, placed: Map<string, number>) {
+  return function EndLabel(props: { x?: string | number; y?: string | number; value?: unknown; index?: number }) {
+    if (props.index !== lastIndex || typeof props.value !== "number") return <></>;
+    // Series that finish at a similar height would print on top of each other,
+    // so each label is nudged clear of the ones already placed. Keyed by series
+    // so a repeated render settles on the same position instead of drifting.
+    let y = placed.get(uid);
+    if (y == null) {
+      y = Number(props.y) - 9;
+      const taken = [...placed.values()];
+      while (taken.some((other) => Math.abs(other - y!) < 14)) y -= 14;
+      placed.set(uid, y);
+    }
+    return <text x={Number(props.x) - 6} y={y} textAnchor="end" className="chart-end-label">{formatter(props.value)}</text>;
+  } as unknown as React.ComponentProps<typeof LabelList>["content"];
+}
+
 function ChartPanel({ chart, rows, bundles, heading, single, showBrush }: { chart: WorkspaceChart; rows: Array<Record<string, unknown>>; bundles: Bundle[]; heading: string; single: boolean; showBrush: boolean }) {
   const sides = ["left", "right"] as const;
   const axes = sides.map((side) => {
@@ -326,23 +353,42 @@ function ChartPanel({ chart, rows, bundles, heading, single, showBrush }: { char
     const mode = chart.scale === "auto" ? (items.some((bundle) => bundle.plan.scale === "auto") ? "auto" : "zero") : chart.scale;
     return { side, items, family, currency: items[0]?.currency ?? "USD", domain: chartDomain(values, mode).domain, hasNegative: values.some((value) => value != null && value < 0) };
   });
+  const placedLabels = new Map<string, number>();
+  const lastIndexWithValue = (uid: string) => {
+    for (let index = rows.length - 1; index >= 0; index--) {
+      const value = rows[index][uid];
+      if (typeof value === "number" && Number.isFinite(value)) return index;
+    }
+    return -1;
+  };
   const spanYears = rows.length ? (Date.parse(rows.at(-1)!.date as string) - Date.parse(rows[0].date as string)) / (365.2425 * 86_400_000) : 0;
   const tickDate = (value: unknown) => spanYears > 6 ? String(value).slice(0, 4) : String(value).slice(0, 7);
   return <div className="chart-panel">
     {!single && <div className="chart-panel-label">{heading}</div>}
     <div className={`chart-canvas${single ? "" : " compact"}`}><ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={rows} syncId={chart.id} margin={{ top: 12, right: 12, bottom: 4, left: 4 }}>
+      <ComposedChart data={rows} syncId={chart.id} margin={{ top: 16, right: 16, bottom: 4, left: 4 }} barGap={2} barCategoryGap="18%">
         {chart.showGrid && <CartesianGrid vertical={false} stroke="#ececec"/>}
         <XAxis dataKey="date" tickFormatter={tickDate} minTickGap={44} tickLine={false} axisLine={{ stroke: "#d8d8d8" }}/>
         {axes.map((axis) => <YAxis key={axis.side} yAxisId={axis.side} orientation={axis.side} hide={!axis.items.length} width={64} tickLine={false} axisLine={false} domain={axis.domain} tickFormatter={(value) => formatChartValue(Number(value), axis.family, axis.currency)}/>)}
         {axes.filter((axis) => axis.items.length && axis.hasNegative).map((axis) => <ReferenceLine key={`${axis.side}-zero`} yAxisId={axis.side} y={0} stroke="#b4b4b4"/>)}
         {chart.values === "indexed" && axes.filter((axis) => axis.items.length).slice(0, 1).map((axis) => <ReferenceLine key="base" yAxisId={axis.side} y={100} stroke="#b4b4b4" strokeDasharray="4 4"/>)}
         <Tooltip content={<ChartTooltip bundles={bundles}/>} cursor={{ stroke: "#b4b4b4", strokeDasharray: "3 3" }}/>
-        {bundles.map((bundle) => bundle.plan.style === "bar"
-          ? <Bar key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} fill={bundle.plan.color} maxBarSize={34} isAnimationActive={false}/>
-          : bundle.plan.style === "area"
-            ? <Area key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} fill={bundle.plan.color} fillOpacity={.14} dot={chart.showPoints ? { r: 2 } : false} type="linear" connectNulls isAnimationActive={false}/>
-            : <Line key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} dot={chart.showPoints ? { r: 2 } : false} type="linear" connectNulls isAnimationActive={false}/>)}
+        {bundles.map((bundle) => {
+          const family = chart.values === "indexed" ? "indexed" as const : unitFamily(bundle.series.metric);
+          // Past four series the labels collide more than they inform.
+          const last = bundles.length > 4 ? -1 : lastIndexWithValue(bundle.series.uid);
+          const label = last < 0 ? null : <LabelList dataKey={bundle.series.uid} content={endLabel(bundle.series.uid, last, (value) => formatChartValue(value, family, bundle.currency), placedLabels)}/>;
+          const dot = chart.showPoints ? { r: 4, strokeWidth: 0, fill: bundle.plan.color } : false;
+          if (bundle.plan.style === "bar") {
+            // Rounded data-ends, and a surface gap so neighbouring bars read as
+            // separate marks rather than one block.
+            return <Bar key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} fill={bundle.plan.color} maxBarSize={34} radius={[4, 4, 0, 0]} isAnimationActive={false}/>;
+          }
+          if (bundle.plan.style === "area") {
+            return <Area key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} fill={bundle.plan.color} fillOpacity={.14} dot={dot} activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }} type="linear" connectNulls isAnimationActive={false}>{label}</Area>;
+          }
+          return <Line key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} dot={dot} activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }} type="linear" connectNulls isAnimationActive={false}>{label}</Line>;
+        })}
         {showBrush && <Brush dataKey="date" height={22} travellerWidth={8} stroke="#b4b4b4" tickFormatter={tickDate}/>}
       </ComposedChart>
     </ResponsiveContainer></div>

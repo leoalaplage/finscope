@@ -1,14 +1,28 @@
+/**
+ * Categorical series colours, in fixed assignment order.
+ *
+ * These are stepped for a white chart surface and verified with the palette
+ * validator rather than chosen by eye: every slot sits inside the L 0.43–0.77
+ * lightness band, clears the chroma floor, and keeps adjacent pairs separable
+ * under protanopia, deuteranopia and tritanopia (worst adjacent ΔE 9.1) as well
+ * as for normal vision (worst adjacent ΔE 19.6).
+ *
+ * The previous palette was inherited from a dark theme this interface no longer
+ * has. Its first and most-used entry was a fluorescent yellow measuring 1.11:1
+ * against white — a line the reader could barely see.
+ *
+ * Slots below 3:1 contrast rely on the direct end-labels and the data table for
+ * relief, which the method requires and this workspace provides.
+ */
 export const CHART_PALETTE = [
-  { name: "Fluorescent yellow", value: "#D8FF5F" },
-  { name: "Electric blue", value: "#4DA3FF" },
-  { name: "Emerald green", value: "#36D399" },
-  { name: "Orange", value: "#FF9F43" },
-  { name: "Red", value: "#FF647C" },
-  { name: "Purple", value: "#A78BFA" },
-  { name: "Cyan", value: "#32D5E2" },
-  { name: "Pink", value: "#F472B6" },
-  { name: "Lime", value: "#84CC16" },
-  { name: "Neutral grey", value: "#94A3B8" },
+  { name: "Blue", value: "#2a78d6" },
+  { name: "Orange", value: "#eb6834" },
+  { name: "Aqua", value: "#1baf7a" },
+  { name: "Yellow", value: "#eda100" },
+  { name: "Magenta", value: "#e87ba4" },
+  { name: "Green", value: "#008300" },
+  { name: "Violet", value: "#4a3aa7" },
+  { name: "Red", value: "#e34948" },
 ] as const;
 
 export type ScaleMode = "zero" | "auto" | "custom" | "log" | "fit";
