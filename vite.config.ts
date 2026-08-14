@@ -11,9 +11,14 @@ const { d1, r2 } = hostingConfig;
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
+// Normalized companies live here between requests. See
+// app/api/company/[ticker]/route.ts for why this binding exists.
+const DATASET_CACHE_NAMESPACE_ID = "eca2a833a69b478f944cf1a6f1efc4b2";
+
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
+  kv_namespaces: [{ binding: "DATASET_CACHE", id: DATASET_CACHE_NAMESPACE_ID }],
   d1_databases: d1
     ? [
         {
