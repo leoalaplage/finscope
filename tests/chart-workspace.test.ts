@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createAutoChartPlan, formatChartValue, unitFamily } from "../lib/auto-chart";
 import { chartDomain } from "../lib/charting";
-import { addCompany, addMetric, addPair, addSeriesUnique, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, moveItem, removeCompany, removeSeries, serializeWorkspace, toggleSeries } from "../lib/chart-workspace";
+import { addCompany, addMetric, addPair, addSeriesUnique, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, removeCompany, removeSeries, resetSeries, serializeWorkspace, toggleSeries } from "../lib/chart-workspace";
 
 const series = (chart: string, ticker: string, metric: string) => createWorkspaceSeries(chart, ticker, metric);
 const chartWith = (...pairs: Array<[string, string]>) => createWorkspaceChart("chart-1", pairs.map(([ticker, metric]) => series("chart-1", ticker, metric)));
@@ -93,8 +93,11 @@ describe("chart workspace state", () => {
   it("migrates a workspace saved by an older, setting-heavy model", () => {
     const legacy = JSON.stringify([{ id: "chart-1", name: "Chart 1", range: "20", leftAxis: { scale: "log" }, series: [{ uid: "old:uid", ticker: "AAPL", metric: "revenue", frequency: "ttm", transform: "yoy", axis: "right", visible: true, color: "#000" }] }]);
     const [chart] = deserializeWorkspace(legacy);
+    // A range the current model no longer offers falls back rather than sticking.
     expect(chart.range).toBe("max");
-    expect(chart.series).toEqual([{ uid: "chart-1:AAPL:revenue", ticker: "AAPL", metric: "revenue", visible: true }]);
+    // Frequency and axis still mean the same thing, so they are kept as
+    // overrides; the identifier is rebuilt and everything else is dropped.
+    expect(chart.series).toEqual([{ uid: "chart-1:AAPL:revenue", ticker: "AAPL", metric: "revenue", visible: true, frequency: "ttm", axis: "right" }]);
   });
 
   it("rejects a workspace with nothing usable left", () => {
@@ -138,5 +141,53 @@ describe("automatic presentation", () => {
   it("keeps zero in view for absolute fundamentals and lets price float", () => {
     expect(chartDomain([5, 10], "zero").domain[0]).toBe(0);
     expect(chartDomain([120, 240], "auto").domain).toEqual(["auto", "auto"]);
+  });
+});
+
+describe("per-series overrides", () => {
+  const uid = "chart-1:AAPL:revenue";
+
+  it("starts fully automatic and carries no presentation fields", () => {
+    const [series] = chartWith(["AAPL", "revenue"]).series;
+    expect(hasOverrides(series)).toBe(false);
+    expect(series).toEqual({ uid, ticker: "AAPL", metric: "revenue", visible: true });
+  });
+
+  it("overrides frequency, style and axis independently", () => {
+    let chart = chartWith(["AAPL", "revenue"]);
+    chart = patchSeries(chart, uid, { frequency: "quarterly" });
+    chart = patchSeries(chart, uid, { style: "area" });
+    chart = patchSeries(chart, uid, { axis: "right" });
+    expect(chart.series[0]).toMatchObject({ frequency: "quarterly", style: "area", axis: "right" });
+    expect(hasOverrides(chart.series[0])).toBe(true);
+  });
+
+  it("clears a single override without disturbing the others", () => {
+    let chart = patchSeries(chartWith(["AAPL", "revenue"]), uid, { style: "bar", axis: "right" });
+    chart = patchSeries(chart, uid, { style: undefined });
+    expect("style" in chart.series[0]).toBe(false);
+    expect(chart.series[0].axis).toBe("right");
+  });
+
+  it("hands a series back to the automatic layout", () => {
+    const chart = patchSeries(chartWith(["AAPL", "revenue"]), uid, { style: "bar", axis: "right", frequency: "annual" });
+    const reset = resetSeries(chart, uid);
+    expect(hasOverrides(reset.series[0])).toBe(false);
+    expect(reset.series[0].visible).toBe(true);
+  });
+
+  it("touches only the addressed series", () => {
+    const chart = patchSeries(chartWith(["AAPL", "revenue"], ["AAPL", "stockPrice"]), uid, { axis: "right" });
+    expect(chart.series[1].axis).toBeUndefined();
+  });
+
+  it("survives a save and reload", () => {
+    const chart = patchSeries(chartWith(["AAPL", "revenue"]), uid, { style: "area", axis: "right", frequency: "quarterly" });
+    expect(deserializeWorkspace(serializeWorkspace([chart]))[0].series[0]).toMatchObject({ style: "area", axis: "right", frequency: "quarterly" });
+  });
+
+  it("discards a stored override that is no longer a valid choice", () => {
+    const stored = JSON.stringify([{ id: "chart-1", range: "max", series: [{ ticker: "AAPL", metric: "revenue", visible: true, style: "candlestick", axis: "middle", frequency: "hourly" }] }]);
+    expect(hasOverrides(deserializeWorkspace(stored)[0].series[0])).toBe(false);
   });
 });

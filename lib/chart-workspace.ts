@@ -1,16 +1,30 @@
+import type { SeriesFrequency } from "./types";
+
 /**
- * Charts hold one decision only: which company/metric pairs to draw, and over
- * which window. Frequency, series type, axes, panels, colors, scales and number
- * formats are derived from the metrics themselves in `auto-chart.ts`, so two
- * charts showing the same thing always look the same.
+ * Charts decide for themselves which frequency, series type, axis, panel, color
+ * and number format each metric deserves, in `auto-chart.ts`. A reader can
+ * override the frequency, the style and the axis of any single series; anything
+ * they have not touched keeps following the data.
  */
 export type RangePreset = "1" | "3" | "5" | "10" | "max";
 
+export type SeriesStyle = "line" | "bar" | "area";
+export type SeriesAxis = "left" | "right";
+
+/**
+ * Every presentation field is optional and means "decide for me". A series only
+ * carries what the reader has deliberately overridden, so charts keep choosing
+ * for themselves until someone disagrees, and a reset is a delete rather than a
+ * recalculation.
+ */
 export interface WorkspaceSeries {
   uid: string;
   ticker: string;
   metric: string;
   visible: boolean;
+  style?: SeriesStyle;
+  axis?: SeriesAxis;
+  frequency?: SeriesFrequency;
 }
 
 export interface WorkspaceChart {
@@ -22,6 +36,7 @@ export interface WorkspaceChart {
 
 export const RANGE_OPTIONS: Array<[RangePreset, string]> = [["1", "1Y"], ["3", "3Y"], ["5", "5Y"], ["10", "10Y"], ["max", "Max"]];
 const RANGE_VALUES = new Set(RANGE_OPTIONS.map(([value]) => value));
+const SERIES_FREQUENCIES = new Set<string>(["daily", "weekly", "monthly", "market-quarterly", "market-annual", "annual", "quarterly", "ttm"]);
 
 export function buildSeriesUid(chartId: string, ticker: string, metric: string) {
   return `${chartId}:${ticker}:${metric}`;
@@ -49,6 +64,25 @@ export function removeSeries(chart: WorkspaceChart, uid: string): WorkspaceChart
 
 export function toggleSeries(chart: WorkspaceChart, uid: string): WorkspaceChart {
   return { ...chart, series: chart.series.map((series) => series.uid === uid ? { ...series, visible: !series.visible } : series) };
+}
+
+/** Applies an override, or clears it when the value is undefined. */
+export function patchSeries(chart: WorkspaceChart, uid: string, patch: Partial<Pick<WorkspaceSeries, "style" | "axis" | "frequency">>): WorkspaceChart {
+  return { ...chart, series: chart.series.map((series) => {
+    if (series.uid !== uid) return series;
+    const next = { ...series, ...patch };
+    for (const key of ["style", "axis", "frequency"] as const) if (next[key] === undefined) delete next[key];
+    return next;
+  }) };
+}
+
+/** Hands one series back to the automatic layout. */
+export function resetSeries(chart: WorkspaceChart, uid: string): WorkspaceChart {
+  return { ...chart, series: chart.series.map((series) => series.uid === uid ? { uid: series.uid, ticker: series.ticker, metric: series.metric, visible: series.visible } : series) };
+}
+
+export function hasOverrides(series: WorkspaceSeries) {
+  return series.style !== undefined || series.axis !== undefined || series.frequency !== undefined;
 }
 
 export function chartTickers(chart: WorkspaceChart) {
@@ -124,7 +158,11 @@ export function deserializeWorkspace(value: string): WorkspaceChart[] {
     const series = (chart.series as unknown[]).flatMap((entry) => {
       const item = entry as Record<string, unknown>;
       if (!item || typeof item.ticker !== "string" || typeof item.metric !== "string") return [];
-      return [{ ...createWorkspaceSeries(chart.id!, item.ticker, item.metric), visible: item.visible !== false }];
+      const restored: WorkspaceSeries = { ...createWorkspaceSeries(chart.id!, item.ticker, item.metric), visible: item.visible !== false };
+      if (item.style === "line" || item.style === "bar" || item.style === "area") restored.style = item.style;
+      if (item.axis === "left" || item.axis === "right") restored.axis = item.axis;
+      if (typeof item.frequency === "string" && SERIES_FREQUENCIES.has(item.frequency)) restored.frequency = item.frequency as SeriesFrequency;
+      return [restored];
     });
     const unique = [...new Map(series.map((item) => [item.uid, item])).values()];
     const range = typeof chart.range === "string" && RANGE_VALUES.has(chart.range as RangePreset) ? chart.range as RangePreset : "max";

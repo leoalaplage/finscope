@@ -113,6 +113,19 @@ tbody tr:last-child > * { border-bottom: 0; }
 .series-remove:hover { color: var(--danger); }
 .error-text { color: var(--danger); }
 .warning-text { color: var(--warning); }
+.series-options { margin-bottom: 16px; padding: 10px 12px; border: 1px solid var(--border); }
+.series-options summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; font-weight: 600; }
+.series-options summary small { display: inline; font-weight: 400; }
+.series-options[open] summary { margin-bottom: 12px; }
+.series-options-grid { display: grid; gap: 10px; }
+.series-option-row { display: grid; grid-template-columns: minmax(150px, 1.3fr) repeat(3, minmax(120px, 1fr)) auto; align-items: end; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.series-option-row:last-child { padding-bottom: 0; border-bottom: 0; }
+.series-option-row label { display: grid; gap: 4px; min-width: 0; color: var(--muted); font-size: 12px; }
+.series-option-row select { width: 100%; }
+.series-option-row button { min-height: 34px; }
+.series-option-name { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 650; }
+.series-option-name i { flex: none; width: 9px; height: 9px; border-radius: 50%; }
+.series-options-note { margin-top: 10px; }
 .chart-stack { display: grid; gap: 10px; margin-bottom: 18px; }
 .chart-panel { border: 1px solid var(--border); }
 .chart-panel-label { padding: 7px 11px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
@@ -202,6 +215,8 @@ tbody tr:last-child > * { border-bottom: 0; }
   .chart-controls label { flex: none; min-width: 0; }
   .series-chip { width: 100%; }
   .series-toggle { flex: 1; min-width: 0; }
+  .series-option-row { grid-template-columns: 1fr 1fr; }
+  .series-option-name { grid-column: 1 / -1; }
   .chart-canvas { height: 260px; }
   .chart-canvas.compact { height: 190px; }
   .dcf-results-grid, .metrics-grid, .valuation-grid, .quality-grid, .dcf-history-grid, .price-proof { grid-template-columns: 1fr; }

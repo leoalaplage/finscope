@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bar, Brush, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, Bar, Brush, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { createAutoChartPlan, familyLabel, formatChartValue, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
 import { chartDomain } from "@/lib/charting";
-import { addCompany, addMetric, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, moveItem, removeSeries, RANGE_OPTIONS, serializeWorkspace, toggleSeries, type RangePreset, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
+import { addCompany, addMetric, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, toggleSeries, type RangePreset, type SeriesAxis, type SeriesStyle, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
-import { alignMixedSeries, frequencyLabel, fundamentalObservations, marketObservations, providerMarketFrequency } from "@/lib/mixed-series";
+import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservations, marketObservations, providerMarketFrequency } from "@/lib/mixed-series";
 import { METRICS } from "@/lib/metrics";
 import { analyzeVisibleSeries } from "@/lib/series-analysis";
 import type { CompanyDataset, MarketBar, SeriesObservation } from "@/lib/types";
@@ -24,7 +24,8 @@ const STORAGE_KEY = "finscope.chartWorkspace.v3";
 const today = () => new Date().toISOString().slice(0, 10);
 
 type SeriesStatus = "Loading" | "Ready" | "Partial" | "No data" | "Failed";
-type Bundle = { series: WorkspaceSeries; plan: AutoSeriesPlan; observations: SeriesObservation[]; status: SeriesStatus; currency: string; warning?: string; error?: string };
+type ResolvedPlan = AutoSeriesPlan & { style: SeriesStyle };
+type Bundle = { series: WorkspaceSeries; plan: ResolvedPlan; observations: SeriesObservation[]; status: SeriesStatus; currency: string; warning?: string; error?: string };
 
 function startDate(range: RangePreset, earliest: string) {
   return range === "max" ? earliest : `${Number(today().slice(0, 4)) - Number(range)}${today().slice(4)}`;
@@ -82,15 +83,17 @@ export function ChartsWorkspace({ initialData, seed }: { initialData: CompanyDat
   }, [seed, initialData.company.ticker]);
 
   const retryCompany = useCallback((ticker: string) => setCompanyErrors((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== ticker))), []);
-  function updateChart(id: string, next: WorkspaceChart) { setCharts((current) => current.map((chart) => chart.id === id ? next : chart)); }
+  // Takes an updater, not a value: two edits landing in one render batch would
+  // otherwise both start from the same stale chart and the later one would win.
+  function updateChart(id: string, update: (chart: WorkspaceChart) => WorkspaceChart) { setCharts((current) => current.map((chart) => chart.id === id ? update(chart) : chart)); }
   function newChartId() { const id = `chart-${nextChartNumber}`; setNextChartNumber((value) => value + 1); return id; }
   function addChart() { const id = newChartId(); setCharts((current) => [...current, createWorkspaceChart(id, DEFAULT_METRICS.map((metric) => createWorkspaceSeries(id, initialData.company.ticker, metric)))]); }
 
   return <div className="charts-page">
-    <header className="page-heading"><div><h1>Charts</h1><p>Pick companies and metrics. Frequency, axes, series type, colors and scales are chosen for you from the metrics themselves.</p></div><button onClick={addChart}>Add chart</button></header>
+    <header className="page-heading"><div><h1>Charts</h1><p>Pick companies and metrics. Frequency, axes, series type, colors and scales are chosen from the metrics themselves — open <b>Series options</b> on any chart to override them.</p></div><button onClick={addChart}>Add chart</button></header>
     <div className="workspace-charts">{charts.map((chart, index) => <ChartEditor
       key={chart.id} chart={chart} datasets={datasets} companyErrors={companyErrors} fallbackTicker={initialData.company.ticker} onlyChart={charts.length === 1}
-      onChange={(next) => updateChart(chart.id, next)} onRetryCompany={retryCompany}
+      onChange={(update) => updateChart(chart.id, update)} onRetryCompany={retryCompany}
       onDuplicate={() => { const id = newChartId(); setCharts((current) => [...current.slice(0, index + 1), duplicateChart(chart, id), ...current.slice(index + 1)]); }}
       onMove={(direction) => setCharts((current) => moveItem(current, index, direction))}
       onRemove={() => setCharts((current) => current.filter((item) => item.id !== chart.id))}
@@ -102,7 +105,7 @@ export function ChartsWorkspace({ initialData, seed }: { initialData: CompanyDat
 
 function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart, onChange, onRetryCompany, onDuplicate, onMove, onRemove, canMoveUp, canMoveDown }: {
   chart: WorkspaceChart; datasets: Record<string, CompanyDataset>; companyErrors: Record<string, string>; fallbackTicker: string; onlyChart: boolean;
-  onChange: (chart: WorkspaceChart) => void; onRetryCompany: (ticker: string) => void; onDuplicate: () => void; onMove: (direction: -1 | 1) => void; onRemove: () => void; canMoveUp: boolean; canMoveDown: boolean;
+  onChange: (update: (chart: WorkspaceChart) => WorkspaceChart) => void; onRetryCompany: (ticker: string) => void; onDuplicate: () => void; onMove: (direction: -1 | 1) => void; onRemove: () => void; canMoveUp: boolean; canMoveDown: boolean;
 }) {
   const [bars, setBars] = useState<Record<string, MarketBar[]>>({});
   const [marketErrors, setMarketErrors] = useState<Record<string, string>>({});
@@ -117,7 +120,17 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     return { earliest: first, from: startDate(chart.range, first), to: today() };
   }, [chart, datasets]);
 
-  const plans = useMemo(() => createAutoChartPlan(chart.series.map((series) => ({ id: series.uid, ticker: series.ticker, metric: series.metric, dataset: datasets[series.ticker] }))), [chart.series, datasets]);
+  const plans = useMemo(() => {
+    const automatic = createAutoChartPlan(chart.series.map((series) => ({ id: series.uid, ticker: series.ticker, metric: series.metric, dataset: datasets[series.ticker], frequency: series.frequency })));
+    // Assigning an axis by hand only means something inside one plot area, so
+    // the first manual axis collapses the automatic panel split. Left and right
+    // then refer to the two axes the reader can actually see.
+    const manualAxis = chart.series.some((series) => series.axis !== undefined);
+    return automatic.map((plan, index) => {
+      const series = chart.series[index];
+      return { ...plan, style: (series.style ?? plan.type) as SeriesStyle, axis: series.axis ?? plan.axis, panel: manualAxis ? 0 : plan.panel };
+    });
+  }, [chart.series, datasets]);
 
   const marketKey = plans.filter((plan) => providerMarketFrequency(plan.frequency)).map((plan) => `${plan.ticker}:${plan.frequency}`).sort().join("|");
   useEffect(() => {
@@ -194,7 +207,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     <header className="workspace-chart-header">
       <div><span>{chart.id}</span><h2>{title}</h2></div>
       <div>
-        <button onClick={() => onChange({ ...chart, showDataTable: !chart.showDataTable })}>{chart.showDataTable ? "Hide data" : "Show data"}</button>
+        <button onClick={() => onChange((current) => ({ ...current, showDataTable: !current.showDataTable }))}>{chart.showDataTable ? "Hide data" : "Show data"}</button>
         <button onClick={exportCsv}>CSV</button><button onClick={exportPng}>PNG</button>
         <button disabled={!canMoveUp} onClick={() => onMove(-1)}>↑</button><button disabled={!canMoveDown} onClick={() => onMove(1)}>↓</button>
         <button onClick={onDuplicate}>Duplicate</button><button disabled={onlyChart} onClick={onRemove}>Remove</button>
@@ -202,15 +215,15 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     </header>
 
     <section className="chart-controls">
-      <label>Add company<select value="" onChange={(event) => { if (event.target.value) onChange(addCompany(chart, event.target.value)); }}>
+      <label>Add company<select value="" onChange={(event) => { if (event.target.value) onChange((current) => addCompany(current, event.target.value)); }}>
         <option value="">Company…</option>
         {DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved" && !tickers.includes(company.ticker)).map((company) => <option key={company.ticker} value={company.ticker}>{company.ticker} — {company.name}</option>)}
       </select></label>
-      <label>Add metric<select value="" onChange={(event) => { if (event.target.value) onChange(addMetric(chart, event.target.value, fallbackTicker)); }}>
+      <label>Add metric<select value="" onChange={(event) => { if (event.target.value) onChange((current) => addMetric(current, event.target.value, fallbackTicker)); }}>
         <option value="">Metric…</option>
         {METRIC_GROUPS.map(([group, items]) => { const available = items.filter((metric) => !metrics.includes(metric)); return available.length ? <optgroup key={group} label={group}>{available.map((metric) => <option key={metric} value={metric}>{METRICS[metric]?.label ?? metric}</option>)}</optgroup> : null; })}
       </select></label>
-      <div className="range-buttons" role="group" aria-label="Time range">{RANGE_OPTIONS.map(([value, label]) => <button key={value} className={chart.range === value ? "active" : ""} onClick={() => onChange({ ...chart, range: value })}>{label}</button>)}</div>
+      <div className="range-buttons" role="group" aria-label="Time range">{RANGE_OPTIONS.map(([value, label]) => <button key={value} className={chart.range === value ? "active" : ""} onClick={() => onChange((current) => ({ ...current, range: value }))}>{label}</button>)}</div>
     </section>
 
     <section className="series-chips" aria-label="Series on this chart">{bundles.map((bundle) => {
@@ -218,17 +231,43 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       const latest = bundle.observations.at(-1);
       const analysis = bundle.observations.length > 1 ? analyzeVisibleSeries(bundle.observations, family === "percent" ? "margin" : "cagr") : null;
       return <div className={`series-chip${bundle.series.visible ? "" : " muted"}`} key={bundle.series.uid}>
-        <button className="series-toggle" onClick={() => onChange(toggleSeries(chart, bundle.series.uid))} aria-pressed={bundle.series.visible} title={bundle.series.visible ? "Hide series" : "Show series"}>
+        <button className="series-toggle" onClick={() => onChange((current) => toggleSeries(current, bundle.series.uid))} aria-pressed={bundle.series.visible} title={bundle.series.visible ? "Hide series" : "Show series"}>
           <i style={{ background: bundle.series.visible ? bundle.plan.color : "transparent", borderColor: bundle.plan.color }}/>
           <b>{bundle.series.ticker} · {METRICS[bundle.series.metric]?.short ?? bundle.series.metric}</b>
           <small>{frequencyLabel(bundle.plan.frequency)}{latest ? ` · ${formatChartValue(latest.value, family, bundle.currency)}` : ""}{analysis?.value != null ? ` · ${analysis.kind === "margin" ? `${analysis.value >= 0 ? "+" : ""}${(analysis.value * 100).toFixed(1)} pp` : `${analysis.value >= 0 ? "+" : ""}${(analysis.value * 100).toFixed(1)}% CAGR`}` : bundle.status === "Ready" ? "" : ` · ${bundle.status}`}</small>
         </button>
         {bundle.error && <small className="error-text">{bundle.error}<button className="text-button" onClick={() => { onRetryCompany(bundle.series.ticker); setRetryNonce((value) => value + 1); }}>Retry</button></small>}
         {!bundle.error && bundle.warning && <small className="warning-text">{bundle.warning}</small>}
-        <button className="series-remove" aria-label={`Remove ${bundle.series.ticker} ${bundle.series.metric}`} onClick={() => onChange(removeSeries(chart, bundle.series.uid))}>×</button>
+        <button className="series-remove" aria-label={`Remove ${bundle.series.ticker} ${bundle.series.metric}`} onClick={() => onChange((current) => removeSeries(current, bundle.series.uid))}>×</button>
       </div>;
     })}</section>
 
+    {chart.series.length > 0 && <details className="series-options">
+      <summary>Series options<small>{chart.series.filter(hasOverrides).length ? `${chart.series.filter(hasOverrides).length} adjusted` : "all automatic"}</small></summary>
+      <div className="series-options-grid">
+        {bundles.map((bundle) => {
+          const series = bundle.series;
+          const set = (patch: Parameters<typeof patchSeries>[2]) => onChange((current) => patchSeries(current, series.uid, patch));
+          return <div className="series-option-row" key={series.uid}>
+            <span className="series-option-name"><i style={{ background: bundle.plan.color }}/>{series.ticker} · {METRICS[series.metric]?.short ?? series.metric}</span>
+            <label>Frequency<select value={series.frequency ?? ""} onChange={(event) => set({ frequency: event.target.value ? event.target.value as WorkspaceSeries["frequency"] : undefined })}>
+              <option value="">Auto · {frequencyLabel(bundle.plan.frequency)}</option>
+              {frequencyOptions(series.metric).map((frequency) => <option key={frequency} value={frequency}>{frequencyLabel(frequency)}</option>)}
+            </select></label>
+            <label>Style<select value={series.style ?? ""} onChange={(event) => set({ style: event.target.value ? event.target.value as SeriesStyle : undefined })}>
+              <option value="">Auto · {bundle.plan.type === "bar" ? "Bar" : "Line"}</option>
+              <option value="line">Line</option><option value="bar">Bar</option><option value="area">Area</option>
+            </select></label>
+            <label>Axis<select value={series.axis ?? ""} onChange={(event) => set({ axis: event.target.value ? event.target.value as SeriesAxis : undefined })}>
+              <option value="">Auto · {bundle.plan.axis === "right" ? "Right" : "Left"}</option>
+              <option value="left">Left</option><option value="right">Right</option>
+            </select></label>
+            <button disabled={!hasOverrides(series)} onClick={() => onChange((current) => resetSeries(current, series.uid))}>Reset</button>
+          </div>;
+        })}
+      </div>
+      <small className="series-options-note">Setting an axis by hand puts every series in one plot area, so left and right refer to the two axes you can see.</small>
+    </details>}
     {!drawn.length && <p className="simple-state">{anyLoading ? "Loading data…" : chart.series.length ? "No observations in this window. Widen the time range or pick another metric." : "Add a company and a metric to draw this chart."}</p>}
     {drawn.length > 0 && <div className="chart-stack" ref={surface}>{panels.map((panel) => <ChartPanel key={panel} chart={chart} rows={rows} bundles={drawn.filter((bundle) => bundle.plan.panel === panel)} single={panels.length === 1} showBrush={panel === panels.at(-1) && rows.length > 60}/>)}</div>}
     {chart.showDataTable && drawn.length > 0 && <DataTable bundles={drawn} rows={rows}/>}
@@ -256,9 +295,11 @@ function ChartPanel({ chart, rows, bundles, single, showBrush }: { chart: Worksp
         {axes.map((axis) => <YAxis key={axis.side} yAxisId={axis.side} orientation={axis.side} hide={!axis.items.length} width={64} tickLine={false} axisLine={false} domain={axis.domain} tickFormatter={(value) => formatChartValue(Number(value), axis.family, axis.currency)}/>)}
         {axes.filter((axis) => axis.items.length && axis.hasNegative).map((axis) => <ReferenceLine key={`${axis.side}-zero`} yAxisId={axis.side} y={0} stroke="#b4b4b4"/>)}
         <Tooltip content={<ChartTooltip bundles={bundles}/>} cursor={{ stroke: "#b4b4b4", strokeDasharray: "3 3" }}/>
-        {bundles.map((bundle) => bundle.plan.type === "bar"
+        {bundles.map((bundle) => bundle.plan.style === "bar"
           ? <Bar key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} fill={bundle.plan.color} maxBarSize={34} isAnimationActive={false}/>
-          : <Line key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} dot={false} type="linear" connectNulls isAnimationActive={false}/>)}
+          : bundle.plan.style === "area"
+            ? <Area key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} fill={bundle.plan.color} fillOpacity={.14} dot={false} type="linear" connectNulls isAnimationActive={false}/>
+            : <Line key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} dot={false} type="linear" connectNulls isAnimationActive={false}/>)}
         {showBrush && <Brush dataKey="date" height={22} travellerWidth={8} stroke="#b4b4b4" tickFormatter={tickDate}/>}
       </ComposedChart>
     </ResponsiveContainer></div>
