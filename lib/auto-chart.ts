@@ -97,10 +97,16 @@ function planColors(inputs: AutoSeriesInput[]) {
 
 export function createAutoChartPlan(inputs: AutoSeriesInput[]): AutoSeriesPlan[] {
   const families = [...new Set(inputs.map((item) => unitFamily(item.metric, item.indexed)))];
+  // One unit family per panel, always.
+  //
+  // Two scales sharing one plot area is the oldest way to mislead with a chart:
+  // where the lines cross, and which appears to lead the other, is decided by
+  // the two ranges rather than by the data. Stacked panels on a shared date
+  // axis show the same co-movement and claim nothing extra. A reader who wants
+  // the overlay can still ask for it by assigning an axis by hand, which
+  // collapses the panels — but then it is their reading, not ours.
   const panelByFamily = new Map<UnitFamily, number>();
-  if (families.length > 2) families.forEach((family, index) => panelByFamily.set(family, index));
-  else families.forEach((family) => panelByFamily.set(family, 0));
-  const firstFamily = families[0];
+  families.forEach((family, index) => panelByFamily.set(family, families.length > 1 ? index : 0));
   const colors = planColors(inputs);
   const frequencies = inputs.map((input) => input.frequency ?? automaticFrequency(input.metric, input.dataset));
   // A single market series turns the shared date axis into hundreds of
@@ -112,15 +118,12 @@ export function createAutoChartPlan(inputs: AutoSeriesInput[]): AutoSeriesPlan[]
     const family = unitFamily(input.metric, input.indexed);
     const isPrice = PRICE_METRICS.has(input.metric);
     const isPercent = family === "percent";
-    const axis: AutoAxis = families.includes("price") && families.length === 2
-      ? (family === "price" ? "right" : "left")
-      : families.length <= 1 || family === firstFamily ? "left" : "right";
     const scale: AutoScale = isPrice ? "auto" : "zero";
     return {
       ...input,
       frequency,
       family,
-      axis: families.length > 2 ? "left" : axis,
+      axis: "left" as AutoAxis,
       panel: panelByFamily.get(family) ?? 0,
       type: forceLines ? "line" : automaticChartType(input.metric, frequency),
       scale,
@@ -193,6 +196,6 @@ export function automaticDomain(values: Array<number | null | undefined>, plan: 
 export const AUTO_CHART_POLICY = {
   price: "Weekly adjusted close on its real trading dates; auto-scaled without zero.",
   fundamentals: "TTM when available, otherwise annual; never repeated between reports.",
-  axes: "One axis per compatible unit family; more than two families create aligned panels.",
+  axes: "One unit family per panel on a shared date axis; a second scale is never overlaid unless the reader asks for it.",
   invalid: "Invalid values are excluded and reported per series without affecting peers.",
 } as const;

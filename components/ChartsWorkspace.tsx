@@ -90,7 +90,7 @@ export function ChartsWorkspace({ initialData, seed }: { initialData: CompanyDat
   function addChart() { const id = newChartId(); setCharts((current) => [...current, createWorkspaceChart(id, DEFAULT_METRICS.map((metric) => createWorkspaceSeries(id, initialData.company.ticker, metric)))]); }
 
   return <div className="charts-page">
-    <header className="page-heading"><div><h1>Charts</h1><p>Pick companies and metrics. Frequency, axes, series type, colors and scales are chosen from the metrics themselves — open <b>Series options</b> on any chart to override them.</p></div><button onClick={addChart}>Add chart</button></header>
+    <header className="page-heading"><div><h1>Charts</h1><p>Pick companies and metrics. Each unit gets its own panel on a shared date axis. Frequency, series type, colors and scales are chosen from the metrics themselves — open <b>Series options</b> to override any of them, or to overlay two units on one plot area.</p></div><button onClick={addChart}>Add chart</button></header>
     <div className="workspace-charts">{charts.map((chart, index) => <ChartEditor
       key={chart.id} chart={chart} datasets={datasets} companyErrors={companyErrors} fallbackTicker={initialData.company.ticker} onlyChart={charts.length === 1}
       onChange={(update) => updateChart(chart.id, update)} onRetryCompany={retryCompany}
@@ -299,7 +299,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
           </div>;
         })}
       </div>
-      <small className="series-options-note">Setting an axis by hand puts every series in one plot area, so left and right refer to the two axes you can see.</small>
+      <small className="series-options-note">Units get a panel each so nothing implies a relationship the data has not shown. Assigning an axis by hand overlays everything on one plot area instead — useful, but where the lines cross is then decided by the two ranges rather than by the data.</small>
     </details>}
     {!drawn.length && <p className="simple-state">{anyLoading ? "Loading data…" : chart.series.length ? "No observations in this window. Widen the time range or pick another metric." : "Add a company and a metric to draw this chart."}</p>}
     {drawn.length > 0 && <div className="chart-stack" ref={surface}>{groups.flatMap((group) => {

@@ -24,13 +24,20 @@ describe("automatic chart policy", () => {
     expect(automaticChartType("revenue", "ttm")).toBe("line");
   });
 
-  it("assigns two axes for two unit families and panels for more than two", () => {
+  it("gives every unit family its own panel and never a second overlaid axis", () => {
+    // Two scales in one plot area let the ranges decide where the lines cross,
+    // so the automatic layout never produces one. Overlaying stays available,
+    // but only when a reader assigns an axis themselves.
+    const one = createAutoChartPlan([{ id: "T:revenue", ticker: "T", metric: "revenue", dataset }, { id: "T:netIncome", ticker: "T", metric: "netIncome", dataset }]);
+    expect(new Set(one.map((item) => item.panel)).size).toBe(1);
+
     const two = createAutoChartPlan([{ id: "T:revenue", ticker: "T", metric: "revenue", dataset }, { id: "T:freeCashFlowMargin", ticker: "T", metric: "freeCashFlowMargin", dataset }]);
-    expect(two.map((item) => item.axis)).toEqual(["left", "right"]);
-    expect(new Set(two.map((item) => item.panel)).size).toBe(1);
+    expect(new Set(two.map((item) => item.panel)).size).toBe(2);
+
     const three = createAutoChartPlan([{ id: "T:revenue", ticker: "T", metric: "revenue", dataset }, { id: "T:freeCashFlowMargin", ticker: "T", metric: "freeCashFlowMargin", dataset }, { id: "T:dilutedShares", ticker: "T", metric: "dilutedShares", dataset }]);
     expect(new Set(three.map((item) => item.panel)).size).toBe(3);
-    expect(three.every((item) => item.axis === "left")).toBe(true);
+
+    for (const plan of [one, two, three]) expect(plan.every((item) => item.axis === "left")).toBe(true);
   });
 
   it("auto-scales price without zero and starts absolute fundamentals at zero", () => {
