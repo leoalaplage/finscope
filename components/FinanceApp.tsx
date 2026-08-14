@@ -139,7 +139,13 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
   const [bulkState, setBulkState] = useState({ running: false, done: 0, total: 0, failed: 0 });
   const loadedTickers = Object.keys(datasets).sort().join("|");
   useEffect(() => { localStorage.setItem("finscope.companySort", JSON.stringify(sort)); }, [sort]);
+  // Each newly loaded company would otherwise fan out into a price and a
+  // valuation-history request straight away. During a bulk load that turns a
+  // deliberately sequential walk back into a stampede against a single Worker
+  // isolate, which is what made "Load all" fail most of its batch. These two
+  // effects wait for the batch to finish, then fill in every company at once.
   useEffect(() => {
+    if (bulkState.running) return;
     let active = true; const date = new Date().toISOString().slice(0, 10);
     for (const ticker of loadedTickers.split("|").filter(Boolean).filter((item) => !(item in prices))) {
       fetch(`/api/price/${encodeURIComponent(ticker)}?date=${date}`).then(async (response) => {
@@ -148,8 +154,9 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
       }).catch(() => active && setPrices((current) => ({ ...current, [ticker]: null })));
     }
     return () => { active = false; };
-  }, [loadedTickers, prices]);
+  }, [loadedTickers, prices, bulkState.running]);
   useEffect(() => {
+    if (bulkState.running) return;
     let active = true;
     for (const ticker of loadedTickers.split("|").filter(Boolean).filter((item) => prices[item] && !(item in valuationPremiums))) {
       const data = datasets[ticker]; const currentPrice = prices[ticker]; if (!data || !currentPrice) continue;
@@ -161,7 +168,7 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
       }).catch(() => active && setValuationPremiums((current) => ({ ...current, [ticker]: null })));
     }
     return () => { active = false; };
-  }, [datasets, loadedTickers, prices, valuationPremiums]);
+  }, [datasets, loadedTickers, prices, valuationPremiums, bulkState.running]);
   const rawRows = useMemo<RankingDisplayRow[]>(() => watchlist.map((profile) => {
     const data = datasets[profile.ticker]; const point = prices[profile.ticker]; const currentPrice = point?.priceClose ?? point?.close ?? null; const period = data ? latestPeriod(data) : undefined; const annual = data ? sortedPeriods(data, "annual") : []; const latestAnnual = annual.at(-1); const prior5 = annual.at(-6);
     const dilution = latestAnnual && prior5 ? change(valueOf(latestAnnual, "dilutedShares"), valueOf(prior5, "dilutedShares")) : null; const shares = period ? derivedValue(period, "sharesOutstanding") ?? derivedValue(period, "dilutedShares") : null; const fcf = period ? derivedValue(period, "freeCashFlow") : null; const marketCap = currentPrice != null && shares != null ? currentPrice * shares : null; const pfcf = marketCap != null && fcf != null && fcf > 0 ? marketCap / fcf : null;
@@ -176,18 +183,34 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
   async function loadAll() {
     const targets = watchlist.filter((company) => company.resolutionStatus !== "unresolved" && !datasets[company.ticker]).map((company) => company.ticker);
     if (!targets.length) { setBulkState({ running: false, done: 0, total: 0, failed: 0 }); return; }
-    let cursor = 0; let failed = 0; setBulkState({ running: true, done: 0, total: targets.length, failed: 0 });
+    let cursor = 0; let failed = 0; const retryable: string[] = [];
+    setBulkState({ running: true, done: 0, total: targets.length, failed: 0 });
     const worker = async () => {
       while (cursor < targets.length) {
         const ticker = targets[cursor++]; setBulkLoading((current) => new Set(current).add(ticker));
-        try { await onLoad(ticker); } catch { failed += 1; }
+        try { await onLoad(ticker); } catch { retryable.push(ticker); }
         finally {
           setBulkLoading((current) => { const next = new Set(current); next.delete(ticker); return next; });
           setBulkState((current) => ({ ...current, done: current.done + 1, failed }));
         }
       }
+      // Normalizing a company is heavy enough that a busy Worker isolate can
+      // refuse one outright. A second attempt lands on a fresh isolate and, by
+      // then, often on a warm cache entry, so one pass recovers nearly all of
+      // them rather than leaving the reader with unexplained gaps.
+      for (const ticker of retryable.splice(0)) {
+        setBulkLoading((current) => new Set(current).add(ticker));
+        try { await onLoad(ticker); } catch { failed += 1; }
+        finally {
+          setBulkLoading((current) => { const next = new Set(current); next.delete(ticker); return next; });
+          setBulkState((current) => ({ ...current, failed }));
+        }
+      }
     };
-    await Promise.all(Array.from({ length: Math.min(3, targets.length) }, worker));
+    // One at a time. Normalizing a company briefly holds most of a Worker
+    // isolate's memory, so parallel loads used to kill the isolate and fail
+    // most of the batch. Sequential is slower and finishes.
+    await worker();
     setBulkState((current) => ({ ...current, running: false, failed }));
   }
   return <div><header className="page-heading"><div><h1>Companies</h1><p>{watchlist.length} companies in your local watchlist · ranked by {sort.key} {sort.direction === "desc" ? "descending" : "ascending"}.</p>{bulkState.total > 0 && <small>{bulkState.running ? `Loading all companies: ${bulkState.done}/${bulkState.total}` : `Load all finished: ${bulkState.done - bulkState.failed} loaded${bulkState.failed ? `, ${bulkState.failed} failed` : ""}`}</small>}</div><div className="company-title-actions"><button disabled={bulkState.running} onClick={() => void loadAll()}>{bulkState.running ? `Loading ${bulkState.done}/${bulkState.total}…` : "Load all"}</button><button onClick={onSearchAdd}>Add company</button></div></header>
