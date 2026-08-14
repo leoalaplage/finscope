@@ -6,6 +6,9 @@ export const FORMULAS = {
   netMargin: "Net income / Revenue",
   operatingCashFlowMargin: "Operating cash flow / Revenue",
   freeCashFlow: "Operating cash flow − |Capital expenditures|",
+  freeCashFlowAfterSbc: "Operating cash flow − |Capital expenditures| − Stock-based compensation",
+  freeCashFlowAfterSbcPerShare: "Free cash flow after stock-based compensation / Diluted weighted average shares",
+  freeCashFlowAfterSbcMargin: "Free cash flow after stock-based compensation / Revenue",
   freeCashFlowMargin: "Free cash flow / Revenue",
   revenuePerShare: "Revenue / Diluted weighted average shares",
   grossProfitPerShare: "Gross profit / Diluted weighted average shares",
@@ -81,7 +84,7 @@ export function cagrBetweenDates(startValue: number | null, endValue: number | n
 }
 
 export function cagrForPeriods(periods: FinancialPeriod[], metric: string, targetYears: number | "max") {
-  const dependencyMap: Record<string, MetricKey[]> = { freeCashFlow: ["operatingCashFlow","capitalExpenditures"], revenuePerShare:["revenue","dilutedShares"], netIncomePerShare:["netIncome","dilutedShares"], freeCashFlowPerShare:["operatingCashFlow","capitalExpenditures","dilutedShares"] };
+  const dependencyMap: Record<string, MetricKey[]> = { freeCashFlow: ["operatingCashFlow","capitalExpenditures"], revenuePerShare:["revenue","dilutedShares"], netIncomePerShare:["netIncome","dilutedShares"], freeCashFlowPerShare:["operatingCashFlow","capitalExpenditures","dilutedShares"], freeCashFlowAfterSbc:["operatingCashFlow","capitalExpenditures","stockBasedCompensation"], freeCashFlowAfterSbcPerShare:["operatingCashFlow","capitalExpenditures","stockBasedCompensation","dilutedShares"] };
   const valid = (period: FinancialPeriod) => {
     const keys = dependencyMap[metric] ?? [metric as MetricKey];
     return keys.every((key) => period.facts[key]?.validation?.status !== "Confirmed invalid");
@@ -121,8 +124,18 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
   const compatibleShares = period.facts.dilutedShares?.unit === "shares" && period.facts.dilutedShares.currency === period.currency && period.facts.dilutedShares.periodEnd === period.periodEnd;
   const fcf = compatibleCurrencyFacts(["operatingCashFlow","capitalExpenditures"]) ? freeCashFlow(valueOf(period, "operatingCashFlow"), valueOf(period, "capitalExpenditures")) : null;
   const compatiblePerShare = (total: number | null, dependencies: MetricKey[]) => compatibleShares && compatibleCurrencyFacts(dependencies) ? perShare(total,diluted) : null;
+  // Treats stock-based compensation as the cost it is rather than adding it
+  // back. Operating cash flow already contains depreciation and the working
+  // capital movement, so subtracting compensation from it lands on the same
+  // figure as building free cash flow up from net income — without depending on
+  // an aggregate working-capital concept that two thirds of filers never tag.
+  const sbc = valueOf(period, "stockBasedCompensation");
+  const fcfAfterSbc = fcf == null || sbc == null || !compatibleCurrencyFacts(["stockBasedCompensation"]) ? null : fcf - Math.abs(sbc);
   const map: Record<string, number | null> = {
     freeCashFlow: fcf,
+    freeCashFlowAfterSbc: fcfAfterSbc,
+    freeCashFlowAfterSbcMargin: margin(fcfAfterSbc, revenue),
+    freeCashFlowAfterSbcPerShare: compatiblePerShare(fcfAfterSbc,["operatingCashFlow","capitalExpenditures","stockBasedCompensation"]),
     grossMargin: margin(valueOf(period, "grossProfit"), revenue),
     operatingMargin: margin(valueOf(period, "operatingIncome"), revenue),
     netMargin: margin(valueOf(period, "netIncome"), revenue),

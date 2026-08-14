@@ -234,3 +234,10 @@ tbody tr:last-child > * { border-bottom: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+.quality-callouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 18px; border: 1px solid var(--border); }
+.quality-callouts > div { min-width: 0; padding: 12px 14px; border-right: 1px solid var(--border); }
+.quality-callouts > div:last-child { border-right: 0; }
+.quality-callouts dt { color: var(--muted); font-size: 12px; }
+.quality-callouts dd { margin: 4px 0 6px; font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+@media (max-width: 850px) { .quality-callouts { grid-template-columns: 1fr; } .quality-callouts > div { border-right: 0; border-bottom: 1px solid var(--border); } .quality-callouts > div:last-child { border-bottom: 0; } }

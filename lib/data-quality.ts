@@ -4,6 +4,9 @@ import type { CompanyDataset, DataQualityIssue, FinancialPeriod, MetricKey, Norm
 
 export const METRIC_DEPENDENCIES: Record<string, MetricKey[]> = {
   freeCashFlow: ["operatingCashFlow", "capitalExpenditures"],
+  freeCashFlowAfterSbc: ["operatingCashFlow", "capitalExpenditures", "stockBasedCompensation"],
+  freeCashFlowAfterSbcPerShare: ["operatingCashFlow", "capitalExpenditures", "stockBasedCompensation", "dilutedShares"],
+  freeCashFlowAfterSbcMargin: ["operatingCashFlow", "capitalExpenditures", "stockBasedCompensation", "revenue"],
   grossMargin: ["grossProfit", "revenue"], operatingMargin: ["operatingIncome", "revenue"], netMargin: ["netIncome", "revenue"],
   operatingCashFlowMargin: ["operatingCashFlow", "revenue"], freeCashFlowMargin: ["operatingCashFlow", "capitalExpenditures", "revenue"],
   revenuePerShare: ["revenue", "dilutedShares"], grossProfitPerShare: ["grossProfit", "dilutedShares"],

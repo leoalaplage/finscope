@@ -3,7 +3,8 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { DEFAULT_COMPANY_FILTERS, DEFAULT_COMPANY_SORT, filterCompanyRows, preferredDirection, sortCompanyRows, type CompanyFilters, type CompanyRankingRow, type CompanySortKey, type SortDirection } from "@/lib/company-ranking";
-import { cagrForPeriods, derivedValue, valueOf } from "@/lib/finance";
+import { cagrBetweenDates, cagrForPeriods, derivedValue, valueOf } from "@/lib/finance";
+import { growthConsistency, growthGap, growthTable, HORIZONS, type Horizon } from "@/lib/growth-quality";
 import { METRICS, VIEW_METRICS } from "@/lib/metrics";
 import { buildValuationHistory, valuationSnapshot, valuationStatistics } from "@/lib/valuation-history";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, MetricKey, Periodicity, PricePoint } from "@/lib/types";
@@ -229,7 +230,7 @@ function CompanyPage({ dataset, onBack, onCharts, onDcf }: { dataset: CompanyDat
     <nav className="anchor-nav" aria-label="Company sections">{["overview", "financials", "growth", "margins", "capital", "valuation", "sources"].map((id) => <a key={id} href={`#${id}`}>{id === "capital" ? "Capital Allocation" : id === "sources" ? "Sources & Data Quality" : id.replace(/^./, (value) => value.toUpperCase())}</a>)}</nav>
     <section id="overview" className="plain-section"><SectionTitle title="Overview" onCharts={() => onCharts(dataset.company.ticker)}/><MetricSummaryTable dataset={dataset} price={currentPrice} onOpen={openMetric}/></section>
     <section id="financials" className="plain-section"><div className="section-heading"><h2>Financials</h2><div className="period-buttons">{(["annual", "quarterly", "ttm"] as Periodicity[]).map((item) => <button className={periodicity === item ? "active" : ""} key={item} onClick={() => setPeriodicity(item)}>{item === "ttm" ? "TTM" : item[0].toUpperCase() + item.slice(1)}</button>)}</div></div>{selected.length ? <SimpleFinancialTable periods={selected.slice(-10)} metrics={[...VIEW_METRICS.income, ...VIEW_METRICS.cashflow.slice(0, 4)]} onOpen={openMetric} currencyCode={dataset.company.currency}/> : <p className="simple-state">No data available for {periodicity}.</p>}</section>
-    <section id="growth" className="plain-section"><SectionTitle title="Per Share & Growth" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowPerShare")}/><GrowthTable periods={annual}/></section>
+    <section id="growth" className="plain-section"><SectionTitle title="Growth & Cash Quality" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowPerShare")}/><GrowthQuality dataset={dataset} annual={annual}/></section>
     <section id="margins" className="plain-section"><SectionTitle title="Margins" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowMargin")}/><CurrentAndAverageTable periods={annual} metrics={[...VIEW_METRICS.margins]} onOpen={openMetric} currencyCode={dataset.company.currency}/></section>
     <section id="capital" className="plain-section"><SectionTitle title="Capital Allocation" onCharts={() => onCharts(dataset.company.ticker, "dilutedShares")}/><CurrentAndAverageTable periods={annual} metrics={["dilutedShares", "shareCountChange", "shareRepurchases", "shareIssuance", "dividendsPaid", "stockBasedCompensation"]} onOpen={openMetric} currencyCode={dataset.company.currency}/></section>
     <section id="valuation" className="plain-section"><SectionTitle title="Valuation" onCharts={() => onCharts(dataset.company.ticker, "stockPrice")}/><ValuationTable dataset={dataset} price={price}/></section>
@@ -253,7 +254,53 @@ function MetricSummaryTable({ dataset, price, onOpen }: { dataset: CompanyDatase
 
 function SimpleFinancialTable({ periods, metrics, onOpen, currencyCode }: { periods: FinancialPeriod[]; metrics: string[]; onOpen: (metric: string, period: FinancialPeriod) => void; currencyCode: string }) { return <div className="table-scroll"><table><thead><tr><th>Metric</th>{periods.map((period) => <th key={period.periodEnd}>{period.label}<small>{period.periodEnd}</small></th>)}</tr></thead><tbody>{metrics.map((metric) => <tr key={metric}><th>{METRICS[metric]?.label ?? metric}</th>{periods.map((period) => <td key={period.periodEnd}><button className="value-button" onClick={() => onOpen(metric, period)}>{metricDisplay(derivedValue(period, metric), metric, currencyCode)}</button></td>)}</tr>)}</tbody></table></div>; }
 
-function GrowthTable({ periods }: { periods: FinancialPeriod[] }) { const horizons = [3, 5, 10, 15, 20, "max"] as const; const metrics = ["revenue", "revenuePerShare", "netIncomePerShare", "freeCashFlow", "freeCashFlowPerShare", "dilutedShares"]; return <div className="table-scroll"><table><thead><tr><th>Metric</th>{horizons.map((horizon) => <th key={horizon}>{horizon === "max" ? "Max" : `${horizon}Y`}</th>)}</tr></thead><tbody>{metrics.map((metric) => <tr key={metric}><th>{METRICS[metric].label}</th>{horizons.map((horizon) => <td key={horizon}>{percent(cagrForPeriods(periods, metric, horizon).value)}</td>)}</tr>)}</tbody></table></div>; }
+function GrowthQuality({ dataset, annual }: { dataset: CompanyDataset; annual: FinancialPeriod[] }) {
+  const [bars, setBars] = useState<Array<{ date: string; value: number }> | null>(null);
+  useEffect(() => {
+    let active = true;
+    const earliest = annual[0]?.periodEnd ?? `${new Date().getUTCFullYear() - 11}-01-01`;
+    fetch(`/api/market/${encodeURIComponent(dataset.company.ticker)}?start=${earliest}&end=${new Date().toISOString().slice(0, 10)}&frequency=monthly`)
+      .then(async (response) => {
+        const payload = await response.json() as { bars?: Array<{ date: string; close: number; adjustedClose: number | null }>; error?: string };
+        if (!response.ok) throw new Error(payload.error);
+        if (active) setBars((payload.bars ?? []).flatMap((bar) => { const value = bar.adjustedClose ?? bar.close; return value == null ? [] : [{ date: bar.date, value }]; }));
+      }).catch(() => active && setBars([]));
+    return () => { active = false; };
+  }, [dataset.company.ticker, annual]);
+
+  const rows = growthTable(annual);
+  // Share price compounds on trading dates, so it is measured against the real
+  // session nearest each anniversary rather than a fiscal year end.
+  const priceCagr = (horizon: Horizon) => {
+    if (!bars?.length) return { value: null, reason: bars ? "Market history unavailable" : "Loading" };
+    const end = bars.at(-1)!;
+    const target = `${Number(end.date.slice(0, 4)) - horizon}${end.date.slice(4)}`;
+    const start = bars.find((bar) => bar.date >= target);
+    if (!start || start.date > `${Number(target.slice(0, 4)) + 1}${target.slice(4)}`) return { value: null, reason: `Only ${((Date.parse(end.date) - Date.parse(bars[0].date)) / (365.2425 * 86_400_000)).toFixed(0)} years of prices` };
+    return { value: cagrBetweenDates(start.value, end.value, start.date, end.date).value, reason: undefined };
+  };
+  const gap = growthGap(annual, 10);
+  const consistency = HORIZONS.map((horizon) => [horizon, growthConsistency(annual, "freeCashFlow", horizon)] as const);
+
+  return <>
+    <div className="table-scroll"><table><thead><tr><th>Compound annual growth</th>{HORIZONS.map((horizon) => <th key={horizon}>{horizon}Y</th>)}</tr></thead><tbody>
+      {rows.filter((row) => row.metric !== "stockPrice").map((row) => <tr key={row.metric}><th>{row.label}</th>{HORIZONS.map((horizon) => {
+        const item = row.cells[horizon];
+        return <td key={horizon} title={item.reason}>{item.value == null ? "—" : percent(item.value)}</td>;
+      })}</tr>)}
+      <tr><th>Share price</th>{HORIZONS.map((horizon) => { const item = priceCagr(horizon); return <td key={horizon} title={item.reason}>{item.value == null ? item.reason === "Loading" ? "…" : "—" : percent(item.value)}</td>; })}</tr>
+    </tbody></table></div>
+
+    <div className="quality-callouts">
+      <div><dt>FCF vs revenue · 10Y</dt><dd>{gap.spread == null ? "—" : `${gap.spread >= 0 ? "+" : ""}${(gap.spread * 100).toFixed(1)} pp`}</dd>
+        <small>{gap.spread == null ? gap.reason : `Free cash flow ${percent(gap.freeCashFlow)} vs revenue ${percent(gap.revenue)}. ${gap.spread >= 0 ? "Cash grew faster than sales." : "Sales grew faster than cash."}`}</small></div>
+      {consistency.map(([horizon, item]) => <div key={horizon}><dt>FCF consistency · {horizon}Y</dt>
+        <dd>{item.rSquared == null ? "—" : item.rSquared.toFixed(2)}</dd>
+        <small>{item.rSquared == null ? item.reason : `R² of a log-linear fit over ${item.observations} years. ${item.rSquared >= 0.9 ? "Steady compounding." : item.rSquared >= 0.7 ? "Broadly steady, with visible swings." : "Lumpy: the average rate hides the path."}`}</small></div>)}
+    </div>
+  </>;
+}
+
 
 function CurrentAndAverageTable({ periods, metrics, onOpen, currencyCode }: { periods: FinancialPeriod[]; metrics: string[]; onOpen: (metric: string, period: FinancialPeriod) => void; currencyCode: string }) {
   const latest = periods.at(-1); if (!latest) return <p className="simple-state">No data available</p>;
