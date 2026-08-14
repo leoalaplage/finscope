@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Area, Bar, Brush, CartesianGrid, ComposedChart, LabelList, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { createAutoChartPlan, familyLabel, formatChartValue, indexToHundred, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
 import { chartDomain, niceTicks } from "@/lib/charting";
+import { derivedValue, safeDivide } from "@/lib/finance";
 import { recessionBands, snapToAxis, splitMarks } from "@/lib/chart-annotations";
 import { addMetric, applyPreset, CHART_PRESETS, setCompanies, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type ValueMode, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservations, marketObservations, providerMarketFrequency } from "@/lib/mixed-series";
-import { CHART_METRIC_GROUPS as METRIC_GROUPS, METRICS } from "@/lib/metrics";
+import { CHART_METRIC_GROUPS as METRIC_GROUPS, METRICS, VALUATION_METRICS } from "@/lib/metrics";
 import { analyzeVisibleSeries } from "@/lib/series-analysis";
-import type { CompanyDataset, MarketBar, SeriesObservation } from "@/lib/types";
+import type { CompanyDataset, MarketBar, PricePoint, SeriesFrequency, SeriesObservation } from "@/lib/types";
 
 const DEFAULT_METRICS = ["stockPrice", "freeCashFlowPerShare"];
 const STORAGE_KEY = "finscope.chartWorkspace.v3";
@@ -19,6 +20,38 @@ const today = () => new Date().toISOString().slice(0, 10);
 type SeriesStatus = "Loading" | "Ready" | "Partial" | "No data" | "Failed";
 type ResolvedPlan = AutoSeriesPlan & { style: SeriesStyle };
 type Bundle = { series: WorkspaceSeries; plan: ResolvedPlan; observations: SeriesObservation[]; status: SeriesStatus; currency: string; warning?: string; error?: string };
+
+/**
+ * A valuation multiple on each fiscal date, using the price of that date.
+ *
+ * Every ratio here is refused when its denominator is zero or negative: a
+ * company that burned cash is not cheap, and a negative multiple sorts as
+ * though it were. The series shows nothing for those periods instead.
+ */
+function valuationObservations(dataset: CompanyDataset, metric: string, frequency: SeriesFrequency, prices: Record<string, PricePoint | null>): SeriesObservation[] {
+  return dataset.periods
+    .filter((period) => period.periodicity === frequency)
+    .sort((left, right) => left.periodEnd.localeCompare(right.periodEnd))
+    .flatMap((period) => {
+      const point = prices[`${dataset.company.ticker}|${period.periodEnd}`];
+      const close = point?.priceClose ?? point?.close ?? null;
+      const shares = derivedValue(period, "sharesOutstanding") ?? derivedValue(period, "dilutedShares");
+      if (close == null || shares == null) return [];
+      const marketCap = close * shares;
+      const positive = (value: number | null) => value != null && value > 0 ? value : null;
+      const denominator = metric === "priceToEarnings" ? positive(derivedValue(period, "netIncome"))
+        : metric === "priceToSales" ? positive(derivedValue(period, "revenue"))
+        : positive(derivedValue(period, "freeCashFlow"));
+      if (denominator == null) return [];
+      const value = metric === "freeCashFlowYield" ? safeDivide(denominator, marketCap) : safeDivide(marketCap, denominator);
+      if (value == null || !Number.isFinite(value)) return [];
+      return [{
+        date: period.periodEnd, value, fiscalPeriodEnd: period.periodEnd, filingDate: period.filingDate,
+        frequency, currency: period.currency, unit: METRICS[metric]?.kind ?? "ratio",
+        source: "SEC + Yahoo Finance", status: "Calculated and verified" as const, rawObservation: true as const,
+      }];
+    });
+}
 
 function startDate(range: RangePreset, earliest: string) {
   return range === "max" ? earliest : `${Number(today().slice(0, 4)) - Number(range)}${today().slice(4)}`;
@@ -102,6 +135,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
 }) {
   const [bars, setBars] = useState<Record<string, MarketBar[]>>({});
   const [marketErrors, setMarketErrors] = useState<Record<string, string>>({});
+  const [periodPrices, setPeriodPrices] = useState<Record<string, PricePoint | null>>({});
   const [marketLoading, setMarketLoading] = useState<Record<string, boolean>>({});
   const [retryNonce, setRetryNonce] = useState(0);
   const surface = useRef<HTMLDivElement>(null);
@@ -151,6 +185,40 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     return () => { active = false; };
   }, [marketKey, earliest, retryNonce]);
 
+  // A valuation series needs the share price on each fiscal date, not today's.
+  // Pairing a current price with an old fundamental would invent a multiple
+  // that never existed.
+  const valuationKey = useMemo(() => {
+    const wanted = new Set<string>();
+    for (const [index, series] of chart.series.entries()) {
+      if (!VALUATION_METRICS.has(series.metric)) continue;
+      const dataset = datasets[series.ticker]; if (!dataset) continue;
+      for (const period of dataset.periods) {
+        if (period.periodicity !== plans[index].frequency) continue;
+        if (period.periodEnd >= from && period.periodEnd <= to) wanted.add(`${series.ticker}|${period.periodEnd}`);
+      }
+    }
+    return [...wanted].sort().join(",");
+  }, [chart.series, plans, datasets, from, to]);
+
+  useEffect(() => {
+    if (!valuationKey) return;
+    let active = true;
+    const byTicker = new Map<string, string[]>();
+    for (const entry of valuationKey.split(",")) {
+      const [ticker, date] = entry.split("|");
+      byTicker.set(ticker, [...(byTicker.get(ticker) ?? []), date]);
+    }
+    for (const [ticker, dates] of byTicker) {
+      fetch(`/api/prices/${encodeURIComponent(ticker)}?dates=${dates.join(",")}`).then(async (response) => {
+        const payload = await response.json() as { points?: Array<{ requestedDate: string; point?: PricePoint }>; error?: string };
+        if (!response.ok) throw new Error(payload.error || "Valuation prices unavailable");
+        if (active) setPeriodPrices((current) => ({ ...current, ...Object.fromEntries((payload.points ?? []).map((item) => [`${ticker}|${item.requestedDate}`, item.point ?? null])) }));
+      }).catch(() => { /* The series reports no data rather than a wrong multiple. */ });
+    }
+    return () => { active = false; };
+  }, [valuationKey]);
+
   const bundles = useMemo<Bundle[]>(() => chart.series.map((series, index) => {
     const plan = plans[index];
     const dataset = datasets[series.ticker];
@@ -162,7 +230,9 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     if (isMarket && marketErrors[marketRequest]) return { series, plan, observations: [], currency, status: "Failed", error: marketErrors[marketRequest] };
     const raw = isMarket
       ? marketObservations(bars[marketRequest] ?? [], series.metric, plan.frequency)
-      : fundamentalObservations(dataset, series.metric, plan.frequency, "fiscal-period");
+      : VALUATION_METRICS.has(series.metric)
+        ? valuationObservations(dataset, series.metric, plan.frequency, periodPrices)
+        : fundamentalObservations(dataset, series.metric, plan.frequency, "fiscal-period");
     const windowed = raw.filter((item) => item.date >= from && item.date <= to);
     // Rebasing happens after windowing, so 100 is the first point actually on
     // screen rather than the first the provider ever published.
@@ -173,7 +243,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       status: validation.valid ? validation.invalidCount ? "Partial" : "Ready" : "No data",
       warning: validation.valid ? validation.reason : windowed.length ? (chart.values === "indexed" && !shaped.length ? "Cannot rebase: the first value is zero or negative" : validation.reason) : undefined,
     };
-  }), [chart.series, chart.values, plans, datasets, companyErrors, bars, marketErrors, marketLoading, from, to]);
+  }), [chart.series, chart.values, plans, datasets, companyErrors, bars, marketErrors, marketLoading, periodPrices, from, to]);
 
   const drawn = useMemo(() => bundles.filter((bundle) => bundle.series.visible && bundle.observations.length), [bundles]);
   const rows = useMemo(() => {

@@ -96,7 +96,16 @@ export const CHART_METRIC_GROUPS: Array<[string, string[]]> = [
   ["Per share", ["revenuePerShare", "netIncomePerShare", "freeCashFlowPerShare", "freeCashFlowAfterSbcPerShare"]],
   ["Margins", ["grossMargin", "operatingMargin", "netMargin", "freeCashFlowMargin", "freeCashFlowAfterSbcMargin"]],
   ["Shares and capital", ["dilutedShares", "sharesOutstanding", "shareRepurchases", "shareIssuance", "dividendsPaid", "stockBasedCompensation"]],
+  ["Valuation", ["priceToFreeCashFlow", "priceToEarnings", "priceToSales", "freeCashFlowYield"]],
 ];
+
+/**
+ * Metrics that pair a fundamental with the share price on its own date.
+ *
+ * They answer the question a price line and a cash-flow line only hint at:
+ * whether the price followed the business, or whether the multiple moved.
+ */
+export const VALUATION_METRICS = new Set(["priceToFreeCashFlow", "priceToEarnings", "priceToSales", "freeCashFlowYield"]);
 
 export const CHARTABLE_METRICS = new Set(CHART_METRIC_GROUPS.flatMap(([, items]) => items));
 

@@ -174,7 +174,8 @@ export function formatChartValue(value: number | null | undefined, family: UnitF
   if (value == null || !Number.isFinite(value)) return "N/M";
   const decimals = precise ? 2 : 1;
   if (family === "percent") return `${(value * 100).toFixed(decimals)}%`;
-  if (family === "ratio") return `${value.toFixed(decimals)}×`;
+  // Ticks are round by construction, so a forced decimal only adds noise.
+  if (family === "ratio") return `${Number(value.toFixed(decimals))}×`;
   if (family === "indexed") return value.toFixed(precise ? 1 : 0);
   if (family === "shares") return new Intl.NumberFormat("en-US", { notation: Math.abs(value) >= 10_000 ? "compact" : "standard", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value);
   const small = Math.abs(value) < 1_000;

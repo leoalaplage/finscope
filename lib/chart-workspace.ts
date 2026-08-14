@@ -85,6 +85,7 @@ export const CHART_PRESETS: ChartPreset[] = [
   { id: "margins", label: "Margins", metrics: ["grossMargin", "operatingMargin", "netMargin", "freeCashFlowMargin"] },
   { id: "cash-quality", label: "Cash quality", metrics: ["freeCashFlow", "freeCashFlowAfterSbc", "stockBasedCompensation"] },
   { id: "capital", label: "Capital allocation", metrics: ["shareRepurchases", "dividendsPaid", "stockBasedCompensation", "dilutedShares"] },
+  { id: "rerating", label: "Price vs cash: re-rating", metrics: ["priceToFreeCashFlow"] },
   { id: "compare", label: "Compare companies", metrics: ["stockPrice"], values: "indexed" },
 ];
 

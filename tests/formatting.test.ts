@@ -84,3 +84,11 @@ describe("evenly spaced ticks", () => {
     for (const value of niceTicks(0, 0.3)) expect(String(value)).not.toMatch(/\d{6,}/);
   });
 });
+
+describe("ratio labels", () => {
+  it("drops a decimal the value does not need", () => {
+    expect(formatChartValue(10, "ratio")).toBe("10×");
+    expect(formatChartValue(38.8, "ratio")).toBe("38.8×");
+    expect(formatChartValue(0, "ratio")).toBe("0×");
+  });
+});
