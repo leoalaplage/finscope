@@ -25,7 +25,12 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   operatingIncome: { namespace: "us-gaap", tags: ["OperatingIncomeLoss"], unit: "currency" },
   netIncome: { namespace: "us-gaap", tags: ["NetIncomeLoss", "ProfitLoss"], unit: "currency" },
   operatingCashFlow: { namespace: "us-gaap", tags: ["NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"], unit: "currency" },
-  capitalExpenditures: { namespace: "us-gaap", tags: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"], unit: "currency" },
+  // Tags are alternatives in preference order, not addends. The last two cover
+  // filers that report no property-and-equipment line at all: Cboe and
+  // Interactive Brokers use the net productive-assets concept, and Veeva
+  // stopped tagging property purchases after FY2020 and now reports only
+  // capitalized software. Without them free cash flow simply stopped.
+  capitalExpenditures: { namespace: "us-gaap", tags: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForProceedsFromProductiveAssets", "PaymentsForSoftware"], unit: "currency" },
   acquisitions: { namespace: "us-gaap", tags: ["PaymentsToAcquireBusinessesNetOfCashAcquired", "PaymentsToAcquireBusinessesGross"], unit: "currency" },
   dividendsPaid: { namespace: "us-gaap", tags: ["PaymentsOfDividends", "PaymentsOfDividendsCommonStock", "PaymentsOfOrdinaryDividends"], unit: "currency" },
   dilutedShares: { namespace: "us-gaap", tags: ["WeightedAverageNumberOfDilutedSharesOutstanding"], unit: "shares" },

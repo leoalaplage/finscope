@@ -11,7 +11,7 @@ export const CHART_PALETTE = [
   { name: "Neutral grey", value: "#94A3B8" },
 ] as const;
 
-export type ScaleMode = "zero" | "auto" | "custom" | "log";
+export type ScaleMode = "zero" | "auto" | "custom" | "log" | "fit";
 export type CurveStyle = "straight" | "curved" | "step";
 export type AnomalyMode = "validated" | "raw";
 export const CHART_DEFAULTS = { window: "max" as const, curve: "straight" as CurveStyle, anomalyMode: "validated" as AnomalyMode, robustScale: false };
@@ -36,6 +36,19 @@ export function chartDomain(values: Array<number | null | undefined>, mode: Scal
   if (mode === "log") {
     if (finite.some((value) => value <= 0)) return { domain: ["auto", "auto"] as const, warning: "Logarithmic scale requires strictly positive values." };
     return { domain: ["auto", "auto"] as const };
+  }
+  if (mode === "fit") {
+    // Frames the data itself with a small margin. Useful when the interesting
+    // variation is a few percent sitting a long way from zero, which anchoring
+    // to zero would flatten into a straight line.
+    const minimum = Math.min(...finite); const maximum = Math.max(...finite);
+    if (minimum === maximum) return { domain: [minimum - 1, maximum + 1] as [number, number] };
+    const margin = (maximum - minimum) * 0.08;
+    // The breathing room must not invent a sign the data never had: a share
+    // price framed down to -39 reads as though it could go negative.
+    const lower = minimum >= 0 ? Math.max(0, minimum - margin) : minimum - margin;
+    const upper = maximum <= 0 ? Math.min(0, maximum + margin) : maximum + margin;
+    return { domain: [lower, upper] as [number, number] };
   }
   const minimum = Math.min(...finite); const maximum = Math.max(...finite);
   if (minimum < 0) {

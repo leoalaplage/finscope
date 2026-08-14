@@ -10,6 +10,22 @@ export type RangePreset = "1" | "3" | "5" | "10" | "max";
 
 export type SeriesStyle = "line" | "bar" | "area";
 export type SeriesAxis = "left" | "right";
+/** Auto reads the metric, zero anchors the axis, fit frames the data closely. */
+export type ScaleMode = "auto" | "zero" | "fit";
+/** Raw values, or every series rebased so shapes can be compared. */
+export type ValueMode = "raw" | "indexed";
+/** One chart for everything, or one chart per company. */
+export type LayoutMode = "combined" | "per-company";
+
+/** Deliberately short: a palette you pick from, not a colour wheel. */
+export const SERIES_COLORS = [
+  { name: "Blue", value: "#4DA3FF" },
+  { name: "Green", value: "#36D399" },
+  { name: "Amber", value: "#FF9F43" },
+  { name: "Red", value: "#FF647C" },
+  { name: "Violet", value: "#A78BFA" },
+] as const;
+const COLOR_VALUES = new Set<string>(SERIES_COLORS.map((color) => color.value));
 
 /**
  * Every presentation field is optional and means "decide for me". A series only
@@ -25,6 +41,7 @@ export interface WorkspaceSeries {
   style?: SeriesStyle;
   axis?: SeriesAxis;
   frequency?: SeriesFrequency;
+  color?: string;
 }
 
 export interface WorkspaceChart {
@@ -32,6 +49,11 @@ export interface WorkspaceChart {
   series: WorkspaceSeries[];
   range: RangePreset;
   showDataTable: boolean;
+  scale: ScaleMode;
+  values: ValueMode;
+  layout: LayoutMode;
+  showGrid: boolean;
+  showPoints: boolean;
 }
 
 export const RANGE_OPTIONS: Array<[RangePreset, string]> = [["1", "1Y"], ["3", "3Y"], ["5", "5Y"], ["10", "10Y"], ["max", "Max"]];
@@ -47,7 +69,7 @@ export function createWorkspaceSeries(chartId: string, ticker: string, metric: s
 }
 
 export function createWorkspaceChart(id: string, series: WorkspaceSeries[] = [], range: RangePreset = "max"): WorkspaceChart {
-  return { id, series, range, showDataTable: false };
+  return { id, series, range, showDataTable: false, scale: "auto", values: "raw", layout: "combined", showGrid: true, showPoints: false };
 }
 
 export function addSeriesUnique(chart: WorkspaceChart, series: WorkspaceSeries): WorkspaceChart {
@@ -67,11 +89,11 @@ export function toggleSeries(chart: WorkspaceChart, uid: string): WorkspaceChart
 }
 
 /** Applies an override, or clears it when the value is undefined. */
-export function patchSeries(chart: WorkspaceChart, uid: string, patch: Partial<Pick<WorkspaceSeries, "style" | "axis" | "frequency">>): WorkspaceChart {
+export function patchSeries(chart: WorkspaceChart, uid: string, patch: Partial<Pick<WorkspaceSeries, "style" | "axis" | "frequency" | "color">>): WorkspaceChart {
   return { ...chart, series: chart.series.map((series) => {
     if (series.uid !== uid) return series;
     const next = { ...series, ...patch };
-    for (const key of ["style", "axis", "frequency"] as const) if (next[key] === undefined) delete next[key];
+    for (const key of ["style", "axis", "frequency", "color"] as const) if (next[key] === undefined) delete next[key];
     return next;
   }) };
 }
@@ -82,7 +104,7 @@ export function resetSeries(chart: WorkspaceChart, uid: string): WorkspaceChart 
 }
 
 export function hasOverrides(series: WorkspaceSeries) {
-  return series.style !== undefined || series.axis !== undefined || series.frequency !== undefined;
+  return series.style !== undefined || series.axis !== undefined || series.frequency !== undefined || series.color !== undefined;
 }
 
 export function chartTickers(chart: WorkspaceChart) {
@@ -162,11 +184,21 @@ export function deserializeWorkspace(value: string): WorkspaceChart[] {
       if (item.style === "line" || item.style === "bar" || item.style === "area") restored.style = item.style;
       if (item.axis === "left" || item.axis === "right") restored.axis = item.axis;
       if (typeof item.frequency === "string" && SERIES_FREQUENCIES.has(item.frequency)) restored.frequency = item.frequency as SeriesFrequency;
+      if (typeof item.color === "string" && COLOR_VALUES.has(item.color)) restored.color = item.color;
       return [restored];
     });
     const unique = [...new Map(series.map((item) => [item.uid, item])).values()];
     const range = typeof chart.range === "string" && RANGE_VALUES.has(chart.range as RangePreset) ? chart.range as RangePreset : "max";
-    return [{ ...createWorkspaceChart(chart.id, unique, range), showDataTable: chart.showDataTable === true }];
+    const base = createWorkspaceChart(chart.id, unique, range);
+    return [{
+      ...base,
+      showDataTable: chart.showDataTable === true,
+      scale: chart.scale === "zero" || chart.scale === "fit" ? chart.scale : base.scale,
+      values: chart.values === "indexed" ? "indexed" : base.values,
+      layout: chart.layout === "per-company" ? "per-company" : base.layout,
+      showGrid: chart.showGrid !== false,
+      showPoints: chart.showPoints === true,
+    }];
   });
   if (!charts.length) throw new Error("Invalid chart workspace");
   return charts;

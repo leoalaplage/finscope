@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createAutoChartPlan, formatChartValue, unitFamily } from "../lib/auto-chart";
+import { createAutoChartPlan, formatChartValue, indexToHundred, unitFamily } from "../lib/auto-chart";
 import { chartDomain } from "../lib/charting";
-import { addCompany, addMetric, addPair, addSeriesUnique, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, removeCompany, removeSeries, resetSeries, serializeWorkspace, toggleSeries } from "../lib/chart-workspace";
+import { addCompany, addMetric, addPair, addSeriesUnique, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, removeCompany, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries } from "../lib/chart-workspace";
 
 const series = (chart: string, ticker: string, metric: string) => createWorkspaceSeries(chart, ticker, metric);
 const chartWith = (...pairs: Array<[string, string]>) => createWorkspaceChart("chart-1", pairs.map(([ticker, metric]) => series("chart-1", ticker, metric)));
@@ -141,6 +141,17 @@ describe("automatic presentation", () => {
   it("keeps zero in view for absolute fundamentals and lets price float", () => {
     expect(chartDomain([5, 10], "zero").domain[0]).toBe(0);
     expect(chartDomain([120, 240], "auto").domain).toEqual(["auto", "auto"]);
+    // "fit" frames the data instead of the origin, so a tight band stays legible.
+    expect(chartDomain([120, 140], "fit").domain).toEqual([118.4, 141.6]);
+    // The margin must not invent a sign the data never had.
+    expect(chartDomain([9, 562], "fit").domain[0]).toBe(0);
+    // All-negative data is framed just as closely, but the axis still stops at
+    // zero rather than implying the series was ever positive.
+    const negative = chartDomain([-40, -5], "fit").domain as [number, number];
+    expect(negative[1]).toBeLessThanOrEqual(0);
+    expect(negative[1]).toBeGreaterThan(-5);
+    // Data that genuinely crosses zero keeps its margin on both sides.
+    expect(chartDomain([-40, 60], "fit").domain[0]).toBeLessThan(-40);
   });
 });
 
@@ -189,5 +200,51 @@ describe("per-series overrides", () => {
   it("discards a stored override that is no longer a valid choice", () => {
     const stored = JSON.stringify([{ id: "chart-1", range: "max", series: [{ ticker: "AAPL", metric: "revenue", visible: true, style: "candlestick", axis: "middle", frequency: "hourly" }] }]);
     expect(hasOverrides(deserializeWorkspace(stored)[0].series[0])).toBe(false);
+  });
+});
+
+describe("chart appearance", () => {
+  const obs = (date: string, value: number | null) => ({ date, value, frequency: "annual" as const, currency: "USD", unit: "currency", source: "SEC", status: "Verified" as const, rawObservation: true as const });
+
+  it("offers exactly five colours and stores one as an override", () => {
+    expect(SERIES_COLORS).toHaveLength(5);
+    const chart = patchSeries(chartWith(["AAPL", "revenue"]), "chart-1:AAPL:revenue", { color: SERIES_COLORS[2].value });
+    expect(chart.series[0].color).toBe(SERIES_COLORS[2].value);
+    expect(deserializeWorkspace(serializeWorkspace([chart]))[0].series[0].color).toBe(SERIES_COLORS[2].value);
+  });
+
+  it("refuses a colour that is not in the palette", () => {
+    const stored = JSON.stringify([{ id: "chart-1", range: "max", series: [{ ticker: "AAPL", metric: "revenue", visible: true, color: "#ff00ff" }] }]);
+    expect(deserializeWorkspace(stored)[0].series[0].color).toBeUndefined();
+  });
+
+  it("rebases a series so its first drawn value is 100", () => {
+    const indexed = indexToHundred([obs("2023-12-31", 50), obs("2024-12-31", 75), obs("2025-12-31", 100)]);
+    expect(indexed.map((item) => item.value)).toEqual([100, 150, 200]);
+    expect(indexed[0].unit).toBe("indexed");
+  });
+
+  it("refuses to rebase when the base is zero or negative", () => {
+    expect(indexToHundred([obs("2024-12-31", 0), obs("2025-12-31", 10)])).toEqual([]);
+    expect(indexToHundred([obs("2024-12-31", -5), obs("2025-12-31", 10)])).toEqual([]);
+  });
+
+  it("carries nulls through a rebase instead of dropping the dates", () => {
+    expect(indexToHundred([obs("2024-12-31", 20), obs("2025-12-31", null)]).map((item) => item.value)).toEqual([100, null]);
+  });
+
+  it("defaults to automatic scale, actual values and one chart", () => {
+    const chart = createWorkspaceChart("chart-1");
+    expect(chart).toMatchObject({ scale: "auto", values: "raw", layout: "combined", showGrid: true, showPoints: false });
+  });
+
+  it("keeps appearance choices across a save and reload", () => {
+    const chart = { ...chartWith(["AAPL", "revenue"]), scale: "fit" as const, values: "indexed" as const, layout: "per-company" as const, showGrid: false, showPoints: true };
+    expect(deserializeWorkspace(serializeWorkspace([chart]))[0]).toMatchObject({ scale: "fit", values: "indexed", layout: "per-company", showGrid: false, showPoints: true });
+  });
+
+  it("falls back to the default for an appearance value it does not recognise", () => {
+    const stored = JSON.stringify([{ id: "chart-1", range: "max", scale: "logarithmic", values: "detrended", layout: "grid", series: [{ ticker: "AAPL", metric: "revenue", visible: true }] }]);
+    expect(deserializeWorkspace(stored)[0]).toMatchObject({ scale: "auto", values: "raw", layout: "combined" });
   });
 });

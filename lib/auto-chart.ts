@@ -133,6 +133,21 @@ export function createAutoChartPlan(inputs: AutoSeriesInput[]): AutoSeriesPlan[]
   });
 }
 
+/**
+ * Rebases a series so its first drawn observation is 100.
+ *
+ * This is what makes a share price and a cash-flow line comparable: after
+ * rebasing both axes read in percent of their own starting point, so the eye
+ * compares shapes rather than magnitudes. A series whose first value is zero or
+ * negative has no meaningful base and is left out rather than scaled to
+ * nonsense.
+ */
+export function indexToHundred(observations: SeriesObservation[]): SeriesObservation[] {
+  const base = observations.find((item) => item.value != null && Number.isFinite(item.value))?.value;
+  if (base == null || base <= 0) return [];
+  return observations.map((item) => ({ ...item, value: item.value == null ? null : item.value / base * 100, unit: "indexed" }));
+}
+
 const FAMILY_LABEL: Record<UnitFamily, string> = {
   currency: "Currency", perShare: "Per share", price: "Share price", percent: "Percent", shares: "Share count", ratio: "Ratio", indexed: "Indexed to 100",
 };

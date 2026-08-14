@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Area, Bar, Brush, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { createAutoChartPlan, familyLabel, formatChartValue, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
+import { createAutoChartPlan, familyLabel, formatChartValue, indexToHundred, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
 import { chartDomain } from "@/lib/charting";
-import { addCompany, addMetric, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, toggleSeries, type RangePreset, type SeriesAxis, type SeriesStyle, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
+import { addCompany, addMetric, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type ValueMode, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservations, marketObservations, providerMarketFrequency } from "@/lib/mixed-series";
 import { METRICS } from "@/lib/metrics";
@@ -128,9 +128,12 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     const manualAxis = chart.series.some((series) => series.axis !== undefined);
     return automatic.map((plan, index) => {
       const series = chart.series[index];
-      return { ...plan, style: (series.style ?? plan.type) as SeriesStyle, axis: series.axis ?? plan.axis, panel: manualAxis ? 0 : plan.panel };
+      // Rebased series are all percentages of their own base, so a second axis
+      // with its own range would defeat the comparison the mode exists for.
+      const axis = chart.values === "indexed" ? "left" as const : series.axis ?? plan.axis;
+      return { ...plan, style: (series.style ?? plan.type) as SeriesStyle, axis, color: series.color ?? plan.color, panel: manualAxis ? 0 : plan.panel };
     });
-  }, [chart.series, datasets]);
+  }, [chart.series, chart.values, datasets]);
 
   const marketKey = plans.filter((plan) => providerMarketFrequency(plan.frequency)).map((plan) => `${plan.ticker}:${plan.frequency}`).sort().join("|");
   useEffect(() => {
@@ -164,20 +167,31 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       ? marketObservations(bars[marketRequest] ?? [], series.metric, plan.frequency)
       : fundamentalObservations(dataset, series.metric, plan.frequency, "fiscal-period");
     const windowed = raw.filter((item) => item.date >= from && item.date <= to);
-    const validation = validateSeries(windowed, plan.frequency, dataset.company.resolutionStatus !== "unresolved");
+    // Rebasing happens after windowing, so 100 is the first point actually on
+    // screen rather than the first the provider ever published.
+    const shaped = chart.values === "indexed" ? indexToHundred(windowed) : windowed;
+    const validation = validateSeries(shaped, plan.frequency, dataset.company.resolutionStatus !== "unresolved");
     return {
       series, plan, currency, observations: validation.observations,
       status: validation.valid ? validation.invalidCount ? "Partial" : "Ready" : "No data",
-      warning: validation.valid ? validation.reason : windowed.length ? validation.reason : undefined,
+      warning: validation.valid ? validation.reason : windowed.length ? (chart.values === "indexed" && !shaped.length ? "Cannot rebase: the first value is zero or negative" : validation.reason) : undefined,
     };
-  }), [chart.series, plans, datasets, companyErrors, bars, marketErrors, marketLoading, from, to]);
+  }), [chart.series, chart.values, plans, datasets, companyErrors, bars, marketErrors, marketLoading, from, to]);
 
   const drawn = useMemo(() => bundles.filter((bundle) => bundle.series.visible && bundle.observations.length), [bundles]);
   const rows = useMemo(() => {
     const aligned = alignMixedSeries(drawn.map((bundle) => ({ definition: { id: bundle.series.uid, ticker: bundle.series.ticker, metric: bundle.series.metric, frequency: bundle.plan.frequency, missingData: "report-points" as const }, observations: bundle.observations })));
     return aligned.map((row) => ({ date: row.date, ...Object.fromEntries(drawn.map((bundle) => [bundle.series.uid, row.cells[bundle.series.uid]?.value ?? null])) })) as Array<Record<string, unknown>>;
   }, [drawn]);
-  const panels = [...new Set(drawn.map((bundle) => bundle.plan.panel))].sort((a, b) => a - b);
+  // Indexed values are all percentages of their own base, so they belong on one
+  // axis. Splitting by company answers "how did each of these do", where one
+  // combined chart answers "how do these compare".
+  const groups = useMemo<Array<{ key: string; label: string; bundles: Bundle[] }>>(() => {
+    if (chart.layout !== "per-company") return [{ key: "all", label: "", bundles: drawn }];
+    return chartTickers(chart)
+      .map((ticker) => ({ key: ticker, label: ticker, bundles: drawn.filter((bundle) => bundle.series.ticker === ticker) }))
+      .filter((group) => group.bundles.length);
+  }, [chart, drawn]);
   const anyLoading = bundles.some((bundle) => bundle.status === "Loading");
 
   function exportCsv() {
@@ -226,6 +240,20 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       <div className="range-buttons" role="group" aria-label="Time range">{RANGE_OPTIONS.map(([value, label]) => <button key={value} className={chart.range === value ? "active" : ""} onClick={() => onChange((current) => ({ ...current, range: value }))}>{label}</button>)}</div>
     </section>
 
+    <section className="chart-appearance">
+      <label>Values<select value={chart.values} onChange={(event) => onChange((current) => ({ ...current, values: event.target.value as ValueMode }))}>
+        <option value="raw">Actual values</option><option value="indexed">Indexed to 100</option>
+      </select></label>
+      <label>Scale<select value={chart.scale} onChange={(event) => onChange((current) => ({ ...current, scale: event.target.value as ScaleMode }))}>
+        <option value="auto">Auto</option><option value="zero">Start at zero</option><option value="fit">Fit to data</option>
+      </select></label>
+      <label>Layout<select value={chart.layout} onChange={(event) => onChange((current) => ({ ...current, layout: event.target.value as LayoutMode }))} disabled={tickers.length < 2}>
+        <option value="combined">One chart</option><option value="per-company">One chart per company</option>
+      </select>{tickers.length < 2 && <small>Add a second company to split</small>}</label>
+      <label className="chart-switch"><input type="checkbox" checked={chart.showGrid} onChange={(event) => onChange((current) => ({ ...current, showGrid: event.target.checked }))}/> Grid</label>
+      <label className="chart-switch"><input type="checkbox" checked={chart.showPoints} onChange={(event) => onChange((current) => ({ ...current, showPoints: event.target.checked }))}/> Points</label>
+    </section>
+
     <section className="series-chips" aria-label="Series on this chart">{bundles.map((bundle) => {
       const family = unitFamily(bundle.series.metric);
       const latest = bundle.observations.at(-1);
@@ -262,6 +290,11 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
               <option value="">Auto · {bundle.plan.axis === "right" ? "Right" : "Left"}</option>
               <option value="left">Left</option><option value="right">Right</option>
             </select></label>
+            <div className="series-palette" role="group" aria-label={`Colour for ${series.ticker} ${series.metric}`}>
+              {SERIES_COLORS.map((colour) => <button key={colour.value} type="button" title={colour.name} aria-label={colour.name} aria-pressed={bundle.plan.color === colour.value}
+                className={bundle.plan.color === colour.value ? "active" : ""} style={{ background: colour.value }}
+                onClick={() => set({ color: series.color === colour.value ? undefined : colour.value })}/>)}
+            </div>
             <button disabled={!hasOverrides(series)} onClick={() => onChange((current) => resetSeries(current, series.uid))}>Reset</button>
           </div>;
         })}
@@ -269,37 +302,47 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       <small className="series-options-note">Setting an axis by hand puts every series in one plot area, so left and right refer to the two axes you can see.</small>
     </details>}
     {!drawn.length && <p className="simple-state">{anyLoading ? "Loading data…" : chart.series.length ? "No observations in this window. Widen the time range or pick another metric." : "Add a company and a metric to draw this chart."}</p>}
-    {drawn.length > 0 && <div className="chart-stack" ref={surface}>{panels.map((panel) => <ChartPanel key={panel} chart={chart} rows={rows} bundles={drawn.filter((bundle) => bundle.plan.panel === panel)} single={panels.length === 1} showBrush={panel === panels.at(-1) && rows.length > 60}/>)}</div>}
+    {drawn.length > 0 && <div className="chart-stack" ref={surface}>{groups.flatMap((group) => {
+      const panels = chart.values === "indexed" ? [0] : [...new Set(group.bundles.map((bundle) => bundle.plan.panel))].sort((a, b) => a - b);
+      return panels.map((panel) => {
+        const bundles = chart.values === "indexed" ? group.bundles : group.bundles.filter((bundle) => bundle.plan.panel === panel);
+        const heading = [group.label, chart.values === "indexed" ? "Indexed to 100" : [...new Set(bundles.map((item) => familyLabel(unitFamily(item.series.metric))))].join(" · ")].filter(Boolean).join(" · ");
+        return <ChartPanel key={`${group.key}-${panel}`} chart={chart} rows={rows} bundles={bundles} heading={heading}
+          single={groups.length === 1 && panels.length === 1} showBrush={group.key === groups.at(-1)?.key && panel === panels.at(-1) && rows.length > 60}/>;
+      });
+    })}</div>}
     {chart.showDataTable && drawn.length > 0 && <DataTable bundles={drawn} rows={rows}/>}
   </article>;
 }
 
-function ChartPanel({ chart, rows, bundles, single, showBrush }: { chart: WorkspaceChart; rows: Array<Record<string, unknown>>; bundles: Bundle[]; single: boolean; showBrush: boolean }) {
+function ChartPanel({ chart, rows, bundles, heading, single, showBrush }: { chart: WorkspaceChart; rows: Array<Record<string, unknown>>; bundles: Bundle[]; heading: string; single: boolean; showBrush: boolean }) {
   const sides = ["left", "right"] as const;
   const axes = sides.map((side) => {
     const items = bundles.filter((bundle) => bundle.plan.axis === side);
     const values = rows.flatMap((row) => items.map((bundle) => typeof row[bundle.series.uid] === "number" ? row[bundle.series.uid] as number : null));
-    const family: UnitFamily = items[0] ? unitFamily(items[0].series.metric) : "currency";
-    return { side, items, family, currency: items[0]?.currency ?? "USD", domain: chartDomain(values, items.some((bundle) => bundle.plan.scale === "auto") ? "auto" : "zero").domain, hasNegative: values.some((value) => value != null && value < 0) };
+    const family: UnitFamily = chart.values === "indexed" ? "indexed" : items[0] ? unitFamily(items[0].series.metric) : "currency";
+    // "auto" defers to the metric, which floats a share price and anchors a
+    // revenue line; the other two are the reader overruling that.
+    const mode = chart.scale === "auto" ? (items.some((bundle) => bundle.plan.scale === "auto") ? "auto" : "zero") : chart.scale;
+    return { side, items, family, currency: items[0]?.currency ?? "USD", domain: chartDomain(values, mode).domain, hasNegative: values.some((value) => value != null && value < 0) };
   });
   const spanYears = rows.length ? (Date.parse(rows.at(-1)!.date as string) - Date.parse(rows[0].date as string)) / (365.2425 * 86_400_000) : 0;
   const tickDate = (value: unknown) => spanYears > 6 ? String(value).slice(0, 4) : String(value).slice(0, 7);
-  const heading = [...new Set(bundles.map((bundle) => familyLabel(unitFamily(bundle.series.metric))))].join(" · ");
-
   return <div className="chart-panel">
     {!single && <div className="chart-panel-label">{heading}</div>}
     <div className={`chart-canvas${single ? "" : " compact"}`}><ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={rows} syncId={chart.id} margin={{ top: 12, right: 12, bottom: 4, left: 4 }}>
-        <CartesianGrid vertical={false} stroke="#ececec"/>
+        {chart.showGrid && <CartesianGrid vertical={false} stroke="#ececec"/>}
         <XAxis dataKey="date" tickFormatter={tickDate} minTickGap={44} tickLine={false} axisLine={{ stroke: "#d8d8d8" }}/>
         {axes.map((axis) => <YAxis key={axis.side} yAxisId={axis.side} orientation={axis.side} hide={!axis.items.length} width={64} tickLine={false} axisLine={false} domain={axis.domain} tickFormatter={(value) => formatChartValue(Number(value), axis.family, axis.currency)}/>)}
         {axes.filter((axis) => axis.items.length && axis.hasNegative).map((axis) => <ReferenceLine key={`${axis.side}-zero`} yAxisId={axis.side} y={0} stroke="#b4b4b4"/>)}
+        {chart.values === "indexed" && axes.filter((axis) => axis.items.length).slice(0, 1).map((axis) => <ReferenceLine key="base" yAxisId={axis.side} y={100} stroke="#b4b4b4" strokeDasharray="4 4"/>)}
         <Tooltip content={<ChartTooltip bundles={bundles}/>} cursor={{ stroke: "#b4b4b4", strokeDasharray: "3 3" }}/>
         {bundles.map((bundle) => bundle.plan.style === "bar"
           ? <Bar key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} fill={bundle.plan.color} maxBarSize={34} isAnimationActive={false}/>
           : bundle.plan.style === "area"
-            ? <Area key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} fill={bundle.plan.color} fillOpacity={.14} dot={false} type="linear" connectNulls isAnimationActive={false}/>
-            : <Line key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} dot={false} type="linear" connectNulls isAnimationActive={false}/>)}
+            ? <Area key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} fill={bundle.plan.color} fillOpacity={.14} dot={chart.showPoints ? { r: 2 } : false} type="linear" connectNulls isAnimationActive={false}/>
+            : <Line key={bundle.series.uid} dataKey={bundle.series.uid} yAxisId={bundle.plan.axis} stroke={bundle.plan.color} strokeWidth={2} dot={chart.showPoints ? { r: 2 } : false} type="linear" connectNulls isAnimationActive={false}/>)}
         {showBrush && <Brush dataKey="date" height={22} travellerWidth={8} stroke="#b4b4b4" tickFormatter={tickDate}/>}
       </ComposedChart>
     </ResponsiveContainer></div>

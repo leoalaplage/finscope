@@ -4,7 +4,11 @@ import { datasetCache } from "@/lib/runtime-env";
 
 /** Companies are refiled quarterly, so a day-old normalization is still current. */
 const CACHE_SECONDS = 86_400;
-const KEY_VERSION = "v1";
+// Bump whenever normalization changes what a cached company contains, so warm
+// entries built by the previous mapping are retired instead of being served.
+// v2: capital expenditures gained fallback concepts, restoring free cash flow
+// for filers that stopped tagging property purchases.
+const KEY_VERSION = "v2";
 const headers = {
   "Content-Type": "application/json",
   "Cache-Control": `public, s-maxage=21600, stale-while-revalidate=86400`,
