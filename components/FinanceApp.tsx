@@ -8,12 +8,12 @@ import { METRICS, VIEW_METRICS } from "@/lib/metrics";
 import { buildValuationHistory, valuationSnapshot, valuationStatistics } from "@/lib/valuation-history";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, MetricKey, Periodicity, PricePoint } from "@/lib/types";
 
-type MainView = "companies" | "company" | "charts" | "dcf";
-type SecondaryView = "quality" | "audit" | "coverage" | "sources" | "qs" | null;
+type MainView = "companies" | "company" | "charts" | "dcf" | "qs";
+type SecondaryView = "quality" | "audit" | "coverage" | "sources" | null;
 type Evidence = { label: string; value: number | null; period: FinancialPeriod; metric: string };
 
 const NAV: Array<{ key: Exclude<MainView, "company">; label: string }> = [
-  { key: "companies", label: "Companies" }, { key: "charts", label: "Charts" }, { key: "dcf", label: "DCF" },
+  { key: "companies", label: "Companies" }, { key: "charts", label: "Charts" }, { key: "dcf", label: "DCF" }, { key: "qs", label: "QS Screener" },
 ];
 
 const ChartsWorkspace = lazy(() => import("./ChartsWorkspace").then((module) => ({ default: module.ChartsWorkspace })));
@@ -48,13 +48,15 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   const [managerOpen, setManagerOpen] = useState(false);
   const [loading, setLoading] = useState("");
   const [error, setError] = useState("");
-  const [chartSeed, setChartSeed] = useState<{ ticker?: string; metric?: string; nonce: number }>({ ticker: initialData.company.ticker, nonce: 0 });
+  // Set only by an explicit "Open in Charts"; plain navigation leaves the
+  // workspace exactly as the reader last arranged it.
+  const [chartSeed, setChartSeed] = useState<{ ticker?: string; metric?: string; nonce: number }>();
   const [watchlist, setWatchlist] = useState<CompanyProfile[]>(() => { if (typeof window === "undefined") return DEFAULT_WATCHLIST; try { return JSON.parse(localStorage.getItem("finscope.watchlist") ?? "null") ?? DEFAULT_WATCHLIST; } catch { return DEFAULT_WATCHLIST; } });
   useEffect(() => { localStorage.setItem("finscope.watchlist", JSON.stringify(watchlist)); }, [watchlist]);
   useEffect(() => { document.documentElement.dataset.theme = "light"; document.documentElement.style.colorScheme = "light"; }, []);
 
   function navigate(next: MainView) {
-    setSecondary(null); setView(next);
+    setSecondary(null); setChartSeed(undefined); setView(next);
     history.replaceState(null, "", `/?ticker=${dataset.company.ticker}&view=${next}`);
     window.scrollTo({ top: 0 });
   }
@@ -80,7 +82,9 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
     setManagerOpen(false); setView("company");
   }
   function openCharts(ticker = dataset.company.ticker, metric?: string) {
-    setChartSeed({ ticker, metric, nonce: Date.now() }); navigate("charts");
+    setSecondary(null); setChartSeed({ ticker, metric, nonce: Date.now() }); setView("charts");
+    history.replaceState(null, "", `/?ticker=${ticker}&view=charts`);
+    window.scrollTo({ top: 0 });
   }
   function openDcf() { navigate("dcf"); }
 
@@ -92,13 +96,13 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       {secondary === "audit" && <SecondaryHeading title="Formula Audit" onBack={() => setSecondary(null)}/>} {secondary === "audit" && <Suspense fallback={<p className="simple-state">Loading…</p>}><FormulaDataAudit dataset={dataset}/></Suspense>}
       {secondary === "coverage" && <SecondaryHeading title="Import status" onBack={() => setSecondary(null)}/>} {secondary === "coverage" && <Suspense fallback={<p className="simple-state">Loading…</p>}><CoverageMatrix initialData={dataset}/></Suspense>}
       {secondary === "sources" && <SourcesPage dataset={dataset} onBack={() => setSecondary(null)}/>}
-      {secondary === "qs" && <SecondaryHeading title="QS Screener" onBack={() => setSecondary(null)}/>} {secondary === "qs" && <Suspense fallback={<p className="simple-state">Loading…</p>}><QsScreener dark={false}/></Suspense>}
+      {!secondary && view === "qs" && <Suspense fallback={<p className="simple-state">Loading the QS Screener…</p>}><QsScreener/></Suspense>}
       {!secondary && view === "companies" && <CompaniesPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} loading={loading} onSearchAdd={() => setManagerOpen(true)} onLoad={loadCompanyData} onOpen={openCompany} onCharts={(ticker) => openCharts(ticker)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/>}
       {!secondary && view === "company" && <CompanyPage key={dataset.company.ticker} dataset={dataset} onBack={() => navigate("companies")} onCharts={openCharts} onDcf={openDcf}/>}
       {!secondary && view === "charts" && <Suspense fallback={<p className="simple-state">Loading…</p>}><ChartsWorkspace initialData={dataset} seed={chartSeed}/></Suspense>}
       {!secondary && view === "dcf" && <div><header className="page-heading"><div><h1>DCF</h1><p>{dataset.company.name} · assumptions remain traceable to their historical base.</p></div><button onClick={() => navigate("companies")}>Change company</button></header><Suspense fallback={<p className="simple-state">Loading…</p>}><DcfValuation key={dataset.company.ticker} dataset={dataset}/></Suspense></div>}
     </main>
-    <footer className="site-footer"><span>Auditable financial research · Not investment advice</span><details><summary>More</summary><div><button onClick={() => setSecondary("quality")}>Data Quality</button><button onClick={() => setSecondary("audit")}>Formula Audit</button><button onClick={() => setSecondary("coverage")}>Import status</button><button onClick={() => setSecondary("sources")}>Sources</button><button onClick={() => setSecondary("qs")}>QS Screener</button></div></details></footer>
+    <footer className="site-footer"><span>Auditable financial research · Not investment advice</span><details><summary>More</summary><div><button onClick={() => setSecondary("quality")}>Data Quality</button><button onClick={() => setSecondary("audit")}>Formula Audit</button><button onClick={() => setSecondary("coverage")}>Import status</button><button onClick={() => setSecondary("sources")}>Sources</button></div></details></footer>
     {managerOpen && <Suspense fallback={null}><CompanyManager onSelect={acceptDataset} onClose={() => setManagerOpen(false)}/></Suspense>}
   </div>;
 }

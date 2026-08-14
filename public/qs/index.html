@@ -4,35 +4,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>QS Screener — FinScope</title>
-<script>try{const p=new URLSearchParams(location.search);document.documentElement.dataset.theme=p.get("theme")==="light"?"light":"dark";if(p.get("embedded")==="1")document.documentElement.classList.add("embedded")}catch(e){}</script>
+<script>try{const p=new URLSearchParams(location.search);document.documentElement.dataset.theme=p.get("theme")==="dark"?"dark":"light";if(p.get("embedded")==="1")document.documentElement.classList.add("embedded")}catch(e){}</script>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
 <header>
   <div class="marque">QS <span>Screener</span></div>
-  <nav>
-    <a href="sp500.html">S&amp;P 500</a>
-    <a href="index.html" class="actif">Table</a>
-    <a href="chart.html">Chart</a>
-    <a href="fcf.html">FCF</a>
-    <a href="portfolio.html">Portfolio</a>
-    <a href="filings.html">Filings</a>
-  </nav>
 </header>
 
 <main>
-  <h1>Quality scoring table as a PNG</h1>
-  <p class="intro">
-    Paste your export (fiscal.ai, Excel, Google Sheets&hellip;) or drop a CSV file.
-    The ranking is computed in your browser and rendered as an image, ready to copy.
-    Nothing leaves your machine.
-  </p>
+  <div class="entete-page">
+    <h1>Quality scoring table as a PNG</h1>
+    <p class="intro">
+      Paste your export (fiscal.ai, Excel, Google Sheets&hellip;) or drop a CSV file.
+      The ranking is computed in your browser and rendered as an image, ready to copy.
+      Nothing leaves your machine.
+    </p>
+  </div>
 
   <section id="sorties"></section>
 
-  <section class="carte" id="bloc-donnees">
-    <h2>Your data</h2>
+  <section class="carte etape-carte">
+    <h2><span class="etape">1</span> Your data</h2>
     <textarea id="saisie" spellcheck="false"
       placeholder="Paste your table here, keeping the first row of column titles.&#10;&#10;Ticker,Market Cap,Return on Invested Capital,ROIC 5Yr Avg,Operating Margin,...&#10;AAPL,3521.5,57.2,52.4,31.8,...&#10;MSFT,3180.2,29.1,28.0,44.6,...&#10;&#10;Comma, semicolon or tab all work — a copy-paste straight out of Excel is already tab-separated."></textarea>
 
@@ -44,14 +38,14 @@
       <span class="aide" id="etat-saisie"></span>
     </div>
     <p class="aide">
-      Columns are matched automatically (case, accents and spaces ignored):
-      <code>Ticker</code> is the only required one. A missing column is simply
-      dropped from the calculation and the remaining weights are renormalized.
+      Columns are matched automatically — case, accents and spacing are ignored.
+      <code>Ticker</code> is the only required one. A missing column is dropped from
+      the calculation and the remaining weights are renormalized.
     </p>
   </section>
 
-  <section class="carte">
-    <h2>Settings</h2>
+  <section class="carte etape-carte">
+    <h2><span class="etape">2</span> Scoring settings</h2>
     <div class="grille">
       <div>
         <label for="preset">Pillar weights</label>
@@ -74,6 +68,7 @@
     <details class="options">
       <summary>Advanced filters</summary>
       <div>
+        <h3>Universe filters</h3>
         <div class="grille">
           <div>
             <label for="min-score">Minimum TOTAL</label>
@@ -103,6 +98,7 @@
           <div><label for="min-Growth">Growth</label><input type="number" id="min-Growth" placeholder="-"></div>
           <div><label for="min-Value">Value</label><input type="number" id="min-Value" placeholder="-"></div>
         </div>
+        <h3>Output</h3>
         <div class="cases">
           <label><input type="checkbox" id="valo-attractive"> Only &laquo;&nbsp;Attractive&nbsp;&raquo; valuations</label>
           <label><input type="checkbox" id="sweet-spot"> Sweet spot only (*)</label>
@@ -112,12 +108,22 @@
       </div>
     </details>
 
-    <div class="ligne-actions" style="margin-top:20px">
+    <div class="barre-generer">
       <button type="button" class="primaire" id="btn-generer">Generate the table</button>
+      <span class="raccourci">or press <kbd>&#8984;</kbd> <kbd>&#9166;</kbd> in the data box</span>
       <span id="statut" class="chargement cache"><span class="rondelle"></span><span id="statut-texte"></span></span>
     </div>
 
     <div id="messages"></div>
+  </section>
+
+  <section class="carte livrables">
+    <h2>What you get</h2>
+    <ul>
+      <li><b>Dashboard PNG</b> — the full ranking, one row per company, colour-coded by score.</li>
+      <li><b>Methodology PNG</b> — every metric, its weight and what it measures.</li>
+      <li><b>Results CSV</b> — the same figures plus alert detail, strengths and weaknesses.</li>
+    </ul>
   </section>
 
 </main>

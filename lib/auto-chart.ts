@@ -17,6 +17,8 @@ export interface AutoSeriesInput {
   indexed?: boolean;
 }
 
+export const HIGH_FREQUENCY: SeriesFrequency[] = ["daily", "weekly", "monthly"];
+
 export interface AutoSeriesPlan extends AutoSeriesInput {
   frequency: SeriesFrequency;
   family: UnitFamily;
@@ -75,10 +77,22 @@ export function automaticChartType(metric: string, frequency: SeriesFrequency): 
   return "line";
 }
 
-function stableColor(id: string) {
-  let hash = 0;
-  for (const character of id) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
-  return CHART_PALETTE[Math.abs(hash) % CHART_PALETTE.length].value;
+/**
+ * Distinct colors in chart order. Hashing an identifier looks stable but
+ * collides, and two series in the same color is the one mistake a reader
+ * cannot recover from.
+ */
+function planColors(inputs: AutoSeriesInput[]) {
+  const byTicker = new Map<string, number>();
+  for (const input of inputs) if (!byTicker.has(input.ticker)) byTicker.set(input.ticker, byTicker.size);
+  const multiCompany = byTicker.size > 1;
+  const metrics = [...new Set(inputs.map((item) => item.metric))];
+  return inputs.map((input) => {
+    // One company: colour by metric. Several: colour by company, so the eye
+    // groups the comparison the way the chart is meant to be read.
+    const index = multiCompany ? byTicker.get(input.ticker)! : metrics.indexOf(input.metric);
+    return CHART_PALETTE[index % CHART_PALETTE.length].value;
+  });
 }
 
 export function createAutoChartPlan(inputs: AutoSeriesInput[]): AutoSeriesPlan[] {
@@ -87,9 +101,14 @@ export function createAutoChartPlan(inputs: AutoSeriesInput[]): AutoSeriesPlan[]
   if (families.length > 2) families.forEach((family, index) => panelByFamily.set(family, index));
   else families.forEach((family) => panelByFamily.set(family, 0));
   const firstFamily = families[0];
+  const colors = planColors(inputs);
+  const frequencies = inputs.map((input) => input.frequency ?? automaticFrequency(input.metric, input.dataset));
+  // A single market series turns the shared date axis into hundreds of
+  // categories, which would squeeze annual bars into invisible hairlines.
+  const forceLines = frequencies.some((frequency) => HIGH_FREQUENCY.includes(frequency)) || new Set(inputs.map((item) => item.ticker)).size > 1;
 
-  return inputs.map((input) => {
-    const frequency = input.frequency ?? automaticFrequency(input.metric, input.dataset);
+  return inputs.map((input, index) => {
+    const frequency = frequencies[index];
     const family = unitFamily(input.metric, input.indexed);
     const isPrice = PRICE_METRICS.has(input.metric);
     const isPercent = family === "percent";
@@ -103,15 +122,39 @@ export function createAutoChartPlan(inputs: AutoSeriesInput[]): AutoSeriesPlan[]
       family,
       axis: families.length > 2 ? "left" : axis,
       panel: panelByFamily.get(family) ?? 0,
-      type: automaticChartType(input.metric, frequency),
+      type: forceLines ? "line" : automaticChartType(input.metric, frequency),
       scale,
-      color: stableColor(input.id),
+      color: colors[index],
       format: input.indexed ? "index" : isPercent ? "percent" : family === "currency" || family === "perShare" || family === "price" ? "currency" : family === "ratio" ? "ratio" : "number",
       startAtZero: !isPrice,
       showCagr: !isPercent && !ALLOCATION_METRICS.has(input.metric),
       missingData: "report-points",
     };
   });
+}
+
+const FAMILY_LABEL: Record<UnitFamily, string> = {
+  currency: "Currency", perShare: "Per share", price: "Share price", percent: "Percent", shares: "Share count", ratio: "Ratio", indexed: "Indexed to 100",
+};
+
+export function familyLabel(family: UnitFamily) { return FAMILY_LABEL[family] ?? family; }
+
+/**
+ * One formatter for axes, legends, tooltips and the data table, chosen from the
+ * metric's own unit family. No unit, decimal or scale setting to get wrong.
+ */
+export function formatChartValue(value: number | null | undefined, family: UnitFamily, currency = "USD", compact = true): string {
+  if (value == null || !Number.isFinite(value)) return "N/M";
+  if (family === "percent") return `${(value * 100).toFixed(1)}%`;
+  if (family === "ratio") return `${value.toFixed(1)}×`;
+  if (family === "indexed") return value.toFixed(0);
+  if (family === "shares") return new Intl.NumberFormat("en-US", { notation: Math.abs(value) >= 10_000 ? "compact" : "standard", maximumFractionDigits: 2 }).format(value);
+  const small = Math.abs(value) < 1_000;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency", currency, currencyDisplay: "narrowSymbol",
+    notation: compact && !small ? "compact" : "standard",
+    maximumFractionDigits: small ? 2 : 1,
+  }).format(value);
 }
 
 export function validateSeries(observations: SeriesObservation[], knownFrequency: SeriesFrequency, companyResolved = true): SeriesValidation {

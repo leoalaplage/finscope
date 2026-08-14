@@ -7,7 +7,12 @@
 // =====================================================================
 
 export const PT_EN_MM = 25.4 / 72;   // 1 point typographique = 0.3528 mm
-export const POLICE = "Helvetica, Arial, 'Helvetica Neue', sans-serif";
+//  Meme pile que l'interface : le PNG et l'ecran parlent d'une seule voix.
+export const POLICE = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
+
+/** Aligne un trait sur la grille de pixels : sans cela un filet d'un pixel
+ *  s'etale sur deux et le tableau parait flou. */
+const netTrait = (v) => Math.round(v) + 0.5;
 
 /** Contexte de mesure partage (jamais affiche). */
 let ctxMesure = null;
@@ -62,15 +67,18 @@ export class Doc {
   rect(x, y, w, h, { fill = false, border = false } = {}) {
     if (!this.dessine) return;
     const c = this.ctx;
+    //  Les aplats sont arrondis au pixel entier : deux cellules voisines se
+    //  touchent exactement, sans liseré translucide entre elles.
+    const x0 = Math.round(this.px(x)), y0 = Math.round(this.px(y));
+    const x1 = Math.round(this.px(x + w)), y1 = Math.round(this.px(y + h));
     if (fill) {
       c.fillStyle = this.couleurFond;
-      c.fillRect(this.px(x), this.px(y), this.px(w), this.px(h));
+      c.fillRect(x0, y0, x1 - x0, y1 - y0);
     }
     if (border) {
       c.strokeStyle = this.couleurTrait;
-      c.lineWidth = this.px(this.epaisseurTrait);
-      // decalage d'un demi-pixel : traits nets, pas de flou
-      c.strokeRect(this.px(x), this.px(y), this.px(w), this.px(h));
+      c.lineWidth = 1;
+      c.strokeRect(netTrait(this.px(x)), netTrait(this.px(y)), x1 - x0, y1 - y0);
     }
   }
 
@@ -116,11 +124,16 @@ export class Doc {
     if (!this.dessine) return;
     const c = this.ctx;
     c.strokeStyle = couleur || this.couleurTrait;
-    c.lineWidth = this.px(epaisseur ?? this.epaisseurTrait);
+    c.lineWidth = epaisseur == null ? 1 : Math.max(1, this.px(epaisseur));
+    c.lineCap = "round";
     c.beginPath();
-    c.moveTo(this.px(x1), this.px(y1));
-    c.lineTo(this.px(x2), this.px(y2));
+    //  Un trait horizontal ou vertical est cale sur la grille de pixels ;
+    //  un trait oblique (les coches) garde sa position exacte.
+    const horizontal = y1 === y2, vertical = x1 === x2;
+    c.moveTo(vertical ? netTrait(this.px(x1)) : this.px(x1), horizontal ? netTrait(this.px(y1)) : this.px(y1));
+    c.lineTo(vertical ? netTrait(this.px(x2)) : this.px(x2), horizontal ? netTrait(this.px(y2)) : this.px(y2));
     c.stroke();
+    c.lineCap = "butt";
   }
 
   /** Texte place dans une boite, aligne L / C / R, centre verticalement. */
@@ -133,7 +146,7 @@ export class Doc {
     if (align === "C") { c.textAlign = "center"; tx = x + w / 2; }
     else if (align === "R") { c.textAlign = "right"; tx = x + w - padding; }
     else { c.textAlign = "left"; tx = x + padding; }
-    c.fillText(String(texte), this.px(tx), this.px(y + h / 2));
+    c.fillText(String(texte), Math.round(this.px(tx)), Math.round(this.px(y + h / 2)));
     c.textAlign = "left";
   }
 
