@@ -2,9 +2,9 @@
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
-import { DEFAULT_COMPANY_FILTERS, DEFAULT_COMPANY_SORT, filterCompanyRows, preferredDirection, sortCompanyRows, type CompanyFilters, type CompanyRankingRow, type CompanySortKey, type SortDirection } from "@/lib/company-ranking";
+import { COMPANY_COLUMNS, DEFAULT_COLUMNS, DEFAULT_COMPANY_FILTERS, DEFAULT_COMPANY_SORT, filterCompanyRows, preferredDirection, sortCompanyRows, type CompanyFilters, type CompanyRankingRow, type CompanySortKey, type SortDirection } from "@/lib/company-ranking";
 import { cagrBetweenDates, cagrForPeriods, derivedValue, valueOf } from "@/lib/finance";
-import { CALLOUTS, DEFAULT_CALLOUTS, growthTable, HORIZONS, type Horizon } from "@/lib/growth-quality";
+import { CALLOUTS, DEFAULT_CALLOUTS, growthConsistency, growthGap, growthTable, HORIZONS, type Horizon } from "@/lib/growth-quality";
 import { CHARTABLE_METRICS, METRICS, VIEW_METRICS } from "@/lib/metrics";
 import { buildValuationHistory, valuationSnapshot, valuationStatistics } from "@/lib/valuation-history";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, MetricKey, Periodicity, PricePoint } from "@/lib/types";
@@ -134,12 +134,21 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
       return saved?.key && (saved.direction === "asc" || saved.direction === "desc") ? { key: saved.key, direction: saved.direction } : DEFAULT_COMPANY_SORT;
     } catch { return DEFAULT_COMPANY_SORT; }
   });
+  const [columns, setColumns] = useState<CompanySortKey[]>(() => {
+    if (typeof window === "undefined") return DEFAULT_COLUMNS;
+    try {
+      const saved = JSON.parse(localStorage.getItem("finscope.companyColumns") ?? "null") as CompanySortKey[] | null;
+      const valid = Array.isArray(saved) ? saved.filter((key) => COMPANY_COLUMNS.some((column) => column.key === key)) : null;
+      return valid?.length ? valid : DEFAULT_COLUMNS;
+    } catch { return DEFAULT_COLUMNS; }
+  });
   const [prices, setPrices] = useState<Record<string, PricePoint | null>>({});
   const [valuationPremiums, setValuationPremiums] = useState<Record<string, number | null>>({});
   const [bulkLoading, setBulkLoading] = useState<Set<string>>(() => new Set());
   const [bulkState, setBulkState] = useState({ running: false, done: 0, total: 0, failed: 0 });
   const loadedTickers = Object.keys(datasets).sort().join("|");
   useEffect(() => { localStorage.setItem("finscope.companySort", JSON.stringify(sort)); }, [sort]);
+  useEffect(() => { localStorage.setItem("finscope.companyColumns", JSON.stringify(columns)); }, [columns]);
   // Each newly loaded company would otherwise fan out into a price and a
   // valuation-history request straight away. During a bulk load that turns a
   // deliberately sequential walk back into a stampede of concurrent work. These two
@@ -172,14 +181,30 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
   const rawRows = useMemo<RankingDisplayRow[]>(() => watchlist.map((profile) => {
     const data = datasets[profile.ticker]; const point = prices[profile.ticker]; const currentPrice = point?.priceClose ?? point?.close ?? null; const period = data ? latestPeriod(data) : undefined; const annual = data ? sortedPeriods(data, "annual") : []; const latestAnnual = annual.at(-1); const prior5 = annual.at(-6);
     const dilution = latestAnnual && prior5 ? change(valueOf(latestAnnual, "dilutedShares"), valueOf(prior5, "dilutedShares")) : null; const shares = period ? derivedValue(period, "sharesOutstanding") ?? derivedValue(period, "dilutedShares") : null; const fcf = period ? derivedValue(period, "freeCashFlow") : null; const marketCap = currentPrice != null && shares != null ? currentPrice * shares : null; const pfcf = marketCap != null && fcf != null && fcf > 0 ? marketCap / fcf : null;
-    return { profile, ticker: profile.ticker, marketCap, fcfMargin: period ? derivedValue(period, "freeCashFlowMargin") : null, fcfShareCagr: data ? cagrForPeriods(annual, "freeCashFlowPerShare", 5).value : null, revenueShareCagr: data ? cagrForPeriods(annual, "revenuePerShare", 5).value : null, operatingMargin: period ? derivedValue(period, "operatingMargin") : null, dilution, pfcf, valuationVsAverage: valuationPremiums[profile.ticker] ?? null, updated: data?.retrievedAt.slice(0, 10) ?? null, loading: loading === profile.ticker || bulkLoading.has(profile.ticker) || Boolean(data && !(profile.ticker in prices)) };
+    const gap = data ? growthGap(annual, 10) : null;
+    return { profile, ticker: profile.ticker, marketCap, fcfMargin: period ? derivedValue(period, "freeCashFlowMargin") : null, fcfShareCagr: data ? cagrForPeriods(annual, "freeCashFlowPerShare", 5).value : null, revenueShareCagr: data ? cagrForPeriods(annual, "revenuePerShare", 5).value : null, operatingMargin: period ? derivedValue(period, "operatingMargin") : null, dilution, pfcf, valuationVsAverage: valuationPremiums[profile.ticker] ?? null,
+      revenueCagr10: gap?.revenue ?? null, fcfCagr10: gap?.freeCashFlow ?? null, fcfVsRevenue10: gap?.spread ?? null,
+      fcfConsistency5: data ? growthConsistency(annual, "freeCashFlow", 5).rSquared : null,
+      fcfConsistency10: data ? growthConsistency(annual, "freeCashFlow", 10).rSquared : null,
+      fcfAfterSbcMargin: period ? derivedValue(period, "freeCashFlowAfterSbcMargin") : null,
+      updated: data?.retrievedAt.slice(0, 10) ?? null, loading: loading === profile.ticker || bulkLoading.has(profile.ticker) || Boolean(data && !(profile.ticker in prices)) };
   }), [watchlist, datasets, prices, valuationPremiums, loading, bulkLoading]);
   const rows = useMemo(() => sortCompanyRows(filterCompanyRows(rawRows, filters), sort.key, sort.direction), [rawRows, filters, sort]);
   const selectSort = (key: CompanySortKey) => setSort((current) => current.key === key ? { key, direction: current.direction === "desc" ? "asc" : "desc" } : { key, direction: preferredDirection(key) });
   const heading = (label: string, key: CompanySortKey) => <button className="sort-heading" onClick={() => selectSort(key)} aria-label={`Sort by ${label}`}>{label}<span aria-hidden="true">{sort.key === key ? sort.direction === "desc" ? " ↓" : " ↑" : ""}</span></button>;
   const setNumericFilter = (key: keyof CompanyFilters, value: string, multiplier: number) => setFilters((current) => ({ ...current, [key]: value === "" ? null : Number(value) * multiplier }));
   const missingReason = (row: RankingDisplayRow, label: string) => row.loading ? `${label} is still loading.` : row.profile.resolutionStatus === "unresolved" ? `${label} is unavailable because this ticker could not be resolved.` : !datasets[row.ticker] ? `Load ${row.ticker} to calculate ${label}.` : `${label} is not meaningful or is missing from the validated source data.`;
-  const cell = (row: RankingDisplayRow, key: Exclude<CompanySortKey, "ticker" | "updated">, formatted: string, label: string) => row[key] == null || !Number.isFinite(row[key]!) ? <td title={missingReason(row, label)}>—</td> : <td>{formatted}</td>;
+  const shownColumns = COMPANY_COLUMNS.filter((column) => columns.includes(column.key));
+  const formatCell = (row: RankingDisplayRow, column: typeof COMPANY_COLUMNS[number]) => {
+    const value = row[column.key];
+    if (value == null || !Number.isFinite(value)) return <td key={column.key} title={missingReason(row, column.label)}>—</td>;
+    const text = column.format === "currency" ? currency(value, row.profile.currency)
+      : column.format === "ratio" ? ratio(value)
+      : column.format === "points" ? `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)} pp`
+      : column.format === "score" ? value.toFixed(2)
+      : percent(value);
+    return <td key={column.key}>{text}</td>;
+  };
   async function loadAll() {
     const targets = watchlist.filter((company) => company.resolutionStatus !== "unresolved" && !datasets[company.ticker]).map((company) => company.ticker);
     if (!targets.length) { setBulkState({ running: false, done: 0, total: 0, failed: 0 }); return; }
@@ -214,7 +239,14 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
   }
   return <div><header className="page-heading"><div><h1>Companies</h1><p>{watchlist.length} companies in your local watchlist · ranked by {sort.key} {sort.direction === "desc" ? "descending" : "ascending"}.</p>{bulkState.total > 0 && <small>{bulkState.running ? `Loading all companies: ${bulkState.done}/${bulkState.total}` : `Load all finished: ${bulkState.done - bulkState.failed} loaded${bulkState.failed ? `, ${bulkState.failed} failed` : ""}`}</small>}</div><div className="company-title-actions"><button disabled={bulkState.running} onClick={() => void loadAll()}>{bulkState.running ? `Loading ${bulkState.done}/${bulkState.total}…` : "Load all"}</button><button onClick={onSearchAdd}>Add company</button></div></header>
     <details className="company-filters"><summary>Filters</summary><section className="list-tools"><label>Search by ticker<input type="search" value={filters.query} onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))} placeholder="AAPL"/></label><label>Minimum Market Cap ($bn)<input type="number" value={filters.minimumMarketCap == null ? "" : filters.minimumMarketCap / 1_000_000_000} onChange={(event) => setNumericFilter("minimumMarketCap", event.target.value, 1_000_000_000)}/></label><label>Minimum FCF Margin (%)<input type="number" value={filters.minimumFcfMargin == null ? "" : filters.minimumFcfMargin * 100} onChange={(event) => setNumericFilter("minimumFcfMargin", event.target.value, .01)}/></label><label>Minimum FCF/share CAGR 5Y (%)<input type="number" value={filters.minimumFcfShareCagr == null ? "" : filters.minimumFcfShareCagr * 100} onChange={(event) => setNumericFilter("minimumFcfShareCagr", event.target.value, .01)}/></label><label>Maximum Dilution 5Y (%)<input type="number" value={filters.maximumDilution == null ? "" : filters.maximumDilution * 100} onChange={(event) => setNumericFilter("maximumDilution", event.target.value, .01)}/></label><button onClick={() => setFilters(DEFAULT_COMPANY_FILTERS)}>Reset filters</button></section></details>
-    <div className="table-scroll"><table className="watchlist-table ranking-table"><thead><tr><th>Rank</th><th>{heading("Ticker", "ticker")}</th><th>{heading("Market Cap", "marketCap")}</th><th>{heading("FCF Margin", "fcfMargin")}</th><th>{heading("FCF/share CAGR 5Y", "fcfShareCagr")}</th><th>{heading("Revenue/share CAGR 5Y", "revenueShareCagr")}</th><th>{heading("Operating Margin", "operatingMargin")}</th><th>{heading("Dilution 5Y", "dilution")}</th><th>{heading("P/FCF", "pfcf")}</th><th>{heading("Valuation vs AVG 5Y", "valuationVsAverage")}</th><th>{heading("Updated", "updated")}</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.ticker} className={row.ticker === activeTicker ? "selected-row" : ""}><td className="rank-cell">{index + 1}</td><th><button className="text-button" onClick={() => onOpen(row.ticker)}>{row.ticker}</button><small>{row.profile.currency} · {row.profile.exchange}</small><div className="ticker-actions"><button onClick={() => onCharts(row.ticker)}>Charts</button><button onClick={() => onRemove(row.ticker)}>Remove</button></div></th>{cell(row, "marketCap", currency(row.marketCap, row.profile.currency), "Market Cap")}{cell(row, "fcfMargin", percent(row.fcfMargin), "FCF Margin")}{cell(row, "fcfShareCagr", percent(row.fcfShareCagr), "FCF/share CAGR 5Y")}{cell(row, "revenueShareCagr", percent(row.revenueShareCagr), "Revenue/share CAGR 5Y")}{cell(row, "operatingMargin", percent(row.operatingMargin), "Operating Margin")}{cell(row, "dilution", percent(row.dilution), "Dilution 5Y")}{cell(row, "pfcf", ratio(row.pfcf), "P/FCF")}{cell(row, "valuationVsAverage", percent(row.valuationVsAverage), "Valuation vs AVG 5Y")}<td title={row.updated ? undefined : missingReason(row, "Updated")}>{row.loading ? "Loading…" : row.updated ?? "—"}</td></tr>)}</tbody></table></div>{!rows.length && <p className="simple-state">No companies match the active filters.</p>}</div>;
+    <details className="column-picker"><summary>Columns<small>{shownColumns.length} of {COMPANY_COLUMNS.length}</small></summary>
+      <div>{COMPANY_COLUMNS.map((column) => <label key={column.key} title={column.hint}>
+        <input type="checkbox" checked={columns.includes(column.key)} onChange={(event) => setColumns((current) => event.target.checked ? [...current, column.key] : current.filter((key) => key !== column.key))}/>
+        {column.label}
+      </label>)}</div>
+      <div className="column-picker-actions"><button onClick={() => setColumns(DEFAULT_COLUMNS)}>Reset to default</button><button onClick={() => setColumns(COMPANY_COLUMNS.map((column) => column.key))}>Show all</button></div>
+    </details>
+    <div className="table-scroll"><table className="watchlist-table ranking-table"><thead><tr><th>Rank</th><th>{heading("Ticker", "ticker")}</th>{shownColumns.map((column) => <th key={column.key} title={column.hint}>{heading(column.label, column.key)}</th>)}<th>{heading("Updated", "updated")}</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.ticker} className={row.ticker === activeTicker ? "selected-row" : ""}><td className="rank-cell">{index + 1}</td><th><button className="text-button" onClick={() => onOpen(row.ticker)}>{row.ticker}</button><small>{row.profile.currency} · {row.profile.exchange}</small><div className="ticker-actions"><button onClick={() => onCharts(row.ticker)}>Charts</button><button onClick={() => onRemove(row.ticker)}>Remove</button></div></th>{shownColumns.map((column) => formatCell(row, column))}<td title={row.updated ? undefined : missingReason(row, "Updated")}>{row.loading ? "Loading…" : row.updated ?? "—"}</td></tr>)}</tbody></table></div>{!rows.length && <p className="simple-state">No companies match the active filters.</p>}</div>;
 }
 
 function CompanyPage({ dataset, onBack, onCharts, onDcf }: { dataset: CompanyDataset; onBack: () => void; onCharts: (ticker?: string, metric?: string) => void; onDcf: () => void }) {

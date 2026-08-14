@@ -71,7 +71,8 @@ thead th { background: #f7f7f7; color: #333; font-size: 11px; font-weight: 650; 
 th:first-child, td:first-child { text-align: left; }
 tbody th { font-weight: 550; }
 tbody tr:last-child > * { border-bottom: 0; }
-.watchlist-table { min-width: 1380px; }
+/* Width follows the chosen columns rather than a fixed guess. */
+.watchlist-table { min-width: max-content; }
 .ranking-table th:nth-child(2) { min-width: 120px; text-align: left; }
 .rank-cell { color: var(--muted); font-weight: 700; }
 .sort-heading { min-height: 0; padding: 0; border: 0; background: transparent; font-size: inherit; font-weight: inherit; white-space: nowrap; }
@@ -255,3 +256,12 @@ tbody tr:last-child > * { border-bottom: 0; }
 .callout-picker label { display: flex; align-items: center; gap: 7px; font-size: 13px; }
 .callout-picker label input { min-height: 0; }
 .callout-picker > small { margin-top: 10px; }
+
+.column-picker { margin-bottom: 18px; padding: 10px 12px; border: 1px solid var(--border); }
+.column-picker summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; font-weight: 600; }
+.column-picker summary small { display: inline; font-weight: 400; }
+.column-picker[open] summary { margin-bottom: 12px; }
+.column-picker > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 16px; }
+.column-picker label { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+.column-picker label input { min-height: 0; }
+.column-picker-actions { display: flex; gap: 8px; margin-top: 12px; }
