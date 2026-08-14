@@ -71,7 +71,7 @@ function parseStoredCharts(ticker: string): WorkspaceChart[] {
   catch { return defaultCharts(ticker); }
 }
 
-export function ChartsWorkspace({ initialData, seed, theme = "dark" }: { initialData: CompanyDataset; seed?: { ticker?: string; metric?: string; nonce: number }; theme?: ThemeName }) {
+export function ChartsWorkspace({ initialData, seed, theme = "dark" }: { initialData: CompanyDataset; seed?: { ticker?: string; metric?: string; nonce: number; style?: SeriesStyle; frequency?: SeriesFrequency }; theme?: ThemeName }) {
   const [datasets, setDatasets] = useState<Record<string, CompanyDataset>>({ [initialData.company.ticker]: initialData });
   const [companyErrors, setCompanyErrors] = useState<Record<string, string>>({});
   const [charts, setCharts] = useState<WorkspaceChart[]>(() => parseStoredCharts(initialData.company.ticker));
@@ -105,7 +105,8 @@ export function ChartsWorkspace({ initialData, seed, theme = "dark" }: { initial
     if (!seed || seed.nonce === appliedSeed.current || (!seed.ticker && !seed.metric)) return;
     appliedSeed.current = seed.nonce;
     const ticker = seed.ticker ?? initialData.company.ticker;
-    setCharts((current) => current.length ? current.map((chart, index) => index ? chart : focusCompany(chart, ticker, seed.metric)) : defaultCharts(ticker));
+    const presentation = seed.style || seed.frequency ? { style: seed.style, frequency: seed.frequency } : undefined;
+    setCharts((current) => current.length ? current.map((chart, index) => index ? chart : focusCompany(chart, ticker, seed.metric, presentation)) : defaultCharts(ticker));
   }, [seed, initialData.company.ticker]);
 
   const retryCompany = useCallback((ticker: string) => setCompanyErrors((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== ticker))), []);

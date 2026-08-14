@@ -6,7 +6,7 @@ import { formatChartValue, unitFamily } from "@/lib/auto-chart";
 import { chartPalette, niceTicks, type ThemeName } from "@/lib/charting";
 import { derivedValue } from "@/lib/finance";
 import { CHARTABLE_METRICS } from "@/lib/metrics";
-import type { CompanyDataset, FinancialPeriod } from "@/lib/types";
+import type { CompanyDataset, FinancialPeriod, SeriesFrequency } from "@/lib/types";
 
 /**
  * One card per measure, in the order an analyst reads a company: what it sold,
@@ -36,7 +36,7 @@ function quarterLabel(period: FinancialPeriod) {
   return period.fiscalQuarter ? `${period.fiscalQuarter} ${period.fiscalYear}` : String(period.fiscalYear);
 }
 
-export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: CompanyDataset; theme: ThemeName; onOpenMetric: (metric: string) => void }) {
+export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: CompanyDataset; theme: ThemeName; onOpenMetric: (metric: string, presentation: { style: "bar"; frequency: SeriesFrequency }) => void }) {
   const palette = chartPalette(theme);
   // Trailing windows, so a card shows a full year of trading at every point
   // rather than a saw-tooth of seasons. Annual is the fallback for a company
@@ -65,12 +65,22 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
     const latest = [...rows].reverse().find((row) => row.value != null);
     const format = (value: number) => formatChartValue(value, family, dataset.company.currency);
 
-    return <article className="kpi-card" key={card.metric}>
+    const chartable = CHARTABLE_METRICS.has(card.metric);
+    // The card is the target, not just an arrow inside it: clicking the chart
+    // you are reading is the obvious way to ask for more of it, and it opens
+    // drawn the same way so the number does not change shape on the way there.
+    // It is a real button rather than an article wearing a role — nothing
+    // inside is interactive, so the element can simply be the control.
+    const Card = chartable ? "button" : "article";
+    return <Card className={`kpi-card${chartable ? " openable" : ""}`} key={card.metric}
+      type={chartable ? "button" : undefined}
+      aria-label={chartable ? `Open ${card.title} in Charts` : undefined}
+      onClick={chartable ? () => onOpenMetric(card.metric, { style: "bar", frequency: periods[0]?.periodicity === "ttm" ? "ttm" : "annual" }) : undefined}>
       <header>
         <div><h3>{card.title}</h3><small>{periods[0]?.periodicity === "ttm" ? "TTM" : "Annual"} · {dataset.company.currency}</small></div>
         <div className="kpi-card-actions">
           <strong>{latest?.value == null ? "—" : format(latest.value)}</strong>
-          {CHARTABLE_METRICS.has(card.metric) && <button aria-label={`Open ${card.title} in Charts`} title={`Open ${card.title} in Charts`} onClick={() => onOpenMetric(card.metric)}>↗</button>}
+          {chartable && <span className="kpi-open" aria-hidden="true">↗</span>}
         </div>
       </header>
       <div className="kpi-canvas"><ResponsiveContainer width="100%" height="100%">
@@ -92,6 +102,6 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
           {card.pair && <Bar dataKey="pair" fill={pairColour} radius={[3, 3, 0, 0]} isAnimationActive={false}/>}
         </BarChart>
       </ResponsiveContainer></div>
-    </article>;
+    </Card>;
   })}</div>;
 }

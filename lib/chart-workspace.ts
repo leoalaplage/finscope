@@ -77,6 +77,9 @@ export interface ChartPreset {
   /** Presets may also set the reading that makes them legible. */
   overlay?: boolean;
   values?: ValueMode;
+  layout?: LayoutMode;
+  /** Applied to every series the preset creates. */
+  style?: SeriesStyle;
 }
 
 export const CHART_PRESETS: ChartPreset[] = [
@@ -86,6 +89,7 @@ export const CHART_PRESETS: ChartPreset[] = [
   { id: "cash-quality", label: "Cash quality", metrics: ["freeCashFlow", "freeCashFlowAfterSbc", "stockBasedCompensation"] },
   { id: "capital", label: "Capital allocation", metrics: ["shareRepurchases", "dividendsPaid", "stockBasedCompensation", "dilutedShares"] },
   { id: "rerating", label: "Price vs cash: re-rating", metrics: ["priceToFreeCashFlow"] },
+  { id: "cards", label: "Cards", metrics: ["revenue", "operatingIncome", "netIncome", "freeCashFlow"], layout: "grid", style: "bar" },
   { id: "compare", label: "Compare companies", metrics: ["stockPrice"], values: "indexed" },
 ];
 
@@ -93,8 +97,11 @@ export const CHART_PRESETS: ChartPreset[] = [
 export function applyPreset(chart: WorkspaceChart, preset: ChartPreset, fallbackTicker: string): WorkspaceChart {
   const tickers = chartTickers(chart);
   const companies = tickers.length ? tickers : [fallbackTicker];
-  const series = companies.flatMap((ticker) => preset.metrics.map((metric) => createWorkspaceSeries(chart.id, ticker, metric)));
-  return { ...chart, series, overlay: preset.overlay ?? false, values: preset.values ?? "raw" };
+  const series = companies.flatMap((ticker) => preset.metrics.map((metric) => {
+    const item = createWorkspaceSeries(chart.id, ticker, metric);
+    return preset.style ? { ...item, style: preset.style } : item;
+  }));
+  return { ...chart, series, overlay: preset.overlay ?? false, values: preset.values ?? "raw", layout: preset.layout ?? "combined" };
 }
 
 /** Replaces the companies on a chart in one gesture, keeping its metrics. */
@@ -186,7 +193,13 @@ export function removeCompany(chart: WorkspaceChart, ticker: string): WorkspaceC
  * Points an existing chart at another company, keeping the metrics on screen.
  * Opening a company in Charts should show that company, not append it forever.
  */
-export function focusCompany(chart: WorkspaceChart, ticker: string, metric?: string): WorkspaceChart {
+export function focusCompany(chart: WorkspaceChart, ticker: string, metric?: string, presentation?: Pick<WorkspaceSeries, "style" | "frequency">): WorkspaceChart {
+  // Arriving from a card that was already drawn a certain way, the chart should
+  // continue it. Landing on a different shape of the same number reads as a
+  // different number.
+  if (metric && presentation) {
+    return { ...chart, layout: "combined", overlay: false, values: "raw", series: [{ ...createWorkspaceSeries(chart.id, ticker, metric), ...presentation }] };
+  }
   const metrics = chartMetrics(chart);
   if (metric && !metrics.includes(metric)) metrics.push(metric);
   const wanted = metrics.length ? metrics : ["stockPrice", "freeCashFlowPerShare"];

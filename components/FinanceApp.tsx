@@ -9,6 +9,8 @@ import { CHARTABLE_METRICS, METRICS, VIEW_METRICS } from "@/lib/metrics";
 import { buildValuationHistory, valuationSnapshot, valuationStatistics } from "@/lib/valuation-history";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, MetricKey, Periodicity, PricePoint } from "@/lib/types";
 import type { ThemeName } from "@/lib/charting";
+import type { SeriesStyle } from "@/lib/chart-workspace";
+import type { SeriesFrequency } from "@/lib/types";
 
 type MainView = "companies" | "company" | "charts" | "dcf" | "qs";
 type SecondaryView = "quality" | "audit" | "coverage" | "sources" | null;
@@ -54,7 +56,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   const [error, setError] = useState("");
   // Set only by an explicit "Open in Charts"; plain navigation leaves the
   // workspace exactly as the reader last arranged it.
-  const [chartSeed, setChartSeed] = useState<{ ticker?: string; metric?: string; nonce: number }>();
+  const [chartSeed, setChartSeed] = useState<{ ticker?: string; metric?: string; nonce: number; style?: SeriesStyle; frequency?: SeriesFrequency }>();
   const [watchlist, setWatchlist] = useState<CompanyProfile[]>(() => { if (typeof window === "undefined") return DEFAULT_WATCHLIST; try { return JSON.parse(localStorage.getItem("finscope.watchlist") ?? "null") ?? DEFAULT_WATCHLIST; } catch { return DEFAULT_WATCHLIST; } });
   useEffect(() => { localStorage.setItem("finscope.watchlist", JSON.stringify(watchlist)); }, [watchlist]);
   // The server renders the offline fixture; live filings arrive here. Keeping
@@ -110,8 +112,8 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
     setWatchlist((current) => current.some((company) => company.ticker === next.company.ticker) ? current : [...current, next.company]);
     setManagerOpen(false); setView("company");
   }
-  function openCharts(ticker = dataset.company.ticker, metric?: string) {
-    setSecondary(null); setChartSeed({ ticker, metric, nonce: Date.now() }); setView("charts");
+  function openCharts(ticker = dataset.company.ticker, metric?: string, presentation?: { style?: SeriesStyle; frequency?: SeriesFrequency }) {
+    setSecondary(null); setChartSeed({ ticker, metric, nonce: Date.now(), ...presentation }); setView("charts");
     history.replaceState(null, "", `/?ticker=${ticker}&view=charts`);
     window.scrollTo({ top: 0 });
   }
@@ -275,7 +277,7 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
     <div className="table-scroll"><table className="watchlist-table ranking-table"><thead><tr><th>Rank</th><th>{heading("Ticker", "ticker")}</th>{shownColumns.map((column) => <th key={column.key} title={column.hint}>{heading(column.label, column.key)}</th>)}<th>{heading("Updated", "updated")}</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.ticker} className={row.ticker === activeTicker ? "selected-row" : ""}><td className="rank-cell">{index + 1}</td><th><button className="text-button" onClick={() => onOpen(row.ticker)}>{row.ticker}</button><small>{row.profile.currency} · {row.profile.exchange}</small><div className="ticker-actions"><button onClick={() => onCharts(row.ticker)}>Charts</button><button onClick={() => onRemove(row.ticker)}>Remove</button></div></th>{shownColumns.map((column) => formatCell(row, column))}<td title={row.updated ? undefined : missingReason(row, "Updated")}>{row.loading ? "Loading…" : row.updated ?? "—"}</td></tr>)}</tbody></table></div>{!rows.length && <p className="simple-state">No companies match the active filters.</p>}</div>;
 }
 
-function CompanyPage({ dataset, theme, onBack, onCharts, onDcf }: { dataset: CompanyDataset; theme: ThemeName; onBack: () => void; onCharts: (ticker?: string, metric?: string) => void; onDcf: () => void }) {
+function CompanyPage({ dataset, theme, onBack, onCharts, onDcf }: { dataset: CompanyDataset; theme: ThemeName; onBack: () => void; onCharts: (ticker?: string, metric?: string, presentation?: { style?: SeriesStyle; frequency?: SeriesFrequency }) => void; onDcf: () => void }) {
   const [periodicity, setPeriodicity] = useState<Periodicity>(() => typeof window === "undefined" ? "annual" : (localStorage.getItem("finscope.periodicity") as Periodicity) || "annual");
   const [price, setPrice] = useState<PricePoint | null>(null); const [priceError, setPriceError] = useState(""); const [evidence, setEvidence] = useState<Evidence | null>(null);
   useEffect(() => { localStorage.setItem("finscope.periodicity", periodicity); }, [periodicity]);
@@ -287,7 +289,7 @@ function CompanyPage({ dataset, theme, onBack, onCharts, onDcf }: { dataset: Com
   return <div className="company-page"><button className="back-button" onClick={onBack}>← Companies</button><header className="company-title"><div><h1>{dataset.company.name}</h1><p>{dataset.company.ticker} · {dataset.company.exchange} · {dataset.company.currency} · Updated {dataset.retrievedAt.slice(0, 10)}</p></div><div className="company-title-actions"><button onClick={() => onCharts(dataset.company.ticker)}>Open in Charts</button><button onClick={onDcf}>Open DCF</button></div></header><dl className="company-facts"><div><dt>Stock price</dt><dd>{priceError ? "Could not load stock price" : price ? currency(currentPrice, dataset.company.currency) : "Loading…"}</dd></div><div><dt>Market cap</dt><dd>{currency(marketCap, dataset.company.currency)}</dd></div><div><dt>Currency</dt><dd>{dataset.company.currency}</dd></div><div><dt>Latest period</dt><dd>{latest.periodEnd}</dd></div></dl>
     <nav className="anchor-nav" aria-label="Company sections">{["overview", "financials", "pershare", "growth", "margins", "capital", "valuation", "sources"].map((id) => <a key={id} href={`#${id}`}>{id === "capital" ? "Capital Allocation" : id === "sources" ? "Sources & Data Quality" : id === "pershare" ? "Per Share" : id.replace(/^./, (value) => value.toUpperCase())}</a>)}</nav>
     <section id="overview" className="plain-section"><SectionTitle title="Overview" onCharts={() => onCharts(dataset.company.ticker)}/>
-      <Suspense fallback={<p className="simple-state">Loading charts…</p>}><CompanyKpiGrid dataset={dataset} theme={theme} onOpenMetric={(metric) => onCharts(dataset.company.ticker, metric)}/></Suspense>
+      <Suspense fallback={<p className="simple-state">Loading charts…</p>}><CompanyKpiGrid dataset={dataset} theme={theme} onOpenMetric={(metric, presentation) => onCharts(dataset.company.ticker, metric, presentation)}/></Suspense>
       <h3 className="kpi-table-heading">Latest figures</h3><MetricSummaryTable dataset={dataset} price={currentPrice} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)}/></section>
     <section id="financials" className="plain-section"><div className="section-heading"><h2>Financials</h2><div className="period-buttons">{(["annual", "quarterly", "ttm"] as Periodicity[]).map((item) => <button className={periodicity === item ? "active" : ""} key={item} onClick={() => setPeriodicity(item)}>{item === "ttm" ? "TTM" : item[0].toUpperCase() + item.slice(1)}</button>)}</div></div>{selected.length ? <SimpleFinancialTable periods={selected.slice(-10)} metrics={[...VIEW_METRICS.income, ...VIEW_METRICS.cashflow.slice(0, 4)]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/> : <p className="simple-state">No data available for {periodicity}.</p>}</section>
     <section id="pershare" className="plain-section"><SectionTitle title="Per Share" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowPerShare")}/>
