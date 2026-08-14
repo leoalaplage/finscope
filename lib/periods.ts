@@ -121,6 +121,22 @@ function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", 
   };
 }
 
+/**
+ * A derived quarter that comes out impossible is dropped rather than published.
+ *
+ * Subtraction can only be as consistent as the facts it draws on, and a filer
+ * that restates a year onto a narrower scope leaves the earlier quarters behind.
+ * The arithmetic then produces negative revenue or a negative share count. This
+ * application shows a hole where it has no trustworthy value, so the hole is
+ * what the reader gets.
+ */
+const NEVER_NEGATIVE = new Set<MetricKey>(["revenue", "costOfRevenue", "basicShares", "dilutedShares", "sharesOutstanding", "totalEquity", "capitalExpenditures", "operatingCashFlow"]);
+function implausible(metric: MetricKey, value: number) {
+  if (!Number.isFinite(value)) return true;
+  if (WEIGHTED_SHARE_METRICS.includes(metric) || metric === "sharesOutstanding") return value <= 0;
+  return NEVER_NEGATIVE.has(metric) && value < 0;
+}
+
 function calculated(metric: MetricKey, value: number, current: RawFinancialFact, prior: RawFinancialFact, formula: string, quarter: "Q1" | "Q2" | "Q3" | "Q4", start: string): NormalizedFact {
   return {
     metric, value: normalizeFinancialSign(metric,value), currency: current.currency, unit: current.unit, periodStart: start,
@@ -157,34 +173,55 @@ function selectAnnual(candidates: RawFinancialFact[]) {
   }));
 }
 
+/**
+ * A derived quarter may only be built from facts sharing one concept.
+ *
+ * Several filers publish two revenue concepts with materially different
+ * values — Mastercard reports both net revenue and revenue including assessed
+ * taxes, eight billion apart. Subtracting quarters tagged one way from a year
+ * tagged the other produced impossible results: Mastercard's fourth quarter of
+ * 2020 came out at minus 1.9 billion of revenue, which then poisoned every
+ * margin, per-share figure and trailing window built on it.
+ */
+const sameConcept = (facts: RawFinancialFact[], concept: string) => facts.filter((fact) => fact.concept === concept);
+
 function quarterFact(facts: RawFinancialFact[], metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4"): NormalizedFact | undefined {
   const fp = quarter === "Q4" ? "FY" : quarter;
   const candidates = contexts(facts, metric, fy, fp);
-  // FY contexts can contain later comparative quarter facts carrying fp=FY.
-  // Q4 must therefore be isolated from the full-year fact and Q3 YTD, never
-  // selected merely because an FY-tagged duration happens to be ~90 days.
-  const direct = quarter === "Q4" ? undefined : selectDirectQuarter(candidates);
+  // FY contexts can contain later comparative quarter facts carrying fp=FY, so
+  // a Q4 may not be picked merely because an FY-tagged duration happens to be
+  // about ninety days. It is accepted only when it closes the fiscal year: the
+  // annual fact ends on the same day, and the quarter starts after it began.
+  // Several filers publish that quarter outright, and taking it is safer than
+  // subtracting a restated year from quarters filed at the old scope.
+  const annualHere = selectAnnual(candidates);
+  const direct = quarter === "Q4"
+    ? (annualHere ? selectDirectQuarter(sameConcept(candidates, annualHere.concept).filter((fact) => fact.end === annualHere.end && !!fact.start && fact.start > annualHere.start!)) : undefined)
+    : selectDirectQuarter(candidates);
   if (direct) return normalized(direct, "quarterly", quarter);
 
   if (quarter === "Q1") return undefined;
-  const current = quarter === "Q4" ? selectAnnual(candidates) : selectCumulative(candidates);
+  const current = quarter === "Q4" ? annualHere : selectCumulative(candidates);
+  if (!current) return undefined;
   const priorFp = quarter === "Q2" ? "Q1" : quarter === "Q3" ? "Q2" : "Q3";
-  const priorCandidates = contexts(facts, metric, fy, priorFp);
+  const priorCandidates = sameConcept(contexts(facts, metric, fy, priorFp), current.concept);
   const prior = quarter === "Q2" ? selectDirectQuarter(priorCandidates) : selectCumulative(priorCandidates);
-  if (quarter === "Q4" && current && !prior && current.start) {
-    const directQuarters = (["Q1", "Q2", "Q3"] as const).map((item) => selectDirectQuarter(contexts(facts, metric, fy, item)));
+  if (quarter === "Q4" && !prior && current.start) {
+    const directQuarters = (["Q1", "Q2", "Q3"] as const).map((item) => selectDirectQuarter(sameConcept(contexts(facts, metric, fy, item), current.concept)));
     if (directQuarters.every((fact): fact is RawFinancialFact => fact != null)) {
       const totalDays = daysBetween(current.start, current.end); const priorDays = directQuarters.reduce((sum, fact) => sum + daysBetween(fact.start, fact.end), 0); const isolatedDays = totalDays - priorDays;
       if (isolatedDays >= 55 && isolatedDays <= 125) {
-        const value = WEIGHTED_SHARE_METRICS.includes(metric)
+        const rawValue = WEIGHTED_SHARE_METRICS.includes(metric)
           ? (current.value * totalDays - directQuarters.reduce((sum, fact) => sum + fact.value * daysBetween(fact.start, fact.end), 0)) / isolatedDays
           : current.value - directQuarters.reduce((sum, fact) => sum + fact.value, 0);
+        if (implausible(metric, rawValue)) return undefined;
+        const value = rawValue;
         const start = new Date(Date.parse(directQuarters[2].end) + 86_400_000).toISOString().slice(0,10);
         return { metric, value:normalizeFinancialSign(metric,value), currency: current.currency, unit: current.unit, periodStart:start, periodEnd:current.end, periodicity:"quarterly", fiscalYear:fy, fiscalQuarter:"Q4", provenance:{provider:"Calculated",sourceUrl:current.sourceUrl,accession:current.accession,filingDate:current.filed,retrievedAt:current.retrievedAt,concept:current.concept,status:"calculated",formula:WEIGHTED_SHARE_METRICS.includes(metric)?"Q4 weighted shares = (annual weighted shares × annual days − Σ(Q1–Q3 weighted shares × quarter days)) / Q4 days":"Q4 = annual − Q1 − Q2 − Q3",sourceAccessions:[...new Set([current.accession,...directQuarters.map((fact)=>fact.accession)])],note:"Q4 isolated from the annual fact and three direct fiscal quarters; no value was imputed; cash outflows use positive normalized magnitudes."} };
       }
     }
   }
-  if (!current || !prior || !current.start || current.start !== prior.start || current.end <= prior.end) return undefined;
+  if (!prior || !current.start || current.start !== prior.start || current.end <= prior.end) return undefined;
   const quarterStart = new Date(Date.parse(prior.end) + 86_400_000).toISOString().slice(0, 10);
 
   if (WEIGHTED_SHARE_METRICS.includes(metric)) {
@@ -193,8 +230,10 @@ function quarterFact(facts: RawFinancialFact[], metric: MetricKey, fy: number, q
     const isolatedDays = currentDays - priorDays;
     if (isolatedDays < 55 || isolatedDays > 125) return undefined;
     const value = (current.value * currentDays - prior.value * priorDays) / isolatedDays;
+    if (implausible(metric, value)) return undefined;
     return calculated(metric, value, current, prior, `(Cumulative weighted shares × ${currentDays} days − prior weighted shares × ${priorDays} days) / ${isolatedDays} days`, quarter, quarterStart);
   }
+  if (implausible(metric, current.value - prior.value)) return undefined;
   return calculated(metric, current.value - prior.value, current, prior, `${quarter} = cumulative through ${quarter} − cumulative through ${priorFp}`, quarter, quarterStart);
 }
 

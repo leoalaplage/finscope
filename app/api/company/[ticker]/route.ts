@@ -15,7 +15,11 @@ const CACHE_SECONDS = 86_400;
 // v5: total equity is mapped, which invested capital and ROIC depend on.
 // v6: a share count recovered from EPS now carries the filing date, so a split
 // is not applied to a figure the filer had already restated.
-const KEY_VERSION = "v6";
+// v7: derived quarters may not mix revenue concepts, and CME Group's 2012
+// five-for-one split is registered.
+// v8: a directly reported fourth quarter is preferred over subtraction, and an
+// impossible derived quarter is dropped instead of published.
+const KEY_VERSION = "v8";
 const headers = {
   "Content-Type": "application/json",
   "Cache-Control": `public, s-maxage=21600, stale-while-revalidate=86400`,
