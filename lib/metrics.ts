@@ -67,7 +67,12 @@ export const METRICS: Record<string, MetricDefinition> = {
   stockPrice: { label: "Stock price", short: "Stock price", color: "#4DA3FF", kind: "perShare" },
   stockTotalReturn: { label: "Total-return adjusted price", short: "Total return", color: "#D8FF5F", kind: "perShare", formula: "Yahoo adjusted close: stock splits and cash distributions reinvested" },
   marginStability: { label: "Margin stability", short: "Margin stability", color: "#32D5E2", kind: "percent" },
-  roic: { label: "Return on invested capital", short: "ROIC", color: "#A78BFA", kind: "percent" },
+  roic: { label: "Return on invested capital", short: "ROIC", color: "#A78BFA", kind: "percent", formula: FORMULAS.roic },
+  investedCapital: { label: "Invested capital", short: "Invested capital", color: "#94A3B8", kind: "currency", formula: FORMULAS.investedCapital },
+  nopat: { label: "NOPAT", short: "NOPAT", color: "#A78BFA", kind: "currency", formula: FORMULAS.nopat },
+  totalEquity: { label: "Total equity", short: "Equity", color: "#94A3B8", kind: "currency" },
+  capitalIntensity: { label: "Capital intensity", short: "Capex / Revenue", color: "#FF9F43", kind: "percent", formula: FORMULAS.capitalIntensity },
+  ruleOfForty: { label: "Rule of 40", short: "Rule of 40", color: "#36D399", kind: "percent", formula: "Revenue growth + Free cash flow margin" },
 };
 
 export const VIEW_METRICS = {

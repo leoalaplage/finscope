@@ -52,7 +52,8 @@ export type MetricKey =
   | "incomeBeforeTax"
   | "incomeTaxExpense"
   | "depreciationAndAmortization"
-  | "dilutedEpsReported";
+  | "dilutedEpsReported"
+  | "totalEquity";
 
 export interface Provenance {
   provider: "SEC" | "Yahoo Finance" | "Calculated" | "Demo fixture";

@@ -14,7 +14,11 @@ export const METRIC_DEPENDENCIES: Record<string, MetricKey[]> = {
   operatingCashFlowPerShare: ["operatingCashFlow", "dilutedShares"], freeCashFlowPerShare: ["operatingCashFlow", "capitalExpenditures", "dilutedShares"],
   stockBasedCompensationToRevenue: ["stockBasedCompensation", "revenue"], stockBasedCompensationToFcf: ["stockBasedCompensation", "operatingCashFlow", "capitalExpenditures"],
   cashConversion: ["operatingCashFlow", "capitalExpenditures", "netIncome"], effectiveTaxRate: ["incomeTaxExpense", "incomeBeforeTax"],
-  netDebt: ["totalDebt", "cashAndEquivalents"], netWorkingCapital: ["currentAssets", "currentLiabilities", "cashAndEquivalents"],
+  netDebt: ["totalDebt", "cashAndEquivalents"],
+  investedCapital: ["totalDebt", "totalEquity", "cashAndEquivalents"],
+  nopat: ["operatingIncome", "incomeBeforeTax", "incomeTaxExpense"],
+  roic: ["operatingIncome", "incomeBeforeTax", "incomeTaxExpense", "totalDebt", "totalEquity", "cashAndEquivalents"],
+  capitalIntensity: ["capitalExpenditures", "revenue"], netWorkingCapital: ["currentAssets", "currentLiabilities", "cashAndEquivalents"],
 };
 
 const INVALID: ValidationStatus[] = ["Confirmed invalid"];

@@ -1,4 +1,4 @@
-import { cagrForPeriods, derivedValue } from "./finance";
+import { cagrForPeriods, derivedValue, investedCapital, nopat } from "./finance";
 import type { FinancialPeriod } from "./types";
 
 export type Horizon = 5 | 10;
@@ -167,8 +167,64 @@ function cagrCallout(metric: string, name: string, horizon: Horizon): CalloutDef
   };
 }
 
+function roiicCallout(horizon: Horizon): CalloutDefinition {
+  return {
+    id: `roiic-${horizon}`, label: `Incremental ROIC · ${horizon}Y`,
+    compute: (annual) => {
+      const item = incrementalReturn(annual, horizon);
+      return {
+        display: pct(item.value),
+        note: item.value == null ? item.reason ?? "Not measurable" :
+          `Each extra dollar of invested capital bought ${(item.value * 100).toFixed(0)} cents of operating profit after tax. ${item.value >= 0.15 ? "Growth is paying for itself." : item.value >= 0 ? "Growth is being bought at a modest return." : "Extra capital reduced profit."}`,
+      };
+    },
+  };
+}
+
+const ruleOfFortyCallout: CalloutDefinition = {
+  id: "rule-of-40", label: "Rule of 40",
+  compute: (annual) => {
+    const item = ruleOfForty(annual);
+    return {
+      display: item.value == null ? "—" : `${(item.value * 100).toFixed(0)}`,
+      note: item.value == null ? item.reason ?? "Not measurable" :
+        `Revenue growth ${pct(item.growth)} plus cash margin ${pct(item.margin)}. ${item.value >= 0.4 ? "Above the forty-point bar." : "Below the forty-point bar."}`,
+    };
+  },
+};
+
+const drawdownCallout: CalloutDefinition = {
+  id: "fcf-drawdown", label: "Worst FCF drawdown",
+  compute: (annual) => {
+    const item = worstDrawdown(annual);
+    return {
+      display: item.value == null ? "—" : `−${(item.value * 100).toFixed(0)}%`,
+      note: item.value == null ? item.reason ?? "Not measurable"
+        : item.value === 0 ? "Free cash flow never fell below a previous peak."
+        : `Deepest peak-to-trough fall, ${item.peakYear} to ${item.troughYear}. Consistency describes the path; this is how bad it got.`,
+    };
+  },
+};
+
+const capitalIntensityCallout: CalloutDefinition = {
+  id: "capital-intensity", label: "Capital intensity",
+  compute: (annual) => {
+    const latest = [...annual].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd)).at(-1);
+    const now = latest ? derivedValue(latest, "capitalIntensity") : null;
+    const five = [...annual].slice(-6, -1).map((period) => derivedValue(period, "capitalIntensity")).filter((value): value is number => value != null);
+    const average = five.length ? five.reduce((sum, value) => sum + value, 0) / five.length : null;
+    return {
+      display: pct(now),
+      note: now == null ? "Capital expenditure or revenue unavailable"
+        : average == null ? "Capital expenditure as a share of revenue."
+        : `Against a ${pct(average)} five-year average. ${now < average ? "Spending less per dollar of sales than it used to." : "Spending more per dollar of sales than it used to."}`,
+    };
+  },
+};
+
 /** Everything the reader can pin to the company page, in offer order. */
 export const CALLOUTS: CalloutDefinition[] = [
+  roiicCallout(5), roiicCallout(10), ruleOfFortyCallout, drawdownCallout, capitalIntensityCallout,
   gapCallout(10), gapCallout(5),
   consistencyCallout("freeCashFlow", "FCF", 10), consistencyCallout("freeCashFlow", "FCF", 5),
   consistencyCallout("revenue", "Revenue", 10),
@@ -179,3 +235,88 @@ export const CALLOUTS: CalloutDefinition[] = [
 ];
 
 export const DEFAULT_CALLOUTS = ["gap-10", "consistency-freeCashFlow-5", "consistency-freeCashFlow-10"];
+
+export interface IncrementalReturn {
+  value: number | null;
+  nopatChange: number | null;
+  capitalChange: number | null;
+  reason?: string;
+}
+
+/**
+ * Return on incremental invested capital: what the growth actually cost.
+ *
+ * Two companies growing revenue at the same rate are not equivalent if one
+ * needed twice the capital to do it. Dividing the change in operating profit
+ * after tax by the change in invested capital says how much profit each extra
+ * dollar of capital bought.
+ *
+ * Capital that shrank makes the ratio meaningless rather than excellent — a
+ * negative denominator would flip the sign of a perfectly ordinary result — so
+ * it is reported as not measurable instead.
+ */
+export function incrementalReturn(annual: FinancialPeriod[], horizon: Horizon = 5): IncrementalReturn {
+  const ordered = [...annual].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+  const usable = ordered.filter((period) => nopat(period) != null && investedCapital(period) != null);
+  if (usable.length < 2) return { value: null, nopatChange: null, capitalChange: null, reason: "Needs two years with both profit and capital" };
+  const end = usable.at(-1)!;
+  const start = usable[Math.max(0, usable.length - 1 - horizon)];
+  if (start === end) return { value: null, nopatChange: null, capitalChange: null, reason: "Only one usable year" };
+  const nopatChange = nopat(end)! - nopat(start)!;
+  const capitalChange = investedCapital(end)! - investedCapital(start)!;
+  if (capitalChange <= 0) return { value: null, nopatChange, capitalChange, reason: "Invested capital did not grow, so the ratio has no meaning" };
+  return { value: nopatChange / capitalChange, nopatChange, capitalChange };
+}
+
+/**
+ * Growth plus profitability in one number, the way software investors read it.
+ * Anything at or above forty is considered a fair trade between the two.
+ */
+export function ruleOfForty(annual: FinancialPeriod[]): { value: number | null; growth: number | null; margin: number | null; reason?: string } {
+  const ordered = [...annual].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+  const end = ordered.at(-1); const previous = ordered.at(-2);
+  if (!end || !previous) return { value: null, growth: null, margin: null, reason: "Needs two reported years" };
+  const current = derivedValue(end, "revenue"); const before = derivedValue(previous, "revenue");
+  const margin = derivedValue(end, "freeCashFlowMargin");
+  const growth = current != null && before != null && before > 0 ? current / before - 1 : null;
+  if (growth == null || margin == null) return { value: null, growth, margin, reason: "Revenue growth or cash margin unavailable" };
+  return { value: growth + margin, growth, margin };
+}
+
+export interface Drawdown { value: number | null; peakYear?: string; troughYear?: string; reason?: string }
+
+/**
+ * The deepest peak-to-trough fall in a series, as a fraction of the peak.
+ *
+ * Consistency says whether the path was smooth; this says how bad it got when
+ * it was not. A company can compound steadily on average and still have halved
+ * once, which is the part an average hides.
+ */
+export function worstDrawdown(annual: FinancialPeriod[], metric = "freeCashFlow"): Drawdown {
+  const points = [...annual].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd))
+    .flatMap((period) => { const value = derivedValue(period, metric); return value == null ? [] : [{ year: period.periodEnd.slice(0, 4), value }]; });
+  if (points.length < 3) return { value: null, reason: "Needs at least three reported years" };
+  let peak = points[0]; let worst: Drawdown = { value: 0 };
+  for (const point of points) {
+    if (point.value > peak.value) peak = point;
+    if (peak.value <= 0) continue;
+    const fall = (peak.value - point.value) / peak.value;
+    if (fall > (worst.value ?? 0)) worst = { value: fall, peakYear: peak.year, troughYear: point.year };
+  }
+  return worst.value ? worst : { value: 0, reason: "The series never fell below a previous peak" };
+}
+
+/**
+ * Where a value sits among its peers, as a percentile and a rank.
+ *
+ * A margin of 29% means nothing on its own; fourth of twenty-one places it.
+ * Companies without the figure are excluded rather than ranked last, since a
+ * missing number is not a bad one.
+ */
+export function percentileAmong(value: number | null, peers: Array<number | null>, higherIsBetter = true) {
+  if (value == null || !Number.isFinite(value)) return null;
+  const finite = peers.filter((item): item is number => item != null && Number.isFinite(item));
+  if (finite.length < 3) return null;
+  const better = finite.filter((item) => higherIsBetter ? item > value : item < value).length;
+  return { rank: better + 1, of: finite.length, percentile: 1 - better / finite.length };
+}

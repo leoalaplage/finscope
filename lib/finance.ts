@@ -9,6 +9,10 @@ export const FORMULAS = {
   freeCashFlowAfterSbc: "Operating cash flow − |Capital expenditures| − Stock-based compensation",
   freeCashFlowAfterSbcPerShare: "Free cash flow after stock-based compensation / Diluted weighted average shares",
   freeCashFlowAfterSbcMargin: "Free cash flow after stock-based compensation / Revenue",
+  investedCapital: "Total debt + Total equity − Cash and equivalents",
+  nopat: "Operating income × (1 − Effective tax rate)",
+  roic: "NOPAT / Invested capital",
+  capitalIntensity: "|Capital expenditures| / Revenue",
   freeCashFlowMargin: "Free cash flow / Revenue",
   revenuePerShare: "Revenue / Diluted weighted average shares",
   grossProfitPerShare: "Gross profit / Diluted weighted average shares",
@@ -117,6 +121,30 @@ export function valueOf(period: FinancialPeriod, key: MetricKey) {
   return period.facts[key]?.value ?? null;
 }
 
+/**
+ * The financing view of invested capital: what the providers of capital put in,
+ * net of the cash the business is not using. Preferred over the operating view
+ * because the SEC data carries equity and debt reliably, while a full operating
+ * build-up would need fixed assets and intangibles that several filers omit.
+ */
+export function investedCapital(period: FinancialPeriod): number | null {
+  const debt = valueOf(period, "totalDebt"); const equity = valueOf(period, "totalEquity");
+  if (equity == null) return null;
+  const capital = (debt ?? 0) + equity - (valueOf(period, "cashAndEquivalents") ?? 0);
+  return capital > 0 ? capital : null;
+}
+
+/** Operating profit after the tax the company actually paid on it. */
+export function nopat(period: FinancialPeriod): number | null {
+  const operating = valueOf(period, "operatingIncome");
+  if (operating == null) return null;
+  const pretax = valueOf(period, "incomeBeforeTax"); const tax = valueOf(period, "incomeTaxExpense");
+  const rate = pretax != null && tax != null && pretax > 0 ? tax / pretax : null;
+  // A rate outside nought to sixty percent is a one-off, not a run rate.
+  const effective = rate != null && rate >= 0 && rate <= .6 ? rate : .21;
+  return operating * (1 - effective);
+}
+
 export function derivedValue(period: FinancialPeriod, key: string): number | null {
   const revenue = valueOf(period, "revenue");
   const diluted = valueOf(period, "dilutedShares");
@@ -151,6 +179,12 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     stockBasedCompensationToFcf: safeDivide(valueOf(period, "stockBasedCompensation"), fcf),
     cashConversion: safeDivide(fcf, valueOf(period, "netIncome")),
     effectiveTaxRate: safeDivide(valueOf(period, "incomeTaxExpense"), valueOf(period, "incomeBeforeTax")),
+    investedCapital: investedCapital(period),
+    nopat: nopat(period),
+    // ROIC has been declared in the metric registry all along without ever
+    // being computed, so it rendered as an em dash everywhere it appeared.
+    roic: safeDivide(nopat(period), investedCapital(period)),
+    capitalIntensity: revenue ? safeDivide(Math.abs(valueOf(period, "capitalExpenditures") ?? Number.NaN), revenue) : null,
     netDebt: valueOf(period, "totalDebt") == null && valueOf(period, "cashAndEquivalents") == null ? null : (valueOf(period, "totalDebt") ?? 0) - (valueOf(period, "cashAndEquivalents") ?? 0),
     netWorkingCapital: valueOf(period, "currentAssets") == null || valueOf(period, "currentLiabilities") == null ? null : valueOf(period, "currentAssets")! - valueOf(period, "currentLiabilities")! - (valueOf(period, "cashAndEquivalents") ?? 0),
   };

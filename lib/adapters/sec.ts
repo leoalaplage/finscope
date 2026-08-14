@@ -53,6 +53,9 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   cashAndEquivalents: { namespace: "us-gaap", tags: ["CashAndCashEquivalentsAtCarryingValue", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"], unit: "currency" },
   totalDebt: { namespace: "us-gaap", tags: ["LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent", "LongTermDebtCurrent", "LongTermDebtNoncurrent"], unit: "currency" },
   currentAssets: { namespace: "us-gaap", tags: ["AssetsCurrent"], unit: "currency" },
+  // Including noncontrolling interests as a fallback: Visa reports almost only
+  // that form, and invested capital wants the whole financing base anyway.
+  totalEquity: { namespace: "us-gaap", tags: ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"], unit: "currency" },
   currentLiabilities: { namespace: "us-gaap", tags: ["LiabilitiesCurrent"], unit: "currency" },
   incomeBeforeTax: { namespace: "us-gaap", tags: ["IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest", "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"], unit: "currency" },
   incomeTaxExpense: { namespace: "us-gaap", tags: ["IncomeTaxExpenseBenefit"], unit: "currency" },
@@ -119,6 +122,12 @@ function recoverDilutedShares(periods: FinancialPeriod[]): FinancialPeriod[] {
       periodStart: period.periodStart, periodEnd: period.periodEnd, periodicity: period.periodicity, fiscalYear: period.fiscalYear,
       provenance: {
         provider: "Calculated", sourceUrl: eps.provenance.sourceUrl, retrievedAt: eps.provenance.retrievedAt,
+        // The filing date has to travel with the recovered count. Split
+        // adjustment only applies to facts filed before a split, and an EPS
+        // taken from a later filing is already restated: without this, a share
+        // count recovered from a post-split filing was multiplied by the split
+        // a second time. It put Alphabet's 2020 count at 274 billion shares.
+        accession: eps.provenance.accession, filingDate: eps.provenance.filingDate,
         concept: "DilutedSharesFromEps", status: "calculated",
         formula: "Net income / Diluted earnings per share",
         note: "The filer reports no combined diluted share count; several share classes are tagged separately and reach us only per class.",

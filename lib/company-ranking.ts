@@ -1,5 +1,6 @@
 export type CompanySortKey = "marketCap" | "fcfMargin" | "fcfShareCagr" | "revenueShareCagr" | "operatingMargin" | "dilution" | "pfcf" | "valuationVsAverage" | "updated" | "ticker"
-  | "revenueCagr10" | "fcfCagr10" | "fcfVsRevenue10" | "fcfConsistency5" | "fcfConsistency10" | "fcfAfterSbcMargin";
+  | "revenueCagr10" | "fcfCagr10" | "fcfVsRevenue10" | "fcfConsistency5" | "fcfConsistency10" | "fcfAfterSbcMargin"
+  | "roic" | "roiic5" | "ruleOfForty" | "capitalIntensity" | "fcfDrawdown";
 export type SortDirection = "asc" | "desc";
 
 export interface CompanyRankingRow {
@@ -19,11 +20,17 @@ export interface CompanyRankingRow {
   fcfConsistency5: number | null;
   fcfConsistency10: number | null;
   fcfAfterSbcMargin: number | null;
+  roic: number | null;
+  roiic5: number | null;
+  ruleOfForty: number | null;
+  capitalIntensity: number | null;
+  /** Deepest peak-to-trough fall in free cash flow, as a positive fraction. */
+  fcfDrawdown: number | null;
   updated: string | null;
   loading?: boolean;
 }
 
-export type ColumnFormat = "currency" | "percent" | "ratio" | "points" | "score";
+export type ColumnFormat = "currency" | "percent" | "ratio" | "points" | "score" | "points40" | "drawdown";
 
 export interface CompanyColumn {
   key: Exclude<CompanySortKey, "ticker" | "updated">;
@@ -49,6 +56,11 @@ export const COMPANY_COLUMNS: CompanyColumn[] = [
   { key: "fcfConsistency5", label: "FCF consistency 5Y", format: "score", hint: "R² of a log-linear fit: 1.00 is perfectly steady compounding." },
   { key: "fcfConsistency10", label: "FCF consistency 10Y", format: "score", hint: "The same over ten years." },
   { key: "operatingMargin", label: "Operating Margin", format: "percent", hint: "Operating income as a share of revenue." },
+  { key: "roic", label: "ROIC", format: "percent", hint: "Operating profit after tax over debt plus equity less cash." },
+  { key: "roiic5", label: "Incremental ROIC 5Y", format: "percent", hint: "What the last five years of growth cost: change in profit over change in capital." },
+  { key: "ruleOfForty", label: "Rule of 40", format: "points40", hint: "Revenue growth plus free cash flow margin. Forty is the conventional bar." },
+  { key: "capitalIntensity", label: "Capital intensity", format: "percent", hint: "Capital expenditure as a share of revenue." },
+  { key: "fcfDrawdown", label: "Worst FCF drawdown", format: "drawdown", hint: "Deepest peak-to-trough fall in free cash flow." },
   { key: "dilution", label: "Dilution 5Y", format: "percent", hint: "Change in diluted share count. Negative is buybacks." },
   { key: "pfcf", label: "P/FCF", format: "ratio", hint: "Market capitalisation over free cash flow." },
   { key: "valuationVsAverage", label: "Valuation vs AVG 5Y", format: "percent", hint: "Current P/FCF against its own five-year average." },
@@ -68,7 +80,7 @@ export const DEFAULT_COMPANY_SORT: { key: CompanySortKey; direction: SortDirecti
 export const DEFAULT_COMPANY_FILTERS: CompanyFilters = { query: "", minimumMarketCap: null, minimumFcfMargin: null, minimumFcfShareCagr: null, maximumDilution: null };
 
 /** Columns where a smaller number is the better one. */
-const ASCENDING_IS_BETTER = new Set<CompanySortKey>(["dilution", "pfcf", "valuationVsAverage", "ticker"]);
+const ASCENDING_IS_BETTER = new Set<CompanySortKey>(["dilution", "pfcf", "valuationVsAverage", "ticker", "capitalIntensity", "fcfDrawdown"]);
 
 export function preferredDirection(key: CompanySortKey): SortDirection {
   return ASCENDING_IS_BETTER.has(key) ? "asc" : "desc";
