@@ -33,6 +33,7 @@ export function frequencyOptions(metric: string) {
 
 export function frequencyLabel(frequency: SeriesFrequency) {
   const value = frequency.startsWith("market-") ? frequency.slice(7) : frequency;
+  if (value === "ttm") return "TTM";
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
@@ -81,7 +82,10 @@ export function fundamentalObservationsFromPeriods(periods: FinancialPeriod[], m
 
 export function marketObservations(bars: MarketBar[], metric: string, frequency: SeriesFrequency): SeriesObservation[] {
   return [...bars].sort((a,b)=>a.date.localeCompare(b.date)).flatMap((bar) => {
-    const value = metric === "stockTotalReturn" ? bar.adjustedClose : bar.close;
+    // Yahoo adjusted close is the canonical chart input requested for price series.
+    // Each observation keeps its real trading-session date and is never projected
+    // onto a fundamental reporting frequency.
+    const value = bar.adjustedClose ?? bar.close;
     if (value == null) return [];
     return [{ date: bar.date, value, frequency, currency: bar.currency, unit: "perShare", source: "Yahoo Finance", sourceUrl: bar.sourceUrl, status: "Market data" as const, rawObservation: true as const }];
   });

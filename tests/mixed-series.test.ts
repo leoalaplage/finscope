@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { alignMixedSeries, fundamentalObservations, indexObservationsTo100, updateSeriesDefinition, visibleRawObservations } from "../lib/mixed-series";
+import { alignMixedSeries, fundamentalObservations, indexObservationsTo100, marketObservations, updateSeriesDefinition, visibleRawObservations } from "../lib/mixed-series";
 import { analyzeVisibleSeries } from "../lib/series-analysis";
-import type { CompanyDataset, SeriesObservation } from "../lib/types";
+import type { CompanyDataset, MarketBar, SeriesObservation } from "../lib/types";
 
 const fact=(metric:string,value:number,periodEnd:string,periodicity:"annual"|"quarterly"|"ttm")=>({metric,value,currency:"USD",unit:metric.includes("Shares")?"shares":"currency",periodEnd,periodicity,fiscalYear:2025,provenance:{provider:"SEC",sourceUrl:"sec",retrievedAt:"2026-01-01",concept:metric,status:"reported"}} as never);
 const dataset={company:{name:"Test",ticker:"T",cik:"1",exchange:"X",currency:"USD",sector:"",description:""},retrievedAt:"2026-01-01",warnings:[],periods:[
@@ -11,6 +11,7 @@ const dataset={company:{name:"Test",ticker:"T",cik:"1",exchange:"X",currency:"US
 const obs=(date:string,value:number,frequency:"weekly"|"ttm"="weekly"):SeriesObservation=>({date,value,frequency,currency:"USD",unit:"perShare",source:"test",status:"Verified",rawObservation:true});
 
 describe("mixed-frequency series engine",()=>{
+  it("uses adjusted close for stock-price observations",()=>{const bars=[{date:"2026-01-02",periodStart:"2025-12-27",open:9,high:11,low:8,close:10,adjustedClose:8,volume:1,currency:"USD",ticker:"T",frequency:"weekly",sourceUrl:"yahoo"}] as MarketBar[];expect(marketObservations(bars,"stockPrice","weekly")[0].value).toBe(8)});
   it("positions fundamentals at fiscal end or public filing date",()=>{expect(fundamentalObservations(dataset,"revenuePerShare","annual","fiscal-period")[0].date).toBe("2025-12-31");expect(fundamentalObservations(dataset,"revenuePerShare","annual","as-reported")[0].date).toBe("2026-02-01")});
   it("combines weekly price and TTM without manufacturing weekly fundamentals",()=>{const price=[obs("2026-02-06",20),obs("2026-02-13",21)];const ttm=[obs("2026-02-01",2,"ttm")];const rows=alignMixedSeries([{definition:{id:"price",ticker:"T",metric:"stockPrice",frequency:"weekly",missingData:"report-points"},observations:price},{definition:{id:"fcf",ticker:"T",metric:"freeCashFlowPerShare",frequency:"ttm",missingData:"report-points"},observations:ttm}]);expect(rows).toHaveLength(3);expect(rows.find((row)=>row.date==="2026-02-06")?.cells.fcf).toBeNull();expect(ttm).toHaveLength(1)});
   it("step mode carries only display cells and exposes age",()=>{const source=[obs("2026-02-01",2,"ttm")];const rows=alignMixedSeries([{definition:{id:"fcf",ticker:"T",metric:"freeCashFlowPerShare",frequency:"ttm",missingData:"step-until-next-report"},observations:source},{definition:{id:"price",ticker:"T",metric:"stockPrice",frequency:"weekly",missingData:"report-points"},observations:[obs("2026-02-08",20)]}]);expect(rows.at(-1)?.cells.fcf).toMatchObject({value:2,carried:true,ageDays:7});expect(source).toHaveLength(1);expect(visibleRawObservations(source,"2026-01-01","2026-03-01")).toHaveLength(1)});

@@ -1,17 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -19,16 +8,16 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
   return {
-    title: "FinScope — Auditable financial research",
-    description: "Trace SEC financials, formulas, margins, per-share metrics and capital allocation in one research workspace.",
+    title: "FinScope — Simple, auditable financial research",
+    description: "Research companies, compare financial metrics and build a traceable DCF in one focused workspace.",
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
     openGraph: {
       title: "FinScope — Auditable financial research",
-      description: "Financials you can trace.",
+      description: "Simple financial research you can trace.",
       type: "website",
       images: [{ url: `${origin}/og.png`, width: 1200, height: 630, alt: "FinScope — Financials you can trace." }],
     },
-    twitter: { card: "summary_large_image", title: "FinScope", description: "Financials you can trace.", images: [`${origin}/og.png`] },
+    twitter: { card: "summary_large_image", title: "FinScope", description: "Simple financial research you can trace.", images: [`${origin}/og.png`] },
   };
 }
 
@@ -38,13 +27,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning>
-      <head><script dangerouslySetInnerHTML={{__html:`try{var t=localStorage.getItem("finscope.theme");if(t==="light"||t==="dark"){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}}catch(e){}`}}/></head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-      </body>
+    <html lang="en" data-theme="light">
+      <body>{children}</body>
     </html>
   );
 }
