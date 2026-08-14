@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Area, Bar, Brush, CartesianGrid, ComposedChart, LabelList, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { createAutoChartPlan, familyLabel, formatChartValue, indexToHundred, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
-import { chartDomain } from "@/lib/charting";
+import { chartDomain, niceTicks } from "@/lib/charting";
 import { recessionBands, snapToAxis, splitMarks } from "@/lib/chart-annotations";
 import { addMetric, applyPreset, CHART_PRESETS, setCompanies, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type ValueMode, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
@@ -348,7 +348,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
  * palette that reads worst. It is rendered through LabelList because Recharts
  * draws a `label` element once per point, not once per series.
  */
-function endLabel(uid: string, lastIndex: number, formatter: (value: number) => string, placed: Map<string, number>) {
+function endLabel(uid: string, lastIndex: number, formatter: (value: number) => string, placed: Map<string, number>, growth?: string) {
   return function EndLabel(props: { x?: string | number; y?: string | number; value?: unknown; index?: number }) {
     if (props.index !== lastIndex || typeof props.value !== "number") return <></>;
     // Series that finish at a similar height would print on top of each other,
@@ -358,10 +358,17 @@ function endLabel(uid: string, lastIndex: number, formatter: (value: number) => 
     if (y == null) {
       y = Number(props.y) - 9;
       const taken = [...placed.values()];
-      while (taken.some((other) => Math.abs(other - y!) < 14)) y -= 14;
+      while (taken.some((other) => Math.abs(other - y!) < 28)) y -= 28;
       placed.set(uid, y);
     }
-    return <text x={Number(props.x) - 6} y={y} textAnchor="end" className="chart-end-label">{formatter(props.value)}</text>;
+    // The rate belongs beside the line it describes. Comparing a share price
+    // against cash flow per share is a comparison of two growth rates, and
+    // reading them off a legend above the plot means looking away from the
+    // shapes being compared.
+    return <g>
+      <text x={Number(props.x) - 6} y={y} textAnchor="end" className="chart-end-label">{formatter(props.value)}</text>
+      {growth && <text x={Number(props.x) - 6} y={y + 12} textAnchor="end" className="chart-end-growth">{growth}</text>}
+    </g>;
   } as unknown as React.ComponentProps<typeof LabelList>["content"];
 }
 
@@ -374,7 +381,17 @@ function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, 
     // "auto" defers to the metric, which floats a share price and anchors a
     // revenue line; the other two are the reader overruling that.
     const mode = chart.scale === "auto" ? (items.some((bundle) => bundle.plan.scale === "auto") ? "auto" : "zero") : chart.scale;
-    return { side, items, family, currency: items[0]?.currency ?? "USD", domain: chartDomain(values, mode).domain, hasNegative: values.some((value) => value != null && value < 0) };
+    const computed = chartDomain(values, mode).domain;
+    // Every axis gets explicit ticks, including the floating one a share price
+    // uses. Left to itself the library divides its own bounds and prints 0, 85,
+    // 170, 255 — evenly spaced but on values nobody would have chosen.
+    const finite = values.filter((value): value is number => value != null && Number.isFinite(value));
+    const bounds: [number, number] | null = typeof computed[0] === "number" && typeof computed[1] === "number"
+      ? [computed[0], computed[1]]
+      : finite.length ? [Math.min(...finite), Math.max(...finite)] : null;
+    const ticks = bounds ? niceTicks(bounds[0], bounds[1]) : [];
+    const domain = ticks.length >= 2 ? [ticks[0], ticks.at(-1)!] as [number, number] : computed;
+    return { side, items, family, currency: items[0]?.currency ?? "USD", domain, ticks: ticks.length >= 2 ? ticks : undefined, hasNegative: values.some((value) => value != null && value < 0) };
   });
   const placedLabels = new Map<string, number>();
   const lastIndexWithValue = (uid: string) => {
@@ -401,7 +418,7 @@ function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, 
         {bands.map((band) => <ReferenceArea key={band.label} x1={band.start} x2={band.end} yAxisId={axes.find((axis) => axis.items.length)?.side ?? "left"} fill="#111" fillOpacity={.05} strokeOpacity={0} label={compact ? undefined : { value: band.label, position: "insideTop", fontSize: 10, fill: "#7a7a7a" }}/>)}
         {splits.map((mark) => <ReferenceLine key={`${mark.ticker}-${mark.date}`} x={mark.at} yAxisId={axes.find((axis) => axis.items.length)?.side ?? "left"} stroke="#9a9a9a" strokeDasharray="3 3" label={compact ? undefined : { value: mark.label, position: "insideTopLeft", fontSize: 10, fill: "#7a7a7a" }}/>)}
         <XAxis dataKey="date" tickFormatter={tickDate} minTickGap={44} tickLine={false} axisLine={{ stroke: "#d8d8d8" }}/>
-        {axes.map((axis) => <YAxis key={axis.side} yAxisId={axis.side} orientation={axis.side} hide={!axis.items.length} width={64} tickLine={false} axisLine={false} domain={axis.domain} tickFormatter={(value) => formatChartValue(Number(value), axis.family, axis.currency)}/>)}
+        {axes.map((axis) => <YAxis key={axis.side} yAxisId={axis.side} orientation={axis.side} hide={!axis.items.length} width={64} tickLine={false} axisLine={false} domain={axis.domain} ticks={axis.ticks} tickFormatter={(value) => formatChartValue(Number(value), axis.family, axis.currency)}/>)}
         {axes.filter((axis) => axis.items.length && axis.hasNegative).map((axis) => <ReferenceLine key={`${axis.side}-zero`} yAxisId={axis.side} y={0} stroke="#b4b4b4"/>)}
         {chart.values === "indexed" && axes.filter((axis) => axis.items.length).slice(0, 1).map((axis) => <ReferenceLine key="base" yAxisId={axis.side} y={100} stroke="#b4b4b4" strokeDasharray="4 4"/>)}
         <Tooltip content={<ChartTooltip bundles={bundles}/>} cursor={{ stroke: "#b4b4b4", strokeDasharray: "3 3" }}/>
@@ -409,7 +426,11 @@ function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, 
           const family = chart.values === "indexed" ? "indexed" as const : unitFamily(bundle.series.metric);
           // Past four series the labels collide more than they inform.
           const last = bundles.length > 4 ? -1 : lastIndexWithValue(bundle.series.uid);
-          const label = last < 0 ? null : <LabelList dataKey={bundle.series.uid} content={endLabel(bundle.series.uid, last, (value) => formatChartValue(value, family, bundle.currency), placedLabels)}/>;
+          const analysis = bundle.observations.length > 1 ? analyzeVisibleSeries(bundle.observations, family === "percent" ? "margin" : "cagr") : null;
+          const growth = analysis?.value == null ? undefined
+            : analysis.kind === "margin" ? `${analysis.value >= 0 ? "+" : ""}${(analysis.value * 100).toFixed(1)} pp`
+            : `${analysis.value >= 0 ? "+" : ""}${(analysis.value * 100).toFixed(1)}% CAGR`;
+          const label = last < 0 ? null : <LabelList dataKey={bundle.series.uid} content={endLabel(bundle.series.uid, last, (value) => formatChartValue(value, family, bundle.currency), placedLabels, growth)}/>;
           const dot = chart.showPoints ? { r: 4, strokeWidth: 0, fill: bundle.plan.color } : false;
           if (bundle.plan.style === "bar") {
             // Rounded data-ends, and a surface gap so neighbouring bars read as

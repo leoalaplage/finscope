@@ -32,11 +32,15 @@ describe("UI regressions", () => {
 
   it("keeps the Companies ranking columns focused on financial metrics", () => {
     const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    // The header is generated from the chosen columns now, so the guarantee
+    // lives in the column catalogue rather than in the markup.
+    const columns = readFileSync(new URL("../lib/company-ranking.ts", import.meta.url), "utf8");
+    expect(columns).toContain('label: "Market Cap"');
+    expect(columns).not.toContain('label: "Company"');
+    expect(columns).not.toContain('label: "Price"');
     const header = source.match(/<table className="watchlist-table ranking-table">[\s\S]*?<\/thead>/)?.[0] ?? "";
-    expect(header).not.toContain(">Company<");
-    expect(header).not.toContain(">Price<");
-    expect(header).toContain("Market Cap");
     expect(header).toContain("Rank");
+    expect(header).toContain("shownColumns.map");
     expect(source).toContain('localStorage.setItem("finscope.companySort"');
     expect(source).toContain('"Load all"');
   });

@@ -43,7 +43,9 @@ describe("automatic chart policy", () => {
   it("auto-scales price without zero and starts absolute fundamentals at zero", () => {
     const [price, revenue] = createAutoChartPlan([{ id: "T:stockPrice", ticker: "T", metric: "stockPrice", dataset }, { id: "T:revenue", ticker: "T", metric: "revenue", dataset }]);
     expect(price.scale).toBe("auto"); expect(price.startAtZero).toBe(false);
-    expect(revenue.scale).toBe("zero"); expect(automaticDomain([10, 20], revenue)).toEqual([0, 21.6]);
+    // The upper bound is rounded outward so every tick lands on a round number:
+    // padding alone gave 21.6, and the axis then printed a tick on it.
+    expect(revenue.scale).toBe("zero"); expect(automaticDomain([10, 20], revenue)).toEqual([0, 20]);
   });
 
   it("isolates invalid observations instead of invalidating valid peers", () => {

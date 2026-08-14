@@ -40,6 +40,71 @@ export function robustValues(values: Array<number | null | undefined>) {
   return finite.filter((value) => value >= q1 - 1.5 * iqr && value <= q3 + 1.5 * iqr);
 }
 
+/**
+ * Rounds a bound up to a number a reader would have chosen: 1, 2, 2.5 or 5
+ * times a power of ten.
+ *
+ * Padding a maximum by eight percent gives a bound like 9.99, and the chart
+ * library then prints a tick on it. The axis reads $0, $3, $6, $9, $9.99 —
+ * round steps and then something arbitrary, which looks like the scale changes
+ * near the top. Rounding the bound outward first means every tick lands on a
+ * round number, including the last one.
+ */
+export function niceBound(value: number) {
+  if (!Number.isFinite(value) || value === 0) return 0;
+  const sign = Math.sign(value);
+  const size = Math.abs(value);
+  const magnitude = 10 ** Math.floor(Math.log10(size));
+  const normalized = size / magnitude;
+  const step = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10;
+  return sign * step * magnitude;
+}
+
+/**
+ * Evenly spaced round ticks that cover the data, and the domain they imply.
+ *
+ * Handing a chart library a rounded maximum is not enough: it still runs its
+ * own tick algorithm inside those bounds and can produce 0, 3, 6, 10 — three
+ * equal steps and then a wider one. The eye reads that stretched last interval
+ * as a change of scale.
+ *
+ * So the step is chosen first, from the 1 / 2 / 5 family, and the domain
+ * is derived from it rather than the reverse. Among the steps giving a sensible
+ * number of intervals, the one wasting the least space wins.
+ */
+export function niceTicks(minimum: number, maximum: number, count = 5): number[] {
+  if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) return [];
+  if (minimum === maximum) return [minimum];
+  const rawStep = (maximum - minimum) / Math.max(1, count - 1);
+  // Steps are 1, 2 or 5 times a power of ten, and nothing else. A step of 2.5
+  // is arithmetically fine but labels an axis 0, 125, 250, 375, which reads as
+  // arbitrary next to 0, 100, 200, 300.
+  const exponent = Math.floor(Math.log10(rawStep));
+  const candidates: number[] = [];
+  for (const power of [exponent - 1, exponent, exponent + 1]) {
+    for (const unit of [1, 2, 5]) candidates.push(unit * 10 ** power);
+  }
+
+  let best: { ticks: number[]; waste: number; distance: number } | null = null;
+  for (const step of [...new Set(candidates)].sort((a, b) => a - b)) {
+    if (!Number.isFinite(step) || step <= 0) continue;
+    const start = Math.floor(minimum / step) * step;
+    const end = Math.ceil(maximum / step) * step;
+    const steps = Math.round((end - start) / step);
+    // Three to six intervals: fewer leaves the axis unreadable, more turns it
+    // into a ruler. Waste is only worth minimising within that range.
+    if (steps < 3 || steps > 6) continue;
+    const waste = (end - maximum) + (minimum - start);
+    const distance = Math.abs(steps + 1 - count);
+    if (best && (waste > best.waste + Number.EPSILON || (Math.abs(waste - best.waste) <= Number.EPSILON && distance >= best.distance))) continue;
+    const ticks: number[] = [];
+    // Recompose each tick from the step so binary rounding never reaches a label.
+    for (let index = 0; index <= steps; index++) ticks.push(Number((start + index * step).toPrecision(12)));
+    best = { ticks, waste, distance };
+  }
+  return best?.ticks ?? [];
+}
+
 export function chartDomain(values: Array<number | null | undefined>, mode: ScaleMode, custom?: { min: number; max: number }) {
   const finite = values.filter((value): value is number => value != null && Number.isFinite(value));
   if (mode === "custom") {
@@ -63,6 +128,13 @@ export function chartDomain(values: Array<number | null | undefined>, mode: Scal
     const lower = minimum >= 0 ? Math.max(0, minimum - margin) : minimum - margin;
     const upper = maximum <= 0 ? Math.min(0, maximum + margin) : maximum + margin;
     return { domain: [lower, upper] as [number, number] };
+  }
+  if (mode === "zero") {
+    const minimum = Math.min(...finite); const maximum = Math.max(...finite);
+    const ticks = niceTicks(Math.min(0, minimum), Math.max(0, maximum));
+    if (ticks.length >= 2) return { domain: [ticks[0], ticks.at(-1)!] as [number, number], ticks };
+    const top = maximum > 0 ? niceBound(maximum * 1.02) : 1;
+    return { domain: [Math.min(0, niceBound(minimum)), top] as [number, number] };
   }
   const minimum = Math.min(...finite); const maximum = Math.max(...finite);
   if (minimum < 0) {

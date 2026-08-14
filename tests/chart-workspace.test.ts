@@ -244,7 +244,9 @@ describe("chart appearance", () => {
   });
 
   it("falls back to the default for an appearance value it does not recognise", () => {
-    const stored = JSON.stringify([{ id: "chart-1", range: "max", scale: "logarithmic", values: "detrended", layout: "grid", series: [{ ticker: "AAPL", metric: "revenue", visible: true }] }]);
+    // "grid" is a layout this model understands, so it is kept; the other two
+    // are not, and fall back rather than sticking.
+    const stored = JSON.stringify([{ id: "chart-1", range: "max", scale: "logarithmic", values: "detrended", layout: "carousel", series: [{ ticker: "AAPL", metric: "revenue", visible: true }] }]);
     expect(deserializeWorkspace(stored)[0]).toMatchObject({ scale: "auto", values: "raw", layout: "combined" });
   });
 });
