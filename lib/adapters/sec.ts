@@ -23,7 +23,14 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   grossProfit: { namespace: "us-gaap", tags: ["GrossProfit"], unit: "currency" },
   costOfRevenue: { namespace: "us-gaap", tags: ["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSold"], unit: "currency" },
   operatingIncome: { namespace: "us-gaap", tags: ["OperatingIncomeLoss"], unit: "currency" },
-  netIncome: { namespace: "us-gaap", tags: ["NetIncomeLoss", "ProfitLoss"], unit: "currency" },
+  // Preference order matters here. NetIncomeLoss is income attributable to the
+  // parent; ProfitLoss is consolidated and includes noncontrolling interests.
+  // Interactive Brokers tags no NetIncomeLoss at all — the public company owns
+  // only a minority of the operating partnership — so falling straight to
+  // ProfitLoss overstated its net income, margins and every per-share figure by
+  // about four and a half times. The middle concept matches its reported EPS
+  // exactly.
+  netIncome: { namespace: "us-gaap", tags: ["NetIncomeLoss", "NetIncomeLossAvailableToCommonStockholdersBasic", "ProfitLoss"], unit: "currency" },
   operatingCashFlow: { namespace: "us-gaap", tags: ["NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"], unit: "currency" },
   // Tags are alternatives in preference order, not addends. The last two cover
   // filers that report no property-and-equipment line at all: Cboe and

@@ -12,6 +12,8 @@ export const FLOW_METRICS: MetricKey[] = [
 export const WEIGHTED_SHARE_METRICS: MetricKey[] = ["basicShares", "dilutedShares"];
 export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities"];
 const SPLIT_ADJUSTED_METRICS: MetricKey[] = [...WEIGHTED_SHARE_METRICS, "sharesOutstanding", "sharesIssued", "treasuryShares"];
+/** Per-share amounts move the other way: a split divides them. */
+const SPLIT_DIVIDED_METRICS: MetricKey[] = ["dilutedEpsReported"];
 
 export function daysBetween(start?: string, end?: string) {
   if (!start || !end) return 0;
@@ -84,15 +86,16 @@ export function relabelFiscalYears(input: RawFinancialFact[]) {
 export function adjustPeriodsForSplits(periods: FinancialPeriod[], splits: Array<{ date: string; ratio: number }> = []) {
   return periods.map((period) => {
     const facts = { ...period.facts };
-    for (const metric of SPLIT_ADJUSTED_METRICS) {
+    for (const metric of [...SPLIT_ADJUSTED_METRICS, ...SPLIT_DIVIDED_METRICS]) {
       const fact = facts[metric]; if (fact?.value == null) continue;
+      const divides = SPLIT_DIVIDED_METRICS.includes(metric);
       // A later filing commonly restates comparative share counts for a split.
       // Only facts filed before the split still require our adjustment.
       const applicable = splits.filter((split) => period.periodEnd < split.date && (!fact.provenance.filingDate || fact.provenance.filingDate < split.date));
       const factor = applicable.reduce((product, split) => product * split.ratio, 1);
       if (factor === 1) continue;
-      const value = fact.value * factor;
-      facts[metric] = { ...fact, value, validation: fact.validation ? { ...fact.validation, normalizedValue: value, correction: `${fact.validation.correction ?? "Corroborated magnitude selected"}; then adjusted by the ${factor}:1 cumulative subsequent split factor.` } : fact.validation, provenance: { ...fact.provenance, provider: "Calculated", status: "calculated", formula: `Reported share count × ${factor}:1 cumulative subsequent split factor`, note: `Split-adjusted for ${applicable.map((split) => `${split.ratio}:1 on ${split.date}`).join(", ")}. Original SEC source remains linked.` } };
+      const value = divides ? fact.value / factor : fact.value * factor;
+      facts[metric] = { ...fact, value, validation: fact.validation ? { ...fact.validation, normalizedValue: value, correction: `${fact.validation.correction ?? "Corroborated magnitude selected"}; then adjusted by the ${factor}:1 cumulative subsequent split factor.` } : fact.validation, provenance: { ...fact.provenance, provider: "Calculated", status: "calculated", formula: divides ? `Reported per-share amount ÷ ${factor}:1 cumulative subsequent split factor` : `Reported share count × ${factor}:1 cumulative subsequent split factor`, note: `Split-adjusted for ${applicable.map((split) => `${split.ratio}:1 on ${split.date}`).join(", ")}. Original SEC source remains linked.` } };
     }
     return { ...period, facts };
   });

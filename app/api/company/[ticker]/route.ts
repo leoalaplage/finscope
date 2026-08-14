@@ -10,7 +10,9 @@ const CACHE_SECONDS = 86_400;
 // for filers that stopped tagging property purchases.
 // v3: diluted share counts are recovered from reported EPS for filers that
 // publish none directly, which restores every per-share metric for them.
-const KEY_VERSION = "v3";
+// v4: net income prefers income attributable to common over the consolidated
+// figure, and reported EPS is split-adjusted like every other per-share value.
+const KEY_VERSION = "v4";
 const headers = {
   "Content-Type": "application/json",
   "Cache-Control": `public, s-maxage=21600, stale-while-revalidate=86400`,
