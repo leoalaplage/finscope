@@ -101,7 +101,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
 function SecondaryHeading({ title, onBack }: { title: string; onBack: () => void }) { return <header className="page-heading"><div><h1>{title}</h1><p>Secondary research tool for the selected company.</p></div><button onClick={onBack}>Back</button></header>; }
 
 function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd, onOpen, onCharts, onRemove }: { watchlist: CompanyProfile[]; datasets: Record<string, CompanyDataset>; activeTicker: string; loading: string; onSearchAdd: () => void; onOpen: (ticker: string) => void; onCharts: (ticker: string) => void; onRemove: (ticker: string) => void }) {
-  type RankingDisplayRow = CompanyRankingRow & { profile: CompanyProfile; currentPrice: number | null };
+  type RankingDisplayRow = CompanyRankingRow & { profile: CompanyProfile };
   const [filters, setFilters] = useState<CompanyFilters>(DEFAULT_COMPANY_FILTERS);
   const [sort, setSort] = useState<{ key: CompanySortKey; direction: SortDirection }>(() => {
     if (typeof window === "undefined") return DEFAULT_COMPANY_SORT;
@@ -111,6 +111,7 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
     } catch { return DEFAULT_COMPANY_SORT; }
   });
   const [prices, setPrices] = useState<Record<string, PricePoint | null>>({});
+  const [valuationPremiums, setValuationPremiums] = useState<Record<string, number | null>>({});
   const loadedTickers = Object.keys(datasets).sort().join("|");
   useEffect(() => { localStorage.setItem("finscope.companySort", JSON.stringify(sort)); }, [sort]);
   useEffect(() => {
@@ -123,11 +124,24 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
     }
     return () => { active = false; };
   }, [loadedTickers, prices]);
+  useEffect(() => {
+    let active = true;
+    for (const ticker of loadedTickers.split("|").filter(Boolean).filter((item) => prices[item] && !(item in valuationPremiums))) {
+      const data = datasets[ticker]; const currentPrice = prices[ticker]; if (!data || !currentPrice) continue;
+      const periods = sortedPeriods(data, "ttm"); const dates = [...new Set(periods.map((period) => period.filingDate))];
+      fetch(`/api/prices/${encodeURIComponent(ticker)}?dates=${dates.join(",")}&published=1`).then(async (response) => {
+        const payload = await response.json() as { points?: Array<{ requestedDate: string; point?: PricePoint }>; error?: string }; if (!response.ok) throw new Error(payload.error || "Valuation history unavailable");
+        const pointMap = Object.fromEntries((payload.points ?? []).map((item) => [item.requestedDate, item.point ?? null])); const latest = periods.at(-1) ?? sortedPeriods(data, "annual").at(-1); const snapshot = latest ? valuationSnapshot(latest, currentPrice) : null; const history = buildValuationHistory(periods, pointMap); const premium = valuationStatistics(history, "priceToFreeCashFlow", snapshot?.metrics.priceToFreeCashFlow ?? null, 5).premiumToAverage;
+        if (active) setValuationPremiums((current) => ({ ...current, [ticker]: premium }));
+      }).catch(() => active && setValuationPremiums((current) => ({ ...current, [ticker]: null })));
+    }
+    return () => { active = false; };
+  }, [datasets, loadedTickers, prices, valuationPremiums]);
   const rawRows = useMemo<RankingDisplayRow[]>(() => watchlist.map((profile) => {
     const data = datasets[profile.ticker]; const point = prices[profile.ticker]; const currentPrice = point?.priceClose ?? point?.close ?? null; const period = data ? latestPeriod(data) : undefined; const annual = data ? sortedPeriods(data, "annual") : []; const latestAnnual = annual.at(-1); const prior5 = annual.at(-6);
     const dilution = latestAnnual && prior5 ? change(valueOf(latestAnnual, "dilutedShares"), valueOf(prior5, "dilutedShares")) : null; const shares = period ? derivedValue(period, "sharesOutstanding") ?? derivedValue(period, "dilutedShares") : null; const fcf = period ? derivedValue(period, "freeCashFlow") : null; const marketCap = currentPrice != null && shares != null ? currentPrice * shares : null; const pfcf = marketCap != null && fcf != null && fcf > 0 ? marketCap / fcf : null;
-    return { profile, ticker: profile.ticker, currentPrice, marketCap, fcfMargin: period ? derivedValue(period, "freeCashFlowMargin") : null, fcfShareCagr: data ? cagrForPeriods(annual, "freeCashFlowPerShare", 5).value : null, revenueShareCagr: data ? cagrForPeriods(annual, "revenuePerShare", 5).value : null, operatingMargin: period ? derivedValue(period, "operatingMargin") : null, dilution, pfcf, valuationVsAverage: null, updated: data?.retrievedAt.slice(0, 10) ?? null, loading: loading === profile.ticker || Boolean(data && !(profile.ticker in prices)) };
-  }), [watchlist, datasets, prices, loading]);
+    return { profile, ticker: profile.ticker, marketCap, fcfMargin: period ? derivedValue(period, "freeCashFlowMargin") : null, fcfShareCagr: data ? cagrForPeriods(annual, "freeCashFlowPerShare", 5).value : null, revenueShareCagr: data ? cagrForPeriods(annual, "revenuePerShare", 5).value : null, operatingMargin: period ? derivedValue(period, "operatingMargin") : null, dilution, pfcf, valuationVsAverage: valuationPremiums[profile.ticker] ?? null, updated: data?.retrievedAt.slice(0, 10) ?? null, loading: loading === profile.ticker || Boolean(data && !(profile.ticker in prices)) };
+  }), [watchlist, datasets, prices, valuationPremiums, loading]);
   const rows = useMemo(() => sortCompanyRows(filterCompanyRows(rawRows, filters), sort.key, sort.direction), [rawRows, filters, sort]);
   const selectSort = (key: CompanySortKey) => setSort((current) => current.key === key ? { key, direction: current.direction === "desc" ? "asc" : "desc" } : { key, direction: preferredDirection(key) });
   const heading = (label: string, key: CompanySortKey) => <button className="sort-heading" onClick={() => selectSort(key)} aria-label={`Sort by ${label}`}>{label}<span aria-hidden="true">{sort.key === key ? sort.direction === "desc" ? " ↓" : " ↑" : ""}</span></button>;
