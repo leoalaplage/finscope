@@ -21,9 +21,20 @@ describe("UI regressions", () => {
     expect(css).toContain(".recharts-default-tooltip { color: var(--text)");
   });
 
-  it("renders straight chart lines and disables chart animation", () => {
+  it("keeps straight lines as the default while supporting advanced chart types", () => {
     const source = readFileSync(new URL("../components/ChartsWorkspace.tsx", import.meta.url), "utf8");
     expect(source).toContain('type="linear" isAnimationActive={false}');
-    expect(source).not.toContain("<Area");
+    expect(source).toContain("<Area");
+    expect(source).toContain("<Scatter");
+  });
+
+  it("keeps the Companies ranking columns focused on financial metrics", () => {
+    const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    const header = source.match(/<table className="watchlist-table ranking-table">[\s\S]*?<\/thead>/)?.[0] ?? "";
+    expect(header).not.toContain(">Company<");
+    expect(header).not.toContain(">Price<");
+    expect(header).toContain("Market Cap");
+    expect(header).toContain("Rank");
+    expect(source).toContain('localStorage.setItem("finscope.companySort"');
   });
 });
