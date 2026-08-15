@@ -3,6 +3,8 @@ import { CACHE_SECONDS, datasetKey, KEY_VERSION, warmWatchlist } from "../lib/da
 import { setRuntimeBindings } from "../lib/runtime-env";
 
 const ORIGIN = "https://finscope.test";
+/** The real pacing exists to avoid platform throttling, not to slow tests. */
+const INSTANT = { paceMs: 0, retryMs: 0, retries: 2 };
 
 /** A KV double that only needs get/put for this code path. */
 function cacheDouble(warm: string[] = []) {
@@ -27,7 +29,7 @@ describe("scheduled warm-up", () => {
   it("fetches each company once, in order, through the public endpoint", async () => {
     const seen: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (url: URL) => { seen.push(url.pathname); return new Response("{}", { status: 200 }); }));
-    const report = await warmWatchlist(ORIGIN, ["AAPL", "MSFT"]);
+    const report = await warmWatchlist(ORIGIN, ["AAPL", "MSFT"], INSTANT);
     expect(seen).toEqual(["/api/company/AAPL", "/api/company/MSFT"]);
     expect(report.warmed).toEqual(["AAPL", "MSFT"]);
     expect(report.failed).toEqual([]);
@@ -37,7 +39,7 @@ describe("scheduled warm-up", () => {
     setRuntimeBindings({ DATASET_CACHE: cacheDouble(["AAPL"]) });
     const call = vi.fn(async () => new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", call);
-    const report = await warmWatchlist(ORIGIN, ["AAPL", "MSFT"]);
+    const report = await warmWatchlist(ORIGIN, ["AAPL", "MSFT"], INSTANT);
     expect(call).toHaveBeenCalledTimes(1);
     expect(report.warmed).toEqual(["AAPL", "MSFT"]);
   });
@@ -45,7 +47,7 @@ describe("scheduled warm-up", () => {
   it("retries a refused company once, since a refusal is usually a busy isolate", async () => {
     let attempts = 0;
     vi.stubGlobal("fetch", vi.fn(async () => { attempts += 1; return new Response("", { status: attempts === 1 ? 503 : 200 }); }));
-    const report = await warmWatchlist(ORIGIN, ["AAPL"]);
+    const report = await warmWatchlist(ORIGIN, ["AAPL"], INSTANT);
     expect(attempts).toBe(2);
     expect(report.warmed).toEqual(["AAPL"]);
   });
@@ -53,7 +55,7 @@ describe("scheduled warm-up", () => {
   it("records a company that fails twice and carries on with the rest", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: URL) =>
       url.pathname.endsWith("MSFT") ? new Response("", { status: 503 }) : new Response("{}", { status: 200 })));
-    const report = await warmWatchlist(ORIGIN, ["AAPL", "MSFT", "V"]);
+    const report = await warmWatchlist(ORIGIN, ["AAPL", "MSFT", "V"], INSTANT);
     expect(report.warmed).toEqual(["AAPL", "V"]);
     expect(report.failed).toEqual([{ ticker: "MSFT", reason: "HTTP 503" }]);
   });
@@ -63,7 +65,7 @@ describe("scheduled warm-up", () => {
       if (url.pathname.endsWith("AAPL")) throw new Error("connection reset");
       return new Response("{}", { status: 200 });
     }));
-    const report = await warmWatchlist(ORIGIN, ["AAPL", "MSFT"]);
+    const report = await warmWatchlist(ORIGIN, ["AAPL", "MSFT"], INSTANT);
     expect(report.failed).toEqual([{ ticker: "AAPL", reason: "connection reset" }]);
     expect(report.warmed).toEqual(["MSFT"]);
   });
