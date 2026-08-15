@@ -6,7 +6,6 @@ import { COMPANY_COLUMNS, DEFAULT_COLUMNS, DEFAULT_COMPANY_FILTERS, DEFAULT_COMP
 import { cagrBetweenDates, cagrForPeriods, derivedValue, valueOf } from "@/lib/finance";
 import { CALLOUTS, DEFAULT_CALLOUTS, growthConsistency, growthGap, growthTable, HORIZONS, incrementalReturn, percentileAmong, ruleOfForty, worstDrawdown, type Horizon } from "@/lib/growth-quality";
 import { CHARTABLE_METRICS, METRICS, VIEW_METRICS } from "@/lib/metrics";
-import { balanceSheetDiagram, incomeStatementDiagram } from "@/lib/statement-flows";
 import { buildValuationHistory, valuationSnapshot, valuationStatistics } from "@/lib/valuation-history";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, MetricKey, Periodicity, PricePoint } from "@/lib/types";
 import type { SeriesStyle } from "@/lib/chart-workspace";
@@ -24,15 +23,15 @@ type Evidence = { label: string; value: number | null; period: FinancialPeriod; 
  * over several screens. Overview is now one block that stands alone, and the
  * detail behind it is a click rather than a scroll.
  */
-type CompanyTab = "overview" | "statements" | "statistics" | "financials" | "balance" | "valuation" | "sources";
+type CompanyTab = "quality" | "financials" | "pershare" | "margins" | "capital" | "valuation" | "sources";
 const COMPANY_TABS: Array<{ key: CompanyTab; label: string }> = [
-  { key: "overview", label: "Overview" },
-  { key: "statements", label: "Statements" },
-  { key: "statistics", label: "Statistics" },
+  { key: "quality", label: "Quality Overview" },
   { key: "financials", label: "Financials" },
-  { key: "balance", label: "Balance sheet" },
+  { key: "pershare", label: "Per Share & Growth" },
+  { key: "margins", label: "Margins" },
+  { key: "capital", label: "Capital Allocation" },
   { key: "valuation", label: "Valuation" },
-  { key: "sources", label: "Sources" },
+  { key: "sources", label: "Sources & Data Quality" },
 ];
 
 /**
@@ -59,10 +58,8 @@ const FcfYieldCalculator = lazy(() => import("./FcfYieldCalculator").then((modul
 const FormulaDataAudit = lazy(() => import("./FormulaDataAudit").then((module) => ({ default: module.FormulaDataAudit })));
 const QsScreener = lazy(() => import("./QsScreener").then((module) => ({ default: module.QsScreener })));
 const StatisticsPage = lazy(() => import("./StatisticsPage").then((module) => ({ default: module.StatisticsPage })));
-const CompanyStatistics = lazy(() => import("./CompanyStatistics").then((module) => ({ default: module.CompanyStatistics })));
+const QualityOverview = lazy(() => import("./QualityOverview").then((module) => ({ default: module.QualityOverview })));
 const QualityValuationScatter = lazy(() => import("./QualityValuationScatter").then((module) => ({ default: module.QualityValuationScatter })));
-const CompanyKpiGrid = lazy(() => import("./CompanyKpiGrid").then((module) => ({ default: module.CompanyKpiGrid })));
-const StatementSankey = lazy(() => import("./StatementSankey").then((module) => ({ default: module.StatementSankey })));
 const BalanceSheetPanel = lazy(() => import("./BalanceSheetPanel").then((module) => ({ default: module.BalanceSheetPanel })));
 const HomePage = lazy(() => import("./HomePage").then((module) => ({ default: module.HomePage })));
 import { rememberCompany } from "./HomePage";
@@ -191,7 +188,11 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       {!secondary && view === "qs" && <Suspense fallback={<p className="simple-state">Loading the QS Screener…</p>}><QsScreener/></Suspense>}
       {!secondary && view === "home" && <Suspense fallback={<p className="simple-state">Loading…</p>}><HomePage watchlist={watchlist} datasets={datasets} prices={homePrices} loading={loading} onOpen={openCompany} onImport={importCompany}/></Suspense>}
       {!secondary && view === "companies" && <div><CompaniesPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} loading={loading} onSearchAdd={() => setManagerOpen(true)} onLoad={loadCompanyData} onOpen={openCompany} onCharts={(ticker) => openCharts(ticker)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></div>}
-      {!secondary && view === "company" && <CompanyPage key={dataset.company.ticker} dataset={dataset} onBack={() => navigate("companies")} onCharts={openCharts} onDcf={openDcf} onCompare={() => setSecondary("compare")}/>}
+      {!secondary && view === "company" && <CompanyPage key={dataset.company.ticker} dataset={dataset} onBack={() => navigate("companies")} onCharts={openCharts} onDcf={openDcf} onCompare={() => setSecondary("compare")}
+        onWatchlist={watchlist.some((company) => company.ticker === dataset.company.ticker)}
+        onToggleWatchlist={() => setWatchlist((current) => current.some((company) => company.ticker === dataset.company.ticker)
+          ? current.filter((company) => company.ticker !== dataset.company.ticker)
+          : [...current, dataset.company])}/>}
       {secondary === "compare" && <SecondaryHeading title="Compare companies" onBack={() => setSecondary(null)}/>} {secondary === "compare" && <Suspense fallback={<p className="simple-state">Loading…</p>}><StatisticsPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} onLoad={loadCompanyData}/></Suspense>}
       {!secondary && view === "charts" && <Suspense fallback={<p className="simple-state">Loading…</p>}><ChartsWorkspace initialData={dataset} seed={chartSeed}/></Suspense>}
       {!secondary && view === "dcf" && <DcfPage key={dataset.company.ticker} dataset={dataset} onBack={() => navigate("companies")}/>}
@@ -395,45 +396,65 @@ function DcfPage({ dataset, onBack }: { dataset: CompanyDataset; onBack: () => v
   </div>;
 }
 
-function CompanyPage({ dataset, onBack, onCharts, onDcf, onCompare }: { dataset: CompanyDataset; onBack: () => void; onCharts: (ticker?: string, metric?: string, presentation?: { style?: SeriesStyle; frequency?: SeriesFrequency }) => void; onDcf: () => void; onCompare: () => void }) {
+function CompanyPage({ dataset, onBack, onCharts, onDcf, onCompare, onWatchlist, onToggleWatchlist }: { dataset: CompanyDataset; onBack: () => void; onWatchlist: boolean; onToggleWatchlist: () => void; onCharts: (ticker?: string, metric?: string, presentation?: { style?: SeriesStyle; frequency?: SeriesFrequency }) => void; onDcf: () => void; onCompare: () => void }) {
   const [periodicity, setPeriodicity] = useState<Periodicity>(() => typeof window === "undefined" ? "annual" : (localStorage.getItem("finscope.periodicity") as Periodicity) || "annual");
   const [price, setPrice] = useState<PricePoint | null>(null); const [priceError, setPriceError] = useState(""); const [evidence, setEvidence] = useState<Evidence | null>(null);
-  const [tab, setTab] = useState<CompanyTab>("overview");
+  const [tab, setTab] = useState<CompanyTab>("quality");
+  const [valuationPoints, setValuationPoints] = useState<Record<string, PricePoint | null>>({});
+  const [valuationError, setValuationError] = useState("");
   useEffect(() => { localStorage.setItem("finscope.periodicity", periodicity); }, [periodicity]);
+  const valuationDates = useMemo(() => {
+    const ttm = sortedPeriods(dataset, "ttm");
+    return [...new Set([...ttm.map((period) => period.filingDate).filter(Boolean), new Date().toISOString().slice(0, 10)])];
+  }, [dataset]);
+  useEffect(() => {
+    if (!valuationDates.length) return;
+    let active = true;
+    fetch(`/api/prices/${encodeURIComponent(dataset.company.ticker)}?dates=${valuationDates.join(",")}&published=1`)
+      .then(async (response) => {
+        const payload = await response.json() as { points?: Array<{ requestedDate: string; point?: PricePoint }>; error?: string };
+        if (!response.ok) throw new Error(payload.error || "Valuation history unavailable");
+        if (active) setValuationPoints(Object.fromEntries((payload.points ?? []).map((item) => [item.requestedDate, item.point ?? null])));
+      })
+      .catch((cause) => active && setValuationError(cause instanceof Error ? cause.message : "Valuation history unavailable"));
+    return () => { active = false; };
+  }, [dataset.company.ticker, valuationDates]);
   useEffect(() => { let active = true; fetch(`/api/price/${dataset.company.ticker}?date=${new Date().toISOString().slice(0, 10)}`, { cache: "no-store" }).then(async (response) => { const payload = await response.json() as PricePoint & { error?: string }; if (!response.ok) throw new Error(payload.error || "Could not load stock price"); if (active) setPrice(payload); }).catch((cause) => active && setPriceError(cause instanceof Error ? cause.message : "Could not load stock price")); return () => { active = false; }; }, [dataset.company.ticker]);
   const selected = sortedPeriods(dataset, periodicity); const latest = latestPeriod(dataset); const annual = sortedPeriods(dataset, "annual");
-  // The statement diagrams are drawn from the last complete fiscal year, not
-  // from a trailing window: a Sankey of TTM figures would mix four filings and
-  // could not be checked against any single one of them.
-  const lastFullYear = annual.at(-1);
-  const incomeFlow = lastFullYear ? incomeStatementDiagram(lastFullYear) : null;
-  const balanceFlow = lastFullYear ? balanceSheetDiagram(lastFullYear) : null;
   if (!latest) return <p className="simple-state">No data available</p>;
   const shares = derivedValue(latest, "sharesOutstanding") ?? derivedValue(latest, "dilutedShares"); const currentPrice = price?.priceClose ?? price?.close ?? null; const marketCap = currentPrice != null && shares != null ? currentPrice * shares : null;
+  const valuationTtm = sortedPeriods(dataset, "ttm");
+  const valuationLatest = valuationTtm.at(-1) ?? annual.at(-1);
+  const valuationSnapshotNow = valuationLatest && price ? valuationSnapshot(valuationLatest, price) : null;
+  const valuationStats = valuationStatistics(
+    buildValuationHistory(valuationTtm, valuationPoints), "priceToFreeCashFlow",
+    valuationSnapshotNow?.metrics.priceToFreeCashFlow ?? null, 5);
+  const valuationPremium = valuationStats.premiumToAverage;
   const openMetric = (metric: string, period = latest) => setEvidence({ label: METRICS[metric]?.label ?? metric, value: derivedValue(period, metric), period, metric });
-  return <div className="company-page"><button className="back-button" onClick={onBack}>← Companies</button><header className="company-title"><div><h1>{dataset.company.name}</h1><p>{dataset.company.ticker} · {dataset.company.exchange} · {dataset.company.currency} · Updated {dataset.retrievedAt.slice(0, 10)}</p></div><div className="company-title-actions"><button onClick={() => onCharts(dataset.company.ticker)}>Open in Charts</button><button onClick={onDcf}>Open DCF</button></div></header><dl className="company-facts"><div><dt>Stock price</dt><dd>{priceError ? "Could not load stock price" : price ? currency(currentPrice, dataset.company.currency) : "Loading…"}</dd></div><div><dt>Market cap</dt><dd>{currency(marketCap, dataset.company.currency)}</dd></div><div><dt>Currency</dt><dd>{dataset.company.currency}</dd></div><div><dt>Latest period</dt><dd>{latest.periodEnd}</dd></div></dl>
+  return <div className="company-page"><button className="back-button" onClick={onBack}>← Watchlist</button><header className="company-title"><div><h1>{dataset.company.name}</h1><p>{dataset.company.ticker} · {dataset.company.exchange} · {dataset.company.currency} · Updated {dataset.retrievedAt.slice(0, 10)}</p></div><div className="company-title-actions"><button onClick={() => onCharts(dataset.company.ticker)}>Open in Charts</button><button onClick={onDcf}>Open DCF</button><button onClick={onCompare}>Compare</button><button onClick={onToggleWatchlist}>{onWatchlist ? "Remove from watchlist" : "Add to watchlist"}</button></div></header><dl className="company-facts"><div><dt>Stock price</dt><dd>{priceError ? "Could not load stock price" : price ? currency(currentPrice, dataset.company.currency) : "Loading…"}</dd></div><div><dt>Market cap</dt><dd>{currency(marketCap, dataset.company.currency)}</dd></div><div><dt>Currency</dt><dd>{dataset.company.currency}</dd></div><div><dt>Latest period</dt><dd>{latest.periodEnd}</dd></div></dl>
     <nav className="company-tabs" aria-label="Company sections">
       {COMPANY_TABS.map((item) => <button key={item.key} type="button" className={tab === item.key ? "active" : ""} aria-current={tab === item.key} onClick={() => setTab(item.key)}>{item.label}</button>)}
     </nav>
 
-    {tab === "overview" && <div className="company-block">
-      <section id="overview" className="plain-section"><SectionTitle title="Overview" onCharts={() => onCharts(dataset.company.ticker)}/>
-      <Suspense fallback={<p className="simple-state">Loading charts…</p>}><CompanyKpiGrid dataset={dataset} onOpenMetric={(metric, presentation) => onCharts(dataset.company.ticker, metric, presentation)}/></Suspense>
-      <h3 className="kpi-table-heading">Latest figures</h3><MetricSummaryTable dataset={dataset} price={currentPrice} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)}/></section>
-    </div>}
+    {tab === "quality" && <section className="plain-section">
+      <div className="section-heading"><h2>Quality Overview</h2><button onClick={() => onCharts(dataset.company.ticker, "freeCashFlowPerShare")}>Open in Charts</button></div>
+      <p className="section-note">The ten figures a quality investor reads first. Anything that wants a picture opens in Charts rather than competing for room here.</p>
+      <Suspense fallback={<p className="simple-state">Loading…</p>}><QualityOverview dataset={dataset} valuationVsAverage={valuationPremium}/></Suspense>
+      <h3 className="kpi-table-heading">Latest figures</h3>
+      <MetricSummaryTable dataset={dataset} price={currentPrice} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)}/>
+    </section>}
 
-    {tab === "statements" && <section id="flows" className="plain-section"><SectionTitle title="Statements" onCharts={() => onCharts(dataset.company.ticker, "revenue")}/>
-      <p className="section-note">The latest reported fiscal year, drawn as the flow it describes. Every ribbon is a filed figure or a subtraction from one.</p>
-      <Suspense fallback={<p className="simple-state">Drawing statements…</p>}>
-        {incomeFlow ? <StatementSankey diagram={incomeFlow} title="Income statement"/> : <p className="simple-state">The latest year does not carry enough reported lines to draw an income statement.</p>}
-        {balanceFlow ? <StatementSankey diagram={balanceFlow} title="Balance sheet"/> : <p className="simple-state">The latest year does not carry a reported total for assets.</p>}
-      </Suspense></section>}
 
-    {tab === "statistics" && <section id="statistics" className="plain-section"><div className="section-heading"><h2>Statistics</h2><button onClick={onCompare}>Compare with others</button></div>
-      <Suspense fallback={<p className="simple-state">Loading statistics…</p>}><CompanyStatistics datasets={[dataset]} prices={{ [dataset.company.ticker]: price }}/></Suspense></section>}
 
     {tab === "financials" && <div className="company-block">
+      <section className="plain-section"><SectionTitle title="Balance Sheet" onCharts={() => onCharts(dataset.company.ticker, "totalAssets")}/>
+        <p className="section-note">What the company owns, what it owes, and whether the difference is comfortable.</p>
+        <Suspense fallback={<p className="simple-state">Loading…</p>}><BalanceSheetPanel dataset={dataset}/></Suspense></section>
       <section id="financials" className="plain-section"><div className="section-heading"><h2>Financials</h2><div className="period-buttons">{(["annual", "quarterly", "ttm"] as Periodicity[]).map((item) => <button className={periodicity === item ? "active" : ""} key={item} onClick={() => setPeriodicity(item)}>{item === "ttm" ? "TTM" : item[0].toUpperCase() + item.slice(1)}</button>)}</div></div>{selected.length ? <SimpleFinancialTable periods={selected.slice(-10)} metrics={[...VIEW_METRICS.income, ...VIEW_METRICS.cashflow.slice(0, 4)]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/> : <p className="simple-state">No data available for {periodicity}.</p>}</section>
+    </div>}
+
+
+    {tab === "pershare" && <div className="company-block">
       <section id="pershare" className="plain-section"><SectionTitle title="Per Share" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowPerShare")}/>
       <p className="section-note">Every figure divided by the diluted weighted average share count, so growth is what an owner actually kept after dilution.</p>
       {annual.some((period) => derivedValue(period, "revenuePerShare") != null)
@@ -441,16 +462,14 @@ function CompanyPage({ dataset, onBack, onCharts, onDcf, onCompare }: { dataset:
           <div className="table-scroll pershare-history"><SimpleFinancialTable periods={annual.slice(-10)} metrics={[...VIEW_METRICS.pershare]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/></div></>
         : <p className="simple-state">No per-share figures: {dataset.company.name} publishes no combined diluted share count. Companies with several share classes tag each class separately, and the SEC endpoint carries only undimensioned facts.</p>}
     </section>
-      <section id="margins" className="plain-section"><SectionTitle title="Margins" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowMargin")}/><CurrentAndAverageTable periods={annual} metrics={[...VIEW_METRICS.margins]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/></section>
-      <section id="capital" className="plain-section"><SectionTitle title="Capital Allocation" onCharts={() => onCharts(dataset.company.ticker, "dilutedShares")}/><CurrentAndAverageTable periods={annual} metrics={["dilutedShares", "shareCountChange", "shareRepurchases", "shareIssuance", "dividendsPaid", "stockBasedCompensation"]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/></section>
       <section id="growth" className="plain-section"><SectionTitle title="Growth & Cash Quality" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowPerShare")}/><GrowthQuality dataset={dataset} annual={annual}/></section>
     </div>}
 
-    {tab === "balance" && <section id="balance" className="plain-section"><SectionTitle title="Balance Sheet" onCharts={() => onCharts(dataset.company.ticker, "totalAssets")}/>
-      <p className="section-note">What the company owns, what it owes, and whether the difference is comfortable. A quality business with a fragile balance sheet is a different proposition.</p>
-      <Suspense fallback={<p className="simple-state">Loading…</p>}><BalanceSheetPanel dataset={dataset}/></Suspense></section>}
+    {tab === "margins" && <section id="margins" className="plain-section"><SectionTitle title="Margins" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowMargin")}/><CurrentAndAverageTable periods={annual} metrics={[...VIEW_METRICS.margins]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/></section>}
 
-    {tab === "valuation" && <section id="valuation" className="plain-section"><SectionTitle title="Valuation" onCharts={() => onCharts(dataset.company.ticker, "stockPrice")}/><ValuationTable dataset={dataset} price={price}/></section>}
+    {tab === "capital" && <section id="capital" className="plain-section"><SectionTitle title="Capital Allocation" onCharts={() => onCharts(dataset.company.ticker, "dilutedShares")}/><CurrentAndAverageTable periods={annual} metrics={["dilutedShares", "shareCountChange", "shareRepurchases", "shareIssuance", "dividendsPaid", "stockBasedCompensation"]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/></section>}
+
+    {tab === "valuation" && <section id="valuation" className="plain-section"><SectionTitle title="Valuation" onCharts={() => onCharts(dataset.company.ticker, "stockPrice")}/><ValuationTable stats={valuationStats} error={valuationError}/></section>}
 
     {tab === "sources" && <section id="sources" className="plain-section"><h2>Sources & Data Quality</h2><table><tbody><tr><th>Fundamentals</th><td>SEC EDGAR Company Facts</td></tr><tr><th>Market data</th><td>Yahoo Finance adjusted close</td></tr><tr><th>Validation</th><td>{dataset.quality?.lastValidatedAt?.slice(0, 10) ?? dataset.retrievedAt.slice(0, 10)}</td></tr><tr><th>Coverage</th><td>{dataset.quality?.coverage.map((item) => `${item.periodicity}: ${item.periodCount}`).join(" · ") ?? `${dataset.periods.length} periods`}</td></tr></tbody></table>{dataset.warnings.length ? <ul>{dataset.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : <p>No active data warnings.</p>}</section>}
     {evidence && <EvidenceDialog evidence={evidence} onClose={() => setEvidence(null)}/>}
@@ -506,6 +525,13 @@ function GrowthQuality({ dataset, annual }: { dataset: CompanyDataset; annual: F
   const priceCagr = (horizon: Horizon) => {
     if (!bars?.length) return { value: null, reason: bars ? "Market history unavailable" : "Loading" };
     const end = bars.at(-1)!;
+    // "Max" starts at the first session there is, so there is no anniversary
+    // to look for and no window to fall short of.
+    if (horizon === "max") {
+      const first = bars[0];
+      return first === end ? { value: null, reason: "Only one session of history" }
+        : { value: cagrBetweenDates(first.value, end.value, first.date, end.date).value, reason: undefined };
+    }
     const target = `${Number(end.date.slice(0, 4)) - horizon}${end.date.slice(4)}`;
     const start = bars.find((bar) => bar.date >= target);
     if (!start || start.date > `${Number(target.slice(0, 4)) + 1}${target.slice(4)}`) return { value: null, reason: `Only ${((Date.parse(end.date) - Date.parse(bars[0].date)) / (365.2425 * 86_400_000)).toFixed(0)} years of prices` };
@@ -551,10 +577,9 @@ function CurrentAndAverageTable({ periods, metrics, onOpen, onCharts, currencyCo
   return <table><thead><tr><th>Metric</th><th>Current</th><th>5Y average</th><th>Period</th></tr></thead><tbody>{metrics.map((metric) => { const values = periods.slice(-5).map((period) => derivedValue(period, metric)).filter((value): value is number => value != null && Number.isFinite(value)); const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null; return <tr key={metric}><th><MetricName metric={metric} label={METRICS[metric]?.label ?? metric} onCharts={onCharts} onOpen={() => onOpen(metric, latest)}/></th><td>{metricDisplay(derivedValue(latest, metric), metric, currencyCode)}</td><td>{metricDisplay(average, metric, currencyCode)}</td><td>{latest.periodEnd}</td></tr>; })}</tbody></table>;
 }
 
-function ValuationTable({ dataset, price }: { dataset: CompanyDataset; price: PricePoint | null }) {
-  const ttm = useMemo(() => sortedPeriods(dataset, "ttm"), [dataset]); const [points, setPoints] = useState<Record<string, PricePoint | null>>({}); const [error, setError] = useState(""); const dates = useMemo(() => [...new Set([...ttm.map((period) => period.filingDate), new Date().toISOString().slice(0, 10)])], [ttm]);
-  useEffect(() => { let active = true; fetch(`/api/prices/${dataset.company.ticker}?dates=${dates.join(",")}&published=1`).then(async (response) => { const payload = await response.json() as { points?: Array<{ requestedDate: string; point?: PricePoint }>; error?: string }; if (!response.ok) throw new Error(payload.error || "Valuation history unavailable"); if (active) setPoints(Object.fromEntries((payload.points ?? []).map((item) => [item.requestedDate, item.point ?? null]))); }).catch((cause) => active && setError(cause instanceof Error ? cause.message : "Valuation history unavailable")); return () => { active = false; }; }, [dataset.company.ticker, dates]);
-  const latest = ttm.at(-1) ?? sortedPeriods(dataset, "annual").at(-1); const current = latest && price ? valuationSnapshot(latest, price) : null; const history = buildValuationHistory(ttm, points); const stats = valuationStatistics(history, "priceToFreeCashFlow", current?.metrics.priceToFreeCashFlow ?? null, 5);
+function ValuationTable({ stats, error }: { stats: ReturnType<typeof valuationStatistics>; error: string }) {
+  // The page already fetched this history once and computed these statistics;
+  // fetching them again here was a duplicate request for the same answer.
   if (error) return <p className="simple-state">{error}. Fundamental data remains available.</p>;
   return <table><thead><tr><th>Metric</th><th>Current</th><th>AVG 5Y</th><th>Median 5Y</th><th>Premium / Discount</th><th>Percentile</th></tr></thead><tbody><tr><th>Price / Free cash flow</th><td>{ratio(stats.current)}</td><td>{ratio(stats.average)}</td><td>{ratio(stats.median)}</td><td>{percent(stats.premiumToAverage)}</td><td>{stats.percentile == null ? "—" : `${(stats.percentile * 100).toFixed(0)}%`}</td></tr></tbody></table>;
 }

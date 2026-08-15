@@ -1,7 +1,17 @@
 import { cagrForPeriods, derivedValue, investedCapital, nopat } from "./finance";
 import type { FinancialPeriod } from "./types";
 
-export type Horizon = 5 | 10;
+/**
+ * The windows a compounder is judged over.
+ *
+ * Five and ten years alone flatter a company whose good decade began recently
+ * and hide one whose best years are behind it. Twenty years and the full
+ * available history are what separate a durable business from a cyclical one,
+ * and three years is what says whether it is still working now.
+ */
+export type Horizon = 3 | 5 | 10 | 15 | 20 | "max";
+/** The windows that mean a fixed number of years, for the checks that need one. */
+export type NumericHorizon = 3 | 5 | 10 | 15 | 20;
 
 export interface CagrCell {
   value: number | null;
@@ -27,15 +37,15 @@ const GROWTH_ROWS: Array<[string, string]> = [
   ["stockPrice", "Share price"],
 ];
 
-export const HORIZONS: Horizon[] = [5, 10];
+export const HORIZONS: Horizon[] = [3, 5, 10, 15, 20, "max"];
 
 function cell(periods: FinancialPeriod[], metric: string, horizon: Horizon): CagrCell {
   const usable = periods.filter((period) => derivedValue(period, metric) != null);
   if (usable.length < 2) return { value: null, reason: "Fewer than two reported periods", years: usable.length };
   const span = usable.length - 1;
-  if (span < horizon) return { value: null, reason: `Only ${span} year${span === 1 ? "" : "s"} of history`, years: span };
+  if (horizon !== "max" && span < horizon) return { value: null, reason: `Only ${span} year${span === 1 ? "" : "s"} of history`, years: span };
   const result = cagrForPeriods(periods, metric, horizon);
-  return { value: result.value, reason: result.value == null ? "Endpoint is zero or negative" : undefined, years: horizon };
+  return { value: result.value, reason: result.value == null ? "Endpoint is zero or negative" : undefined, years: horizon === "max" ? Math.round(result.years) : horizon };
 }
 
 /**
@@ -71,7 +81,7 @@ export interface ConsistencyResult {
  * rather than patched around, because a company that lost money is exactly the
  * case the number is meant to expose.
  */
-export function growthConsistency(periods: FinancialPeriod[], metric: string, horizon?: Horizon): ConsistencyResult {
+export function growthConsistency(periods: FinancialPeriod[], metric: string, horizon?: NumericHorizon): ConsistencyResult {
   const ordered = [...periods].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
   const windowed = horizon ? ordered.slice(-(horizon + 1)) : ordered;
   const values = windowed.map((period) => derivedValue(period, metric)).filter((value): value is number => value != null && Number.isFinite(value));
@@ -142,7 +152,7 @@ function gapCallout(horizon: Horizon): CalloutDefinition {
   };
 }
 
-function consistencyCallout(metric: string, name: string, horizon: Horizon): CalloutDefinition {
+function consistencyCallout(metric: string, name: string, horizon: NumericHorizon): CalloutDefinition {
   return {
     id: `consistency-${metric}-${horizon}`, label: `${name} consistency · ${horizon}Y`,
     compute: (annual) => {
@@ -167,7 +177,7 @@ function cagrCallout(metric: string, name: string, horizon: Horizon): CalloutDef
   };
 }
 
-function roiicCallout(horizon: Horizon): CalloutDefinition {
+function roiicCallout(horizon: NumericHorizon): CalloutDefinition {
   return {
     id: `roiic-${horizon}`, label: `Incremental ROIC · ${horizon}Y`,
     compute: (annual) => {
@@ -255,7 +265,7 @@ export interface IncrementalReturn {
  * negative denominator would flip the sign of a perfectly ordinary result — so
  * it is reported as not measurable instead.
  */
-export function incrementalReturn(annual: FinancialPeriod[], horizon: Horizon = 5): IncrementalReturn {
+export function incrementalReturn(annual: FinancialPeriod[], horizon: NumericHorizon = 5): IncrementalReturn {
   const ordered = [...annual].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
   const usable = ordered.filter((period) => nopat(period) != null && investedCapital(period) != null);
   if (usable.length < 2) return { value: null, nopatChange: null, capitalChange: null, reason: "Needs two years with both profit and capital" };

@@ -547,3 +547,10 @@ tbody tr:last-child > * { border-bottom: 0; }
 .home-shortcuts b { font-size: 13px; font-weight: 650; }
 .home-shortcuts small { color: var(--muted); font-size: 11px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-shortcuts em { color: var(--accent); font-size: 10px; font-style: normal; }
+
+/* --- Quality Overview ----------------------------------------------------- */
+.quality-overview th[scope="row"] { font-weight: 500; white-space: nowrap; }
+.quality-overview td:nth-child(2) { font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; }
+.quality-note { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.positive-text { color: var(--positive); }
+.negative-text { color: var(--danger); }
