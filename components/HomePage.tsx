@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { derivedValue } from "@/lib/finance";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, PricePoint } from "@/lib/types";
@@ -51,11 +51,34 @@ export function HomePage({ watchlist, datasets, prices, loading, onOpen, onImpor
 }) {
   const [query, setQuery] = useState("");
   const [remote, setRemote] = useState<CompanyProfile[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [recent, setRecent] = useState<string[]>([]);
+  const [recent] = useState<string[]>(() => readRecent());
   const input = useRef<HTMLInputElement>(null);
+  const debounce = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const inFlight = useRef(0);
 
-  useEffect(() => { setRecent(readRecent()); }, []);
+  /**
+   * Typing is an event, so the SEC lookup happens here rather than in an
+   * effect: nothing is being synchronised with an external system, the reader
+   * asked a question. The index is only consulted for what the watchlist could
+   * not answer, and only once enough has been typed for the answer to mean
+   * something. A stale response is discarded by sequence number.
+   */
+  function search(next: string) {
+    setQuery(next);
+    clearTimeout(debounce.current);
+    const trimmed = next.trim().toLowerCase();
+    if (trimmed.length < 2) { setRemote([]); return; }
+    const sequence = ++inFlight.current;
+    debounce.current = setTimeout(() => {
+      fetch(`/api/resolve?q=${encodeURIComponent(trimmed)}`)
+        .then(async (response) => {
+          const payload = await response.json();
+          if (sequence === inFlight.current) setRemote(Array.isArray(payload) ? payload.slice(0, 8) : []);
+        })
+        .catch(() => { if (sequence === inFlight.current) setRemote([]); });
+    }, 250);
+  }
+
 
   const marketCapOf = (ticker: string, currency: string): number | null => {
     const dataset = datasets[ticker];
@@ -78,23 +101,6 @@ export function HomePage({ watchlist, datasets, prices, loading, onOpen, onImpor
     // marketCapOf reads datasets and prices, which are in the dependency list.
   }, [watchlist, needle, datasets, prices]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The SEC index is only consulted for what the watchlist could not answer,
-  // and only once the reader has typed enough for the answer to mean anything.
-  useEffect(() => {
-    if (needle.length < 2) { setRemote([]); return; }
-    let active = true;
-    const timer = setTimeout(() => {
-      setSearching(true);
-      fetch(`/api/resolve?q=${encodeURIComponent(needle)}`)
-        .then(async (response) => {
-          const payload = await response.json();
-          if (active) setRemote(Array.isArray(payload) ? payload.slice(0, 8) : []);
-        })
-        .catch(() => active && setRemote([]))
-        .finally(() => active && setSearching(false));
-    }, 250);
-    return () => { active = false; clearTimeout(timer); };
-  }, [needle]);
 
   const known = new Set(local.map((row) => row.ticker));
   const remoteRows: Row[] = remote
@@ -119,7 +125,7 @@ export function HomePage({ watchlist, datasets, prices, loading, onOpen, onImpor
           ref={input}
           type="search"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => search(event.target.value)}
           placeholder="Search a company or ticker"
           aria-label="Search a company or ticker"
           autoComplete="off"
@@ -141,7 +147,7 @@ export function HomePage({ watchlist, datasets, prices, loading, onOpen, onImpor
           <span className="home-result-meta">{row.exchange} · {row.currency}</span>
           <span className="home-result-cap">{row.marketCap == null ? (row.onWatchlist ? "" : "Import") : money(row.marketCap, row.currency)}</span>
         </button>)}
-        {!results.length && <p className="home-result-empty">{searching ? "Searching SEC filings…" : `Nothing found for “${query}”.`}</p>}
+        {!results.length && <p className="home-result-empty">{`Nothing found for “${query}” in your watchlist or in SEC filings.`}</p>}
       </div>}
     </div>
 

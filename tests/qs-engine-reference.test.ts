@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-// @ts-expect-error — the screener is plain ES modules served as static assets,
-// deliberately outside the typed application. Importing it here is the point:
-// the test exercises the shipped file, not a copy of it.
+// The screener is plain ES modules served as static assets, deliberately
+// outside the typed application. Importing the shipped files here is the
+// point: the test exercises what ships, not a copy of it.
 import { analyser, calculerScores, trier } from "../public/qs/js/qs-engine.js";
-// @ts-expect-error — same.
 import { METRIQUES, PILIERS, POIDS_PILIERS, PRESETS } from "../public/qs/js/qs-config.js";
 
 /**

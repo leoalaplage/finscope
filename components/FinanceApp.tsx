@@ -103,9 +103,6 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   const [view, setView] = useState<MainView>("home");
   const [secondary, setSecondary] = useState<SecondaryView>(null);
   const [managerOpen, setManagerOpen] = useState(false);
-  // The landing is a search box and the watchlist. The ranking table is still
-  // one click away for anyone comparing the whole list at once.
-  const [ranking, setRanking] = useState(false);
   // Prices for the search results only. The watchlist table fetches its own.
   const [homePrices, setHomePrices] = useState<Record<string, PricePoint | null>>({});
   const loadedForPricing = Object.keys(datasets).sort().join("|");
@@ -146,7 +143,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   }, []);
 
   function navigate(next: MainView) {
-    setSecondary(null); setChartSeed(undefined); setRanking(false); setView(next);
+    setSecondary(null); setChartSeed(undefined); setView(next);
     history.replaceState(null, "", `/?ticker=${dataset.company.ticker}&view=${next}`);
     window.scrollTo({ top: 0 });
   }
