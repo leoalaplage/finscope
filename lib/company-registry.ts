@@ -4,7 +4,7 @@ const us = (profile: Omit<CompanyProfile, "currency" | "resolutionStatus" | "reg
   ...profile, currency: "USD", regulatoryId: `CIK ${profile.cik}`, resolutionStatus: "verified", businessType: profile.businessType ?? "operating",
 });
 
-/** Exact initial watchlist requested for AapWire. Order is intentional. */
+/** Exact initial watchlist requested for FinScope. Order is intentional. */
 export const DEFAULT_WATCHLIST: CompanyProfile[] = [
   us({ name: "NVIDIA Corporation", ticker: "NVDA", yahooTicker: "NVDA", cik: "0001045810", exchange: "NASDAQ", sector: "Semiconductors", description: "Accelerated computing platforms and software.", stockSplits: [{ date: "2021-07-20", ratio: 4 }, { date: "2024-06-10", ratio: 10 }] }),
   us({ name: "Apple Inc.", ticker: "AAPL", yahooTicker: "AAPL", cik: "0000320193", exchange: "NASDAQ", sector: "Technology", description: "Consumer technology, devices and services.", stockSplits: [{ date: "2014-06-09", ratio: 7 }, { date: "2020-08-31", ratio: 4 }] }),

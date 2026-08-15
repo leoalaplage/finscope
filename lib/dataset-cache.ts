@@ -29,12 +29,8 @@ import { datasetCache } from "./runtime-env";
  * v11: a dividend per share tagged as a rate against every context is rebuilt
  *     from its quarters, and a share count is recovered from the dividend for
  *     filers publishing neither a share count nor diluted earnings per share.
- * v12: a quarter uses the concept its own annual figure uses. Mastercard tags
- *     its quarters with a gross contract-revenue concept while its year uses
- *     net `Revenues`, so its quarterly and trailing revenue — and every margin,
- *     per-share and valuation figure built on one — was about 40% too high.
  */
-export const KEY_VERSION = "v12";
+export const KEY_VERSION = "v11";
 
 /** A day. The filings behind a dataset change quarterly at most. */
 export const CACHE_SECONDS = 86_400;
@@ -94,7 +90,7 @@ export async function warmWatchlist(
     for (let attempt = 0; attempt < retries; attempt++) {
       if (attempt > 0) await wait(retryMs);
       try {
-        const response = await fetch(new URL(`/api/company/${encodeURIComponent(ticker)}`, origin), { headers: { "X-AapWire-Warm": "1" } });
+        const response = await fetch(new URL(`/api/company/${encodeURIComponent(ticker)}`, origin), { headers: { "X-FinScope-Warm": "1" } });
         if (response.ok) { await response.arrayBuffer(); reason = ""; break; }
         reason = `HTTP ${response.status}`;
       } catch (error) {

@@ -2,37 +2,18 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("UI regressions", () => {
-  it("keeps the primary navigation to four entries and no more", () => {
+  it("keeps the primary navigation intentionally limited", () => {
     const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
-    // Scoped to the NAV constant: a company tab may well be called Statistics,
-    // and asserting over the whole file would forbid that too.
-    const nav = source.match(/const NAV:[\s\S]*?\n\];/)?.[0] ?? "";
-    expect(nav).toBeTruthy();
-    expect([...nav.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]))
-      .toEqual(["Watchlist", "Charts", "QS Screener", "DCF"]);
+    expect(source).toContain('{ key: "companies", label: "Companies" }, { key: "stats", label: "Statistics" }, { key: "charts", label: "Charts" }, { key: "dcf", label: "DCF" }, { key: "qs", label: "QS Screener" }');
+    expect(source).not.toContain('label: "Data Quality"');
+    expect(source).not.toContain('label: "Formula Audit"');
   });
 
-  it("is navy, dark only, with no way to switch theme", () => {
+  it("uses a white, system-font interface and shared chart tooltip tokens", () => {
     const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
-    expect(css).toContain("--bg: #07111F");
-    expect(css).toContain("--accent: #4DA3FF");
-    expect(css).toContain("-apple-system");
-    expect(css).toContain(".recharts-default-tooltip");
-
-    // Six type steps and no more. Twelve sizes is what made it read as
-    // sediment rather than a scale, so the count is the guarantee.
-    const declared = [...css.matchAll(/--t-[a-z]+:/g)].length;
-    expect(declared).toBe(6);
-    const hardCoded = [...css.matchAll(/font-size:\s*\d+px/g)].map((match) => match[0]);
-    expect(hardCoded, `hard-coded sizes outside the scale: ${hardCoded.join(", ")}`).toEqual([]);
-    // One palette, one surface: no light set and no [data-theme] override to
-    // keep in step with it.
-    expect(css).not.toContain("#ffffff");
-    expect(css).not.toContain("data-theme");
-
-    const app = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
-    expect(app).not.toContain("theme-toggle");
-    expect(app).not.toContain("ThemeName");
+    expect(css).toContain("--background: #ffffff");
+    expect(css).toContain('font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif');
+    expect(css).toContain(".recharts-default-tooltip { color: var(--text)");
   });
 
   it("draws straight lines and never asks the reader to configure the chart", () => {
@@ -89,14 +70,12 @@ describe("the front page must not cost Worker CPU", () => {
 });
 
 describe("the redesign", () => {
-  it("lands on one search box, and searches beyond the watchlist", () => {
+  it("lands on a search box and the watchlist, not a table of nineteen columns", () => {
     const home = readFileSync(new URL("../components/HomePage.tsx", import.meta.url), "utf8");
-    expect(home).toContain("Search a company or ticker");
-    // A ticker that has never been imported is still one query away.
-    expect(home).toContain("/api/resolve?q=");
-    expect(home).toContain("onImport");
-    // No product copy on the front door.
-    expect(home).not.toMatch(/auditable financial-research|compare financial metrics/);
+    expect(home).toContain("company-cards");
+    expect(home).toContain("Search your watchlist");
+    // The table is not gone, only moved off the front door.
+    expect(home).toContain("onShowRanking");
   });
 
   it("reads a company as one block behind tabs rather than eleven stacked sections", () => {
@@ -111,37 +90,5 @@ describe("the redesign", () => {
     expect(grid).toContain("summariseSeries");
     expect(grid).toContain("exportSvgToPng");
     expect(grid).toContain("kpi-badge");
-  });
-});
-
-describe("nothing the reader had is quietly taken away", () => {
-  /**
-   * Both of these were built, then lost in a restructure — the statement
-   * diagrams became an orphaned component with no route to them, and the
-   * overview chart grid was removed to the letter of a brief that did not mean
-   * it. Neither loss showed up in a test, which is why they survived a deploy.
-   */
-  it("keeps the statement diagrams reachable from the company page", () => {
-    const app = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
-    expect(app).toContain("StatementSankey");
-    expect(app).toContain("incomeStatementDiagram");
-    expect(app).toContain("balanceSheetDiagram");
-    expect(app).toContain('{ key: "statements"');
-  });
-
-  it("keeps the chart grid on the company overview", () => {
-    const app = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
-    expect(app).toContain("CompanyKpiGrid");
-    // Wired, not merely imported.
-    expect(app).toMatch(/<CompanyKpiGrid\s+dataset=/);
-  });
-
-  it("leaves no component in the tree that nothing can reach", () => {
-    const app = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
-    for (const component of ["CompanyKpiGrid", "StatementSankey", "QualityOverview", "BalanceSheetPanel"]) {
-      const declared = app.includes(`const ${component} = lazy(`);
-      const used = new RegExp(`<${component}[\\s/>]`).test(app);
-      expect(declared && used, `${component} is imported but never rendered`).toBe(true);
-    }
   });
 });

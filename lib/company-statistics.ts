@@ -57,7 +57,7 @@ function cagr(annual: FinancialPeriod[], metric: string, years: 3 | 5 | 10): { v
  *
  * Forward-looking blocks — next-twelve-month multiples, price targets, PEG,
  * two-year forward growth, long-term EPS estimates — are absent by construction.
- * Every one of them is a consensus of analyst estimates, and AapWire has no
+ * Every one of them is a consensus of analyst estimates, and FinScope has no
  * estimates provider. Printing them would mean inventing them.
  */
 export function companyStatistics(dataset: CompanyDataset, price: PricePoint | null): StatGroup[] {

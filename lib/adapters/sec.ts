@@ -362,7 +362,7 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
   if (!company.cik) throw new Error(company.resolutionNote || "No reliable regulatory identifier is available for this instrument.");
   const retrievedAt = new Date().toISOString();
   const response = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${company.cik}.json`, {
-    headers: { "User-Agent": process.env.SEC_USER_AGENT || "AapWire research application contact@example.com", Accept: "application/json" },
+    headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com", Accept: "application/json" },
     next: { revalidate: 21_600 },
   });
   if (!response.ok) throw new Error(`SEC returned ${response.status}.`);
@@ -371,7 +371,7 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
 
 interface SecTickerEntry { cik_str: number; ticker: string; title: string }
 export async function searchSecCompanies(query: string) {
-  const response = await fetch("https://www.sec.gov/files/company_tickers.json", { headers: { "User-Agent": process.env.SEC_USER_AGENT || "AapWire research application contact@example.com" }, next: { revalidate: 86_400 } });
+  const response = await fetch("https://www.sec.gov/files/company_tickers.json", { headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" }, next: { revalidate: 86_400 } });
   if (!response.ok) throw new Error(`SEC company registry returned ${response.status}.`);
   const entries = Object.values(await response.json() as Record<string, SecTickerEntry>); const needle = query.trim().toUpperCase();
   return entries.filter((entry) => entry.ticker.includes(needle) || entry.title.toUpperCase().includes(needle)).slice(0, 12).map((entry) => ({ name: entry.title, ticker: entry.ticker, cik: String(entry.cik_str).padStart(10,"0"), regulatoryId: `CIK ${String(entry.cik_str).padStart(10,"0")}`, exchange: "US exchange · verify in Yahoo", currency: "USD", yahooTicker: entry.ticker, sector: "Unclassified", description: "Dynamically resolved from the SEC company registry.", resolutionStatus: "partial" as const, resolutionNote: "CIK verified by SEC; exchange and instrument identity should be confirmed before relying on market data.", businessType: "operating" as const }));

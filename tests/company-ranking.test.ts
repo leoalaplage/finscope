@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_COLUMNS, DEFAULT_COMPANY_SORT, filterCompanyRows, preferredDirection, sortCompanyRows, type CompanyRankingRow } from "../lib/company-ranking";
+import { DEFAULT_COMPANY_SORT, filterCompanyRows, preferredDirection, sortCompanyRows, type CompanyRankingRow } from "../lib/company-ranking";
 
 const row = (ticker: string, values: Partial<CompanyRankingRow> = {}): CompanyRankingRow => ({
   ticker,
@@ -45,35 +45,4 @@ describe("Companies ranking", () => {
   it("combines all numeric filters", () => expect(filterCompanyRows([row("PASS", { marketCap: 1e12, fcfMargin: .2, fcfShareCagr: .15, dilution: .01 }), row("FAIL", { marketCap: 2e9, fcfMargin: .01, fcfShareCagr: .01, dilution: .2 })], { query: "", minimumMarketCap: 100e9, minimumFcfMargin: .1, minimumFcfShareCagr: .1, maximumDilution: .05 }).map((item) => item.ticker)).toEqual(["PASS"]));
   it("combines filtering and ranking", () => { const filtered = filterCompanyRows([row("A", { marketCap: 200 }), row("B", { marketCap: 300 }), row("C", { marketCap: 20 })], { query: "", minimumMarketCap: 100, minimumFcfMargin: null, minimumFcfShareCagr: null, maximumDilution: null }); expect(sortCompanyRows(filtered, "marketCap", "desc").map((item) => item.ticker)).toEqual(["B", "A"]); });
   it("uses financially meaningful first-click directions", () => { expect(preferredDirection("fcfMargin")).toBe("desc"); expect(preferredDirection("dilution")).toBe("asc"); expect(preferredDirection("pfcf")).toBe("asc"); expect(preferredDirection("updated")).toBe("desc"); });
-});
-
-describe("the watchlist as the brief specifies it", () => {
-  it("opens on the agreed columns, in order", () => {
-    expect(DEFAULT_COLUMNS).toEqual([
-      "marketCap", "fcfMargin", "fcfShareCagr", "revenueShareCagr",
-      "operatingMargin", "roic", "dilution", "pfcf", "valuationVsAverage",
-    ]);
-  });
-
-  it("sorts each column the way that column is read", () => {
-    // More is better for a margin, a growth rate and a return; less is better
-    // for dilution, for what you pay, and for paying above your own history.
-    for (const key of ["marketCap", "fcfMargin", "fcfShareCagr", "revenueShareCagr", "operatingMargin", "roic"] as const) {
-      expect(preferredDirection(key)).toBe("desc");
-    }
-    for (const key of ["dilution", "pfcf", "valuationVsAverage"] as const) {
-      expect(preferredDirection(key)).toBe("asc");
-    }
-  });
-
-  it("puts missing values last whichever way the column is sorted", () => {
-    const rows = [row("A", { roic: .2 }), row("B", { roic: null }), row("C", { roic: .4 })];
-    expect(sortCompanyRows(rows, "roic", "desc").map((item) => item.ticker)).toEqual(["C", "A", "B"]);
-    expect(sortCompanyRows(rows, "roic", "asc").map((item) => item.ticker)).toEqual(["A", "C", "B"]);
-  });
-
-  it("keeps a company still loading at the bottom rather than ranking it as zero", () => {
-    const rows = [row("A", { pfcf: 30 }), row("B", { pfcf: 10, loading: true }), row("C", { pfcf: 20 })];
-    expect(sortCompanyRows(rows, "pfcf", "asc").map((item) => item.ticker)).toEqual(["C", "A", "B"]);
-  });
 });

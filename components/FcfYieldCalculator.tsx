@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { chartPalette, niceTicks } from "@/lib/charting";
+import { chartPalette, niceTicks, type ThemeName } from "@/lib/charting";
 import { cagrForPeriods } from "@/lib/finance";
 import { calculateFcfYieldModel, fcfYieldBase, multipleToYield, suggestedGrowth, yieldToMultiple, type FcfYieldInputs } from "@/lib/fcf-yield-model";
 import type { CompanyDataset, PricePoint } from "@/lib/types";
@@ -33,7 +33,7 @@ function Field({ label, value, onChange, suffix, step = 0.1, hint }: {
  * top, the assumptions down the left, and what those assumptions imply on the
  * right, so changing a number and watching the answer move takes no scrolling.
  */
-export function FcfYieldCalculator({ dataset, price }: { dataset: CompanyDataset; price: PricePoint | null }) {
+export function FcfYieldCalculator({ dataset, price, theme }: { dataset: CompanyDataset; price: PricePoint | null; theme: ThemeName }) {
   const code = dataset.company.currency;
   const currentPrice = price ? price.priceClose ?? price.close : null;
   const base = useMemo(() => fcfYieldBase(dataset.periods, currentPrice), [dataset, currentPrice]);
@@ -50,7 +50,7 @@ export function FcfYieldCalculator({ dataset, price }: { dataset: CompanyDataset
   }));
 
   const result = useMemo(() => calculateFcfYieldModel(inputs, currentPrice), [inputs, currentPrice]);
-  const palette = chartPalette();
+  const palette = chartPalette(theme);
   const patch = (next: Partial<FcfYieldInputs>) => setInputs((current) => ({ ...current, ...next }));
 
   if (!base) return <p className="simple-state">No reported period carries free cash flow per share for this company.</p>;

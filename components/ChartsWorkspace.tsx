@@ -4,12 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Area, Bar, Brush, CartesianGrid, ComposedChart, LabelList, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AreaChart as AreaIcon, BarChart3, Brush as BrushIcon, Eye, EyeOff, LineChart as LineIcon, Palette, X } from "lucide-react";
 import { createAutoChartPlan, familyLabel, formatChartValue, indexToZero, periodChange, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
-import { chartDomain, niceTicks } from "@/lib/charting";
+import { chartDomain, niceTicks, type ThemeName } from "@/lib/charting";
 import { derivedValue, safeDivide } from "@/lib/finance";
 import { recessionBands, snapToAxis, splitMarks } from "@/lib/chart-annotations";
 import { addCompany, addMetric, applyPreset, CHART_PRESETS, removeCompany, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
-import { validateSeries as validateChartSeries } from "@/lib/chart-spec";
 import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservations, marketObservations, providerMarketFrequency, MARKET_SERIES_METRICS } from "@/lib/mixed-series";
 import { CHART_METRIC_GROUPS as METRIC_GROUPS, METRICS, VALUATION_METRICS } from "@/lib/metrics";
 import { analyzeVisibleSeries } from "@/lib/series-analysis";
@@ -73,7 +72,7 @@ function parseStoredCharts(ticker: string): WorkspaceChart[] {
   catch { return defaultCharts(ticker); }
 }
 
-export function ChartsWorkspace({ initialData, seed }: { initialData: CompanyDataset; seed?: { ticker?: string; metric?: string; nonce: number; style?: SeriesStyle; frequency?: SeriesFrequency } }) {
+export function ChartsWorkspace({ initialData, seed, theme = "dark" }: { initialData: CompanyDataset; seed?: { ticker?: string; metric?: string; nonce: number; style?: SeriesStyle; frequency?: SeriesFrequency }; theme?: ThemeName }) {
   const [datasets, setDatasets] = useState<Record<string, CompanyDataset>>({ [initialData.company.ticker]: initialData });
   const [companyErrors, setCompanyErrors] = useState<Record<string, string>>({});
   const [charts, setCharts] = useState<WorkspaceChart[]>(() => parseStoredCharts(initialData.company.ticker));
@@ -121,7 +120,7 @@ export function ChartsWorkspace({ initialData, seed }: { initialData: CompanyDat
   return <div className="charts-page">
     <header className="page-heading"><div><h1>Charts</h1><p>Pick companies and metrics. Each unit gets its own panel on a shared date axis. Frequency, series type, colors and scales are chosen from the metrics themselves — open <b>Series options</b> to override any of them, or to overlay two units on one plot area.</p></div><button onClick={addChart}>Add chart</button></header>
     <div className="workspace-charts">{charts.map((chart, index) => <ChartEditor
-      key={chart.id} chart={chart} datasets={datasets} companyErrors={companyErrors} fallbackTicker={initialData.company.ticker} onlyChart={charts.length === 1}
+      key={chart.id} chart={chart} datasets={datasets} companyErrors={companyErrors} fallbackTicker={initialData.company.ticker} onlyChart={charts.length === 1} theme={theme}
       onChange={(update) => updateChart(chart.id, update)} onRetryCompany={retryCompany}
       onDuplicate={() => { const id = newChartId(); setCharts((current) => [...current.slice(0, index + 1), duplicateChart(chart, id), ...current.slice(index + 1)]); }}
       onMove={(direction) => setCharts((current) => moveItem(current, index, direction))}
@@ -132,8 +131,8 @@ export function ChartsWorkspace({ initialData, seed }: { initialData: CompanyDat
   </div>;
 }
 
-function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart, onChange, onRetryCompany, onDuplicate, onMove, onRemove, canMoveUp, canMoveDown }: {
-  chart: WorkspaceChart; datasets: Record<string, CompanyDataset>; companyErrors: Record<string, string>; fallbackTicker: string; onlyChart: boolean;
+function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart, theme, onChange, onRetryCompany, onDuplicate, onMove, onRemove, canMoveUp, canMoveDown }: {
+  chart: WorkspaceChart; datasets: Record<string, CompanyDataset>; companyErrors: Record<string, string>; fallbackTicker: string; onlyChart: boolean; theme: ThemeName;
   onChange: (update: (chart: WorkspaceChart) => WorkspaceChart) => void; onRetryCompany: (ticker: string) => void; onDuplicate: () => void; onMove: (direction: -1 | 1) => void; onRemove: () => void; canMoveUp: boolean; canMoveDown: boolean;
 }) {
   const [bars, setBars] = useState<Record<string, MarketBar[]>>({});
@@ -153,7 +152,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
   const plans = useMemo(() => {
     const automatic = createAutoChartPlan(chart.series.map((series) => ({ id: series.uid, ticker: series.ticker, metric: series.metric, dataset: datasets[series.ticker],
       // Per-series choice first, then the chart-wide one, then the metric decides.
-      frequency: series.frequency ?? (chart.frequency && !MARKET_SERIES_METRICS.has(series.metric) ? chart.frequency : undefined) })));
+      frequency: series.frequency ?? (chart.frequency && !MARKET_SERIES_METRICS.has(series.metric) ? chart.frequency : undefined) })), theme);
     // Assigning an axis by hand only means something inside one plot area, so
     // the first manual axis collapses the automatic panel split. Left and right
     // then refer to the two axes the reader can actually see.
@@ -170,7 +169,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
         : series.axis ?? (overlay && families.indexOf(plan.family) === 1 ? "right" as const : plan.axis);
       return { ...plan, style: (series.style ?? plan.type) as SeriesStyle, axis, color: series.color ?? plan.color, panel: overlay ? 0 : plan.panel };
     });
-  }, [chart.series, chart.values, chart.overlay, chart.frequency, datasets]);
+  }, [chart.series, chart.values, chart.overlay, chart.frequency, datasets, theme]);
 
   const marketKey = plans.filter((plan) => providerMarketFrequency(plan.frequency)).map((plan) => `${plan.ticker}:${plan.frequency}`).sort().join("|");
   useEffect(() => {
@@ -244,25 +243,10 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     // screen rather than the first the provider ever published.
     const shaped = chart.values === "indexed" ? indexToZero(windowed) : chart.values === "change" ? periodChange(windowed) : windowed;
     const validation = validateSeries(shaped, plan.frequency, dataset.company.resolutionStatus !== "unresolved");
-    // A second pass with the stricter rules: unusable dates, infinities from a
-    // division upstream, two facts claiming one period, a frequency the metric
-    // cannot have, a split the registry never recorded. It drops the points it
-    // must and reports the rest, so one bad series costs its own points instead
-    // of taking the chart down.
-    const strict = validateChartSeries(
-      { id: series.uid, ticker: series.ticker, metric: series.metric, frequency: plan.frequency,
-        transformation: chart.values === "indexed" ? "indexed" : chart.values === "change" ? "percentChange" : "none" },
-      validation.observations,
-    );
-    const problem = strict.problems[0]?.detail;
     return {
-      series, plan, currency,
-      observations: strict.usable ? strict.observations : [],
-      status: !strict.usable ? "No data" : validation.valid ? (validation.invalidCount || strict.problems.length ? "Partial" : "Ready") : "No data",
-      warning: !strict.usable
-        ? strict.reason
-        : (validation.valid ? validation.reason : undefined) ?? problem
-          ?? (windowed.length && chart.values === "indexed" && !shaped.length ? "Cannot rebase: the first value is zero or negative" : undefined),
+      series, plan, currency, observations: validation.observations,
+      status: validation.valid ? validation.invalidCount ? "Partial" : "Ready" : "No data",
+      warning: validation.valid ? validation.reason : windowed.length ? (chart.values === "indexed" && !shaped.length ? "Cannot rebase: the first value is zero or negative" : validation.reason) : undefined,
     };
   }), [chart.series, chart.values, plans, datasets, companyErrors, bars, marketErrors, marketLoading, periodPrices, from, to]);
 
@@ -500,7 +484,7 @@ function endLabel(uid: string, lastIndex: number, formatter: (value: number) => 
  * Colour picker as a small popover on a chip.
  *
  * "Automatic" is a real choice rather than a colour: it deletes the override so
- * the series follows the palette again, including when a
+ * the series follows the palette again, including when the theme changes or a
  * second company arrives and colour switches from meaning metric to meaning
  * company.
  */

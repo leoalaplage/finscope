@@ -88,15 +88,6 @@ Every ribbon is a filed figure or a subtraction from one. Where a filing does no
 | FCF yield | Free cash flow / Market capitalization | Same matched price period. |
 | Buyback yield | Gross repurchase cash flow / Market capitalization | Separate from effective share-count change. |
 
-## Discounted cash flow
-
-| Rule | Detail |
-|---|---|
-| FCFF | NOPAT + D&A − Capex − Δ working capital. Pre-interest by construction: the cost of debt enters through WACC, and subtracting interest here as well would charge for the debt twice. |
-| Equity value | Enterprise value + Cash − Debt − Other claims. |
-| **Value per share** | Equity value / (today's diluted shares grown by *issuance only*). Free cash flow to the firm already contains the cash a buyback spends, so shrinking the divisor with that same cash counts the repurchase twice — on a ten-year model at 2% of buybacks a year it lifted value per share by 22% out of nothing. Issuance is the opposite case and is real: shares handed to employees never pass through free cash flow, so dilution does belong in the divisor. The projected share count still falls in the table; only the valuation divisor ignores it. |
-| Refusals | The model returns no value when terminal growth is at or above WACC, when WACC is not positive, when the share count is zero, when final-year cash flow is not positive under a perpetual terminal value, or when **any projected intermediate stops being a finite number** — the last case used to return `NaN` with no warning at all. |
-
 ## Period construction
 
 | Rule | Detail |

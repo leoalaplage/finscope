@@ -1,34 +1,54 @@
 /**
  * Categorical series colours, in fixed assignment order.
  *
- * Stepped for the AapWire navy surface (#0F1D30) and verified with the palette
- * validator rather than chosen by eye. All five checks pass: every slot inside
- * the L 0.48-0.67 lightness band, every slot above the chroma floor, the worst
- * adjacent pair separable at delta-E 12.3 under protanopia and deuteranopia and
- * 19.6 for normal vision, and every slot clearing 3:1 contrast against the
- * surface it is drawn on.
+ * These are stepped for a white chart surface and verified with the palette
+ * validator rather than chosen by eye: every slot sits inside the L 0.43–0.77
+ * lightness band, clears the chroma floor, and keeps adjacent pairs separable
+ * under protanopia, deuteranopia and tritanopia (worst adjacent ΔE 9.1) as well
+ * as for normal vision (worst adjacent ΔE 19.6).
  *
- * The order is not decorative. It is the order the validator found to maximise
- * the separation of neighbouring slots, because a reader distinguishes series
- * that sit next to each other in a legend, not series seven apart.
+ * The previous palette was inherited from a dark theme this interface no longer
+ * has. Its first and most-used entry was a fluorescent yellow measuring 1.11:1
+ * against white — a line the reader could barely see.
  *
- * A ninth series is never a generated hue: it folds into "Other" or the chart
- * becomes small multiples.
+ * Slots below 3:1 contrast rely on the direct end-labels and the data table for
+ * relief, which the method requires and this workspace provides.
  */
 export const CHART_PALETTE = [
-  { name: "Blue", value: "#4595E6" },
-  { name: "Green", value: "#1F9268" },
-  { name: "Purple", value: "#B268C9" },
-  { name: "Leaf", value: "#3F9E4F" },
-  { name: "Violet", value: "#7A69DC" },
-  { name: "Amber", value: "#B8851F" },
-  { name: "Magenta", value: "#C55B92" },
-  { name: "Indigo", value: "#5C7CE0" },
+  { name: "Blue", value: "#2a78d6" },
+  { name: "Orange", value: "#eb6834" },
+  { name: "Aqua", value: "#1baf7a" },
+  { name: "Yellow", value: "#eda100" },
+  { name: "Magenta", value: "#e87ba4" },
+  { name: "Green", value: "#008300" },
+  { name: "Violet", value: "#4a3aa7" },
+  { name: "Red", value: "#e34948" },
 ] as const;
 
-/** One surface, one palette. Kept as a function so call sites need not change. */
-export function chartPalette() {
-  return CHART_PALETTE;
+/**
+ * The same eight hues stepped for a dark surface, not an inversion of the light
+ * set. Checked with the validator against #1a1a19: every slot inside the
+ * L 0.48-0.67 band, worst adjacent pair separable at delta-E 8.4 under colour
+ * vision deficiency and 19.3 for normal vision, and — unlike the light set —
+ * every slot clears 3:1 contrast outright.
+ *
+ * Running the light palette against a dark surface fails four slots on
+ * lightness, which is why this exists rather than a filter.
+ */
+export const CHART_PALETTE_DARK = [
+  { name: "Blue", value: "#3987e5" },
+  { name: "Orange", value: "#d95926" },
+  { name: "Aqua", value: "#199e70" },
+  { name: "Yellow", value: "#c98500" },
+  { name: "Magenta", value: "#d55181" },
+  { name: "Green", value: "#008300" },
+  { name: "Violet", value: "#9085e9" },
+  { name: "Red", value: "#e66767" },
+] as const;
+
+export type ThemeName = "light" | "dark";
+export function chartPalette(theme: ThemeName) {
+  return theme === "dark" ? CHART_PALETTE_DARK : CHART_PALETTE;
 }
 
 export type ScaleMode = "zero" | "auto" | "custom" | "log" | "fit";

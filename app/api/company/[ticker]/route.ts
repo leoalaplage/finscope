@@ -32,7 +32,7 @@ export async function GET(_request: Request, context: { params: Promise<{ ticker
 
   try {
     const warm = await cache?.get(key, "stream");
-    if (warm) return new Response(warm, { headers: { ...headers, "X-AapWire-Cache": "hit" } });
+    if (warm) return new Response(warm, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
   } catch {
     // A cache that misbehaves must never take the endpoint down with it.
   }
@@ -45,7 +45,7 @@ export async function GET(_request: Request, context: { params: Promise<{ ticker
     } catch {
       // Storing is best-effort; the reader still gets their answer.
     }
-    return new Response(body, { headers: { ...headers, "X-AapWire-Cache": "miss" } });
+    return new Response(body, { headers: { ...headers, "X-FinScope-Cache": "miss" } });
   } catch (error) {
     const message = error instanceof Error && error.name === "ZodError"
       ? "The SEC response did not match the expected schema."

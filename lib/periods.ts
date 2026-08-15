@@ -114,7 +114,7 @@ function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", 
     provenance: {
       provider: "SEC", sourceUrl: raw.sourceUrl, accession: raw.accession, filingDate: raw.filed,
       retrievedAt: raw.retrievedAt, concept: raw.concept, status: raw.restated ? "restated" : "reported",
-      note: raw.normalizationNote ?? (signChanged ? "Raw cash outflow sign normalized to the AapWire positive-outflow convention; raw value retained." : raw.restated ? "Latest filing selected for a duplicated SEC context with a changed value." : "Directly reported standardized XBRL fact."),
+      note: raw.normalizationNote ?? (signChanged ? "Raw cash outflow sign normalized to the FinScope positive-outflow convention; raw value retained." : raw.restated ? "Latest filing selected for a duplicated SEC context with a changed value." : "Directly reported standardized XBRL fact."),
     },
     validation: raw.sourceConflictValues || signChanged ? {
       status: raw.sourceConflictValues ? "Source conflict" : "Calculated and verified", reason: raw.normalizationNote ?? (signChanged ? "Provider outflow sign normalized." : undefined), rawValue: raw.sourceConflictValues?.find((item)=>item!==raw.value) ?? raw.value,
@@ -219,32 +219,9 @@ function selectAnnual(candidates: RawFinancialFact[]) {
  */
 const sameConcept = (facts: RawFinancialFact[], concept: string) => facts.filter((fact) => fact.concept === concept);
 
-/**
- * The concept a company's own annual figure uses for a metric.
- *
- * A quarter and the year that contains it have to be the same measure, and for
- * some filers they are not. Mastercard tags its quarters with a concept
- * carrying revenue *including* assessed taxes while its annual figure uses
- * `Revenues`, which is net: the four quarters of 2021 summed to 26.7bn against
- * a reported year of 18.9bn, so every quarterly and trailing revenue for the
- * company — and every margin, per-share and valuation figure built on one — was
- * about forty percent too high.
- *
- * The year is the authority. Where the annual concept is also filed quarterly,
- * the quarters use it; where it is not, the preference order still applies and
- * the mismatch is left visible to the invariant that found it.
- */
-function annualConcept(index: FactIndex, metric: MetricKey, fy: number): string | undefined {
-  return selectAnnual(contexts(index, metric, fy, "FY"))?.concept;
-}
-
 function quarterFact(index: FactIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4"): NormalizedFact | undefined {
   const fp = quarter === "Q4" ? "FY" : quarter;
-  const all = contexts(index, metric, fy, fp);
-  const yearConcept = annualConcept(index, metric, fy);
-  const consistent = yearConcept ? sameConcept(all, yearConcept) : [];
-  // Only prefer the year's concept when it actually appears in the quarter.
-  const candidates = consistent.length ? consistent : all;
+  const candidates = contexts(index, metric, fy, fp);
   // FY contexts can contain later comparative quarter facts carrying fp=FY, so
   // a Q4 may not be picked merely because an FY-tagged duration happens to be
   // about ninety days. It is accepted only when it closes the fiscal year: the

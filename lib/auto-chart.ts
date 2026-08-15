@@ -1,4 +1,4 @@
-import { CHART_PALETTE, chartDomain, chartPalette } from "./charting";
+import { CHART_PALETTE, chartDomain, type ThemeName, chartPalette } from "./charting";
 import { validatedDerivedValue } from "./data-quality";
 import { METRICS } from "./metrics";
 import type { CompanyDataset, SeriesFrequency, SeriesObservation } from "./types";
@@ -95,7 +95,7 @@ function planColors(inputs: AutoSeriesInput[], palette: ReadonlyArray<{ value: s
   });
 }
 
-export function createAutoChartPlan(inputs: AutoSeriesInput[]): AutoSeriesPlan[] {
+export function createAutoChartPlan(inputs: AutoSeriesInput[], theme: ThemeName = "light"): AutoSeriesPlan[] {
   const families = [...new Set(inputs.map((item) => unitFamily(item.metric, item.indexed)))];
   // One unit family per panel, always.
   //
@@ -107,7 +107,7 @@ export function createAutoChartPlan(inputs: AutoSeriesInput[]): AutoSeriesPlan[]
   // collapses the panels — but then it is their reading, not ours.
   const panelByFamily = new Map<UnitFamily, number>();
   families.forEach((family, index) => panelByFamily.set(family, families.length > 1 ? index : 0));
-  const colors = planColors(inputs, chartPalette());
+  const colors = planColors(inputs, chartPalette(theme));
   const frequencies = inputs.map((input) => input.frequency ?? automaticFrequency(input.metric, input.dataset));
   // A single market series turns the shared date axis into hundreds of
   // categories, which would squeeze annual bars into invisible hairlines.
