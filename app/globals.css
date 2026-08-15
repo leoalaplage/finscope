@@ -508,3 +508,49 @@ tbody tr:last-child > * { border-bottom: 0; }
 .financial-table th.indented { padding-left: 22px; font-weight: 400; color: var(--muted); }
 .financial-table tr.balance-total { border-top: 1px solid var(--border-strong); }
 .financial-table tr.balance-total th, .financial-table tr.balance-total td { font-weight: 700; }
+
+/* --- Landing: search and watchlist ---------------------------------------- */
+.home { max-width: 1180px; margin: 0 auto; }
+.home-head { margin: 8px 0 20px; }
+.home-head h1 { margin: 0 0 4px; font-size: 30px; letter-spacing: -.02em; }
+.home-head p { margin: 0; color: var(--muted); }
+
+.home-search { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--card); }
+.home-search svg { color: var(--muted); flex: none; }
+.home-search input { flex: 1; min-width: 0; height: 48px; border: 0; background: transparent; font-size: 16px; }
+.home-search input:focus-visible { outline: none; }
+.home-search > button { min-height: 34px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+
+.company-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.company-cards > li { position: relative; }
+.company-card { display: flex; flex-direction: column; gap: 14px; width: 100%; padding: 16px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color .12s ease, transform .12s ease; }
+.company-card:hover, .company-card:focus-visible { border-color: var(--border-strong); transform: translateY(-1px); }
+.company-card-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.company-card-head b { font-size: 17px; letter-spacing: .01em; }
+.company-card-name { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.company-card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.company-card-stats > span { display: flex; flex-direction: column; gap: 1px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.company-card-stats small { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.company-card-state { font-size: 11px; color: var(--muted); }
+.company-card-load { position: absolute; top: 14px; right: 14px; min-height: 26px; padding: 0 10px; font-size: 11px; border-radius: 999px; }
+
+.home-empty { padding: 32px; border: 1px dashed var(--border-strong); border-radius: var(--card-radius); text-align: center; color: var(--muted); }
+.home-empty button { margin-top: 10px; }
+.home-foot { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--border); }
+.home-foot button { border: 0; background: none; padding: 0; color: var(--accent); font-size: 13px; cursor: pointer; min-height: 0; }
+.home-foot button:hover { text-decoration: underline; }
+
+/* --- Company: tabs and one overview block --------------------------------- */
+.company-tabs { display: flex; flex-wrap: wrap; gap: 2px; margin: 18px 0 20px; border-bottom: 1px solid var(--border); }
+.company-tabs button { min-height: 38px; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); font-size: 13px; font-weight: 600; }
+.company-tabs button:hover { color: var(--text); border-color: var(--border-strong); }
+.company-tabs button.active { color: var(--text); border-color: var(--accent); }
+.company-block { display: flex; flex-direction: column; gap: 26px; }
+.company-block > .plain-section { margin: 0; }
+
+/* Each KPI card carries its own trend badge and its own export. */
+.kpi-badge { padding: 2px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpi-badge.down { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+.kpi-card-footer { display: flex; justify-content: flex-end; gap: 6px; padding: 0 12px 10px; }
+.kpi-card-footer button { min-height: 26px; padding: 0 9px; font-size: 11px; border-radius: 999px; color: var(--muted); }
+.kpi-card-footer button:hover { color: var(--text); }

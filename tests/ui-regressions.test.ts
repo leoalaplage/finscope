@@ -68,3 +68,27 @@ describe("the front page must not cost Worker CPU", () => {
     expect(page).toContain('export const dynamic = "force-static"');
   });
 });
+
+describe("the redesign", () => {
+  it("lands on a search box and the watchlist, not a table of nineteen columns", () => {
+    const home = readFileSync(new URL("../components/HomePage.tsx", import.meta.url), "utf8");
+    expect(home).toContain("company-cards");
+    expect(home).toContain("Search your watchlist");
+    // The table is not gone, only moved off the front door.
+    expect(home).toContain("onShowRanking");
+  });
+
+  it("reads a company as one block behind tabs rather than eleven stacked sections", () => {
+    const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    expect(source).toContain("COMPANY_TABS");
+    expect(source).toContain('className="company-block"');
+    expect(source).not.toContain('className="anchor-nav"');
+  });
+
+  it("gives every overview chart a trend badge and its own PNG", () => {
+    const grid = readFileSync(new URL("../components/CompanyKpiGrid.tsx", import.meta.url), "utf8");
+    expect(grid).toContain("summariseSeries");
+    expect(grid).toContain("exportSvgToPng");
+    expect(grid).toContain("kpi-badge");
+  });
+});
