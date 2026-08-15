@@ -250,17 +250,23 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
           setBulkState((current) => ({ ...current, done: current.done + 1, failed }));
         }
       }
-      // A busy Worker can still refuse a cold company outright. A second
-      // attempt usually finds a warm cache entry, so one pass recovers nearly
-      // all of them rather than leaving the reader with unexplained gaps.
-      for (const ticker of retryable.splice(0)) {
-        setBulkLoading((current) => new Set(current).add(ticker));
-        try { await onLoad(ticker); } catch { failed += 1; }
-        finally {
-          setBulkLoading((current) => { const next = new Set(current); next.delete(ticker); return next; });
-          setBulkState((current) => ({ ...current, failed }));
+      // A refused company is almost always a busy isolate rather than a broken
+      // filing, and the isolate needs a moment to be replaced. Retrying
+      // instantly asks the same exhausted instance the same question, which is
+      // why a whole batch used to come back as failures; a pause and two
+      // further rounds recover nearly all of them.
+      for (let round = 0; round < 2 && retryable.length; round++) {
+        await new Promise((resolve) => setTimeout(resolve, 2_000 * (round + 1)));
+        for (const ticker of retryable.splice(0)) {
+          setBulkLoading((current) => new Set(current).add(ticker));
+          try { await onLoad(ticker); } catch { retryable.push(ticker); }
+          finally {
+            setBulkLoading((current) => { const next = new Set(current); next.delete(ticker); return next; });
+          }
         }
       }
+      failed = retryable.length;
+      setBulkState((current) => ({ ...current, failed }));
     };
     // One at a time. Normalizing a company costs enough CPU that parallel
     // loads used to be refused outright by the platform, failing most of the

@@ -8,7 +8,9 @@ Each fact retains provider, source URL, accession number, filing date, retrieval
 
 The server cache response is six hours with a 24-hour stale-while-revalidate window. Automated use should identify itself through `SEC_USER_AGENT` and respect the SEC fair-access limit.
 
-Normalized datasets are also cached in a Cloudflare KV namespace bound as `DATASET_CACHE`, under the key `company:<version>:<ticker>`. The version is bumped whenever normalization changes meaning — a new concept fallback, a corrected split direction, a new quarter rule — so a cached dataset is never served under semantics it was not built with. The bump history is recorded in `app/api/company/[ticker]/route.ts`. This cache is load-bearing rather than an optimization: normalizing a company from raw XBRL on every request exceeds the Worker CPU limit.
+A scheduled trigger rebuilds every watchlist company into the cache at 07:00 UTC daily, one HTTP subrequest per company. Normalizing twenty-one filers inside a single invocation is what exhausts an isolate's CPU budget; a subrequest each gives every company its own. The cost therefore falls at a moment when nobody is waiting, and the requests readers actually make stay on the warm path.
+
+Normalized datasets are cached in a Cloudflare KV namespace bound as `DATASET_CACHE`, under the key `company:<version>:<ticker>`. The version is bumped whenever normalization changes meaning — a new concept fallback, a corrected split direction, a new quarter rule — so a cached dataset is never served under semantics it was not built with. The bump history is recorded in `lib/dataset-cache.ts`, alongside the key itself so the route and the warm-up cannot disagree about it. This cache is load-bearing rather than an optimization: normalizing a company from raw XBRL on every request exceeds the Worker CPU limit.
 
 Official references:
 

@@ -151,8 +151,40 @@ function calculated(metric: MetricKey, value: number, current: RawFinancialFact,
   };
 }
 
-function contexts(facts: RawFinancialFact[], metric: MetricKey, fy: number, fp: RawFinancialFact["fiscalPeriod"]) {
-  return facts.filter((fact) => fact.metric === metric && fact.fiscalYear === fy && fact.fiscalPeriod === fp);
+type FactIndex = Map<string, RawFinancialFact[]>;
+
+/**
+ * Deduped facts plus a lookup index, computed once per raw fact array.
+ *
+ * Every period asks for one metric in one fiscal context, and the answer used
+ * to be found by scanning all of them. A large filer carries around 5,700
+ * facts, and the quarterly pass alone asks roughly 2,400 times: thirteen
+ * million comparisons to assemble one company. That was over half the CPU of a
+ * cold request, and it is what made the Worker refuse whole batches.
+ *
+ * The annual and quarterly passes are handed the same array and would each
+ * repeat the dedupe, so the result is memoised against that array by identity.
+ */
+const preparedFacts = new WeakMap<RawFinancialFact[], { facts: RawFinancialFact[]; index: FactIndex }>();
+
+function prepare(input: RawFinancialFact[]) {
+  const cached = preparedFacts.get(input);
+  if (cached) return cached;
+  const facts = dedupeFacts(relabelFiscalYears(normalizeShareUnitScales(input)));
+  const index: FactIndex = new Map();
+  for (const fact of facts) {
+    const key = `${fact.metric}|${fact.fiscalYear}|${fact.fiscalPeriod}`;
+    const bucket = index.get(key);
+    if (bucket) bucket.push(fact); else index.set(key, [fact]);
+  }
+  const value = { facts, index };
+  preparedFacts.set(input, value);
+  return value;
+}
+
+/** Never mutated by callers, so the indexed array itself can be returned. */
+function contexts(index: FactIndex, metric: MetricKey, fy: number, fp: RawFinancialFact["fiscalPeriod"]) {
+  return index.get(`${metric}|${fy}|${fp}`) ?? [];
 }
 
 function selectDirectQuarter(candidates: RawFinancialFact[]) {
@@ -186,9 +218,9 @@ function selectAnnual(candidates: RawFinancialFact[]) {
  */
 const sameConcept = (facts: RawFinancialFact[], concept: string) => facts.filter((fact) => fact.concept === concept);
 
-function quarterFact(facts: RawFinancialFact[], metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4"): NormalizedFact | undefined {
+function quarterFact(index: FactIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4"): NormalizedFact | undefined {
   const fp = quarter === "Q4" ? "FY" : quarter;
-  const candidates = contexts(facts, metric, fy, fp);
+  const candidates = contexts(index, metric, fy, fp);
   // FY contexts can contain later comparative quarter facts carrying fp=FY, so
   // a Q4 may not be picked merely because an FY-tagged duration happens to be
   // about ninety days. It is accepted only when it closes the fiscal year: the
@@ -205,10 +237,10 @@ function quarterFact(facts: RawFinancialFact[], metric: MetricKey, fy: number, q
   const current = quarter === "Q4" ? annualHere : selectCumulative(candidates);
   if (!current) return undefined;
   const priorFp = quarter === "Q2" ? "Q1" : quarter === "Q3" ? "Q2" : "Q3";
-  const priorCandidates = sameConcept(contexts(facts, metric, fy, priorFp), current.concept);
+  const priorCandidates = sameConcept(contexts(index, metric, fy, priorFp), current.concept);
   const prior = quarter === "Q2" ? selectDirectQuarter(priorCandidates) : selectCumulative(priorCandidates);
   if (quarter === "Q4" && !prior && current.start) {
-    const directQuarters = (["Q1", "Q2", "Q3"] as const).map((item) => selectDirectQuarter(sameConcept(contexts(facts, metric, fy, item), current.concept)));
+    const directQuarters = (["Q1", "Q2", "Q3"] as const).map((item) => selectDirectQuarter(sameConcept(contexts(index, metric, fy, item), current.concept)));
     if (directQuarters.every((fact): fact is RawFinancialFact => fact != null)) {
       const totalDays = daysBetween(current.start, current.end); const priorDays = directQuarters.reduce((sum, fact) => sum + daysBetween(fact.start, fact.end), 0); const isolatedDays = totalDays - priorDays;
       if (isolatedDays >= 55 && isolatedDays <= 125) {
@@ -238,26 +270,26 @@ function quarterFact(facts: RawFinancialFact[], metric: MetricKey, fy: number, q
   return calculated(metric, current.value - prior.value, current, prior, `${quarter} = cumulative through ${quarter} − cumulative through ${priorFp}`, quarter, quarterStart);
 }
 
-function instantFact(facts: RawFinancialFact[], metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4", end: string) {
+function instantFact(index: FactIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4", end: string) {
   const fp = quarter === "Q4" ? "FY" : quarter;
-  const exact = contexts(facts, metric, fy, fp).filter((fact) => fact.end === end);
+  const exact = contexts(index, metric, fy, fp).filter((fact) => fact.end === end);
   const raw = latest(exact);
   return raw ? normalized(raw, "quarterly", quarter) : undefined;
 }
 
 export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: string) {
-  const facts = dedupeFacts(relabelFiscalYears(normalizeShareUnitScales(input)));
+  const { facts, index } = prepare(input);
   const years = [...new Set(facts.filter((fact) => fact.fiscalPeriod === "FY" && fact.form === "10-K").map((fact) => fact.fiscalYear))].sort();
   return years.map((fiscalYear): FinancialPeriod | null => {
     const annualFacts: FinancialPeriod["facts"] = {};
     let anchor: RawFinancialFact | undefined;
     for (const metric of [...FLOW_METRICS, ...WEIGHTED_SHARE_METRICS]) {
-      const raw = selectAnnual(contexts(facts, metric, fiscalYear, "FY"));
+      const raw = selectAnnual(contexts(index, metric, fiscalYear, "FY"));
       if (raw) { annualFacts[metric] = normalized(raw, "annual"); if (metric === "revenue") anchor = raw; }
     }
     if (!anchor) return null;
     for (const metric of POINT_METRICS) {
-      const raw = latest(contexts(facts, metric, fiscalYear, "FY").filter((fact) => fact.end === anchor!.end));
+      const raw = latest(contexts(index, metric, fiscalYear, "FY").filter((fact) => fact.end === anchor!.end));
       if (raw) annualFacts[metric] = normalized(raw, "annual");
     }
     if (annualFacts.shareRepurchases || annualFacts.shareIssuance) {
@@ -274,21 +306,21 @@ export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: stri
 }
 
 export function normalizeQuarterlyPeriods(input: RawFinancialFact[], currency: string) {
-  const facts = dedupeFacts(relabelFiscalYears(normalizeShareUnitScales(input)));
+  const { facts, index } = prepare(input);
   const years = [...new Set(facts.filter((fact) => fact.form === "10-Q" || fact.form === "10-K").map((fact) => fact.fiscalYear))].sort();
   const periods: FinancialPeriod[] = [];
   for (const fiscalYear of years) {
     for (const quarter of ["Q1", "Q2", "Q3", "Q4"] as const) {
-      const revenue = quarterFact(facts, "revenue", fiscalYear, quarter);
+      const revenue = quarterFact(index, "revenue", fiscalYear, quarter);
       if (!revenue?.periodStart) continue;
       const periodFacts: FinancialPeriod["facts"] = { revenue };
       for (const metric of [...FLOW_METRICS, ...WEIGHTED_SHARE_METRICS]) {
         if (metric === "revenue") continue;
-        const fact = quarterFact(facts, metric, fiscalYear, quarter);
+        const fact = quarterFact(index, metric, fiscalYear, quarter);
         if (fact) periodFacts[metric] = fact;
       }
       for (const metric of POINT_METRICS) {
-        const fact = instantFact(facts, metric, fiscalYear, quarter, revenue.periodEnd);
+        const fact = instantFact(index, metric, fiscalYear, quarter, revenue.periodEnd);
         if (fact) periodFacts[metric] = fact;
       }
       if (periodFacts.shareRepurchases || periodFacts.shareIssuance) {

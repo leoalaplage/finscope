@@ -18,6 +18,10 @@ const DATASET_CACHE_NAMESPACE_ID = "eca2a833a69b478f944cf1a6f1efc4b2";
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
+  // Rebuild every watchlist company into KV at 07:00 UTC, after the SEC has
+  // published overnight and before anyone is likely to be reading. See the
+  // scheduled handler in worker/index.ts for why this exists.
+  triggers: { crons: ["0 7 * * *"] },
   kv_namespaces: [{ binding: "DATASET_CACHE", id: DATASET_CACHE_NAMESPACE_ID }],
   d1_databases: d1
     ? [

@@ -1,31 +1,9 @@
 import { NextResponse } from "next/server";
 import { fetchSecCompany } from "@/lib/adapters/sec";
+import { CACHE_SECONDS, datasetKey } from "@/lib/dataset-cache";
 import { datasetCache } from "@/lib/runtime-env";
 
-/** Companies are refiled quarterly, so a day-old normalization is still current. */
-const CACHE_SECONDS = 86_400;
-// Bump whenever normalization changes what a cached company contains, so warm
-// entries built by the previous mapping are retired instead of being served.
-// v2: capital expenditures gained fallback concepts, restoring free cash flow
-// for filers that stopped tagging property purchases.
-// v3: diluted share counts are recovered from reported EPS for filers that
-// publish none directly, which restores every per-share metric for them.
-// v4: net income prefers income attributable to common over the consolidated
-// figure, and reported EPS is split-adjusted like every other per-share value.
-// v5: total equity is mapped, which invested capital and ROIC depend on.
-// v6: a share count recovered from EPS now carries the filing date, so a split
-// is not applied to a figure the filer had already restated.
-// v7: derived quarters may not mix revenue concepts, and CME Group's 2012
-// five-for-one split is registered.
-// v8: a directly reported fourth quarter is preferred over subtraction, and an
-// impossible derived quarter is dropped instead of published.
-// v9: total assets, goodwill, acquired intangibles, interest expense and
-// dividends per share are carried, which the returns, coverage and dividend
-// statistics depend on; and total debt is the sum of its current and
-// non-current portions rather than whichever one the filer happened to tag —
-// Apple's borrowings read as 12.4bn instead of 90.7bn, which turned its net
-// debt into net cash and its return on invested capital into 247%.
-const KEY_VERSION = "v9";
+
 const headers = {
   "Content-Type": "application/json",
   "Cache-Control": `public, s-maxage=21600, stale-while-revalidate=86400`,
@@ -50,7 +28,7 @@ export async function GET(_request: Request, context: { params: Promise<{ ticker
   const { ticker } = await context.params;
   const symbol = ticker.toUpperCase();
   const cache = datasetCache();
-  const key = `company:${KEY_VERSION}:${symbol}`;
+  const key = datasetKey(symbol);
 
   try {
     const warm = await cache?.get(key, "stream");

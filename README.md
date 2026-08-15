@@ -100,7 +100,10 @@ The generated Worker output is deployed to Cloudflare. Two pieces of runtime con
 | Binding | Type | Purpose |
 |---|---|---|
 | `DATASET_CACHE` | KV namespace `finscope-datasets` | Caches normalized company datasets. |
+| `SELF_ORIGIN` | Variable (optional) | Where the daily warm-up addresses its own endpoints; defaults to the workers.dev hostname. |
 | `SEC_USER_AGENT` | Variable | Identifies the automated SEC client with contact information. |
+
+A cron trigger (`0 7 * * *`) rebuilds every watchlist company into the cache daily, so the data is already there when a reader arrives.
 
 The KV cache is not an optimization detail — normalizing a company from raw XBRL exceeds the Worker CPU limit on a cold request, which returned error 1102 until the cache was added. `lib/runtime-env.ts` hands the bindings to the route handlers; a missing binding degrades to an uncached fetch rather than failing.
 

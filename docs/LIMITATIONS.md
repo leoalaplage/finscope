@@ -15,4 +15,5 @@
 - Non-GAAP metrics are intentionally excluded until a source-specific taxonomy and reconciliation model is implemented.
 - Favorites and recent companies are device-session UI state in this build; there is no cloud persistence or account database.
 - CSV, SVG, PNG and clipboard-table exports are implemented. Raster export uses the rendered chart and follows the active series configuration.
+- A company outside the watchlist is normalized on demand and is not covered by the daily warm-up, so its first load takes a couple of seconds and can still be refused when the Worker is busy. Loading it again succeeds.
 - Provider availability and SEC taxonomy changes can create gaps. Errors are shown and the verified offline fixture remains available.
