@@ -9,6 +9,7 @@ import { derivedValue, safeDivide } from "@/lib/finance";
 import { recessionBands, snapToAxis, splitMarks } from "@/lib/chart-annotations";
 import { addCompany, addMetric, applyPreset, CHART_PRESETS, removeCompany, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
+import { validateSeries as validateChartSeries } from "@/lib/chart-spec";
 import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservations, marketObservations, providerMarketFrequency, MARKET_SERIES_METRICS } from "@/lib/mixed-series";
 import { CHART_METRIC_GROUPS as METRIC_GROUPS, METRICS, VALUATION_METRICS } from "@/lib/metrics";
 import { analyzeVisibleSeries } from "@/lib/series-analysis";
@@ -243,10 +244,25 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     // screen rather than the first the provider ever published.
     const shaped = chart.values === "indexed" ? indexToZero(windowed) : chart.values === "change" ? periodChange(windowed) : windowed;
     const validation = validateSeries(shaped, plan.frequency, dataset.company.resolutionStatus !== "unresolved");
+    // A second pass with the stricter rules: unusable dates, infinities from a
+    // division upstream, two facts claiming one period, a frequency the metric
+    // cannot have, a split the registry never recorded. It drops the points it
+    // must and reports the rest, so one bad series costs its own points instead
+    // of taking the chart down.
+    const strict = validateChartSeries(
+      { id: series.uid, ticker: series.ticker, metric: series.metric, frequency: plan.frequency,
+        transformation: chart.values === "indexed" ? "indexed" : chart.values === "change" ? "percentChange" : "none" },
+      validation.observations,
+    );
+    const problem = strict.problems[0]?.detail;
     return {
-      series, plan, currency, observations: validation.observations,
-      status: validation.valid ? validation.invalidCount ? "Partial" : "Ready" : "No data",
-      warning: validation.valid ? validation.reason : windowed.length ? (chart.values === "indexed" && !shaped.length ? "Cannot rebase: the first value is zero or negative" : validation.reason) : undefined,
+      series, plan, currency,
+      observations: strict.usable ? strict.observations : [],
+      status: !strict.usable ? "No data" : validation.valid ? (validation.invalidCount || strict.problems.length ? "Partial" : "Ready") : "No data",
+      warning: !strict.usable
+        ? strict.reason
+        : (validation.valid ? validation.reason : undefined) ?? problem
+          ?? (windowed.length && chart.values === "indexed" && !shaped.length ? "Cannot rebase: the first value is zero or negative" : undefined),
     };
   }), [chart.series, chart.values, plans, datasets, companyErrors, bars, marketErrors, marketLoading, periodPrices, from, to]);
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { normalizeSecPayload } from "../lib/adapters/sec";
 import { layoutSankey, ribbonPath } from "../lib/sankey";
 import { balanceSheetDiagram, balanceSheetHealth, incomeStatementDiagram } from "../lib/statement-flows";
 import type { FinancialPeriod, MetricKey } from "../lib/types";
@@ -253,5 +254,41 @@ describe("filers that do not fit the standard shape", () => {
     const diagram = incomeStatementDiagram(losing)!;
     expect(diagram.nodes.map((node) => node.id)).not.toContain("pretax");
     expect(diagram.notes.join(" ")).toMatch(/Neither operating income nor net income is positive/);
+  });
+});
+
+describe("a quarter must measure what its own year measures", () => {
+  it("prefers the concept the annual figure uses when the filer tags both", () => {
+    // Mastercard's shape: the year is tagged `Revenues` (net) while the
+    // quarters also carry a contract-revenue concept holding the gross figure.
+    // Taking the quarterly concept made 2021 sum to 26.7bn against a reported
+    // 18.9bn, so every quarterly and trailing revenue was ~40% too high.
+    const unit = (val: number, start: string | undefined, end: string, fp: string, tag: string) =>
+      ({ start, end, val, accn: `${tag}-${end}`, fy: Number(end.slice(0, 4)), fp,
+         form: fp === "FY" ? "10-K" : "10-Q", filed: `${Number(end.slice(0, 4)) + 1}-02-01` });
+
+    const payload = { entityName: "Two Concept Co", facts: { "us-gaap": {
+      Revenues: { units: { USD: [
+        unit(4_155, "2021-01-01", "2021-03-31", "Q1", "net"),
+        unit(8_683, "2021-01-01", "2021-06-30", "Q2", "net"),
+        unit(13_668, "2021-01-01", "2021-09-30", "Q3", "net"),
+        unit(18_884, "2021-01-01", "2021-12-31", "FY", "net"),
+      ] } },
+      RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: [
+        unit(6_428, "2021-01-01", "2021-03-31", "Q1", "gross"),
+        unit(13_647, "2021-01-01", "2021-06-30", "Q2", "gross"),
+        unit(21_473, "2021-01-01", "2021-09-30", "Q3", "gross"),
+      ] } },
+    } } };
+
+    const company = { name: "Two Concept Co", ticker: "TWO", cik: "0000000003", exchange: "NYSE", currency: "USD", sector: "Test", description: "A fixture." };
+    const data = normalizeSecPayload(payload, "TWO", "2026-01-01", company);
+    const quarters = data.periods.filter((item) => item.periodicity === "quarterly" && item.fiscalYear === 2021)
+      .sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+    expect(quarters).toHaveLength(4);
+    for (const quarter of quarters) expect(quarter.facts.revenue?.provenance.concept).toBe("us-gaap:Revenues");
+    // And the whole point: they add back to the year.
+    const total = quarters.reduce((sum, quarter) => sum + (quarter.facts.revenue?.value ?? 0), 0);
+    expect(total).toBeCloseTo(18_884, 6);
   });
 });
