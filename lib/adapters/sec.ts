@@ -206,14 +206,146 @@ function combineDebtComponents(periods: FinancialPeriod[]): FinancialPeriod[] {
   });
 }
 
+/**
+ * Repairs a dividend per share that the filer tags as a rate, not a total.
+ *
+ * Most filers tag dividends per share cumulatively: each quarter's context
+ * carries the year to date, so the annual figure is the sum of the year and
+ * differencing recovers each quarter. Visa does not. It tags the *quarterly
+ * rate* against every context it files — 0.59 for the quarter, 0.59 for six
+ * months, 0.59 for the year — which breaks the arithmetic in two places. The
+ * fourth quarter comes out as the annual figure minus the third-quarter total,
+ * which is zero, and the annual figure reads as one quarter's dividend.
+ *
+ * The signature is unmistakable: the annual tag equals the largest quarter
+ * rather than their sum. When that holds, the missing quarter takes the tagged
+ * rate and the year becomes the sum of its quarters — which is what the company
+ * actually paid. A cumulative filer such as Apple, whose annual 1.02 is four
+ * times its 0.25-ish quarters, does not match and is left alone.
+ */
+function reconcileDividendsPerShare(annual: FinancialPeriod[], quarterly: FinancialPeriod[]) {
+  const repairedQuarters = new Map<string, number>();
+  const repairedYears = new Map<number, number>();
+
+  for (const year of annual) {
+    const tagged = year.facts.dividendsPerShare?.value;
+    if (tagged == null || tagged <= 0) continue;
+    const quarters = quarterly.filter((period) => period.fiscalYear === year.fiscalYear);
+    // Exactly four, or the sum is not the year: three quarters of a rate is a
+    // three-quarter dividend, and publishing it as the annual figure would
+    // understate it by a quarter.
+    if (quarters.length !== 4) continue;
+    const values = quarters.map((period) => period.facts.dividendsPerShare?.value ?? 0);
+    // Only the quarters that came out positive count towards the signature. A
+    // quarter derived by subtraction from a rate lands at zero when the tags
+    // are equal and below zero when the year is tagged lower than the quarter
+    // before it, and letting that negative into the sum hides the very pattern
+    // it is evidence of.
+    const usable = values.map((value) => Math.max(0, value));
+    const largest = Math.max(...usable);
+    const total = usable.reduce((sum, value) => sum + value, 0);
+    // A cumulative tag sums to itself; a rate tag equals one quarter of it.
+    const looksLikeRate = largest > 0 && Math.abs(tagged - largest) <= largest * .01 && total > tagged * 1.5;
+    if (!looksLikeRate) continue;
+    let repairedTotal = 0;
+    for (const [index, quarter] of quarters.entries()) {
+      const value = values[index] > 0 ? values[index] : tagged;
+      if (values[index] <= 0) repairedQuarters.set(quarter.periodEnd, value);
+      repairedTotal += value;
+    }
+    repairedYears.set(year.fiscalYear, repairedTotal);
+  }
+
+  const note = "The filer tags the same per-share rate against every context, so the year is the sum of its quarters rather than the tagged figure.";
+  const rewrite = (period: FinancialPeriod, value: number): FinancialPeriod => {
+    const existing = period.facts.dividendsPerShare;
+    const base = existing ?? period.facts.dividendsPaid;
+    if (!base) return period;
+    return { ...period, facts: { ...period.facts, dividendsPerShare: {
+      ...base, metric: "dividendsPerShare", value, unit: "currency",
+      provenance: { ...base.provenance, provider: "Calculated", status: "calculated", formula: SUMMED_DIVIDEND_FORMULA, note },
+    } } };
+  };
+
+  return {
+    annual: annual.map((period) => repairedYears.has(period.fiscalYear) ? rewrite(period, repairedYears.get(period.fiscalYear)!) : period),
+    quarterly: quarterly.map((period) => repairedQuarters.has(period.periodEnd) ? rewrite(period, repairedQuarters.get(period.periodEnd)!) : period),
+    // True once any year has shown the signature. It never removes a reported
+    // figure — one ambiguous year should not condemn a decade, and MSCI's first
+    // dividend year looks exactly like a rate — but it does close the share
+    // recovery on the years this filer leaves unprovable.
+    ratesSeen: repairedYears.size > 0,
+  };
+}
+
+/** The marker a repaired dividend carries, and the only one safe to divide by. */
+const SUMMED_DIVIDEND_FORMULA = "Sum of the quarterly declared rates";
+
+/**
+ * Recovers a share count from the dividend, for filers that publish neither a
+ * share count nor an earnings per share this endpoint can see.
+ *
+ * Visa is the case. It has three share classes, tags every per-class figure
+ * with a dimension, and the SEC's companyfacts endpoint carries only
+ * undimensioned facts — so there is no weighted-average share count and no
+ * diluted EPS to divide into. Every per-share metric for one of the largest
+ * companies in the watchlist was simply unavailable.
+ *
+ * But the total dividend paid and the dividend per share are both published
+ * without dimensions, and one divided by the other is the number of shares that
+ * dividend was paid on. That is arithmetic on two reported figures, like the
+ * earnings recovery beside it, and it lands within a third of a percent of the
+ * count Visa states in its own filings.
+ *
+ * It is a last resort: a directly reported count wins, then the earnings
+ * recovery, then this.
+ */
+function recoverSharesFromDividends(periods: FinancialPeriod[], ratesSeen: boolean): FinancialPeriod[] {
+  return periods.map((period) => {
+    if (period.facts.dilutedShares?.value != null) return period;
+    const paid = period.facts.dividendsPaid; const perShare = period.facts.dividendsPerShare;
+    if (paid?.value == null || perShare?.value == null || perShare.value <= 0 || paid.value <= 0) return period;
+    // Only a dividend proven to cover the whole period may be divided into the
+    // cash paid over it. Visa tags the same quarterly rate against its annual
+    // context, so dividing by the tag as filed would report four times the real
+    // share count — wrong in a way that looks entirely plausible. A rate that
+    // has been rebuilt from its quarters carries this marker; a native annual
+    // total needs no repair and is trusted as filed.
+    const summed = perShare.provenance.formula === SUMMED_DIVIDEND_FORMULA;
+    if (period.periodicity === "annual" && ratesSeen && !summed) return period;
+    const shares = paid.value / perShare.value;
+    if (!Number.isFinite(shares) || shares <= 0) return period;
+    return { ...period, facts: { ...period.facts, dilutedShares: {
+      metric: "dilutedShares", value: shares, currency: period.currency, unit: "shares",
+      periodStart: period.periodStart, periodEnd: period.periodEnd, periodicity: period.periodicity,
+      fiscalYear: period.fiscalYear, fiscalQuarter: period.fiscalQuarter,
+      provenance: {
+        provider: "Calculated", sourceUrl: paid.provenance.sourceUrl, retrievedAt: paid.provenance.retrievedAt,
+        accession: paid.provenance.accession, filingDate: paid.provenance.filingDate,
+        concept: "SharesFromDividendsPaid", status: "calculated",
+        formula: "Dividends paid / Dividends per share",
+        note: "The filer publishes no combined share count and no diluted earnings per share; both are tagged per share class and reach us only per class. This is the count the dividend was paid on.",
+      },
+    } } };
+  });
+}
+
 export function normalizeSecPayload(payload: unknown, ticker: string, retrievedAt = new Date().toISOString(), resolvedCompany?: CompanyDataset["company"]): CompanyDataset {
   const company = resolvedCompany ?? COMPANIES.find((item) => item.ticker === ticker.toUpperCase());
   if (!company) throw new Error("Ticker not supported by the SEC adapter registry.");
   if (!company.cik) throw new Error(company.resolutionNote || "No reliable regulatory identifier is available for this instrument.");
   const parsed = SecResponseSchema.parse(payload);
   const rawFacts = extractFacts(parsed.facts, company.cik, company.currency, retrievedAt);
-  const annual = adjustPeriodsForSplits(combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency))), company.stockSplits);
-  const quarterly = adjustPeriodsForSplits(combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency))), company.stockSplits);
+  // Order matters. The dividend rate is repaired first, because the share
+  // recovery divides by it; the recovery runs before split adjustment, so the
+  // count it produces is on the as-filed basis every other share fact starts
+  // from and gets adjusted exactly once.
+  const reconciled = reconcileDividendsPerShare(
+    combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency))),
+    combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency))),
+  );
+  const annual = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.annual, reconciled.ratesSeen), company.stockSplits);
+  const quarterly = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.quarterly, reconciled.ratesSeen), company.stockSplits);
   const ttm = buildTtmPeriods(quarterly, company.currency);
   return validateCompanyDataset({
     company: { ...company, name: parsed.entityName }, periods: [...annual, ...quarterly, ...ttm], retrievedAt,

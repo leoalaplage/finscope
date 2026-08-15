@@ -26,8 +26,11 @@ import { datasetCache } from "./runtime-env";
  * v10: balance-sheet detail (total liabilities, PP&E, inventory, receivables,
  *     payables, investments, retained earnings) and the operating-expense
  *     breakdown, which the statement diagrams and the balance-sheet view need.
+ * v11: a dividend per share tagged as a rate against every context is rebuilt
+ *     from its quarters, and a share count is recovered from the dividend for
+ *     filers publishing neither a share count nor diluted earnings per share.
  */
-export const KEY_VERSION = "v10";
+export const KEY_VERSION = "v11";
 
 /** A day. The filings behind a dataset change quarterly at most. */
 export const CACHE_SECONDS = 86_400;
