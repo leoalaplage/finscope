@@ -58,6 +58,7 @@ const FcfYieldCalculator = lazy(() => import("./FcfYieldCalculator").then((modul
 const FormulaDataAudit = lazy(() => import("./FormulaDataAudit").then((module) => ({ default: module.FormulaDataAudit })));
 const QsScreener = lazy(() => import("./QsScreener").then((module) => ({ default: module.QsScreener })));
 const StatisticsPage = lazy(() => import("./StatisticsPage").then((module) => ({ default: module.StatisticsPage })));
+const CompanyKpiGrid = lazy(() => import("./CompanyKpiGrid").then((module) => ({ default: module.CompanyKpiGrid })));
 const QualityOverview = lazy(() => import("./QualityOverview").then((module) => ({ default: module.QualityOverview })));
 const QualityValuationScatter = lazy(() => import("./QualityValuationScatter").then((module) => ({ default: module.QualityValuationScatter })));
 const BalanceSheetPanel = lazy(() => import("./BalanceSheetPanel").then((module) => ({ default: module.BalanceSheetPanel })));
@@ -440,6 +441,8 @@ function CompanyPage({ dataset, onBack, onCharts, onDcf, onCompare, onWatchlist,
       <div className="section-heading"><h2>Quality Overview</h2><button onClick={() => onCharts(dataset.company.ticker, "freeCashFlowPerShare")}>Open in Charts</button></div>
       <p className="section-note">The ten figures a quality investor reads first. Anything that wants a picture opens in Charts rather than competing for room here.</p>
       <Suspense fallback={<p className="simple-state">Loading…</p>}><QualityOverview dataset={dataset} valuationVsAverage={valuationPremium}/></Suspense>
+      <h3 className="kpi-table-heading">Sixteen trailing quarters</h3>
+      <Suspense fallback={<p className="simple-state">Drawing…</p>}><CompanyKpiGrid dataset={dataset} onOpenMetric={(metric, presentation) => onCharts(dataset.company.ticker, metric, presentation)}/></Suspense>
       <h3 className="kpi-table-heading">Latest figures</h3>
       <MetricSummaryTable dataset={dataset} price={currentPrice} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)}/>
     </section>}

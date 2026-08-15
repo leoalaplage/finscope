@@ -14,11 +14,17 @@ describe("UI regressions", () => {
 
   it("is navy, dark only, with no way to switch theme", () => {
     const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
-    expect(css).toContain("--background: #07111F");
-    expect(css).toContain("--surface: #0F1D30");
+    expect(css).toContain("--bg: #07111F");
     expect(css).toContain("--accent: #4DA3FF");
-    expect(css).toContain('font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif');
-    expect(css).toContain(".recharts-default-tooltip { color: var(--text)");
+    expect(css).toContain("-apple-system");
+    expect(css).toContain(".recharts-default-tooltip");
+
+    // Six type steps and no more. Twelve sizes is what made it read as
+    // sediment rather than a scale, so the count is the guarantee.
+    const declared = [...css.matchAll(/--t-[a-z]+:/g)].length;
+    expect(declared).toBe(6);
+    const hardCoded = [...css.matchAll(/font-size:\s*\d+px/g)].map((match) => match[0]);
+    expect(hardCoded, `hard-coded sizes outside the scale: ${hardCoded.join(", ")}`).toEqual([]);
     // One palette, one surface: no light set and no [data-theme] override to
     // keep in step with it.
     expect(css).not.toContain("#ffffff");

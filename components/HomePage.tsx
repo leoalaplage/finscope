@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Search } from "lucide-react";
 import { derivedValue } from "@/lib/finance";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, PricePoint } from "@/lib/types";
@@ -15,17 +15,31 @@ const latestPeriod = (dataset: CompanyDataset): FinancialPeriod | undefined => {
 };
 
 const RECENT_KEY = "finscope.recentCompanies";
+const EMPTY: string[] = [];
+/** Cached so the snapshot is referentially stable between reads. */
+let recentCache: string[] = EMPTY;
+let recentRaw = "";
+
 const readRecent = (): string[] => {
-  if (typeof window === "undefined") return [];
-  try { const value = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]"); return Array.isArray(value) ? value.slice(0, 6) : []; }
-  catch { return []; }
+  if (typeof window === "undefined") return EMPTY;
+  const raw = localStorage.getItem(RECENT_KEY) ?? "[]";
+  if (raw !== recentRaw) {
+    recentRaw = raw;
+    try { const value = JSON.parse(raw); recentCache = Array.isArray(value) ? value.slice(0, 6) : EMPTY; }
+    catch { recentCache = EMPTY; }
+  }
+  return recentCache;
 };
+
+const recentListeners = new Set<() => void>();
+const subscribeRecent = (listener: () => void) => { recentListeners.add(listener); return () => { recentListeners.delete(listener); }; };
 
 /** Remembers what was opened, most recent first, without duplicates. */
 export function rememberCompany(ticker: string) {
   if (typeof window === "undefined") return;
   const next = [ticker, ...readRecent().filter((item) => item !== ticker)].slice(0, 6);
   localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  for (const listener of recentListeners) listener();
 }
 
 interface Row { ticker: string; name: string; exchange: string; currency: string; marketCap: number | null; onWatchlist: boolean }
@@ -51,7 +65,12 @@ export function HomePage({ watchlist, datasets, prices, loading, onOpen, onImpor
 }) {
   const [query, setQuery] = useState("");
   const [remote, setRemote] = useState<CompanyProfile[]>([]);
-  const [recent] = useState<string[]>(() => readRecent());
+  // Read through an external store rather than component state. The page is
+  // prerendered, so the server has no localStorage and any value taken during
+  // render disagrees with the client's — which is exactly the hydration
+  // mismatch this replaced. React is told the server snapshot is empty and
+  // fills it in after mount.
+  const recent = useSyncExternalStore(subscribeRecent, readRecent, useCallback(() => EMPTY, []));
   const input = useRef<HTMLInputElement>(null);
   const debounce = useRef<ReturnType<typeof setTimeout>>(undefined);
   const inFlight = useRef(0);
