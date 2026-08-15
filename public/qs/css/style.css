@@ -1,38 +1,27 @@
 /* =====================================================================
    QS - feuille de style unique
-   Sobre, dense, lisible. Palette alignee sur les PNG generes.
+   Direction artistique AapWire : navy sombre uniquement, alignee sur les
+   PNG generes par qs-dashboard.js. Un seul jeu de tokens : la page et
+   l'image qu'elle produit doivent se ressembler.
    ===================================================================== */
 
 :root {
-  --bleu: #1f3864;
-  --bleu-clair: #2563eb;
-  --texte: #0f172a;
-  --texte-doux: #475569;
-  --texte-faible: #94a3b8;
-  --bord: #d2d6dc;
-  --fond: #f6f7f9;
-  --carte: #ffffff;
-  --vert: #059669;
-  --rouge: #c00000;
-  --rouge-fond: #ffe4e6;
-  --rayon: 10px;
-  --ombre: 0 1px 2px rgba(15, 23, 42, .06), 0 4px 14px rgba(15, 23, 42, .05);
-}
-
-:root[data-theme="dark"] {
   color-scheme: dark;
-  --bleu: #53d39c;
-  --bleu-clair: #53d39c;
-  --texte: #f2f5f7;
-  --texte-doux: #a2adba;
-  --texte-faible: #738091;
-  --bord: #303a48;
-  --fond: #0b0e13;
-  --carte: #11151c;
-  --vert: #53d39c;
-  --rouge: #ff8a96;
-  --rouge-fond: #321820;
-  --ombre: 0 18px 60px rgba(0, 0, 0, .22);
+  --bleu: #4DA3FF;
+  --bleu-clair: #4DA3FF;
+  --texte: #F3F6FA;
+  --texte-doux: #94A3B8;
+  --texte-faible: #5A6B85;
+  --bord: #223047;
+  --fond: #07111F;
+  --carte: #0F1D30;
+  --vert: #35C78A;
+  --rouge: #F06464;
+  --rouge-fond: #2A1520;
+  --jaune: #E5B84B;
+  --rayon: 6px;
+  /* La profondeur vient d'une bordure, pas d'une ombre. */
+  --ombre: none;
 }
 
 * { box-sizing: border-box; }
@@ -45,11 +34,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* -- integration FinScope ---------------------------------------------
-   Le cadre est affiche a l'interieur de FinScope, dont la mise en page est
+/* -- integration AapWire ---------------------------------------------
+   Le cadre est affiche a l'interieur de AapWire, dont la mise en page est
    plate : fond blanc, angles droits, pas d'ombre. On s'y aligne plutot que
    de poser une carte grise au milieu d'une page blanche. Le titre de la
-   page vient de FinScope, on ne le repete pas ici.
+   page vient de AapWire, on ne le repete pas ici.
    --------------------------------------------------------------------- */
 html.embedded header, html.embedded footer, html.embedded .entete-page { display: none; }
 html.embedded main { max-width: none; padding: 0 0 12px; }
@@ -64,27 +53,6 @@ html.embedded button.primaire:hover { background: #17493a; }
 html.embedded .etape { background: #1f5f4a; }
 html.embedded .apercu { border-radius: 0; }
 html.embedded .message { border-radius: 2px; }
-
-:root[data-theme="dark"] textarea,
-:root[data-theme="dark"] button,
-:root[data-theme="dark"] .bouton,
-:root[data-theme="dark"] input[type=text],
-:root[data-theme="dark"] input[type=search],
-:root[data-theme="dark"] input[type=number],
-:root[data-theme="dark"] select {
-  color: var(--texte);
-  background: #151a22;
-  border-color: var(--bord);
-}
-:root[data-theme="dark"] textarea:focus { background: #1a202a; }
-:root[data-theme="dark"] textarea.survol { background: rgba(83, 211, 156, .08); }
-:root[data-theme="dark"] button:hover,
-:root[data-theme="dark"] .bouton:hover { background: #1a202a; }
-:root[data-theme="dark"] button.primaire { color: #06100c; background: var(--bleu); }
-:root[data-theme="dark"] button.primaire:hover { background: #6ee3b2; }
-:root[data-theme="dark"] .apercu { background: #0d1117; }
-:root[data-theme="dark"] .message.info { color: #a8ccff; background: #12243b; border-color: #294d78; }
-:root[data-theme="dark"] .message.ok { color: #8eebc3; background: #10281f; border-color: #245e47; }
 
 /* -- entete ---------------------------------------------------------- */
 header {

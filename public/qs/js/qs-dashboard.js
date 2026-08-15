@@ -13,18 +13,31 @@ import { lireEtat } from "./qs-etat.js";
 const PILIERS = cfg.PILIERS;
 const NOMS_PILIERS_LONG = { Quality: "QUALITY", Health: "HEALTH", Growth: "GROWTH", Value: "VALUE" };
 
-const BLEU = "rgb(31,56,100)";
-const GRIS = "rgb(246,247,250)";
-const BLANC = "rgb(255,255,255)";
-const GRIS_BORD = "rgb(224,227,233)";
-const NOIR = "rgb(20,20,20)";
-const GRIS_TEXTE = "rgb(96,104,118)";
+// ---------------------------------------------------------------------
+//  Direction artistique AapWire. Couleurs uniquement : la grille, les
+//  colonnes, les scores et les regles de classement sont inchanges.
+//  Fond navy, texte blanc, secondaire gris bleute, accent bleu, et le
+//  vert / rouge / jaune reserves aux resultats positifs, negatifs et aux
+//  avertissements.
+// ---------------------------------------------------------------------
+const BLEU = "rgb(77,163,255)";        // accent
+const GRIS = "rgb(11,23,40)";          // surface secondaire (zebrures)
+const BLANC = "rgb(243,246,250)";      // texte principal
+const GRIS_BORD = "rgb(34,48,71)";     // bordures fines
+const NOIR = "rgb(7,17,31)";           // fond
+const GRIS_TEXTE = "rgb(148,163,184)"; // texte secondaire
 
-/** Echelle 3 couleurs rouge(0) -> jaune(50) -> vert(100). */
+/**
+ * Echelle 3 couleurs rouge(0) -> jaune(50) -> vert(100).
+ *
+ * Les bornes sont celles de la palette AapWire ; la fonction elle-meme est
+ * inchangee, donc un score donne occupe exactement la meme position sur
+ * l'echelle qu'avant le redesign.
+ */
 function couleurScore(v) {
-  if (v === null || v === undefined) return [235, 235, 235];
+  if (v === null || v === undefined) return [26, 43, 68];
   v = Math.max(0, Math.min(100, Number(v)));
-  const rouge = [248, 105, 107], jaune = [255, 235, 132], vert = [99, 190, 123];
+  const rouge = [240, 100, 100], jaune = [229, 184, 75], vert = [53, 199, 138];
   const [t, a, b] = v <= 50 ? [v / 50, rouge, jaune] : [(v - 50) / 50, jaune, vert];
   return [0, 1, 2].map((i) => Math.round(a[i] + (b[i] - a[i]) * t));
 }
@@ -43,10 +56,10 @@ const f1 = (x) => (x === null || x === undefined ? "n/a" : Number(x).toFixed(1))
  *  proportionnels a la hauteur de ligne, pour rester centres si elle change. */
 function coche(doc, w, h, actif, zebre) {
   const x0 = doc.x, y0 = doc.y;
-  doc.traitCouleur(actif ? BLANC : GRIS_BORD).fondCouleur(actif ? "rgb(88,175,112)" : zebre);
+  doc.traitCouleur(actif ? NOIR : GRIS_BORD).fondCouleur(actif ? "rgb(53,199,138)" : zebre);
   doc.cell(w, h, "", { fill: true, border: true });
   if (!actif) return;
-  const style = { couleur: BLANC, epaisseur: 0.55 };
+  const style = { couleur: NOIR, epaisseur: 0.55 };
   doc.ligne(x0 + w * 0.32, y0 + h * 0.52, x0 + w * 0.44, y0 + h * 0.70, style);
   doc.ligne(x0 + w * 0.44, y0 + h * 0.70, x0 + w * 0.70, y0 + h * 0.30, style);
 }

@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 
 /** Directory form: the asset handler 307s /qs/index.html to /qs/, and paying
  *  for that redirect on every mount is a round-trip for nothing. */
-const SOURCE = "/qs/?embedded=1&theme=light";
+// One theme, so nothing to ask for.
+const SOURCE = "/qs/?embedded=1";
 /** Tall enough that nothing is clipped before the page reports its own size. */
 const INITIAL_HEIGHT = 900;
 const MIN_HEIGHT = 420;

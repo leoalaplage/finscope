@@ -1,20 +1,12 @@
 // =====================================================================
-//  Integration dans FinScope : theme, hauteur et signal de disponibilite
+//  Integration dans AapWire : hauteur et signal de disponibilite
 // =====================================================================
 
 const params = new URLSearchParams(window.location.search);
-const applyTheme = (theme) => {
-  document.documentElement.dataset.theme = theme === "dark" ? "dark" : "light";
-};
-
 const embedded = params.get("embedded") === "1";
 if (embedded) document.documentElement.classList.add("embedded");
-applyTheme(params.get("theme"));
 
-window.addEventListener("message", (event) => {
-  if (event.origin !== window.location.origin || event.data?.type !== "finscope-theme") return;
-  applyTheme(event.data.theme);
-});
+
 
 //  La page hote ne peut pas mesurer le contenu d'un cadre : c'est donc a
 //  nous d'annoncer notre hauteur. Sans cela le cadre garde une taille fixe
