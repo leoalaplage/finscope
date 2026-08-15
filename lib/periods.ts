@@ -220,30 +220,87 @@ function selectAnnual(candidates: RawFinancialFact[]) {
 const sameConcept = (facts: RawFinancialFact[], concept: string) => facts.filter((fact) => fact.concept === concept);
 
 /**
- * The concept a company's own annual figure uses for a metric.
+ * Two concepts are the same measure for a year when their annual figures agree.
  *
- * A quarter and the year that contains it have to be the same measure, and for
- * some filers they are not. Mastercard tags its quarters with a concept
- * carrying revenue *including* assessed taxes while its annual figure uses
- * `Revenues`, which is net: the four quarters of 2021 summed to 26.7bn against
- * a reported year of 18.9bn, so every quarterly and trailing revenue for the
- * company — and every margin, per-share and valuation figure built on one — was
- * about forty percent too high.
- *
- * The year is the authority. Where the annual concept is also filed quarterly,
- * the quarters use it; where it is not, the preference order still applies.
+ * A tenth of a percent is a rounding difference between two taggings of one
+ * number; anything more is a restatement that genuinely changed the year, and
+ * its quarters are not this year's quarters.
  */
-function annualConcept(index: FactIndex, metric: MetricKey, fy: number): string | undefined {
-  return selectAnnual(contexts(index, metric, fy, "FY"))?.concept;
+function sameMeasure(index: FactIndex, metric: MetricKey, fy: number, concept: string, published: RawFinancialFact): boolean {
+  const rival = selectAnnual(sameConcept(contexts(index, metric, fy, "FY"), concept));
+  if (!rival || rival.currency !== published.currency || published.value === 0) return false;
+  return Math.abs(rival.value - published.value) / Math.abs(published.value) <= .001;
+}
+
+/**
+ * Every concept a quarter may be built from, the year's own first.
+ *
+ * A quarter is built from one concept end to end — that is what stops
+ * Mastercard's net year being reduced by gross quarters — but insisting on the
+ * *year's* concept alone threw away five quarters from seventeen of the
+ * twenty-one companies here. The cause is one event: adopting the revenue
+ * standard in 2018, filers restated the prior year under a new concept while
+ * the quarters of that year stayed under the old one. The year then had a
+ * concept its own quarters never carried, the derivation found nothing, and
+ * every trailing window touching it disappeared — Apple lost two years, and the
+ * ten-year view of a compounder became an eight-year one.
+ *
+ * Another concept is therefore allowed, but only where it is demonstrably the
+ * same measure: its own annual figure has to match the published one. Apple's
+ * 2016 revenue is 215.639bn under both the old tag and the new, so its quarters
+ * are the year's quarters and the history is recovered. Microsoft's 2016 moved
+ * by six percent when it was restated, so the old quarters are not the new
+ * year's, and the gap is left where it is rather than published as a year that
+ * does not add up.
+ */
+function conceptsToTry(index: FactIndex, metric: MetricKey, fy: number): string[] {
+  const published = selectAnnual(contexts(index, metric, fy, "FY"));
+  const year = published?.concept;
+  const filed = QUARTERS.flatMap((quarter) => contexts(index, metric, fy, quarter === "Q4" ? "FY" : quarter));
+  const others = [...new Set(filed.map((fact) => fact.concept))].filter((concept) => concept !== year);
+  if (!published || !year) return others;
+  return [year, ...others.filter((concept) => sameMeasure(index, metric, fy, concept, published))];
+}
+
+/**
+ * The one concept a fiscal year's four quarters are all built from.
+ *
+ * Chosen once for the year rather than per quarter: letting each quarter take
+ * the first concept that happened to work mixed them, and four quarters from
+ * two taggings do not add up to either year. Veeva's 2017 came out 11% away
+ * from its own net income that way.
+ *
+ * Where two concepts are both allowed, the one the company actually filed the
+ * most quarters under wins; the year's own concept breaks a tie.
+ */
+const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
+const conceptChoice = new WeakMap<FactIndex, Map<string, string | undefined>>();
+function yearConcept(index: FactIndex, metric: MetricKey, fy: number): string | undefined {
+  let cache = conceptChoice.get(index);
+  if (!cache) { cache = new Map(); conceptChoice.set(index, cache); }
+  const key = `${metric}|${fy}`;
+  if (cache.has(key)) return cache.get(key);
+  const candidates = conceptsToTry(index, metric, fy);
+  let best: string | undefined; let bestScore = -1;
+  for (const concept of candidates) {
+    // Counting filed contexts rather than running every derivation twice: the
+    // normaliser is on a Worker CPU budget, and this is asked once per metric
+    // and year for every company on the page.
+    const score = (["Q1", "Q2", "Q3"] as const).filter((quarter) => sameConcept(contexts(index, metric, fy, quarter), concept).length > 0).length;
+    if (score > bestScore) { bestScore = score; best = concept; }
+  }
+  cache.set(key, best);
+  return best;
 }
 
 function quarterFact(index: FactIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4"): NormalizedFact | undefined {
-  const fp = quarter === "Q4" ? "FY" : quarter;
-  const all = contexts(index, metric, fy, fp);
-  const yearConcept = annualConcept(index, metric, fy);
-  const consistent = yearConcept ? sameConcept(all, yearConcept) : [];
-  // Only prefer the year's concept when it actually appears in the quarter.
-  const candidates = consistent.length ? consistent : all;
+  const all = contexts(index, metric, fy, quarter === "Q4" ? "FY" : quarter);
+  const concept = yearConcept(index, metric, fy);
+  return quarterFromConcept(index, metric, fy, quarter, concept ? sameConcept(all, concept) : all);
+}
+
+function quarterFromConcept(index: FactIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4", candidates: RawFinancialFact[]): NormalizedFact | undefined {
+  if (!candidates.length) return undefined;
   // FY contexts can contain later comparative quarter facts carrying fp=FY, so
   // a Q4 may not be picked merely because an FY-tagged duration happens to be
   // about ninety days. It is accepted only when it closes the fiscal year: the

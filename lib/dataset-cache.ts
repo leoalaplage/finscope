@@ -33,8 +33,13 @@ import { datasetCache } from "./runtime-env";
  *     its quarters with a gross contract-revenue concept while its year uses
  *     net `Revenues`, so its quarterly and trailing revenue — and every margin,
  *     per-share and valuation figure built on one — was about 40% too high.
+ * v13: a quarter may be built from a concept other than its year's, where that
+ *     concept is provably the same measure. Adopting the revenue standard in
+ *     2018 made filers restate a year under a new concept while its quarters
+ *     kept the old one, and seventeen of the twenty-one companies here lost
+ *     about five quarters to it — Apple two whole years.
  */
-export const KEY_VERSION = "v12";
+export const KEY_VERSION = "v13";
 
 /** A day. The filings behind a dataset change quarterly at most. */
 export const CACHE_SECONDS = 86_400;

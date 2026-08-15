@@ -23,6 +23,16 @@ describe("UI regressions", () => {
     expect(css).toContain(".kpi-legend {");
   });
 
+  it("puts the market beside the filings on the overview, and lets it reach ten years", () => {
+    const source = readFileSync(new URL("../components/CompanyKpiGrid.tsx", import.meta.url), "utf8");
+    expect(source).toContain('{ metric: "stockPrice", title: "Share price", kind: "candles" }');
+    expect(source).toContain('{ metric: "freeCashFlowYield", title: "FCF yield", kind: "market" }');
+    expect(source).toContain('{ id: "10Y", years: 10 }');
+    // Green against red is a CVD warning, not a pass, so the body carries the
+    // direction too: hollow rising, solid falling.
+    expect(source).toContain('fill={rising ? "var(--card)" : colour}');
+  });
+
   it("uses a white, system-font interface and shared chart tooltip tokens", () => {
     const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
     expect(css).toContain("--background: #ffffff");

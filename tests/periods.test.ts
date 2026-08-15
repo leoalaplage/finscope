@@ -102,3 +102,68 @@ describe("TTM construction", () => {
     expect(adjusted[0].facts.dilutedShares?.value).toBe(100);
   });
 });
+
+describe("a year restated under a new concept keeps its quarters", () => {
+  // Adopting the revenue standard in 2018, filers restated the prior year with
+  // a new concept and left that year's quarters under the old one. Insisting on
+  // the year's own concept lost the quarters, and with them every trailing
+  // window that touched them: seventeen of the twenty-one companies in the
+  // watchlist, Apple by two whole years.
+  const withConcept = (fact: RawFinancialFact, concept: string): RawFinancialFact => ({ ...fact, concept });
+  const oldTag = "us-gaap:SalesRevenueNet";
+  const newTag = "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax";
+
+  const quarters = [
+    withConcept(raw("revenue", 10, "2025-01-01", "2025-03-31", "Q1"), oldTag),
+    withConcept(raw("revenue", 25, "2025-01-01", "2025-06-30", "Q2"), oldTag),
+    withConcept(raw("revenue", 45, "2025-01-01", "2025-09-30", "Q3"), oldTag),
+  ];
+
+  it("uses the old concept when the restated year is the same number", () => {
+    const facts = [
+      ...quarters,
+      withConcept(raw("revenue", 70, "2025-01-01", "2025-12-31", "FY"), oldTag),
+      // Filed later, so it wins the annual — same total, new tag.
+      withConcept(raw("revenue", 70, "2025-01-01", "2025-12-31", "FY", 2025, "2027-11-01"), newTag),
+    ];
+    const periods = normalizeQuarterlyPeriods(facts, "USD");
+    expect(periods.map((period) => period.fiscalQuarter)).toEqual(["Q1", "Q2", "Q3", "Q4"]);
+    expect(periods.reduce((total, period) => total + (period.facts.revenue?.value ?? 0), 0)).toBeCloseTo(70, 6);
+  });
+
+  it("refuses the old concept when the restatement moved the year", () => {
+    // A year that genuinely changed has quarters that are not its own. Drawing
+    // them would publish a year that does not add up to itself.
+    const facts = [
+      ...quarters,
+      withConcept(raw("revenue", 70, "2025-01-01", "2025-12-31", "FY"), oldTag),
+      withConcept(raw("revenue", 90, "2025-01-01", "2025-12-31", "FY", 2025, "2027-11-01"), newTag),
+    ];
+    expect(normalizeQuarterlyPeriods(facts, "USD")).toEqual([]);
+  });
+
+  it("still refuses to mix two concepts that are not the same measure", () => {
+    // The Mastercard case: quarters tagged gross against a net year, eight
+    // billion apart. Nothing here may bring those back together.
+    const facts = [
+      withConcept(raw("revenue", 30, "2025-01-01", "2025-03-31", "Q1"), "us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax"),
+      withConcept(raw("revenue", 70, "2025-01-01", "2025-12-31", "FY"), "us-gaap:Revenues"),
+    ];
+    const periods = normalizeQuarterlyPeriods(facts, "USD");
+    expect(periods.find((period) => period.fiscalQuarter === "Q1")).toBeUndefined();
+  });
+
+  it("builds all four quarters from one concept, never two", () => {
+    const facts = [
+      ...quarters,
+      // A stray new-tag quarter must not be picked up beside three old-tag ones.
+      withConcept(raw("revenue", 12, "2025-01-01", "2025-03-31", "Q1", 2025, "2027-11-01"), newTag),
+      withConcept(raw("revenue", 70, "2025-01-01", "2025-12-31", "FY"), oldTag),
+      withConcept(raw("revenue", 70, "2025-01-01", "2025-12-31", "FY", 2025, "2027-11-01"), newTag),
+    ];
+    const periods = normalizeQuarterlyPeriods(facts, "USD");
+    const concepts = new Set(periods.map((period) => period.facts.revenue?.provenance.concept));
+    expect(concepts.size).toBe(1);
+    expect(periods.reduce((total, period) => total + (period.facts.revenue?.value ?? 0), 0)).toBeCloseTo(70, 6);
+  });
+});
