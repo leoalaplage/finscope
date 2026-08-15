@@ -6,6 +6,7 @@ import { COMPANY_COLUMNS, DEFAULT_COLUMNS, DEFAULT_COMPANY_FILTERS, DEFAULT_COMP
 import { cagrBetweenDates, cagrForPeriods, derivedValue, valueOf } from "@/lib/finance";
 import { CALLOUTS, DEFAULT_CALLOUTS, growthConsistency, growthGap, growthTable, HORIZONS, incrementalReturn, percentileAmong, ruleOfForty, worstDrawdown, type Horizon } from "@/lib/growth-quality";
 import { CHARTABLE_METRICS, METRICS, VIEW_METRICS } from "@/lib/metrics";
+import { balanceSheetDiagram, incomeStatementDiagram } from "@/lib/statement-flows";
 import { buildValuationHistory, valuationSnapshot, valuationStatistics } from "@/lib/valuation-history";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, MetricKey, Periodicity, PricePoint } from "@/lib/types";
 import type { SeriesStyle } from "@/lib/chart-workspace";
@@ -23,9 +24,10 @@ type Evidence = { label: string; value: number | null; period: FinancialPeriod; 
  * over several screens. Overview is now one block that stands alone, and the
  * detail behind it is a click rather than a scroll.
  */
-type CompanyTab = "quality" | "financials" | "pershare" | "margins" | "capital" | "valuation" | "sources";
+type CompanyTab = "quality" | "statements" | "financials" | "pershare" | "margins" | "capital" | "valuation" | "sources";
 const COMPANY_TABS: Array<{ key: CompanyTab; label: string }> = [
-  { key: "quality", label: "Quality Overview" },
+  { key: "quality", label: "Overview" },
+  { key: "statements", label: "Statements" },
   { key: "financials", label: "Financials" },
   { key: "pershare", label: "Per Share & Growth" },
   { key: "margins", label: "Margins" },
@@ -58,6 +60,7 @@ const FcfYieldCalculator = lazy(() => import("./FcfYieldCalculator").then((modul
 const FormulaDataAudit = lazy(() => import("./FormulaDataAudit").then((module) => ({ default: module.FormulaDataAudit })));
 const QsScreener = lazy(() => import("./QsScreener").then((module) => ({ default: module.QsScreener })));
 const StatisticsPage = lazy(() => import("./StatisticsPage").then((module) => ({ default: module.StatisticsPage })));
+const StatementSankey = lazy(() => import("./StatementSankey").then((module) => ({ default: module.StatementSankey })));
 const CompanyKpiGrid = lazy(() => import("./CompanyKpiGrid").then((module) => ({ default: module.CompanyKpiGrid })));
 const QualityOverview = lazy(() => import("./QualityOverview").then((module) => ({ default: module.QualityOverview })));
 const QualityValuationScatter = lazy(() => import("./QualityValuationScatter").then((module) => ({ default: module.QualityValuationScatter })));
@@ -424,6 +427,12 @@ function CompanyPage({ dataset, onBack, onCharts, onDcf, onCompare, onWatchlist,
   const selected = sortedPeriods(dataset, periodicity); const latest = latestPeriod(dataset); const annual = sortedPeriods(dataset, "annual");
   if (!latest) return <p className="simple-state">No data available</p>;
   const shares = derivedValue(latest, "sharesOutstanding") ?? derivedValue(latest, "dilutedShares"); const currentPrice = price?.priceClose ?? price?.close ?? null; const marketCap = currentPrice != null && shares != null ? currentPrice * shares : null;
+  // Drawn from the last complete fiscal year, never a trailing window: a
+  // diagram of TTM figures mixes four filings and cannot be checked against
+  // any single one of them.
+  const lastFullYear = annual.at(-1);
+  const incomeFlow = lastFullYear ? incomeStatementDiagram(lastFullYear) : null;
+  const balanceFlow = lastFullYear ? balanceSheetDiagram(lastFullYear) : null;
   const valuationTtm = sortedPeriods(dataset, "ttm");
   const valuationLatest = valuationTtm.at(-1) ?? annual.at(-1);
   const valuationSnapshotNow = valuationLatest && price ? valuationSnapshot(valuationLatest, price) : null;
@@ -448,6 +457,15 @@ function CompanyPage({ dataset, onBack, onCharts, onDcf, onCompare, onWatchlist,
     </section>}
 
 
+
+    {tab === "statements" && <section className="plain-section">
+      <div className="section-heading"><h2>Statements</h2><button onClick={() => onCharts(dataset.company.ticker, "revenue")}>Open in Charts</button></div>
+      <p className="section-note">The last reported fiscal year, drawn as the flow it describes. Every ribbon is a filed figure or a subtraction from one.</p>
+      <Suspense fallback={<p className="simple-state">Drawing…</p>}>
+        {incomeFlow ? <StatementSankey diagram={incomeFlow} title="Income statement"/> : <p className="simple-state">The last year does not carry enough reported lines to draw an income statement.</p>}
+        {balanceFlow ? <StatementSankey diagram={balanceFlow} title="Balance sheet"/> : <p className="simple-state">The last year carries no reported total for assets.</p>}
+      </Suspense>
+    </section>}
 
     {tab === "financials" && <div className="company-block">
       <section className="plain-section"><SectionTitle title="Balance Sheet" onCharts={() => onCharts(dataset.company.ticker, "totalAssets")}/>

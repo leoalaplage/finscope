@@ -113,3 +113,35 @@ describe("the redesign", () => {
     expect(grid).toContain("kpi-badge");
   });
 });
+
+describe("nothing the reader had is quietly taken away", () => {
+  /**
+   * Both of these were built, then lost in a restructure — the statement
+   * diagrams became an orphaned component with no route to them, and the
+   * overview chart grid was removed to the letter of a brief that did not mean
+   * it. Neither loss showed up in a test, which is why they survived a deploy.
+   */
+  it("keeps the statement diagrams reachable from the company page", () => {
+    const app = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    expect(app).toContain("StatementSankey");
+    expect(app).toContain("incomeStatementDiagram");
+    expect(app).toContain("balanceSheetDiagram");
+    expect(app).toContain('{ key: "statements"');
+  });
+
+  it("keeps the chart grid on the company overview", () => {
+    const app = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    expect(app).toContain("CompanyKpiGrid");
+    // Wired, not merely imported.
+    expect(app).toMatch(/<CompanyKpiGrid\s+dataset=/);
+  });
+
+  it("leaves no component in the tree that nothing can reach", () => {
+    const app = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    for (const component of ["CompanyKpiGrid", "StatementSankey", "QualityOverview", "BalanceSheetPanel"]) {
+      const declared = app.includes(`const ${component} = lazy(`);
+      const used = new RegExp(`<${component}[\\s/>]`).test(app);
+      expect(declared && used, `${component} is imported but never rendered`).toBe(true);
+    }
+  });
+});
