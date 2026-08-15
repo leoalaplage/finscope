@@ -70,11 +70,11 @@ describe("company statistics", () => {
     const latest = dataset().periods.at(-1)!;
     expect(derivedValue(latest, "tangibleAssets")).toBe(1_500);
     // Return on tangible assets must therefore exceed return on total assets.
-    expect(find(groups, "Returns (5Yr Avg)", "ROTA").value!).toBeGreaterThan(find(groups, "Returns (5Yr Avg)", "ROA").value!);
+    expect(find(groups, "Returns on Capital", "ROTA · 5Yr Avg").value!).toBeGreaterThan(find(groups, "Returns on Capital", "ROA · 5Yr Avg").value!);
   });
 
   it("averages returns over five years rather than reporting the latest one", () => {
-    const roe = find(groups, "Returns (5Yr Avg)", "ROE").value!;
+    const roe = find(groups, "Returns on Capital", "ROE · 5Yr Avg").value!;
     const latest = dataset().periods.at(-1)!;
     // Profit compounds against a fixed equity base, so the average of the last
     // five years sits below the final year by construction.
@@ -208,9 +208,48 @@ describe("balance-sheet facts the statistics depend on", () => {
       return { ...item, facts };
     });
     expect(derivedValue(opaque.periods.at(-1)!, "tangibleAssets")).toBeNull();
-    const rota = find(companyStatistics(opaque, price), "Returns (5Yr Avg)", "ROTA");
+    const rota = find(companyStatistics(opaque, price), "Returns on Capital", "ROTA · 5Yr Avg");
     // Publishing total assets under a tangible label would restate ROA twice.
     expect(rota.value).toBeNull();
     expect(rota.reason).toMatch(/tangible base cannot be identified/);
+  });
+});
+
+describe("cash return on capital", () => {
+  const groups = companyStatistics(dataset(), price);
+
+  it("divides free cash flow by the same capital base ROIC uses", () => {
+    const latest = dataset().periods.at(-1)!;
+    const fcf = derivedValue(latest, "freeCashFlow")!;
+    const capital = derivedValue(latest, "investedCapital")!;
+    expect(derivedValue(latest, "cashReturnOnCapital")).toBeCloseTo(fcf / capital, 10);
+    expect(find(groups, "Returns on Capital", "Cash RoC").value).toBeCloseTo(fcf / capital, 10);
+  });
+
+  it("differs from ROIC, because one applies a tax rate and the other does not", () => {
+    const latest = dataset().periods.at(-1)!;
+    expect(derivedValue(latest, "cashReturnOnCapital")).not.toBeCloseTo(derivedValue(latest, "roic")!, 4);
+  });
+
+  it("states the current reading, the five-year average and the gap between them", () => {
+    const current = find(groups, "Returns on Capital", "Cash RoC").value!;
+    const average = find(groups, "Returns on Capital", "Cash RoC · 5Yr Avg").value!;
+    const gap = find(groups, "Returns on Capital", "Cash RoC · vs 5Yr");
+    expect(gap.value).toBeCloseTo(current - average, 10);
+    expect(gap.format).toBe("points");
+    // Cash flow compounds against a fixed capital base in this fixture, so the
+    // latest year must sit above the average of the last five.
+    expect(current).toBeGreaterThan(average);
+  });
+
+  it("has no value when invested capital is not reportable", () => {
+    const noEquity = dataset();
+    noEquity.periods = noEquity.periods.map((item) => { const facts = { ...item.facts }; delete facts.totalEquity; return { ...item, facts }; });
+    expect(derivedValue(noEquity.periods.at(-1)!, "cashReturnOnCapital")).toBeNull();
+  });
+
+  it("shows a gap in points, signed, rather than as a percentage of a percentage", () => {
+    expect(formatStat(.032, "points")).toBe("+3.2 pp");
+    expect(formatStat(-.045, "points")).toBe("-4.5 pp");
   });
 });

@@ -6,12 +6,13 @@ export const FLOW_METRICS: MetricKey[] = [
   "acquisitions", "dividendsPaid",
   "incomeBeforeTax", "incomeTaxExpense", "depreciationAndAmortization",
   "interestExpense", "dividendsPerShare",
+  "researchAndDevelopment", "sellingGeneralAndAdministrative", "operatingExpenses", "otherIncomeExpense",
   // Carried only so a share count can be recovered from it when the filer
   // publishes none; see recoverDilutedShares in the SEC adapter.
   "dilutedEpsReported",
 ];
 export const WEIGHTED_SHARE_METRICS: MetricKey[] = ["basicShares", "dilutedShares"];
-export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities", "totalEquity", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent"];
+export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities", "totalEquity", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent", "totalLiabilities", "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable", "shortTermInvestments", "longTermInvestments", "retainedEarnings"];
 const SPLIT_ADJUSTED_METRICS: MetricKey[] = [...WEIGHTED_SHARE_METRICS, "sharesOutstanding", "sharesIssued", "treasuryShares"];
 /** Per-share amounts move the other way: a split divides them. */
 const SPLIT_DIVIDED_METRICS: MetricKey[] = ["dilutedEpsReported", "dividendsPerShare"];
@@ -131,7 +132,7 @@ function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", 
  * application shows a hole where it has no trustworthy value, so the hole is
  * what the reader gets.
  */
-const NEVER_NEGATIVE = new Set<MetricKey>(["revenue", "costOfRevenue", "basicShares", "dilutedShares", "sharesOutstanding", "totalEquity", "capitalExpenditures", "operatingCashFlow", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent"]);
+const NEVER_NEGATIVE = new Set<MetricKey>(["revenue", "costOfRevenue", "basicShares", "dilutedShares", "sharesOutstanding", "totalEquity", "capitalExpenditures", "operatingCashFlow", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent", "totalLiabilities", "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable", "shortTermInvestments", "longTermInvestments", "researchAndDevelopment", "sellingGeneralAndAdministrative", "operatingExpenses"]);
 function implausible(metric: MetricKey, value: number) {
   if (!Number.isFinite(value)) return true;
   if (WEIGHTED_SHARE_METRICS.includes(metric) || metric === "sharesOutstanding") return value <= 0;

@@ -77,6 +77,23 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   // earned against interest paid, and coverage asks what the debt costs.
   interestExpense: { namespace: "us-gaap", tags: ["InterestExpense", "InterestExpenseDebt", "InterestExpenseNonoperating"], unit: "currency" },
   dividendsPerShare: { namespace: "us-gaap", tags: ["CommonStockDividendsPerShareDeclared", "CommonStockDividendsPerShareCashPaid"], unit: "perShare" },
+  // Balance-sheet detail, carried so a statement can be drawn as a flow rather
+  // than only totalled. Every one of these is optional: a filer that omits a
+  // line leaves it out of the diagram instead of having a number invented.
+  totalLiabilities: { namespace: "us-gaap", tags: ["Liabilities"], unit: "currency" },
+  propertyPlantAndEquipment: { namespace: "us-gaap", tags: ["PropertyPlantAndEquipmentNet"], unit: "currency" },
+  inventory: { namespace: "us-gaap", tags: ["InventoryNet"], unit: "currency" },
+  accountsReceivable: { namespace: "us-gaap", tags: ["AccountsReceivableNetCurrent"], unit: "currency" },
+  accountsPayable: { namespace: "us-gaap", tags: ["AccountsPayableCurrent"], unit: "currency" },
+  shortTermInvestments: { namespace: "us-gaap", tags: ["MarketableSecuritiesCurrent", "ShortTermInvestments", "OtherShortTermInvestments"], unit: "currency" },
+  longTermInvestments: { namespace: "us-gaap", tags: ["MarketableSecuritiesNoncurrent", "LongTermInvestments"], unit: "currency" },
+  // Deliberately not in NEVER_NEGATIVE: a company that has distributed more
+  // than it ever earned carries a deficit, and Apple's is minus 14bn.
+  retainedEarnings: { namespace: "us-gaap", tags: ["RetainedEarningsAccumulatedDeficit"], unit: "currency" },
+  researchAndDevelopment: { namespace: "us-gaap", tags: ["ResearchAndDevelopmentExpense"], unit: "currency" },
+  sellingGeneralAndAdministrative: { namespace: "us-gaap", tags: ["SellingGeneralAndAdministrativeExpense", "GeneralAndAdministrativeExpense"], unit: "currency" },
+  operatingExpenses: { namespace: "us-gaap", tags: ["OperatingExpenses"], unit: "currency" },
+  otherIncomeExpense: { namespace: "us-gaap", tags: ["NonoperatingIncomeExpense"], unit: "currency" },
 };
 
 function sourceUrl(cik: string, accession: string) {

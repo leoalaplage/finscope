@@ -12,6 +12,7 @@ export const FORMULAS = {
   investedCapital: "Total debt + Total equity − Cash and equivalents",
   nopat: "Operating income × (1 − Effective tax rate)",
   roic: "NOPAT / Invested capital",
+  cashReturnOnCapital: "Free cash flow / Invested capital",
   capitalIntensity: "|Capital expenditures| / Revenue",
   freeCashFlowMargin: "Free cash flow / Revenue",
   revenuePerShare: "Revenue / Diluted weighted average shares",
@@ -240,6 +241,12 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     // ROIC has been declared in the metric registry all along without ever
     // being computed, so it rendered as an em dash everywhere it appeared.
     roic: safeDivide(nopat(period), investedCapital(period)),
+    // The same question as ROIC, asked of cash instead of accounting profit.
+    // NOPAT applies an effective tax rate, and falls back to an assumed 21%
+    // when the reported one is not usable, so ROIC always carries one
+    // assumption. Free cash flow carries none: it is what the business
+    // actually produced after paying for its own maintenance.
+    cashReturnOnCapital: safeDivide(fcf, investedCapital(period)),
     capitalIntensity: revenue ? safeDivide(Math.abs(valueOf(period, "capitalExpenditures") ?? Number.NaN), revenue) : null,
     netDebt: valueOf(period, "totalDebt") == null && valueOf(period, "cashAndEquivalents") == null ? null : (valueOf(period, "totalDebt") ?? 0) - (valueOf(period, "cashAndEquivalents") ?? 0),
     netWorkingCapital: valueOf(period, "currentAssets") == null || valueOf(period, "currentLiabilities") == null ? null : valueOf(period, "currentAssets")! - valueOf(period, "currentLiabilities")! - (valueOf(period, "cashAndEquivalents") ?? 0),

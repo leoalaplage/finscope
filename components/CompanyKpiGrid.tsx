@@ -23,6 +23,7 @@ const CARDS: Array<{ metric: string; title: string; pair?: string; pairTitle?: s
   { metric: "freeCashFlowAfterSbc", title: "Free cash flow after SBC" },
   { metric: "netIncomePerShare", title: "EPS" },
   { metric: "freeCashFlowPerShare", title: "FCF per share" },
+  { metric: "cashReturnOnCapital", title: "Cash RoC" },
   { metric: "operatingMargin", title: "Operating margin" },
   { metric: "freeCashFlowMargin", title: "FCF margin" },
   { metric: "dilutedShares", title: "Diluted shares" },

@@ -16,10 +16,10 @@ It uses Next.js App Router semantics through Vinext, React 19, strict TypeScript
 ### Navigation
 
 - **Companies** — the ranked watchlist table, with a column picker so the visible metrics are the reader's choice, and a quality-versus-valuation scatter.
-- **Company** — Overview (a KPI card grid, one chart per measure), Statistics, Margins, Growth & Cash Quality, Per Share, Capital Allocation and Valuation.
+- **Company** — Statements (income statement and balance sheet drawn as flow diagrams), Overview (a KPI card grid, one chart per measure), Statistics, Balance Sheet, Margins, Growth & Cash Quality, Per Share, Capital Allocation and Valuation.
 - **Statistics** — the headline panel for one company, or up to six compared row by row with the better value in each row marked.
 - **Charts** — the multi-company, multi-metric workspace.
-- **DCF** — assumptions traceable to their historical base.
+- **Valuation** — a reverse DCF on free cash flow per share (four assumptions, out comes the price you would have to pay for your target return) and the full FCFF model behind a tab.
 - **QS Screener** — the standalone quality-score screen, with PNG export.
 - Secondary views reachable from a company: Data Quality, Formula Audit, Import status and Sources.
 
@@ -73,6 +73,9 @@ lib/
   finance.ts               centralized, pure financial formulas
   metrics.ts               the metric registry and its display groups
   growth-quality.ts        CAGR tables, consistency, incremental returns
+  statement-flows.ts       statements as flows, and balance-sheet health
+  sankey.ts                the flow-diagram layout
+  fcf-yield-model.ts       the reverse discounted-cash-flow model
   charting.ts              palettes, axis bounds and tick selection
   chart-workspace.ts       the chart model, presets and serialization
   auto-chart.ts            automatic panel planning and value formatting

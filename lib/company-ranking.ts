@@ -1,6 +1,6 @@
 export type CompanySortKey = "marketCap" | "fcfMargin" | "fcfShareCagr" | "revenueShareCagr" | "operatingMargin" | "dilution" | "pfcf" | "valuationVsAverage" | "updated" | "ticker"
   | "revenueCagr10" | "fcfCagr10" | "fcfVsRevenue10" | "fcfConsistency5" | "fcfConsistency10" | "fcfAfterSbcMargin"
-  | "roic" | "roiic5" | "ruleOfForty" | "capitalIntensity" | "fcfDrawdown";
+  | "roic" | "cashRoC" | "cashRoCvsAverage" | "roiic5" | "ruleOfForty" | "capitalIntensity" | "fcfDrawdown";
 export type SortDirection = "asc" | "desc";
 
 export interface CompanyRankingRow {
@@ -21,6 +21,9 @@ export interface CompanyRankingRow {
   fcfConsistency10: number | null;
   fcfAfterSbcMargin: number | null;
   roic: number | null;
+  cashRoC: number | null;
+  /** Latest Cash RoC less its own five-year average, in points. */
+  cashRoCvsAverage: number | null;
   roiic5: number | null;
   ruleOfForty: number | null;
   capitalIntensity: number | null;
@@ -57,6 +60,8 @@ export const COMPANY_COLUMNS: CompanyColumn[] = [
   { key: "fcfConsistency10", label: "FCF consistency 10Y", format: "score", hint: "The same over ten years." },
   { key: "operatingMargin", label: "Operating Margin", format: "percent", hint: "Operating income as a share of revenue." },
   { key: "roic", label: "ROIC", format: "percent", hint: "Operating profit after tax over debt plus equity less cash." },
+  { key: "cashRoC", label: "Cash RoC", format: "percent", hint: "Free cash flow over the same capital base as ROIC, with no tax assumption in the numerator." },
+  { key: "cashRoCvsAverage", label: "Cash RoC vs 5Y", format: "points", hint: "How far the latest Cash RoC sits from its own five-year average. Negative means the business is earning less on its capital than it recently did." },
   { key: "roiic5", label: "Incremental ROIC 5Y", format: "percent", hint: "What the last five years of growth cost: change in profit over change in capital." },
   { key: "ruleOfForty", label: "Rule of 40", format: "points40", hint: "Revenue growth plus free cash flow margin. Forty is the conventional bar." },
   { key: "capitalIntensity", label: "Capital intensity", format: "percent", hint: "Capital expenditure as a share of revenue." },

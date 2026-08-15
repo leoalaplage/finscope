@@ -2,7 +2,7 @@ import { cagrForPeriods, derivedValue, safeDivide, valueOf } from "./finance";
 import { METRICS } from "./metrics";
 import type { CompanyDataset, FinancialPeriod, PricePoint } from "./types";
 
-export type StatFormat = "currency" | "percent" | "ratio" | "multiple" | "shares" | "perShare";
+export type StatFormat = "currency" | "percent" | "ratio" | "multiple" | "shares" | "perShare" | "points";
 
 export interface Stat {
   key: string;
@@ -83,6 +83,8 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
     ({ key, label, value, format, polarity, formula: METRICS[key]?.formula, reason: value == null ? reason : undefined });
 
   const average = (metric: string) => averageOver(annual, metric);
+  /** A difference between two rates belongs in points, not percent of a percent. */
+  const spread = (current: number | null, base: number | null) => current == null || base == null ? null : current - base;
   const growth = (metric: string, years: 3 | 5 | 10) => cagr(annual, metric, years);
 
   const dividendsPerShare = flow("dividendsPerShare");
@@ -113,13 +115,21 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
       ],
     },
     {
-      title: "Returns (5Yr Avg)",
+      title: "Returns on Capital",
+      note: "Cash RoC divides free cash flow by the same capital base as ROIC. ROIC's numerator applies a tax rate, and falls back to an assumed one when the reported rate is unusable; cash carries no such assumption.",
       stats: [
-        stat("returnOnAssets", "ROA", average("returnOnAssets").value, "percent", 1, average("returnOnAssets").reason),
-        stat("returnOnTangibleAssets", "ROTA", average("returnOnTangibleAssets").value, "percent", 1, "Reports no goodwill or acquired intangibles, so a tangible base cannot be identified"),
-        stat("returnOnEquity", "ROE", average("returnOnEquity").value, "percent", 1, average("returnOnEquity").reason),
-        stat("returnOnCapitalEmployed", "ROCE", average("returnOnCapitalEmployed").value, "percent", 1, average("returnOnCapitalEmployed").reason),
-        stat("roic", "ROIC", average("roic").value, "percent", 1, average("roic").reason),
+        // The headline pair, current against the cycle, and the gap between
+        // them: a return well below its own five-year average is the first
+        // thing to notice about a compounder, and an average alone hides it.
+        stat("cashReturnOnCapital", "Cash RoC", flow("cashReturnOnCapital"), "percent", 1),
+        stat("cashReturnOnCapital", "Cash RoC · 5Yr Avg", average("cashReturnOnCapital").value, "percent", 1, average("cashReturnOnCapital").reason),
+        stat("cashReturnOnCapital", "Cash RoC · vs 5Yr", spread(flow("cashReturnOnCapital"), average("cashReturnOnCapital").value), "points", 1, average("cashReturnOnCapital").reason),
+        stat("roic", "ROIC", flow("roic"), "percent", 1),
+        stat("roic", "ROIC · 5Yr Avg", average("roic").value, "percent", 1, average("roic").reason),
+        stat("returnOnEquity", "ROE · 5Yr Avg", average("returnOnEquity").value, "percent", 1, average("returnOnEquity").reason),
+        stat("returnOnCapitalEmployed", "ROCE · 5Yr Avg", average("returnOnCapitalEmployed").value, "percent", 1, average("returnOnCapitalEmployed").reason),
+        stat("returnOnAssets", "ROA · 5Yr Avg", average("returnOnAssets").value, "percent", 1, average("returnOnAssets").reason),
+        stat("returnOnTangibleAssets", "ROTA · 5Yr Avg", average("returnOnTangibleAssets").value, "percent", 1, "Reports no goodwill or acquired intangibles, so a tangible base cannot be identified"),
       ],
     },
     {
@@ -189,6 +199,7 @@ export function formatStat(value: number | null, format: StatFormat, currency = 
       // One decimal below ten percent, none above: 0.4% and 340% both read
       // cleanly, where a fixed precision makes one of them look wrong.
       return `${(value * 100).toFixed(Math.abs(value) < .1 ? 1 : Math.abs(value) < 10 ? 1 : 0)}%`;
+    case "points": return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)} pp`;
     case "multiple": return `${value.toFixed(1)}×`;
     case "ratio": return value.toFixed(2);
     case "shares": return COMPACT.format(value);

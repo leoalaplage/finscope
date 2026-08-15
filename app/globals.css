@@ -437,3 +437,74 @@ tbody tr:last-child > * { border-bottom: 0; }
 
 @media (max-width: 1100px) { .stat-columns { columns: 2; } }
 @media (max-width: 700px) { .stat-columns { columns: 1; } .stat-panel { padding: 14px; } }
+
+/* --- Reverse DCF ---------------------------------------------------------- */
+/* Assumptions on the left, what they imply on the right: changing a number and
+   watching the answer move should take no scrolling. */
+.fcf-model { display: grid; grid-template-columns: minmax(360px, 5fr) minmax(420px, 7fr); gap: 18px; align-items: start; }
+.fcf-assumptions, .fcf-output { display: flex; flex-direction: column; gap: 16px; }
+
+.fcf-summary { border: 1px solid var(--card-border); border-radius: var(--card-radius); padding: 14px 16px; background: var(--surface); }
+.fcf-summary h3 { margin: 0 0 10px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.fcf-summary > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.fcf-summary > div > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.fcf-summary span { font-size: 12px; color: var(--muted); }
+.fcf-summary strong { font-size: 17px; font-variant-numeric: tabular-nums; }
+.fcf-summary strong.positive { color: var(--accent); }
+.fcf-summary strong.negative { color: var(--danger); }
+.fcf-summary small { display: block; margin-top: 10px; font-size: 11px; color: var(--muted); }
+.fcf-summary.results { border-color: var(--border-strong); }
+
+.fcf-field { display: flex; flex-direction: column; gap: 5px; }
+.fcf-field-label { font-size: 13px; font-weight: 600; }
+.fcf-input { display: flex; align-items: stretch; border: 1px solid var(--border-strong); border-radius: var(--radius); overflow: hidden; }
+.fcf-input input, .fcf-input select { flex: 1; min-width: 0; border: 0; border-radius: 0; background: var(--surface); padding: 0 12px; font-size: 15px; font-variant-numeric: tabular-nums; }
+.fcf-input input:focus-visible, .fcf-input select:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.fcf-input b { display: flex; align-items: center; padding: 0 12px; border-left: 1px solid var(--border); background: var(--background); color: var(--muted); font-size: 13px; font-weight: 600; }
+.fcf-field small { font-size: 11px; color: var(--muted); }
+
+.fcf-toggle { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; }
+.fcf-toggle input { width: 16px; height: 16px; min-height: 0; }
+.fcf-toggle span { font-size: 13px; }
+.fcf-toggle small { grid-column: 2; font-size: 11px; color: var(--muted); }
+
+.fcf-canvas { width: 100%; height: 320px; }
+.fcf-output .source-note { margin: 0; font-size: 11px; color: var(--muted); }
+
+@media (max-width: 960px) { .fcf-model { grid-template-columns: 1fr; } .fcf-summary > div { grid-template-columns: 1fr 1fr; } }
+
+/* --- Statement flow diagrams --------------------------------------------- */
+:root {
+  --sankey-revenue: #2a78d6; --sankey-profit: #008300; --sankey-cost: #eb6834;
+  --sankey-asset: #2a78d6; --sankey-liability: #eb6834; --sankey-equity: #008300;
+  --sankey-neutral: #6b7280;
+}
+:root[data-theme="dark"] {
+  --sankey-revenue: #3987e5; --sankey-profit: #199e70; --sankey-cost: #d95926;
+  --sankey-asset: #3987e5; --sankey-liability: #d95926; --sankey-equity: #199e70;
+  --sankey-neutral: #8b93a3;
+}
+
+.sankey { margin: 0 0 20px; padding: 16px 18px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); }
+.sankey figcaption { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.sankey figcaption h3 { margin: 0; font-size: 15px; }
+.sankey figcaption span { font-size: 11px; color: var(--muted); }
+/* Wide content scrolls inside its own box; the page never scrolls sideways. */
+.sankey-scroll { overflow-x: auto; }
+.sankey-scroll svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.sankey-scroll path { cursor: default; transition: opacity .12s ease; }
+.sankey-label { font-size: 11px; fill: var(--text); pointer-events: none; }
+.sankey-name { font-weight: 600; }
+.sankey-value { fill: var(--muted); font-variant-numeric: tabular-nums; }
+.sankey-notes { margin: 10px 0 0; padding-left: 18px; font-size: 11px; color: var(--muted); }
+
+/* --- Balance sheet -------------------------------------------------------- */
+.balance-sheet { display: flex; flex-direction: column; gap: 18px; }
+.balance-health { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.balance-health > div { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); }
+.balance-health span { font-size: 12px; color: var(--muted); }
+.balance-health strong { font-size: 19px; font-variant-numeric: tabular-nums; }
+.balance-health small { font-size: 10px; color: var(--muted); line-height: 1.35; }
+.financial-table th.indented { padding-left: 22px; font-weight: 400; color: var(--muted); }
+.financial-table tr.balance-total { border-top: 1px solid var(--border-strong); }
+.financial-table tr.balance-total th, .financial-table tr.balance-total td { font-weight: 700; }

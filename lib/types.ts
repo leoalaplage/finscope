@@ -60,7 +60,19 @@ export type MetricKey =
   | "goodwill"
   | "intangibleAssets"
   | "interestExpense"
-  | "dividendsPerShare";
+  | "dividendsPerShare"
+  | "totalLiabilities"
+  | "propertyPlantAndEquipment"
+  | "inventory"
+  | "accountsReceivable"
+  | "accountsPayable"
+  | "shortTermInvestments"
+  | "longTermInvestments"
+  | "retainedEarnings"
+  | "researchAndDevelopment"
+  | "sellingGeneralAndAdministrative"
+  | "operatingExpenses"
+  | "otherIncomeExpense";
 
 export interface Provenance {
   provider: "SEC" | "Yahoo Finance" | "Calculated" | "Demo fixture";

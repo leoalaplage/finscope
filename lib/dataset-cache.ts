@@ -23,8 +23,11 @@ import { datasetCache } from "./runtime-env";
  * v9: total assets, goodwill, acquired intangibles, interest expense and
  *     dividends per share are carried; and total debt is the sum of its current
  *     and non-current portions rather than whichever one the filer tagged.
+ * v10: balance-sheet detail (total liabilities, PP&E, inventory, receivables,
+ *     payables, investments, retained earnings) and the operating-expense
+ *     breakdown, which the statement diagrams and the balance-sheet view need.
  */
-export const KEY_VERSION = "v9";
+export const KEY_VERSION = "v10";
 
 /** A day. The filings behind a dataset change quarterly at most. */
 export const CACHE_SECONDS = 86_400;

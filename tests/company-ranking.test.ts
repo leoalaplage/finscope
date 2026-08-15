@@ -12,6 +12,8 @@ const row = (ticker: string, values: Partial<CompanyRankingRow> = {}): CompanyRa
   fcfConsistency5: .9,
   fcfConsistency10: .85,
   fcfAfterSbcMargin: .08,
+  cashRoC: .2,
+  cashRoCvsAverage: 0,
   roic: .2,
   roiic5: .25,
   ruleOfForty: .45,

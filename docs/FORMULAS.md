@@ -25,6 +25,7 @@ Every formula is implemented in `lib/finance.ts` and named in the `FORMULAS` map
 | **Invested capital** | Total debt + Total equity − Cash and equivalents | The *financing* view. The operating build-up would need fixed assets and intangibles that several filers omit; equity and debt are carried reliably. |
 | **NOPAT** | Operating income × (1 − Effective tax rate) | Effective rate from income tax expense over pre-tax income. |
 | **ROIC** | NOPAT / Invested capital | |
+| **Cash RoC** | Free cash flow / Invested capital | The same question as ROIC asked of cash. NOPAT applies an effective tax rate and falls back to an assumed 21% when the reported one is unusable, so ROIC always carries one assumption; free cash flow carries none. Reported current *and* against its own five-year average, because a return below its own recent mean is the first thing to notice about a compounder. |
 | **Incremental ROIC** | Δ NOPAT over the window / Δ Invested capital over the window | What the *marginal* capital earned, which is what a compounder is judged on. |
 | **ROE** | Net income / Total equity | |
 | **ROA** | Net income / Total assets | |
@@ -54,12 +55,36 @@ Returns are stated on the period-end balance rather than an average of opening a
 | **Rule of 40** | Latest-year revenue growth + FCF margin | |
 | **Worst drawdown** | Largest peak-to-trough decline across the reported years | Free cash flow by default. Needs at least three years. |
 
+## Balance sheet
+
+| Metric | Formula | Rule |
+|---|---|---|
+| Current ratio | Current assets / Current liabilities | |
+| Quick ratio | (Cash + Short-term investments + Receivables) / Current liabilities | Inventory excluded. |
+| Net debt / EBITDA | Net debt / EBITDA | Negative means net cash. |
+| Net debt / FCF | Net debt / Free cash flow | The same question asked of cash. |
+| Goodwill & intangibles / assets | (Goodwill + Acquired intangibles) / Total assets | How much of the balance sheet is the price of past acquisitions. |
+| Equity / assets | Total equity / Total assets | |
+
+## Statement diagrams
+
+The income statement and balance sheet are drawn as flows from the **last complete fiscal year**, never from a trailing window: a diagram of TTM figures mixes four filings and cannot be checked against any one of them.
+
+Every ribbon is a filed figure or a subtraction from one. Where a filing does not fit the standard shape the diagram says so beneath itself rather than closing the gap quietly:
+
+- **No tagged operating income.** Zoetis and Interactive Brokers publish none. Pre-tax income is recovered as net income plus tax, and the remaining operating costs become the balancing item.
+- **Non-operating items.** Solved for, as net income plus tax less the profit above it. A net gain enters as its own source rather than being netted against a cost; a net cost is drawn as one.
+- **Minority interests.** Assets equal liabilities plus equity, but the mapped equity is the parent's share. A group with minority partners leaves a third claim on the same assets — 8% of S&P Global's balance sheet and 7% of Interactive Brokers'. It is drawn as its own slice.
+- **A breakdown exceeding its total.** Scaled to fit and flagged, never drawn as a negative ribbon.
+- **A retained-earnings deficit.** Equity is left unsplit and the deficit is stated. Apple has distributed more than it has ever earned.
+
 ## Valuation
 
 | Metric | Formula | Rule |
 |---|---|---|
 | Market capitalization | Matched stock close × diluted shares | Price date and fiscal end must match by the price-selection rule. |
 | P/S, P/E, P/OCF, P/FCF | Market capitalization / matching flow | Never combines current price with historical flow data. |
+| **Reverse DCF entry price** | FCF/share × (1 + g)^n ÷ exit yield ÷ (1 + desired return)^n | Four assumptions, no cost of capital: the desired return *is* the discount rate. The exit yield and its reciprocal multiple are the same assumption. |
 | FCF yield | Free cash flow / Market capitalization | Same matched price period. |
 | Buyback yield | Gross repurchase cash flow / Market capitalization | Separate from effective share-count change. |
 
