@@ -68,7 +68,17 @@ Returns are stated on the period-end balance rather than an average of opening a
 
 ## Statement diagrams
 
-The income statement and balance sheet are drawn as flows from the **last complete fiscal year**, never from a trailing window: a diagram of TTM figures mixes four filings and cannot be checked against any one of them.
+The income statement, the cash flow and the balance sheet are drawn as flows from the **last complete fiscal year**, never from a trailing window: a diagram of TTM figures mixes four filings and cannot be checked against any one of them.
+
+Inside every column, money coming in is drawn above money going out — profit along the top, each cost peeling off underneath — and a node nothing feeds is placed immediately before what it feeds rather than in the first column. Ribbons are stacked in the order of the nodes at their far end, so they never cross.
+
+| Diagram | Stages |
+|---|---|
+| Income statement | Revenue → cost of sales and gross profit → operating costs and operating income → tax and net income |
+| **Cash flow** | Net income + non-cash charges → operating cash flow → capex and **free cash flow** → dividends, buybacks and what was kept |
+| Balance sheet | Assets → total assets → liabilities, equity and any minority claim |
+
+Free cash flow in the diagram is the same figure the rest of the application computes, so capex is drawn as operating cash flow less it. The bridge from profit to cash names depreciation and share-based pay **only while they fit inside it**: when they add to more than the gap, working capital consumed the difference, and splitting them would need an outflow the filing does not itemise, so the bridge is drawn as one line and the reason is stated.
 
 Every ribbon is a filed figure or a subtraction from one. Where a filing does not fit the standard shape the diagram says so beneath itself rather than closing the gap quietly:
 
@@ -77,6 +87,9 @@ Every ribbon is a filed figure or a subtraction from one. Where a filing does no
 - **Minority interests.** Assets equal liabilities plus equity, but the mapped equity is the parent's share. A group with minority partners leaves a third claim on the same assets — 8% of S&P Global's balance sheet and 7% of Interactive Brokers'. It is drawn as its own slice.
 - **A breakdown exceeding its total.** Scaled to fit and flagged, never drawn as a negative ribbon.
 - **A retained-earnings deficit.** Equity is left unsplit and the deficit is stated. Apple has distributed more than it has ever earned.
+- **Returns exceeding the year's free cash flow.** Drawn to the cash the year produced and reported at full size, with the multiple stated — Zoetis returned 1.81× its free cash flow, Apple 1.07×, out of cash already held or borrowed.
+- **No tagged capital expenditure.** The diagram stops at operating cash flow rather than inventing a split. Airbnb's recent filings itemise no property purchases at all, only "other investing activities", so it has no free cash flow to draw.
+- **Profit that did not become cash.** When net income exceeds operating cash flow the difference is drawn as an outflow from profit, not netted away.
 
 ## Valuation
 

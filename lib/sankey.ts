@@ -37,6 +37,16 @@ export interface SankeyOptions {
    * with the labels of the column before it.
    */
   labelRoom?: number;
+  /**
+   * Vertical ordering inside a column, drawn top to bottom by ascending rank.
+   * Equal ranks keep the order the caller declared them in.
+   *
+   * A statement has a natural reading order that flow order alone does not
+   * produce: what the company earned belongs above what it spent, in every
+   * column, so the profit line runs across the top of the diagram and the costs
+   * peel off underneath it.
+   */
+  rank?: (id: string) => number;
 }
 
 /**
@@ -52,7 +62,7 @@ export interface SankeyOptions {
  * ribbons inside the box that anchors them rather than spilling past it.
  */
 export function layoutSankey(flows: SankeyFlow[], options: SankeyOptions): SankeyLayout {
-  const { width, height, nodeWidth = 14, nodePadding = 10, margin = 4, labelRoom = 0 } = options;
+  const { width, height, nodeWidth = 14, nodePadding = 10, margin = 4, labelRoom = 0, rank } = options;
   const usable = flows.filter((flow) => Number.isFinite(flow.value) && flow.value > 0);
   if (!usable.length) return { nodes: [], links: [], width, height };
 
@@ -75,6 +85,21 @@ export function layoutSankey(flows: SankeyFlow[], options: SankeyOptions): Sanke
       if (next > depth.get(flow.target)!) { depth.set(flow.target, next); moved = true; }
     }
     if (!moved) break;
+  }
+
+  // A node nothing flows into is drawn immediately before whatever it feeds,
+  // not in the first column. Longest-path depth alone puts every such node at
+  // zero, which stranded "Other income" beside Revenue with a ribbon sweeping
+  // four columns to reach pre-tax income, and would have put the non-cash
+  // add-backs in the same column as the profit they are added to.
+  //
+  // Reading the original depths while writing the new ones is safe: only nodes
+  // with no incoming flow move, and nothing reads their old position.
+  for (const id of ids) {
+    if ((incoming.get(id) ?? []).length) continue;
+    const targets = outgoing.get(id) ?? [];
+    if (!targets.length) continue;
+    depth.set(id, Math.max(0, Math.min(...targets.map((flow) => depth.get(flow.target)!)) - 1));
   }
 
   const value = new Map<string, number>(ids.map((id) => {
@@ -104,7 +129,10 @@ export function layoutSankey(flows: SankeyFlow[], options: SankeyOptions): Sanke
   const columnX = (level: number) => maxDepth === 0 ? margin : margin + (level / maxDepth) * span;
 
   const nodes: SankeyNodeLayout[] = [];
-  for (const [level, members] of [...columns.entries()].sort((a, b) => a[0] - b[0])) {
+  for (const [level, declared] of [...columns.entries()].sort((a, b) => a[0] - b[0])) {
+    const members = rank
+      ? declared.map((id, index) => ({ id, index })).sort((a, b) => (rank(a.id) - rank(b.id)) || (a.index - b.index)).map((item) => item.id)
+      : declared;
     const heights = members.map((id) => Math.max(1, value.get(id)! * scale));
     const used = heights.reduce((sum, item) => sum + item, 0) + nodePadding * (members.length - 1);
     let y = margin + (height - 2 * margin - used) / 2;
@@ -115,20 +143,36 @@ export function layoutSankey(flows: SankeyFlow[], options: SankeyOptions): Sanke
   }
 
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  // Stack each node's links in the order they were declared, so the caller
-  // controls the reading order and the ribbons never cross inside a node.
-  const sourceCursor = new Map<string, number>();
-  const targetCursor = new Map<string, number>();
-  const links: SankeyLinkLayout[] = usable.map((flow) => {
+  const thickness = usable.map((flow) => Math.max(1, flow.value * scale));
+
+  // Ribbons leave a node in the order their destinations are stacked, and
+  // arrive in the order their origins are stacked. Stacking them in declaration
+  // order instead made them cross whenever a column was reordered, which turns
+  // a diagram meant to be read at a glance into a knot.
+  const bySource = new Map<string, number[]>();
+  const byTarget = new Map<string, number[]>();
+  usable.forEach((flow, index) => {
+    bySource.set(flow.source, [...(bySource.get(flow.source) ?? []), index]);
+    byTarget.set(flow.target, [...(byTarget.get(flow.target) ?? []), index]);
+  });
+
+  const sourceY = new Array<number>(usable.length);
+  const targetY = new Array<number>(usable.length);
+  const stack = (groups: Map<string, number[]>, counterpart: (index: number) => string, out: number[]) => {
+    for (const [id, indices] of groups) {
+      let offset = byId.get(id)!.y;
+      const ordered = [...indices].sort((a, b) => (byId.get(counterpart(a))!.y - byId.get(counterpart(b))!.y) || (a - b));
+      for (const index of ordered) { out[index] = offset; offset += thickness[index]; }
+    }
+  };
+  stack(bySource, (index) => usable[index].target, sourceY);
+  stack(byTarget, (index) => usable[index].source, targetY);
+
+  const links: SankeyLinkLayout[] = usable.map((flow, index) => {
     const source = byId.get(flow.source)!; const target = byId.get(flow.target)!;
-    const thickness = Math.max(1, flow.value * scale);
-    const sourceY = source.y + (sourceCursor.get(flow.source) ?? 0);
-    const targetY = target.y + (targetCursor.get(flow.target) ?? 0);
-    sourceCursor.set(flow.source, (sourceCursor.get(flow.source) ?? 0) + thickness);
-    targetCursor.set(flow.target, (targetCursor.get(flow.target) ?? 0) + thickness);
     return {
-      source: flow.source, target: flow.target, value: flow.value, thickness,
-      sourceY, targetY, sourceX: source.x + source.width, targetX: target.x,
+      source: flow.source, target: flow.target, value: flow.value, thickness: thickness[index],
+      sourceY: sourceY[index], targetY: targetY[index], sourceX: source.x + source.width, targetX: target.x,
     };
   });
 

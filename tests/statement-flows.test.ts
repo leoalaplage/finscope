@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizeSecPayload } from "../lib/adapters/sec";
 import { layoutSankey, ribbonPath } from "../lib/sankey";
-import { balanceSheetDiagram, balanceSheetHealth, incomeStatementDiagram } from "../lib/statement-flows";
+import { balanceSheetDiagram, balanceSheetHealth, cashFlowDiagram, incomeStatementDiagram } from "../lib/statement-flows";
 import type { FinancialPeriod, MetricKey } from "../lib/types";
 
 const provenance = { provider: "SEC" as const, sourceUrl: "sec", retrievedAt: "now", concept: "Test", status: "reported" as const };
@@ -68,6 +68,58 @@ describe("sankey layout", () => {
     expect(path.startsWith("M")).toBe(true);
     expect(path.endsWith("Z")).toBe(true);
     expect(path).toContain("C");
+  });
+});
+
+describe("reading order", () => {
+  it("puts what was earned above what was spent, in every column", () => {
+    const layout = layoutSankey([
+      { source: "revenue", target: "cost", value: 40 },
+      { source: "revenue", target: "gross", value: 60 },
+      { source: "gross", target: "opex", value: 25 },
+      { source: "gross", target: "operating", value: 35 },
+    ], { width: 600, height: 300, rank: (id) => (id === "cost" || id === "opex" ? 1 : 0) });
+    const y = Object.fromEntries(layout.nodes.map((node) => [node.id, node.y]));
+    expect(y.gross).toBeLessThan(y.cost);
+    expect(y.operating).toBeLessThan(y.opex);
+  });
+
+  it("keeps declaration order between nodes of equal rank", () => {
+    const layout = layoutSankey([
+      { source: "revenue", target: "first", value: 10 },
+      { source: "revenue", target: "second", value: 10 },
+      { source: "revenue", target: "third", value: 10 },
+    ], { width: 600, height: 300, rank: () => 0 });
+    const order = layout.nodes.filter((node) => node.depth === 1).sort((a, b) => a.y - b.y).map((node) => node.id);
+    expect(order).toEqual(["first", "second", "third"]);
+  });
+
+  it("draws a node nothing feeds just before what it feeds, not in the first column", () => {
+    // "Other income" enters at pre-tax income, four stages along. Placed at
+    // depth zero it sat beside revenue with a ribbon crossing the diagram.
+    const layout = layoutSankey([
+      { source: "revenue", target: "gross", value: 100 },
+      { source: "gross", target: "operating", value: 80 },
+      { source: "operating", target: "pretax", value: 80 },
+      { source: "otherIncome", target: "pretax", value: 20 },
+    ], { width: 600, height: 300 });
+    const depth = Object.fromEntries(layout.nodes.map((node) => [node.id, node.depth]));
+    expect(depth.pretax).toBe(3);
+    expect(depth.otherIncome).toBe(2);
+    expect(depth.revenue).toBe(0);
+  });
+
+  it("stacks ribbons in the order of the nodes at the other end, so they do not cross", () => {
+    // "cost" is declared first but ranked below "gross", so the ribbon to gross
+    // must leave revenue above the ribbon to cost.
+    const layout = layoutSankey([
+      { source: "revenue", target: "cost", value: 40 },
+      { source: "revenue", target: "gross", value: 60 },
+    ], { width: 600, height: 300, rank: (id) => (id === "cost" ? 1 : 0) });
+    const toGross = layout.links.find((link) => link.target === "gross")!;
+    const toCost = layout.links.find((link) => link.target === "cost")!;
+    expect(toGross.sourceY).toBeLessThan(toCost.sourceY);
+    expect(toGross.sourceY + toGross.thickness).toBeCloseTo(toCost.sourceY, 6);
   });
 });
 
@@ -290,5 +342,81 @@ describe("a quarter must measure what its own year measures", () => {
     // And the whole point: they add back to the year.
     const total = quarters.reduce((sum, quarter) => sum + (quarter.facts.revenue?.value ?? 0), 0);
     expect(total).toBeCloseTo(18_884, 6);
+  });
+});
+
+describe("cash flow diagram", () => {
+  const full = period({
+    netIncome: 240, operatingCashFlow: 300, capitalExpenditures: 60,
+    depreciationAndAmortization: 35, stockBasedCompensation: 20,
+    dividendsPaid: 90, shareRepurchases: 100,
+  });
+
+  it("balances profit plus the add-backs against operating cash flow", () => {
+    const diagram = cashFlowDiagram(full)!;
+    expect(sum(diagram.flows, "operatingCashFlow", "target")).toBeCloseTo(300, 6);
+  });
+
+  it("splits operating cash flow into capex and free cash flow", () => {
+    const diagram = cashFlowDiagram(full)!;
+    expect(sum(diagram.flows, "operatingCashFlow", "source")).toBeCloseTo(300, 6);
+    expect(diagram.values.freeCashFlow).toBeCloseTo(240, 6);
+    expect(diagram.values.capitalExpenditures).toBeCloseTo(60, 6);
+  });
+
+  it("shows where the free cash flow went, and keeps the remainder", () => {
+    const diagram = cashFlowDiagram(full)!;
+    expect(sum(diagram.flows, "freeCashFlow", "source")).toBeCloseTo(240, 6);
+    expect(diagram.values.dividendsPaid).toBeCloseTo(90, 6);
+    expect(diagram.values.shareRepurchases).toBeCloseTo(100, 6);
+    expect(diagram.values.retainedCash).toBeCloseTo(50, 6);
+  });
+
+  it("draws the bridge as one line when the add-backs exceed it, and says why", () => {
+    // D&A and SBC add to 55 against a bridge of 20: working capital took the
+    // difference, and naming them separately would need an outflow the filing
+    // does not itemise.
+    const tight = period({ netIncome: 280, operatingCashFlow: 300, capitalExpenditures: 60, depreciationAndAmortization: 35, stockBasedCompensation: 20 });
+    const diagram = cashFlowDiagram(tight)!;
+    expect(diagram.nodes.map((node) => node.id)).toContain("nonCashAndWorkingCapital");
+    expect(diagram.nodes.map((node) => node.id)).not.toContain("depreciationAndAmortization");
+    expect(diagram.values.nonCashAndWorkingCapital).toBeCloseTo(20, 6);
+    expect(diagram.notes.join(" ")).toContain("working capital consumed the difference");
+    expect(sum(diagram.flows, "operatingCashFlow", "target")).toBeCloseTo(300, 6);
+  });
+
+  it("draws profit that did not become cash as an outflow", () => {
+    const draining = period({ netIncome: 300, operatingCashFlow: 200, capitalExpenditures: 40 });
+    const diagram = cashFlowDiagram(draining)!;
+    expect(diagram.values.cashConsumed).toBeCloseTo(100, 6);
+    expect(sum(diagram.flows, "netIncome", "source")).toBeCloseTo(300, 6);
+  });
+
+  it("scales returns that exceeded the year's cash, and states the multiple", () => {
+    const generous = period({ netIncome: 100, operatingCashFlow: 120, capitalExpenditures: 20, dividendsPaid: 60, shareRepurchases: 140 });
+    const diagram = cashFlowDiagram(generous)!;
+    // 200 returned against 100 of free cash flow: drawn to 100, reported at 200.
+    expect(sum(diagram.flows, "freeCashFlow", "source")).toBeCloseTo(100, 6);
+    expect(diagram.values.shareRepurchases).toBeCloseTo(140, 6);
+    expect(diagram.notes.join(" ")).toContain("2.00×");
+    expect(diagram.nodes.map((node) => node.id)).not.toContain("retainedCash");
+  });
+
+  it("stops at operating cash flow when the filer tags no capex", () => {
+    const diagram = cashFlowDiagram(period({ netIncome: 100, operatingCashFlow: 120 }))!;
+    expect(diagram.nodes.map((node) => node.id)).not.toContain("freeCashFlow");
+    expect(diagram.notes.join(" ")).toContain("no capital expenditure");
+  });
+
+  it("says so rather than drawing a negative ribbon when capex exceeded the cash", () => {
+    const heavy = period({ netIncome: 40, operatingCashFlow: 100, capitalExpenditures: 160 });
+    const diagram = cashFlowDiagram(heavy)!;
+    expect(diagram.nodes.map((node) => node.id)).not.toContain("freeCashFlow");
+    expect(sum(diagram.flows, "operatingCashFlow", "source")).toBeCloseTo(100, 6);
+    expect(diagram.notes.join(" ")).toContain("exceeded operating cash flow");
+  });
+
+  it("returns nothing without a reported operating cash flow", () => {
+    expect(cashFlowDiagram(period({ netIncome: 100 }))).toBeNull();
   });
 });

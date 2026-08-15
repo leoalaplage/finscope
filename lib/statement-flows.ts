@@ -270,6 +270,129 @@ export function balanceSheetDiagram(period: FinancialPeriod): StatementDiagram |
   return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.label, periodEnd: period.periodEnd };
 }
 
+/**
+ * How much of the year's profit arrived as cash, and what was left of it.
+ *
+ * Net income is an accounting result; free cash flow is what the business could
+ * actually hand to its owners, and the gap between the two is the reason both
+ * are reported. Three stages: profit plus the charges that never cost cash
+ * becomes operating cash flow, operating cash flow less the spending needed to
+ * stay in business becomes free cash flow, and free cash flow splits between
+ * what was returned to shareholders and what was kept.
+ *
+ * Nothing here is modelled. Free cash flow is the same figure the rest of the
+ * application computes, and every other ribbon is a filed line or a subtraction
+ * from one.
+ */
+export function cashFlowDiagram(period: FinancialPeriod): StatementDiagram | null {
+  const value = (metric: MetricKey) => valueOf(period, metric);
+  const operating = positive(value("operatingCashFlow"));
+  if (!operating) return null;
+
+  const notes: string[] = [];
+  const nodes: StatementNode[] = [];
+  const flows: SankeyFlow[] = [];
+  const values: Record<string, number> = { operatingCashFlow: operating };
+  const netIncome = positive(value("netIncome"));
+
+  if (netIncome > 0) {
+    nodes.push({ id: "netIncome", label: "Net income", tone: "profit" });
+    flows.push({ source: "netIncome", target: "operatingCashFlow", value: Math.min(netIncome, operating) });
+    values.netIncome = netIncome;
+  } else {
+    notes.push("Net income is not positive in this period, so operating cash flow is shown without the profit it is built from.");
+  }
+
+  // The bridge between profit and cash: depreciation and share-based pay are
+  // charged against earnings without leaving the company, and working capital
+  // moves the balance either way.
+  const bridge = netIncome > 0 ? operating - netIncome : 0;
+  if (bridge > 0) {
+    const addBacks = [
+      { id: "depreciationAndAmortization", label: "D&A", amount: positive(value("depreciationAndAmortization")) },
+      { id: "stockBasedCompensation", label: "SBC", amount: positive(value("stockBasedCompensation")) },
+    ].filter((item) => item.amount > 0);
+    const named = addBacks.reduce((total, item) => total + item.amount, 0);
+    // Naming the add-backs only works while they fit inside the bridge. When
+    // they add to more than it, working capital consumed the difference and
+    // drawing them separately would need a matching outflow the filing does not
+    // itemise — so the whole bridge is drawn as one honest line instead.
+    if (named > 0 && named <= bridge) {
+      for (const item of addBacks) {
+        nodes.push({ id: item.id, label: item.label, tone: "revenue" });
+        flows.push({ source: item.id, target: "operatingCashFlow", value: item.amount });
+        values[item.id] = item.amount;
+      }
+      const rest = residual(bridge, addBacks.map((item) => item.amount));
+      if (rest > 0) {
+        nodes.push({ id: "otherNonCash", label: "Other non-cash", tone: "revenue" });
+        flows.push({ source: "otherNonCash", target: "operatingCashFlow", value: rest });
+        values.otherNonCash = rest;
+      }
+    } else {
+      nodes.push({ id: "nonCashAndWorkingCapital", label: "Non-cash & working capital", tone: "revenue" });
+      flows.push({ source: "nonCashAndWorkingCapital", target: "operatingCashFlow", value: bridge });
+      values.nonCashAndWorkingCapital = bridge;
+      if (named > bridge) {
+        notes.push("Depreciation and share-based pay add back more than the gap between profit and operating cash flow, so working capital consumed the difference; the additions are drawn as one line rather than split.");
+      }
+    }
+  } else if (netIncome > operating) {
+    const consumed = netIncome - operating;
+    nodes.push({ id: "cashConsumed", label: "Non-cash gains & working capital", tone: "cost" });
+    flows.push({ source: "netIncome", target: "cashConsumed", value: consumed });
+    values.cashConsumed = consumed;
+  }
+
+  nodes.push({ id: "operatingCashFlow", label: "Operating cash flow", tone: "profit" });
+
+  const freeCashFlow = derivedValue(period, "freeCashFlow");
+  if (freeCashFlow == null) {
+    notes.push("The filer tags no capital expenditure, so free cash flow cannot be separated from operating cash flow.");
+    return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.label, periodEnd: period.periodEnd };
+  }
+
+  const capex = Math.max(0, operating - freeCashFlow);
+  if (capex > 0) {
+    nodes.push({ id: "capitalExpenditures", label: "Capex", tone: "cost" });
+    flows.push({ source: "operatingCashFlow", target: "capitalExpenditures", value: Math.min(capex, operating) });
+    values.capitalExpenditures = capex;
+  }
+  if (freeCashFlow <= 0) {
+    notes.push("Capital expenditure exceeded operating cash flow in this period, so there is no free cash flow to draw.");
+    return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.label, periodEnd: period.periodEnd };
+  }
+  nodes.push({ id: "freeCashFlow", label: "Free cash flow", tone: "profit" });
+  flows.push({ source: "operatingCashFlow", target: "freeCashFlow", value: freeCashFlow });
+  values.freeCashFlow = freeCashFlow;
+
+  // Where the free cash flow went. A company can return more than it earned in
+  // a year by drawing on its balance sheet or borrowing, so the ribbons are
+  // scaled to what there was and the excess is stated rather than drawn.
+  const returns = [
+    { id: "dividendsPaid", label: "Dividends", amount: positive(value("dividendsPaid")) },
+    { id: "shareRepurchases", label: "Buybacks", amount: positive(value("shareRepurchases")) },
+  ].filter((item) => item.amount > 0);
+  const returned = returns.reduce((total, item) => total + item.amount, 0);
+  const factor = returned > freeCashFlow ? freeCashFlow / returned : 1;
+  if (returned > freeCashFlow) {
+    notes.push(`Dividends and buybacks came to ${(returned / freeCashFlow).toFixed(2)}× the year's free cash flow: the difference came from cash already held or from borrowing, so the ribbons are scaled to the cash the year produced.`);
+  }
+  for (const item of returns) {
+    nodes.push({ id: item.id, label: item.label, tone: "equity" });
+    flows.push({ source: "freeCashFlow", target: item.id, value: item.amount * factor });
+    values[item.id] = item.amount;
+  }
+  const retained = residual(freeCashFlow, returns.map((item) => item.amount * factor));
+  if (retained > 0) {
+    nodes.push({ id: "retainedCash", label: "Kept in the business", tone: "neutral" });
+    flows.push({ source: "freeCashFlow", target: "retainedCash", value: retained });
+    values.retainedCash = retained;
+  }
+
+  return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.label, periodEnd: period.periodEnd };
+}
+
 export interface BalanceSheetHealth {
   label: string;
   key: string;

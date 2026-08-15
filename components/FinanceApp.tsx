@@ -6,7 +6,7 @@ import { COMPANY_COLUMNS, DEFAULT_COLUMNS, DEFAULT_COMPANY_FILTERS, DEFAULT_COMP
 import { cagrBetweenDates, cagrForPeriods, derivedValue, valueOf } from "@/lib/finance";
 import { CALLOUTS, DEFAULT_CALLOUTS, growthConsistency, growthGap, growthTable, HORIZONS, incrementalReturn, percentileAmong, ruleOfForty, worstDrawdown, type Horizon } from "@/lib/growth-quality";
 import { CHARTABLE_METRICS, METRICS, VIEW_METRICS } from "@/lib/metrics";
-import { balanceSheetDiagram, incomeStatementDiagram } from "@/lib/statement-flows";
+import { balanceSheetDiagram, cashFlowDiagram, incomeStatementDiagram } from "@/lib/statement-flows";
 import { buildValuationHistory, valuationSnapshot, valuationStatistics } from "@/lib/valuation-history";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, MetricKey, Periodicity, PricePoint } from "@/lib/types";
 import type { ThemeName } from "@/lib/charting";
@@ -390,6 +390,7 @@ function CompanyPage({ dataset, theme, onBack, onCharts, onDcf, onCompare }: { d
   const lastFullYear = annual.at(-1);
   const incomeFlow = lastFullYear ? incomeStatementDiagram(lastFullYear) : null;
   const balanceFlow = lastFullYear ? balanceSheetDiagram(lastFullYear) : null;
+  const cashFlow = lastFullYear ? cashFlowDiagram(lastFullYear) : null;
   if (!latest) return <p className="simple-state">No data available</p>;
   const shares = derivedValue(latest, "sharesOutstanding") ?? derivedValue(latest, "dilutedShares"); const currentPrice = price?.priceClose ?? price?.close ?? null; const marketCap = currentPrice != null && shares != null ? currentPrice * shares : null;
   const openMetric = (metric: string, period = latest) => setEvidence({ label: METRICS[metric]?.label ?? metric, value: derivedValue(period, metric), period, metric });
@@ -408,6 +409,7 @@ function CompanyPage({ dataset, theme, onBack, onCharts, onDcf, onCompare }: { d
       <p className="section-note">The latest reported fiscal year, drawn as the flow it describes. Every ribbon is a filed figure or a subtraction from one.</p>
       <Suspense fallback={<p className="simple-state">Drawing statements…</p>}>
         {incomeFlow ? <StatementSankey diagram={incomeFlow} title="Income statement"/> : <p className="simple-state">The latest year does not carry enough reported lines to draw an income statement.</p>}
+        {cashFlow ? <StatementSankey diagram={cashFlow} title="Cash flow"/> : <p className="simple-state">The latest year does not carry a reported operating cash flow.</p>}
         {balanceFlow ? <StatementSankey diagram={balanceFlow} title="Balance sheet"/> : <p className="simple-state">The latest year does not carry a reported total for assets.</p>}
       </Suspense></section>}
 

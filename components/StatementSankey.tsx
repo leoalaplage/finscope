@@ -14,6 +14,16 @@ const TONE: Record<string, string> = {
   neutral: "var(--sankey-neutral)",
 };
 
+/**
+ * Vertical order inside a column, top first.
+ *
+ * Money coming in sits above money going out, everywhere: the profit line runs
+ * across the top of the diagram and each cost peels off underneath it, so the
+ * shape of the year is legible before a single label is read. On the balance
+ * sheet the same rule reads as what the owners keep above what is owed.
+ */
+const RANK: Record<string, number> = { revenue: 0, profit: 0, equity: 1, asset: 2, neutral: 3, cost: 4, liability: 5 };
+
 const compact = (value: number, currency: string) => {
   const sign = value < 0 ? "-" : "";
   const symbol = currency === "USD" ? "$" : `${currency} `;
@@ -38,8 +48,11 @@ const LABEL_ROOM = 170;
  */
 export function StatementSankey({ diagram, title }: { diagram: StatementDiagram; title: string }) {
   const [hovered, setHovered] = useState<string | null>(null);
-  const layout = useMemo(() => layoutSankey(diagram.flows, { width: WIDTH, height: HEIGHT, nodeWidth: 13, nodePadding: 14, margin: 10, labelRoom: LABEL_ROOM }), [diagram]);
   const tone = useMemo(() => Object.fromEntries(diagram.nodes.map((node) => [node.id, node.tone])), [diagram]);
+  const layout = useMemo(() => layoutSankey(diagram.flows, {
+    width: WIDTH, height: HEIGHT, nodeWidth: 13, nodePadding: 14, margin: 10, labelRoom: LABEL_ROOM,
+    rank: (id) => RANK[tone[id] ?? "neutral"] ?? 3,
+  }), [diagram, tone]);
   const label = useMemo(() => Object.fromEntries(diagram.nodes.map((node) => [node.id, node.label])), [diagram]);
 
   if (!layout.nodes.length) return <p className="simple-state">This period does not carry enough reported lines to draw {title.toLowerCase()}.</p>;
