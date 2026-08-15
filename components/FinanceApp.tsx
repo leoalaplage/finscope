@@ -9,12 +9,11 @@ import { CHARTABLE_METRICS, METRICS, VIEW_METRICS } from "@/lib/metrics";
 import { balanceSheetDiagram, incomeStatementDiagram } from "@/lib/statement-flows";
 import { buildValuationHistory, valuationSnapshot, valuationStatistics } from "@/lib/valuation-history";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, MetricKey, Periodicity, PricePoint } from "@/lib/types";
-import type { ThemeName } from "@/lib/charting";
 import type { SeriesStyle } from "@/lib/chart-workspace";
 import type { SeriesFrequency } from "@/lib/types";
 
-type MainView = "companies" | "company" | "stats" | "charts" | "dcf" | "qs";
-type SecondaryView = "quality" | "audit" | "coverage" | "sources" | null;
+type MainView = "home" | "companies" | "company" | "charts" | "dcf" | "qs";
+type SecondaryView = "quality" | "audit" | "coverage" | "sources" | "compare" | null;
 type Evidence = { label: string; value: number | null; period: FinancialPeriod; metric: string };
 
 /**
@@ -36,8 +35,19 @@ const COMPANY_TABS: Array<{ key: CompanyTab; label: string }> = [
   { key: "sources", label: "Sources" },
 ];
 
+/**
+ * The whole of the primary navigation.
+ *
+ * Statistics was a sixth entry and is gone from here: comparing companies is
+ * something you do from the watchlist, and a header that grows with every
+ * feature stops being navigation. Company, Sources, Data Quality, Formula Audit
+ * and Import status are reached from the company they describe.
+ */
 const NAV: Array<{ key: Exclude<MainView, "company">; label: string }> = [
-  { key: "companies", label: "Companies" }, { key: "stats", label: "Statistics" }, { key: "charts", label: "Charts" }, { key: "dcf", label: "DCF" }, { key: "qs", label: "QS Screener" },
+  { key: "companies", label: "Watchlist" },
+  { key: "charts", label: "Charts" },
+  { key: "qs", label: "QS Screener" },
+  { key: "dcf", label: "DCF" },
 ];
 
 const ChartsWorkspace = lazy(() => import("./ChartsWorkspace").then((module) => ({ default: module.ChartsWorkspace })));
@@ -55,6 +65,7 @@ const CompanyKpiGrid = lazy(() => import("./CompanyKpiGrid").then((module) => ({
 const StatementSankey = lazy(() => import("./StatementSankey").then((module) => ({ default: module.StatementSankey })));
 const BalanceSheetPanel = lazy(() => import("./BalanceSheetPanel").then((module) => ({ default: module.BalanceSheetPanel })));
 const HomePage = lazy(() => import("./HomePage").then((module) => ({ default: module.HomePage })));
+import { rememberCompany } from "./HomePage";
 
 const currency = (value: number | null | undefined, code = "USD") => value == null || !Number.isFinite(value) ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: code, notation: Math.abs(value) >= 1_000_000 ? "compact" : "standard", maximumFractionDigits: 2 }).format(value);
 const number = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? "—" : new Intl.NumberFormat("en-US", { notation: Math.abs(value) >= 1_000_000 ? "compact" : "standard", maximumFractionDigits: 2 }).format(value);
@@ -89,12 +100,29 @@ function metricDisplay(value: number | null, metric: string, code: string) {
 export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   const [datasets, setDatasets] = useState<Record<string, CompanyDataset>>({ [initialData.company.ticker]: initialData });
   const [dataset, setDataset] = useState(initialData);
-  const [view, setView] = useState<MainView>("companies");
+  const [view, setView] = useState<MainView>("home");
   const [secondary, setSecondary] = useState<SecondaryView>(null);
   const [managerOpen, setManagerOpen] = useState(false);
   // The landing is a search box and the watchlist. The ranking table is still
   // one click away for anyone comparing the whole list at once.
   const [ranking, setRanking] = useState(false);
+  // Prices for the search results only. The watchlist table fetches its own.
+  const [homePrices, setHomePrices] = useState<Record<string, PricePoint | null>>({});
+  const loadedForPricing = Object.keys(datasets).sort().join("|");
+  useEffect(() => {
+    let active = true;
+    const today = new Date().toISOString().slice(0, 10);
+    for (const ticker of loadedForPricing.split("|").filter(Boolean)) {
+      if (ticker in homePrices) continue;
+      fetch(`/api/price/${encodeURIComponent(ticker)}?date=${today}`)
+        .then(async (response) => {
+          const payload = await response.json() as PricePoint & { error?: string };
+          if (active) setHomePrices((current) => ({ ...current, [ticker]: response.ok ? payload : null }));
+        })
+        .catch(() => active && setHomePrices((current) => ({ ...current, [ticker]: null })));
+    }
+    return () => { active = false; };
+  }, [loadedForPricing, homePrices]);
   const [loading, setLoading] = useState("");
   const [error, setError] = useState("");
   // Set only by an explicit "Open in Charts"; plain navigation leaves the
@@ -116,23 +144,16 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
     }).catch(() => { /* The fixture stays on screen and is labelled as such. */ });
     return () => { active = false; };
   }, []);
-  // Dark is the default this interface was designed against; the choice is
-  // remembered, and the chart palette is re-stepped for whichever is active.
-  const [theme, setTheme] = useState<ThemeName>(() => {
-    if (typeof window === "undefined") return "dark";
-    const saved = localStorage.getItem("finscope.theme");
-    return saved === "light" || saved === "dark" ? saved : "dark";
-  });
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme;
-    localStorage.setItem("finscope.theme", theme);
-  }, [theme]);
 
   function navigate(next: MainView) {
     setSecondary(null); setChartSeed(undefined); setRanking(false); setView(next);
     history.replaceState(null, "", `/?ticker=${dataset.company.ticker}&view=${next}`);
     window.scrollTo({ top: 0 });
+  }
+  /** A company found in the SEC index but not yet followed: import, then open. */
+  async function importCompany(profile: CompanyProfile) {
+    setWatchlist((current) => current.some((item) => item.ticker === profile.ticker) ? current : [...current, profile]);
+    await openCompany(profile.ticker);
   }
   async function loadCompanyData(ticker: string) {
     if (datasets[ticker]) return datasets[ticker];
@@ -142,7 +163,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
     return payload;
   }
   async function openCompany(ticker: string) {
-    setSecondary(null); setError("");
+    setSecondary(null); setError(""); rememberCompany(ticker);
     if (datasets[ticker]) { setDataset(datasets[ticker]); setView("company"); history.replaceState(null, "", `/?ticker=${ticker}&view=company`); return; }
     setLoading(ticker);
     try {
@@ -163,7 +184,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   function openDcf() { navigate("dcf"); }
 
   return <div className="site-shell">
-    <header className="site-header"><button className="wordmark" onClick={() => navigate("companies")}>FinScope</button><nav aria-label="Main navigation">{NAV.map((item) => <button key={item.key} className={view === item.key && !secondary ? "active" : ""} onClick={() => navigate(item.key)}>{item.label}</button>)}</nav><span className="header-company">{dataset.company.ticker}<button className="theme-toggle" aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`} title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`} onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}>{theme === "dark" ? "☀" : "☾"}</button></span></header>
+    <header className="site-header"><button className="wordmark" onClick={() => navigate("home")}>AapWire</button><nav aria-label="Main navigation">{NAV.map((item) => <button key={item.key} className={view === item.key && !secondary ? "active" : ""} onClick={() => navigate(item.key)}>{item.label}</button>)}</nav><span className="header-company">{dataset.company.ticker}</span></header>
     {error && <div className="global-message" role="alert"><span><b>Could not load company.</b> {error}. Existing data remains available.</span><button onClick={() => setError("")}>Dismiss</button></div>}
     <main className="site-main">
       {secondary === "quality" && <SecondaryHeading title="Data Quality" onBack={() => setSecondary(null)}/>} {secondary === "quality" && <Suspense fallback={<p className="simple-state">Loading…</p>}><DataQuality dataset={dataset} onRefresh={(next) => { setDataset(next); setDatasets((current) => ({ ...current, [next.company.ticker]: next })); }}/></Suspense>}
@@ -171,12 +192,12 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       {secondary === "coverage" && <SecondaryHeading title="Import status" onBack={() => setSecondary(null)}/>} {secondary === "coverage" && <Suspense fallback={<p className="simple-state">Loading…</p>}><CoverageMatrix initialData={dataset}/></Suspense>}
       {secondary === "sources" && <SourcesPage dataset={dataset} onBack={() => setSecondary(null)}/>}
       {!secondary && view === "qs" && <Suspense fallback={<p className="simple-state">Loading the QS Screener…</p>}><QsScreener/></Suspense>}
-      {!secondary && view === "companies" && !ranking && <Suspense fallback={<p className="simple-state">Loading…</p>}><HomePage watchlist={watchlist} datasets={datasets} loading={loading} onOpen={openCompany} onLoad={loadCompanyData} onSearchAdd={() => setManagerOpen(true)} onShowRanking={() => setRanking(true)}/></Suspense>}
-      {!secondary && view === "companies" && ranking && <div><button className="back-button" onClick={() => setRanking(false)}>← Watchlist</button><CompaniesPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} loading={loading} onSearchAdd={() => setManagerOpen(true)} onLoad={loadCompanyData} onOpen={openCompany} onCharts={(ticker) => openCharts(ticker)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></div>}
-      {!secondary && view === "company" && <CompanyPage key={dataset.company.ticker} dataset={dataset} theme={theme} onBack={() => navigate("companies")} onCharts={openCharts} onDcf={openDcf} onCompare={() => navigate("stats")}/>}
-      {!secondary && view === "stats" && <Suspense fallback={<p className="simple-state">Loading statistics…</p>}><StatisticsPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} onLoad={loadCompanyData}/></Suspense>}
-      {!secondary && view === "charts" && <Suspense fallback={<p className="simple-state">Loading…</p>}><ChartsWorkspace initialData={dataset} seed={chartSeed} theme={theme}/></Suspense>}
-      {!secondary && view === "dcf" && <DcfPage key={dataset.company.ticker} dataset={dataset} theme={theme} onBack={() => navigate("companies")}/>}
+      {!secondary && view === "home" && <Suspense fallback={<p className="simple-state">Loading…</p>}><HomePage watchlist={watchlist} datasets={datasets} prices={homePrices} loading={loading} onOpen={openCompany} onImport={importCompany}/></Suspense>}
+      {!secondary && view === "companies" && <div><CompaniesPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} loading={loading} onSearchAdd={() => setManagerOpen(true)} onLoad={loadCompanyData} onOpen={openCompany} onCharts={(ticker) => openCharts(ticker)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></div>}
+      {!secondary && view === "company" && <CompanyPage key={dataset.company.ticker} dataset={dataset} onBack={() => navigate("companies")} onCharts={openCharts} onDcf={openDcf} onCompare={() => setSecondary("compare")}/>}
+      {secondary === "compare" && <SecondaryHeading title="Compare companies" onBack={() => setSecondary(null)}/>} {secondary === "compare" && <Suspense fallback={<p className="simple-state">Loading…</p>}><StatisticsPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} onLoad={loadCompanyData}/></Suspense>}
+      {!secondary && view === "charts" && <Suspense fallback={<p className="simple-state">Loading…</p>}><ChartsWorkspace initialData={dataset} seed={chartSeed}/></Suspense>}
+      {!secondary && view === "dcf" && <DcfPage key={dataset.company.ticker} dataset={dataset} onBack={() => navigate("companies")}/>}
     </main>
     <footer className="site-footer"><span>Auditable financial research · Not investment advice</span><details><summary>More</summary><div><button onClick={() => setSecondary("quality")}>Data Quality</button><button onClick={() => setSecondary("audit")}>Formula Audit</button><button onClick={() => setSecondary("coverage")}>Import status</button><button onClick={() => setSecondary("sources")}>Sources</button></div></details></footer>
     {managerOpen && <Suspense fallback={null}><CompanyManager onSelect={acceptDataset} onClose={() => setManagerOpen(false)}/></Suspense>}
@@ -341,7 +362,7 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
  * stays a click away for anyone who wants to build the cash flows up from
  * revenue and discount them at a cost of capital.
  */
-function DcfPage({ dataset, theme, onBack }: { dataset: CompanyDataset; theme: ThemeName; onBack: () => void }) {
+function DcfPage({ dataset, onBack }: { dataset: CompanyDataset; onBack: () => void }) {
   const [model, setModel] = useState<"reverse" | "fcff">("reverse");
   const [price, setPrice] = useState<PricePoint | null>(null);
   useEffect(() => {
@@ -371,13 +392,13 @@ function DcfPage({ dataset, theme, onBack }: { dataset: CompanyDataset; theme: T
             // it has to be rebuilt when the dataset underneath it changes —
             // otherwise it keeps offering the fixture's cash flow to edit.
             key={`${dataset.company.ticker}:${dataset.retrievedAt}`}
-            dataset={dataset} price={price} theme={theme}/>
+            dataset={dataset} price={price}/>
         : <DcfValuation dataset={dataset}/>}
     </Suspense>
   </div>;
 }
 
-function CompanyPage({ dataset, theme, onBack, onCharts, onDcf, onCompare }: { dataset: CompanyDataset; theme: ThemeName; onBack: () => void; onCharts: (ticker?: string, metric?: string, presentation?: { style?: SeriesStyle; frequency?: SeriesFrequency }) => void; onDcf: () => void; onCompare: () => void }) {
+function CompanyPage({ dataset, onBack, onCharts, onDcf, onCompare }: { dataset: CompanyDataset; onBack: () => void; onCharts: (ticker?: string, metric?: string, presentation?: { style?: SeriesStyle; frequency?: SeriesFrequency }) => void; onDcf: () => void; onCompare: () => void }) {
   const [periodicity, setPeriodicity] = useState<Periodicity>(() => typeof window === "undefined" ? "annual" : (localStorage.getItem("finscope.periodicity") as Periodicity) || "annual");
   const [price, setPrice] = useState<PricePoint | null>(null); const [priceError, setPriceError] = useState(""); const [evidence, setEvidence] = useState<Evidence | null>(null);
   const [tab, setTab] = useState<CompanyTab>("overview");
@@ -400,7 +421,7 @@ function CompanyPage({ dataset, theme, onBack, onCharts, onDcf, onCompare }: { d
 
     {tab === "overview" && <div className="company-block">
       <section id="overview" className="plain-section"><SectionTitle title="Overview" onCharts={() => onCharts(dataset.company.ticker)}/>
-      <Suspense fallback={<p className="simple-state">Loading charts…</p>}><CompanyKpiGrid dataset={dataset} theme={theme} onOpenMetric={(metric, presentation) => onCharts(dataset.company.ticker, metric, presentation)}/></Suspense>
+      <Suspense fallback={<p className="simple-state">Loading charts…</p>}><CompanyKpiGrid dataset={dataset} onOpenMetric={(metric, presentation) => onCharts(dataset.company.ticker, metric, presentation)}/></Suspense>
       <h3 className="kpi-table-heading">Latest figures</h3><MetricSummaryTable dataset={dataset} price={currentPrice} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)}/></section>
     </div>}
 

@@ -71,7 +71,13 @@ export const COMPANY_COLUMNS: CompanyColumn[] = [
   { key: "valuationVsAverage", label: "Valuation vs AVG 5Y", format: "percent", hint: "Current P/FCF against its own five-year average." },
 ];
 
-export const DEFAULT_COLUMNS: CompanySortKey[] = ["marketCap", "fcfMargin", "fcfShareCagr", "revenueShareCagr", "operatingMargin", "dilution", "pfcf", "valuationVsAverage"];
+/**
+ * The watchlist as it opens: the columns that decide whether a compounder is
+ * worth opening, and nothing else. Company name and share price are absent on
+ * purpose — the ticker already identifies the row, and a price tells you
+ * nothing about the business without the market capitalisation beside it.
+ */
+export const DEFAULT_COLUMNS: CompanySortKey[] = ["marketCap", "fcfMargin", "fcfShareCagr", "revenueShareCagr", "operatingMargin", "roic", "dilution", "pfcf", "valuationVsAverage"];
 
 export interface CompanyFilters {
   query: string;

@@ -2,18 +2,31 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("UI regressions", () => {
-  it("keeps the primary navigation intentionally limited", () => {
+  it("keeps the primary navigation to four entries and no more", () => {
     const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
-    expect(source).toContain('{ key: "companies", label: "Companies" }, { key: "stats", label: "Statistics" }, { key: "charts", label: "Charts" }, { key: "dcf", label: "DCF" }, { key: "qs", label: "QS Screener" }');
-    expect(source).not.toContain('label: "Data Quality"');
-    expect(source).not.toContain('label: "Formula Audit"');
+    // Scoped to the NAV constant: a company tab may well be called Statistics,
+    // and asserting over the whole file would forbid that too.
+    const nav = source.match(/const NAV:[\s\S]*?\n\];/)?.[0] ?? "";
+    expect(nav).toBeTruthy();
+    expect([...nav.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]))
+      .toEqual(["Watchlist", "Charts", "QS Screener", "DCF"]);
   });
 
-  it("uses a white, system-font interface and shared chart tooltip tokens", () => {
+  it("is navy, dark only, with no way to switch theme", () => {
     const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
-    expect(css).toContain("--background: #ffffff");
+    expect(css).toContain("--background: #07111F");
+    expect(css).toContain("--surface: #0F1D30");
+    expect(css).toContain("--accent: #4DA3FF");
     expect(css).toContain('font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif');
     expect(css).toContain(".recharts-default-tooltip { color: var(--text)");
+    // One palette, one surface: no light set and no [data-theme] override to
+    // keep in step with it.
+    expect(css).not.toContain("#ffffff");
+    expect(css).not.toContain("data-theme");
+
+    const app = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    expect(app).not.toContain("theme-toggle");
+    expect(app).not.toContain("ThemeName");
   });
 
   it("draws straight lines and never asks the reader to configure the chart", () => {
@@ -70,12 +83,14 @@ describe("the front page must not cost Worker CPU", () => {
 });
 
 describe("the redesign", () => {
-  it("lands on a search box and the watchlist, not a table of nineteen columns", () => {
+  it("lands on one search box, and searches beyond the watchlist", () => {
     const home = readFileSync(new URL("../components/HomePage.tsx", import.meta.url), "utf8");
-    expect(home).toContain("company-cards");
-    expect(home).toContain("Search your watchlist");
-    // The table is not gone, only moved off the front door.
-    expect(home).toContain("onShowRanking");
+    expect(home).toContain("Search a company or ticker");
+    // A ticker that has never been imported is still one query away.
+    expect(home).toContain("/api/resolve?q=");
+    expect(home).toContain("onImport");
+    // No product copy on the front door.
+    expect(home).not.toMatch(/auditable financial-research|compare financial metrics/);
   });
 
   it("reads a company as one block behind tabs rather than eleven stacked sections", () => {

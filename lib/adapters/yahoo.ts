@@ -67,7 +67,7 @@ export async function fetchYahooSessions(ticker: string, startDate: string, endD
   const path = `/v8/finance/chart/${encodeURIComponent(ticker)}?period1=${start}&period2=${end}&interval=1d&events=history%2Cdiv%2Csplits`;
   let lastStatus = 0;
   for (const base of [process.env.YAHOO_FINANCE_BASE_URL || "https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"]) {
-    const response = await fetch(`${base}${path}`, { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 FinScope/1.0" }, next: { revalidate: 86_400 } });
+    const response = await fetch(`${base}${path}`, { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 AapWire/1.0" }, next: { revalidate: 86_400 } });
     lastStatus = response.status;
     if (!response.ok) continue;
     const parsed = YahooChartSchema.parse(await response.json());

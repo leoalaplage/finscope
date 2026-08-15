@@ -114,7 +114,7 @@ function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", 
     provenance: {
       provider: "SEC", sourceUrl: raw.sourceUrl, accession: raw.accession, filingDate: raw.filed,
       retrievedAt: raw.retrievedAt, concept: raw.concept, status: raw.restated ? "restated" : "reported",
-      note: raw.normalizationNote ?? (signChanged ? "Raw cash outflow sign normalized to the FinScope positive-outflow convention; raw value retained." : raw.restated ? "Latest filing selected for a duplicated SEC context with a changed value." : "Directly reported standardized XBRL fact."),
+      note: raw.normalizationNote ?? (signChanged ? "Raw cash outflow sign normalized to the AapWire positive-outflow convention; raw value retained." : raw.restated ? "Latest filing selected for a duplicated SEC context with a changed value." : "Directly reported standardized XBRL fact."),
     },
     validation: raw.sourceConflictValues || signChanged ? {
       status: raw.sourceConflictValues ? "Source conflict" : "Calculated and verified", reason: raw.normalizationNote ?? (signChanged ? "Provider outflow sign normalized." : undefined), rawValue: raw.sourceConflictValues?.find((item)=>item!==raw.value) ?? raw.value,

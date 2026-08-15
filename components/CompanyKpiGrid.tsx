@@ -3,7 +3,7 @@
 import { useMemo, useRef } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatChartValue, unitFamily } from "@/lib/auto-chart";
-import { chartPalette, niceTicks, type ThemeName } from "@/lib/charting";
+import { chartPalette, niceTicks } from "@/lib/charting";
 import { chartSurface, exportSvgToPng } from "@/lib/chart-export";
 import { summariseSeries } from "@/lib/chart-summary";
 import { derivedValue } from "@/lib/finance";
@@ -41,16 +41,15 @@ function quarterLabel(period: FinancialPeriod) {
 
 interface CardRow { label: string; date: string; value: number | null; pair: number | null }
 
-function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
+function KpiCard({ card, rows, index, dataset, onOpen }: {
   card: typeof CARDS[number];
   rows: CardRow[];
   index: number;
   dataset: CompanyDataset;
-  theme: ThemeName;
   onOpen?: () => void;
 }) {
   const canvas = useRef<HTMLDivElement>(null);
-  const palette = chartPalette(theme);
+  const palette = chartPalette();
   const family = unitFamily(card.metric);
   const values = rows.flatMap((row) => [row.value, row.pair].filter((value): value is number => value != null && Number.isFinite(value)));
   const colour = palette[index % palette.length].value;
@@ -70,7 +69,7 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
     exportSvgToPng(svg, `${dataset.company.ticker}-${card.metric}.png`, {
       title: `${dataset.company.ticker} · ${card.title}`,
       subtitle: summary.value == null ? dataset.company.name : `${dataset.company.name} · ${summary.label} ${summary.display}`,
-      footer: `FinScope · SEC filings to ${rows.at(-1)?.label ?? ""}`,
+      footer: `AapWire · SEC filings to ${rows.at(-1)?.label ?? ""}`,
     });
   }
 
@@ -108,7 +107,7 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
   </article>;
 }
 
-export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: CompanyDataset; theme: ThemeName; onOpenMetric: (metric: string, presentation: { style: "bar"; frequency: SeriesFrequency }) => void }) {
+export function CompanyKpiGrid({ dataset, onOpenMetric }: { dataset: CompanyDataset; onOpenMetric: (metric: string, presentation: { style: "bar"; frequency: SeriesFrequency }) => void }) {
   // Trailing windows, so a card shows a full year of trading at every point
   // rather than a saw-tooth of seasons. Annual is the fallback for a company
   // that has not filed four comparable quarters.
@@ -129,7 +128,7 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
       pair: card.pair ? derivedValue(period, card.pair) : null,
     }));
     if (!rows.some((row) => row.value != null || row.pair != null)) return null;
-    return <KpiCard key={card.metric} card={card} rows={rows} index={index} dataset={dataset} theme={theme}
+    return <KpiCard key={card.metric} card={card} rows={rows} index={index} dataset={dataset}
       onOpen={() => onOpenMetric(card.metric, { style: "bar", frequency })}/>;
   })}</div>;
 }

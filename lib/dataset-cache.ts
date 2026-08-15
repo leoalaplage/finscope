@@ -90,7 +90,7 @@ export async function warmWatchlist(
     for (let attempt = 0; attempt < retries; attempt++) {
       if (attempt > 0) await wait(retryMs);
       try {
-        const response = await fetch(new URL(`/api/company/${encodeURIComponent(ticker)}`, origin), { headers: { "X-FinScope-Warm": "1" } });
+        const response = await fetch(new URL(`/api/company/${encodeURIComponent(ticker)}`, origin), { headers: { "X-AapWire-Warm": "1" } });
         if (response.ok) { await response.arrayBuffer(); reason = ""; break; }
         reason = `HTTP ${response.status}`;
       } catch (error) {

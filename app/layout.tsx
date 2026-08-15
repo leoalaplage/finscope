@@ -16,16 +16,16 @@ const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://finscope-financial-resea
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
-  title: "FinScope — Simple, auditable financial research",
-  description: "Research companies, compare financial metrics and build a traceable DCF in one focused workspace.",
+  title: "AapWire — Quality stock research",
+  description: "Research quality companies, compare their numbers and build a traceable DCF, from official filings.",
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
   openGraph: {
-    title: "FinScope — Auditable financial research",
-    description: "Simple financial research you can trace.",
+    title: "AapWire — Quality stock research",
+    description: "Quality stock research you can trace.",
     type: "website",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "FinScope — Financials you can trace." }],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "AapWire — Financials you can trace." }],
   },
-  twitter: { card: "summary_large_image", title: "FinScope", description: "Simple financial research you can trace.", images: ["/og.png"] },
+  twitter: { card: "summary_large_image", title: "AapWire", description: "Quality stock research you can trace.", images: ["/og.png"] },
 };
 
 export default function RootLayout({
@@ -34,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="light">
+    <html lang="en">
       <body>{children}</body>
     </html>
   );

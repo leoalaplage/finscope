@@ -1,55 +1,53 @@
-:root {
-  --background: #ffffff;
-  --surface: #ffffff;
-  --text: #111111;
-  --muted: #616161;
-  --border: #d8d8d8;
-  --border-strong: #999999;
-  --accent: #1f5f4a;
-  --accent-soft: #eef6f2;
-  --danger: #a61b1b;
-  --warning: #8a5a00;
-  --grid: #e8e8e8;
-  --radius: 2px;
-  --card: #ffffff;
-  --card-border: #e2e2e2;
-  --card-radius: 2px;
-  --axis: #6a6a6a;
-  --chart-grid: #ececec;
-  --label-halo: #ffffff;
-  --shadow: none;
-}
-
 /*
- * Dark is a selected palette, not an inversion. Surfaces are a cool near-black
- * with a card one step lighter, so a panel reads as a raised object rather than
- * a bordered hole; series colours are re-stepped for it in charting.ts.
+ * AapWire is dark only, and the dark is navy.
+ *
+ * One surface family, three steps: the page, a panel, and a raised row. No
+ * light theme and no toggle — a financial tool is read in one place with one
+ * set of contrasts, and maintaining two palettes meant every colour decision
+ * had to be made twice and validated twice.
+ *
+ * The categorical series colours in charting.ts are stepped for the --surface
+ * value below and verified with the palette validator rather than chosen by
+ * eye: all eight inside the L 0.48-0.67 band, worst adjacent pair separable at
+ * delta-E 12.3 under colour-vision deficiency and 19.6 for normal vision, and
+ * every slot clearing 3:1 contrast against the surface.
  */
-:root[data-theme="dark"] {
+:root {
   color-scheme: dark;
-  --background: #12141c;
-  --surface: #191c26;
-  --text: #e8eaf0;
-  --muted: #9aa1b1;
-  --border: #262a36;
-  --border-strong: #39404f;
-  --accent: #53d39c;
-  --accent-soft: #16302a;
-  --danger: #ff8a96;
-  --warning: #f0b849;
-  --grid: #242835;
-  --card: #191c26;
-  --card-border: #262a36;
-  --card-radius: 10px;
-  --axis: #9aa1b1;
-  --chart-grid: #242835;
-  --label-halo: #191c26;
-  --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+
+  --background: #07111F;
+  --background-alt: #0B1728;
+  --surface: #0F1D30;
+  --card: #0F1D30;
+  --raised: #14263D;
+
+  --text: #F3F6FA;
+  --muted: #94A3B8;
+
+  --border: #223047;
+  --border-strong: #33455F;
+  --card-border: #223047;
+
+  --accent: #4DA3FF;
+  --accent-soft: #12314F;
+  --positive: #35C78A;
+  --danger: #F06464;
+  --warning: #E5B84B;
+
+  --grid: #1A2B44;
+  --chart-grid: #1A2B44;
+  --axis: #94A3B8;
+  --label-halo: #0F1D30;
+
+  --radius: 4px;
+  --card-radius: 6px;
+  /* Depth comes from a border, not a shadow. */
+  --shadow: none;
 }
 
 * { box-sizing: border-box; }
 html { scroll-behavior: auto; background: var(--background); }
-:root { color-scheme: light; }
+
 body { margin: 0; background: var(--background); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 14px; line-height: 1.45; }
 button, input, select, textarea { color: inherit; font: inherit; }
 button, select, input { min-height: 34px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); }
@@ -474,15 +472,12 @@ tbody tr:last-child > * { border-bottom: 0; }
 @media (max-width: 960px) { .fcf-model { grid-template-columns: 1fr; } .fcf-summary > div { grid-template-columns: 1fr 1fr; } }
 
 /* --- Statement flow diagrams --------------------------------------------- */
+/* Drawn from the validated series palette, so a statement diagram and a chart
+   of the same company agree about what blue means. */
 :root {
-  --sankey-revenue: #2a78d6; --sankey-profit: #008300; --sankey-cost: #eb6834;
-  --sankey-asset: #2a78d6; --sankey-liability: #eb6834; --sankey-equity: #008300;
-  --sankey-neutral: #6b7280;
-}
-:root[data-theme="dark"] {
-  --sankey-revenue: #3987e5; --sankey-profit: #199e70; --sankey-cost: #d95926;
-  --sankey-asset: #3987e5; --sankey-liability: #d95926; --sankey-equity: #199e70;
-  --sankey-neutral: #8b93a3;
+  --sankey-revenue: #4595E6; --sankey-profit: #1F9268; --sankey-cost: #B8851F;
+  --sankey-asset: #4595E6; --sankey-liability: #B8851F; --sankey-equity: #1F9268;
+  --sankey-neutral: #5A6B85;
 }
 
 .sankey { margin: 0 0 20px; padding: 16px 18px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); }
@@ -509,37 +504,6 @@ tbody tr:last-child > * { border-bottom: 0; }
 .financial-table tr.balance-total { border-top: 1px solid var(--border-strong); }
 .financial-table tr.balance-total th, .financial-table tr.balance-total td { font-weight: 700; }
 
-/* --- Landing: search and watchlist ---------------------------------------- */
-.home { max-width: 1180px; margin: 0 auto; }
-.home-head { margin: 8px 0 20px; }
-.home-head h1 { margin: 0 0 4px; font-size: 30px; letter-spacing: -.02em; }
-.home-head p { margin: 0; color: var(--muted); }
-
-.home-search { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--card); }
-.home-search svg { color: var(--muted); flex: none; }
-.home-search input { flex: 1; min-width: 0; height: 48px; border: 0; background: transparent; font-size: 16px; }
-.home-search input:focus-visible { outline: none; }
-.home-search > button { min-height: 34px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 600; }
-
-.company-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
-.company-cards > li { position: relative; }
-.company-card { display: flex; flex-direction: column; gap: 14px; width: 100%; padding: 16px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color .12s ease, transform .12s ease; }
-.company-card:hover, .company-card:focus-visible { border-color: var(--border-strong); transform: translateY(-1px); }
-.company-card-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.company-card-head b { font-size: 17px; letter-spacing: .01em; }
-.company-card-name { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.company-card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
-.company-card-stats > span { display: flex; flex-direction: column; gap: 1px; font-size: 14px; font-variant-numeric: tabular-nums; }
-.company-card-stats small { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
-.company-card-state { font-size: 11px; color: var(--muted); }
-.company-card-load { position: absolute; top: 14px; right: 14px; min-height: 26px; padding: 0 10px; font-size: 11px; border-radius: 999px; }
-
-.home-empty { padding: 32px; border: 1px dashed var(--border-strong); border-radius: var(--card-radius); text-align: center; color: var(--muted); }
-.home-empty button { margin-top: 10px; }
-.home-foot { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--border); }
-.home-foot button { border: 0; background: none; padding: 0; color: var(--accent); font-size: 13px; cursor: pointer; min-height: 0; }
-.home-foot button:hover { text-decoration: underline; }
-
 /* --- Company: tabs and one overview block --------------------------------- */
 .company-tabs { display: flex; flex-wrap: wrap; gap: 2px; margin: 18px 0 20px; border-bottom: 1px solid var(--border); }
 .company-tabs button { min-height: 38px; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); font-size: 13px; font-weight: 600; }
@@ -554,3 +518,32 @@ tbody tr:last-child > * { border-bottom: 0; }
 .kpi-card-footer { display: flex; justify-content: flex-end; gap: 6px; padding: 0 12px 10px; }
 .kpi-card-footer button { min-height: 26px; padding: 0 9px; font-size: 11px; border-radius: 999px; color: var(--muted); }
 .kpi-card-footer button:hover { color: var(--text); }
+
+/* --- Home: one search box ------------------------------------------------- */
+.home { max-width: 760px; margin: 0 auto; padding-top: 8vh; }
+.home-hero h1 { margin: 0 0 22px; font-size: 34px; font-weight: 650; letter-spacing: -.02em; text-align: center; }
+.home-search { display: flex; align-items: center; gap: 12px; padding: 0 18px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); }
+.home-search:focus-within { border-color: var(--accent); }
+.home-search svg { color: var(--muted); flex: none; }
+.home-search input { flex: 1; min-width: 0; height: 52px; border: 0; background: transparent; color: var(--text); font-size: 17px; }
+.home-search input:focus-visible { outline: none; }
+.home-search input::placeholder { color: var(--muted); }
+
+.home-results { margin-top: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.home-result { display: grid; grid-template-columns: 84px 1fr auto auto; align-items: baseline; gap: 14px; width: 100%; padding: 11px 16px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.home-result:last-child { border-bottom: 0; }
+.home-result:hover, .home-result:focus-visible { background: var(--raised); }
+.home-result-ticker { font-weight: 650; font-size: 14px; }
+.home-result-name { color: var(--text); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-result-meta { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.home-result-cap { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.home-result-empty { margin: 0; padding: 16px; color: var(--muted); font-size: 13px; }
+
+.home-shortcuts { margin-top: 34px; }
+.home-shortcuts h2 { margin: 0 0 10px; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.home-shortcuts ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.home-shortcuts button { display: flex; align-items: baseline; gap: 8px; min-height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; cursor: pointer; }
+.home-shortcuts button:hover { border-color: var(--border-strong); }
+.home-shortcuts b { font-size: 13px; font-weight: 650; }
+.home-shortcuts small { color: var(--muted); font-size: 11px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-shortcuts em { color: var(--accent); font-size: 10px; font-style: normal; }
