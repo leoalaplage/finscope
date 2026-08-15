@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 describe("UI regressions", () => {
   it("keeps the primary navigation intentionally limited", () => {
     const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
-    expect(source).toContain('{ key: "companies", label: "Companies" }, { key: "charts", label: "Charts" }, { key: "dcf", label: "DCF" }, { key: "qs", label: "QS Screener" }');
+    expect(source).toContain('{ key: "companies", label: "Companies" }, { key: "stats", label: "Statistics" }, { key: "charts", label: "Charts" }, { key: "dcf", label: "DCF" }, { key: "qs", label: "QS Screener" }');
     expect(source).not.toContain('label: "Data Quality"');
     expect(source).not.toContain('label: "Formula Audit"');
   });

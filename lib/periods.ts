@@ -5,15 +5,16 @@ export const FLOW_METRICS: MetricKey[] = [
   "capitalExpenditures", "stockBasedCompensation", "shareRepurchases", "shareIssuance",
   "acquisitions", "dividendsPaid",
   "incomeBeforeTax", "incomeTaxExpense", "depreciationAndAmortization",
+  "interestExpense", "dividendsPerShare",
   // Carried only so a share count can be recovered from it when the filer
   // publishes none; see recoverDilutedShares in the SEC adapter.
   "dilutedEpsReported",
 ];
 export const WEIGHTED_SHARE_METRICS: MetricKey[] = ["basicShares", "dilutedShares"];
-export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities", "totalEquity"];
+export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities", "totalEquity", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent"];
 const SPLIT_ADJUSTED_METRICS: MetricKey[] = [...WEIGHTED_SHARE_METRICS, "sharesOutstanding", "sharesIssued", "treasuryShares"];
 /** Per-share amounts move the other way: a split divides them. */
-const SPLIT_DIVIDED_METRICS: MetricKey[] = ["dilutedEpsReported"];
+const SPLIT_DIVIDED_METRICS: MetricKey[] = ["dilutedEpsReported", "dividendsPerShare"];
 
 export function daysBetween(start?: string, end?: string) {
   if (!start || !end) return 0;
@@ -101,7 +102,7 @@ export function adjustPeriodsForSplits(periods: FinancialPeriod[], splits: Array
   });
 }
 
-const POSITIVE_OUTFLOW_METRICS = new Set<MetricKey>(["capitalExpenditures","acquisitions","shareRepurchases","dividendsPaid"]);
+const POSITIVE_OUTFLOW_METRICS = new Set<MetricKey>(["capitalExpenditures","acquisitions","shareRepurchases","dividendsPaid","interestExpense"]);
 export function normalizeFinancialSign(metric: MetricKey, value: number) { return POSITIVE_OUTFLOW_METRICS.has(metric) ? Math.abs(value) : value; }
 
 function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", fiscalQuarter?: "Q1" | "Q2" | "Q3" | "Q4"): NormalizedFact {
@@ -130,7 +131,7 @@ function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", 
  * application shows a hole where it has no trustworthy value, so the hole is
  * what the reader gets.
  */
-const NEVER_NEGATIVE = new Set<MetricKey>(["revenue", "costOfRevenue", "basicShares", "dilutedShares", "sharesOutstanding", "totalEquity", "capitalExpenditures", "operatingCashFlow"]);
+const NEVER_NEGATIVE = new Set<MetricKey>(["revenue", "costOfRevenue", "basicShares", "dilutedShares", "sharesOutstanding", "totalEquity", "capitalExpenditures", "operatingCashFlow", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent"]);
 function implausible(metric: MetricKey, value: number) {
   if (!Number.isFinite(value)) return true;
   if (WEIGHTED_SHARE_METRICS.includes(metric) || metric === "sharesOutstanding") return value <= 0;

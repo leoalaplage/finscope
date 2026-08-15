@@ -1,0 +1,217 @@
+import { cagrForPeriods, derivedValue, safeDivide, valueOf } from "./finance";
+import { METRICS } from "./metrics";
+import type { CompanyDataset, FinancialPeriod, PricePoint } from "./types";
+
+export type StatFormat = "currency" | "percent" | "ratio" | "multiple" | "shares" | "perShare";
+
+export interface Stat {
+  key: string;
+  label: string;
+  value: number | null;
+  format: StatFormat;
+  /**
+   * Which direction is better, for the comparison highlight only.
+   *
+   * A market capitalisation has no better direction, and neither does a payout
+   * ratio — a company returning nothing is not thereby worse than one returning
+   * everything. Those are `0` and are never highlighted.
+   */
+  polarity: 1 | -1 | 0;
+  formula?: string;
+  /** Why the value is missing, when that is worth saying. */
+  reason?: string;
+}
+
+export interface StatGroup { title: string; note?: string; stats: Stat[] }
+
+/** Periods of one periodicity, oldest first. */
+function ordered(dataset: CompanyDataset, periodicity: "annual" | "ttm"): FinancialPeriod[] {
+  return dataset.periods.filter((period) => period.periodicity === periodicity).sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+}
+
+/**
+ * The mean of a ratio over the last `years` reported years.
+ *
+ * A single year's return on capital moves with one impairment or one tax
+ * settlement. The average over a cycle is the figure worth comparing across
+ * companies, which is why the screenshot this follows states returns that way.
+ * Missing years are skipped rather than counted as zero; fewer than three
+ * usable years is not an average and returns nothing.
+ */
+function averageOver(annual: FinancialPeriod[], metric: string, years = 5): { value: number | null; reason?: string } {
+  const values = annual.slice(-years).map((period) => derivedValue(period, metric)).filter((value): value is number => value != null && Number.isFinite(value));
+  if (values.length < 3) return { value: null, reason: `Needs three reported years, has ${values.length}` };
+  return { value: values.reduce((sum, value) => sum + value, 0) / values.length };
+}
+
+function cagr(annual: FinancialPeriod[], metric: string, years: 3 | 5 | 10): { value: number | null; reason?: string } {
+  const result = cagrForPeriods(annual, metric, years);
+  return { value: result.value, reason: result.value == null ? result.reason : undefined };
+}
+
+/**
+ * Every headline statistic for one company, grouped the way an analyst reads
+ * them: what the business is, what it keeps, what that earns on capital, what
+ * the market charges for it, whether it can pay its debts, how fast it compounds
+ * and what it hands back.
+ *
+ * Forward-looking blocks — next-twelve-month multiples, price targets, PEG,
+ * two-year forward growth, long-term EPS estimates — are absent by construction.
+ * Every one of them is a consensus of analyst estimates, and FinScope has no
+ * estimates provider. Printing them would mean inventing them.
+ */
+export function companyStatistics(dataset: CompanyDataset, price: PricePoint | null): StatGroup[] {
+  const annual = ordered(dataset, "annual");
+  const ttmPeriods = ordered(dataset, "ttm");
+  // TTM is the right base for a flow when four clean quarters exist; the last
+  // reported year is the honest fallback rather than an annualised quarter.
+  const current = ttmPeriods.at(-1) ?? annual.at(-1) ?? null;
+  const close = price ? price.priceClose ?? price.close : null;
+
+  const flow = (metric: string) => current ? derivedValue(current, metric) : null;
+  const shares = current ? valueOf(current, "sharesOutstanding") ?? valueOf(current, "dilutedShares") : null;
+  const marketCap = close != null && shares != null ? close * shares : null;
+  const netDebt = flow("netDebt");
+  const enterpriseValue = marketCap != null && netDebt != null ? marketCap + netDebt : null;
+
+  /** A multiple is only meaningful over a positive denominator. */
+  const over = (numerator: number | null, denominator: number | null) =>
+    numerator == null || denominator == null || denominator <= 0 ? null : numerator / denominator;
+
+  const noPrice = close == null ? "No matched market price" : undefined;
+  const stat = (key: string, label: string, value: number | null, format: StatFormat, polarity: 1 | -1 | 0, reason?: string): Stat =>
+    ({ key, label, value, format, polarity, formula: METRICS[key]?.formula, reason: value == null ? reason : undefined });
+
+  const average = (metric: string) => averageOver(annual, metric);
+  const growth = (metric: string, years: 3 | 5 | 10) => cagr(annual, metric, years);
+
+  const dividendsPerShare = flow("dividendsPerShare");
+  const paysDividend = dividendsPerShare != null && dividendsPerShare > 0;
+  const noDividend = paysDividend ? undefined : "Pays no dividend";
+
+  const groups: StatGroup[] = [
+    {
+      title: "Profile",
+      stats: [
+        stat("marketCapitalization", "Market Cap", marketCap, "currency", 0, noPrice ?? "No share count"),
+        stat("enterpriseValue", "EV", enterpriseValue, "currency", 0, noPrice ?? "No debt or cash balance"),
+        stat("sharesOutstanding", "Shares Out", shares, "shares", 0),
+        stat("revenue", "Revenue", flow("revenue"), "currency", 1),
+        stat("grossProfit", "Gross Profit", flow("grossProfit"), "currency", 1),
+      ],
+    },
+    {
+      title: "Margins (TTM)",
+      stats: [
+        stat("grossMargin", "Gross", flow("grossMargin"), "percent", 1),
+        stat("ebitdaMargin", "EBITDA", flow("ebitdaMargin"), "percent", 1),
+        stat("operatingMargin", "Operating", flow("operatingMargin"), "percent", 1),
+        stat("pretaxMargin", "Pre-Tax", flow("pretaxMargin"), "percent", 1),
+        stat("netMargin", "Net", flow("netMargin"), "percent", 1),
+        stat("freeCashFlowMargin", "FCF", flow("freeCashFlowMargin"), "percent", 1),
+        stat("freeCashFlowAfterSbcMargin", "FCF after SBC", flow("freeCashFlowAfterSbcMargin"), "percent", 1),
+      ],
+    },
+    {
+      title: "Returns (5Yr Avg)",
+      stats: [
+        stat("returnOnAssets", "ROA", average("returnOnAssets").value, "percent", 1, average("returnOnAssets").reason),
+        stat("returnOnTangibleAssets", "ROTA", average("returnOnTangibleAssets").value, "percent", 1, "Reports no goodwill or acquired intangibles, so a tangible base cannot be identified"),
+        stat("returnOnEquity", "ROE", average("returnOnEquity").value, "percent", 1, average("returnOnEquity").reason),
+        stat("returnOnCapitalEmployed", "ROCE", average("returnOnCapitalEmployed").value, "percent", 1, average("returnOnCapitalEmployed").reason),
+        stat("roic", "ROIC", average("roic").value, "percent", 1, average("roic").reason),
+      ],
+    },
+    {
+      title: "Valuation (TTM)",
+      note: close == null ? "No matched market price for this company." : undefined,
+      stats: [
+        stat("priceToEarnings", "P/E", over(marketCap, flow("netIncome")), "multiple", -1, noPrice ?? "Earnings are not positive"),
+        stat("priceToBook", "P/B", over(marketCap, flow("totalEquity")), "multiple", -1, noPrice ?? "Equity is not positive"),
+        stat("enterpriseToSales", "EV/Sales", over(enterpriseValue, flow("revenue")), "multiple", -1, noPrice),
+        stat("enterpriseToEbitda", "EV/EBITDA", over(enterpriseValue, flow("ebitda")), "multiple", -1, noPrice ?? "EBITDA is not positive"),
+        stat("priceToFreeCashFlow", "P/FCF", over(marketCap, flow("freeCashFlow")), "multiple", -1, noPrice ?? "Free cash flow is not positive"),
+        stat("enterpriseToGrossProfit", "EV/Gross Profit", over(enterpriseValue, flow("grossProfit")), "multiple", -1, noPrice),
+      ],
+    },
+    {
+      title: "Financial Health",
+      stats: [
+        stat("cashAndEquivalents", "Cash", flow("cashAndEquivalents"), "currency", 1),
+        stat("netDebt", "Net Debt", netDebt, "currency", -1),
+        stat("debtToEquity", "Debt/Equity", flow("debtToEquity"), "ratio", -1),
+        stat("interestCoverage", "EBIT/Interest", flow("interestCoverage"), "ratio", 1, "Reports no interest expense"),
+        stat("capitalIntensity", "Capex/Sales", flow("capitalIntensity"), "percent", -1),
+      ],
+    },
+    {
+      title: "Growth (CAGR)",
+      stats: [
+        stat("revenue", "Rev 3Yr", growth("revenue", 3).value, "percent", 1, growth("revenue", 3).reason),
+        stat("revenue", "Rev 5Yr", growth("revenue", 5).value, "percent", 1, growth("revenue", 5).reason),
+        stat("revenue", "Rev 10Yr", growth("revenue", 10).value, "percent", 1, growth("revenue", 10).reason),
+        stat("netIncomePerShare", "Dil EPS 3Yr", growth("netIncomePerShare", 3).value, "percent", 1, growth("netIncomePerShare", 3).reason),
+        stat("netIncomePerShare", "Dil EPS 5Yr", growth("netIncomePerShare", 5).value, "percent", 1, growth("netIncomePerShare", 5).reason),
+        stat("netIncomePerShare", "Dil EPS 10Yr", growth("netIncomePerShare", 10).value, "percent", 1, growth("netIncomePerShare", 10).reason),
+        stat("freeCashFlow", "FCF 5Yr", growth("freeCashFlow", 5).value, "percent", 1, growth("freeCashFlow", 5).reason),
+        stat("freeCashFlowPerShare", "FCF/share 5Yr", growth("freeCashFlowPerShare", 5).value, "percent", 1, growth("freeCashFlowPerShare", 5).reason),
+        // A rising share count dilutes the owner, so less is better here.
+        stat("dilutedShares", "Shares 5Yr", growth("dilutedShares", 5).value, "percent", -1, growth("dilutedShares", 5).reason),
+      ],
+    },
+    {
+      title: "Dividends",
+      stats: [
+        stat("dividendYield", "Yield", paysDividend ? safeDivide(dividendsPerShare, close) : null, "percent", 1, noDividend ?? noPrice),
+        stat("dividendPayout", "Payout", paysDividend ? flow("dividendPayout") : null, "percent", 0, noDividend),
+        stat("dividendsPerShare", "DPS", dividendsPerShare, "perShare", 1, noDividend),
+        stat("dividendsPerShare", "DPS Growth 3Yr", paysDividend ? growth("dividendsPerShare", 3).value : null, "percent", 1, noDividend ?? growth("dividendsPerShare", 3).reason),
+        stat("dividendsPerShare", "DPS Growth 5Yr", paysDividend ? growth("dividendsPerShare", 5).value : null, "percent", 1, noDividend ?? growth("dividendsPerShare", 5).reason),
+        stat("dividendsPerShare", "DPS Growth 10Yr", paysDividend ? growth("dividendsPerShare", 10).value : null, "percent", 1, noDividend ?? growth("dividendsPerShare", 10).reason),
+      ],
+    },
+  ];
+
+  return groups;
+}
+
+/** Every stat key, flattened, so a comparison can lay companies out in rows. */
+export function statRows(groups: StatGroup[]): Array<{ group: string; label: string }> {
+  return groups.flatMap((group) => group.stats.map((item) => ({ group: group.title, label: item.label })));
+}
+
+const COMPACT = new Intl.NumberFormat("en-US", { notation: "compact", minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+export function formatStat(value: number | null, format: StatFormat, currency = "USD"): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  switch (format) {
+    case "percent":
+      // One decimal below ten percent, none above: 0.4% and 340% both read
+      // cleanly, where a fixed precision makes one of them look wrong.
+      return `${(value * 100).toFixed(Math.abs(value) < .1 ? 1 : Math.abs(value) < 10 ? 1 : 0)}%`;
+    case "multiple": return `${value.toFixed(1)}×`;
+    case "ratio": return value.toFixed(2);
+    case "shares": return COMPACT.format(value);
+    case "perShare": return new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+    case "currency": {
+      const sign = value < 0 ? "-" : "";
+      const symbol = currency === "USD" ? "$" : `${currency} `;
+      return `${sign}${symbol}${COMPACT.format(Math.abs(value))}`;
+    }
+  }
+}
+
+/**
+ * The companies holding the best value for one row.
+ *
+ * Returns a set rather than a single winner so an exact tie highlights both,
+ * and returns nothing when the row has no better direction or only one company
+ * has a value — being the only company to report something is not an achievement.
+ */
+export function bestIn(values: Array<{ ticker: string; value: number | null }>, polarity: 1 | -1 | 0): Set<string> {
+  if (polarity === 0) return new Set();
+  const usable = values.filter((item): item is { ticker: string; value: number } => item.value != null && Number.isFinite(item.value));
+  if (usable.length < 2) return new Set();
+  const best = usable.reduce((winner, item) => (polarity === 1 ? item.value > winner.value : item.value < winner.value) ? item : winner, usable[0]);
+  return new Set(usable.filter((item) => item.value === best.value).map((item) => item.ticker));
+}

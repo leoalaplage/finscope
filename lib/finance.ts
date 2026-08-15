@@ -29,6 +29,24 @@ export const FORMULAS = {
   priceToFreeCashFlow: "Market capitalization / Free cash flow",
   freeCashFlowYield: "Free cash flow / Market capitalization",
   buybackYield: "Gross share repurchases / Market capitalization",
+  ebitda: "Operating income + Depreciation and amortization",
+  ebitdaMargin: "EBITDA / Revenue",
+  pretaxMargin: "Pre-tax income / Revenue",
+  tangibleAssets: "Total assets − Goodwill − Acquired intangibles",
+  capitalEmployed: "Total assets − Current liabilities",
+  returnOnEquity: "Net income / Total equity",
+  returnOnAssets: "Net income / Total assets",
+  returnOnTangibleAssets: "Net income / Tangible assets",
+  returnOnCapitalEmployed: "Operating income / Capital employed",
+  debtToEquity: "Total debt / Total equity",
+  interestCoverage: "Operating income / Interest expense",
+  dividendPayout: "Dividends paid / Net income",
+  dividendYield: "Dividends per share / Share price",
+  enterpriseValue: "Market capitalization + Net debt",
+  priceToBook: "Market capitalization / Total equity",
+  enterpriseToSales: "Enterprise value / Revenue",
+  enterpriseToEbitda: "Enterprise value / EBITDA",
+  enterpriseToGrossProfit: "Enterprise value / Gross profit",
 } as const;
 
 export function safeDivide(numerator: number | null | undefined, denominator: number | null | undefined) {
@@ -145,6 +163,44 @@ export function nopat(period: FinancialPeriod): number | null {
   return operating * (1 - effective);
 }
 
+/**
+ * Operating profit before the non-cash charges that depend on accounting
+ * policy rather than trading. Built up from operating income rather than down
+ * from net income, so it never picks up financing or one-off items.
+ */
+export function ebitda(period: FinancialPeriod): number | null {
+  const operating = valueOf(period, "operatingIncome");
+  const depreciation = valueOf(period, "depreciationAndAmortization");
+  return operating == null || depreciation == null ? null : operating + Math.abs(depreciation);
+}
+
+/**
+ * Assets the business actually operates, with goodwill and acquired intangibles
+ * removed. Those are the price paid for past acquisitions; leaving them in
+ * flatters an organic grower and penalises an acquisitive one for nothing it
+ * does today.
+ */
+export function tangibleAssets(period: FinancialPeriod): number | null {
+  const assets = valueOf(period, "totalAssets");
+  if (assets == null) return null;
+  const goodwill = valueOf(period, "goodwill"); const intangibles = valueOf(period, "intangibleAssets");
+  // A filer that tags neither concept has not told us it owns no goodwill — it
+  // has told us nothing. Returning total assets under a tangible label would
+  // publish return on assets a second time wearing a different name, which is
+  // exactly what Apple did after it stopped tagging goodwill in 2017.
+  if (goodwill == null && intangibles == null) return null;
+  const tangible = assets - (goodwill ?? 0) - (intangibles ?? 0);
+  return tangible > 0 ? tangible : null;
+}
+
+/** Capital employed: everything financed for longer than a trading cycle. */
+export function capitalEmployed(period: FinancialPeriod): number | null {
+  const assets = valueOf(period, "totalAssets"); const current = valueOf(period, "currentLiabilities");
+  if (assets == null || current == null) return null;
+  const employed = assets - current;
+  return employed > 0 ? employed : null;
+}
+
 export function derivedValue(period: FinancialPeriod, key: string): number | null {
   const revenue = valueOf(period, "revenue");
   const diluted = valueOf(period, "dilutedShares");
@@ -187,6 +243,24 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     capitalIntensity: revenue ? safeDivide(Math.abs(valueOf(period, "capitalExpenditures") ?? Number.NaN), revenue) : null,
     netDebt: valueOf(period, "totalDebt") == null && valueOf(period, "cashAndEquivalents") == null ? null : (valueOf(period, "totalDebt") ?? 0) - (valueOf(period, "cashAndEquivalents") ?? 0),
     netWorkingCapital: valueOf(period, "currentAssets") == null || valueOf(period, "currentLiabilities") == null ? null : valueOf(period, "currentAssets")! - valueOf(period, "currentLiabilities")! - (valueOf(period, "cashAndEquivalents") ?? 0),
+    ebitda: ebitda(period),
+    ebitdaMargin: margin(ebitda(period), revenue),
+    pretaxMargin: margin(valueOf(period, "incomeBeforeTax"), revenue),
+    tangibleAssets: tangibleAssets(period),
+    capitalEmployed: capitalEmployed(period),
+    // Returns are stated on the period-end base rather than an average of
+    // opening and closing balances. The average is marginally more correct for
+    // a year of heavy issuance, but it needs a prior balance sheet, and mixing
+    // the two conventions across companies would be worse than either.
+    returnOnEquity: safeDivide(valueOf(period, "netIncome"), valueOf(period, "totalEquity")),
+    returnOnAssets: safeDivide(valueOf(period, "netIncome"), valueOf(period, "totalAssets")),
+    returnOnTangibleAssets: safeDivide(valueOf(period, "netIncome"), tangibleAssets(period)),
+    returnOnCapitalEmployed: safeDivide(valueOf(period, "operatingIncome"), capitalEmployed(period)),
+    debtToEquity: safeDivide(valueOf(period, "totalDebt"), valueOf(period, "totalEquity")),
+    // A company with no interest expense is not infinitely covered, it is
+    // simply unlevered. Dividing by zero would print ∞, so it stays unavailable.
+    interestCoverage: safeDivide(valueOf(period, "operatingIncome"), valueOf(period, "interestExpense")),
+    dividendPayout: safeDivide(valueOf(period, "dividendsPaid"), valueOf(period, "netIncome")),
   };
   return map[key] ?? valueOf(period, key as MetricKey);
 }

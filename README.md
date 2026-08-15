@@ -16,7 +16,8 @@ It uses Next.js App Router semantics through Vinext, React 19, strict TypeScript
 ### Navigation
 
 - **Companies** — the ranked watchlist table, with a column picker so the visible metrics are the reader's choice, and a quality-versus-valuation scatter.
-- **Company** — Overview (a KPI card grid, one chart per measure), Margins, Growth & Cash Quality, Per Share, Capital Allocation and Valuation.
+- **Company** — Overview (a KPI card grid, one chart per measure), Statistics, Margins, Growth & Cash Quality, Per Share, Capital Allocation and Valuation.
+- **Statistics** — the headline panel for one company, or up to six compared row by row with the better value in each row marked.
 - **Charts** — the multi-company, multi-metric workspace.
 - **DCF** — assumptions traceable to their historical base.
 - **QS Screener** — the standalone quality-score screen, with PNG export.
@@ -26,6 +27,7 @@ It uses Next.js App Router semantics through Vinext, React 19, strict TypeScript
 
 - Annual, real-quarter and rolling four-quarter TTM periods.
 - Absolute, per-share, margin, growth and CAGR modes, with values abbreviated to K, M and B.
+- Profile, margins, five-year average returns (ROA, ROTA, ROE, ROCE, ROIC), trailing valuation multiples, financial health and dividends, grouped as a single statistics panel.
 - 5Y and 10Y CAGR for revenue, gross profit, operating profit, net income, FCF, FCF per share and share price; growth consistency as the R² of a log-linear fit; the revenue-versus-FCF growth gap in percentage points.
 - CSV export carrying company, period, unit, currency, provider, status, concept/formula and source URL.
 - A click-through provenance drawer on every reported SEC fact.
@@ -114,6 +116,8 @@ GitHub Pages is not suitable: FinScope requires a server-side SEC adapter, cache
 No variable is prefixed with `NEXT_PUBLIC_`; secrets never enter the client bundle.
 
 ## Scope notes
+
+**There are no analyst estimates.** Forward multiples, price targets, PEG and estimated growth are consensus figures from an estimates provider FinScope does not have, so they are absent rather than guessed.
 
 FinScope is a research foundation, not a licensed market-data redistribution service. Legacy pre-XBRL filings, international regulators and non-GAAP reconciliation remain explicit future adapters rather than silently simulated features. Where a company's data genuinely cannot be recovered — Visa's share count is absent from companyfacts, and a handful of filers omit capital expenditures for some years — the gap is reported rather than filled with an estimate.
 

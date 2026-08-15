@@ -53,7 +53,14 @@ export type MetricKey =
   | "incomeTaxExpense"
   | "depreciationAndAmortization"
   | "dilutedEpsReported"
-  | "totalEquity";
+  | "totalEquity"
+  | "longTermDebtCurrent"
+  | "longTermDebtNoncurrent"
+  | "totalAssets"
+  | "goodwill"
+  | "intangibleAssets"
+  | "interestExpense"
+  | "dividendsPerShare";
 
 export interface Provenance {
   provider: "SEC" | "Yahoo Finance" | "Calculated" | "Demo fixture";

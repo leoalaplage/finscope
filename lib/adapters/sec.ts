@@ -51,7 +51,14 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   shareRepurchases: { namespace: "us-gaap", tags: ["PaymentsForRepurchaseOfCommonStock"], unit: "currency" },
   shareIssuance: { namespace: "us-gaap", tags: ["ProceedsFromStockOptionsExercised", "ProceedsFromIssuanceOfCommonStock", "ProceedsFromIssuanceOfSharesUnderIncentiveAndShareBasedCompensationPlansIncludingStockOptions"], unit: "currency" },
   cashAndEquivalents: { namespace: "us-gaap", tags: ["CashAndCashEquivalentsAtCarryingValue", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"], unit: "currency" },
-  totalDebt: { namespace: "us-gaap", tags: ["LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent", "LongTermDebtCurrent", "LongTermDebtNoncurrent"], unit: "currency" },
+  // Only the combined concept. The current and non-current portions are two
+  // halves of one balance, so choosing between them as fallbacks reported half
+  // a company's debt: Apple tags no combined figure, and the old fallback order
+  // returned its 12.4bn current portion as if that were the whole 90.7bn.
+  // They are extracted separately below and summed when the total is absent.
+  totalDebt: { namespace: "us-gaap", tags: ["LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent", "DebtLongtermAndShorttermCombinedAmount"], unit: "currency" },
+  longTermDebtCurrent: { namespace: "us-gaap", tags: ["LongTermDebtCurrent"], unit: "currency" },
+  longTermDebtNoncurrent: { namespace: "us-gaap", tags: ["LongTermDebtNoncurrent"], unit: "currency" },
   currentAssets: { namespace: "us-gaap", tags: ["AssetsCurrent"], unit: "currency" },
   // Including noncontrolling interests as a fallback: Visa reports almost only
   // that form, and invested capital wants the whole financing base anyway.
@@ -60,6 +67,16 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   incomeBeforeTax: { namespace: "us-gaap", tags: ["IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest", "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"], unit: "currency" },
   incomeTaxExpense: { namespace: "us-gaap", tags: ["IncomeTaxExpenseBenefit"], unit: "currency" },
   depreciationAndAmortization: { namespace: "us-gaap", tags: ["DepreciationDepletionAndAmortization", "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment", "Depreciation"], unit: "currency" },
+  totalAssets: { namespace: "us-gaap", tags: ["Assets"], unit: "currency" },
+  // Goodwill and acquired intangibles are subtracted from assets for the
+  // tangible-return measure: they are the price paid for past acquisitions,
+  // not capital the business currently operates.
+  goodwill: { namespace: "us-gaap", tags: ["Goodwill"], unit: "currency" },
+  intangibleAssets: { namespace: "us-gaap", tags: ["IntangibleAssetsNetExcludingGoodwill", "FiniteLivedIntangibleAssetsNet"], unit: "currency" },
+  // Deliberately not InterestIncomeExpenseNet: a net figure nets interest
+  // earned against interest paid, and coverage asks what the debt costs.
+  interestExpense: { namespace: "us-gaap", tags: ["InterestExpense", "InterestExpenseDebt", "InterestExpenseNonoperating"], unit: "currency" },
+  dividendsPerShare: { namespace: "us-gaap", tags: ["CommonStockDividendsPerShareDeclared", "CommonStockDividendsPerShareCashPaid"], unit: "perShare" },
 };
 
 function sourceUrl(cik: string, accession: string) {
@@ -136,14 +153,50 @@ function recoverDilutedShares(periods: FinancialPeriod[]): FinancialPeriod[] {
   });
 }
 
+/**
+ * Rebuilds total debt from its two halves when the filer tags no combined total.
+ *
+ * Most filers report the current and non-current portions of long-term debt as
+ * separate line items and never publish the sum. Treating those as fallbacks
+ * for one another returned whichever happened to be preferred — for Apple, the
+ * 12.4bn current portion standing in for 90.7bn of borrowings. Everything built
+ * on the balance sheet inherited the error: net debt read as net cash, and
+ * return on invested capital came out at 247%.
+ *
+ * Summing them is addition on two published figures, not an estimate, so the
+ * result is marked calculated and carries both source accessions.
+ */
+function combineDebtComponents(periods: FinancialPeriod[]): FinancialPeriod[] {
+  return periods.map((period) => {
+    if (period.facts.totalDebt?.value != null) return period;
+    const current = period.facts.longTermDebtCurrent;
+    const noncurrent = period.facts.longTermDebtNoncurrent;
+    const parts = [current, noncurrent].filter((fact): fact is NonNullable<typeof fact> => fact?.value != null);
+    if (!parts.length) return period;
+    const base = noncurrent ?? current!;
+    return { ...period, facts: { ...period.facts, totalDebt: {
+      ...base, metric: "totalDebt", value: parts.reduce((sum, fact) => sum + fact.value!, 0),
+      provenance: {
+        ...base.provenance, provider: "Calculated", status: "calculated",
+        concept: parts.map((fact) => fact.provenance.concept).join(" + "),
+        formula: "Current portion of long-term debt + Non-current long-term debt",
+        sourceAccessions: [...new Set(parts.map((fact) => fact.provenance.accession).filter((item): item is string => Boolean(item)))],
+        note: parts.length === 1
+          ? "The filer tags no combined debt total and only one portion is reported, so this is that portion alone."
+          : "The filer tags no combined debt total; the two reported portions are summed.",
+      },
+    } } };
+  });
+}
+
 export function normalizeSecPayload(payload: unknown, ticker: string, retrievedAt = new Date().toISOString(), resolvedCompany?: CompanyDataset["company"]): CompanyDataset {
   const company = resolvedCompany ?? COMPANIES.find((item) => item.ticker === ticker.toUpperCase());
   if (!company) throw new Error("Ticker not supported by the SEC adapter registry.");
   if (!company.cik) throw new Error(company.resolutionNote || "No reliable regulatory identifier is available for this instrument.");
   const parsed = SecResponseSchema.parse(payload);
   const rawFacts = extractFacts(parsed.facts, company.cik, company.currency, retrievedAt);
-  const annual = adjustPeriodsForSplits(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.stockSplits);
-  const quarterly = adjustPeriodsForSplits(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.stockSplits);
+  const annual = adjustPeriodsForSplits(combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency))), company.stockSplits);
+  const quarterly = adjustPeriodsForSplits(combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency))), company.stockSplits);
   const ttm = buildTtmPeriods(quarterly, company.currency);
   return validateCompanyDataset({
     company: { ...company, name: parsed.entityName }, periods: [...annual, ...quarterly, ...ttm], retrievedAt,

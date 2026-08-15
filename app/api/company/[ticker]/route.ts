@@ -19,7 +19,13 @@ const CACHE_SECONDS = 86_400;
 // five-for-one split is registered.
 // v8: a directly reported fourth quarter is preferred over subtraction, and an
 // impossible derived quarter is dropped instead of published.
-const KEY_VERSION = "v8";
+// v9: total assets, goodwill, acquired intangibles, interest expense and
+// dividends per share are carried, which the returns, coverage and dividend
+// statistics depend on; and total debt is the sum of its current and
+// non-current portions rather than whichever one the filer happened to tag —
+// Apple's borrowings read as 12.4bn instead of 90.7bn, which turned its net
+// debt into net cash and its return on invested capital into 247%.
+const KEY_VERSION = "v9";
 const headers = {
   "Content-Type": "application/json",
   "Cache-Control": `public, s-maxage=21600, stale-while-revalidate=86400`,
