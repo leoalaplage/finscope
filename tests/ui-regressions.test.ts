@@ -45,3 +45,26 @@ describe("UI regressions", () => {
     expect(source).toContain('"Load all"');
   });
 });
+
+describe("the front page must not cost Worker CPU", () => {
+  /**
+   * A dynamic API anywhere in the root layout makes every page under it
+   * dynamic, so the whole application tree gets server-rendered inside the
+   * Worker on every single visit. That is what made the site answer "Worker
+   * exceeded resource limits" rather than loading: reading one request header
+   * to build an Open Graph URL cost 54ms of CPU per view instead of 1ms.
+   */
+  it("keeps request-time APIs out of the root layout", () => {
+    const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
+    expect(layout).not.toMatch(/\bheaders\s*\(\s*\)/);
+    expect(layout).not.toMatch(/\bcookies\s*\(\s*\)/);
+    expect(layout).not.toMatch(/generateMetadata/);
+    // The absolute origin a social preview needs comes from a constant instead.
+    expect(layout).toContain("metadataBase");
+  });
+
+  it("keeps the home page static, since it renders a constant", () => {
+    const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+    expect(page).toContain('export const dynamic = "force-static"');
+  });
+});

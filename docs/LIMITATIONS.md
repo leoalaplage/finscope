@@ -16,5 +16,6 @@
 - Favorites and recent companies are device-session UI state in this build; there is no cloud persistence or account database.
 - CSV, SVG, PNG and clipboard-table exports are implemented. Raster export uses the rendered chart and follows the active series configuration.
 - A company outside the watchlist is normalized on demand and is not covered by the daily warm-up, so its first load takes a couple of seconds and can still be refused when the Worker is busy. Loading it again succeeds.
+- The front page is prerendered and costs about a millisecond of Worker CPU. Any dynamic API in the root layout — `headers()`, `cookies()` — silently reverses that and makes every page view a full server render of the application tree; a regression test guards against it.
 - Building a company from raw XBRL is expensive enough that a burst of cold builds gets the Worker throttled: after roughly a dozen in quick succession, further requests are refused within ten milliseconds of CPU, before they have even fetched anything. Waiting clears it. The daily warm-up therefore paces itself and retries slowly, and is the reason ordinary use never meets this.
 - Provider availability and SEC taxonomy changes can create gaps. Errors are shown and the verified offline fixture remains available.
