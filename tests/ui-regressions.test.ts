@@ -9,6 +9,20 @@ describe("UI regressions", () => {
     expect(source).not.toContain('label: "Formula Audit"');
   });
 
+  it("gives a two-series card a key and one honest headline", () => {
+    // Cash and debt were drawn in two colours the card never named, under a
+    // number that was the cash alone and a CAGR that described only half of a
+    // position. Hovering a bar was the only way to tell which was which.
+    const source = readFileSync(new URL("../components/CompanyKpiGrid.tsx", import.meta.url), "utf8");
+    expect(source).toContain('net: "netDebt"');
+    expect(source).toContain('className="kpi-legend"');
+    expect(source).toContain('net > 0 ? "Net debt" : "Net cash"');
+    // No badge on a paired card: the summary is computed only without a pair.
+    expect(source).toContain("const summary = card.pair ? null :");
+    const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+    expect(css).toContain(".kpi-legend {");
+  });
+
   it("uses a white, system-font interface and shared chart tooltip tokens", () => {
     const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
     expect(css).toContain("--background: #ffffff");
