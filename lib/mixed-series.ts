@@ -79,7 +79,14 @@ export function marketObservations(bars: MarketBar[], metric: string, frequency:
     // onto a fundamental reporting frequency.
     const value = bar.adjustedClose ?? bar.close;
     if (value == null) return [];
-    return [{ date: bar.date, value, frequency, currency: bar.currency, unit: "perShare", source: "Yahoo Finance", sourceUrl: bar.sourceUrl, status: "Market data" as const, rawObservation: true as const }];
+    // The open, high and low are the raw session, not the dividend-adjusted
+    // series, so a candle drawn from them is internally consistent even when
+    // `value` above is the adjusted close a line wants.
+    return [{
+      date: bar.date, value, open: bar.open, high: bar.high, low: bar.low,
+      frequency, currency: bar.currency, unit: "perShare", source: "Yahoo Finance", sourceUrl: bar.sourceUrl,
+      status: "Market data" as const, rawObservation: true as const,
+    }];
   });
 }
 

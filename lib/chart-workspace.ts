@@ -8,7 +8,7 @@ import type { SeriesFrequency } from "./types";
  */
 export type RangePreset = "1" | "3" | "5" | "10" | "max";
 
-export type SeriesStyle = "line" | "bar" | "area";
+export type SeriesStyle = "line" | "bar" | "area" | "candle";
 export type SeriesAxis = "left" | "right";
 /** Auto reads the metric, zero anchors the axis, fit frames the data closely,
  *  log compares rates of change rather than amounts. */

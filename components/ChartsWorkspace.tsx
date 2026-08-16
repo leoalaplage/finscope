@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Area, Bar, Brush, CartesianGrid, ComposedChart, LabelList, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { AreaChart as AreaIcon, BarChart3, Brush as BrushIcon, Eye, EyeOff, LineChart as LineIcon, Palette, X } from "lucide-react";
+import { AreaChart as AreaIcon, BarChart3, Brush as BrushIcon, CandlestickChart, Eye, EyeOff, LineChart as LineIcon, Palette, X } from "lucide-react";
 import { createAutoChartPlan, familyLabel, formatChartValue, indexToZero, periodChange, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
 import { chartDomain, niceTicks, type ThemeName } from "@/lib/charting";
 import { derivedValue, safeDivide } from "@/lib/finance";
@@ -269,7 +269,24 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
   const drawn = useMemo(() => bundles.filter((bundle) => bundle.series.visible && bundle.observations.length), [bundles]);
   const rows = useMemo(() => {
     const aligned = alignMixedSeries(drawn.map((bundle) => ({ definition: { id: bundle.series.uid, ticker: bundle.series.ticker, metric: bundle.series.metric, frequency: bundle.plan.frequency, missingData: "report-points" as const }, observations: bundle.observations })));
-    return aligned.map((row) => ({ date: row.date, ...Object.fromEntries(drawn.map((bundle) => [bundle.series.uid, row.cells[bundle.series.uid]?.value ?? null])) })) as Array<Record<string, unknown>>;
+    return aligned.map((row) => {
+      const cells: Record<string, unknown> = { date: row.date };
+      for (const bundle of drawn) {
+        const cell = row.cells[bundle.series.uid];
+        cells[bundle.series.uid] = cell?.value ?? null;
+        // A candle needs four numbers where a line needs one, so the session's
+        // range travels beside the close under keys of its own.
+        if (bundle.plan.style === "candle") {
+          const item = cell?.observation;
+          const open = item?.open ?? null; const high = item?.high ?? null; const low = item?.low ?? null;
+          const close = item?.value ?? null;
+          const drawable = [open, high, low, close].every((value) => value != null && Number.isFinite(value));
+          cells[`${bundle.series.uid}~range`] = drawable ? [Math.min(low!, open!, close!), Math.max(high!, open!, close!)] : null;
+          cells[`${bundle.series.uid}~ohlc`] = drawable ? { open, high, low, close } : null;
+        }
+      }
+      return cells;
+    }) as Array<Record<string, unknown>>;
   }, [drawn]);
   // Indexed values are all percentages of their own base, so they belong on one
   // axis. Splitting by company answers "how did each of these do", where one
@@ -324,11 +341,6 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       </div>
     </header>
 
-    <div className="chart-presets" role="group" aria-label="Presets">
-      <span>Presets</span>
-      {CHART_PRESETS.map((preset) => <button key={preset.id} onClick={() => onChange((current) => applyPreset(current, preset, fallbackTicker))}>{preset.label}</button>)}
-    </div>
-
     <div className="entity-row" aria-label="Companies on this chart">
       {tickers.map((ticker) => {
         const colour = bundles.find((bundle) => bundle.series.ticker === ticker)?.plan.color;
@@ -352,12 +364,25 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
         const style = chart.series.find((series) => series.metric === metric)?.style ?? bundle?.plan.type ?? "line";
         const patchAll = (patch: Parameters<typeof patchSeries>[2]) => onChange((current) => current.series.filter((series) => series.metric === metric).reduce((chart, series) => patchSeries(chart, series.uid, patch), current));
         const hidden = chart.series.filter((series) => series.metric === metric).every((series) => !series.visible);
-        const shapes = [["line", "Line", <LineIcon key="l" size={13}/>], ["bar", "Bars", <BarChart3 key="b" size={13}/>], ["area", "Area", <AreaIcon key="a" size={13}/>]] as const;
+        // A candle is only meaningful where the provider reports a session's
+        // range, which is the market series and nothing else.
+        const market = MARKET_SERIES_METRICS.has(metric);
+        const shapes = [
+          ["line", "Line", <LineIcon key="l" size={13}/>] as const,
+          ["bar", "Bars", <BarChart3 key="b" size={13}/>] as const,
+          ["area", "Area", <AreaIcon key="a" size={13}/>] as const,
+          ...(market ? [["candle", "Candles", <CandlestickChart key="c" size={13}/>] as const] : []),
+        ];
+        const grain = chart.series.find((series) => series.metric === metric)?.frequency ?? bundle?.plan.frequency;
         return <span className={`entity-chip${hidden ? " muted" : ""}`} key={metric}>
           <b>{METRICS[metric]?.short ?? metric}</b>
           <span className="chip-shapes" role="group" aria-label={`Shape for ${metric}`}>
             {shapes.map(([value, label, icon]) => <button key={value} className={style === value ? "active" : ""} aria-pressed={style === value} aria-label={`Draw as ${label.toLowerCase()}`} title={label} onClick={() => patchAll({ style: value })}>{icon}</button>)}
           </span>
+          {market && <span className="chip-shapes" role="group" aria-label={`Session length for ${metric}`}>
+            {([["daily", "D", "Daily sessions"], ["weekly", "W", "Weekly sessions"], ["monthly", "M", "Monthly sessions"]] as const).map(([value, short, label]) =>
+              <button key={value} className={grain === value ? "active" : ""} aria-pressed={grain === value} title={label} onClick={() => patchAll({ frequency: value })}>{short}</button>)}
+          </span>}
           <Swatches label={METRICS[metric]?.short ?? metric} icon={<Palette size={13}/>} current={bundle?.plan.color} onPick={(value) => patchAll({ color: value })}/>
           <button aria-label={`${hidden ? "Show" : "Hide"} ${metric}`} title={hidden ? "Show" : "Hide"} onClick={() => onChange((current) => ({ ...current, series: current.series.map((series) => series.metric === metric ? { ...series, visible: hidden } : series) }))}>{hidden ? <EyeOff size={13}/> : <Eye size={13}/>}</button>
           <button aria-label={`Remove ${metric}`} title="Remove" onClick={() => onChange((current) => ({ ...current, series: current.series.filter((series) => series.metric !== metric) }))}><X size={13}/></button>
@@ -381,22 +406,20 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       <button className={`pill${chart.scale === "log" ? " active" : ""}`} onClick={() => onChange((current) => ({ ...current, scale: current.scale === "log" ? "auto" : "log" }))}>Log</button>
     </section>
 
-    <section className="chart-appearance">
-      <label>Panels<select value={chart.overlay ? "overlay" : "split"} onChange={(event) => onChange((current) => ({ ...current, overlay: event.target.value === "overlay" }))} disabled={chart.values !== "raw"}>
-        <option value="split">One per unit</option><option value="overlay">Overlay on two axes</option>
-      </select>{chart.values !== "raw" && <small>Rebased series already share one axis</small>}</label>
-      <label>Scale<select value={chart.scale === "log" ? "auto" : chart.scale} onChange={(event) => onChange((current) => ({ ...current, scale: event.target.value as ScaleMode }))} disabled={chart.scale === "log"}>
-        <option value="auto">Auto</option><option value="zero">Start at zero</option><option value="fit">Fit to data</option>
-      </select>{chart.scale === "log" && <small>Log is on</small>}</label>
-      <label>Layout<select value={chart.layout} onChange={(event) => onChange((current) => ({ ...current, layout: event.target.value as LayoutMode }))} disabled={tickers.length < 2}>
-        <option value="combined">One chart</option><option value="per-company">One per company</option><option value="grid">Grid: company × metric</option>
-      </select>{tickers.length < 2 && <small>Add a second company to split</small>}</label>
-      <label className="chart-switch"><input type="checkbox" checked={chart.showGrid} onChange={(event) => onChange((current) => ({ ...current, showGrid: event.target.checked }))}/> Grid</label>
-      <label className="chart-switch"><input type="checkbox" checked={chart.showPoints} onChange={(event) => onChange((current) => ({ ...current, showPoints: event.target.checked }))}/> Points</label>
-      <label className="chart-switch"><input type="checkbox" checked={chart.showSplits} onChange={(event) => onChange((current) => ({ ...current, showSplits: event.target.checked }))}/> Splits</label>
-      <label className="chart-switch"><input type="checkbox" checked={chart.showRecessions} onChange={(event) => onChange((current) => ({ ...current, showRecessions: event.target.checked }))}/> Recessions</label>
-    </section>
-
+    {!drawn.length && <p className="simple-state">{anyLoading ? "Loading data…" : chart.series.length ? "No observations in this window. Widen the time range or pick another metric." : "Add a company and a metric to draw this chart."}</p>}
+    {drawn.length > 0 && <div className={`chart-stack${chart.layout === "grid" && groups.length > 1 ? " grid" : ""}`} ref={surface}>{groups.flatMap((group) => {
+      const panels = chart.values !== "raw" || chart.overlay || chart.series.some((series) => series.axis !== undefined) ? [0] : [...new Set(group.bundles.map((bundle) => bundle.plan.panel))].sort((a, b) => a - b);
+      return panels.map((panel) => {
+        const bundles = panels.length === 1 ? group.bundles : group.bundles.filter((bundle) => bundle.plan.panel === panel);
+        // In grid mode the group label already names the metric, so repeating
+        // its unit family would only pad the heading.
+        const family = chart.layout === "grid" ? "" : chart.values === "indexed" ? "Indexed to 100" : [...new Set(bundles.map((item) => familyLabel(unitFamily(item.series.metric))))].join(" · ");
+        const heading = [group.label, family].filter(Boolean).join(" · ");
+        return <ChartPanel key={`${group.key}-${panel}`} chart={chart} rows={rows} bundles={bundles} heading={heading} datasets={datasets}
+          single={groups.length === 1 && panels.length === 1} compact={chart.layout === "grid" && groups.length > 1}
+          showBrush={chart.layout !== "grid" && group.key === groups.at(-1)?.key && panel === panels.at(-1) && rows.length > 60}/>;
+      });
+    })}</div>}
     <section className="series-chips" aria-label="Series on this chart">{bundles.map((bundle) => {
       const family = unitFamily(bundle.series.metric);
       const latest = bundle.observations.at(-1);
@@ -413,6 +436,32 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       </div>;
     })}</section>
 
+    {/* Everything below the chart is a setting, not the subject. The page put
+        presets, panels, scale, layout, four checkboxes and a per-series grid
+        above the first plot, so a reader met seven rows of controls before a
+        single line of the company they came to look at. */}
+    <details className="chart-settings">
+      <summary>Chart settings<small>{chart.series.filter(hasOverrides).length ? `${chart.series.filter(hasOverrides).length} adjusted` : "all automatic"}</small></summary>
+      <div className="chart-settings-body">
+    <div className="chart-presets" role="group" aria-label="Presets">
+      <span>Presets</span>
+      {CHART_PRESETS.map((preset) => <button key={preset.id} onClick={() => onChange((current) => applyPreset(current, preset, fallbackTicker))}>{preset.label}</button>)}
+    </div>
+    <section className="chart-appearance">
+      <label>Panels<select value={chart.overlay ? "overlay" : "split"} onChange={(event) => onChange((current) => ({ ...current, overlay: event.target.value === "overlay" }))} disabled={chart.values !== "raw"}>
+        <option value="split">One per unit</option><option value="overlay">Overlay on two axes</option>
+      </select>{chart.values !== "raw" && <small>Rebased series already share one axis</small>}</label>
+      <label>Scale<select value={chart.scale === "log" ? "auto" : chart.scale} onChange={(event) => onChange((current) => ({ ...current, scale: event.target.value as ScaleMode }))} disabled={chart.scale === "log"}>
+        <option value="auto">Auto</option><option value="zero">Start at zero</option><option value="fit">Fit to data</option>
+      </select>{chart.scale === "log" && <small>Log is on</small>}</label>
+      <label>Layout<select value={chart.layout} onChange={(event) => onChange((current) => ({ ...current, layout: event.target.value as LayoutMode }))} disabled={tickers.length < 2}>
+        <option value="combined">One chart</option><option value="per-company">One per company</option><option value="grid">Grid: company × metric</option>
+      </select>{tickers.length < 2 && <small>Add a second company to split</small>}</label>
+      <label className="chart-switch"><input type="checkbox" checked={chart.showGrid} onChange={(event) => onChange((current) => ({ ...current, showGrid: event.target.checked }))}/> Grid</label>
+      <label className="chart-switch"><input type="checkbox" checked={chart.showPoints} onChange={(event) => onChange((current) => ({ ...current, showPoints: event.target.checked }))}/> Points</label>
+      <label className="chart-switch"><input type="checkbox" checked={chart.showSplits} onChange={(event) => onChange((current) => ({ ...current, showSplits: event.target.checked }))}/> Splits</label>
+      <label className="chart-switch"><input type="checkbox" checked={chart.showRecessions} onChange={(event) => onChange((current) => ({ ...current, showRecessions: event.target.checked }))}/> Recessions</label>
+    </section>
     {chart.series.length > 0 && <details className="series-options">
       <summary>Series options<small>{chart.series.filter(hasOverrides).length ? `${chart.series.filter(hasOverrides).length} adjusted` : "all automatic"}</small></summary>
       <div className="series-options-grid">
@@ -444,20 +493,8 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       </div>
       <small className="series-options-note">Units get a panel each so nothing implies a relationship the data has not shown. Assigning an axis by hand overlays everything on one plot area instead — useful, but where the lines cross is then decided by the two ranges rather than by the data.</small>
     </details>}
-    {!drawn.length && <p className="simple-state">{anyLoading ? "Loading data…" : chart.series.length ? "No observations in this window. Widen the time range or pick another metric." : "Add a company and a metric to draw this chart."}</p>}
-    {drawn.length > 0 && <div className={`chart-stack${chart.layout === "grid" && groups.length > 1 ? " grid" : ""}`} ref={surface}>{groups.flatMap((group) => {
-      const panels = chart.values !== "raw" || chart.overlay || chart.series.some((series) => series.axis !== undefined) ? [0] : [...new Set(group.bundles.map((bundle) => bundle.plan.panel))].sort((a, b) => a - b);
-      return panels.map((panel) => {
-        const bundles = panels.length === 1 ? group.bundles : group.bundles.filter((bundle) => bundle.plan.panel === panel);
-        // In grid mode the group label already names the metric, so repeating
-        // its unit family would only pad the heading.
-        const family = chart.layout === "grid" ? "" : chart.values === "indexed" ? "Indexed to 100" : [...new Set(bundles.map((item) => familyLabel(unitFamily(item.series.metric))))].join(" · ");
-        const heading = [group.label, family].filter(Boolean).join(" · ");
-        return <ChartPanel key={`${group.key}-${panel}`} chart={chart} rows={rows} bundles={bundles} heading={heading} datasets={datasets}
-          single={groups.length === 1 && panels.length === 1} compact={chart.layout === "grid" && groups.length > 1}
-          showBrush={chart.layout !== "grid" && group.key === groups.at(-1)?.key && panel === panels.at(-1) && rows.length > 60}/>;
-      });
-    })}</div>}
+      </div>
+    </details>
     {chart.showDataTable && drawn.length > 0 && <DataTable bundles={drawn} rows={rows}/>}
   </article>;
 }
@@ -514,11 +551,49 @@ function Swatches({ label, icon, current, onPick }: { label: string; icon: React
   </details>;
 }
 
+interface CandleShapeProps { x?: number; y?: number; width?: number; height?: number; payload?: Record<string, unknown> }
+
+/**
+ * A session drawn as its whole range: the high-to-low wick, with the body from
+ * open to close inside it.
+ *
+ * The bar is laid out against low-to-high, so the pixels it already occupies
+ * carry the scale and the body is placed by interpolating inside them — a
+ * custom shape cannot reach the axis to ask.
+ *
+ * Hollow when the session closed up, solid when it closed down. That is the
+ * convention every trading screen uses, and the reason it exists: green against
+ * red separates at delta-E 6.5 under protanopia, which is a warning rather than
+ * a pass, so direction is carried by fill as well as by hue.
+ */
+function SessionCandle({ x, y, width, height, payload, uid, up, down }: CandleShapeProps & { uid: string; up: string; down: string }) {
+  const ohlc = payload?.[`${uid}~ohlc`] as { open: number; high: number; low: number; close: number } | null | undefined;
+  if (!ohlc || x == null || y == null || width == null || height == null) return null;
+  const span = ohlc.high - ohlc.low;
+  const at = (value: number) => span <= 0 ? y : y + ((ohlc.high - value) / span) * height;
+  const rising = ohlc.close >= ohlc.open;
+  const colour = rising ? up : down;
+  const top = at(Math.max(ohlc.open, ohlc.close));
+  const body = Math.max(1, at(Math.min(ohlc.open, ohlc.close)) - top);
+  const thickness = Math.max(1, Math.min(width * .7, 11));
+  const centre = x + width / 2;
+  return <g>
+    <line x1={centre} x2={centre} y1={y} y2={y + height} stroke={colour} strokeWidth={1}/>
+    <rect x={centre - thickness / 2} y={top} width={thickness} height={body} fill={rising ? "var(--card)" : colour} stroke={colour} strokeWidth={1} rx={1}/>
+  </g>;
+}
+
 function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, showBrush }: { chart: WorkspaceChart; rows: Array<Record<string, unknown>>; bundles: Bundle[]; heading: string; datasets: Record<string, CompanyDataset>; single: boolean; compact: boolean; showBrush: boolean }) {
   const sides = ["left", "right"] as const;
   const axes = sides.map((side) => {
     const items = bundles.filter((bundle) => bundle.plan.axis === side);
-    const values = rows.flatMap((row) => items.map((bundle) => typeof row[bundle.series.uid] === "number" ? row[bundle.series.uid] as number : null));
+    const values = rows.flatMap((row) => items.flatMap((bundle) => {
+      // A candle reaches above and below its close, and an axis that never saw
+      // the wicks would clip them.
+      const range = row[`${bundle.series.uid}~range`];
+      if (bundle.plan.style === "candle" && Array.isArray(range)) return range as number[];
+      return [typeof row[bundle.series.uid] === "number" ? row[bundle.series.uid] as number : null];
+    }));
     const family: UnitFamily = chart.values !== "raw" ? "percent" : items[0] ? unitFamily(items[0].series.metric) : "currency";
     // "auto" defers to the metric, which floats a share price and anchors a
     // revenue line; the other two are the reader overruling that.
@@ -574,6 +649,10 @@ function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, 
             : `${analysis.value >= 0 ? "+" : ""}${(analysis.value * 100).toFixed(1)}% CAGR`;
           const label = last < 0 ? null : <LabelList dataKey={bundle.series.uid} content={endLabel(bundle.series.uid, last, (value) => formatChartValue(value, family, bundle.currency), placedLabels, growth)}/>;
           const dot = chart.showPoints ? { r: 4, strokeWidth: 0, fill: bundle.plan.color } : false;
+          if (bundle.plan.style === "candle") {
+            return <Bar key={bundle.series.uid} dataKey={`${bundle.series.uid}~range`} yAxisId={bundle.plan.axis} isAnimationActive={false}
+              shape={(props: object) => <SessionCandle {...props as CandleShapeProps} uid={bundle.series.uid} up={bundle.plan.color} down="var(--danger)"/>}/>;
+          }
           if (bundle.plan.style === "bar") {
             // Rounded data-ends, and a surface gap so neighbouring bars read as
             // separate marks rather than one block.

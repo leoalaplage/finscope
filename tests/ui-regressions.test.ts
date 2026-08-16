@@ -33,6 +33,29 @@ describe("UI regressions", () => {
     expect(source).toContain('fill={rising ? "var(--card)" : colour}');
   });
 
+  it("leads the Charts page with the chart, not with seven rows of controls", () => {
+    const source = readFileSync(new URL("../components/ChartsWorkspace.tsx", import.meta.url), "utf8");
+    const chart = source.indexOf('className={`chart-stack');
+    // Presets, panels, scale, layout, the checkboxes and the per-series grid
+    // all sat above the first plot. They are settings; they belong under it.
+    for (const control of ['className="chart-presets"', 'className="chart-appearance"', 'className="series-options"']) {
+      expect(source.indexOf(control)).toBeGreaterThan(chart);
+    }
+    expect(source).toContain('className="chart-settings"');
+    // What names the subject stays above it.
+    expect(source.indexOf('aria-label="Companies on this chart"')).toBeLessThan(chart);
+    expect(source.indexOf('aria-label="Metrics on this chart"')).toBeLessThan(chart);
+  });
+
+  it("offers candles and a session length on the price series only", () => {
+    const source = readFileSync(new URL("../components/ChartsWorkspace.tsx", import.meta.url), "utf8");
+    expect(source).toContain('const market = MARKET_SERIES_METRICS.has(metric);');
+    expect(source).toContain('["daily", "D", "Daily sessions"]');
+    expect(source).toContain('["monthly", "M", "Monthly sessions"]');
+    // Hollow rising, solid falling: green against red is a CVD warning.
+    expect(source).toContain('fill={rising ? "var(--card)" : colour}');
+  });
+
   it("uses a white, system-font interface and shared chart tooltip tokens", () => {
     const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
     expect(css).toContain("--background: #ffffff");

@@ -190,6 +190,16 @@ export type MissingDataMode = "report-points" | "step-until-next-report";
 export interface SeriesObservation {
   date: string;
   value: number | null;
+  /**
+   * The session's range, where the provider reports one.
+   *
+   * A close is one number out of four, and the three it hides are the ones that
+   * say whether a quiet week was quiet. Carried alongside rather than instead:
+   * every existing reader still sees `value` as the close.
+   */
+  open?: number | null;
+  high?: number | null;
+  low?: number | null;
   fiscalPeriodEnd?: string;
   filingDate?: string;
   frequency: SeriesFrequency;

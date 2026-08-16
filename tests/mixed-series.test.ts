@@ -19,3 +19,24 @@ describe("mixed-frequency series engine",()=>{
   it("changes one series frequency without mutating any peer",()=>{const definitions=[{id:"price",ticker:"T",metric:"stockPrice",frequency:"weekly" as const,missingData:"report-points" as const},{id:"revenue",ticker:"T",metric:"revenue",frequency:"annual" as const,missingData:"report-points" as const}];const updated=updateSeriesDefinition(definitions,"price",{frequency:"monthly"});expect(updated[0].frequency).toBe("monthly");expect(updated[1]).toEqual(definitions[1]);expect(definitions[0].frequency).toBe("weekly")});
   it("aligns monthly price, quarterly margin and annual revenue only on real dates",()=>{const definitions=[{definition:{id:"price",ticker:"T",metric:"stockPrice",frequency:"monthly" as const,missingData:"report-points" as const},observations:[obs("2026-01-31",20),obs("2026-02-28",22)]},{definition:{id:"margin",ticker:"T",metric:"freeCashFlowMargin",frequency:"quarterly" as const,missingData:"report-points" as const},observations:[{...obs("2026-02-15",.2),frequency:"quarterly" as const}]},{definition:{id:"revenue",ticker:"T",metric:"revenue",frequency:"annual" as const,missingData:"report-points" as const},observations:[{...obs("2026-02-01",100),frequency:"annual" as const}]}];const rows=alignMixedSeries(definitions);expect(rows.map((row)=>row.date)).toEqual(["2026-01-31","2026-02-01","2026-02-15","2026-02-28"]);expect(rows.find((row)=>row.date==="2026-02-28")?.cells.margin).toBeNull()});
 });
+
+describe("a market observation carries the session, not just its close", () => {
+  const bar = {
+    date: "2026-01-30", periodStart: "2026-01-01", open: 100, high: 120, low: 90, close: 110,
+    adjustedClose: 108, volume: null, currency: "USD", ticker: "T", frequency: "monthly" as const, sourceUrl: "yahoo",
+  };
+
+  it("keeps the open, high and low beside the value a line draws", () => {
+    const [observation] = marketObservations([bar], "stockPrice", "monthly");
+    // The line wants the dividend-adjusted close; a candle wants the raw four,
+    // so both travel and neither is derived from the other.
+    expect(observation.value).toBe(108);
+    expect([observation.open, observation.high, observation.low]).toEqual([100, 120, 90]);
+  });
+
+  it("still yields an observation when the provider reports no range", () => {
+    const [observation] = marketObservations([{ ...bar, open: null, high: null, low: null }], "stockPrice", "monthly");
+    expect(observation.value).toBe(108);
+    expect(observation.high).toBeNull();
+  });
+});
