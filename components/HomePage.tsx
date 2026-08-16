@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { derivedValue } from "@/lib/finance";
+import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, PricePoint } from "@/lib/types";
 
 const money = (value: number | null, currency = "USD") => value == null || !Number.isFinite(value)
@@ -34,6 +35,10 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
 }) {
   const [query, setQuery] = useState("");
   const [prices, setPrices] = useState<Record<string, PricePoint | null>>({});
+  // The headline figures for every company at once, from the digests the daily
+  // warm wrote. Six megabytes of dataset per card is why this page used to
+  // arrive empty with a Load button on each one.
+  const [summaries, setSummaries] = useState<Record<string, WatchlistSummary> | null>(null);
   // Loading one company from a card is this page's business, so it tracks that
   // here rather than reading a flag the parent sets for a different action.
   const [pending, setPending] = useState<Record<string, "loading" | "failed">>({});
@@ -44,6 +49,17 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
       .then(() => setPending((current) => { const next = { ...current }; delete next[ticker]; return next; }))
       .catch(() => setPending((current) => ({ ...current, [ticker]: "failed" })));
   }
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/watchlist")
+      .then(async (response) => {
+        const payload = await response.json() as { summaries?: WatchlistSummary[] };
+        if (active) setSummaries(Object.fromEntries((payload.summaries ?? []).map((item) => [item.ticker, item])));
+      })
+      .catch(() => active && setSummaries({}));
+    return () => { active = false; };
+  }, []);
 
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -95,12 +111,20 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
         </div>
       : <ul className="company-cards">
           {matches.map((company) => {
+            // A loaded dataset is authoritative; the digest fills the card
+            // until one is, and for every company the reader never opens.
             const dataset = datasets[company.ticker];
             const period = dataset ? latestPeriod(dataset) : undefined;
+            const digest = summaries?.[company.ticker];
+            const figure = (metric: string, from: number | null | undefined) =>
+              period ? derivedValue(period, metric) : from ?? null;
             const point = prices[company.ticker];
             const price = point?.priceClose ?? point?.close ?? null;
-            const shares = period ? derivedValue(period, "sharesOutstanding") ?? derivedValue(period, "dilutedShares") : null;
+            const shares = period
+              ? derivedValue(period, "sharesOutstanding") ?? derivedValue(period, "dilutedShares")
+              : digest?.shares ?? null;
             const marketCap = price != null && shares != null ? price * shares : null;
+            const known = period != null || digest != null;
             const busy = pending[company.ticker] === "loading" || loading === company.ticker;
             const failed = pending[company.ticker] === "failed";
             return <li key={company.ticker}>
@@ -114,13 +138,13 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
                     plainly what is missing. */}
                 <span className="company-card-stats">
                   <span><small>Price</small>{money(price, company.currency)}</span>
-                  {period && <span><small>Market cap</small>{money(marketCap, company.currency)}</span>}
-                  {period && <span><small>FCF margin</small>{percent(derivedValue(period, "freeCashFlowMargin"))}</span>}
-                  {period && <span><small>Cash RoC</small>{percent(derivedValue(period, "cashReturnOnCapital"))}</span>}
+                  {known && <span><small>Market cap</small>{money(marketCap, company.currency)}</span>}
+                  {known && <span><small>FCF margin</small>{percent(figure("freeCashFlowMargin", digest?.freeCashFlowMargin))}</span>}
+                  {known && <span><small>Cash RoC</small>{percent(figure("cashReturnOnCapital", digest?.cashReturnOnCapital))}</span>}
                 </span>
-                {!dataset && <span className="company-card-state">{busy ? "Loading financials…" : failed ? "Could not load — try again" : "Financials not loaded"}</span>}
+                {!known && <span className="company-card-state">{summaries == null ? "Loading…" : busy ? "Loading financials…" : failed ? "Could not load — try again" : "Financials not loaded"}</span>}
               </button>
-              {!dataset && !busy && <button type="button" className="company-card-load" onClick={() => load(company.ticker)}>{failed ? "Retry" : "Load"}</button>}
+              {!known && summaries != null && !busy && <button type="button" className="company-card-load" onClick={() => load(company.ticker)}>{failed ? "Retry" : "Load"}</button>}
             </li>;
           })}
         </ul>}

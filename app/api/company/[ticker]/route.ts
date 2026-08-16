@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchSecCompany } from "@/lib/adapters/sec";
-import { CACHE_SECONDS, datasetKey } from "@/lib/dataset-cache";
+import { CACHE_SECONDS, datasetKey, summaryKey } from "@/lib/dataset-cache";
+import { summariseDataset } from "@/lib/watchlist-summary";
 import { datasetCache } from "@/lib/runtime-env";
 
 
@@ -24,13 +25,25 @@ const headers = {
  * copying it: the same telemetry puts a warm request at 1-6 ms of CPU, around
  * sixty times cheaper. Only a genuine miss pays the parse, once per day.
  */
-export async function GET(_request: Request, context: { params: Promise<{ ticker: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await context.params;
   const symbol = ticker.toUpperCase();
   const cache = datasetCache();
   const key = datasetKey(symbol);
+  const warming = request.headers.get("X-FinScope-Warm") === "1";
 
   try {
+    // Backfilling a missing digest costs a parse, so only the timer pays it,
+    // and only for a company cached before digests existed. A reader asking for
+    // this company gets the stream and no extra work.
+    if (warming && cache && !(await cache.get(summaryKey(symbol), "text"))) {
+      const stored = await cache.get(key, "text");
+      if (stored) {
+        const summary = summariseDataset(JSON.parse(stored) as Parameters<typeof summariseDataset>[0]);
+        if (summary) await cache.put(summaryKey(symbol), JSON.stringify(summary), { expirationTtl: CACHE_SECONDS });
+        return new Response(stored, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
+      }
+    }
     const warm = await cache?.get(key, "stream");
     if (warm) return new Response(warm, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
   } catch {
@@ -41,7 +54,13 @@ export async function GET(_request: Request, context: { params: Promise<{ ticker
     const dataset = await fetchSecCompany(symbol);
     const body = JSON.stringify(dataset);
     try {
-      await cache?.put(key, body, { expirationTtl: CACHE_SECONDS });
+      // The digest is written from the same object in the same breath, so the
+      // watchlist can never show a figure the company page disagrees with.
+      const summary = summariseDataset(dataset);
+      await Promise.all([
+        cache?.put(key, body, { expirationTtl: CACHE_SECONDS }),
+        summary ? cache?.put(summaryKey(symbol), JSON.stringify(summary), { expirationTtl: CACHE_SECONDS }) : undefined,
+      ]);
     } catch {
       // Storing is best-effort; the reader still gets their answer.
     }

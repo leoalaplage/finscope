@@ -48,6 +48,16 @@ export function datasetKey(ticker: string) {
   return `company:${KEY_VERSION}:${ticker.toUpperCase()}`;
 }
 
+/**
+ * The card-sized digest stored beside each dataset.
+ *
+ * Same version as the dataset it was computed from, so a summary is never read
+ * back under semantics it was not built with.
+ */
+export function summaryKey(ticker: string) {
+  return `summary:${KEY_VERSION}:${ticker.toUpperCase()}`;
+}
+
 export interface WarmReport { warmed: string[]; failed: Array<{ ticker: string; reason: string }> }
 
 /**
@@ -91,8 +101,10 @@ export async function warmWatchlist(
 
   for (const ticker of tickers) {
     // A key already written under this version is current by construction:
-    // the version changes whenever meaning does.
-    if (cache && await cache.get(datasetKey(ticker), "text")) { report.warmed.push(ticker); continue; }
+    // the version changes whenever meaning does. Both keys must be there: the
+    // watchlist reads the digest, and a dataset cached before digests existed
+    // would leave the home page empty for that company forever.
+    if (cache && await cache.get(datasetKey(ticker), "text") && await cache.get(summaryKey(ticker), "text")) { report.warmed.push(ticker); continue; }
     let reason = "";
     // A refusal means the platform is throttling us, not that the company is
     // broken, so the wait before trying again is long rather than immediate.
