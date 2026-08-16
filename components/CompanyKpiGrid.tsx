@@ -9,6 +9,7 @@ import { summariseSeries } from "@/lib/chart-summary";
 import { derivedValue } from "@/lib/finance";
 import { CHARTABLE_METRICS } from "@/lib/metrics";
 import { candlesForPeriods, closeOn, freeCashFlowYieldOn, periodsWithin, type PeriodCandle } from "@/lib/overview-market";
+import type { SeriesStyle } from "@/lib/chart-workspace";
 import type { CompanyDataset, FinancialPeriod, MarketBar, SeriesFrequency } from "@/lib/types";
 
 /**
@@ -194,7 +195,7 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
   </article>;
 }
 
-export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: CompanyDataset; theme: ThemeName; onOpenMetric: (metric: string, presentation: { style: "bar"; frequency: SeriesFrequency }) => void }) {
+export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: CompanyDataset; theme: ThemeName; onOpenMetric: (metric: string, presentation: { style: SeriesStyle; frequency: SeriesFrequency }) => void }) {
   const [range, setRange] = useState<RangeId>(() => {
     if (typeof window === "undefined") return DEFAULT_RANGE;
     const saved = localStorage.getItem("finscope.overviewRange");
@@ -282,6 +283,11 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
     });
     if (!rows.some((row) => row.value != null || row.pair != null)) return null;
     return <KpiCard key={card.metric} card={card} rows={rows} index={index} dataset={dataset} theme={theme}
-      onOpen={() => onOpenMetric(card.metric, { style: "bar", frequency })}/>;
+      // A card opens in Charts as the thing it is on screen. The price card
+      // draws weekly candles; handing over this page's trailing-twelve-month
+      // frequency asked Charts for quarterly filings of a share price.
+      onOpen={() => onOpenMetric(card.metric, card.kind === "candles"
+        ? { style: "candle", frequency: "weekly" }
+        : { style: "bar", frequency })}/>;
   })}</div></>;
 }

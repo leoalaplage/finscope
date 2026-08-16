@@ -1,5 +1,5 @@
 import type { SeriesFrequency } from "./types";
-import { MOVING_AVERAGES, type MovingAverage } from "./mixed-series";
+import { frequencyOptions, MOVING_AVERAGES, type MovingAverage } from "./mixed-series";
 
 /**
  * Charts decide for themselves which frequency, series type, axis, panel, color
@@ -213,12 +213,31 @@ export function focusCompany(chart: WorkspaceChart, ticker: string, metric?: str
   // continue it. Landing on a different shape of the same number reads as a
   // different number.
   if (metric && presentation) {
-    return { ...chart, layout: "combined", overlay: false, values: "raw", series: [{ ...createWorkspaceSeries(chart.id, ticker, metric), ...presentation }] };
+    return { ...chart, layout: "combined", overlay: false, values: "raw", series: [{ ...createWorkspaceSeries(chart.id, ticker, metric), ...usable(metric, presentation) }] };
   }
   const metrics = chartMetrics(chart);
   if (metric && !metrics.includes(metric)) metrics.push(metric);
   const wanted = metrics.length ? metrics : ["stockPrice", "freeCashFlowPerShare"];
   return { ...chart, series: wanted.map((item) => createWorkspaceSeries(chart.id, ticker, item)) };
+}
+
+/**
+ * A presentation the metric can actually be drawn in.
+ *
+ * A share price has sessions and a filing has fiscal periods, and the two sets
+ * of frequencies do not overlap. Opening the price card from a company overview
+ * carried that page's own frequency — trailing twelve months — into a market
+ * series, which then went looking for quarterly filings of a share price and
+ * found none, so the chart arrived empty saying the dataset carried no
+ * observation. Dropping a frequency the metric cannot have leaves the automatic
+ * choice in place, which is always drawable.
+ */
+function usable(metric: string, presentation: Pick<WorkspaceSeries, "style" | "frequency">): Pick<WorkspaceSeries, "style" | "frequency"> {
+  const allowed = frequencyOptions(metric);
+  return {
+    ...presentation,
+    frequency: presentation.frequency && allowed.includes(presentation.frequency) ? presentation.frequency : undefined,
+  };
 }
 
 export function moveItem<T>(items: T[], index: number, direction: -1 | 1) {

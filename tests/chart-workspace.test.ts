@@ -256,3 +256,26 @@ describe("a stored workspace keeps the shape it was drawn in", () => {
     expect(deserializeWorkspace(stored)[0].movingAverages).toEqual([20, 200]);
   });
 });
+
+describe("opening a card in Charts", () => {
+  const blank = createWorkspaceChart("chart-1", [], "max");
+
+  it("refuses a frequency the metric cannot be reported at", () => {
+    // The overview draws trailing-twelve-month cards and handed that frequency
+    // to the price card too. Charts then looked for quarterly filings of a
+    // share price, found none, and arrived saying the dataset carried no
+    // observation for the metric.
+    const chart = focusCompany(blank, "AAPL", "stockPrice", { style: "candle", frequency: "ttm" });
+    expect(chart.series[0].frequency).toBeUndefined();
+    expect(chart.series[0].style).toBe("candle");
+  });
+
+  it("keeps a frequency the metric does have", () => {
+    expect(focusCompany(blank, "AAPL", "stockPrice", { style: "candle", frequency: "weekly" }).series[0].frequency).toBe("weekly");
+    expect(focusCompany(blank, "AAPL", "revenue", { style: "bar", frequency: "ttm" }).series[0].frequency).toBe("ttm");
+  });
+
+  it("refuses a market frequency on a filed measure too", () => {
+    expect(focusCompany(blank, "AAPL", "revenue", { style: "bar", frequency: "weekly" }).series[0].frequency).toBeUndefined();
+  });
+});
