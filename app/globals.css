@@ -251,7 +251,7 @@ tbody tr:last-child > * { border-bottom: 0; }
 .qs-page .page-heading p { max-width: 78ch; }
 .qs-standalone { flex: none; color: var(--accent); font-size: var(--fs-sm); text-decoration: none; white-space: nowrap; }
 .qs-standalone:hover { text-decoration: underline; }
-.qs-frame { display: block; width: 100%; border: 0; background: #fff; }
+.qs-frame { display: block; width: 100%; border: 0; border-radius: var(--card-radius); background: var(--background); }
 .qs-page .simple-state, .qs-page .notice { margin-bottom: 12px; }
 .spin { animation: none; }
 .positive-text { color: var(--accent); }

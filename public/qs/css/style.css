@@ -26,9 +26,9 @@
   --texte: #f2f5f7;
   --texte-doux: #a2adba;
   --texte-faible: #738091;
-  --bord: #303a48;
-  --fond: #0b0e13;
-  --carte: #11151c;
+  --bord: #262a36;
+  --fond: #12141c;
+  --carte: #191c26;
   --vert: #53d39c;
   --rouge: #ff8a96;
   --rouge-fond: #321820;
@@ -46,24 +46,17 @@ body {
 }
 
 /* -- integration FinScope ---------------------------------------------
-   Le cadre est affiche a l'interieur de FinScope, dont la mise en page est
-   plate : fond blanc, angles droits, pas d'ombre. On s'y aligne plutot que
-   de poser une carte grise au milieu d'une page blanche. Le titre de la
-   page vient de FinScope, on ne le repete pas ici.
+   Le cadre est affiche a l'interieur de FinScope. Ces regles alignaient la
+   page sur un hote clair a angles droits : fond blanc en dur, rayons a
+   zero, accent vert code en clair. L'hote a depuis un theme sombre, et
+   chaque valeur figee ici est devenue une tache blanche au milieu de lui.
+   Tout passe donc par les variables, qui suivent le theme annonce par le
+   parent. Le titre de la page vient de FinScope, on ne le repete pas ici.
    --------------------------------------------------------------------- */
 html.embedded header, html.embedded footer, html.embedded .entete-page { display: none; }
 html.embedded main { max-width: none; padding: 0 0 12px; }
-html.embedded body { min-height: 0; background: #fff; }
-html.embedded .carte { border-radius: 0; box-shadow: none; padding: 20px 22px; margin-bottom: 16px; }
-html.embedded textarea,
-html.embedded button, html.embedded .bouton,
-html.embedded input[type=text], html.embedded input[type=search],
-html.embedded input[type=number], html.embedded select { border-radius: 2px; }
-html.embedded button.primaire { background: #1f5f4a; border-color: #1f5f4a; }
-html.embedded button.primaire:hover { background: #17493a; }
-html.embedded .etape { background: #1f5f4a; }
-html.embedded .apercu { border-radius: 0; }
-html.embedded .message { border-radius: 2px; }
+html.embedded body { min-height: 0; background: transparent; }
+html.embedded .carte { box-shadow: none; padding: 20px 22px; margin-bottom: 16px; }
 
 :root[data-theme="dark"] textarea,
 :root[data-theme="dark"] button,
