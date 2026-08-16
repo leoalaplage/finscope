@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createAutoChartPlan, formatChartValue, unitFamily } from "../lib/auto-chart";
 import { chartDomain } from "../lib/charting";
-import { addCompany, addMetric, addPair, addSeriesUnique, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, removeCompany, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries } from "../lib/chart-workspace";
+import { addCompany, addMetric, addPair, applyChartFrequency, addSeriesUnique, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, removeCompany, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries } from "../lib/chart-workspace";
 
 const series = (chart: string, ticker: string, metric: string) => createWorkspaceSeries(chart, ticker, metric);
 const chartWith = (...pairs: Array<[string, string]>) => createWorkspaceChart("chart-1", pairs.map(([ticker, metric]) => series("chart-1", ticker, metric)));
@@ -277,5 +277,31 @@ describe("opening a card in Charts", () => {
 
   it("refuses a market frequency on a filed measure too", () => {
     expect(focusCompany(blank, "AAPL", "revenue", { style: "bar", frequency: "weekly" }).series[0].frequency).toBeUndefined();
+  });
+});
+
+describe("the chart-wide frequency", () => {
+  const chart = () => createWorkspaceChart("chart-1", [
+    { ...createWorkspaceSeries("chart-1", "AAPL", "revenue"), frequency: "ttm" as const },
+    { ...createWorkspaceSeries("chart-1", "AAPL", "stockPrice"), frequency: "weekly" as const },
+  ], "max");
+
+  it("releases the per-series frequencies it is meant to override", () => {
+    // A series frequency wins over the chart's, and every card opened from a
+    // company overview pins one — so Annual, Quarterly and TTM did nothing at
+    // all and the buttons looked broken.
+    const annual = applyChartFrequency(chart(), "annual");
+    expect(annual.frequency).toBe("annual");
+    expect(annual.series[0].frequency).toBeUndefined();
+  });
+
+  it("says nothing about a share price, which has sessions rather than periods", () => {
+    expect(applyChartFrequency(chart(), "annual").series[1].frequency).toBe("weekly");
+  });
+
+  it("clears back to automatic when switched off", () => {
+    const off = applyChartFrequency(applyChartFrequency(chart(), "annual"), undefined);
+    expect(off.frequency).toBeUndefined();
+    expect(off.series[0].frequency).toBeUndefined();
   });
 });

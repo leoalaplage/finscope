@@ -7,7 +7,7 @@ import { createAutoChartPlan, familyLabel, formatChartValue, indexToZero, period
 import { chartDomain, logTicks, niceTicks, type ThemeName } from "@/lib/charting";
 import { derivedValue, safeDivide } from "@/lib/finance";
 import { recessionBands, snapToAxis, splitMarks } from "@/lib/chart-annotations";
-import { addCompany, addMetric, applyPreset, CHART_PRESETS, removeCompany, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, focusCompany, hasOverrides, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
+import { addCompany, addMetric, applyChartFrequency, applyPreset, CHART_PRESETS, removeCompany, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, focusCompany, hasOverrides, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { validateSeries as validateChartSeries } from "@/lib/chart-spec";
 import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservations, marketObservations, movingAverage, providerMarketFrequency, MARKET_SERIES_METRICS, MOVING_AVERAGES } from "@/lib/mixed-series";
@@ -418,7 +418,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, theme, on
     <section className="chart-toolbar">
       <div className="segmented" role="group" aria-label="Frequency">
         {([["annual", "Annual"], ["quarterly", "Quarterly"], ["ttm", "Quarterly TTM"]] as const).map(([value, label]) =>
-          <button key={value} className={chart.frequency === value ? "active" : ""} onClick={() => onChange((current) => ({ ...current, frequency: current.frequency === value ? undefined : value }))}>{label}</button>)}
+          <button key={value} className={chart.frequency === value ? "active" : ""} onClick={() => onChange((current) => applyChartFrequency(current, current.frequency === value ? undefined : value))}>{label}</button>)}
       </div>
       <div className="segmented" role="group" aria-label="Time range">
         {RANGE_OPTIONS.map(([value, label]) => <button key={value} className={chart.range === value ? "active" : ""} onClick={() => onChange((current) => ({ ...current, range: value }))}>{label}</button>)}

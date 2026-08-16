@@ -1,5 +1,5 @@
 import type { SeriesFrequency } from "./types";
-import { frequencyOptions, MOVING_AVERAGES, type MovingAverage } from "./mixed-series";
+import { frequencyOptions, MARKET_SERIES_METRICS, MOVING_AVERAGES, type MovingAverage } from "./mixed-series";
 
 /**
  * Charts decide for themselves which frequency, series type, axis, panel, color
@@ -237,6 +237,27 @@ function usable(metric: string, presentation: Pick<WorkspaceSeries, "style" | "f
   return {
     ...presentation,
     frequency: presentation.frequency && allowed.includes(presentation.frequency) ? presentation.frequency : undefined,
+  };
+}
+
+/**
+ * Sets the chart-wide frequency, and clears the per-series ones underneath it.
+ *
+ * A series frequency wins over the chart's, which is right when the reader set
+ * it deliberately and wrong when it merely arrived with the series. Opening any
+ * card from a company overview pins one, so pressing Annual, Quarterly or TTM
+ * afterwards did nothing at all and the buttons looked broken.
+ *
+ * The coarse control therefore releases the fine ones: press it and every filed
+ * series follows it, and a per-series choice made after that still wins until
+ * it is pressed again. Market series are untouched — a share price has sessions
+ * and this control does not speak about them.
+ */
+export function applyChartFrequency(chart: WorkspaceChart, frequency: WorkspaceChart["frequency"]): WorkspaceChart {
+  return {
+    ...chart,
+    frequency,
+    series: chart.series.map((series) => MARKET_SERIES_METRICS.has(series.metric) ? series : { ...series, frequency: undefined }),
   };
 }
 
