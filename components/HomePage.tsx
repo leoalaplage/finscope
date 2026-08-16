@@ -24,7 +24,7 @@ const latestPeriod = (dataset: CompanyDataset): FinancialPeriod | undefined => {
  * table with its filters and columns is one click away for anyone comparing the
  * whole list, but it is not what you should have to read to get started.
  */
-export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearchAdd, onShowRanking }: {
+export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearchAdd, onShowRanking, onRemove }: {
   watchlist: CompanyProfile[];
   datasets: Record<string, CompanyDataset>;
   loading: string;
@@ -32,6 +32,7 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
   onLoad: (ticker: string) => Promise<CompanyDataset | undefined>;
   onSearchAdd: () => void;
   onShowRanking: () => void;
+  onRemove: (ticker: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [prices, setPrices] = useState<Record<string, PricePoint | null>>({});
@@ -42,6 +43,47 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
   // Loading one company from a card is this page's business, so it tracks that
   // here rather than reading a flag the parent sets for a different action.
   const [pending, setPending] = useState<Record<string, "loading" | "failed">>({});
+  const [bulk, setBulk] = useState({ running: false, done: 0, total: 0 });
+
+  /**
+   * Loads every company the watchlist does not already hold.
+   *
+   * Four at a time: building one from raw filings is the most expensive thing
+   * the application does, and asking for twenty-two at once exhausts the
+   * isolate's budget and gets the rest refused. Whatever is refused anyway is
+   * tried again once, after a pause long enough for a fresh isolate.
+   */
+  async function loadEverything() {
+    const targets = watchlist.filter((company) => company.resolutionStatus !== "unresolved" && !datasets[company.ticker]).map((company) => company.ticker);
+    if (!targets.length) return;
+    setBulk({ running: true, done: 0, total: targets.length });
+    let cursor = 0;
+    const refused: string[] = [];
+    const worker = async () => {
+      while (cursor < targets.length) {
+        const ticker = targets[cursor++];
+        setPending((current) => ({ ...current, [ticker]: "loading" }));
+        try {
+          await onLoad(ticker);
+          setPending((current) => { const next = { ...current }; delete next[ticker]; return next; });
+        } catch {
+          refused.push(ticker);
+          setPending((current) => ({ ...current, [ticker]: "failed" }));
+        }
+        setBulk((current) => ({ ...current, done: current.done + 1 }));
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    if (refused.length) {
+      await new Promise((resolve) => setTimeout(resolve, 4_000));
+      for (const ticker of refused) {
+        setPending((current) => ({ ...current, [ticker]: "loading" }));
+        try { await onLoad(ticker); setPending((current) => { const next = { ...current }; delete next[ticker]; return next; }); }
+        catch { setPending((current) => ({ ...current, [ticker]: "failed" })); }
+      }
+    }
+    setBulk({ running: false, done: 0, total: 0 });
+  }
 
   function load(ticker: string) {
     setPending((current) => ({ ...current, [ticker]: "loading" }));
@@ -60,6 +102,8 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
       .catch(() => active && setSummaries({}));
     return () => { active = false; };
   }, []);
+
+  const unloaded = watchlist.filter((company) => company.resolutionStatus !== "unresolved" && !datasets[company.ticker]).length;
 
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -88,8 +132,16 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
 
   return <div className="home">
     <header className="home-head">
-      <h1>Companies</h1>
-      <p>Pick one from your watchlist, or search the SEC for another.</p>
+      <div>
+        <h1>Watchlist</h1>
+        <p>{watchlist.length} companies. Open one, or load them all to compare them side by side.</p>
+      </div>
+      <div className="home-head-actions">
+        <button type="button" onClick={() => void loadEverything()} disabled={bulk.running || unloaded === 0}>
+          {bulk.running ? `Loading ${bulk.done}/${bulk.total}…` : unloaded ? `Load all (${unloaded})` : "All loaded"}
+        </button>
+        <button type="button" onClick={onSearchAdd}>Add a company</button>
+      </div>
     </header>
 
     <div className="home-search">
@@ -101,7 +153,6 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
         placeholder="Search your watchlist by ticker or name…"
         aria-label="Search your watchlist"
       />
-      <button type="button" onClick={onSearchAdd}>Add a company</button>
     </div>
 
     {matches.length === 0
@@ -145,6 +196,8 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
                 {!known && <span className="company-card-state">{summaries == null ? "Loading…" : busy ? "Loading financials…" : failed ? "Could not load — try again" : "Financials not loaded"}</span>}
               </button>
               {!known && summaries != null && !busy && <button type="button" className="company-card-load" onClick={() => load(company.ticker)}>{failed ? "Retry" : "Load"}</button>}
+              <button type="button" className="company-card-remove" title={`Remove ${company.ticker} from the watchlist`} aria-label={`Remove ${company.ticker} from the watchlist`}
+                onClick={() => onRemove(company.ticker)}>×</button>
             </li>;
           })}
         </ul>}
