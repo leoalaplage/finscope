@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { concentration, portfolioSeries, rebasePair, valuePortfolio, weightBy, weightedMetric } from "../lib/portfolio";
+import { concentration, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, weightedMetric, withinWindow } from "../lib/portfolio";
 import type { WatchlistSummary } from "../lib/watchlist-summary";
 
 const summary = (ticker: string, over: Partial<WatchlistSummary> = {}): WatchlistSummary => ({
@@ -119,5 +119,85 @@ describe("the portfolio through time", () => {
 
   it("refuses to rebase off a zero", () => {
     expect(rebasePair([{ date: "2026-01-01", value: 0 }], [{ date: "2026-01-01", value: 10 }])).toEqual([]);
+  });
+});
+
+describe("what a position cost", () => {
+  it("reports profit against the cost entered, per position and in total", () => {
+    const valued = valuePortfolio(
+      [{ ticker: "A", shares: 10, cost: 20 }, { ticker: "B", shares: 5, cost: 40 }],
+      {}, { A: 30, B: 30 },
+    );
+    // A: paid 200, worth 300. B: paid 200, worth 150.
+    expect(valued.positions[0].profit).toBe(100);
+    expect(valued.positions[0].profitPercent).toBeCloseTo(.5, 10);
+    expect(valued.positions[1].profit).toBe(-50);
+    expect(valued.cost).toBe(400);
+    expect(valued.profit).toBe(50);
+    expect(valued.profitPercent).toBeCloseTo(.125, 10);
+  });
+
+  it("counts a position with no cost as unknown, not as pure gain", () => {
+    // Treating a missing cost as zero would report the position as 100% profit
+    // and inflate the whole book's return with it.
+    const valued = valuePortfolio(
+      [{ ticker: "A", shares: 10, cost: 20 }, { ticker: "B", shares: 10 }],
+      {}, { A: 30, B: 30 },
+    );
+    expect(valued.positions[1].profit).toBeNull();
+    expect(valued.profit).toBe(100);
+    expect(valued.cost).toBe(200);
+    expect(valued.costCoverage).toBeCloseTo(.5, 10);
+  });
+
+  it("has no profit to report before any cost is entered", () => {
+    const valued = valuePortfolio([{ ticker: "A", shares: 10 }], {}, { A: 30 });
+    expect(valued.profit).toBeNull();
+    expect(valued.costCoverage).toBe(0);
+  });
+});
+
+describe("reading a window of the portfolio's own history", () => {
+  const daily = Array.from({ length: 40 }, (_, index) => ({
+    date: `2026-0${Math.floor(index / 20) + 1}-${String((index % 20) + 1).padStart(2, "0")}`,
+    value: 100 + index,
+  }));
+
+  it("cuts the window by date, not by how many points happen to be in it", () => {
+    const long = [{ date: "2016-01-01", value: 50 }, { date: "2025-01-01", value: 80 }, { date: "2026-01-01", value: 100 }];
+    expect(withinWindow(long, 5).map((point) => point.date)).toEqual(["2025-01-01", "2026-01-01"]);
+    expect(withinWindow(long, Infinity)).toHaveLength(3);
+  });
+
+  it("measures the fall from the running peak, not from where the window began", () => {
+    // Doubling and then halving has lost nothing against the start and half of
+    // everything against the top, and the second is what holding it felt like.
+    const stats = seriesStats([
+      { date: "2026-01-01", value: 100 },
+      { date: "2026-02-01", value: 200 },
+      { date: "2026-03-01", value: 100 },
+      { date: "2026-04-01", value: 150 },
+    ]);
+    expect(stats.change).toBeCloseTo(.5, 10);
+    expect(stats.drawdown).toBeCloseTo(-.5, 10);
+    expect(stats.drawdownDate).toBe("2026-03-01");
+  });
+
+  it("compounds on the same function every other growth figure uses", () => {
+    const stats = seriesStats([{ date: "2021-01-01", value: 100 }, { date: "2026-01-01", value: 200 }]);
+    expect(stats.cagr).toBeCloseTo(Math.pow(2, 1 / stats.years!) - 1, 10);
+    expect(stats.years).toBeCloseTo(5, 1);
+  });
+
+  it("reports the best and worst single steps", () => {
+    const stats = seriesStats(daily.slice(0, 3));
+    expect(stats.bestStep).not.toBeNull();
+    expect(stats.worstStep).not.toBeNull();
+    expect(stats.worstStep!).toBeLessThanOrEqual(stats.bestStep!);
+  });
+
+  it("says nothing about a series with one point or none", () => {
+    expect(seriesStats([]).change).toBeNull();
+    expect(seriesStats([{ date: "2026-01-01", value: 10 }]).cagr).toBeNull();
   });
 });

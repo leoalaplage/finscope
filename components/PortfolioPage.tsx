@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { chartPalette, niceTicks, type ThemeName } from "@/lib/charting";
-import { concentration, portfolioSeries, rebasePair, valuePortfolio, weightBy, weightedMetric, type Position, type SeriesPoint, type ValuedPosition } from "@/lib/portfolio";
+import { concentration, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, weightedMetric, withinWindow, WINDOWS, type Position, type SeriesPoint, type ValuedPosition, type WindowId } from "@/lib/portfolio";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import type { CompanyProfile, MarketBar, PricePoint } from "@/lib/types";
 
@@ -24,7 +24,7 @@ function readPositions(): Position[] {
     return stored.flatMap((entry) => {
       const item = entry as Record<string, unknown>;
       return typeof item?.ticker === "string" && typeof item.shares === "number" && item.shares > 0
-        ? [{ ticker: item.ticker, shares: item.shares }] : [];
+        ? [{ ticker: item.ticker, shares: item.shares, ...(typeof item.cost === "number" && item.cost > 0 ? { cost: item.cost } : {}) }] : [];
     });
   } catch { return []; }
 }
@@ -65,7 +65,8 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [histories, setHistories] = useState<Record<string, SeriesPoint[]>>({});
   const [benchmark, setBenchmark] = useState<string>("");
-  const [draft, setDraft] = useState({ ticker: "", shares: "" });
+  const [draft, setDraft] = useState({ ticker: "", shares: "", cost: "" });
+  const [window, setWindow] = useState<WindowId>("Max");
   const palette = chartPalette(theme);
 
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(positions)); }, [positions]);
@@ -121,19 +122,29 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
   const valued = useMemo(() => valuePortfolio(positions, summaries, prices, names), [positions, summaries, prices, names]);
   const spread = useMemo(() => concentration(valued.positions), [valued]);
   const bySector = useMemo(() => weightBy(valued.positions, (position) => position.sector), [valued]);
-  const series = useMemo(() => portfolioSeries(positions, histories), [positions, histories]);
+  const full = useMemo(() => portfolioSeries(positions, histories), [positions, histories]);
+  const series = useMemo(() => withinWindow(full, WINDOWS.find((item) => item.id === window)?.years ?? Infinity), [full, window]);
+  const stats = useMemo(() => seriesStats(series), [series]);
+  const benchmarkStats = useMemo(() => {
+    const history = benchmark ? histories[benchmark] ?? [] : [];
+    if (!history.length || !series.length) return null;
+    return seriesStats(history.filter((point) => point.date >= series[0].date && point.date <= series.at(-1)!.date));
+  }, [histories, benchmark, series]);
   const compared = useMemo(() => benchmark && histories[benchmark]?.length ? rebasePair(series, histories[benchmark]) : [], [series, histories, benchmark]);
 
   const available = watchlist.filter((company) => company.resolutionStatus !== "unresolved" && !positions.some((position) => position.ticker === company.ticker));
 
   function add() {
     const shares = Number(draft.shares.replace(",", "."));
+    const cost = Number(draft.cost.replace(",", "."));
     if (!draft.ticker || !Number.isFinite(shares) || shares <= 0) return;
-    setPositions((current) => [...current.filter((position) => position.ticker !== draft.ticker), { ticker: draft.ticker, shares }]);
-    setDraft({ ticker: "", shares: "" });
+    setPositions((current) => [...current.filter((position) => position.ticker !== draft.ticker),
+      { ticker: draft.ticker, shares, ...(Number.isFinite(cost) && cost > 0 ? { cost } : {}) }]);
+    setDraft({ ticker: "", shares: "", cost: "" });
   }
 
-  const growth = series.length > 1 ? series.at(-1)!.value / series[0].value - 1 : null;
+  const patch = (ticker: string, change: Partial<Position>) =>
+    setPositions((current) => current.map((item) => item.ticker === ticker ? { ...item, ...change } : item));
 
   return <div className="portfolio-page">
     <header className="page-heading">
@@ -145,10 +156,22 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
 
     <section className="portfolio-summary">
       <article><span>Value</span><strong>{money(valued.value)}</strong><small>{valued.positions.length} holding{valued.positions.length === 1 ? "" : "s"}{valued.unpriced.length ? ` · ${valued.unpriced.length} unpriced` : ""}</small></article>
+      <article><span>Cost</span><strong>{valued.costCoverage > 0 ? money(valued.cost) : "—"}</strong><small>{valued.costCoverage > 0 ? `${percent(valued.costCoverage, 0)} of the book has a cost entered` : "Enter what you paid to see profit"}</small></article>
+      <article className={valued.profit == null ? "" : valued.profit >= 0 ? "up" : "down"}>
+        <span>Unrealised P&amp;L</span>
+        <strong>{valued.profit == null ? "—" : `${valued.profit >= 0 ? "+" : "−"}${money(Math.abs(valued.profit))}`}</strong>
+        <small>{valued.profitPercent == null ? "Needs a cost per share" : `${valued.profitPercent >= 0 ? "+" : ""}${percent(valued.profitPercent)} on cost`}</small>
+      </article>
       <article><span>Largest position</span><strong>{percent(spread.largest)}</strong><small>{valued.positions.length ? [...valued.positions].sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))[0]?.ticker : "—"}</small></article>
       <article><span>Effective holdings</span><strong>{spread.effectiveHoldings == null ? "—" : spread.effectiveHoldings.toFixed(1)}</strong><small>Equal-sized positions this book behaves like</small></article>
-      <article><span>Since {series[0]?.date ?? "—"}</span><strong>{percent(growth)}</strong><small>On today&rsquo;s holdings, priced back through time</small></article>
     </section>
+
+    {series.length > 1 && <section className="portfolio-summary">
+      <article><span>Return · {window}</span><strong>{percent(stats.change)}</strong><small>From {stats.start?.date}{benchmarkStats?.change != null ? ` · index ${percent(benchmarkStats.change)}` : ""}</small></article>
+      <article><span>CAGR · {window}</span><strong>{percent(stats.cagr)}</strong><small>{stats.years == null ? "" : `Over ${stats.years.toFixed(1)} years`}{benchmarkStats?.cagr != null ? ` · index ${percent(benchmarkStats.cagr)}` : ""}</small></article>
+      <article><span>Worst drawdown</span><strong>{percent(stats.drawdown)}</strong><small>{stats.drawdownDate ? `Bottomed ${stats.drawdownDate}, measured from the running peak` : "No fall from a peak inside this window"}</small></article>
+      <article><span>Best / worst week</span><strong>{stats.bestStep == null ? "—" : `${percent(stats.bestStep)} / ${percent(stats.worstStep)}`}</strong><small>The largest single steps in the window</small></article>
+    </section>}
 
     {!positions.length && <p className="simple-state">No positions yet. Add one below to see what it owns.</p>}
 
@@ -199,6 +222,9 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
       <section className="plain-section">
         <div className="section-heading">
           <h2>Value through time</h2>
+          <div className="segmented" role="group" aria-label="Window">
+            {WINDOWS.map((item) => <button key={item.id} type="button" className={window === item.id ? "active" : ""} onClick={() => setWindow(item.id)}>{item.id}</button>)}
+          </div>
           <div className="segmented" role="group" aria-label="Compare against">
             <button type="button" className={benchmark === "" ? "active" : ""} onClick={() => setBenchmark("")}>Portfolio only</button>
             {BENCHMARKS.map((item) => <button key={item.ticker} type="button" className={benchmark === item.ticker ? "active" : ""} onClick={() => setBenchmark(item.ticker)}>vs {item.label}</button>)}
@@ -249,15 +275,22 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
     <section className="plain-section">
       <div className="section-heading"><h2>Positions</h2></div>
       <div className="table-scroll"><table>
-        <thead><tr><th>Company</th><th>Shares</th><th>Price</th><th>Value</th><th>Weight</th><th/></tr></thead>
+        <thead><tr><th>Company</th><th>Shares</th><th>Cost / share</th><th>Price</th><th>Cost</th><th>Value</th><th>P&amp;L</th><th>P&amp;L %</th><th>Weight</th><th/></tr></thead>
         <tbody>
           {valued.positions.map((position) => <tr key={position.ticker}>
             <th><button className="value-button" onClick={() => onOpen(position.ticker)}>{position.ticker}<small>{position.name}</small></button></th>
             <td><input className="portfolio-shares" type="number" min="0" step="any" value={position.shares}
               aria-label={`Shares of ${position.ticker}`}
-              onChange={(event) => { const shares = Number(event.target.value); setPositions((current) => current.map((item) => item.ticker === position.ticker ? { ...item, shares } : item)); }}/></td>
+              onChange={(event) => patch(position.ticker, { shares: Number(event.target.value) })}/></td>
+            <td><input className="portfolio-shares" type="number" min="0" step="any" placeholder="—"
+              value={positions.find((item) => item.ticker === position.ticker)?.cost ?? ""}
+              aria-label={`Average cost per share of ${position.ticker}`}
+              onChange={(event) => patch(position.ticker, { cost: event.target.value === "" ? undefined : Number(event.target.value) })}/></td>
             <td>{money(position.price)}</td>
+            <td>{money(position.costBasis)}</td>
             <td>{money(position.value)}</td>
+            <td className={position.profit == null ? "" : position.profit >= 0 ? "up" : "down"}>{position.profit == null ? "—" : `${position.profit >= 0 ? "+" : "−"}${money(Math.abs(position.profit))}`}</td>
+            <td className={position.profitPercent == null ? "" : position.profitPercent >= 0 ? "up" : "down"}>{position.profitPercent == null ? "—" : `${position.profitPercent >= 0 ? "+" : ""}${percent(position.profitPercent)}`}</td>
             <td>{percent(position.weight)}</td>
             <td><button className="text-button" onClick={() => setPositions((current) => current.filter((item) => item.ticker !== position.ticker))}>Remove</button></td>
           </tr>)}
@@ -271,12 +304,15 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
             <td><input className="portfolio-shares" type="number" min="0" step="any" placeholder="Shares" value={draft.shares} aria-label="Shares"
               onChange={(event) => setDraft((current) => ({ ...current, shares: event.target.value }))}
               onKeyDown={(event) => { if (event.key === "Enter") add(); }}/></td>
-            <td colSpan={3}/>
+            <td><input className="portfolio-shares" type="number" min="0" step="any" placeholder="Optional" value={draft.cost} aria-label="Average cost per share"
+              onChange={(event) => setDraft((current) => ({ ...current, cost: event.target.value }))}
+              onKeyDown={(event) => { if (event.key === "Enter") add(); }}/></td>
+            <td colSpan={6}/>
             <td><button onClick={add} disabled={!draft.ticker || !draft.shares}>Add</button></td>
           </tr>
         </tbody>
       </table></div>
-      <p className="section-note">Positions are kept in this browser only. Nothing about what you hold leaves the machine.</p>
+      <p className="section-note">Cost per share is optional; without it a position still has a value and a weight, but no profit — a blank is not a cost of zero. Positions are kept in this browser only, and nothing about what you hold leaves the machine.</p>
     </section>
   </div>;
 }

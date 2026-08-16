@@ -251,6 +251,7 @@ tbody tr:last-child > * { border-bottom: 0; }
 .qs-page .page-heading p { max-width: 78ch; }
 .qs-standalone { flex: none; color: var(--accent); font-size: var(--fs-sm); text-decoration: none; white-space: nowrap; }
 .qs-standalone:hover { text-decoration: underline; }
+.chart-exports { display: flex; flex-wrap: wrap; gap: 8px; }
 .chart-settings { margin-top: 16px; border-top: 1px solid var(--card-border); padding-top: 12px; }
 .chart-settings > summary { display: flex; align-items: baseline; gap: 8px; color: var(--muted); cursor: pointer; font-size: var(--fs-sm); font-weight: 600; }
 .chart-settings > summary small { display: inline; }
@@ -271,6 +272,8 @@ tbody tr:last-child > * { border-bottom: 0; }
 .portfolio-charts figcaption h3 { margin: 0; font-size: var(--fs-body); }
 .portfolio-charts .kpi-canvas { min-height: 260px; }
 .portfolio-timeline { height: 340px; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); }
+.portfolio-summary article.up strong, td.up { color: var(--accent); }
+.portfolio-summary article.down strong, td.down { color: var(--danger); }
 .portfolio-shares { width: 96px; text-align: right; font-variant-numeric: tabular-nums; }
 .portfolio-page .value-button small { display: block; color: var(--muted); font-weight: 400; }
 .qs-source { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); }

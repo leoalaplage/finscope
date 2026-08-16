@@ -7,7 +7,7 @@ import { createAutoChartPlan, familyLabel, formatChartValue, indexToZero, period
 import { chartDomain, logTicks, niceTicks, type ThemeName } from "@/lib/charting";
 import { derivedValue, safeDivide } from "@/lib/finance";
 import { recessionBands, snapToAxis, splitMarks } from "@/lib/chart-annotations";
-import { addCompany, addMetric, applyPreset, CHART_PRESETS, removeCompany, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
+import { addCompany, addMetric, applyPreset, CHART_PRESETS, removeCompany, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, focusCompany, hasOverrides, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { validateSeries as validateChartSeries } from "@/lib/chart-spec";
 import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservations, marketObservations, movingAverage, providerMarketFrequency, MARKET_SERIES_METRICS, MOVING_AVERAGES } from "@/lib/mixed-series";
@@ -77,7 +77,6 @@ export function ChartsWorkspace({ initialData, seed, theme = "dark" }: { initial
   const [datasets, setDatasets] = useState<Record<string, CompanyDataset>>({ [initialData.company.ticker]: initialData });
   const [companyErrors, setCompanyErrors] = useState<Record<string, string>>({});
   const [charts, setCharts] = useState<WorkspaceChart[]>(() => parseStoredCharts(initialData.company.ticker));
-  const [nextChartNumber, setNextChartNumber] = useState(() => charts.reduce((max, chart) => Math.max(max, Number(chart.id.replace(/\D/g, "")) || 0), 0) + 1);
   const pending = useRef(new Set<string>());
   const appliedSeed = useRef<number>(undefined);
 
@@ -115,26 +114,23 @@ export function ChartsWorkspace({ initialData, seed, theme = "dark" }: { initial
   // Takes an updater, not a value: two edits landing in one render batch would
   // otherwise both start from the same stale chart and the later one would win.
   function updateChart(id: string, update: (chart: WorkspaceChart) => WorkspaceChart) { setCharts((current) => current.map((chart) => chart.id === id ? update(chart) : chart)); }
-  function newChartId() { const id = `chart-${nextChartNumber}`; setNextChartNumber((value) => value + 1); return id; }
-  function addChart() { const id = newChartId(); setCharts((current) => [...current, createWorkspaceChart(id, DEFAULT_METRICS.map((metric) => createWorkspaceSeries(id, initialData.company.ticker, metric)))]); }
 
   return <div className="charts-page">
-    <header className="page-heading"><div><h1>Charts</h1><p>Pick companies and metrics. Each unit gets its own panel on a shared date axis. Frequency, series type, colors and scales are chosen from the metrics themselves — open <b>Series options</b> to override any of them, or to overlay two units on one plot area.</p></div><button onClick={addChart}>Add chart</button></header>
-    <div className="workspace-charts">{charts.map((chart, index) => <ChartEditor
-      key={chart.id} chart={chart} datasets={datasets} companyErrors={companyErrors} fallbackTicker={initialData.company.ticker} onlyChart={charts.length === 1} theme={theme}
+    <header className="page-heading"><div><h1>Charts</h1><p>Pick companies and metrics. Each unit gets its own panel on a shared date axis. Frequency, series type, colours and scales are chosen from the metrics themselves — open <b>Chart settings</b> to override any of them.</p></div></header>
+    {/* One chart. Adding, duplicating, reordering and removing them were seven
+        buttons of workspace management above a page whose job is to draw a
+        line; companies and metrics are added to the chart that is already
+        here. A workspace stored with several is collapsed to the first. */}
+    <div className="workspace-charts">{charts.slice(0, 1).map((chart) => <ChartEditor
+      key={chart.id} chart={chart} datasets={datasets} companyErrors={companyErrors} fallbackTicker={initialData.company.ticker} theme={theme}
       onChange={(update) => updateChart(chart.id, update)} onRetryCompany={retryCompany}
-      onDuplicate={() => { const id = newChartId(); setCharts((current) => [...current.slice(0, index + 1), duplicateChart(chart, id), ...current.slice(index + 1)]); }}
-      onMove={(direction) => setCharts((current) => moveItem(current, index, direction))}
-      onRemove={() => setCharts((current) => current.filter((item) => item.id !== chart.id))}
-      canMoveUp={index > 0} canMoveDown={index < charts.length - 1}
     />)}</div>
-    {!charts.length && <p className="simple-state">No charts yet. <button className="text-button" onClick={addChart}>Add a chart</button> to start.</p>}
   </div>;
 }
 
-function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart, theme, onChange, onRetryCompany, onDuplicate, onMove, onRemove, canMoveUp, canMoveDown }: {
-  chart: WorkspaceChart; datasets: Record<string, CompanyDataset>; companyErrors: Record<string, string>; fallbackTicker: string; onlyChart: boolean; theme: ThemeName;
-  onChange: (update: (chart: WorkspaceChart) => WorkspaceChart) => void; onRetryCompany: (ticker: string) => void; onDuplicate: () => void; onMove: (direction: -1 | 1) => void; onRemove: () => void; canMoveUp: boolean; canMoveDown: boolean;
+function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, theme, onChange, onRetryCompany }: {
+  chart: WorkspaceChart; datasets: Record<string, CompanyDataset>; companyErrors: Record<string, string>; fallbackTicker: string; theme: ThemeName;
+  onChange: (update: (chart: WorkspaceChart) => WorkspaceChart) => void; onRetryCompany: (ticker: string) => void;
 }) {
   const [bars, setBars] = useState<Record<string, MarketBar[]>>({});
   const [marketErrors, setMarketErrors] = useState<Record<string, string>>({});
@@ -364,13 +360,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
   const title = chartTitle(chart, (metric) => METRICS[metric]?.short ?? metric);
   return <article className="workspace-chart">
     <header className="workspace-chart-header">
-      <div><span>{chart.id}</span><h2>{title}</h2></div>
-      <div>
-        <button onClick={() => onChange((current) => ({ ...current, showDataTable: !current.showDataTable }))}>{chart.showDataTable ? "Hide data" : "Show data"}</button>
-        <button onClick={exportCsv}>CSV</button><button onClick={exportPng}>PNG</button>
-        <button disabled={!canMoveUp} onClick={() => onMove(-1)}>↑</button><button disabled={!canMoveDown} onClick={() => onMove(1)}>↓</button>
-        <button onClick={onDuplicate}>Duplicate</button><button disabled={onlyChart} onClick={onRemove}>Remove</button>
-      </div>
+      <div><h2>{title}</h2></div>
     </header>
 
     <div className="entity-row" aria-label="Companies on this chart">
@@ -480,6 +470,13 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     <details className="chart-settings">
       <summary>Chart settings<small>{chart.series.filter(hasOverrides).length ? `${chart.series.filter(hasOverrides).length} adjusted` : "all automatic"}</small></summary>
       <div className="chart-settings-body">
+        {/* Taking the drawn figures away with you is worth keeping; it was the
+            company it kept that was the problem. */}
+        <div className="chart-exports">
+          <button onClick={() => onChange((current) => ({ ...current, showDataTable: !current.showDataTable }))}>{chart.showDataTable ? "Hide the numbers" : "Show the numbers"}</button>
+          <button onClick={exportCsv}>Download CSV</button>
+          <button onClick={exportPng}>Download PNG</button>
+        </div>
     <div className="chart-presets" role="group" aria-label="Presets">
       <span>Presets</span>
       {CHART_PRESETS.map((preset) => <button key={preset.id} onClick={() => onChange((current) => applyPreset(current, preset, fallbackTicker))}>{preset.label}</button>)}

@@ -1,3 +1,4 @@
+import { cagrBetweenDates } from "./finance";
 import type { WatchlistSummary } from "./watchlist-summary";
 
 /**
@@ -9,7 +10,20 @@ import type { WatchlistSummary } from "./watchlist-summary";
  * moves, and a portfolio page that pretends otherwise is a spreadsheet of
  * intentions rather than a picture of what is held.
  */
-export interface Position { ticker: string; shares: number }
+export interface Position {
+  ticker: string;
+  shares: number;
+  /**
+   * What was paid, per share, on average.
+   *
+   * Optional because a book is still worth measuring before anyone has typed
+   * in what it cost. Where it is absent the position has a value and a weight
+   * but no profit and no loss, and the totals say how much of the book they
+   * speak for rather than treating the gap as a cost of zero — which would
+   * report the whole position as gain.
+   */
+  cost?: number;
+}
 
 export interface ValuedPosition {
   ticker: string;
@@ -20,6 +34,12 @@ export interface ValuedPosition {
   value: number | null;
   /** Share of the portfolio's priced value. Null while the price is unknown. */
   weight: number | null;
+  /** Total paid for the position, where a cost per share was entered. */
+  costBasis: number | null;
+  /** Value less cost. Null without a cost, never zero. */
+  profit: number | null;
+  /** Profit over cost. */
+  profitPercent: number | null;
   summary: WatchlistSummary | null;
 }
 
@@ -27,6 +47,13 @@ export interface PortfolioValuation {
   positions: ValuedPosition[];
   /** Total of the positions that could be priced. */
   value: number;
+  /** What the priced positions cost, where a cost was entered for them. */
+  cost: number;
+  /** Value less cost, over the positions that have both. */
+  profit: number | null;
+  profitPercent: number | null;
+  /** Share of the book's value whose cost is known. */
+  costCoverage: number;
   /** Positions with no price, which are excluded from every weight below. */
   unpriced: string[];
 }
@@ -44,8 +71,11 @@ export function valuePortfolio(
     return { position, price: price ?? null, value };
   });
   const total = priced.reduce((sum, item) => sum + (item.value ?? 0), 0);
-  return {
-    positions: priced.map((item) => ({
+  const valued = priced.map((item) => {
+    const cost = item.position.cost != null && Number.isFinite(item.position.cost) && item.position.cost > 0
+      ? item.position.cost * item.position.shares : null;
+    const profit = cost != null && item.value != null ? item.value - cost : null;
+    return {
       ticker: item.position.ticker,
       name: names[item.position.ticker]?.name ?? summaries[item.position.ticker]?.name ?? item.position.ticker,
       sector: names[item.position.ticker]?.sector ?? "Unclassified",
@@ -53,9 +83,24 @@ export function valuePortfolio(
       price: item.price,
       value: item.value,
       weight: item.value != null && total > 0 ? item.value / total : null,
+      costBasis: cost,
+      profit,
+      profitPercent: cost != null && cost > 0 && profit != null ? profit / cost : null,
       summary: summaries[item.position.ticker] ?? null,
-    })),
+    };
+  });
+  // Only positions with both a price and a cost enter the profit, and the share
+  // of the book they represent travels with it.
+  const withCost = valued.filter((position) => position.costBasis != null && position.value != null);
+  const cost = withCost.reduce((sum, position) => sum + position.costBasis!, 0);
+  const covered = withCost.reduce((sum, position) => sum + position.value!, 0);
+  return {
+    positions: valued,
     value: total,
+    cost,
+    profit: withCost.length ? covered - cost : null,
+    profitPercent: withCost.length && cost > 0 ? covered / cost - 1 : null,
+    costCoverage: total > 0 ? covered / total : 0,
     unpriced: priced.filter((item) => item.value == null).map((item) => item.position.ticker),
   };
 }
@@ -160,4 +205,83 @@ export function rebasePair(portfolio: SeriesPoint[], benchmark: SeriesPoint[]) {
     portfolio: (point.value / first.value) * 100,
     benchmark: (index.get(point.date)! / base) * 100,
   }));
+}
+
+/** The windows a portfolio's own history is read over. */
+export const WINDOWS = [
+  { id: "1Y", years: 1 }, { id: "3Y", years: 3 }, { id: "5Y", years: 5 },
+  { id: "10Y", years: 10 }, { id: "Max", years: Infinity },
+] as const;
+export type WindowId = typeof WINDOWS[number]["id"];
+
+/** The tail of a series covering the last `years`, by date rather than by count. */
+export function withinWindow(series: SeriesPoint[], years: number): SeriesPoint[] {
+  const end = series.at(-1)?.date;
+  if (!end || !Number.isFinite(years) || years <= 0) return series;
+  const cutoff = new Date(`${end}T00:00:00Z`);
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - years);
+  if (Number.isNaN(cutoff.getTime())) return series;
+  const from = cutoff.toISOString().slice(0, 10);
+  return series.filter((point) => point.date >= from);
+}
+
+export interface SeriesStats {
+  start: SeriesPoint | null;
+  end: SeriesPoint | null;
+  /** Total return across the window. */
+  change: number | null;
+  /** Compounded annually, on the same function every growth figure here uses. */
+  cagr: number | null;
+  /** The deepest peak-to-trough fall inside the window. */
+  drawdown: number | null;
+  /** When that fall bottomed. */
+  drawdownDate: string | null;
+  /** The best and worst single steps, which say how bumpy the ride was. */
+  bestStep: number | null;
+  worstStep: number | null;
+  years: number | null;
+}
+
+/**
+ * What a value series did across the window it is drawn over.
+ *
+ * The drawdown is measured against the running peak rather than the starting
+ * value: a book that doubled and then halved has lost nothing against where it
+ * began and half of everything against where it got to, and the second is the
+ * number that describes what holding it felt like.
+ */
+export function seriesStats(series: SeriesPoint[]): SeriesStats {
+  const start = series[0] ?? null;
+  const end = series.at(-1) ?? null;
+  const empty: SeriesStats = { start, end, change: null, cagr: null, drawdown: null, drawdownDate: null, bestStep: null, worstStep: null, years: null };
+  if (!start || !end || series.length < 2 || start.value <= 0) return empty;
+
+  let peak = start.value; let drawdown = 0; let drawdownDate: string | null = null;
+  let bestStep: number | null = null; let worstStep: number | null = null;
+  for (let index = 0; index < series.length; index++) {
+    const point = series[index];
+    if (point.value > peak) peak = point.value;
+    if (peak > 0) {
+      const fall = point.value / peak - 1;
+      if (fall < drawdown) { drawdown = fall; drawdownDate = point.date; }
+    }
+    if (index > 0) {
+      const previous = series[index - 1].value;
+      if (previous > 0) {
+        const step = point.value / previous - 1;
+        bestStep = bestStep == null ? step : Math.max(bestStep, step);
+        worstStep = worstStep == null ? step : Math.min(worstStep, step);
+      }
+    }
+  }
+  const compounded = cagrBetweenDates(start.value, end.value, start.date, end.date);
+  return {
+    start, end,
+    change: end.value / start.value - 1,
+    cagr: compounded.value,
+    drawdown: drawdownDate ? drawdown : null,
+    drawdownDate,
+    bestStep, worstStep,
+    years: compounded.years,
+  };
 }
