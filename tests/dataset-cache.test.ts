@@ -51,11 +51,11 @@ describe("scheduled warm-up", () => {
     // Stored, but with nothing for the home page to read. Skipping it on the
     // strength of the dataset alone would leave that card empty for good.
     setRuntimeBindings({ DATASET_CACHE: cacheDouble(["AAPL", "MSFT"], ["MSFT"]) });
-    const call = vi.fn(async () => new Response("{}", { status: 200 }));
+    const seen: string[] = [];
+    const call = vi.fn(async (url: URL) => { seen.push(url.pathname); return new Response("{}", { status: 200 }); });
     vi.stubGlobal("fetch", call);
     await warmWatchlist(ORIGIN, ["AAPL", "MSFT"], INSTANT);
-    expect(call).toHaveBeenCalledTimes(1);
-    expect((call.mock.calls[0][0] as URL).pathname).toBe("/api/company/AAPL");
+    expect(seen).toEqual(["/api/company/AAPL"]);
   });
 
   it("retries a refused company once, since a refusal is usually a busy isolate", async () => {

@@ -16,7 +16,7 @@ function period(periodicity: FinancialPeriod["periodicity"], periodEnd: string, 
 }
 
 const dataset = (periods: FinancialPeriod[]): CompanyDataset => ({
-  company: { ticker: "T", name: "Test Inc.", currency: "USD", exchange: "NYSE", cik: "1", sector: "Test", description: "", businessType: "domestic" } as CompanyDataset["company"],
+  company: { ticker: "T", name: "Test Inc.", currency: "USD", exchange: "NYSE", cik: "1", sector: "Test", description: "", businessType: "domestic" } as unknown as CompanyDataset["company"],
   periods, retrievedAt: "now", warnings: [],
 });
 
@@ -69,8 +69,21 @@ describe("the watchlist digest", () => {
   });
 
   it("stays small enough to send the whole watchlist at once", () => {
-    // Twenty-one of these replace twenty-one six-megabyte datasets.
+    // The digest carries the screener's row as well as the card's figures, so
+    // it is not tiny — but twenty-one of them are about 23 KB against 5.5 MB
+    // of gzipped datasets, which is the whole reason it exists. The bound is
+    // here to catch a field that should have been a reference.
     const summary = summariseDataset(dataset([period("ttm", "2026-06-30", { ...flows, ...balances })]))!;
-    expect(JSON.stringify(summary).length).toBeLessThan(400);
+    expect(JSON.stringify(summary).length).toBeLessThan(1_500);
+  });
+
+  it("carries the screener's row, so the watchlist can be scored without an export", () => {
+    const summary = summariseDataset(dataset([period("ttm", "2026-06-30", { ...flows, ...balances })]))!;
+    expect(summary.qs.Ticker).toBe("T");
+    expect(summary.qs["FCF Margin 5Yr Avg"]).toBeNull(); // needs three reported years
+    expect(summary.qs["FCF / Net Income"]).not.toBeNull();
+    // The price-dependent columns are left for the browser and its live price.
+    expect(summary.qs["Market Cap"]).toBeNull();
+    expect(summary.qsPrice.shares).toBe(50);
   });
 });

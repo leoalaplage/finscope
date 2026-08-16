@@ -49,13 +49,25 @@ export function datasetKey(ticker: string) {
 }
 
 /**
+ * What the digest itself contains, versioned apart from the dataset.
+ *
+ * A digest depends on two things: the meaning of the periods underneath it, and
+ * the set of figures it carries. The first is `KEY_VERSION`; this is the
+ * second, so adding a field rebuilds the digests without forcing every company
+ * to be parsed from raw XBRL again.
+ *
+ * s2: carries each company's QS Screener row.
+ */
+const SUMMARY_SHAPE = "s2";
+
+/**
  * The card-sized digest stored beside each dataset.
  *
- * Same version as the dataset it was computed from, so a summary is never read
- * back under semantics it was not built with.
+ * Carries the dataset's version too, so a summary is never read back under
+ * semantics it was not built with.
  */
 export function summaryKey(ticker: string) {
-  return `summary:${KEY_VERSION}:${ticker.toUpperCase()}`;
+  return `summary:${KEY_VERSION}.${SUMMARY_SHAPE}:${ticker.toUpperCase()}`;
 }
 
 export interface WarmReport { warmed: string[]; failed: Array<{ ticker: string; reason: string }> }

@@ -12,8 +12,22 @@ if (embedded) document.documentElement.classList.add("embedded");
 applyTheme(params.get("theme"));
 
 window.addEventListener("message", (event) => {
-  if (event.origin !== window.location.origin || event.data?.type !== "finscope-theme") return;
-  applyTheme(event.data.theme);
+  if (event.origin !== window.location.origin) return;
+  if (event.data?.type === "finscope-theme") { applyTheme(event.data.theme); return; }
+
+  //  Une table envoyee par la page hote entre exactement par ou entre un
+  //  copier-coller : on remplit la zone de saisie, on annonce la saisie pour
+  //  que l'application mette son etat a jour, puis on appuie sur le bouton.
+  //  Le moteur ne sait pas d'ou vient sa table et n'a pas a le savoir.
+  if (event.data?.type === "finscope-table" && typeof event.data.table === "string") {
+    const zone = document.getElementById("saisie");
+    const bouton = document.getElementById("btn-generer");
+    if (!zone || !bouton) return;
+    zone.value = event.data.table;
+    zone.dispatchEvent(new Event("input", { bubbles: true }));
+    bouton.click();
+    window.parent?.postMessage({ type: "qs-table-loaded" }, window.location.origin);
+  }
 });
 
 //  La page hote ne peut pas mesurer le contenu d'un cadre : c'est donc a

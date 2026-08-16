@@ -1,4 +1,5 @@
 import { derivedValue } from "./finance";
+import { qsPriceInputs, qsRow, type QsPriceInputs } from "./qs-export";
 import type { CompanyDataset, FinancialPeriod } from "./types";
 
 /**
@@ -29,6 +30,13 @@ export interface WatchlistSummary {
   freeCashFlowMargin: number | null;
   cashReturnOnCapital: number | null;
   netDebt: number | null;
+  /**
+   * The company's row of the QS Screener's table, minus the four columns that
+   * need a live price. Computed here so the screener can score the watchlist
+   * without anyone pasting an export of it from somewhere else.
+   */
+  qs: Record<string, number | string | null>;
+  qsPrice: QsPriceInputs;
 }
 
 const sorted = (dataset: CompanyDataset, periodicity: FinancialPeriod["periodicity"]) =>
@@ -59,5 +67,7 @@ export function summariseDataset(dataset: CompanyDataset): WatchlistSummary | nu
     freeCashFlowMargin: derivedValue(period, "freeCashFlowMargin"),
     cashReturnOnCapital: derivedValue(period, "cashReturnOnCapital"),
     netDebt: derivedValue(period, "netDebt"),
+    qs: qsRow(dataset, null).values,
+    qsPrice: qsPriceInputs(dataset),
   };
 }
