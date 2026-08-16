@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CACHE_SECONDS, datasetKey, KEY_VERSION, warmWatchlist } from "../lib/dataset-cache";
+import { CACHE_SECONDS, datasetKey, KEY_VERSION, summaryKey, warmWatchlist } from "../lib/dataset-cache";
 import { setRuntimeBindings } from "../lib/runtime-env";
 
 const ORIGIN = "https://finscope.test";
@@ -7,8 +7,11 @@ const ORIGIN = "https://finscope.test";
 const INSTANT = { paceMs: 0, retryMs: 0, retries: 2 };
 
 /** A KV double that only needs get/put for this code path. */
-function cacheDouble(warm: string[] = []) {
-  const store = new Map(warm.map((ticker) => [datasetKey(ticker), "{}"]));
+function cacheDouble(warm: string[] = [], digested = warm) {
+  const store = new Map<string, string>([
+    ...warm.map((ticker) => [datasetKey(ticker), "{}"] as const),
+    ...digested.map((ticker) => [summaryKey(ticker), "{}"] as const),
+  ]);
   return { store, get: vi.fn(async (key: string) => store.get(key) ?? null), put: vi.fn() };
 }
 
@@ -42,6 +45,17 @@ describe("scheduled warm-up", () => {
     const report = await warmWatchlist(ORIGIN, ["AAPL", "MSFT"], INSTANT);
     expect(call).toHaveBeenCalledTimes(1);
     expect(report.warmed).toEqual(["AAPL", "MSFT"]);
+  });
+
+  it("revisits a company whose dataset predates the watchlist digest", async () => {
+    // Stored, but with nothing for the home page to read. Skipping it on the
+    // strength of the dataset alone would leave that card empty for good.
+    setRuntimeBindings({ DATASET_CACHE: cacheDouble(["AAPL", "MSFT"], ["MSFT"]) });
+    const call = vi.fn(async () => new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", call);
+    await warmWatchlist(ORIGIN, ["AAPL", "MSFT"], INSTANT);
+    expect(call).toHaveBeenCalledTimes(1);
+    expect((call.mock.calls[0][0] as URL).pathname).toBe("/api/company/AAPL");
   });
 
   it("retries a refused company once, since a refusal is usually a busy isolate", async () => {
