@@ -85,6 +85,35 @@ export function niceBound(value: number) {
  * is derived from it rather than the reverse. Among the steps giving a sensible
  * number of intervals, the one wasting the least space wins.
  */
+/**
+ * Ticks for a logarithmic axis: 1, 2 and 5 times each power of ten inside the
+ * range, plus the bounds themselves.
+ *
+ * A log axis divided evenly is not a log axis, and the linear ticks it was
+ * given landed on values no reader would have chosen. Thinned to at most eight
+ * so a four-decade range does not print a ruler.
+ */
+export function logTicks(minimum: number, maximum: number): number[] {
+  if (!Number.isFinite(minimum) || !Number.isFinite(maximum) || minimum <= 0 || maximum <= minimum) return [];
+  // A share price that ran from 300 to 650 does not span a decade, and the
+  // 1-2-5 ladder offers it a single tick at 500. Inside one decade the linear
+  // steps are the readable ones, and a log axis with a narrow range looks
+  // almost linear anyway; the ladder is for the ranges that need it.
+  if (Math.log10(maximum / minimum) < 1) return niceTicks(minimum, maximum).filter((value) => value > 0);
+  const candidates: number[] = [];
+  for (let power = Math.floor(Math.log10(minimum)); power <= Math.ceil(Math.log10(maximum)); power++) {
+    for (const unit of [1, 2, 5]) {
+      const value = unit * 10 ** power;
+      if (value >= minimum && value <= maximum) candidates.push(value);
+    }
+  }
+  if (candidates.length < 2) return niceTicks(minimum, maximum).filter((value) => value > 0);
+  const step = Math.ceil(candidates.length / 8);
+  const thinned = candidates.filter((_, index) => index % step === 0);
+  if (thinned.at(-1) !== candidates.at(-1)) thinned.push(candidates.at(-1)!);
+  return thinned;
+}
+
 export function niceTicks(minimum: number, maximum: number, count = 5): number[] {
   if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) return [];
   if (minimum === maximum) return [minimum];

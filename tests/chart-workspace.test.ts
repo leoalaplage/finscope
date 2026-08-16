@@ -234,3 +234,25 @@ describe("chart appearance", () => {
     expect(deserializeWorkspace(stored)[0]).toMatchObject({ scale: "auto", values: "raw", layout: "combined" });
   });
 });
+
+describe("a stored workspace keeps the shape it was drawn in", () => {
+  it("restores a candle series, which a hand-written whitelist dropped", () => {
+    // The restore guard named line, bar and area. Adding candles meant every
+    // candle chart quietly came back a line on the next visit.
+    const stored = JSON.stringify([{ id: "chart-1", range: "5Y", movingAverages: [50], series: [{ ticker: "AAPL", metric: "stockPrice", style: "candle", frequency: "daily", visible: true }] }]);
+    const [chart] = deserializeWorkspace(stored);
+    expect(chart.series[0].style).toBe("candle");
+    expect(chart.series[0].frequency).toBe("daily");
+    expect(chart.movingAverages).toEqual([50]);
+  });
+
+  it("still refuses a style it does not have", () => {
+    const stored = JSON.stringify([{ id: "chart-1", series: [{ ticker: "AAPL", metric: "revenue", style: "sparkline" }] }]);
+    expect(deserializeWorkspace(stored)[0].series[0].style).toBeUndefined();
+  });
+
+  it("keeps only the moving averages it can draw", () => {
+    const stored = JSON.stringify([{ id: "chart-1", movingAverages: [20, 7, "50", 200], series: [{ ticker: "AAPL", metric: "stockPrice" }] }]);
+    expect(deserializeWorkspace(stored)[0].movingAverages).toEqual([20, 200]);
+  });
+});

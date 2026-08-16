@@ -1,4 +1,5 @@
 import type { SeriesFrequency } from "./types";
+import { MOVING_AVERAGES, type MovingAverage } from "./mixed-series";
 
 /**
  * Charts decide for themselves which frequency, series type, axis, panel, color
@@ -9,6 +10,14 @@ import type { SeriesFrequency } from "./types";
 export type RangePreset = "1" | "3" | "5" | "10" | "max";
 
 export type SeriesStyle = "line" | "bar" | "area" | "candle";
+/**
+ * Every style a stored workspace may name.
+ *
+ * Derived from the type rather than written out again at the point of reading:
+ * the restore guard listed three of them by hand, so adding candles silently
+ * dropped the choice on the next visit and every candle chart came back a line.
+ */
+export const SERIES_STYLES = new Set<SeriesStyle>(["line", "bar", "area", "candle"]);
 export type SeriesAxis = "left" | "right";
 /** Auto reads the metric, zero anchors the axis, fit frames the data closely,
  *  log compares rates of change rather than amounts. */
@@ -72,6 +81,14 @@ export interface WorkspaceChart {
   showSplits: boolean;
   /** Shade US recessions behind the series. */
   showRecessions: boolean;
+  /**
+   * Moving averages drawn over the price series, in sessions.
+   *
+   * On the chart rather than on a series: they describe the price, and asking
+   * for a 50 twice because two companies are on the plot is not a question
+   * anyone has.
+   */
+  movingAverages: MovingAverage[];
 }
 
 /**
@@ -125,7 +142,7 @@ export function createWorkspaceSeries(chartId: string, ticker: string, metric: s
 }
 
 export function createWorkspaceChart(id: string, series: WorkspaceSeries[] = [], range: RangePreset = "max"): WorkspaceChart {
-  return { id, series, range, showDataTable: false, scale: "auto", values: "raw", layout: "combined", showGrid: true, showPoints: false, overlay: false, showSplits: false, showRecessions: false };
+  return { id, series, range, showDataTable: false, scale: "auto", values: "raw", layout: "combined", showGrid: true, showPoints: false, overlay: false, showSplits: false, showRecessions: false, movingAverages: [] };
 }
 
 export function addSeriesUnique(chart: WorkspaceChart, series: WorkspaceSeries): WorkspaceChart {
@@ -243,7 +260,7 @@ export function deserializeWorkspace(value: string): WorkspaceChart[] {
       const item = entry as Record<string, unknown>;
       if (!item || typeof item.ticker !== "string" || typeof item.metric !== "string") return [];
       const restored: WorkspaceSeries = { ...createWorkspaceSeries(chart.id!, item.ticker, item.metric), visible: item.visible !== false };
-      if (item.style === "line" || item.style === "bar" || item.style === "area") restored.style = item.style;
+      if (typeof item.style === "string" && SERIES_STYLES.has(item.style as SeriesStyle)) restored.style = item.style as SeriesStyle;
       if (item.axis === "left" || item.axis === "right") restored.axis = item.axis;
       if (typeof item.frequency === "string" && SERIES_FREQUENCIES.has(item.frequency)) restored.frequency = item.frequency as SeriesFrequency;
       if (typeof item.color === "string" && COLOR_VALUES.has(item.color)) restored.color = item.color;
@@ -262,6 +279,9 @@ export function deserializeWorkspace(value: string): WorkspaceChart[] {
       showGrid: chart.showGrid !== false,
       showPoints: chart.showPoints === true,
       overlay: chart.overlay === true,
+      movingAverages: Array.isArray(chart.movingAverages)
+        ? (chart.movingAverages as unknown[]).filter((value): value is MovingAverage => MOVING_AVERAGES.includes(value as MovingAverage))
+        : [],
       showSplits: chart.showSplits === true,
       showRecessions: chart.showRecessions === true,
     }];

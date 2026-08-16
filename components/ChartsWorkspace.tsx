@@ -4,13 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Area, Bar, Brush, CartesianGrid, ComposedChart, LabelList, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AreaChart as AreaIcon, BarChart3, Brush as BrushIcon, CandlestickChart, Eye, EyeOff, LineChart as LineIcon, Palette, X } from "lucide-react";
 import { createAutoChartPlan, familyLabel, formatChartValue, indexToZero, periodChange, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
-import { chartDomain, niceTicks, type ThemeName } from "@/lib/charting";
+import { chartDomain, logTicks, niceTicks, type ThemeName } from "@/lib/charting";
 import { derivedValue, safeDivide } from "@/lib/finance";
 import { recessionBands, snapToAxis, splitMarks } from "@/lib/chart-annotations";
 import { addCompany, addMetric, applyPreset, CHART_PRESETS, removeCompany, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, duplicateChart, focusCompany, hasOverrides, moveItem, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { validateSeries as validateChartSeries } from "@/lib/chart-spec";
-import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservations, marketObservations, providerMarketFrequency, MARKET_SERIES_METRICS } from "@/lib/mixed-series";
+import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservations, marketObservations, movingAverage, providerMarketFrequency, MARKET_SERIES_METRICS, MOVING_AVERAGES } from "@/lib/mixed-series";
 import { CHART_METRIC_GROUPS as METRIC_GROUPS, METRICS, VALUATION_METRICS } from "@/lib/metrics";
 import { analyzeVisibleSeries } from "@/lib/series-analysis";
 import type { CompanyDataset, MarketBar, PricePoint, SeriesFrequency, SeriesObservation } from "@/lib/types";
@@ -266,7 +266,34 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
     };
   }), [chart.series, chart.values, plans, datasets, companyErrors, bars, marketErrors, marketLoading, periodPrices, from, to]);
 
-  const drawn = useMemo(() => bundles.filter((bundle) => bundle.series.visible && bundle.observations.length), [bundles]);
+  const drawn = useMemo(() => bundles
+    // Indexing to a base or differencing turns four numbers into one, so a
+    // candle has nothing left to be. It falls back to the line it describes
+    // rather than drawing bodies around a value that is no longer a close.
+    .map((bundle) => chart.values !== "raw" && bundle.plan.style === "candle"
+      ? { ...bundle, plan: { ...bundle.plan, style: "line" as const } }
+      : bundle)
+    .filter((bundle) => bundle.series.visible && bundle.observations.length), [bundles, chart.values]);
+  // A moving average belongs to the market series it smooths, computed over
+  // that series' own sessions at the grain the reader chose — a 50 on a weekly
+  // chart is fifty weeks. Nothing else gets one: averaging a quarterly margin
+  // would smooth four filings into a number no company reports.
+  const averages = useMemo(() => {
+    const byDate = new Map<string, number>();
+    if (!chart.movingAverages.length) return byDate;
+    for (const bundle of drawn) {
+      if (!MARKET_SERIES_METRICS.has(bundle.series.metric)) continue;
+      for (const window of chart.movingAverages) {
+        const line = movingAverage(bundle.observations, window);
+        bundle.observations.forEach((item, index) => {
+          const value = line[index];
+          if (value != null) byDate.set(`${bundle.series.uid}~sma${window}|${item.date}`, value);
+        });
+      }
+    }
+    return byDate;
+  }, [drawn, chart.movingAverages]);
+
   const rows = useMemo(() => {
     const aligned = alignMixedSeries(drawn.map((bundle) => ({ definition: { id: bundle.series.uid, ticker: bundle.series.ticker, metric: bundle.series.metric, frequency: bundle.plan.frequency, missingData: "report-points" as const }, observations: bundle.observations })));
     return aligned.map((row) => {
@@ -284,10 +311,15 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
           cells[`${bundle.series.uid}~range`] = drawable ? [Math.min(low!, open!, close!), Math.max(high!, open!, close!)] : null;
           cells[`${bundle.series.uid}~ohlc`] = drawable ? { open, high, low, close } : null;
         }
+        if (MARKET_SERIES_METRICS.has(bundle.series.metric)) {
+          for (const window of chart.movingAverages) {
+            cells[`${bundle.series.uid}~sma${window}`] = averages.get(`${bundle.series.uid}~sma${window}|${row.date}`) ?? null;
+          }
+        }
       }
       return cells;
     }) as Array<Record<string, unknown>>;
-  }, [drawn]);
+  }, [drawn, chart.movingAverages, averages]);
   // Indexed values are all percentages of their own base, so they belong on one
   // axis. Splitting by company answers "how did each of these do", where one
   // combined chart answers "how do these compare".
@@ -404,6 +436,11 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, onlyChart
       <button className={`pill${chart.values === "indexed" ? " active" : ""}`} onClick={() => onChange((current) => ({ ...current, values: current.values === "indexed" ? "raw" : "indexed" }))}>Index to zero</button>
       <button className={`pill${chart.values === "change" ? " active" : ""}`} onClick={() => onChange((current) => ({ ...current, values: current.values === "change" ? "raw" : "change" }))}>% change</button>
       <button className={`pill${chart.scale === "log" ? " active" : ""}`} onClick={() => onChange((current) => ({ ...current, scale: current.scale === "log" ? "auto" : "log" }))}>Log</button>
+      {chart.series.some((series) => MARKET_SERIES_METRICS.has(series.metric)) && <span className="segmented" role="group" aria-label="Moving averages">
+        {MOVING_AVERAGES.map((window) => <button key={window} className={chart.movingAverages.includes(window) ? "active" : ""} aria-pressed={chart.movingAverages.includes(window)}
+          title={`${window}-session simple moving average`}
+          onClick={() => onChange((current) => ({ ...current, movingAverages: current.movingAverages.includes(window) ? current.movingAverages.filter((item) => item !== window) : [...current.movingAverages, window] }))}>SMA {window}</button>)}
+      </span>}
     </section>
 
     {!drawn.length && <p className="simple-state">{anyLoading ? "Loading data…" : chart.series.length ? "No observations in this window. Widen the time range or pick another metric." : "Add a company and a metric to draw this chart."}</p>}
@@ -551,6 +588,12 @@ function Swatches({ label, icon, current, onPick }: { label: string; icon: React
   </details>;
 }
 
+/**
+ * One hue per window, chosen from the validated palette and held apart from the
+ * series colours so a moving average is never mistaken for a company.
+ */
+const SMA_COLORS: Record<number, string> = { 20: "var(--warning)", 50: "var(--accent)", 200: "var(--muted)" };
+
 interface CandleShapeProps { x?: number; y?: number; width?: number; height?: number; payload?: Record<string, unknown> }
 
 /**
@@ -566,11 +609,17 @@ interface CandleShapeProps { x?: number; y?: number; width?: number; height?: nu
  * red separates at delta-E 6.5 under protanopia, which is a warning rather than
  * a pass, so direction is carried by fill as well as by hue.
  */
-function SessionCandle({ x, y, width, height, payload, uid, up, down }: CandleShapeProps & { uid: string; up: string; down: string }) {
+function SessionCandle({ x, y, width, height, payload, uid, up, down, log = false }: CandleShapeProps & { uid: string; up: string; down: string; log?: boolean }) {
   const ohlc = payload?.[`${uid}~ohlc`] as { open: number; high: number; low: number; close: number } | null | undefined;
   if (!ohlc || x == null || y == null || width == null || height == null) return null;
-  const span = ohlc.high - ohlc.low;
-  const at = (value: number) => span <= 0 ? y : y + ((ohlc.high - value) / span) * height;
+  // On a logarithmic axis equal pixel distances are equal ratios, so the body
+  // is placed by the logarithm of each price. Interpolating linearly there put
+  // the open and close in the wrong half of their own wick.
+  const usable = log && ohlc.low > 0;
+  const scale = (value: number) => usable ? Math.log(value) : value;
+  const ceiling = scale(ohlc.high); const floor = scale(ohlc.low);
+  const span = ceiling - floor;
+  const at = (value: number) => span <= 0 ? y : y + ((ceiling - scale(value)) / span) * height;
   const rising = ohlc.close >= ohlc.open;
   const colour = rising ? up : down;
   const top = at(Math.max(ohlc.open, ohlc.close));
@@ -606,9 +655,13 @@ function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, 
     const bounds: [number, number] | null = typeof computed[0] === "number" && typeof computed[1] === "number"
       ? [computed[0], computed[1]]
       : finite.length ? [Math.min(...finite), Math.max(...finite)] : null;
-    const ticks = bounds ? niceTicks(bounds[0], bounds[1]) : [];
+    // The Log button only ever changed how the domain was computed, and the
+    // axis element was never told, so it drew a linear scale with linear ticks
+    // and pressing Log did nothing at all. It needs both.
+    const log = mode === "log" && finite.length > 0 && finite.every((value) => value > 0);
+    const ticks = bounds ? (log ? logTicks(bounds[0], bounds[1]) : niceTicks(bounds[0], bounds[1])) : [];
     const domain = ticks.length >= 2 ? [ticks[0], ticks.at(-1)!] as [number, number] : computed;
-    return { side, items, family, currency: items[0]?.currency ?? "USD", domain, ticks: ticks.length >= 2 ? ticks : undefined, hasNegative: values.some((value) => value != null && value < 0) };
+    return { side, items, family, log, currency: items[0]?.currency ?? "USD", domain, ticks: ticks.length >= 2 ? ticks : undefined, hasNegative: values.some((value) => value != null && value < 0) };
   });
   const placedLabels = new Map<string, number>();
   const lastIndexWithValue = (uid: string) => {
@@ -635,10 +688,20 @@ function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, 
         {bands.map((band) => <ReferenceArea key={band.label} x1={band.start} x2={band.end} yAxisId={axes.find((axis) => axis.items.length)?.side ?? "left"} fill="#111" fillOpacity={.05} strokeOpacity={0} label={compact ? undefined : { value: band.label, position: "insideTop", fontSize: 10, fill: "#7a7a7a" }}/>)}
         {splits.map((mark) => <ReferenceLine key={`${mark.ticker}-${mark.date}`} x={mark.at} yAxisId={axes.find((axis) => axis.items.length)?.side ?? "left"} stroke="#9a9a9a" strokeDasharray="3 3" label={compact ? undefined : { value: mark.label, position: "insideTopLeft", fontSize: 10, fill: "#7a7a7a" }}/>)}
         <XAxis dataKey="date" tickFormatter={tickDate} minTickGap={44} tickLine={false} axisLine={{ stroke: "var(--border)" }}/>
-        {axes.map((axis) => <YAxis key={axis.side} yAxisId={axis.side} orientation={axis.side} hide={!axis.items.length} width={64} tickLine={false} axisLine={false} domain={axis.domain} ticks={axis.ticks} tickFormatter={(value) => formatChartValue(Number(value), axis.family, axis.currency)}/>)}
+        {axes.map((axis) => <YAxis key={axis.side} yAxisId={axis.side} orientation={axis.side} hide={!axis.items.length} width={64} tickLine={false} axisLine={false}
+          scale={axis.log ? "log" : "auto"} domain={axis.domain} ticks={axis.ticks}
+          tickFormatter={(value) => formatChartValue(Number(value), axis.family, axis.currency)}/>)}
         {axes.filter((axis) => axis.items.length && axis.hasNegative).map((axis) => <ReferenceLine key={`${axis.side}-zero`} yAxisId={axis.side} y={0} stroke="#b4b4b4"/>)}
         {chart.values !== "raw" && axes.filter((axis) => axis.items.length).slice(0, 1).map((axis) => <ReferenceLine key="base" yAxisId={axis.side} y={0} stroke="var(--border-strong)" strokeDasharray="4 4"/>)}
         <Tooltip content={<ChartTooltip bundles={bundles}/>} cursor={{ stroke: "#b4b4b4", strokeDasharray: "3 3" }}/>
+        {/* Moving averages first, so the price they smooth is drawn over them
+            rather than under. Thin, dashed and unlabelled: they are a reading
+            aid for the series beside them, not series in their own right. */}
+        {chart.movingAverages.flatMap((window) => bundles
+          .filter((bundle) => MARKET_SERIES_METRICS.has(bundle.series.metric))
+          .map((bundle) => <Line key={`${bundle.series.uid}~sma${window}`} dataKey={`${bundle.series.uid}~sma${window}`} yAxisId={bundle.plan.axis}
+            stroke={SMA_COLORS[window]} strokeWidth={1.5} strokeDasharray={window === 20 ? "4 3" : window === 50 ? "7 4" : undefined}
+            dot={false} activeDot={false} type="linear" connectNulls isAnimationActive={false}/>))}
         {bundles.map((bundle) => {
           const family = chart.values !== "raw" ? "percent" as const : unitFamily(bundle.series.metric);
           // Past four series the labels collide more than they inform.
@@ -650,8 +713,9 @@ function ChartPanel({ chart, rows, bundles, heading, datasets, single, compact, 
           const label = last < 0 ? null : <LabelList dataKey={bundle.series.uid} content={endLabel(bundle.series.uid, last, (value) => formatChartValue(value, family, bundle.currency), placedLabels, growth)}/>;
           const dot = chart.showPoints ? { r: 4, strokeWidth: 0, fill: bundle.plan.color } : false;
           if (bundle.plan.style === "candle") {
+            const logAxis = axes.find((axis) => axis.side === bundle.plan.axis)?.log ?? false;
             return <Bar key={bundle.series.uid} dataKey={`${bundle.series.uid}~range`} yAxisId={bundle.plan.axis} isAnimationActive={false}
-              shape={(props: object) => <SessionCandle {...props as CandleShapeProps} uid={bundle.series.uid} up={bundle.plan.color} down="var(--danger)"/>}/>;
+              shape={(props: object) => <SessionCandle {...props as CandleShapeProps} uid={bundle.series.uid} up={bundle.plan.color} down="var(--danger)" log={logAxis}/>}/>;
           }
           if (bundle.plan.style === "bar") {
             // Rounded data-ends, and a surface gap so neighbouring bars read as

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alignMixedSeries, fundamentalObservations, marketObservations, updateSeriesDefinition, visibleRawObservations } from "../lib/mixed-series";
+import { alignMixedSeries, fundamentalObservations, marketObservations, movingAverage, updateSeriesDefinition, visibleRawObservations } from "../lib/mixed-series";
 import { analyzeVisibleSeries } from "../lib/series-analysis";
 import type { CompanyDataset, MarketBar, SeriesObservation } from "../lib/types";
 
@@ -38,5 +38,37 @@ describe("a market observation carries the session, not just its close", () => {
     const [observation] = marketObservations([{ ...bar, open: null, high: null, low: null }], "stockPrice", "monthly");
     expect(observation.value).toBe(108);
     expect(observation.high).toBeNull();
+  });
+});
+
+describe("moving averages over the drawn sessions", () => {
+  const sessions = (values: Array<number | null>) => values.map((value, index) => ({
+    date: `2026-01-${String(index + 1).padStart(2, "0")}`, value, frequency: "daily" as const,
+    currency: "USD", unit: "perShare", source: "Yahoo Finance", status: "Market data" as const, rawObservation: true as const,
+  }));
+
+  it("averages the window ending at each session", () => {
+    const line = movingAverage(sessions([1, 2, 3, 4, 5]), 3);
+    expect(line).toEqual([null, null, 2, 3, 4]);
+  });
+
+  it("leaves the opening sessions empty rather than averaging a shorter window", () => {
+    // A mean of two points drawn as if it were a mean of two hundred starts the
+    // line steep for a reason that is not in the data.
+    const line = movingAverage(sessions([10, 20, 30]), 200);
+    expect(line.every((value) => value === null)).toBe(true);
+  });
+
+  it("refuses a window straddling a gap instead of averaging around it", () => {
+    const line = movingAverage(sessions([1, 2, null, 4, 5, 6]), 3);
+    expect(line[2]).toBeNull();
+    expect(line[3]).toBeNull();
+    expect(line[4]).toBeNull();
+    expect(line[5]).toBeCloseTo(5, 10);
+  });
+
+  it("returns one value per session, so it lines up with the price", () => {
+    expect(movingAverage(sessions([1, 2, 3, 4]), 2)).toHaveLength(4);
+    expect(movingAverage([], 20)).toEqual([]);
   });
 });

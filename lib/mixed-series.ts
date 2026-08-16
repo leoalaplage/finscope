@@ -114,3 +114,32 @@ export function alignMixedSeries(series: Array<{ definition: MixedSeriesDefiniti
 export function visibleRawObservations(observations: SeriesObservation[], startDate: string, endDate: string) {
   return observations.filter((item) => item.date >= startDate && item.date <= endDate);
 }
+
+/** The moving averages a price chart may carry, in sessions. */
+export const MOVING_AVERAGES = [20, 50, 200] as const;
+export type MovingAverage = typeof MOVING_AVERAGES[number];
+
+/**
+ * A simple moving average of the drawn sessions.
+ *
+ * Over the sessions actually on the chart, at whatever grain the reader chose,
+ * so a 50 on a weekly chart is fifty weeks and says so. The first `window - 1`
+ * points have nothing to average and are left empty rather than filled with a
+ * shorter mean, which would draw a line that starts steep for reasons that are
+ * not in the data.
+ */
+export function movingAverage(observations: SeriesObservation[], window: number): Array<number | null> {
+  const out: Array<number | null> = [];
+  let sum = 0; let counted = 0;
+  const values = observations.map((item) => item.value);
+  for (let index = 0; index < values.length; index++) {
+    const value = values[index];
+    if (value != null && Number.isFinite(value)) { sum += value; counted++; }
+    if (index >= window) {
+      const leaving = values[index - window];
+      if (leaving != null && Number.isFinite(leaving)) { sum -= leaving; counted--; }
+    }
+    out.push(index >= window - 1 && counted === window ? sum / window : null);
+  }
+  return out;
+}

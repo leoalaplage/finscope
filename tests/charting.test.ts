@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { CHART_PALETTE,chartDomain } from "../lib/charting";
+import { CHART_PALETTE,chartDomain,logTicks } from "../lib/charting";
 
 describe("truthful chart semantics",()=>{
   it("starts positive absolute data at zero",()=>expect(chartDomain([90,100,110],"zero").domain[0]).toBe(0));
@@ -20,5 +20,34 @@ describe("truthful chart semantics",()=>{
       return 1.05/(0.2126*r+0.7152*g+0.0722*b+0.05);
     };
     for(const color of CHART_PALETTE) expect(contrast(color.value),`${color.name} ${color.value}`).toBeGreaterThan(2);
+  });
+});
+
+describe("ticks for a logarithmic axis", () => {
+  it("climbs by 1, 2 and 5 across decades", () => {
+    const ticks = logTicks(1, 1_000);
+    expect(ticks[0]).toBe(1);
+    expect(ticks.at(-1)).toBe(1_000);
+    expect(ticks.every((value) => /^[125]0*$/.test(String(value)))).toBe(true);
+  });
+
+  it("uses readable linear steps inside a single decade", () => {
+    // A price that ran from 300 to 650 gets one rung of the ladder, at 500,
+    // and an axis with a single tick is an axis with no scale on it.
+    const ticks = logTicks(300, 650);
+    expect(ticks.length).toBeGreaterThanOrEqual(3);
+    expect(ticks[0]).toBeLessThanOrEqual(300);
+    expect(ticks.at(-1)).toBeGreaterThanOrEqual(650);
+  });
+
+  it("never offers a tick a logarithm cannot take", () => {
+    expect(logTicks(0, 100)).toEqual([]);
+    expect(logTicks(-5, 100)).toEqual([]);
+    expect(logTicks(100, 100)).toEqual([]);
+    expect(logTicks(1, 10_000).every((value) => value > 0)).toBe(true);
+  });
+
+  it("stays readable over four decades", () => {
+    expect(logTicks(1, 10_000).length).toBeLessThanOrEqual(9);
   });
 });
