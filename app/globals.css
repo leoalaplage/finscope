@@ -261,6 +261,18 @@ tbody tr:last-child > * { border-bottom: 0; }
 .company-card-remove { position: absolute; bottom: 10px; right: 10px; min-height: 22px; width: 22px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: var(--fs-body); line-height: 1; opacity: 0; transition: opacity .12s ease; }
 .company-cards li:hover .company-card-remove, .company-card-remove:focus-visible { opacity: 1; }
 .company-card-remove:hover { background: var(--grid); color: var(--danger); }
+.portfolio-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 32px; }
+.portfolio-summary article { padding: 12px 14px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); }
+.portfolio-summary span { display: block; color: var(--muted); font-size: var(--fs-micro); letter-spacing: .05em; text-transform: uppercase; }
+.portfolio-summary strong { display: block; margin: 4px 0; font-size: var(--fs-xl); font-variant-numeric: tabular-nums; }
+.portfolio-summary small { line-height: 1.3; }
+.portfolio-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.portfolio-charts figcaption { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--card-border); }
+.portfolio-charts figcaption h3 { margin: 0; font-size: var(--fs-body); }
+.portfolio-charts .kpi-canvas { min-height: 260px; }
+.portfolio-timeline { height: 340px; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); }
+.portfolio-shares { width: 96px; text-align: right; font-variant-numeric: tabular-nums; }
+.portfolio-page .value-button small { display: block; color: var(--muted); font-weight: 400; }
 .qs-source { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); }
 .qs-source small { flex: 1; }
 .qs-source-action { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 650; white-space: nowrap; }

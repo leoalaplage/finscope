@@ -13,7 +13,7 @@ import type { ThemeName } from "@/lib/charting";
 import type { SeriesStyle } from "@/lib/chart-workspace";
 import type { SeriesFrequency } from "@/lib/types";
 
-type MainView = "companies" | "company" | "stats" | "charts" | "dcf" | "qs";
+type MainView = "companies" | "company" | "portfolio" | "stats" | "charts" | "dcf" | "qs";
 type SecondaryView = "quality" | "audit" | "coverage" | "sources" | null;
 type Evidence = { label: string; value: number | null; period: FinancialPeriod; metric: string };
 
@@ -37,7 +37,7 @@ const COMPANY_TABS: Array<{ key: CompanyTab; label: string }> = [
 ];
 
 const NAV: Array<{ key: Exclude<MainView, "company">; label: string }> = [
-  { key: "companies", label: "Watchlist" }, { key: "stats", label: "Statistics" }, { key: "charts", label: "Charts" }, { key: "dcf", label: "DCF" }, { key: "qs", label: "QS Screener" },
+  { key: "companies", label: "Watchlist" }, { key: "portfolio", label: "Portfolio" }, { key: "stats", label: "Statistics" }, { key: "charts", label: "Charts" }, { key: "dcf", label: "DCF" }, { key: "qs", label: "QS Screener" },
 ];
 
 const ChartsWorkspace = lazy(() => import("./ChartsWorkspace").then((module) => ({ default: module.ChartsWorkspace })));
@@ -48,6 +48,7 @@ const DcfValuation = lazy(() => import("./DcfValuation").then((module) => ({ def
 const FcfYieldCalculator = lazy(() => import("./FcfYieldCalculator").then((module) => ({ default: module.FcfYieldCalculator })));
 const FormulaDataAudit = lazy(() => import("./FormulaDataAudit").then((module) => ({ default: module.FormulaDataAudit })));
 const QsScreener = lazy(() => import("./QsScreener").then((module) => ({ default: module.QsScreener })));
+const PortfolioPage = lazy(() => import("./PortfolioPage").then((module) => ({ default: module.PortfolioPage })));
 const StatisticsPage = lazy(() => import("./StatisticsPage").then((module) => ({ default: module.StatisticsPage })));
 const CompanyStatistics = lazy(() => import("./CompanyStatistics").then((module) => ({ default: module.CompanyStatistics })));
 const QualityValuationScatter = lazy(() => import("./QualityValuationScatter").then((module) => ({ default: module.QualityValuationScatter })));
@@ -174,6 +175,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       {!secondary && view === "companies" && !ranking && <Suspense fallback={<p className="simple-state">Loading…</p>}><HomePage watchlist={watchlist} datasets={datasets} loading={loading} onOpen={openCompany} onLoad={loadCompanyData} onSearchAdd={() => setManagerOpen(true)} onShowRanking={() => setRanking(true)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></Suspense>}
       {!secondary && view === "companies" && ranking && <div><button className="back-button" onClick={() => setRanking(false)}>← Watchlist</button><CompaniesPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} loading={loading} onSearchAdd={() => setManagerOpen(true)} onLoad={loadCompanyData} onOpen={openCompany} onCharts={(ticker) => openCharts(ticker)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></div>}
       {!secondary && view === "company" && <CompanyPage key={dataset.company.ticker} dataset={dataset} theme={theme} onBack={() => navigate("companies")} onCharts={openCharts} onDcf={openDcf} onCompare={() => navigate("stats")}/>}
+      {!secondary && view === "portfolio" && <Suspense fallback={<p className="simple-state">Loading your portfolio…</p>}><PortfolioPage watchlist={watchlist} theme={theme} onOpen={openCompany}/></Suspense>}
       {!secondary && view === "stats" && <Suspense fallback={<p className="simple-state">Loading statistics…</p>}><StatisticsPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} onLoad={loadCompanyData}/></Suspense>}
       {!secondary && view === "charts" && <Suspense fallback={<p className="simple-state">Loading…</p>}><ChartsWorkspace initialData={dataset} seed={chartSeed} theme={theme}/></Suspense>}
       {!secondary && view === "dcf" && <DcfPage key={dataset.company.ticker} dataset={dataset} theme={theme} onBack={() => navigate("companies")}/>}
