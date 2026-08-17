@@ -21,8 +21,22 @@ const localBindingConfig = {
   // Rebuild every watchlist company into KV at 07:00 UTC, after the SEC has
   // published overnight and before anyone is likely to be reading. See the
   // scheduled handler in worker/index.ts for why this exists.
-  triggers: { crons: ["0 7 * * *"] },
+  //
+  // The three later runs are not about freshness — a dataset is good for a
+  // week. They are there because Cloudflare does not guarantee a cron fires,
+  // and a run that is skipped or dies halfway used to mean nobody noticed until
+  // someone opened the site and found it empty. Each later run is a no-op when
+  // the morning's succeeded: a cached company is skipped without being read.
+  triggers: { crons: ["0 7,13,19,1 * * *"] },
   kv_namespaces: [{ binding: "DATASET_CACHE", id: DATASET_CACHE_NAMESPACE_ID }],
+  // How the warm-up reaches this Worker's own endpoints. A plain
+  // `fetch("https://this-worker/api/company/X")` does *not* re-enter the
+  // Worker: Cloudflare sends a self-addressed subrequest to the origin behind
+  // it, which here is the static asset store, so every warm fetch came back
+  // 404 and the cache was never filled by the timer at all. A service binding
+  // is the supported way to invoke yourself, and it keeps the property the
+  // design wants — a real second invocation with its own CPU budget.
+  services: [{ binding: "SELF", service: "finscope-financial-research" }],
   d1_databases: d1
     ? [
         {

@@ -1,7 +1,7 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
-import { warmWatchlist } from "../lib/dataset-cache";
+import { warmWatchlist, warmSomeMissing } from "../lib/dataset-cache";
 import { setRuntimeBindings } from "../lib/runtime-env";
 
 interface Env {
@@ -49,6 +49,18 @@ const worker = {
           return result.response();
         },
       }, allowedWidths);
+    }
+
+    // Every read of the watchlist also pays a little towards filling it. See
+    // warmSomeMissing: the timer is the plan, this is what makes the page
+    // correct when the timer has not run yet — a new key version, a first
+    // deploy, or a local Miniflare namespace that no timer will ever touch.
+    // It runs after the response, addressed at this very origin, so the local
+    // server fills the local cache and production fills production's.
+    if (url.pathname === "/api/watchlist") {
+      ctx.waitUntil(warmSomeMissing(url.origin).catch((error) => {
+        console.log(`[warm on read] ${error instanceof Error ? error.message : String(error)}`);
+      }));
     }
 
     return handler.fetch(request, env, ctx);

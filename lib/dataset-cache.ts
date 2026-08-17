@@ -1,5 +1,5 @@
 import { DEFAULT_WATCHLIST } from "./company-registry";
-import { datasetCache } from "./runtime-env";
+import { datasetCache, selfFetcher } from "./runtime-env";
 
 /**
  * The cache key version.
@@ -41,8 +41,19 @@ import { datasetCache } from "./runtime-env";
  */
 export const KEY_VERSION = "v13";
 
-/** A day. The filings behind a dataset change quarterly at most. */
-export const CACHE_SECONDS = 86_400;
+/**
+ * A week, refreshed daily. The gap between the two is the point.
+ *
+ * The filings behind a dataset change quarterly at most, so a day-old copy is
+ * indistinguishable from a fresh one. What is very distinguishable is an absent
+ * one: with the lifetime set to a day and the warm running once a day, every
+ * key expired at the very moment its replacement was due, so a single missed or
+ * slow run — and Cloudflare does not promise to deliver a cron on time — left
+ * the whole watchlist blank until the next day. A week of lifetime against a
+ * day of refresh means six missed runs in a row before a reader notices
+ * anything at all.
+ */
+export const CACHE_SECONDS = 604_800;
 
 export function datasetKey(ticker: string) {
   return `company:${KEY_VERSION}:${ticker.toUpperCase()}`;
@@ -71,6 +82,146 @@ export function summaryKey(ticker: string) {
 }
 
 export interface WarmReport { warmed: string[]; failed: Array<{ ticker: string; reason: string }> }
+
+/**
+ * Whether a company is already cached, without reading it.
+ *
+ * KV has no existence check, so this asks for the value — but as a stream, and
+ * cancels it. Asking for `"text"` instead, which is what this used to do, pulls
+ * the entire five-megabyte dataset into the isolate to answer a yes/no
+ * question, and doing that twenty-one times in one warm run allocated over a
+ * hundred megabytes against a hundred-and-twenty-eight megabyte ceiling.
+ *
+ * Both keys are checked. The watchlist reads the digest, and a dataset cached
+ * without one would leave that company's card blank forever.
+ */
+async function isCached(cache: KVNamespace, ticker: string) {
+  const dataset = await cache.get(datasetKey(ticker), "stream");
+  if (!dataset) return false;
+  await dataset.cancel();
+  // The digest is a few hundred bytes, so reading it outright costs nothing.
+  return (await cache.get(summaryKey(ticker), "text")) != null;
+}
+
+/** The watchlist companies that have no usable cache entry yet. */
+export async function missingTickers(
+  tickers = DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker),
+): Promise<string[]> {
+  const cache = datasetCache();
+  if (!cache) return [];
+  const missing: string[] = [];
+  for (const ticker of tickers) {
+    try {
+      if (!(await isCached(cache, ticker))) missing.push(ticker);
+    } catch {
+      // An unreadable key is a key worth rebuilding.
+      missing.push(ticker);
+    }
+  }
+  return missing;
+}
+
+/**
+ * How long a ticker is claimed for while someone is building it.
+ *
+ * Requests arriving together must not each rebuild the same company, so a
+ * claim is written before the build starts. It outlives the build by a wide
+ * margin because KV reads may lag a write by up to a minute: a claim that
+ * expired as soon as the build finished would be invisible to the very
+ * requests it exists to hold off.
+ */
+const CLAIM_SECONDS = 120;
+
+function claimKey(ticker: string) {
+  return `warming:${KEY_VERSION}:${ticker.toUpperCase()}`;
+}
+
+/**
+ * Asks this Worker to build one company, through whichever door works.
+ *
+ * The service binding in production, the global fetch under `vite dev`. See
+ * selfFetcher for why the two cannot be the same call.
+ */
+async function requestCompany(origin: string, ticker: string): Promise<Response> {
+  const request = new Request(new URL(`/api/company/${encodeURIComponent(ticker)}`, origin), { headers: { "X-FinScope-Warm": "1" } });
+  const self = selfFetcher();
+  return self ? self.fetch(request) : fetch(request);
+}
+
+/** Where the last few warm outcomes are left for a human to read. */
+export const WARM_LOG_KEY = "warm-log";
+
+/**
+ * Leaves a note about what the warm just did, in the cache it is filling.
+ *
+ * A background job that fails silently is a job nobody knows is broken, and
+ * that is precisely how this cache came to be nearly empty in production while
+ * every page insisted the data was merely "not loaded". `console.log` goes to a
+ * log stream nobody is watching and which cannot be read after the fact; a KV
+ * key can be read at any time with `wrangler kv key get`.
+ *
+ * Best-effort and bounded: this is diagnostics, and diagnostics must never be
+ * the reason the thing it is diagnosing fails.
+ */
+async function recordWarm(cache: KVNamespace, line: string) {
+  try {
+    const stamped = `${new Date().toISOString()} ${line}`;
+    const previous = (await cache.get(WARM_LOG_KEY, "text")) ?? "";
+    const lines = [stamped, ...previous.split("\n").filter(Boolean)].slice(0, 20);
+    await cache.put(WARM_LOG_KEY, lines.join("\n"), { expirationTtl: CACHE_SECONDS });
+  } catch {
+    // Never let the notebook stop the work.
+  }
+}
+
+/**
+ * Builds a few of the missing companies, on the way to serving a request.
+ *
+ * The daily timer is how the cache is *meant* to be filled, but a timer is a
+ * promise about the future and a reader is here now. Before this existed the
+ * home page's numbers depended entirely on that timer having run: a fresh cache
+ * — a new key version, a first deploy, or `npm run dev`, whose Miniflare
+ * namespace no timer has ever touched — served twenty-one cards reading
+ * "Financials not loaded" and no amount of waiting changed it.
+ *
+ * A few at a time, sequentially, and never on the reader's critical path: this
+ * runs inside `waitUntil` after the response has gone out. The batch is small
+ * because a fetch invocation is not a cron and cannot be relied on to live for
+ * two minutes, and because building companies four-deep in parallel is exactly
+ * what exhausts an isolate's CPU budget. The client polls while cards are still
+ * missing, so each poll advances the batch and the page fills in over a handful
+ * of round trips rather than one long one.
+ */
+export async function warmSomeMissing(origin: string, batch = 3): Promise<WarmReport> {
+  const report: WarmReport = { warmed: [], failed: [] };
+  const cache = datasetCache();
+  if (!cache) return report;
+
+  const missing = await missingTickers();
+  if (missing.length) await recordWarm(cache, `warm-on-read: ${missing.length} missing, trying ${missing.slice(0, batch).join(",")} via ${origin}`);
+  for (const ticker of missing) {
+    if (report.warmed.length + report.failed.length >= batch) break;
+    try {
+      if (await cache.get(claimKey(ticker), "text")) continue;
+      await cache.put(claimKey(ticker), "1", { expirationTtl: CLAIM_SECONDS });
+    } catch {
+      // Without a working claim, building anyway risks duplicated work but
+      // never a wrong answer. An empty watchlist is the worse outcome.
+    }
+    try {
+      const response = await requestCompany(origin, ticker);
+      // The endpoint writes to KV before it answers, so the body is of no use
+      // here. Cancelling it avoids buffering five megabytes to discard them.
+      await response.body?.cancel();
+      if (response.ok) report.warmed.push(ticker);
+      else report.failed.push({ ticker, reason: `HTTP ${response.status}` });
+    } catch (error) {
+      report.failed.push({ ticker, reason: error instanceof Error ? error.message : "unreachable" });
+    }
+  }
+  if (missing.length) await recordWarm(cache, `warm-on-read done: warmed ${report.warmed.join(",") || "none"}; failed ${report.failed.map((item) => `${item.ticker} (${item.reason})`).join(",") || "none"}`);
+  return report;
+}
 
 /**
  * How long to wait between companies, and before trying a refused one again.
@@ -113,18 +264,19 @@ export async function warmWatchlist(
 
   for (const ticker of tickers) {
     // A key already written under this version is current by construction:
-    // the version changes whenever meaning does. Both keys must be there: the
-    // watchlist reads the digest, and a dataset cached before digests existed
-    // would leave the home page empty for that company forever.
-    if (cache && await cache.get(datasetKey(ticker), "text") && await cache.get(summaryKey(ticker), "text")) { report.warmed.push(ticker); continue; }
+    // the version changes whenever meaning does.
+    if (cache && await isCached(cache, ticker)) { report.warmed.push(ticker); continue; }
     let reason = "";
     // A refusal means the platform is throttling us, not that the company is
     // broken, so the wait before trying again is long rather than immediate.
     for (let attempt = 0; attempt < retries; attempt++) {
       if (attempt > 0) await wait(retryMs);
       try {
-        const response = await fetch(new URL(`/api/company/${encodeURIComponent(ticker)}`, origin), { headers: { "X-FinScope-Warm": "1" } });
-        if (response.ok) { await response.arrayBuffer(); reason = ""; break; }
+        const response = await requestCompany(origin, ticker);
+        // The endpoint has already written to KV by the time it answers, so
+        // the body is dead weight — five megabytes of it, per company.
+        await response.body?.cancel();
+        if (response.ok) { reason = ""; break; }
         reason = `HTTP ${response.status}`;
       } catch (error) {
         reason = error instanceof Error ? error.message : "unreachable";
@@ -133,5 +285,7 @@ export async function warmWatchlist(
     if (reason) report.failed.push({ ticker, reason }); else report.warmed.push(ticker);
     await wait(paceMs);
   }
+  if (cache) await recordWarm(cache, `cron via ${origin}: warmed ${report.warmed.length}/${tickers.length}` +
+    (report.failed.length ? `; failed ${report.failed.map((item) => `${item.ticker} (${item.reason})`).join(",")}` : ""));
   return report;
 }

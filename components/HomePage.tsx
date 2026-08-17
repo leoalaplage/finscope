@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { derivedValue } from "@/lib/finance";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
@@ -10,6 +10,18 @@ const money = (value: number | null, currency = "USD") => value == null || !Numb
   ? "—"
   : `${value < 0 ? "-" : ""}${currency === "USD" ? "$" : `${currency} `}${new Intl.NumberFormat("en-US", { notation: Math.abs(value) >= 10_000 ? "compact" : "standard", maximumFractionDigits: 2 }).format(Math.abs(value))}`;
 const percent = (value: number | null) => value == null || !Number.isFinite(value) ? "—" : `${(value * 100).toFixed(1)}%`;
+
+/**
+ * How often to ask for the digests again, and how long to keep asking.
+ *
+ * Each request warms a few companies server-side, so the interval sets how fast
+ * a cold watchlist fills: three at a time every two seconds covers twenty-one
+ * companies in around fifteen seconds. The cap is generous enough to absorb a
+ * company that has to be retried and small enough that a genuinely broken
+ * company stops costing requests.
+ */
+const POLL_MS = 2_000;
+const MAX_POLLS = 20;
 
 const latestPeriod = (dataset: CompanyDataset): FinancialPeriod | undefined => {
   const of = (periodicity: string) => dataset.periods.filter((period) => period.periodicity === periodicity).sort((a, b) => a.periodEnd.localeCompare(b.periodEnd)).at(-1);
@@ -92,15 +104,39 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
       .catch(() => setPending((current) => ({ ...current, [ticker]: "failed" })));
   }
 
+  /**
+   * The digests, asked for again while any company is still being built.
+   *
+   * Reading the watchlist is also what drives the server's warm-up, so a cold
+   * cache fills a few companies per request. Asking once would therefore show
+   * whatever happened to be ready at that instant and stop — which is how a
+   * fresh deploy or a local server came to show twenty-one cards saying
+   * "Financials not loaded" and stay that way. Polling turns the same cold
+   * start into a page that fills itself in over a few seconds.
+   *
+   * It stops on its own: when nothing is pending, or after enough rounds that
+   * whatever is left is genuinely failing rather than merely slow, at which
+   * point the per-card Load button is the honest answer.
+   */
+  const [building, setBuilding] = useState<Set<string>>(new Set());
   useEffect(() => {
     let active = true;
-    fetch("/api/watchlist")
-      .then(async (response) => {
-        const payload = await response.json() as { summaries?: WatchlistSummary[] };
-        if (active) setSummaries(Object.fromEntries((payload.summaries ?? []).map((item) => [item.ticker, item])));
-      })
-      .catch(() => active && setSummaries({}));
-    return () => { active = false; };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let rounds = 0;
+    const poll = () => {
+      fetch("/api/watchlist", { cache: "no-store" })
+        .then(async (response) => {
+          const payload = await response.json() as { summaries?: WatchlistSummary[]; pending?: string[] };
+          if (!active) return;
+          setSummaries(Object.fromEntries((payload.summaries ?? []).map((item) => [item.ticker, item])));
+          const pending = payload.pending ?? [];
+          setBuilding(new Set(rounds < MAX_POLLS ? pending : []));
+          if (pending.length && ++rounds < MAX_POLLS) timer = setTimeout(poll, POLL_MS);
+        })
+        .catch(() => active && setSummaries((current) => current ?? {}));
+    };
+    poll();
+    return () => { active = false; if (timer) clearTimeout(timer); };
   }, []);
 
   const unloaded = watchlist.filter((company) => company.resolutionStatus !== "unresolved" && !datasets[company.ticker]).length;
@@ -114,12 +150,23 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
   // Only the cards on screen are priced, and only once each. A watchlist of
   // twenty would otherwise open twenty requests before the reader has decided
   // which company they came for.
+  //
+  // "Once each" is what the ref is for. Asking whether a price has arrived —
+  // `ticker in prices` — cannot be the guard when `prices` is also what the
+  // effect writes: every answer changed the dependency, re-ran the effect, and
+  // re-requested every ticker that had not answered yet. Twenty-one companies
+  // therefore opened a few hundred price requests per visit instead of
+  // twenty-one, spending the Worker budget the filings needed on work that was
+  // thrown away. What was requested is not what has arrived, so it is tracked
+  // separately, and in a ref so recording it never triggers another render.
+  const requested = useRef<Set<string>>(new Set());
   const visible = matches.map((company) => company.ticker).join("|");
   useEffect(() => {
     let active = true;
     const today = new Date().toISOString().slice(0, 10);
     for (const ticker of visible.split("|").filter(Boolean).slice(0, 24)) {
-      if (ticker in prices) continue;
+      if (requested.current.has(ticker)) continue;
+      requested.current.add(ticker);
       fetch(`/api/price/${encodeURIComponent(ticker)}?date=${today}`)
         .then(async (response) => {
           const payload = await response.json() as PricePoint & { error?: string };
@@ -128,7 +175,7 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
         .catch(() => active && setPrices((current) => ({ ...current, [ticker]: null })));
     }
     return () => { active = false; };
-  }, [visible, prices]);
+  }, [visible]);
 
   return <div className="home">
     <header className="home-head">
@@ -193,9 +240,11 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
                   {known && <span><small>FCF margin</small>{percent(figure("freeCashFlowMargin", digest?.freeCashFlowMargin))}</span>}
                   {known && <span><small>Cash RoC</small>{percent(figure("cashReturnOnCapital", digest?.cashReturnOnCapital))}</span>}
                 </span>
-                {!known && <span className="company-card-state">{summaries == null ? "Loading…" : busy ? "Loading financials…" : failed ? "Could not load — try again" : "Financials not loaded"}</span>}
+                {/* A company the server is still building is not a company
+                    that failed, and must not be labelled like one. */}
+                {!known && <span className="company-card-state">{summaries == null ? "Loading…" : busy ? "Loading financials…" : failed ? "Could not load — try again" : building.has(company.ticker) ? "Building financials…" : "Financials not loaded"}</span>}
               </button>
-              {!known && summaries != null && !busy && <button type="button" className="company-card-load" onClick={() => load(company.ticker)}>{failed ? "Retry" : "Load"}</button>}
+              {!known && summaries != null && !busy && !building.has(company.ticker) && <button type="button" className="company-card-load" onClick={() => load(company.ticker)}>{failed ? "Retry" : "Load"}</button>}
               <button type="button" className="company-card-remove" title={`Remove ${company.ticker} from the watchlist`} aria-label={`Remove ${company.ticker} from the watchlist`}
                 onClick={() => onRemove(company.ticker)}>×</button>
             </li>;

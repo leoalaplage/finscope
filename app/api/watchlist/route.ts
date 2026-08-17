@@ -4,10 +4,19 @@ import { summaryKey } from "@/lib/dataset-cache";
 import { datasetCache } from "@/lib/runtime-env";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 
-const headers = {
-  "Content-Type": "application/json",
-  "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-};
+/**
+ * How long an answer may be reused, by how complete it is.
+ *
+ * A full watchlist is worth caching for an hour. An answer still missing
+ * companies is worth caching for no time at all: the warm running behind this
+ * request is about to make it wrong, and a reader who polls for the rest would
+ * otherwise be served the same gap back for an hour and conclude the site is
+ * broken.
+ */
+const complete = "public, s-maxage=3600, stale-while-revalidate=86400";
+const partial = "no-store";
+
+const headers = { "Content-Type": "application/json", "Cache-Control": partial };
 
 /**
  * Every watchlist company's headline figures, in one small response.
@@ -22,10 +31,10 @@ const headers = {
  */
 export async function GET() {
   const cache = datasetCache();
-  if (!cache) return NextResponse.json({ summaries: [], reason: "No cache is bound in this environment." }, { headers });
+  if (!cache) return NextResponse.json({ summaries: [], pending: [], reason: "No cache is bound in this environment." }, { headers });
 
-  const summaries = await Promise.all(COMPANIES
-    .filter((company) => company.resolutionStatus !== "unresolved")
+  const covered = COMPANIES.filter((company) => company.resolutionStatus !== "unresolved");
+  const summaries = await Promise.all(covered
     .map(async (company) => {
       try {
         const stored = await cache.get(summaryKey(company.ticker), "json");
@@ -36,5 +45,13 @@ export async function GET() {
       }
     }));
 
-  return new Response(JSON.stringify({ summaries: summaries.filter((item): item is WatchlistSummary => item != null) }), { headers });
+  const found = summaries.filter((item): item is WatchlistSummary => item != null);
+  // Which companies the warm behind this request is still working through, so
+  // the page can say "building" and come back for them rather than settling on
+  // an empty card and a Load button the reader has to find and press.
+  const pending = covered.filter((company) => !found.some((item) => item.ticker === company.ticker)).map((company) => company.ticker);
+
+  return new Response(JSON.stringify({ summaries: found, pending }), {
+    headers: { ...headers, "Cache-Control": pending.length ? partial : complete },
+  });
 }
