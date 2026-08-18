@@ -115,6 +115,27 @@ describe("the front page must not cost Worker CPU", () => {
     const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
     expect(page).toContain('export const dynamic = "force-static"');
   });
+
+  /**
+   * A prerendered document cannot know which theme this reader chose, so
+   * nothing rendered from that choice may appear in the markup: React answers a
+   * text mismatch by discarding the server tree and rendering the whole
+   * application again on the client, which is exactly the cost the two rules
+   * above exist to avoid. The attribute is stamped by a boot script instead,
+   * and the one glyph that depends on it is drawn by the stylesheet.
+   */
+  it("keeps the reader's theme out of the prerendered markup", () => {
+    const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
+    expect(layout).toContain("THEME_BOOT");
+    expect(layout).toContain('finscope.theme');
+    expect(layout).toContain('<html lang="en" data-theme="dark">');
+    const app = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    expect(app).not.toContain('"☀"');
+    expect(app).not.toContain("suppressHydrationWarning");
+    const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+    expect(css).toContain('.theme-toggle::before { content: "☀"; }');
+    expect(css).toContain(':root[data-theme="light"] .theme-toggle::before { content: "☾"; }');
+  });
 });
 
 describe("the redesign", () => {
@@ -138,5 +159,28 @@ describe("the redesign", () => {
     expect(grid).toContain("summariseSeries");
     expect(grid).toContain("exportSvgToPng");
     expect(grid).toContain("kpi-badge");
+  });
+
+  it("draws the market session as a line rather than as candles", () => {
+    // Three indices across a laptop leaves each panel about four hundred
+    // pixels for seventy-eight five-minute bars: every body was a sliver and
+    // every wick a hairline. The sequence of closes is what a reader could
+    // actually make out, and that is what a line draws directly.
+    const source = readFileSync(new URL("../components/MarketPage.tsx", import.meta.url), "utf8");
+    expect(source).toContain('className="index-line"');
+    expect(source).not.toContain("index-candle");
+    expect(source).toContain("bars.map((bar) => bar.close)");
+    const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+    // Line, dot and badge take the panel's direction from one place.
+    expect(css).toContain(".index-panel.up { color: var(--accent); }");
+  });
+
+  it("gives every one-of-N control the same track and thumb", () => {
+    // Segmented groups, the time range, the period switch and the header's
+    // destinations were four different treatments of the same choice.
+    const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+    for (const control of [".site-header nav button.active", ".segmented button.active", ".range-buttons button.active", ".period-buttons button.active"]) {
+      expect(css).toContain(`${control} { background: var(--surface); color: var(--text); font-weight: 650; box-shadow: var(--shadow); }`);
+    }
   });
 });

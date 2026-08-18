@@ -187,7 +187,7 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
         <button type="button" onClick={() => void loadEverything()} disabled={bulk.running || unloaded === 0}>
           {bulk.running ? `Loading ${bulk.done}/${bulk.total}…` : unloaded ? `Load all (${unloaded})` : "All loaded"}
         </button>
-        <button type="button" onClick={onSearchAdd}>Add a company</button>
+        <button type="button" className="button-primary" onClick={onSearchAdd}>Add a company</button>
       </div>
     </header>
 

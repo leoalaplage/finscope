@@ -3,36 +3,46 @@
    Sobre, dense, lisible. Palette alignee sur les PNG generes.
    ===================================================================== */
 
+/*
+ * La palette suit celle de FinScope, qui heberge cette page dans un cadre.
+ *
+ * L'accent etait un bleu marine en clair et le vert de l'hote en sombre, si
+ * bien que le meme ecran changeait de marque selon le theme : dans un cadre
+ * sans bordure, le lecteur ne voit pas une page invitee, il voit une tache
+ * bleue au milieu d'une application verte. Les noms des variables restent
+ * ceux d'origine — les renommer toucherait tout le fichier sans rien changer
+ * a ce qui s'affiche.
+ */
 :root {
-  --bleu: #1f3864;
-  --bleu-clair: #2563eb;
-  --texte: #0f172a;
-  --texte-doux: #475569;
-  --texte-faible: #94a3b8;
-  --bord: #d2d6dc;
-  --fond: #f6f7f9;
+  --bleu: #1f5f4a;
+  --bleu-clair: #2f7d63;
+  --texte: #101418;
+  --texte-doux: #5c6470;
+  --texte-faible: #949aa4;
+  --bord: #e4e6e9;
+  --fond: #ffffff;
   --carte: #ffffff;
-  --vert: #059669;
-  --rouge: #c00000;
-  --rouge-fond: #ffe4e6;
-  --rayon: 10px;
-  --ombre: 0 1px 2px rgba(15, 23, 42, .06), 0 4px 14px rgba(15, 23, 42, .05);
+  --vert: #1f5f4a;
+  --rouge: #a61b1b;
+  --rouge-fond: #fdefef;
+  --rayon: 12px;
+  --ombre: 0 1px 2px rgba(16, 20, 24, .04), 0 1px 3px rgba(16, 20, 24, .04);
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bleu: #53d39c;
   --bleu-clair: #53d39c;
-  --texte: #f2f5f7;
-  --texte-doux: #a2adba;
+  --texte: #e9ebf0;
+  --texte-doux: #98a0ae;
   --texte-faible: #738091;
-  --bord: #262a36;
-  --fond: #12141c;
-  --carte: #191c26;
+  --bord: #242832;
+  --fond: #0f1116;
+  --carte: #171a21;
   --vert: #53d39c;
   --rouge: #ff8a96;
-  --rouge-fond: #321820;
-  --ombre: 0 18px 60px rgba(0, 0, 0, .22);
+  --rouge-fond: #2c1a1e;
+  --ombre: 0 1px 2px rgba(0, 0, 0, .35);
 }
 
 * { box-sizing: border-box; }
@@ -66,16 +76,16 @@ html.embedded .carte { box-shadow: none; padding: 20px 22px; margin-bottom: 16px
 :root[data-theme="dark"] input[type=number],
 :root[data-theme="dark"] select {
   color: var(--texte);
-  background: #151a22;
+  background: #1d212a;
   border-color: var(--bord);
 }
-:root[data-theme="dark"] textarea:focus { background: #1a202a; }
+:root[data-theme="dark"] textarea:focus { background: #242832; }
 :root[data-theme="dark"] textarea.survol { background: rgba(83, 211, 156, .08); }
 :root[data-theme="dark"] button:hover,
-:root[data-theme="dark"] .bouton:hover { background: #1a202a; }
+:root[data-theme="dark"] .bouton:hover { background: #262b36; }
 :root[data-theme="dark"] button.primaire { color: #06100c; background: var(--bleu); }
 :root[data-theme="dark"] button.primaire:hover { background: #6ee3b2; }
-:root[data-theme="dark"] .apercu { background: #0d1117; }
+:root[data-theme="dark"] .apercu { background: #0f1116; }
 :root[data-theme="dark"] .message.info { color: #a8ccff; background: #12243b; border-color: #294d78; }
 :root[data-theme="dark"] .message.ok { color: #8eebc3; background: #10281f; border-color: #245e47; }
 

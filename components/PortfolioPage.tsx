@@ -464,7 +464,7 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
               onChange={(event) => setDraft((current) => ({ ...current, fee: event.target.value }))}
               onKeyDown={(event) => { if (event.key === "Enter") add(); }}/></td>
             <td className="numeric" data-label="Amount">{draft.shares && draft.price ? money(draftShares * draftPrice) : "—"}</td>
-            <td data-label=""><button onClick={add} disabled={!canAdd}>Add</button></td>
+            <td data-label=""><button className="button-primary" onClick={add} disabled={!canAdd}>Add</button></td>
           </tr>
         </tbody>
       </table></div>

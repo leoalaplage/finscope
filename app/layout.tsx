@@ -28,13 +28,36 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: "FinScope", description: "Simple financial research you can trace.", images: ["/og.png"] },
 };
 
+/**
+ * Reads the reader's saved choice and stamps it on the document.
+ *
+ * Kept as a string rather than a function so it can be inlined verbatim, and
+ * deliberately silent on failure: a browser that refuses localStorage should
+ * get the default theme, not an exception before the page has rendered.
+ */
+const THEME_BOOT = `try{var t=localStorage.getItem("finscope.theme");if(t==="light"||t==="dark"){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}}catch(e){}`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="light">
+    /*
+     * The saved theme is applied before the first paint, and the default in
+     * the markup is the one the application actually defaults to.
+     *
+     * The document was prerendered as `light` while the app defaults to dark,
+     * so every visitor got a white page for as long as it took the bundle to
+     * boot and an effect to run — and a reader who had chosen light got the
+     * mismatch in the other direction. The script below is four statements and
+     * runs before the body is parsed; it costs no Worker CPU, because this
+     * document is a static asset.
+     */
+    <html lang="en" data-theme="dark">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }}/>
+      </head>
       <body>{children}</body>
     </html>
   );

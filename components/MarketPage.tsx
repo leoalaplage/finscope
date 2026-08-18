@@ -105,12 +105,20 @@ function useMeasuredWidth<T extends HTMLElement>() {
 }
 
 /**
- * One index: the session drawn as candles against yesterday's close.
+ * One index: the session drawn as a line against yesterday's close.
  *
- * Hand-drawn SVG rather than the charting library used elsewhere, which has no
- * candle primitive — a candle is two marks sharing an x, and expressing that
- * through a bar chart with a stacked invisible base is more code than the
- * thirty lines below, not less.
+ * Candles were the wrong instrument for this panel. Three indices across a
+ * laptop leaves each about four hundred pixels for seventy-eight five-minute
+ * bars, so every body was a two-pixel sliver and the wick that carries the
+ * range was a hairline — the shape a reader could actually make out was the
+ * sequence of closes, which is precisely what a line draws directly. The high
+ * and low of a five-minute bar on an index is not information anyone reads at
+ * this size; the shape of the day is.
+ *
+ * Hand-drawn SVG rather than the charting library used elsewhere, because the
+ * panel needs its axis on the right, a reference line at the previous close and
+ * a badge pinned to the last price — three things that cost more to configure
+ * than to draw.
  */
 function IndexPanel({ entry }: { entry: Entry }) {
   // The two cases are separate components rather than two returns from one,
@@ -130,81 +138,98 @@ function IndexSession({ entry }: { entry: Panel }) {
   const rising = (entry.change ?? 0) >= 0;
   // Yesterday's close belongs inside the scale even on a day that never traded
   // back to it, because the whole chart is a statement about distance from it.
-  const values = [...bars.flatMap((bar) => [bar.high, bar.low]), ...(entry.previousClose != null ? [entry.previousClose] : [])];
+  const values = [...bars.map((bar) => bar.close), ...(entry.previousClose != null ? [entry.previousClose] : [])];
   const low = values.length ? Math.min(...values) : 0;
   const high = values.length ? Math.max(...values) : 1;
-  const pad = (high - low) * 0.08 || 1;
+  const pad = (high - low) * 0.12 || 1;
   const top = high + pad, bottom = low - pad;
 
-  const height = 168, leftGutter = 2, rightGutter = 54, headroom = 9;
+  const height = 190, leftGutter = 2, rightGutter = 56, headroom = 10;
   const width = Math.max(measured, 200);
   const plotWidth = Math.max(40, width - leftGutter - rightGutter);
   const y = (value: number) => headroom + (top - value) / (top - bottom) * (height - headroom * 2);
   const slot = plotWidth / Math.max(bars.length, 1);
-  const bodyWidth = Math.max(1.2, Math.min(7, slot * 0.62));
+  const x = (index: number) => leftGutter + (index + 0.5) * slot;
 
   const ticks = priceTicks(bottom, top);
   const marks = hourMarks(bars.map((bar) => bar.label));
   const lastClose = bars.at(-1)?.close ?? entry.last;
 
-  // The relative-volume gauge is its own tiny axis, 0.5 to 2.0, because that is
-  // the range the number actually lives in — a day at four times normal volume
-  // is off the scale and should look it.
+  // The line and the shape under it are the same points; the fill is the line
+  // carried down to the floor of the plot and closed. Drawing them as one path
+  // with a fill would put a stroke along the bottom edge too.
+  const points = bars.map((bar, index) => `${x(index).toFixed(2)},${y(bar.close).toFixed(2)}`);
+  const line = points.length ? `M${points.join("L")}` : "";
+  const area = points.length
+    ? `${line}L${x(bars.length - 1).toFixed(2)},${height - headroom}L${x(0).toFixed(2)},${height - headroom}Z`
+    : "";
+  // One gradient per panel, because an id is global to the document.
+  const fillId = `index-fill-${entry.id}`;
+
+  // Relative volume reads on a fixed scale, 0.35 to 2.0, because that is the
+  // range the number actually lives in — a day at four times normal volume is
+  // off the scale and should look it.
   const rvol = entry.relativeVolume;
   const gaugeTop = 2.0, gaugeBottom = 0.35;
   const gaugeFill = rvol == null ? 0 : Math.min(1, Math.max(0, (Math.min(rvol, gaugeTop) - gaugeBottom) / (gaugeTop - gaugeBottom)));
 
-  return <article className="index-panel">
+  return <article className={rising ? "index-panel up" : "index-panel down"}>
     <header className="index-head">
-      <h2>{entry.name}</h2>
-      <span className="index-date">{sessionLabel(entry.sessionDate)}</span>
-      <strong className={rising ? "index-change positive-text" : "index-change negative-text"}>
-        {signed(entry.change)} ({entry.changePercent == null ? "—" : `${(Math.abs(entry.changePercent) * 100).toFixed(2)}%`})
-      </strong>
+      <div className="index-name">
+        <h2>{entry.name}</h2>
+        <span className="index-date">{sessionLabel(entry.sessionDate)}</span>
+      </div>
+      <div className="index-quote">
+        <strong>{quoted(lastClose)}</strong>
+        <span className={rising ? "index-change positive-text" : "index-change negative-text"}>
+          {signed(entry.change)} ({entry.changePercent == null ? "—" : `${(Math.abs(entry.changePercent) * 100).toFixed(2)}%`})
+        </span>
+      </div>
     </header>
 
-    <div className="index-body">
-      <div className="index-gauge" title={rvol == null ? "No comparable session to measure against" : `Volume so far is ${rvol.toFixed(2)}× a normal session at this time of day`}>
-        <div className="index-gauge-track">
-          <span className="index-gauge-fill" style={{ height: `${gaugeFill * 100}%` }}/>
-        </div>
-        <small>Relative<br/>volume</small>
-      </div>
-
-      <div className="index-chart" ref={chartRef}>
+    <div className="index-chart" ref={chartRef}>
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img"
         aria-label={`${entry.name} on ${sessionLabel(entry.sessionDate)}: ${level(entry.last)}, ${signed(entry.change)} from a previous close of ${level(entry.previousClose)}.`}>
+        <defs>
+          <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.22"/>
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+
         {ticks.map((tick) => <g key={tick}>
           <line className="index-grid" x1={leftGutter} x2={leftGutter + plotWidth} y1={y(tick)} y2={y(tick)}/>
-          <text className="index-axis" x={width - rightGutter + 8} y={y(tick) + 3.5}>{level(tick, 0)}</text>
+          <text className="index-axis" x={width - rightGutter + 9} y={y(tick) + 3.5}>{level(tick, 0)}</text>
         </g>)}
 
         {entry.previousClose != null &&
           <line className="index-prevclose" x1={leftGutter} x2={leftGutter + plotWidth} y1={y(entry.previousClose)} y2={y(entry.previousClose)}/>}
 
-        {bars.map((bar, index) => {
-          const x = leftGutter + index * slot + slot / 2;
-          const up = bar.close >= bar.open;
-          const bodyTop = y(Math.max(bar.open, bar.close));
-          const bodyBottom = y(Math.min(bar.open, bar.close));
-          return <g key={bar.time} className={up ? "index-candle up" : "index-candle down"}>
-            <line x1={x} x2={x} y1={y(bar.high)} y2={y(bar.low)}/>
-            <rect x={x - bodyWidth / 2} y={bodyTop} width={bodyWidth} height={Math.max(0.8, bodyBottom - bodyTop)}/>
-          </g>;
-        })}
+        {area && <path className="index-area" d={area} fill={`url(#${fillId})`}/>}
+        {line && <path className="index-line" d={line}/>}
+        {lastClose != null && points.length > 0 &&
+          <circle className="index-dot" cx={x(bars.length - 1)} cy={y(lastClose)} r={2.6}/>}
 
         {lastClose != null && <g className="index-last">
-          <rect x={width - rightGutter + 2} y={y(lastClose) - 8} width={rightGutter - 4} height={16} rx={2}/>
-          <text x={width - rightGutter + 6} y={y(lastClose) + 3.5}>{quoted(lastClose)}</text>
+          <rect x={width - rightGutter + 3} y={y(lastClose) - 8} width={rightGutter - 6} height={16} rx={4}/>
+          <text x={width - rightGutter + 8} y={y(lastClose) + 3.5}>{quoted(lastClose)}</text>
         </g>}
       </svg>
       {/* The hour marks belong to the plot, not to the panel: placing them
           across the full width would drift them right by the price gutter. */}
       <div className="index-times" aria-hidden="true">
-        {marks.map((mark) => <span key={mark.index} style={{ left: `${(leftGutter + (mark.index + 0.5) * slot) / width * 100}%` }}>{mark.text}</span>)}
-      </div>
+        {marks.map((mark) => <span key={mark.index} style={{ left: `${x(mark.index) / width * 100}%` }}>{mark.text}</span>)}
       </div>
     </div>
+
+    {/* The gauge reads left to right under the chart rather than standing up
+        beside it, where a 14px column of colour competed with the plot for the
+        reader's eye and stole width the session needed. */}
+    <footer className="index-foot" title={rvol == null ? "No comparable session to measure against" : `Volume so far is ${rvol.toFixed(2)}× a normal session at this time of day`}>
+      <span>Relative volume</span>
+      <div className="index-gauge-track"><i style={{ width: `${gaugeFill * 100}%` }}/></div>
+      <b>{rvol == null ? "—" : `${rvol.toFixed(2)}×`}</b>
+    </footer>
   </article>;
 }
 
