@@ -70,8 +70,14 @@ function SortableHeader({ column, active, direction, onSort }: {
 
 const pct = (value: number | null | undefined, digits = 1) =>
   value == null || !Number.isFinite(value) ? "—" : value.toFixed(digits);
-const cap = (value: number | null | undefined) =>
-  value == null || !Number.isFinite(value) ? "—" : value >= 1000 ? `${(value / 1000).toFixed(1)}T` : `${Math.round(value)}B`;
+/** A market capitalisation in billions, written the way it is spoken. */
+const cap = (value: number | null | undefined) => {
+  if (value == null || !Number.isFinite(value)) return "—";
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}T`;
+  if (value >= 10) return `${Math.round(value)}B`;
+  if (value >= 1) return `${value.toFixed(1)}B`;
+  return `${Math.round(value * 1000)}M`;
+};
 
 /** A score as the filled chip the printed dashboard used for the same figure. */
 function ScoreCell({ value, digits = 1 }: { value: number | null | undefined; digits?: number }) {

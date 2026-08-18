@@ -250,6 +250,18 @@ describe("the redesign", () => {
     expect(source).not.toContain("index-gauge");
   });
 
+  it("states the index chart as performance, not as a level", () => {
+    // "7,720" says nothing unless the reader already carries yesterday's close
+    // in their head; "+0.3%" is the whole answer, and it is what the dashed
+    // baseline already marks as zero.
+    const source = readFileSync(new URL("../components/MarketPage.tsx", import.meta.url), "utf8");
+    expect(source).toContain("const toPercent =");
+    expect(source).toContain("tickText");
+    expect(source).toContain("index-grid-zero");
+    // Without a baseline there is nothing to be a percentage of.
+    expect(source).toContain("asPercent");
+  });
+
   it("gives every one-of-N control the same track and thumb", () => {
     // Segmented groups, the time range, the period switch and the header's
     // destinations were four different treatments of the same choice.

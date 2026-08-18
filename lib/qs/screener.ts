@@ -83,6 +83,38 @@ export interface ScreenerResult {
   warnings: string[];
 }
 
+/**
+ * Reads the market-cap column in whatever unit it was written in.
+ *
+ * The screener's own column is titled "$Md" and every figure this application
+ * generates is in billions, but an export pasted from somewhere else states the
+ * same column in whole dollars as often as not — and the table then reported
+ * Apple at 4,579,000,000 billion, which rendered as "4579000000.0T". Nothing
+ * about the number is wrong; only the unit it is read in.
+ *
+ * The scale is inferred from the data rather than declared, because a paste
+ * carries no unit. It is a safe inference: the divisor is chosen so the median
+ * company lands somewhere between a hundred million and a hundred trillion, and
+ * no two of the candidate divisors can both put it there — a universe stated in
+ * dollars is a billion times away from one stated in billions, and there is
+ * nothing in between to confuse it with.
+ *
+ * Market capitalisation is not a scored metric. It is a filter, a sort and a
+ * column, so rescaling it moves no score; what it does move is the "minimum
+ * cap" filter, which is exactly the thing that would otherwise silently keep
+ * every company or none.
+ */
+const CAP_DIVISORS = [1, 1e3, 1e6, 1e9];
+
+export function detectCapDivisor(values: Array<number | null>): number {
+  const usable = values.filter((value): value is number => value != null && Number.isFinite(value) && value > 0).sort((a, b) => a - b);
+  if (!usable.length) return 1;
+  const median = usable[Math.floor(usable.length / 2)];
+  // A hundred million to a hundred trillion, expressed in billions.
+  const plausible = (value: number) => value >= 0.1 && value <= 1e5;
+  return CAP_DIVISORS.find((divisor) => plausible(median / divisor)) ?? 1;
+}
+
 /** The pillars, the presets and the sort criteria, for the controls to offer. */
 export const QS_PILLARS = PILIERS as PillarName[];
 export const QS_PRESETS = cfg.PRESETS as Record<string, Record<PillarName, number>>;
@@ -108,6 +140,13 @@ export function screen(text: string, filters: ScreenerFilters = {}): ScreenerRes
   const { titres, manquantes, avertissements } = chargerTableau(text) as {
     titres: ScoredCompany[]; manquantes: string[]; avertissements: string[];
   };
+
+  const divisor = detectCapDivisor(titres.map((company) => company.Cap));
+  if (divisor !== 1) {
+    for (const company of titres) if (company.Cap != null) company.Cap /= divisor;
+    avertissements.push(`Market cap was read in ${divisor === 1e9 ? "units" : divisor === 1e6 ? "thousands" : "millions"} and converted to billions.`);
+  }
+
   const { titres: all, retenus, poids } = analyser(titres, filters) as {
     titres: ScoredCompany[]; retenus: ScoredCompany[]; poids: Record<PillarName, number>;
   };

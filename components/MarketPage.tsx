@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MARKET_RANGES, type MarketRange, type MarketWindow } from "@/lib/adapters/intraday";
 
 type Panel = MarketWindow & { id: string; description: string };
@@ -8,6 +8,8 @@ type Failed = { id: string; symbol: string; name: string; description: string; e
 type Entry = Panel | Failed;
 
 const failed = (entry: Entry): entry is Failed => "error" in entry;
+
+const MarketHeatmap = lazy(() => import("./MarketHeatmap").then((module) => ({ default: module.MarketHeatmap })));
 
 /**
  * How often the page asks for a new picture of the market.
@@ -181,11 +183,36 @@ function IndexChart({ entry, range }: { entry: Panel; range: MarketRange }) {
   const slot = plotWidth / Math.max(points.length, 1);
   const x = (index: number) => leftGutter + (index + 0.5) * slot;
 
-  const ticks = priceTicks(bottom, top);
   const marks = range === "1D"
     ? hourMarks(points.map((point) => point.label))
     : dateMarks(points.map((point) => point.label));
   const last = points.at(-1)?.close ?? entry.last;
+
+  /**
+   * The axis is a percentage, because that is the question the panel answers.
+   *
+   * "7,720" tells a reader nothing they can act on unless they already carry
+   * yesterday's close in their head; "+0.3%" is the whole answer. The scale is
+   * still the price scale — the line is not redrawn — only its labels are
+   * stated as distance from the baseline, which is exactly what the dashed
+   * line at zero already marks.
+   *
+   * Without a baseline there is nothing to be a percentage of, so the axis
+   * falls back to levels rather than inventing a reference.
+   */
+  const base = entry.baseline;
+  const asPercent = base != null && base !== 0;
+  const toPercent = (value: number) => (value / base! - 1) * 100;
+  const fromPercent = (value: number) => base! * (1 + value / 100);
+  const ticks = asPercent
+    ? priceTicks(toPercent(bottom), toPercent(top)).map(fromPercent)
+    : priceTicks(bottom, top);
+  const tickText = (value: number) => asPercent
+    ? `${toPercent(value) >= 0 ? "+" : "−"}${Math.abs(toPercent(value)).toFixed(Math.abs(toPercent(top) - toPercent(bottom)) < 3 ? 1 : 0)}%`
+    : level(value, 0);
+  const badge = asPercent && last != null
+    ? `${last >= base! ? "+" : "−"}${Math.abs(toPercent(last)).toFixed(2)}%`
+    : quoted(last);
 
   // The line and the shape under it are the same points; the fill is the line
   // carried down to the floor of the plot and closed. Drawing them as one path
@@ -220,8 +247,9 @@ function IndexChart({ entry, range }: { entry: Panel; range: MarketRange }) {
         </defs>
 
         {ticks.map((tick) => <g key={tick}>
-          <line className="index-grid" x1={leftGutter} x2={leftGutter + plotWidth} y1={y(tick)} y2={y(tick)}/>
-          <text className="index-axis" x={width - rightGutter + 9} y={y(tick) + 3.5}>{level(tick, 0)}</text>
+          <line className={asPercent && Math.abs(tick - base!) < 1e-9 ? "index-grid index-grid-zero" : "index-grid"}
+            x1={leftGutter} x2={leftGutter + plotWidth} y1={y(tick)} y2={y(tick)}/>
+          <text className="index-axis" x={width - rightGutter + 9} y={y(tick) + 3.5}>{tickText(tick)}</text>
         </g>)}
 
         {entry.baseline != null &&
@@ -234,7 +262,7 @@ function IndexChart({ entry, range }: { entry: Panel; range: MarketRange }) {
 
         {last != null && <g className="index-last">
           <rect x={width - rightGutter + 3} y={y(last) - 8} width={rightGutter - 6} height={16} rx={4}/>
-          <text x={width - rightGutter + 8} y={y(last) + 3.5}>{quoted(last)}</text>
+          <text x={width - rightGutter + 8} y={y(last) + 3.5}>{badge}</text>
         </g>}
       </svg>
       {/* The marks belong to the plot, not to the panel: placing them across
@@ -369,6 +397,10 @@ export function MarketPage() {
     <div className="index-grid">
       {(entries ?? []).map((entry) => <IndexPanel key={entry.id} entry={entry} range={range}/>)}
     </div>
+
+    {/* Loaded apart from the indices: fifty tiles are a second request and a
+        second answer, and the lines above should not wait for them. */}
+    <Suspense fallback={<p className="simple-state">Loading today&rsquo;s moves…</p>}><MarketHeatmap/></Suspense>
 
     {entries?.some((entry) => !failed(entry)) &&
       <p className="market-foot">Prices from Yahoo Finance, delayed as the exchange requires.</p>}

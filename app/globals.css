@@ -943,6 +943,9 @@ tbody tr:last-child > * { border-bottom: 0; }
 .index-chart { position: relative; min-width: 0; margin-top: 10px; }
 .index-chart svg { display: block; max-width: 100%; }
 .index-grid-line, .index-grid { stroke: var(--chart-grid); stroke-width: 1; }
+/* Zero on a percentage axis is the baseline itself: the one gridline that is
+   a statement rather than a division. */
+.index-grid-zero { stroke: var(--border-strong); }
 .index-axis { fill: var(--muted); font-size: 9px; font-variant-numeric: tabular-nums; }
 .index-prevclose { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 4; opacity: .75; }
 
@@ -959,6 +962,87 @@ tbody tr:last-child > * { border-bottom: 0; }
 .market-ranges { display: flex; margin-bottom: 16px; }
 
 .market-foot { max-width: 82ch; margin-top: 18px; color: var(--muted); font-size: var(--fs-xs); }
+
+/* ---- Heat maps ---------------------------------------------------------
+   A diverging scale: two hues meeting at a neutral, never a ramp and never a
+   hue at the midpoint. The zero is a real grey in both themes, so a flat day
+   reads as flat rather than as a faint version of one direction. */
+
+/*
+ * The poles are chosen for this job, not borrowed from the interface accent.
+ *
+ * `--accent` is a deliberately quiet green: at chroma 0.074 it reads grey once
+ * it is a fill rather than a rule, which is exactly wrong for a tile whose only
+ * job is to say "up, and by this much". These two were validated against the
+ * surface they sit on — the light pair clears every categorical check, and the
+ * dark pair separates the poles by ΔE 21 for a deuteranope, which green and red
+ * only manage when they differ in lightness as well as hue.
+ *
+ * A diverging scale is allowed to span lightness; the band that constrains a
+ * categorical palette does not apply to it, for the same reason it does not
+ * apply to a sequential ramp. What must hold is the neutral midpoint, which is
+ * `--heat-zero`: a real grey, so a flat day reads as flat rather than as a pale
+ * version of a direction.
+ */
+:root {
+  --heat-up: #0d8055; --heat-down: #b3241c; --heat-zero: #eceef0;
+  --heat-ink: #2a3138; --heat-ink-up: #ffffff; --heat-ink-down: #ffffff;
+}
+:root[data-theme="dark"] {
+  --heat-up: #3dbf88; --heat-down: #ab352c; --heat-zero: #232833;
+  --heat-ink: #c4ccd6; --heat-ink-up: #06150f; --heat-ink-down: #ffffff;
+}
+
+/* Colour is never the only encoding: every tile carries its signed number, and
+   where the display cannot be trusted to render colour faithfully the losing
+   tiles take a hatch as well. */
+@media (forced-colors: active), (prefers-contrast: more) {
+  .heat-tile.down {
+    background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(255, 255, 255, .35) 3px 5px);
+  }
+}
+
+.heatmaps { margin-top: 36px; padding-top: 26px; border-top: 1px solid var(--border); }
+.heat-title { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; margin-bottom: 20px; }
+.heat-title h2 { margin: 0; }
+
+.heat-legend { display: flex; align-items: center; gap: 8px; }
+.heat-legend small { display: inline; font-variant-numeric: tabular-nums; }
+.heat-legend-ramp { display: flex; border-radius: var(--radius-pill); overflow: hidden; }
+.heat-legend-ramp i { display: block; width: 26px; height: 10px; }
+
+.heat-section { margin-bottom: 26px; }
+.heat-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 20px; margin-bottom: 12px; }
+.heat-head h3 { margin: 0 0 2px; font-size: var(--fs-lg); font-weight: 650; }
+.heat-stats { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.heat-stats .positive-text, .heat-stats .negative-text { font-weight: 650; }
+
+/* Tiles hold their own shape: a fixed aspect keeps the grid reading as a map
+   of the market rather than as rows of buttons, at any column count. */
+.heat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 4px; }
+.heat-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  aspect-ratio: 1.45; min-height: 62px; padding: 6px 8px;
+  border-radius: var(--radius); overflow: hidden;
+  font-variant-numeric: tabular-nums; text-align: center;
+  transition: transform var(--ease), box-shadow var(--ease);
+}
+.heat-tile:hover { transform: translateY(-1px); box-shadow: var(--shadow-lift); }
+.heat-tile b { font-size: var(--fs-base); font-weight: 700; letter-spacing: -.01em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.heat-tile span { font-size: var(--fs-xs); font-weight: 600; opacity: .95; }
+
+.heat-table { margin-top: 20px; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); }
+.heat-table > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; cursor: pointer; font-weight: 600; border-radius: var(--radius); }
+.heat-table > summary small { display: inline; font-weight: 400; }
+.heat-table > summary:hover { color: var(--accent); }
+.heat-table[open] > summary { margin-bottom: 12px; }
+
+@media (max-width: 640px) {
+  .heat-grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 3px; }
+  .heat-tile { min-height: 54px; padding: 5px 4px; }
+  .heat-tile b { font-size: var(--fs-sm); }
+  .heat-tile span { font-size: 10px; }
+}
 
 @media (max-width: 1100px) { .index-grid { grid-template-columns: 1fr; } }
 

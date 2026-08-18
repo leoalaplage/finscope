@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { QS_METRICS, QS_PILLARS, naturalDirection, resultsToCsv, scoreColour, scoreInk, screen, sectorsOf, sortRowsBy } from "../lib/qs/screener";
+import { QS_METRICS, QS_PILLARS, detectCapDivisor, naturalDirection, resultsToCsv, scoreColour, scoreInk, screen, sectorsOf, sortRowsBy } from "../lib/qs/screener";
 
 /**
  * The engine lives in two places and must never differ between them.
@@ -171,5 +171,44 @@ describe("ordering the table by a column", () => {
     const rows = screen(TABLE).all;
     expect(sortRowsBy(rows, "ticker", "asc").map((row) => row.Ticker))
       .toEqual([...rows.map((row) => row.Ticker)].sort());
+  });
+});
+
+describe("reading a market-cap column in whatever unit it was pasted in", () => {
+  it("leaves a column already in billions alone", () => {
+    // Every figure this application generates is in billions already.
+    expect(detectCapDivisor([400, 300, 120, 260, 180])).toBe(1);
+    expect(detectCapDivisor([4579, 3188, 48])).toBe(1);
+  });
+
+  it("recognises whole dollars, which is how most exports state it", () => {
+    // 4.58e12 dollars is Apple; read as billions it would be 4.6 billion
+    // billion, which is what printed "4579000000.0T" on screen.
+    expect(detectCapDivisor([4.58e12, 3.19e12, 4.8e10])).toBe(1e9);
+  });
+
+  it("recognises millions", () => {
+    expect(detectCapDivisor([4_580_000, 3_190_000, 48_000])).toBe(1e3);
+  });
+
+  it("says nothing, and divides by nothing, when there is no cap at all", () => {
+    expect(detectCapDivisor([null, null])).toBe(1);
+    expect(detectCapDivisor([])).toBe(1);
+  });
+
+  it("converts the column and tells the reader it did", () => {
+    const inDollars = TABLE.split("\n").map((line, index) => {
+      if (index === 0) return line;
+      const cells = line.split(",");
+      cells[2] = String(Number(cells[2]) * 1e9);
+      return cells.join(",");
+    }).join("\n");
+    const result = screen(inDollars);
+    const plain = screen(TABLE);
+    // The same companies, the same scores, the cap back in billions.
+    expect(result.all.map((row) => row.Cap)).toEqual(plain.all.map((row) => row.Cap));
+    expect(result.all.map((row) => row.total)).toEqual(plain.all.map((row) => row.total));
+    expect(result.warnings.join(" ")).toMatch(/converted to billions/);
+    expect(plain.warnings.join(" ")).not.toMatch(/converted to billions/);
   });
 });
