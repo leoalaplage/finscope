@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchIntraday } from "@/lib/adapters/intraday";
+import { fetchMarketWindow, MARKET_RANGES, type MarketRange } from "@/lib/adapters/intraday";
 import { INDICES } from "@/lib/indices";
 
 /**
@@ -14,6 +14,7 @@ import { INDICES } from "@/lib/indices";
 const headers = {
   "Content-Type": "application/json",
   "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
+  Vary: "Accept-Encoding",
 };
 
 /**
@@ -27,12 +28,18 @@ const headers = {
  * the other two down with it — one exchange feed going quiet should cost one
  * panel, not the page.
  */
-export async function GET() {
+export async function GET(request: Request) {
+  // An unknown window is answered with the day rather than an error: the
+  // parameter comes from a link a reader may have edited, and a market page
+  // that refuses to load is worse than one showing today.
+  const asked = new URL(request.url).searchParams.get("range");
+  const range: MarketRange = MARKET_RANGES.includes(asked as MarketRange) ? asked as MarketRange : "1D";
+
   const snapshots = await Promise.all(INDICES.map(async (index) => {
     try {
-      return { id: index.id, ...await fetchIntraday(index.symbol, index.label), description: index.description };
+      return { id: index.id, ...await fetchMarketWindow(index.symbol, index.label, range), description: index.description };
     } catch (error) {
-      return { id: index.id, symbol: index.symbol, name: index.label, description: index.description, error: error instanceof Error ? error.message : "Unavailable." };
+      return { id: index.id, symbol: index.symbol, name: index.label, description: index.description, range, error: error instanceof Error ? error.message : "Unavailable." };
     }
   }));
   const anyUsable = snapshots.some((snapshot) => !("error" in snapshot));

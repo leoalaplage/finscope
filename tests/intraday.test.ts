@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { relativeVolume } from "../lib/adapters/intraday";
-import { hourMarks, priceTicks } from "../components/MarketPage";
+import { dateMarks, hourMarks, priceTicks } from "../components/MarketPage";
+import { MARKET_RANGES } from "../lib/adapters/intraday";
 
 describe("relative volume", () => {
   it("compares the same point in the session, not whole days", () => {
@@ -73,5 +74,34 @@ describe("session hour marks", () => {
 
   it("ignores a session that never lands on the hour", () => {
     expect(hourMarks(["09:35", "09:40"])).toEqual([]);
+  });
+});
+
+describe("windows longer than a session", () => {
+  it("offers the day first, because that is what the page opens on", () => {
+    expect(MARKET_RANGES[0]).toBe("1D");
+    expect(MARKET_RANGES).toContain("1Y");
+  });
+
+  it("spreads a handful of date marks across a long window", () => {
+    const days = Array.from({ length: 250 }, (_, index) => `2026-01-${String((index % 28) + 1).padStart(2, "0")}`);
+    const marks = dateMarks(days);
+    expect(marks).toHaveLength(5);
+    expect(marks[0].index).toBe(0);
+    expect(marks.at(-1)!.index).toBe(days.length - 1);
+    // Strictly increasing: two marks at the same x would overprint.
+    for (let n = 1; n < marks.length; n++) expect(marks[n].index).toBeGreaterThan(marks[n - 1].index);
+  });
+
+  it("labels every point when the window is shorter than the mark count", () => {
+    expect(dateMarks(["2026-08-17", "2026-08-18"])).toHaveLength(2);
+    expect(dateMarks([])).toEqual([]);
+  });
+
+  it("adds the year only once the window crosses one", () => {
+    // A day and month is what a reader wants inside a year; across five, the
+    // month alone would repeat five times over.
+    expect(dateMarks(["2026-01-05", "2026-06-05"])[0].text).toMatch(/\d/);
+    expect(dateMarks(["2021-01-05", "2026-06-05"])[0].text).toMatch(/2[12]/);
   });
 });

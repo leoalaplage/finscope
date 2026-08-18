@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QS_COLUMNS, qsTable, qsValuationColumns, type QsRow } from "@/lib/qs-export";
 import {
   QS_ALERT_PENALTY, QS_COVERAGE_FLOOR, QS_GRADES, QS_METRIC_NAMES, QS_METRIC_NOTES,
-  QS_METRICS, QS_PILLARS, QS_PRESETS, QS_SORTS, resultsToCsv, scoreColour, scoreInk, screen, sectorsOf,
+  QS_METRICS, QS_PILLARS, QS_PRESETS, QS_SORTS, naturalDirection, resultsToCsv, scoreColour, scoreInk,
+  screen, sectorsOf, sortRowsBy,
   type PillarName, type PresetName, type ScoredCompany, type ScreenerFilters, type ScreenerResult,
+  type SortDirection,
 } from "@/lib/qs/screener";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import type { PricePoint } from "@/lib/types";
@@ -27,6 +29,44 @@ const PILLAR_NOTE: Record<PillarName, string> = {
   Growth: "Five-year compound growth of revenue, cash flow and earnings, per share where possible.",
   Value: "What the market asks for that quality, on enterprise and cash multiples.",
 };
+
+/**
+ * The columns, each naming the engine criterion it sorts by.
+ *
+ * The order here is the order on screen, and the key is what `sortRowsBy` reads
+ * — so a column and its sort can never describe two different things.
+ */
+interface Column { key: string; label: string; numeric?: boolean; note?: string }
+
+const COLUMNS: Column[] = [
+  { key: "rang", label: "#", numeric: true, note: "Rank by total score" },
+  { key: "ticker", label: "Ticker" },
+  { key: "secteur", label: "Sector" },
+  { key: "cap", label: "Cap", numeric: true },
+  ...QS_PILLARS.map((pillar) => ({ key: pillar, label: pillar, numeric: true, note: PILLAR_NOTE[pillar] })),
+  { key: "total", label: "Total", numeric: true },
+  { key: "note", label: "Grade" },
+  { key: "valuation", label: "Valuation" },
+  { key: "conviction", label: "R.adj", numeric: true, note: `The total less ${QS_ALERT_PENALTY} points per alert` },
+  { key: "couverture", label: "Data", numeric: true, note: "Share of the weighted metrics this company actually carried" },
+  { key: "rang_secteur", label: "Sect", numeric: true, note: "Rank within its own sector, where the sector has enough companies to rank" },
+  { key: "alertes", label: "Alerts", numeric: true },
+  { key: "qv_median", label: "Q+V", note: "Above the universe median on both Quality and Value" },
+];
+
+/** A header that says how the table is ordered, and changes it when pressed. */
+function SortableHeader({ column, active, direction, onSort }: {
+  column: Column; active: boolean; direction: SortDirection; onSort: () => void;
+}) {
+  return <th scope="col" className={`${column.numeric ? "numeric" : ""}${active ? " sorted" : ""}`}
+    aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : "none"}>
+    <button type="button" onClick={onSort}
+      title={`${column.note ? `${column.note}. ` : ""}Sort by ${column.label}${active ? `, currently ${direction === "asc" ? "ascending" : "descending"}` : ""}`}>
+      {column.label}
+      <span aria-hidden="true">{active ? (direction === "asc" ? "↑" : "↓") : "↕"}</span>
+    </button>
+  </th>;
+}
 
 const pct = (value: number | null | undefined, digits = 1) =>
   value == null || !Number.isFinite(value) ? "—" : value.toFixed(digits);
@@ -50,8 +90,51 @@ GOOGL,Media,2210.4,25.8,23.9,32.4,22.6,98.2,56.4,-1.6,5.8,-0.6,120.0,2.10,0.04,2
 V,Financials,618.0,27.4,26.3,66.9,52.1,103.1,79.8,-2.1,2.4,0.3,28.4,1.45,0.24,12.6,11.2,12.4,13.1,24.8,27.2,3.7
 CPRT,Industrials,48.2,23.6,22.1,37.8,28.4,94.6,45.9,0.2,1.1,-1.4,,4.85,0.01,2.9,13.4,12.1,15.6,32.6,41.2,2.4`;
 
+/**
+ * Everything the screener remembers between visits.
+ *
+ * The table used to vanish the moment the reader looked at another page: the
+ * pasted export, the filters and the ranking all lived in component state, and
+ * leaving the page unmounted the component. Pasting a hundred-row export from a
+ * spreadsheet is not something anyone wants to do twice, so it is written to
+ * this browser and read back on the way in. Nothing leaves the machine, which
+ * is the same promise the page has always made about the data itself.
+ */
+const STORAGE_KEY = "finscope.qs";
+
+interface StoredState {
+  text: string;
+  preset: string;
+  top: string; minScore: string; maxAlerts: string; capMin: string;
+  grades: string[]; sectors: string[];
+  attractiveOnly: boolean; sweetSpotOnly: boolean; winsorise: boolean;
+  sortKey: string; sortDirection: SortDirection;
+}
+
+const DEFAULTS: StoredState = {
+  text: "", preset: "defaut",
+  top: "", minScore: "", maxAlerts: "", capMin: "",
+  grades: [], sectors: [],
+  attractiveOnly: false, sweetSpotOnly: false, winsorise: true,
+  sortKey: "total", sortDirection: "desc",
+};
+
+/** Reads the saved state, treating anything unreadable as nothing saved. */
+function restore(): StoredState {
+  if (typeof window === "undefined") return DEFAULTS;
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as Partial<StoredState> | null;
+    return saved ? { ...DEFAULTS, ...saved } : DEFAULTS;
+  } catch {
+    return DEFAULTS;
+  }
+}
+
 export function QsScreener() {
-  const [text, setText] = useState("");
+  // Read once, on mount, and never again: a lazy initialiser rather than a ref,
+  // so nothing reads a mutable box during render.
+  const [initial] = useState(restore);
+  const [text, setText] = useState(initial.text);
   const [feeding, setFeeding] = useState<"" | "working" | "failed">("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [fileError, setFileError] = useState("");
@@ -60,21 +143,29 @@ export function QsScreener() {
   // The controls, held apart from the result so that changing one re-runs the
   // engine rather than re-sorting a stale set: a filter changes which companies
   // are ranked against each other, and therefore every percentile.
-  const [preset, setPreset] = useState<string>("defaut");
-  const [sort, setSort] = useState("total");
-  const [top, setTop] = useState<string>("");
-  const [minScore, setMinScore] = useState<string>("");
-  const [maxAlerts, setMaxAlerts] = useState<string>("");
-  const [capMin, setCapMin] = useState<string>("");
-  const [grades, setGrades] = useState<string[]>([]);
-  const [sectors, setSectors] = useState<string[]>([]);
-  const [attractiveOnly, setAttractiveOnly] = useState(false);
-  const [sweetSpotOnly, setSweetSpotOnly] = useState(false);
-  const [winsorise, setWinsorise] = useState(true);
+  const [preset, setPreset] = useState<string>(initial.preset);
+  const [top, setTop] = useState<string>(initial.top);
+  const [minScore, setMinScore] = useState<string>(initial.minScore);
+  const [maxAlerts, setMaxAlerts] = useState<string>(initial.maxAlerts);
+  const [capMin, setCapMin] = useState<string>(initial.capMin);
+  const [grades, setGrades] = useState<string[]>(initial.grades);
+  const [sectors, setSectors] = useState<string[]>(initial.sectors);
+  const [attractiveOnly, setAttractiveOnly] = useState(initial.attractiveOnly);
+  const [sweetSpotOnly, setSweetSpotOnly] = useState(initial.sweetSpotOnly);
+  const [winsorise, setWinsorise] = useState(initial.winsorise);
+  /**
+   * Which column the table is ordered by, and which way.
+   *
+   * One piece of state for both the "Rank by" control and the column headers,
+   * because they are the same question asked twice — a reader who sorts by
+   * clicking Value and then opens the control should find Value selected there.
+   */
+  const [sortKey, setSortKey] = useState(initial.sortKey);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(initial.sortDirection);
 
   const filters = useMemo<ScreenerFilters>(() => ({
     preset: preset === "defaut" ? undefined : preset as PresetName,
-    classerPar: sort,
+    classerPar: sortKey,
     top: top === "" ? "" : Number(top),
     minScore: minScore === "" ? "" : Number(minScore),
     maxAlertes: maxAlerts === "" ? "" : Number(maxAlerts),
@@ -84,7 +175,7 @@ export function QsScreener() {
     valoAttractive: attractiveOnly,
     sweetSpot: sweetSpotOnly,
     winsoriser: winsorise,
-  }), [preset, sort, top, minScore, maxAlerts, capMin, grades, sectors, attractiveOnly, sweetSpotOnly, winsorise]);
+  }), [preset, sortKey, top, minScore, maxAlerts, capMin, grades, sectors, attractiveOnly, sweetSpotOnly, winsorise]);
 
   /**
    * The scores, derived from the text and the controls rather than stored.
@@ -103,6 +194,31 @@ export function QsScreener() {
       return { result: null, error: cause instanceof Error ? cause.message : "This table could not be read." };
     }
   }, [text, filters]);
+
+  /** The filtered rows in the direction the reader asked for. */
+  const rows = useMemo(
+    () => result ? sortRowsBy(result.rows, sortKey, sortDirection) : [],
+    [result, sortKey, sortDirection],
+  );
+
+  // Written on every change rather than on unmount: a reader who closes the tab
+  // never unmounts anything, and losing the paste that way is the case this
+  // exists to prevent.
+  useEffect(() => {
+    const state: StoredState = {
+      text, preset, top, minScore, maxAlerts, capMin, grades, sectors,
+      attractiveOnly, sweetSpotOnly, winsorise, sortKey, sortDirection,
+    };
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* A full or blocked store is not worth an error. */ }
+  }, [text, preset, top, minScore, maxAlerts, capMin, grades, sectors, attractiveOnly, sweetSpotOnly, winsorise, sortKey, sortDirection]);
+
+  /** First click on a column shows its best rows; a second click flips it. */
+  function sortBy(key: string) {
+    setExpanded(null);
+    if (key === sortKey) { setSortDirection((current) => current === "asc" ? "desc" : "asc"); return; }
+    setSortKey(key);
+    setSortDirection(naturalDirection(key));
+  }
 
   /**
    * Scores the watchlist this application already holds.
@@ -147,8 +263,8 @@ export function QsScreener() {
   }
 
   function download() {
-    if (!result) return;
-    const blob = new Blob([resultsToCsv(result.rows)], { type: "text/csv;charset=utf-8" });
+    if (!rows.length) return;
+    const blob = new Blob([resultsToCsv(rows)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -211,7 +327,7 @@ export function QsScreener() {
           </select>
         </label>
         <label>Rank by
-          <select value={sort} onChange={(event) => setSort(event.target.value)}>
+          <select value={sortKey} onChange={(event) => sortBy(event.target.value === sortKey ? sortKey : event.target.value)}>
             {QS_SORTS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
           </select>
         </label>
@@ -272,41 +388,30 @@ export function QsScreener() {
 
       <div className="qs-table-head">
         <p className="section-note">
-          {result.rows.length} of {result.all.length} scored{result.rows.length !== result.all.length ? " after filters" : ""}.
+          {rows.length} of {result.all.length} scored{rows.length !== result.all.length ? " after filters" : ""}.
           Percentiles are measured against every company in the table, so adding or removing one moves the others.
           A grade is withheld below {Math.round(QS_COVERAGE_FLOOR * 100)}% data coverage; each alert costs {QS_ALERT_PENALTY} points of the risk-adjusted score.
         </p>
-        <button type="button" onClick={download} disabled={!result.rows.length}>Export CSV</button>
+        <button type="button" onClick={download} disabled={!rows.length}>Export CSV</button>
       </div>
 
       <div className="table-scroll qs-scroll">
         <table className="qs-table">
           <thead>
             <tr>
-              <th scope="col" className="qs-rank">#</th>
-              <th scope="col">Ticker</th>
-              <th scope="col">Sector</th>
-              <th scope="col" className="numeric">Cap</th>
-              {QS_PILLARS.map((pillar) => <th key={pillar} scope="col" className="numeric" title={PILLAR_NOTE[pillar]}>{pillar}</th>)}
-              <th scope="col" className="numeric">Total</th>
-              <th scope="col">Grade</th>
-              <th scope="col">Valuation</th>
-              <th scope="col" className="numeric" title={`The total less ${QS_ALERT_PENALTY} points per alert`}>R.adj</th>
-              <th scope="col" className="numeric" title="Share of the weighted metrics this company actually carried">Data</th>
-              <th scope="col" className="numeric" title="Rank within its own sector, where the sector has enough companies to rank">Sect</th>
-              <th scope="col" className="numeric">Alerts</th>
-              <th scope="col" title="Above the universe median on both Quality and Value">Q+V</th>
+              {COLUMNS.map((column) => <SortableHeader key={column.key} column={column}
+                active={sortKey === column.key} direction={sortDirection} onSort={() => sortBy(column.key)}/>)}
             </tr>
           </thead>
           <tbody>
-            {result.rows.map((row) => <QsTableRow key={row.Ticker} row={row}
+            {rows.map((row) => <QsTableRow key={row.Ticker} row={row}
               open={expanded === row.Ticker}
               onToggle={() => setExpanded((current) => current === row.Ticker ? null : row.Ticker)}/>)}
           </tbody>
         </table>
       </div>
 
-      {!result.rows.length && <p className="simple-state">No company passes these filters. Loosen one above.</p>}
+      {!rows.length && <p className="simple-state">No company passes these filters. Loosen one above.</p>}
     </>}
   </div>;
 }

@@ -214,3 +214,144 @@ export async function fetchIntraday(symbol: string, name: string): Promise<Intra
   }
   throw new Error(`Yahoo Finance returned ${lastStatus || "no response"}.`);
 }
+
+/* ---- Longer windows ----------------------------------------------------
+   The session above answers "what is the market doing right now". Everything
+   below answers "and what has it done since", which is a different question
+   with a different baseline: a day is measured from yesterday's close, and a
+   month is measured from where it started. */
+
+export type MarketRange = "1D" | "5D" | "1M" | "6M" | "1Y" | "5Y";
+
+/**
+ * What to ask Yahoo for, per window.
+ *
+ * The interval is chosen so every window comes back as roughly one to three
+ * hundred points: enough that the shape of the period is honest, few enough
+ * that the line is not drawing several pixels per point. A five-year chart at
+ * daily resolution would be 1,250 points across 400 pixels, which is three
+ * points per pixel and a fatter line, not a more accurate one.
+ */
+const RANGE_QUERY: Record<MarketRange, { range: string; interval: string }> = {
+  "1D": { range: "5d", interval: "5m" },
+  "5D": { range: "5d", interval: "15m" },
+  "1M": { range: "1mo", interval: "1d" },
+  "6M": { range: "6mo", interval: "1d" },
+  "1Y": { range: "1y", interval: "1d" },
+  "5Y": { range: "5y", interval: "1wk" },
+};
+
+export const MARKET_RANGES = Object.keys(RANGE_QUERY) as MarketRange[];
+
+export interface MarketPoint {
+  /** Epoch seconds. */
+  time: number;
+  /** Exchange-local, "HH:MM" within a day and "YYYY-MM-DD" across days. */
+  label: string;
+  close: number;
+}
+
+export interface MarketWindow {
+  symbol: string;
+  name: string;
+  currency: string;
+  timezone: string;
+  range: MarketRange;
+  points: MarketPoint[];
+  /**
+   * The level the window is measured from.
+   *
+   * Yesterday's official close for a single day, because that is what "up
+   * today" means; the first point of the window for anything longer, because
+   * that is what "up this month" means. Naming it once here is what keeps the
+   * chart's dashed line and the headline percentage from disagreeing.
+   */
+  baseline: number | null;
+  last: number | null;
+  change: number | null;
+  changePercent: number | null;
+  /** Whether the exchange is trading right now. Only meaningful intraday. */
+  open: boolean;
+  asOf: number | null;
+  /** The session a single-day window covers. */
+  sessionDate: string;
+}
+
+/**
+ * One index over a chosen window, as a line.
+ *
+ * Deliberately close/only: the high and low of a five-minute bar were never
+ * legible at panel width, and across a year they are noise around a shape the
+ * closes already describe. Bars with no trade are dropped rather than drawn at
+ * zero, which would put a spike through every chart.
+ */
+export async function fetchMarketWindow(symbol: string, name: string, range: MarketRange = "1D"): Promise<MarketWindow> {
+  const query = RANGE_QUERY[range] ?? RANGE_QUERY["1D"];
+  const path = `/v8/finance/chart/${encodeURIComponent(symbol)}?range=${query.range}&interval=${query.interval}`;
+  let lastStatus = 0;
+  for (const base of BASE_URLS()) {
+    const response = await fetch(`${base}${path}`, {
+      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 FinScope/1.0" },
+    });
+    lastStatus = response.status;
+    if (!response.ok) continue;
+    const result = IntradaySchema.parse(await response.json()).chart.result?.[0];
+    if (!result) continue;
+
+    const offset = result.meta.gmtoffset;
+    const quote = result.indicators.quote[0] ?? {};
+    const stamps = result.timestamp ?? [];
+    const intraday = range === "1D" || range === "5D";
+
+    const all: MarketPoint[] = [];
+    for (let index = 0; index < stamps.length; index++) {
+      const close = quote.close?.[index];
+      if (close == null) continue;
+      all.push({
+        time: stamps[index],
+        label: intraday ? localTime(stamps[index], offset) : localDate(stamps[index], offset),
+        close,
+      });
+    }
+
+    const sessionDate = all.length
+      ? localDate(all[all.length - 1].time, offset)
+      : localDate(Math.floor(Date.now() / 1000), offset);
+
+    // A single day keeps only that day, and measures from the official close
+    // before it. Anything longer keeps the whole window and measures from where
+    // the window opened.
+    const points = range === "1D"
+      ? all.filter((point) => localDate(point.time, offset) === sessionDate)
+      : all;
+
+    let baseline: number | null;
+    if (range === "1D") {
+      const previous = all.filter((point) => localDate(point.time, offset) < sessionDate).at(-1)?.close;
+      baseline = result.meta.previousClose ?? previous ?? null;
+    } else {
+      baseline = points[0]?.close ?? null;
+    }
+
+    const last = (range === "1D" ? result.meta.regularMarketPrice : null) ?? points.at(-1)?.close ?? null;
+    const regular = result.meta.currentTradingPeriod?.regular;
+    const now = Math.floor(Date.now() / 1000);
+
+    return {
+      symbol: result.meta.symbol,
+      name,
+      currency: result.meta.currency,
+      timezone: result.meta.exchangeTimezoneName,
+      range,
+      points,
+      baseline,
+      last,
+      change: last != null && baseline != null ? last - baseline : null,
+      changePercent: last != null && baseline != null && baseline !== 0 ? (last - baseline) / baseline : null,
+      open: regular ? now >= regular.start && now < regular.end : false,
+      asOf: result.meta.regularMarketTime ?? null,
+      sessionDate,
+    };
+  }
+  throw new Error(`Yahoo Finance returned ${lastStatus || "no response"}.`);
+}

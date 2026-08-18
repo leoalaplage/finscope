@@ -68,8 +68,11 @@ export function datasetKey(ticker: string) {
  * to be parsed from raw XBRL again.
  *
  * s2: carries each company's QS Screener row.
+ * s3: carries the three five-year figures the watchlist card shows — free cash
+ *     flow margin after stock-based compensation, cash return on capital, and
+ *     the compound growth of free cash flow per share.
  */
-const SUMMARY_SHAPE = "s2";
+const SUMMARY_SHAPE = "s3";
 
 /**
  * The card-sized digest stored beside each dataset.

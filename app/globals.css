@@ -293,12 +293,49 @@ tbody tr:last-child > * { border-bottom: 0; }
 .series-option-name i { flex: none; width: 9px; height: 9px; border-radius: 50%; }
 .series-options-note { margin-top: 10px; }
 .chart-stack { display: grid; gap: 10px; margin-bottom: 18px; }
-.chart-stack.grid { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-.chart-panel { border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); overflow: hidden; }
+.chart-stack.grid { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+.chart-panel { display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); overflow: hidden; }
 .chart-panel-label { padding: 9px 14px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: var(--fs-micro); font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
-.chart-canvas { width: 100%; height: 380px; padding: 6px 4px 2px; }
-.chart-canvas.compact { height: 230px; }
-.chart-canvas.tiny { height: 190px; }
+/*
+ * Taller plots.
+ *
+ * A chart 380px high across 1300px of page is a strip: the vertical movement
+ * that is the whole point gets three hundred pixels while the date axis gets
+ * thirteen hundred, and every series looks flat. These heights are closer to
+ * the shape of the data than to the shape of the container, and in the grid
+ * the panels are wide enough and tall enough to read as plots rather than
+ * thumbnails.
+ */
+/* No `flex: 1` here: a flex basis of zero would beat the height below and
+   collapse the plot to nothing in the ordinary, un-expanded case. The canvas
+   only grows to fill its panel when the overlay gives the panel a height. */
+.chart-canvas { width: 100%; height: 540px; padding: 6px 4px 2px; }
+.chart-canvas.compact { height: 380px; }
+.chart-canvas.tiny { height: 320px; }
+
+/*
+ * Full screen, as an overlay rather than a browser mode.
+ *
+ * The panel grows to whatever is left after the bar, so one chart fills the
+ * window and a grid of them shares it — which is the point of asking for the
+ * whole screen in the first place.
+ */
+.chart-stack.expanded {
+  position: fixed; z-index: 60; inset: 0; margin: 0;
+  grid-template-rows: auto 1fr;
+  gap: 12px; padding: 14px 16px 18px;
+  background: var(--background); overflow: auto;
+}
+.chart-stack.expanded.grid { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); grid-template-rows: auto; align-content: start; }
+.chart-stack.expanded.grid .chart-stack-bar { grid-column: 1 / -1; }
+.chart-stack.expanded .chart-canvas,
+.chart-stack.expanded .chart-canvas.compact,
+.chart-stack.expanded .chart-canvas.tiny { flex: 1; height: auto; min-height: 300px; }
+.chart-stack.expanded.grid .chart-canvas { flex: none; height: 46vh; }
+.chart-stack-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.chart-stack-bar b { font-size: var(--fs-lg); font-weight: 650; letter-spacing: -.015em; }
+.chart-stack-bar button { display: inline-flex; align-items: center; gap: 8px; }
+.chart-stack-bar button small { display: inline-block; padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-size: var(--fs-micro); }
 .chart-tooltip { min-width: 190px; padding: 9px 13px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-pop); font-size: var(--fs-sm); }
 .chart-tooltip b { display: block; margin-bottom: 6px; color: var(--muted); font-size: var(--fs-xs); font-weight: 600; }
 .chart-tooltip span { display: grid; grid-template-columns: 9px 1fr auto; align-items: center; gap: 8px; padding: 2px 0; }
@@ -360,6 +397,10 @@ tbody tr:last-child > * { border-bottom: 0; }
 .company-cards li:hover .company-card-remove, .company-card-remove:focus-visible { opacity: 1; }
 .company-card-remove:hover { background: var(--grid); color: var(--danger); }
 .portfolio-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 32px; }
+/* The window sits above the figures it governs, not beside a chart below them. */
+.portfolio-window { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 14px; }
+.portfolio-window h2 { margin: 0; font-size: var(--fs-lg); font-weight: 650; }
+.portfolio-period { margin-bottom: 32px; }
 .portfolio-summary article { padding: 13px 15px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); }
 .portfolio-summary span { display: block; color: var(--muted); font-size: var(--fs-micro); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .portfolio-summary strong { display: block; margin: 5px 0 3px; font-size: var(--fs-xl); font-weight: 650; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
@@ -410,8 +451,8 @@ tbody tr:last-child > * { border-bottom: 0; }
   .anchor-nav { top: 54px; }
   .page-heading, .company-title, .section-heading, .panel-head, .view-title { align-items: flex-start; flex-direction: column; gap: 10px; }
   .workspace-chart-header { flex-direction: column; }
-  .chart-canvas { height: 300px; }
-  .chart-canvas.compact { height: 210px; }
+  .chart-canvas { height: 420px; }
+  .chart-canvas.compact { height: 320px; }
   .range-buttons { margin-left: 0; }
   .resolve-results > div, .watchlist-row { grid-template-columns: 1fr auto; }
   .import-progress { grid-column: 1 / -1; }
@@ -432,8 +473,10 @@ tbody tr:last-child > * { border-bottom: 0; }
   .series-toggle { flex: 1; min-width: 0; }
   .series-option-row { grid-template-columns: 1fr 1fr; }
   .series-option-name { grid-column: 1 / -1; }
-  .chart-canvas { height: 260px; }
-  .chart-canvas.compact { height: 190px; }
+  .chart-canvas { height: 340px; }
+  .chart-canvas.compact { height: 260px; }
+  .chart-stack.expanded { padding: 10px 10px 14px; }
+  .chart-stack.expanded.grid .chart-canvas { height: 42vh; }
   .dcf-results-grid, .metrics-grid, .valuation-grid, .quality-grid, .dcf-history-grid, .price-proof { grid-template-columns: 1fr; }
   .site-footer { gap: 16px; }
   .advanced-panel label { grid-template-columns: 1fr; }
@@ -724,6 +767,8 @@ tbody tr:last-child > * { border-bottom: 0; }
 .company-card-head b { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -.01em; }
 .company-card-name { font-size: var(--fs-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .company-card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+/* The third figure has a long label and no neighbour; it takes the row. */
+.company-card-wide { grid-column: 1 / -1; }
 .company-card-stats > span { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-body); font-weight: 600; font-variant-numeric: tabular-nums; }
 .company-card-stats small { font-size: var(--fs-micro); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
 .company-card-state { font-size: var(--fs-xs); color: var(--muted); }
@@ -804,8 +849,20 @@ tbody tr:last-child > * { border-bottom: 0; }
 
 .qs-table { font-size: var(--fs-base); }
 .qs-table th, .qs-table td { padding: 7px 10px; white-space: nowrap; vertical-align: middle; }
-.qs-table thead th { text-align: right; }
-.qs-table thead th:nth-child(-n+3), .qs-table thead th:nth-child(n+11) { text-align: left; }
+/* A header is a control now: it says how the table is ordered and changes it. */
+.qs-table thead th { padding: 0; text-align: right; }
+.qs-table thead th button {
+  display: inline-flex; align-items: center; gap: 5px; width: 100%;
+  min-height: 34px; padding: 7px 10px; border: 0; border-radius: 0;
+  background: transparent; color: inherit;
+  font: inherit; letter-spacing: inherit; text-transform: inherit;
+  justify-content: flex-end; white-space: nowrap;
+}
+.qs-table thead th:nth-child(-n+3) button, .qs-table thead th:nth-child(n+11) button { justify-content: flex-start; }
+.qs-table thead th button:hover:not(:disabled) { background: var(--control-hover); color: var(--text); }
+.qs-table thead th button span { color: var(--border-strong); font-size: 10px; }
+.qs-table thead th.sorted button { color: var(--accent); }
+.qs-table thead th.sorted button span { color: var(--accent); }
 .qs-table .qs-rank { width: 1%; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
 .qs-table tbody th[scope="row"] { padding-right: 6px; }
 .qs-sector { max-width: 170px; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
@@ -876,10 +933,9 @@ tbody tr:last-child > * { border-bottom: 0; }
 .index-panel.up { color: var(--accent); }
 .index-panel.down { color: var(--danger); }
 
-.index-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.index-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.index-head h2 { margin: 0; color: var(--text); font-size: var(--fs-h3); font-weight: 650; letter-spacing: -.01em; }
-.index-date { color: var(--muted); font-size: var(--fs-xs); }
+/* The name on the left, what it did on the right, and the chart under both. */
+.index-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.index-head h2 { margin: 0; color: var(--text); font-size: var(--fs-lg); font-weight: 650; letter-spacing: -.015em; }
 .index-quote { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .index-quote strong { color: var(--text); font-size: var(--fs-xl); font-weight: 650; letter-spacing: -.015em; font-variant-numeric: tabular-nums; }
 .index-change { font-size: var(--fs-sm); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -900,13 +956,7 @@ tbody tr:last-child > * { border-bottom: 0; }
 .index-times { position: relative; height: 18px; padding-top: 4px; color: var(--muted); font-size: var(--fs-xs); }
 .index-times span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 
-/* Relative volume, as one line under the session rather than a column beside
-   it: a label, a bar and the number it stands for. */
-.index-foot { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--muted); font-size: var(--fs-xs); }
-.index-foot span { white-space: nowrap; }
-.index-foot .index-gauge-track { flex: 1; height: 4px; min-width: 40px; border-radius: var(--radius-pill); background: var(--grid); overflow: hidden; }
-.index-foot .index-gauge-track i { display: block; height: 100%; border-radius: var(--radius-pill); background: var(--border-strong); }
-.index-foot b { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
+.market-ranges { display: flex; margin-bottom: 16px; }
 
 .market-foot { max-width: 82ch; margin-top: 18px; color: var(--muted); font-size: var(--fs-xs); }
 
@@ -987,6 +1037,7 @@ tbody tr:last-child > * { border-bottom: 0; }
   .index-panel { padding: 13px 13px 10px; }
   .index-head h2 { font-size: var(--fs-body); }
   .index-quote strong { font-size: var(--fs-lg); }
+  .market-ranges .segmented { width: 100%; justify-content: space-between; }
 
   .market-status { margin-top: 4px; }
 }

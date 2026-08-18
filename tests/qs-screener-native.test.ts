@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { QS_METRICS, QS_PILLARS, resultsToCsv, scoreColour, scoreInk, screen, sectorsOf } from "../lib/qs/screener";
+import { QS_METRICS, QS_PILLARS, naturalDirection, resultsToCsv, scoreColour, scoreInk, screen, sectorsOf, sortRowsBy } from "../lib/qs/screener";
 
 /**
  * The engine lives in two places and must never differ between them.
@@ -136,5 +136,40 @@ describe("rendering the scores", () => {
   it("offers every metric the engine weights", () => {
     expect(QS_METRICS.length).toBeGreaterThan(20);
     expect(new Set(QS_METRICS.map((metric) => metric.pilier))).toEqual(new Set(QS_PILLARS));
+  });
+});
+
+describe("ordering the table by a column", () => {
+  it("opens a column in the direction that puts its best rows on top", () => {
+    // The engine already knows which way each ranking reads; a header must not
+    // decide it a second time and disagree.
+    expect(naturalDirection("total")).toBe("desc");
+    expect(naturalDirection("alertes")).toBe("asc");
+    expect(naturalDirection("ticker")).toBe("asc");
+  });
+
+  it("sorts both ways, and keeps companies with no value at the bottom of each", () => {
+    const rows = screen(TABLE).all;
+    const down = sortRowsBy(rows, "Value", "desc").map((row) => row.Ticker);
+    const up = sortRowsBy(rows, "Value", "asc").map((row) => row.Ticker);
+    expect(down).toEqual([...up].reverse());
+    expect(down[0]).not.toBe(down.at(-1));
+  });
+
+  it("never promotes a missing value by reversing", () => {
+    const rows = screen(TABLE).all;
+    // WEAK carries no interest-coverage figure in this table, so its sector
+    // rank is the column with a genuine absence: whichever way it points, an
+    // absent value stays last rather than becoming the winner.
+    const blanked = rows.map((row) => row.Ticker === "WEAK" ? { ...row, total: null } : row);
+    for (const direction of ["asc", "desc"] as const) {
+      expect(sortRowsBy(blanked, "total", direction).at(-1)!.Ticker).toBe("WEAK");
+    }
+  });
+
+  it("sorts text columns alphabetically rather than numerically", () => {
+    const rows = screen(TABLE).all;
+    expect(sortRowsBy(rows, "ticker", "asc").map((row) => row.Ticker))
+      .toEqual([...rows.map((row) => row.Ticker)].sort());
   });
 });

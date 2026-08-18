@@ -1,4 +1,4 @@
-import { derivedValue } from "./finance";
+import { cagrForPeriods, derivedValue } from "./finance";
 import { qsPriceInputs, qsRow, type QsPriceInputs } from "./qs-export";
 import type { CompanyDataset, FinancialPeriod } from "./types";
 
@@ -31,6 +31,23 @@ export interface WatchlistSummary {
   cashReturnOnCapital: number | null;
   netDebt: number | null;
   /**
+   * The three figures the card actually shows, all measured over five years.
+   *
+   * A single year's margin moves with one heavy investment year and a single
+   * year's return moves with one acquisition, so a card built from the latest
+   * reading ranks companies by whichever of them happened to have a quiet
+   * twelve months. Five years is short enough to still describe the business
+   * as it is now and long enough that one year cannot carry it.
+   *
+   * The margin is stated after stock-based compensation because that is the
+   * cash the owner actually keeps: pay settled in shares never leaves the cash
+   * flow statement, so a margin before it credits the company with money it
+   * handed to its employees.
+   */
+  freeCashFlowAfterSbcMargin5Y: number | null;
+  cashReturnOnCapital5Y: number | null;
+  freeCashFlowPerShareCagr5Y: number | null;
+  /**
    * The company's row of the QS Screener's table, minus the four columns that
    * need a live price. Computed here so the screener can score the watchlist
    * without anyone pasting an export of it from somewhere else.
@@ -41,6 +58,19 @@ export interface WatchlistSummary {
 
 const sorted = (dataset: CompanyDataset, periodicity: FinancialPeriod["periodicity"]) =>
   dataset.periods.filter((period) => period.periodicity === periodicity).sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+
+/**
+ * The mean of a metric over the last five reported years.
+ *
+ * Three years is the floor rather than five, because a company that listed four
+ * years ago has a real five-year-average-shaped answer and refusing it would
+ * leave the card emptier than the filings warrant. Fewer than three is an
+ * average of one good year and is not reported.
+ */
+function fiveYearAverage(annual: FinancialPeriod[], metric: string): number | null {
+  const values = annual.slice(-5).map((period) => derivedValue(period, metric)).filter((value): value is number => value != null && Number.isFinite(value));
+  return values.length < 3 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
+}
 
 /** Trailing twelve months where the filings support it, the last year otherwise. */
 export function summaryPeriod(dataset: CompanyDataset): FinancialPeriod | undefined {
@@ -67,6 +97,9 @@ export function summariseDataset(dataset: CompanyDataset): WatchlistSummary | nu
     freeCashFlowMargin: derivedValue(period, "freeCashFlowMargin"),
     cashReturnOnCapital: derivedValue(period, "cashReturnOnCapital"),
     netDebt: derivedValue(period, "netDebt"),
+    freeCashFlowAfterSbcMargin5Y: fiveYearAverage(annual, "freeCashFlowAfterSbcMargin"),
+    cashReturnOnCapital5Y: fiveYearAverage(annual, "cashReturnOnCapital"),
+    freeCashFlowPerShareCagr5Y: cagrForPeriods(annual, "freeCashFlowPerShare", 5).value,
     qs: qsRow(dataset, null).values,
     qsPrice: qsPriceInputs(dataset),
   };

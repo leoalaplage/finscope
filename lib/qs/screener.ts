@@ -119,6 +119,62 @@ export function sortRows(rows: ScoredCompany[], criterion: string): ScoredCompan
   return trier(rows, criterion) as ScoredCompany[];
 }
 
+export type SortDirection = "asc" | "desc";
+
+interface Criterion { valeur: (row: ScoredCompany) => number | string | null | undefined; sens: number; texte?: boolean }
+
+/**
+ * What each column means, taken from the engine rather than restated.
+ *
+ * `CRITERES_TRI` already carries an accessor and a natural direction for every
+ * ranking the screener offers, and those are exactly the columns on screen.
+ * Reading them from there means a column header sorts by the same definition
+ * the "Rank by" control uses, and that adding a criterion to the engine offers
+ * it in both places at once.
+ *
+ * Two columns have no criterion because they are not rankings the engine ever
+ * offered: the leading rank number, which is the total order by another name,
+ * and the "above median on both Quality and Value" mark, which is a flag rather
+ * than a score. Both are defined here, where presentation belongs.
+ */
+const LOCAL_CRITERIA: Record<string, Criterion> = {
+  rang: { valeur: (row) => row.rang, sens: 1 },
+  qv_median: { valeur: (row) => (row.qv_median ? 1 : 0), sens: -1 },
+};
+
+const criterionFor = (key: string): Criterion | null =>
+  LOCAL_CRITERIA[key] ?? ((CRITERES_TRI as Record<string, Criterion>)[key] ?? null);
+
+/** The direction a column opens in: the one that puts the best row on top. */
+export function naturalDirection(key: string): SortDirection {
+  return (criterionFor(key)?.sens ?? -1) < 0 ? "desc" : "asc";
+}
+
+/**
+ * Sorts by any column, in either direction, with absences always last.
+ *
+ * The engine's own `trier` is deliberate about missing data — a company with no
+ * value for a column is neither the best nor the worst at it, so it goes to the
+ * bottom whichever way the column is pointing. Reversing its output would drag
+ * every one of those rows to the top and read as though they had won. This
+ * keeps that rule and applies the direction to the rows that do have a value.
+ */
+export function sortRowsBy(rows: ScoredCompany[], key: string, direction: SortDirection): ScoredCompany[] {
+  const criterion = criterionFor(key);
+  if (!criterion) return rows;
+  const absent = (value: unknown) => value == null || (typeof value === "number" && !Number.isFinite(value));
+  const factor = direction === "asc" ? 1 : -1;
+  return [...rows].sort((left, right) => {
+    const a = criterion.valeur(left), b = criterion.valeur(right);
+    if (absent(a) && absent(b)) return 0;
+    if (absent(a)) return 1;
+    if (absent(b)) return -1;
+    return criterion.texte
+      ? factor * String(a).localeCompare(String(b), "en")
+      : factor * ((a as number) - (b as number));
+  });
+}
+
 /**
  * The three-colour scale the printed dashboard used, as a CSS colour.
  *

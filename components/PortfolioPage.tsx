@@ -188,6 +188,25 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
   // or every purchase reads as a gain the reader did not make.
   const returnSeries = useMemo(() => timeWeightedSeries(series, flows), [series, flows]);
   const returnStats = useMemo(() => seriesStats(returnSeries), [returnSeries]);
+  /**
+   * What the book was worth across the window, deposits and all.
+   *
+   * Held apart from the return above, because they are two different questions
+   * that a single percentage cannot answer at once. Value is what the account
+   * says: it rises when the market rises and it rises when you pay money in.
+   * Return is what the money did: it strips the paying-in out, so a book that
+   * doubled because its owner deposited as much again reads as flat, which is
+   * the truth about the investing even though the account really did double.
+   */
+  const valueStats = useMemo(() => seriesStats(series), [series]);
+  /** Money paid in less money taken out inside the window, which is the gap. */
+  const netContribution = useMemo(() => {
+    if (series.length < 2) return 0;
+    const from = series[0].date, to = series.at(-1)!.date;
+    let total = 0;
+    for (const [date, amount] of flows) if (date > from && date <= to) total += amount;
+    return total;
+  }, [flows, series]);
   const benchmarkStats = useMemo(() => {
     const history = benchmark ? histories[benchmark] ?? [] : [];
     if (!history.length || !series.length) return null;
@@ -249,15 +268,55 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
       <article><span>Effective holdings</span><strong>{spread.effectiveHoldings == null ? "—" : spread.effectiveHoldings.toFixed(1)}</strong><small>Equal-sized positions this book behaves like</small></article>
     </section>
 
-    {series.length > 1 && <section className="portfolio-summary">
-      {/* Every figure here is the deposit-free one. The raw value line doubles
-          when the reader pays in, and quoting that as a return would be a
-          straightforward lie about how the book performed. */}
-      <article><span>Return · {window}</span><strong>{percent(returnStats.change)}</strong><small>From {returnStats.start?.date}{benchmarkStats?.change != null ? ` · index ${percent(benchmarkStats.change)}` : ""}</small></article>
-      <article><span>CAGR · {window}</span><strong>{percent(returnStats.cagr)}</strong><small>{returnStats.years == null ? "" : `Over ${returnStats.years.toFixed(1)} years`}{benchmarkStats?.cagr != null ? ` · index ${percent(benchmarkStats.cagr)}` : ""}</small></article>
-      <article><span>Worst drawdown</span><strong>{percent(returnStats.drawdown)}</strong><small>{returnStats.drawdownDate ? `Bottomed ${returnStats.drawdownDate}, measured from the running peak` : "No fall from a peak inside this window"}</small></article>
-      <article><span>Best / worst {frequency === "daily" ? "day" : "week"}</span><strong>{returnStats.bestStep == null ? "—" : `${percent(returnStats.bestStep)} / ${percent(returnStats.worstStep)}`}</strong><small>The largest single steps in the window</small></article>
-    </section>}
+    {series.length > 1 && <>
+      {/*
+        * The window governs everything below it, so it sits above everything
+        * below it. It used to live beside the chart at the bottom of the page,
+        * where a reader could read "Return · 5Y" without ever seeing what had
+        * chosen the five years.
+        */}
+      <div className="portfolio-window">
+        <h2>Over the last</h2>
+        <div className="segmented" role="group" aria-label="Time window">
+          {WINDOWS.map((item) => <button key={item.id} type="button" className={window === item.id ? "active" : ""}
+            aria-pressed={window === item.id} onClick={() => setWindow(item.id)}>{item.id}</button>)}
+        </div>
+      </div>
+
+      {/*
+        * Value first, then return, and never the two mixed.
+        *
+        * The account balance and the investing result are different numbers
+        * whenever money has been paid in or taken out, and the difference is
+        * exactly the net contribution stated underneath. Showing only one of
+        * them is how a reader ends up believing either that they are a genius
+        * for making a deposit, or that a good year did nothing.
+        */}
+      <section className="portfolio-summary portfolio-period" aria-label={`Value over ${window}`}>
+        <article>
+          <span>Value now</span>
+          <strong>{money(valueStats.end?.value ?? null)}</strong>
+          <small>{valueStats.start ? `From ${money(valueStats.start.value)} on ${valueStats.start.date}` : "—"}</small>
+        </article>
+        <article className={valueStats.end == null || valueStats.start == null ? "" : valueStats.end.value >= valueStats.start.value ? "up" : "down"}>
+          <span>Change in value · {window}</span>
+          <strong>{valueStats.start && valueStats.end
+            ? `${valueStats.end.value >= valueStats.start.value ? "+" : "−"}${money(Math.abs(valueStats.end.value - valueStats.start.value))}`
+            : "—"}</strong>
+          <small>{Math.abs(netContribution) < 1
+            ? "No money paid in or taken out in this window"
+            : `Includes ${netContribution >= 0 ? "" : "−"}${money(Math.abs(netContribution))} ${netContribution >= 0 ? "paid in" : "taken out"}`}</small>
+        </article>
+        <article className={returnStats.change == null ? "" : returnStats.change >= 0 ? "up" : "down"}>
+          <span>Return · {window}</span>
+          <strong>{percent(returnStats.change)}</strong>
+          <small>What the money did, with deposits stripped out{benchmarkStats?.change != null ? ` · index ${percent(benchmarkStats.change)}` : ""}</small>
+        </article>
+        <article><span>CAGR · {window}</span><strong>{percent(returnStats.cagr)}</strong><small>{returnStats.years == null ? "" : `Over ${returnStats.years.toFixed(1)} years`}{benchmarkStats?.cagr != null ? ` · index ${percent(benchmarkStats.cagr)}` : ""}</small></article>
+        <article><span>Worst drawdown</span><strong>{percent(returnStats.drawdown)}</strong><small>{returnStats.drawdownDate ? `Bottomed ${returnStats.drawdownDate}, measured from the running peak` : "No fall from a peak inside this window"}</small></article>
+        <article><span>Best / worst {frequency === "daily" ? "day" : "week"}</span><strong>{returnStats.bestStep == null ? "—" : `${percent(returnStats.bestStep)} / ${percent(returnStats.worstStep)}`}</strong><small>The largest single steps in the window</small></article>
+      </section>
+    </>}
 
     {!transactions.length && <p className="simple-state">No trades yet. Record a purchase below to see what your money owns.</p>}
 
@@ -307,10 +366,9 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
 
       <section className="plain-section">
         <div className="section-heading">
-          <h2>Value through time</h2>
-          <div className="segmented" role="group" aria-label="Window">
-            {WINDOWS.map((item) => <button key={item.id} type="button" className={window === item.id ? "active" : ""} onClick={() => setWindow(item.id)}>{item.id}</button>)}
-          </div>
+          {/* The window is chosen once, at the top, where it can be seen to
+              govern the figures it governs. */}
+          <h2>Value through time · {window}</h2>
           <div className="segmented" role="group" aria-label="Compare against">
             <button type="button" className={benchmark === "" ? "active" : ""} onClick={() => setBenchmark("")}>Portfolio only</button>
             {BENCHMARKS.map((item) => <button key={item.ticker} type="button" className={benchmark === item.ticker ? "active" : ""} onClick={() => setBenchmark(item.ticker)}>vs {item.label}</button>)}

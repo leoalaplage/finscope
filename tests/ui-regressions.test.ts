@@ -191,10 +191,63 @@ describe("the redesign", () => {
     const source = readFileSync(new URL("../components/MarketPage.tsx", import.meta.url), "utf8");
     expect(source).toContain('className="index-line"');
     expect(source).not.toContain("index-candle");
-    expect(source).toContain("bars.map((bar) => bar.close)");
+    expect(source).toContain("points.map((point) => point.close)");
     const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
     // Line, dot and badge take the panel's direction from one place.
     expect(css).toContain(".index-panel.up { color: var(--accent); }");
+  });
+
+  it("keeps the screener's table and its settings between visits", () => {
+    // Pasting a hundred-row export is not something anyone wants to do twice,
+    // and leaving the page used to unmount the component and lose all of it.
+    const source = readFileSync(new URL("../components/QsScreener.tsx", import.meta.url), "utf8");
+    expect(source).toContain('const STORAGE_KEY = "finscope.qs"');
+    expect(source).toContain("localStorage.setItem(STORAGE_KEY");
+    // Every column header orders the table, both ways.
+    expect(source).toContain("SortableHeader");
+    expect(source).toContain('aria-sort=');
+    expect(source).toContain("sortRowsBy");
+  });
+
+  it("states the portfolio's value and its return as separate answers", () => {
+    // They differ by exactly the money paid in, and quoting either alone is how
+    // a reader comes to believe a deposit was a good year.
+    const source = readFileSync(new URL("../components/PortfolioPage.tsx", import.meta.url), "utf8");
+    expect(source).toContain("Change in value ·");
+    expect(source).toContain("netContribution");
+    expect(source).toContain("with deposits stripped out");
+    // One window control, above the figures it governs.
+    expect(source).toContain('className="portfolio-window"');
+  });
+
+  it("lets a chart fill the window, and draws it taller than a strip", () => {
+    const source = readFileSync(new URL("../components/ChartsWorkspace.tsx", import.meta.url), "utf8");
+    expect(source).toContain("Full screen");
+    expect(source).toContain('event.key === "Escape"');
+    const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+    expect(css).toContain(".chart-stack.expanded {");
+    // A flex basis of zero here would beat the height and collapse the plot.
+    expect(css).toContain(".chart-canvas { width: 100%; height: 540px;");
+  });
+
+  it("puts five-year figures on a watchlist card, and no price", () => {
+    // A price is not a fact about a business, and fetching one per card cost up
+    // to twenty-four requests to fill a column that answered nothing.
+    const home = readFileSync(new URL("../components/HomePage.tsx", import.meta.url), "utf8");
+    expect(home).toContain("freeCashFlowAfterSbcMargin5Y");
+    expect(home).toContain("cashReturnOnCapital5Y");
+    expect(home).toContain("freeCashFlowPerShareCagr5Y");
+    expect(home).not.toContain("/api/price/");
+    expect(home).not.toContain("Market cap");
+  });
+
+  it("gives the market page a window, and the panels nothing but their chart", () => {
+    const source = readFileSync(new URL("../components/MarketPage.tsx", import.meta.url), "utf8");
+    expect(source).toContain("MARKET_RANGES");
+    expect(source).toContain('/api/indices?range=');
+    // The relative-volume gauge and its footnote are gone.
+    expect(source).not.toContain("relativeVolume");
+    expect(source).not.toContain("index-gauge");
   });
 
   it("gives every one-of-N control the same track and thumb", () => {

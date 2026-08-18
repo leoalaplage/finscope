@@ -132,6 +132,26 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, theme, on
   chart: WorkspaceChart; datasets: Record<string, CompanyDataset>; companyErrors: Record<string, string>; fallbackTicker: string; theme: ThemeName;
   onChange: (update: (chart: WorkspaceChart) => WorkspaceChart) => void; onRetryCompany: (ticker: string) => void;
 }) {
+  /**
+   * The chart, over the whole window.
+   *
+   * A fixed overlay rather than the Fullscreen API: this application is often
+   * read inside a preview pane or an embedded browser, where a fullscreen
+   * request is either refused or takes over a surface the reader did not mean
+   * to give up. Covering the viewport does what was asked, everywhere, and
+   * Escape gets out of it the way a reader expects.
+   */
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setExpanded(false); };
+    document.addEventListener("keydown", onKey);
+    // The page behind must not scroll while it cannot be seen.
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = previous; };
+  }, [expanded]);
+
   const [bars, setBars] = useState<Record<string, MarketBar[]>>({});
   const [marketErrors, setMarketErrors] = useState<Record<string, string>>({});
   const [periodPrices, setPeriodPrices] = useState<Record<string, PricePoint | null>>({});
@@ -361,6 +381,11 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, theme, on
   return <article className="workspace-chart">
     <header className="workspace-chart-header">
       <div><h2>{title}</h2></div>
+      <div>
+        <button type="button" onClick={() => setExpanded((current) => !current)} aria-pressed={expanded}>
+          {expanded ? "Exit full screen" : "Full screen"}
+        </button>
+      </div>
     </header>
 
     <div className="entity-row" aria-label="Companies on this chart">
@@ -434,7 +459,12 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, theme, on
     </section>
 
     {!drawn.length && <p className="simple-state">{anyLoading ? "Loading data…" : chart.series.length ? "No observations in this window. Widen the time range or pick another metric." : "Add a company and a metric to draw this chart."}</p>}
-    {drawn.length > 0 && <div className={`chart-stack${chart.layout === "grid" && groups.length > 1 ? " grid" : ""}`} ref={surface}>{groups.flatMap((group) => {
+    {drawn.length > 0 && <div className={`chart-stack${chart.layout === "grid" && groups.length > 1 ? " grid" : ""}${expanded ? " expanded" : ""}`} ref={surface}>
+      {expanded && <div className="chart-stack-bar">
+        <b>{title}</b>
+        <button type="button" onClick={() => setExpanded(false)}>Exit full screen<small>Esc</small></button>
+      </div>}
+      {groups.flatMap((group) => {
       const panels = chart.values !== "raw" || chart.overlay || chart.series.some((series) => series.axis !== undefined) ? [0] : [...new Set(group.bundles.map((bundle) => bundle.plan.panel))].sort((a, b) => a - b);
       return panels.map((panel) => {
         const bundles = panels.length === 1 ? group.bundles : group.bundles.filter((bundle) => bundle.plan.panel === panel);
@@ -446,7 +476,8 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, theme, on
           single={groups.length === 1 && panels.length === 1} compact={chart.layout === "grid" && groups.length > 1}
           showBrush={chart.layout !== "grid" && group.key === groups.at(-1)?.key && panel === panels.at(-1) && rows.length > 60}/>;
       });
-    })}</div>}
+      })}
+    </div>}
     <section className="series-chips" aria-label="Series on this chart">{bundles.map((bundle) => {
       const family = unitFamily(bundle.series.metric);
       const latest = bundle.observations.at(-1);
