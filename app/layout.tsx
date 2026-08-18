@@ -34,8 +34,21 @@ export const metadata: Metadata = {
  * Kept as a string rather than a function so it can be inlined verbatim, and
  * deliberately silent on failure: a browser that refuses localStorage should
  * get the default theme, not an exception before the page has rendered.
+ *
+ * `<html>` carries `suppressHydrationWarning` for it. The attribute is changed
+ * here before React hydrates, so the prerendered value and the live one
+ * legitimately differ; React reports such an attribute as one it will not patch
+ * up and keeps the client's — which is the outcome we want, leaving only a
+ * console message to silence. The suppression covers that element's own
+ * attributes and nothing below it.
+ *
+ * It sets the attribute and nothing else. Writing `style.colorScheme` here too
+ * would add an inline style to `<html>` that the prerendered document does not
+ * carry, which React reports as an attribute it will not patch up — and it is
+ * redundant anyway: the stylesheet declares `color-scheme` for each theme, so
+ * the attribute alone already switches it.
  */
-const THEME_BOOT = `try{var t=localStorage.getItem("finscope.theme");if(t==="light"||t==="dark"){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}}catch(e){}`;
+const THEME_BOOT = `try{var t=localStorage.getItem("finscope.theme");if(t==="light"||t==="dark"){document.documentElement.dataset.theme=t}}catch(e){}`;
 
 export default function RootLayout({
   children,
@@ -54,7 +67,7 @@ export default function RootLayout({
      * runs before the body is parsed; it costs no Worker CPU, because this
      * document is a static asset.
      */
-    <html lang="en" data-theme="dark">
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }}/>
       </head>

@@ -128,7 +128,15 @@ describe("the front page must not cost Worker CPU", () => {
     const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
     expect(layout).toContain("THEME_BOOT");
     expect(layout).toContain('finscope.theme');
-    expect(layout).toContain('<html lang="en" data-theme="dark">');
+    // The boot script changes the attribute before hydration, which React
+    // reports on `<html>` and will not patch up; suppressing it there keeps the
+    // client's value and the console quiet. It covers that element only.
+    expect(layout).toContain('<html lang="en" data-theme="dark" suppressHydrationWarning>');
+    // The boot script sets the attribute only: an inline style on `<html>`
+    // would be a second declaration competing with the stylesheet's own.
+    const boot = layout.match(/const THEME_BOOT = `([^`]*)`/)?.[1] ?? "";
+    expect(boot).toContain("dataset.theme");
+    expect(boot).not.toContain("colorScheme");
     const app = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
     expect(app).not.toContain('"☀"');
     expect(app).not.toContain("suppressHydrationWarning");
@@ -159,6 +167,20 @@ describe("the redesign", () => {
     expect(grid).toContain("summariseSeries");
     expect(grid).toContain("exportSvgToPng");
     expect(grid).toContain("kpi-badge");
+  });
+
+  it("draws the QS Screener as a table rather than embedding a picture of one", () => {
+    // The scores were painted onto a canvas inside an iframe: a reader could
+    // not sort a column, select a figure, search the page or have it read out.
+    const source = readFileSync(new URL("../components/QsScreener.tsx", import.meta.url), "utf8");
+    expect(source).not.toContain("<iframe");
+    expect(source).not.toContain("postMessage");
+    expect(source).toContain('className="qs-table"');
+    // The engine is imported, not reimplemented.
+    expect(source).toContain('from "@/lib/qs/screener"');
+    const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+    expect(css).not.toContain(".qs-frame");
+    expect(css).toContain(".qs-score span {");
   });
 
   it("draws the market session as a line rather than as candles", () => {

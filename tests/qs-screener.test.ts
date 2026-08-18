@@ -25,16 +25,22 @@ describe("embedded QS screener", () => {
     expect(result.poids).toEqual({ Quality: 45, Health: 20, Growth: 15, Value: 20 });
   });
 
-  it("sizes the embedded page to its own content and keeps a direct fallback", () => {
+  /**
+   * The screener inside the application is now a table, not a frame.
+   *
+   * The message bridge these assertions used to describe — a ready signal and a
+   * running content height, so an iframe could be sized from outside — has no
+   * subject left in the application. The standalone page at `/qs/` still ships
+   * and still carries it, which is why `qs-embed.js` is checked here rather
+   * than deleted: it is the standalone's own plumbing.
+   */
+  it("keeps the standalone page self-contained, and the application free of it", () => {
     const component = readFileSync(new URL("../components/QsScreener.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
     const embed = readFileSync(new URL("../public/qs/js/qs-embed.js", import.meta.url), "utf8");
-    expect(component).toContain('event.data?.type === "qs-ready"');
-    expect(component).toContain('event.data?.type === "qs-height"');
-    expect(component).toContain('href="/qs/"');
-    expect(css).toContain(".qs-frame");
+    expect(component).not.toContain("postMessage");
+    expect(css).not.toContain(".qs-frame");
     expect(embed).toContain('type: "qs-ready"');
-    expect(embed).toContain('type: "qs-height"');
     expect(embed).toContain("ResizeObserver");
   });
 
