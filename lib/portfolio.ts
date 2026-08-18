@@ -285,3 +285,93 @@ export function seriesStats(series: SeriesPoint[]): SeriesStats {
     years: compounded.years,
   };
 }
+
+/**
+ * The book's market value on every date it can honestly be priced.
+ *
+ * Unlike `portfolioSeries`, which multiplies today's share counts across all of
+ * history, this asks what was actually held on each date. The difference is not
+ * cosmetic: with fixed shares, a position opened this morning is drawn as
+ * though it had been held for ten years, and the line shows a decade of gains
+ * the reader never made. A book whose holdings change is the normal case, and
+ * this is the only series that describes one.
+ *
+ * A date where a held company has no price is skipped rather than carried
+ * forward. Holding the last known price would draw the portfolio moving on a
+ * day part of it did not trade, which is the same reasoning `portfolioSeries`
+ * applies — only now the set of holdings is itself a function of the date.
+ */
+export function holdingsSeries(
+  shareTimeline: Record<string, Array<{ date: string; shares: number }>>,
+  histories: Record<string, SeriesPoint[] | undefined>,
+  from: string | null,
+): SeriesPoint[] {
+  const tickers = Object.keys(shareTimeline);
+  if (!tickers.length) return [];
+
+  const priceMaps = new Map(tickers.map((ticker) => [ticker, new Map((histories[ticker] ?? []).map((point) => [point.date, point.value]))]));
+  // Every date any holding has a price for, from the first trade onwards.
+  const dates = [...new Set(tickers.flatMap((ticker) => (histories[ticker] ?? []).map((point) => point.date)))]
+    .filter((date) => !from || date >= from)
+    .sort();
+
+  const series: SeriesPoint[] = [];
+  for (const date of dates) {
+    let value = 0;
+    let complete = true;
+    for (const ticker of tickers) {
+      const shares = sharesAsOf(shareTimeline[ticker], date);
+      if (shares <= 0) continue;
+      const price = priceMaps.get(ticker)?.get(date);
+      if (price == null) { complete = false; break; }
+      value += shares * price;
+    }
+    if (complete) series.push({ date, value });
+  }
+  return series;
+}
+
+/** The share count on a date, from a timeline sorted ascending. */
+export function sharesAsOf(timeline: Array<{ date: string; shares: number }> | undefined, date: string): number {
+  if (!timeline?.length) return 0;
+  let shares = 0;
+  for (const entry of timeline) {
+    if (entry.date > date) break;
+    shares = entry.shares;
+  }
+  return shares;
+}
+
+/**
+ * The book's return with deposits and withdrawals taken out of it.
+ *
+ * A portfolio that grows from ten thousand to twenty because another nine
+ * thousand was paid in has returned ten percent, not a hundred, and its raw
+ * value line says the opposite. Chaining daily returns — each measured after
+ * removing that day's external flow — gives the figure that describes the
+ * decisions rather than the deposits, which is also the only figure that can be
+ * honestly drawn against an index.
+ *
+ * Rebased to 100 at the start so it sits on the same axis as a rebased index.
+ */
+export function timeWeightedSeries(values: SeriesPoint[], flows: Map<string, number>): SeriesPoint[] {
+  if (values.length < 2) return values.length ? [{ date: values[0].date, value: 100 }] : [];
+  const dated = [...flows.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const series: SeriesPoint[] = [{ date: values[0].date, value: 100 }];
+  let index = 100;
+  for (let step = 1; step < values.length; step++) {
+    const from = values[step - 1].date, to = values[step].date;
+    // Every flow that happened *between* two observations, not merely on the
+    // day of one. A weekly series lands on week boundaries and a trade lands on
+    // a Tuesday, so matching dates exactly found nothing and counted a purchase
+    // as a gain — one seeded book showed a 93% week for buying more stock.
+    const flow = dated.reduce((sum, [date, amount]) => date > from && date <= to ? sum + amount : sum, 0);
+    const previous = values[step - 1].value;
+    if (previous > 0) {
+      const growth = (values[step].value - flow) / previous;
+      if (Number.isFinite(growth) && growth > 0) index *= growth;
+    }
+    series.push({ date: to, value: index });
+  }
+  return series;
+}

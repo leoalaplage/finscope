@@ -289,7 +289,10 @@ tbody tr:last-child > * { border-bottom: 0; }
   .site-header { grid-template-columns: auto 1fr; padding: 0 14px; }
   .site-header nav { justify-self: end; }
   .site-header nav button { padding: 0 12px; }
-  .header-company { display: none; }
+  /* The ticker label goes; the theme toggle it contains must not. */
+  .header-company { position: absolute; top: 10px; right: 12px; font-size: 0; gap: 0; }
+  .header-company .theme-toggle { font-size: var(--fs-body); }
+  .site-header { position: sticky; }
   .site-main { width: min(100% - 24px, 1320px); padding-top: 24px; }
   .company-facts, .dcf-results-grid, .metrics-grid, .valuation-grid, .quality-grid, .dcf-history-grid, .price-proof { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .anchor-nav { top: 54px; }
@@ -305,10 +308,26 @@ tbody tr:last-child > * { border-bottom: 0; }
 }
 
 @media (max-width: 520px) {
-  .site-header { display: block; padding-top: 8px; }
+  .site-header { display: block; padding: 8px 0 0; }
   .wordmark { display: block; text-align: center; }
-  .site-header nav { height: 43px; justify-content: center; }
-  .site-header nav button { flex: 1; }
+  /* Seven destinations do not fit across a phone, and dividing the width by
+     seven gave each about fifty pixels — enough to clip "Watchlist" and
+     "Market" out of existence and to wrap "QS Screener" onto two lines. A
+     scrolling strip keeps every label whole and every target thumb-sized;
+     the fade on the right says there is more to the left and right. */
+  .site-header nav {
+    /* The 850px rule right-aligns this as a grid item. Under the block layout
+       here that alignment has no column to sit in, so the strip kept its
+       content width and hung off the left edge of the screen instead of
+       scrolling — "Watchlist" and "Market" were simply off-screen. */
+    justify-self: auto; width: 100%; box-sizing: border-box;
+    height: 44px; justify-content: flex-start; flex-wrap: nowrap;
+    overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+    padding: 0 14px;
+  }
+  .site-header nav::-webkit-scrollbar { display: none; }
+  .site-header nav button { flex: none; padding: 0 14px; white-space: nowrap; }
+  .wordmark { padding: 0 14px; }
   .company-facts { grid-template-columns: 1fr 1fr; }
   .company-facts div:nth-child(2) { border-right: 0; }
   .chart-controls { display: grid; }
@@ -611,3 +630,148 @@ tbody tr:last-child > * { border-bottom: 0; }
 .kpi-card-footer { display: flex; justify-content: flex-end; gap: 6px; padding: 0 12px 10px; }
 .kpi-card-footer button { min-height: 26px; padding: 0 8px; font-size: var(--fs-xs); border-radius: 999px; color: var(--muted); }
 .kpi-card-footer button:hover { color: var(--text); }
+
+/* ---- Market ---------------------------------------------------------- */
+
+.market-status { display: flex; align-items: center; gap: 8px; }
+.market-status small { display: inline; }
+.market-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); }
+.market-dot.open { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+.index-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+
+.index-panel { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 12px 12px 4px; }
+.index-panel-failed { display: flex; flex-direction: column; gap: 8px; }
+
+.index-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.index-head h2 { margin: 0; font-size: var(--fs-h3); letter-spacing: -.01em; }
+.index-date { color: var(--muted); font-size: var(--fs-xs); }
+.index-change { margin-left: auto; font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
+
+.index-body { display: flex; align-items: stretch; gap: 8px; margin-top: 8px; }
+
+/* The gauge is a scale, so it keeps its own column rather than floating over
+   the chart where it would be read as part of the price axis. */
+.index-gauge { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 42px; flex: none; }
+.index-gauge-track { position: relative; flex: 1; width: 14px; border: 1px solid var(--border); border-radius: 2px; background: var(--background); overflow: hidden; }
+.index-gauge-fill { position: absolute; left: 0; right: 0; bottom: 0; background: #6ba9f5; }
+.index-gauge small { font-size: 9px; line-height: 1.15; text-align: center; text-transform: uppercase; letter-spacing: .02em; }
+
+.index-chart { position: relative; flex: 1; min-width: 0; }
+.index-chart svg { display: block; }
+.index-grid-line, .index-grid { stroke: var(--border); stroke-width: .5; stroke-dasharray: 3 3; }
+.index-axis { fill: var(--muted); font-size: 9px; font-variant-numeric: tabular-nums; }
+.index-prevclose { stroke: var(--danger); stroke-width: .8; stroke-dasharray: 4 3; opacity: .8; }
+
+.index-candle line { stroke-width: 1; }
+.index-candle.up line, .index-candle.up rect { stroke: var(--accent); fill: var(--accent); }
+.index-candle.down line, .index-candle.down rect { stroke: var(--danger); fill: var(--danger); }
+
+.index-last rect { fill: #ffe24d; }
+.index-last text { fill: #1a1a1a; font-size: 9px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* The hour marks sit under the chart in normal text rather than inside the
+   SVG, so they stay legible at whatever width the panel ends up. */
+.index-times { position: relative; height: 18px; padding-top: 2px; color: var(--muted); font-size: var(--fs-xs); }
+.index-times span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+
+.market-foot { color: var(--muted); font-size: var(--fs-xs); margin-top: 14px; }
+
+@media (max-width: 1100px) { .index-grid { grid-template-columns: 1fr; } }
+
+/* ---- Portfolio ledger ------------------------------------------------- */
+
+.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+.ledger-table input[type="date"] { min-width: 132px; }
+.ledger-table select { min-width: 74px; }
+.ledger-table th small { font-weight: 400; }
+/* A carried-over row is dated the day it was migrated, not the day it was
+   bought, and is dimmed so it is never mistaken for a real trade date. */
+.ledger-migrated td, .ledger-migrated th { opacity: .72; }
+.ledger-draft td, .ledger-draft th { background: var(--accent-soft); }
+
+/* ---- Phones ------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+  /* Six summary cards at one per row is a screen and a half of scrolling
+     before the first chart. They are short, tabular things: two across reads
+     faster and still leaves the numbers at full size. */
+  .portfolio-summary { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 22px; }
+  .portfolio-summary article { padding: 10px; }
+  .portfolio-summary strong { font-size: var(--fs-lg); }
+
+  .portfolio-charts { grid-template-columns: 1fr; }
+  .portfolio-charts .kpi-canvas { min-height: 210px; }
+  .portfolio-timeline { height: 260px; padding: 10px 6px 10px 0; }
+
+  /* A scroll container has to be able to be narrower than its table, and a
+     table whose columns each demand their content width cannot be. */
+  .table-scroll { -webkit-overflow-scrolling: touch; }
+  .table-scroll table { min-width: max-content; }
+
+  /* Thumbs, not cursors: the ledger is the one place on the site where a
+     phone user types numbers, and 34px targets are a nuisance to hit. */
+  .ledger-table input, .ledger-table select { min-height: 40px; }
+  .portfolio-shares { width: 84px; }
+
+  .index-panel { padding: 10px 10px 2px; }
+  .index-head h2 { font-size: var(--fs-body); }
+  .index-change { width: 100%; margin-left: 0; }
+
+  .market-status { margin-top: 4px; }
+}
+
+/* Tables on a phone scroll inside their own box; the shadow says so. */
+@media (max-width: 640px) {
+  .table-scroll {
+    background:
+      linear-gradient(to right, var(--surface) 30%, transparent) left / 24px 100% no-repeat,
+      linear-gradient(to left, var(--surface) 30%, transparent) right / 24px 100% no-repeat;
+    background-attachment: local, local;
+  }
+}
+
+/* The ledger stops being a table on a phone -------------------------------
+   Eight columns across a 375px screen means the reader sees the date and
+   nothing else, and has to scroll sideways to reach the field they came to
+   change. Each trade becomes a card instead, with the labels the header row
+   used to carry moved onto the fields themselves. */
+
+@media (max-width: 640px) {
+  .ledger-table, .ledger-table tbody, .ledger-table tr, .ledger-table td, .ledger-table th { display: block; }
+  /* Out-specifies `.table-scroll table { min-width: max-content }` above,
+     which otherwise keeps the card grid as wide as the eight columns it
+     replaced and pushes half of every card off the screen. */
+  .table-scroll .ledger-table { min-width: 0; width: 100%; border-collapse: separate; }
+  .ledger-table thead { display: none; }
+
+  .ledger-table tbody tr {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px;
+    margin-bottom: 10px; padding: 12px; border: 1px solid var(--border);
+    border-radius: var(--radius); background: var(--surface);
+  }
+  .ledger-table tbody tr > *:first-child, .ledger-table tbody tr > *:nth-child(2) { grid-column: span 1; }
+
+  /* The label the column header used to supply. */
+  .ledger-table td[data-label]::before, .ledger-table th[data-label]::before {
+    content: attr(data-label);
+    display: block; margin-bottom: 3px;
+    color: var(--muted); font-size: var(--fs-micro); font-weight: 400;
+    letter-spacing: .05em; text-transform: uppercase;
+  }
+  .ledger-table td[data-label=""]::before { content: none; }
+  .ledger-table td[data-label=""] { grid-column: 1 / -1; }
+  .ledger-table td[data-label=""] button { width: 100%; }
+
+  .ledger-table input, .ledger-table select { width: 100%; box-sizing: border-box; }
+  .ledger-table .portfolio-shares { width: 100%; }
+  /* Cells inherit the alignment of the column they came from, which in a
+     stacked card reads as two halves that cannot agree. The numbers inside
+     the inputs stay right-aligned; everything framing them goes left. */
+  .ledger-table tbody td, .ledger-table tbody th { text-align: left; }
+  .ledger-table th { font-weight: 650; }
+
+  /* The scroll container has nothing left to scroll, and its edge shadows
+     would otherwise sit over the cards. */
+  .ledger-scroll { overflow: visible; background: none; }
+}

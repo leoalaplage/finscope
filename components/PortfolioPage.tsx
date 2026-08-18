@@ -3,11 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { chartPalette, niceTicks, type ThemeName } from "@/lib/charting";
-import { concentration, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, weightedMetric, withinWindow, WINDOWS, type Position, type SeriesPoint, type ValuedPosition, type WindowId } from "@/lib/portfolio";
+import { concentration, holdingsSeries, rebasePair, seriesStats, timeWeightedSeries, valuePortfolio, weightBy, weightedMetric, withinWindow, WINDOWS, type Position, type SeriesPoint, type ValuedPosition, type WindowId } from "@/lib/portfolio";
+import { buildLots, firstTradeDate, flowsByDate, isValidTransaction, newTransactionId, positionsFromTransactions, shareTimeline, sortTransactions, totalRealised, transactionsFromPositions, type Transaction } from "@/lib/transactions";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import type { CompanyProfile, MarketBar, PricePoint } from "@/lib/types";
 
 const STORAGE_KEY = "finscope.portfolio";
+/**
+ * Where the dated book lives.
+ *
+ * A new key rather than a new shape under the old one, so a reader who opens
+ * this build and dislikes it still has their holdings intact under the old key.
+ */
+const LEDGER_KEY = "finscope.portfolio.ledger";
+const today = () => new Date().toISOString().slice(0, 10);
 const BENCHMARKS = [{ ticker: "^GSPC", label: "S&P 500" }, { ticker: "^NDX", label: "Nasdaq 100" }] as const;
 
 const money = (value: number | null, currency = "USD") => value == null || !Number.isFinite(value)
@@ -15,6 +24,26 @@ const money = (value: number | null, currency = "USD") => value == null || !Numb
   : `${value < 0 ? "-" : ""}${currency === "USD" ? "$" : `${currency} `}${new Intl.NumberFormat("en-US", { notation: Math.abs(value) >= 100_000 ? "compact" : "standard", maximumFractionDigits: 2 }).format(Math.abs(value))}`;
 const percent = (value: number | null, digits = 1) => value == null || !Number.isFinite(value) ? "—" : `${(value * 100).toFixed(digits)}%`;
 const ratio = (value: number | null, digits = 2) => value == null || !Number.isFinite(value) ? "—" : `${value.toFixed(digits)}×`;
+
+/**
+ * The ledger, migrating the old dateless holdings the first time it is opened.
+ *
+ * The migration runs once and writes its result straight back, so the old key
+ * is read exactly once in the life of a browser and the invented dates never
+ * get invented twice.
+ */
+function readTransactions(): Transaction[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = JSON.parse(localStorage.getItem(LEDGER_KEY) ?? "null") as unknown;
+    if (Array.isArray(stored)) return stored.filter((entry): entry is Transaction => isValidTransaction(entry as Partial<Transaction>));
+  } catch { /* A corrupt ledger is replaced, not mourned. */ }
+  const migrated = transactionsFromPositions(readPositions(), today());
+  if (migrated.length) {
+    try { localStorage.setItem(LEDGER_KEY, JSON.stringify(migrated)); } catch { /* Private mode. */ }
+  }
+  return migrated;
+}
 
 function readPositions(): Position[] {
   if (typeof window === "undefined") return [];
@@ -60,16 +89,34 @@ const QUALITY: Array<{ key: string; label: string; read: (position: ValuedPositi
 const num = (value: number | string | null | undefined) => typeof value === "number" && Number.isFinite(value) ? value : null;
 
 export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: CompanyProfile[]; theme: ThemeName; onOpen: (ticker: string) => void }) {
-  const [positions, setPositions] = useState<Position[]>(readPositions);
+  const [transactions, setTransactions] = useState<Transaction[]>(readTransactions);
   const [summaries, setSummaries] = useState<Record<string, WatchlistSummary>>({});
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [histories, setHistories] = useState<Record<string, SeriesPoint[]>>({});
   const [benchmark, setBenchmark] = useState<string>("");
-  const [draft, setDraft] = useState({ ticker: "", shares: "", cost: "" });
+  const [draft, setDraft] = useState({ ticker: "", date: today(), kind: "buy" as Transaction["kind"], shares: "", price: "", fee: "" });
   const [window, setWindow] = useState<WindowId>("Max");
   const palette = chartPalette(theme);
 
-  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(positions)); }, [positions]);
+  useEffect(() => { try { localStorage.setItem(LEDGER_KEY, JSON.stringify(transactions)); } catch { /* Private mode. */ } }, [transactions]);
+
+  // What is held now, and what each holding cost, replayed from the ledger.
+  const positions = useMemo(() => positionsFromTransactions(transactions), [transactions]);
+  const lots = useMemo(() => buildLots(transactions), [transactions]);
+  const realised = useMemo(() => totalRealised(transactions), [transactions]);
+  const opened = useMemo(() => firstTradeDate(transactions), [transactions]);
+  const timeline = useMemo(() => shareTimeline(transactions), [transactions]);
+  const flows = useMemo(() => flowsByDate(transactions), [transactions]);
+  // Every ticker the book has ever touched needs a price history, not just the
+  // ones still held: a line that stops when a position is sold is a line that
+  // forgets the money it made.
+  const everTraded = useMemo(() => [...new Set(transactions.map((entry) => entry.ticker.toUpperCase()))], [transactions]);
+  /** Oldest first, which is the order a ledger is read in. */
+  const ledger = useMemo(() => sortTransactions(transactions), [transactions]);
+  const sold = useMemo(() => transactions.filter((entry) => entry.kind === "sell"), [transactions]);
+  /** Held once, held no longer: still part of the record. */
+  const closed = useMemo(() => Object.values(lots).filter((lot) => lot.shares <= 1e-9 && lot.count > 0).sort((a, b) => b.lastDate.localeCompare(a.lastDate)), [lots]);
+  const migratedDates = useMemo(() => transactions.filter((entry) => entry.migrated).length, [transactions]);
 
   useEffect(() => {
     let active = true;
@@ -80,7 +127,7 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
     return () => { active = false; };
   }, []);
 
-  const tickers = positions.map((position) => position.ticker).join("|");
+  const tickers = everTraded.join("|");
   useEffect(() => {
     let active = true;
     const today = new Date().toISOString().slice(0, 10);
@@ -98,12 +145,23 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
   // Weekly closes are enough to draw a portfolio's shape over years without
   // asking for a decade of daily sessions per holding.
   const wanted = [...tickers.split("|").filter(Boolean), ...(benchmark ? [benchmark] : [])].join("|");
+  // A book opened last month cannot be drawn from weekly closes: it would be
+  // four points. The granularity follows the span the ledger actually covers,
+  // and the range starts at the first trade rather than ten years before it.
+  // Measured against the last trade rather than against the clock, so the
+  // choice is a pure function of the ledger and does not change under a
+  // re-render. Two years of trading is where weekly closes stop losing shape.
+  const frequency = useMemo(() => {
+    const last = ledger.at(-1)?.date;
+    if (!opened || !last) return "daily" as const;
+    return (Date.parse(`${last}T00:00:00Z`) - Date.parse(`${opened}T00:00:00Z`)) / 86_400_000 > 730 ? "weekly" as const : "daily" as const;
+  }, [opened, ledger]);
   useEffect(() => {
     let active = true;
     const end = new Date().toISOString().slice(0, 10);
-    const start = `${Number(end.slice(0, 4)) - 10}${end.slice(4)}`;
+    const start = opened ?? `${Number(end.slice(0, 4)) - 10}${end.slice(4)}`;
     for (const ticker of wanted.split("|").filter(Boolean)) {
-      fetch(`/api/market/${encodeURIComponent(ticker)}?start=${start}&end=${end}&frequency=weekly`)
+      fetch(`/api/market/${encodeURIComponent(ticker)}?start=${start}&end=${end}&frequency=${frequency}`)
         .then(async (response) => {
           const payload = await response.json() as { bars?: MarketBar[] };
           if (!response.ok) throw new Error("unavailable");
@@ -116,35 +174,52 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
         .catch(() => active && setHistories((current) => ({ ...current, [ticker]: [] })));
     }
     return () => { active = false; };
-  }, [wanted]);
+  }, [wanted, opened, frequency]);
 
   const names = useMemo(() => Object.fromEntries(watchlist.map((company) => [company.ticker, { name: company.name, sector: company.sector }])), [watchlist]);
   const valued = useMemo(() => valuePortfolio(positions, summaries, prices, names), [positions, summaries, prices, names]);
   const spread = useMemo(() => concentration(valued.positions), [valued]);
   const bySector = useMemo(() => weightBy(valued.positions, (position) => position.sector), [valued]);
-  const full = useMemo(() => portfolioSeries(positions, histories), [positions, histories]);
+  // The value line uses the shares held on each date, so a position opened in
+  // June is not drawn as though it had been there since January.
+  const full = useMemo(() => holdingsSeries(timeline, histories, opened), [timeline, histories, opened]);
   const series = useMemo(() => withinWindow(full, WINDOWS.find((item) => item.id === window)?.years ?? Infinity), [full, window]);
-  const stats = useMemo(() => seriesStats(series), [series]);
+  // Against an index the book has to be measured with its deposits taken out,
+  // or every purchase reads as a gain the reader did not make.
+  const returnSeries = useMemo(() => timeWeightedSeries(series, flows), [series, flows]);
+  const returnStats = useMemo(() => seriesStats(returnSeries), [returnSeries]);
   const benchmarkStats = useMemo(() => {
     const history = benchmark ? histories[benchmark] ?? [] : [];
     if (!history.length || !series.length) return null;
     return seriesStats(history.filter((point) => point.date >= series[0].date && point.date <= series.at(-1)!.date));
   }, [histories, benchmark, series]);
-  const compared = useMemo(() => benchmark && histories[benchmark]?.length ? rebasePair(series, histories[benchmark]) : [], [series, histories, benchmark]);
+  const compared = useMemo(() => benchmark && histories[benchmark]?.length ? rebasePair(returnSeries, histories[benchmark]) : [], [returnSeries, histories, benchmark]);
 
-  const available = watchlist.filter((company) => company.resolutionStatus !== "unresolved" && !positions.some((position) => position.ticker === company.ticker));
+  // Every resolvable company can be traded, including one already held: a
+  // second purchase of something you own is the most ordinary entry there is.
+  const available = watchlist.filter((company) => company.resolutionStatus !== "unresolved");
+  const decimal = (text: string) => Number(text.replace(",", "."));
+  const heldNow = (ticker: string) => lots[ticker.toUpperCase()]?.shares ?? 0;
+
+  const draftShares = decimal(draft.shares);
+  const draftPrice = decimal(draft.price);
+  const overSold = draft.kind === "sell" && draft.ticker && Number.isFinite(draftShares) && draftShares > heldNow(draft.ticker);
+  const canAdd = Boolean(draft.ticker) && /^\d{4}-\d{2}-\d{2}$/.test(draft.date)
+    && Number.isFinite(draftShares) && draftShares > 0 && Number.isFinite(draftPrice) && draftPrice >= 0 && !overSold;
 
   function add() {
-    const shares = Number(draft.shares.replace(",", "."));
-    const cost = Number(draft.cost.replace(",", "."));
-    if (!draft.ticker || !Number.isFinite(shares) || shares <= 0) return;
-    setPositions((current) => [...current.filter((position) => position.ticker !== draft.ticker),
-      { ticker: draft.ticker, shares, ...(Number.isFinite(cost) && cost > 0 ? { cost } : {}) }]);
-    setDraft({ ticker: "", shares: "", cost: "" });
+    if (!canAdd) return;
+    const fee = decimal(draft.fee);
+    setTransactions((current) => [...current, {
+      id: newTransactionId(), ticker: draft.ticker.toUpperCase(), date: draft.date, kind: draft.kind,
+      shares: draftShares, price: draftPrice, ...(Number.isFinite(fee) && fee > 0 ? { fee } : {}),
+    }]);
+    setDraft((current) => ({ ...current, shares: "", price: "", fee: "" }));
   }
 
-  const patch = (ticker: string, change: Partial<Position>) =>
-    setPositions((current) => current.map((item) => item.ticker === ticker ? { ...item, ...change } : item));
+  const editTransaction = (id: string, change: Partial<Transaction>) =>
+    setTransactions((current) => current.map((entry) => entry.id === id ? { ...entry, ...change } : entry));
+  const removeTransaction = (id: string) => setTransactions((current) => current.filter((entry) => entry.id !== id));
 
   return <div className="portfolio-page">
     <header className="page-heading">
@@ -160,20 +235,31 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
       <article className={valued.profit == null ? "" : valued.profit >= 0 ? "up" : "down"}>
         <span>Unrealised P&amp;L</span>
         <strong>{valued.profit == null ? "—" : `${valued.profit >= 0 ? "+" : "−"}${money(Math.abs(valued.profit))}`}</strong>
-        <small>{valued.profitPercent == null ? "Needs a cost per share" : `${valued.profitPercent >= 0 ? "+" : ""}${percent(valued.profitPercent)} on cost`}</small>
+        <small>{valued.profitPercent == null ? "Needs a purchase price" : `${valued.profitPercent >= 0 ? "+" : ""}${percent(valued.profitPercent)} on cost`}</small>
+      </article>
+      {/* Money already banked. Kept apart from the unrealised figure because
+          they answer different questions: one is what the book is sitting on,
+          the other is what it has actually taken. */}
+      <article className={realised === 0 ? "" : realised > 0 ? "up" : "down"}>
+        <span>Realised P&amp;L</span>
+        <strong>{sold.length ? `${realised >= 0 ? "+" : "−"}${money(Math.abs(realised))}` : "—"}</strong>
+        <small>{sold.length ? `Banked across ${sold.length} sale${sold.length === 1 ? "" : "s"}` : "Nothing sold yet"}</small>
       </article>
       <article><span>Largest position</span><strong>{percent(spread.largest)}</strong><small>{valued.positions.length ? [...valued.positions].sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))[0]?.ticker : "—"}</small></article>
       <article><span>Effective holdings</span><strong>{spread.effectiveHoldings == null ? "—" : spread.effectiveHoldings.toFixed(1)}</strong><small>Equal-sized positions this book behaves like</small></article>
     </section>
 
     {series.length > 1 && <section className="portfolio-summary">
-      <article><span>Return · {window}</span><strong>{percent(stats.change)}</strong><small>From {stats.start?.date}{benchmarkStats?.change != null ? ` · index ${percent(benchmarkStats.change)}` : ""}</small></article>
-      <article><span>CAGR · {window}</span><strong>{percent(stats.cagr)}</strong><small>{stats.years == null ? "" : `Over ${stats.years.toFixed(1)} years`}{benchmarkStats?.cagr != null ? ` · index ${percent(benchmarkStats.cagr)}` : ""}</small></article>
-      <article><span>Worst drawdown</span><strong>{percent(stats.drawdown)}</strong><small>{stats.drawdownDate ? `Bottomed ${stats.drawdownDate}, measured from the running peak` : "No fall from a peak inside this window"}</small></article>
-      <article><span>Best / worst week</span><strong>{stats.bestStep == null ? "—" : `${percent(stats.bestStep)} / ${percent(stats.worstStep)}`}</strong><small>The largest single steps in the window</small></article>
+      {/* Every figure here is the deposit-free one. The raw value line doubles
+          when the reader pays in, and quoting that as a return would be a
+          straightforward lie about how the book performed. */}
+      <article><span>Return · {window}</span><strong>{percent(returnStats.change)}</strong><small>From {returnStats.start?.date}{benchmarkStats?.change != null ? ` · index ${percent(benchmarkStats.change)}` : ""}</small></article>
+      <article><span>CAGR · {window}</span><strong>{percent(returnStats.cagr)}</strong><small>{returnStats.years == null ? "" : `Over ${returnStats.years.toFixed(1)} years`}{benchmarkStats?.cagr != null ? ` · index ${percent(benchmarkStats.cagr)}` : ""}</small></article>
+      <article><span>Worst drawdown</span><strong>{percent(returnStats.drawdown)}</strong><small>{returnStats.drawdownDate ? `Bottomed ${returnStats.drawdownDate}, measured from the running peak` : "No fall from a peak inside this window"}</small></article>
+      <article><span>Best / worst {frequency === "daily" ? "day" : "week"}</span><strong>{returnStats.bestStep == null ? "—" : `${percent(returnStats.bestStep)} / ${percent(returnStats.worstStep)}`}</strong><small>The largest single steps in the window</small></article>
     </section>}
 
-    {!positions.length && <p className="simple-state">No positions yet. Add one below to see what it owns.</p>}
+    {!transactions.length && <p className="simple-state">No trades yet. Record a purchase below to see what your money owns.</p>}
 
     {positions.length > 0 && <>
       <section className="plain-section">
@@ -231,8 +317,10 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
           </div>
         </div>
         <p className="section-note">
-          Today&rsquo;s share counts priced back through time — what this book would have been worth had you always held it, not what it did.
-          {benchmark ? " Both sides are rebased to 100 at their first shared week, so the comparison is of shapes rather than sizes." : ""}
+          {benchmark
+            ? "Your return with deposits and withdrawals removed, against the index over the same stretch, both rebased to 100. A purchase adds to what the book is worth without being a gain, so the comparison takes it out."
+            : "What the book was actually worth on each date, using the shares held on that date. It steps up when you bought and down when you sold, because those are movements of money rather than returns."}
+          {migratedDates > 0 && " Holdings carried over from before this page had dates are all dated the day they were migrated, so anything before that day is missing from the line."}
         </p>
         {series.length < 2
           ? <p className="simple-state">Not enough shared price history to draw a line. Every holding needs a session on the same week.</p>
@@ -272,47 +360,118 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
       </section>
     </>}
 
-    <section className="plain-section">
+    {positions.length > 0 && <section className="plain-section">
       <div className="section-heading"><h2>Positions</h2></div>
+      {/* Read-only on purpose. Shares and cost are conclusions drawn from the
+          trades below, and a box that let you overwrite a conclusion would put
+          the book and its own history permanently out of step. */}
+      <p className="section-note">What each holding is, after replaying every trade. Shares and cost per share follow from the ledger below rather than being typed here.</p>
       <div className="table-scroll"><table>
-        <thead><tr><th>Company</th><th>Shares</th><th>Cost / share</th><th>Price</th><th>Cost</th><th>Value</th><th>P&amp;L</th><th>P&amp;L %</th><th>Weight</th><th/></tr></thead>
+        <thead><tr><th>Company</th><th>Shares</th><th>Cost / share</th><th>Price</th><th>Cost</th><th>Value</th><th>Unrealised</th><th>%</th><th>Realised</th><th>Weight</th><th>Held since</th></tr></thead>
         <tbody>
-          {valued.positions.map((position) => <tr key={position.ticker}>
-            <th><button className="value-button" onClick={() => onOpen(position.ticker)}>{position.ticker}<small>{position.name}</small></button></th>
-            <td><input className="portfolio-shares" type="number" min="0" step="any" value={position.shares}
-              aria-label={`Shares of ${position.ticker}`}
-              onChange={(event) => patch(position.ticker, { shares: Number(event.target.value) })}/></td>
-            <td><input className="portfolio-shares" type="number" min="0" step="any" placeholder="—"
-              value={positions.find((item) => item.ticker === position.ticker)?.cost ?? ""}
-              aria-label={`Average cost per share of ${position.ticker}`}
-              onChange={(event) => patch(position.ticker, { cost: event.target.value === "" ? undefined : Number(event.target.value) })}/></td>
-            <td>{money(position.price)}</td>
-            <td>{money(position.costBasis)}</td>
-            <td>{money(position.value)}</td>
-            <td className={position.profit == null ? "" : position.profit >= 0 ? "up" : "down"}>{position.profit == null ? "—" : `${position.profit >= 0 ? "+" : "−"}${money(Math.abs(position.profit))}`}</td>
-            <td className={position.profitPercent == null ? "" : position.profitPercent >= 0 ? "up" : "down"}>{position.profitPercent == null ? "—" : `${position.profitPercent >= 0 ? "+" : ""}${percent(position.profitPercent)}`}</td>
-            <td>{percent(position.weight)}</td>
-            <td><button className="text-button" onClick={() => setPositions((current) => current.filter((item) => item.ticker !== position.ticker))}>Remove</button></td>
-          </tr>)}
-          <tr>
-            <th>
-              <select value={draft.ticker} onChange={(event) => setDraft((current) => ({ ...current, ticker: event.target.value }))} aria-label="Company to add">
-                <option value="">Add a holding…</option>
+          {valued.positions.map((position) => {
+            const lot = lots[position.ticker];
+            return <tr key={position.ticker}>
+              <th><button className="value-button" onClick={() => onOpen(position.ticker)}>{position.ticker}<small>{position.name}</small></button></th>
+              <td className="numeric">{position.shares.toLocaleString("en-US", { maximumFractionDigits: 4 })}</td>
+              <td className="numeric">{money(lot?.averageCost ?? null)}</td>
+              <td className="numeric">{money(position.price)}</td>
+              <td className="numeric">{money(position.costBasis)}</td>
+              <td className="numeric">{money(position.value)}</td>
+              <td className={`numeric ${position.profit == null ? "" : position.profit >= 0 ? "up" : "down"}`}>{position.profit == null ? "—" : `${position.profit >= 0 ? "+" : "−"}${money(Math.abs(position.profit))}`}</td>
+              <td className={`numeric ${position.profitPercent == null ? "" : position.profitPercent >= 0 ? "up" : "down"}`}>{position.profitPercent == null ? "—" : `${position.profitPercent >= 0 ? "+" : ""}${percent(position.profitPercent)}`}</td>
+              <td className={`numeric ${!lot?.realised ? "" : lot.realised > 0 ? "up" : "down"}`}>{!lot?.realised ? "—" : `${lot.realised >= 0 ? "+" : "−"}${money(Math.abs(lot.realised))}`}</td>
+              <td className="numeric">{percent(position.weight)}</td>
+              <td>{lot?.firstDate ?? "—"}</td>
+            </tr>;
+          })}
+        </tbody>
+      </table></div>
+    </section>}
+
+    {closed.length > 0 && <section className="plain-section">
+      <div className="section-heading"><h2>Closed positions</h2></div>
+      {/* A position sold is still part of what the book did, and dropping it
+          from the page would quietly flatter the record by showing only the
+          holdings that survived. */}
+      <p className="section-note">Sold in full. They are gone from every weight above and still count towards what the book has made.</p>
+      <div className="table-scroll"><table>
+        <thead><tr><th>Company</th><th>Realised</th><th>Trades</th><th>First</th><th>Last</th></tr></thead>
+        <tbody>{closed.map((lot) => <tr key={lot.ticker}>
+          <th><button className="value-button" onClick={() => onOpen(lot.ticker)}>{lot.ticker}</button></th>
+          <td className={`numeric ${lot.realised >= 0 ? "up" : "down"}`}>{`${lot.realised >= 0 ? "+" : "−"}${money(Math.abs(lot.realised))}`}</td>
+          <td className="numeric">{lot.count}</td>
+          <td>{lot.firstDate}</td>
+          <td>{lot.lastDate}</td>
+        </tr>)}</tbody>
+      </table></div>
+    </section>}
+
+    <section className="plain-section">
+      <div className="section-heading"><h2>Trades</h2></div>
+      <p className="section-note">Every buy and sell, on the day it happened. Everything above is computed from this list — change a date and the value line, the weights and the returns all move with it.</p>
+
+      <div className="table-scroll ledger-scroll"><table className="ledger-table">
+        <thead><tr><th>Date</th><th>Company</th><th>Side</th><th>Shares</th><th>Price</th><th>Fee</th><th>Amount</th><th/></tr></thead>
+        <tbody>
+          {ledger.map((entry) => {
+            const amount = entry.shares * entry.price + (entry.fee ?? 0) * (entry.kind === "buy" ? 1 : -1);
+            return <tr key={entry.id} className={entry.migrated ? "ledger-migrated" : ""}>
+              <td data-label="Date"><input type="date" value={entry.date} aria-label={`Date of ${entry.kind} of ${entry.ticker}`}
+                onChange={(event) => event.target.value && editTransaction(entry.id, { date: event.target.value })}/></td>
+              <th data-label="Company">{entry.ticker}{entry.migrated && <small>carried over · date unknown</small>}</th>
+              <td data-label="Side">
+                <select value={entry.kind} aria-label={`Side of ${entry.ticker} trade`}
+                  onChange={(event) => editTransaction(entry.id, { kind: event.target.value as Transaction["kind"] })}>
+                  <option value="buy">Buy</option>
+                  <option value="sell">Sell</option>
+                </select>
+              </td>
+              <td data-label="Shares"><input className="portfolio-shares" type="number" min="0" step="any" value={entry.shares} aria-label={`Shares of ${entry.ticker}`}
+                onChange={(event) => editTransaction(entry.id, { shares: Number(event.target.value) })}/></td>
+              <td data-label="Price"><input className="portfolio-shares" type="number" min="0" step="any" value={entry.price} aria-label={`Price per share of ${entry.ticker}`}
+                onChange={(event) => editTransaction(entry.id, { price: Number(event.target.value) })}/></td>
+              <td data-label="Fee"><input className="portfolio-shares" type="number" min="0" step="any" placeholder="—" value={entry.fee ?? ""} aria-label={`Fee on ${entry.ticker} trade`}
+                onChange={(event) => editTransaction(entry.id, { fee: event.target.value === "" ? undefined : Number(event.target.value) })}/></td>
+              <td className="numeric" data-label="Amount">{entry.kind === "buy" ? "−" : "+"}{money(Math.abs(amount))}</td>
+              <td data-label=""><button className="text-button" onClick={() => removeTransaction(entry.id)}>Remove</button></td>
+            </tr>;
+          })}
+
+          <tr className="ledger-draft">
+            <td data-label="Date"><input type="date" value={draft.date} aria-label="Trade date"
+              onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))}/></td>
+            <th data-label="Company">
+              <select value={draft.ticker} onChange={(event) => setDraft((current) => ({ ...current, ticker: event.target.value }))} aria-label="Company">
+                <option value="">Company…</option>
                 {available.map((company) => <option key={company.ticker} value={company.ticker}>{company.ticker} · {company.name}</option>)}
               </select>
             </th>
-            <td><input className="portfolio-shares" type="number" min="0" step="any" placeholder="Shares" value={draft.shares} aria-label="Shares"
+            <td data-label="Side">
+              <select value={draft.kind} aria-label="Side"
+                onChange={(event) => setDraft((current) => ({ ...current, kind: event.target.value as Transaction["kind"] }))}>
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+              </select>
+            </td>
+            <td data-label="Shares"><input className="portfolio-shares" type="number" min="0" step="any" placeholder="Shares" value={draft.shares} aria-label="Shares"
               onChange={(event) => setDraft((current) => ({ ...current, shares: event.target.value }))}
               onKeyDown={(event) => { if (event.key === "Enter") add(); }}/></td>
-            <td><input className="portfolio-shares" type="number" min="0" step="any" placeholder="Optional" value={draft.cost} aria-label="Average cost per share"
-              onChange={(event) => setDraft((current) => ({ ...current, cost: event.target.value }))}
+            <td data-label="Price"><input className="portfolio-shares" type="number" min="0" step="any" placeholder="Price" value={draft.price} aria-label="Price per share"
+              onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))}
               onKeyDown={(event) => { if (event.key === "Enter") add(); }}/></td>
-            <td colSpan={6}/>
-            <td><button onClick={add} disabled={!draft.ticker || !draft.shares}>Add</button></td>
+            <td data-label="Fee"><input className="portfolio-shares" type="number" min="0" step="any" placeholder="Optional" value={draft.fee} aria-label="Fee"
+              onChange={(event) => setDraft((current) => ({ ...current, fee: event.target.value }))}
+              onKeyDown={(event) => { if (event.key === "Enter") add(); }}/></td>
+            <td className="numeric" data-label="Amount">{draft.shares && draft.price ? money(draftShares * draftPrice) : "—"}</td>
+            <td data-label=""><button onClick={add} disabled={!canAdd}>Add</button></td>
           </tr>
         </tbody>
       </table></div>
-      <p className="section-note">Cost per share is optional; without it a position still has a value and a weight, but no profit — a blank is not a cost of zero. Positions are kept in this browser only, and nothing about what you hold leaves the machine.</p>
+
+      {overSold && <p className="notice">You hold {heldNow(draft.ticker).toLocaleString("en-US", { maximumFractionDigits: 4 })} {draft.ticker} on that date. Selling more than that would put the book short, which this page does not model.</p>}
+
+      <p className="section-note">A price is what you actually dealt at, not today&rsquo;s. Fees are optional and are added to a purchase&rsquo;s cost and taken off a sale&rsquo;s proceeds. The ledger is kept in this browser only, and nothing about what you hold leaves the machine.</p>
     </section>
   </div>;
 }
