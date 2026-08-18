@@ -86,3 +86,56 @@ describe("the heat map's colour", () => {
     expect(source).toContain("Read it as a table");
   });
 });
+
+describe("the map's geometry", () => {
+  const source = readFileSync(new URL("../components/MarketHeatmap.tsx", import.meta.url), "utf8");
+
+  it("encodes market value as area and the day's move as colour", () => {
+    // Two questions, two encodings. A grid of equal tiles says a two percent
+    // fall in the largest company is the same event as one in the fiftieth.
+    expect(source).toContain("groupedTreemap");
+    expect(source).toContain("weight: mover.marketCap!");
+  });
+
+  it("groups by sector, because that is the question a heat map is asked", () => {
+    expect(source).toContain("bySector");
+    expect(source).toContain("heat-sector-name");
+  });
+
+  it("leaves a company with no share count off the map rather than at zero", () => {
+    expect(source).toContain("mover.marketCap != null && mover.marketCap > 0");
+    // And says so, rather than quietly drawing a smaller map.
+    expect(source).toContain("without a share count");
+  });
+
+  it("measures its own width before trusting the observer", () => {
+    // A ResizeObserver's first callback is asynchronous and a browser may defer
+    // it — a background tab does — which left the map drawn from a width of nil.
+    expect(source).toContain("element.getBoundingClientRect().width");
+  });
+
+  it("hides a ticker that will not fit rather than clipping it", () => {
+    expect(source).toContain("const room =");
+    expect(source).toContain("{room &&");
+  });
+});
+
+describe("the share counts that size the index tiles", () => {
+  it("gives every member a positive share count", () => {
+    for (const member of SP500_TOP_50) {
+      expect(member.shares).toBeGreaterThan(0);
+      // In billions: a count in raw shares here would size one tile as the
+      // whole map.
+      expect(member.shares).toBeLessThan(100);
+    }
+  });
+
+  it("ranks the largest companies where the market ranks them", () => {
+    // A sanity check on the static list rather than a claim of precision: the
+    // few largest by share count times a plausible price should be the names
+    // everyone knows are largest.
+    const byShares = [...SP500_TOP_50].sort((a, b) => b.shares - a.shares).slice(0, 6).map((m) => m.symbol);
+    expect(byShares).toContain("NVDA");
+    expect(byShares).toContain("AAPL");
+  });
+});

@@ -1017,19 +1017,38 @@ tbody tr:last-child > * { border-bottom: 0; }
 .heat-stats { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .heat-stats .positive-text, .heat-stats .negative-text { font-weight: 650; }
 
-/* Tiles hold their own shape: a fixed aspect keeps the grid reading as a map
-   of the market rather than as rows of buttons, at any column count. */
-.heat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 4px; }
-.heat-tile {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  aspect-ratio: 1.45; min-height: 62px; padding: 6px 8px;
-  border-radius: var(--radius); overflow: hidden;
-  font-variant-numeric: tabular-nums; text-align: center;
-  transition: transform var(--ease), box-shadow var(--ease);
+/*
+ * The map is absolutely positioned from computed geometry, not a grid.
+ *
+ * A treemap's whole claim is that area is proportional to value, and no amount
+ * of `grid-template` will produce that: the rectangles have to be solved for
+ * and then placed. The sector is a positioned box and its members are
+ * positioned inside it, so a sector reads as one region of the market.
+ */
+.heat-map { position: relative; width: 100%; border-radius: var(--radius); overflow: hidden; background: var(--heat-zero); }
+.heat-sector { position: absolute; overflow: hidden; }
+.heat-sector-name {
+  position: absolute; z-index: 2; top: 0; left: 0;
+  padding: 3px 7px 4px 6px;
+  border-bottom-right-radius: var(--radius);
+  background: color-mix(in oklab, var(--background) 72%, transparent);
+  color: var(--muted); font-size: var(--fs-micro); font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase; pointer-events: none;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.heat-tile:hover { transform: translateY(-1px); box-shadow: var(--shadow-lift); }
-.heat-tile b { font-size: var(--fs-base); font-weight: 700; letter-spacing: -.01em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.heat-tile span { font-size: var(--fs-xs); font-weight: 600; opacity: .95; }
+.heat-tile {
+  position: absolute;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  /* A hairline of the page showing between tiles, so two neighbours of nearly
+     the same colour still read as two companies. */
+  outline: 1px solid var(--background); outline-offset: -1px;
+  overflow: hidden; padding: 2px;
+  font-variant-numeric: tabular-nums; text-align: center; line-height: 1.15;
+  transition: filter var(--ease);
+}
+.heat-tile:hover { filter: brightness(1.12); z-index: 3; }
+.heat-tile b { font-weight: 700; letter-spacing: -.02em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.heat-tile span { font-size: 10px; font-weight: 600; opacity: .95; }
 
 .heat-table { margin-top: 20px; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); }
 .heat-table > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; cursor: pointer; font-weight: 600; border-radius: var(--radius); }
@@ -1038,10 +1057,8 @@ tbody tr:last-child > * { border-bottom: 0; }
 .heat-table[open] > summary { margin-bottom: 12px; }
 
 @media (max-width: 640px) {
-  .heat-grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 3px; }
-  .heat-tile { min-height: 54px; padding: 5px 4px; }
-  .heat-tile b { font-size: var(--fs-sm); }
-  .heat-tile span { font-size: 10px; }
+  .heat-sector-name { font-size: 8px; padding: 2px 5px 3px 4px; }
+  .heat-tile span { font-size: 9px; }
 }
 
 @media (max-width: 1100px) { .index-grid { grid-template-columns: 1fr; } }

@@ -133,10 +133,15 @@ function useMeasuredWidth<T extends HTMLElement>() {
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const observer = new ResizeObserver((entries) => {
-      const measured = entries[0]?.contentRect.width ?? 0;
+    const apply = (measured: number) =>
       setWidth((current) => Math.abs(current - measured) < 1 ? current : measured);
-    });
+    // Measured once, here, before the observer is trusted for anything.
+    // A ResizeObserver's first callback is delivered asynchronously and a
+    // browser is free to defer it — a background tab does exactly that — so
+    // waiting for it leaves the element at a width of zero and the chart
+    // drawn from nothing. The observer's job is the *changes*.
+    apply(element.getBoundingClientRect().width);
+    const observer = new ResizeObserver((entries) => apply(entries[0]?.contentRect.width ?? 0));
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
