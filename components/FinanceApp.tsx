@@ -185,7 +185,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       {secondary === "audit" && <SecondaryHeading title="Formula Audit" onBack={() => setSecondary(null)}/>} {secondary === "audit" && <Suspense fallback={<p className="simple-state">Loading…</p>}><FormulaDataAudit dataset={dataset}/></Suspense>}
       {secondary === "coverage" && <SecondaryHeading title="Import status" onBack={() => setSecondary(null)}/>} {secondary === "coverage" && <Suspense fallback={<p className="simple-state">Loading…</p>}><CoverageMatrix initialData={dataset}/></Suspense>}
       {secondary === "sources" && <SourcesPage dataset={dataset} onBack={() => setSecondary(null)}/>}
-      {!secondary && view === "qs" && <Suspense fallback={<p className="simple-state">Loading the QS Screener…</p>}><QsScreener/></Suspense>}
+      {!secondary && view === "qs" && <Suspense fallback={<p className="simple-state">Loading the QS Screener…</p>}><QsScreener tickers={watchlist.map((company) => company.ticker)}/></Suspense>}
       {!secondary && view === "companies" && !ranking && <Suspense fallback={<p className="simple-state">Loading…</p>}><HomePage watchlist={watchlist} datasets={datasets} loading={loading} onOpen={openCompany} onLoad={loadCompanyData} onSearchAdd={() => setManagerOpen(true)} onShowRanking={() => setRanking(true)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></Suspense>}
       {!secondary && view === "companies" && ranking && <div><button className="back-button" onClick={() => setRanking(false)}>← Watchlist</button><CompaniesPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} loading={loading} onSearchAdd={() => setManagerOpen(true)} onLoad={loadCompanyData} onOpen={openCompany} onCharts={(ticker) => openCharts(ticker)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></div>}
       {!secondary && view === "company" && <CompanyPage key={dataset.company.ticker} dataset={dataset} theme={theme} onBack={() => navigate("companies")} onCharts={openCharts} onDcf={openDcf} onCompare={() => navigate("stats")}/>}
@@ -196,7 +196,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       {!secondary && view === "dcf" && <DcfPage key={dataset.company.ticker} dataset={dataset} theme={theme} onBack={() => navigate("companies")}/>}
     </main>
     <footer className="site-footer"><span>Auditable financial research · Not investment advice</span><details><summary>More</summary><div><button onClick={() => setSecondary("quality")}>Data Quality</button><button onClick={() => setSecondary("audit")}>Formula Audit</button><button onClick={() => setSecondary("coverage")}>Import status</button><button onClick={() => setSecondary("sources")}>Sources</button></div></details></footer>
-    {managerOpen && <Suspense fallback={null}><CompanyManager onSelect={acceptDataset} onClose={() => setManagerOpen(false)}/></Suspense>}
+    {managerOpen && <Suspense fallback={null}><CompanyManager watchlist={watchlist} setWatchlist={setWatchlist} onSelect={acceptDataset} onClose={() => setManagerOpen(false)}/></Suspense>}
   </div>;
 }
 

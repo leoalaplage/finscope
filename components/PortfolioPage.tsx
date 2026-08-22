@@ -118,14 +118,22 @@ export function PortfolioPage({ watchlist, theme, onOpen }: { watchlist: Company
   const closed = useMemo(() => Object.values(lots).filter((lot) => lot.shares <= 1e-9 && lot.count > 0).sort((a, b) => b.lastDate.localeCompare(a.lastDate)), [lots]);
   const migratedDates = useMemo(() => transactions.filter((entry) => entry.migrated).length, [transactions]);
 
+  // Every company the book values: the watchlist, plus anything the ledger has
+  // touched. Asking for nothing used to get the built-in registry back, so a
+  // company added to the watchlist — or bought without being on it — was valued
+  // at nothing at all.
+  const valuedTickers = useMemo(
+    () => [...new Set([...watchlist.map((company) => company.ticker.toUpperCase()), ...everTraded])].join(","),
+    [watchlist, everTraded],
+  );
   useEffect(() => {
     let active = true;
-    fetch("/api/watchlist").then(async (response) => {
+    fetch(`/api/watchlist?tickers=${encodeURIComponent(valuedTickers)}`).then(async (response) => {
       const payload = await response.json() as { summaries?: WatchlistSummary[] };
       if (active) setSummaries(Object.fromEntries((payload.summaries ?? []).map((item) => [item.ticker, item])));
     }).catch(() => undefined);
     return () => { active = false; };
-  }, []);
+  }, [valuedTickers]);
 
   const tickers = everTraded.join("|");
   useEffect(() => {

@@ -1,7 +1,8 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
-import { warmWatchlist, warmSomeMissing } from "../lib/dataset-cache";
+import { warmWatchlist, warmSomeMissing, requestedTickers } from "../lib/dataset-cache";
+import { COVERED_TICKERS } from "../lib/company-registry";
 import { setRuntimeBindings } from "../lib/runtime-env";
 
 interface Env {
@@ -58,7 +59,12 @@ const worker = {
     // It runs after the response, addressed at this very origin, so the local
     // server fills the local cache and production fills production's.
     if (url.pathname === "/api/watchlist") {
-      ctx.waitUntil(warmSomeMissing(url.origin).catch((error) => {
+      // Warm what this reader follows, not what the registry lists. A company
+      // they added themselves is warmed by nothing else at all — no cron knows
+      // about it — so without this its every load pays the full parse and is
+      // the one most likely to be refused for it.
+      const asked = requestedTickers(url.searchParams.get("tickers"), COVERED_TICKERS);
+      ctx.waitUntil(warmSomeMissing(url.origin, 3, asked).catch((error) => {
         console.log(`[warm on read] ${error instanceof Error ? error.message : String(error)}`);
       }));
     }

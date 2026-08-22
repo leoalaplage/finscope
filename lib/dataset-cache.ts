@@ -86,6 +86,36 @@ export function summaryKey(ticker: string) {
 
 export interface WarmReport { warmed: string[]; failed: Array<{ ticker: string; reason: string }> }
 
+/** A plausible exchange symbol: letters, digits, and the dot and dash classes use. */
+const TICKER = /^[A-Z0-9][A-Z0-9.-]{0,11}$/;
+
+/**
+ * How many companies one reader may ask to be looked up at once.
+ *
+ * The list arrives in a query string, so it is untrusted; this is what stops a
+ * hand-written URL from asking the Worker to read a thousand keys.
+ */
+export const WATCHLIST_LIMIT = 60;
+
+/**
+ * The companies a reader actually follows, read from an untrusted query string.
+ *
+ * The watchlist used to be exactly the list in `company-registry`, so both the
+ * watchlist endpoint and the warm behind it read that file and nothing else. A
+ * company the reader added themselves therefore never had a digest written for
+ * it and never had one returned: its card read "Financials not loaded" for
+ * ever, its figures stayed empty even once "Load all" had fetched the dataset,
+ * and every load paid the full twelve-megabyte parse because nothing warmed it.
+ *
+ * Bounded on the way in — a ticker's shape, no duplicates, a modest count — and
+ * falling back to the built-in list when the parameter is absent or unusable,
+ * which is what an older client sends.
+ */
+export function requestedTickers(param: string | null | undefined, fallback: string[]): string[] {
+  const asked = [...new Set((param ?? "").split(",").map((item) => item.trim().toUpperCase()).filter((item) => TICKER.test(item)))];
+  return asked.length ? asked.slice(0, WATCHLIST_LIMIT) : fallback;
+}
+
 /**
  * Whether a company is already cached, without reading it.
  *
@@ -195,12 +225,15 @@ async function recordWarm(cache: KVNamespace, line: string) {
  * missing, so each poll advances the batch and the page fills in over a handful
  * of round trips rather than one long one.
  */
-export async function warmSomeMissing(origin: string, batch = 3): Promise<WarmReport> {
+export async function warmSomeMissing(origin: string, batch = 3, tickers?: string[]): Promise<WarmReport> {
   const report: WarmReport = { warmed: [], failed: [] };
   const cache = datasetCache();
   if (!cache) return report;
 
-  const missing = await missingTickers();
+  // Whichever companies the reader asked about, not whichever ones this file
+  // happens to list: a company they added themselves is missing far more often
+  // than a built-in one, and is the only kind nothing else will ever build.
+  const missing = await missingTickers(tickers);
   if (missing.length) await recordWarm(cache, `warm-on-read: ${missing.length} missing, trying ${missing.slice(0, batch).join(",")} via ${origin}`);
   for (const ticker of missing) {
     if (report.warmed.length + report.failed.length >= batch) break;

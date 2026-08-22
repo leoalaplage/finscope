@@ -32,6 +32,18 @@ export const DEFAULT_WATCHLIST: CompanyProfile[] = [
 
 export const COMPANIES = DEFAULT_WATCHLIST;
 
+/**
+ * The built-in list as bare tickers, minus the ones with no filing feed.
+ *
+ * This is only ever a fallback now. A reader's watchlist lives in their own
+ * browser and may hold companies this file has never heard of, so the endpoints
+ * that used to read this list directly ask the client which companies it
+ * actually follows and fall back here when it does not say.
+ */
+export const COVERED_TICKERS = DEFAULT_WATCHLIST
+  .filter((company) => company.resolutionStatus !== "unresolved")
+  .map((company) => company.ticker);
+
 export function companyByTicker(ticker: string) {
   return DEFAULT_WATCHLIST.find((company) => company.ticker.toUpperCase() === ticker.toUpperCase());
 }

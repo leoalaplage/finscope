@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
-import type { WatchlistSummary } from "@/lib/watchlist-summary";
+import { summariseDataset, type WatchlistSummary } from "@/lib/watchlist-summary";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod } from "@/lib/types";
 
 const percent = (value: number | null) => value == null || !Number.isFinite(value) ? "—" : `${(value * 100).toFixed(1)}%`;
@@ -55,38 +55,39 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
   /**
    * Loads every company the watchlist does not already hold.
    *
-   * Four at a time: building one from raw filings is the most expensive thing
-   * the application does, and asking for twenty-two at once exhausts the
-   * isolate's budget and gets the rest refused. Whatever is refused anyway is
-   * tried again once, after a pause long enough for a fresh isolate.
+   * One at a time. Building a company from raw filings is the most expensive
+   * thing this application does — a twelve-megabyte filing, and up to half a
+   * second of CPU — and running four of those at once is what makes the
+   * platform refuse the rest of the batch outright. This used to fan out four
+   * deep and it showed: a company nothing had warmed yet, which is exactly what
+   * a freshly added one is, was the likeliest of the lot to come back refused.
+   * Sequential is slower and finishes, which is the same conclusion the ranking
+   * table's "Load all" reached.
+   *
+   * A refusal is the platform being busy rather than the filing being broken,
+   * so what is refused is tried again twice more, after pauses long enough for
+   * a fresh isolate to be handed to us.
    */
   async function loadEverything() {
     const targets = watchlist.filter((company) => company.resolutionStatus !== "unresolved" && !datasets[company.ticker]).map((company) => company.ticker);
     if (!targets.length) return;
     setBulk({ running: true, done: 0, total: targets.length });
-    let cursor = 0;
-    const refused: string[] = [];
-    const worker = async () => {
-      while (cursor < targets.length) {
-        const ticker = targets[cursor++];
+    const done = (ticker: string) => setPending((current) => { const next = { ...current }; delete next[ticker]; return next; });
+    let refused: string[] = [];
+    for (const ticker of targets) {
+      setPending((current) => ({ ...current, [ticker]: "loading" }));
+      try { await onLoad(ticker); done(ticker); }
+      catch { refused.push(ticker); setPending((current) => ({ ...current, [ticker]: "failed" })); }
+      setBulk((current) => ({ ...current, done: current.done + 1 }));
+    }
+    for (let round = 0; round < 2 && refused.length; round++) {
+      await new Promise((resolve) => setTimeout(resolve, 4_000 * (round + 1)));
+      const again = refused;
+      refused = [];
+      for (const ticker of again) {
         setPending((current) => ({ ...current, [ticker]: "loading" }));
-        try {
-          await onLoad(ticker);
-          setPending((current) => { const next = { ...current }; delete next[ticker]; return next; });
-        } catch {
-          refused.push(ticker);
-          setPending((current) => ({ ...current, [ticker]: "failed" }));
-        }
-        setBulk((current) => ({ ...current, done: current.done + 1 }));
-      }
-    };
-    await Promise.all([worker(), worker(), worker(), worker()]);
-    if (refused.length) {
-      await new Promise((resolve) => setTimeout(resolve, 4_000));
-      for (const ticker of refused) {
-        setPending((current) => ({ ...current, [ticker]: "loading" }));
-        try { await onLoad(ticker); setPending((current) => { const next = { ...current }; delete next[ticker]; return next; }); }
-        catch { setPending((current) => ({ ...current, [ticker]: "failed" })); }
+        try { await onLoad(ticker); done(ticker); }
+        catch { refused.push(ticker); setPending((current) => ({ ...current, [ticker]: "failed" })); }
       }
     }
     setBulk({ running: false, done: 0, total: 0 });
@@ -114,12 +115,23 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
    * point the per-card Load button is the honest answer.
    */
   const [building, setBuilding] = useState<Set<string>>(new Set());
+  /**
+   * The list the server is asked about, and what makes it ask again.
+   *
+   * The endpoint used to answer for the built-in registry whatever anyone
+   * asked, and this effect ran once on mount. A company the reader added was
+   * therefore in neither the question nor the answer: no digest was returned
+   * for it, nothing warmed it, and its card sat on "Financials not loaded"
+   * however many times "Load all" was pressed. Naming the companies makes the
+   * answer cover them, and depending on the list makes adding one ask again.
+   */
+  const followed = watchlist.map((company) => company.ticker).join(",");
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let rounds = 0;
     const poll = () => {
-      fetch("/api/watchlist", { cache: "no-store" })
+      fetch(`/api/watchlist?tickers=${encodeURIComponent(followed)}`, { cache: "no-store" })
         .then(async (response) => {
           const payload = await response.json() as { summaries?: WatchlistSummary[]; pending?: string[] };
           if (!active) return;
@@ -132,7 +144,31 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
     };
     poll();
     return () => { active = false; if (timer) clearTimeout(timer); };
-  }, []);
+  }, [followed]);
+
+  /**
+   * The card's figures, computed here for any company already loaded.
+   *
+   * A dataset in hand is the whole digest and more, so a card backed by one
+   * never needs to wait for the server to have written a summary — which for a
+   * company the reader added themselves might be several polls away, and used
+   * to be never. The card read the stored digest alone, so a company "Load all"
+   * had just fetched showed three dashes and looked like a failure.
+   *
+   * Keyed by the dataset object rather than the ticker, so a summary is
+   * computed once per company and not again on every keystroke in the search
+   * box; a replaced dataset is a new object and is summarised afresh.
+   */
+  const summarised = useRef(new WeakMap<CompanyDataset, WatchlistSummary | null>());
+  const localDigests = useMemo(() => {
+    const cache = summarised.current;
+    const result: Record<string, WatchlistSummary | null> = {};
+    for (const [ticker, data] of Object.entries(datasets)) {
+      if (!cache.has(data)) cache.set(data, summariseDataset(data));
+      result[ticker] = cache.get(data) ?? null;
+    }
+    return result;
+  }, [datasets]);
 
   const unloaded = watchlist.filter((company) => company.resolutionStatus !== "unresolved" && !datasets[company.ticker]).length;
 
@@ -188,7 +224,7 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
             // until one is, and for every company the reader never opens.
             const dataset = datasets[company.ticker];
             const period = dataset ? latestPeriod(dataset) : undefined;
-            const digest = summaries?.[company.ticker];
+            const digest = localDigests[company.ticker] ?? summaries?.[company.ticker];
             const known = period != null || digest != null;
             const busy = pending[company.ticker] === "loading" || loading === company.ticker;
             const failed = pending[company.ticker] === "failed";

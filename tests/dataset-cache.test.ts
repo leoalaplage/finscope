@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CACHE_SECONDS, datasetKey, KEY_VERSION, missingTickers, summaryKey, warmSomeMissing, warmWatchlist } from "../lib/dataset-cache";
-import { DEFAULT_WATCHLIST } from "../lib/company-registry";
+import { CACHE_SECONDS, datasetKey, KEY_VERSION, missingTickers, requestedTickers, summaryKey, WATCHLIST_LIMIT, warmSomeMissing, warmWatchlist } from "../lib/dataset-cache";
+import { COVERED_TICKERS, DEFAULT_WATCHLIST } from "../lib/company-registry";
 import { setRuntimeBindings } from "../lib/runtime-env";
 
 const ORIGIN = "https://finscope.test";
@@ -172,6 +172,17 @@ describe("filling the cache on the way to serving a request", () => {
     expect(report).toEqual({ warmed: [], failed: [] });
   });
 
+  it("warms the companies the reader asked about, which the registry has never heard of", async () => {
+    // The bug this exists for: a company added by hand was in no list on the
+    // server, so nothing ever built it and its card stayed empty however many
+    // times "Load all" was pressed.
+    setRuntimeBindings({ DATASET_CACHE: cacheDouble() });
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (request: Request) => { seen.push(path(request)); return new Response("{}", { status: 200 }); }));
+    await warmSomeMissing(ORIGIN, 2, ["ZZZZ", "YYYY"]);
+    expect(seen).toEqual(["/api/company/ZZZZ", "/api/company/YYYY"]);
+  });
+
   it("records a refusal instead of throwing into the request that triggered it", async () => {
     setRuntimeBindings({ DATASET_CACHE: cacheDouble() });
     vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 503 })));
@@ -212,5 +223,27 @@ describe("filling the cache on the way to serving a request", () => {
     expect(await warmSomeMissing(ORIGIN)).toEqual({ warmed: [], failed: [] });
     expect(await missingTickers()).toEqual([]);
     expect(call).not.toHaveBeenCalled();
+  });
+});
+
+describe("the watchlist a reader asks about", () => {
+  it("is theirs, not the built-in one", () => {
+    expect(requestedTickers("nvda,zzzz", COVERED_TICKERS)).toEqual(["NVDA", "ZZZZ"]);
+  });
+
+  it("falls back to the built-in list when the client says nothing, as an older one does", () => {
+    expect(requestedTickers(null, COVERED_TICKERS)).toBe(COVERED_TICKERS);
+    expect(requestedTickers("", COVERED_TICKERS)).toBe(COVERED_TICKERS);
+    expect(requestedTickers(" , ,", COVERED_TICKERS)).toBe(COVERED_TICKERS);
+  });
+
+  it("is bounded, because it arrives in a query string anyone may write", () => {
+    expect(requestedTickers("AAPL,<script>,AAPL, a very long symbol ", COVERED_TICKERS)).toEqual(["AAPL"]);
+    const many = Array.from({ length: WATCHLIST_LIMIT + 20 }, (_, index) => `T${index}`).join(",");
+    expect(requestedTickers(many, COVERED_TICKERS)).toHaveLength(WATCHLIST_LIMIT);
+  });
+
+  it("keeps the dots and dashes real symbols carry", () => {
+    expect(requestedTickers("brk.b,rds-a", COVERED_TICKERS)).toEqual(["BRK.B", "RDS-A"]);
   });
 });

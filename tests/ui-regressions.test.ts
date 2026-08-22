@@ -241,6 +241,39 @@ describe("the redesign", () => {
     expect(home).not.toContain("Market cap");
   });
 
+  it("names the reader's own companies when asking for digests, and fills a card from a dataset it already has", () => {
+    // A company added by hand is in no list the server keeps, so asking for
+    // "the watchlist" returned the built-in twenty-one and left the new card
+    // reading "Financials not loaded" for ever — and showing three dashes even
+    // once "Load all" had fetched its dataset, because the card read the stored
+    // digest and nothing else.
+    const home = readFileSync(new URL("../components/HomePage.tsx", import.meta.url), "utf8");
+    expect(home).toContain("/api/watchlist?tickers=");
+    expect(home).toContain("summariseDataset");
+    expect(home).toContain("localDigests[company.ticker] ?? summaries?.[company.ticker]");
+    // Asking once on mount is what left an added company out of every later
+    // answer; the request has to follow the list.
+    expect(home).toContain("}, [followed]);");
+    for (const file of ["PortfolioPage", "QsScreener"]) {
+      const source = readFileSync(new URL(`../components/${file}.tsx`, import.meta.url), "utf8");
+      expect(source).toContain("/api/watchlist?tickers=");
+    }
+  });
+
+  it("keeps one owner of the watchlist, so a company added in the dialog is still there afterwards", () => {
+    // The dialog used to read the watchlist out of localStorage into a state of
+    // its own and write it back. The application kept another under the same
+    // key, so a company added here whose import then failed lived only in the
+    // dialog's copy and was overwritten by the application's next save — gone
+    // from the list before "Load all" could ever reach it.
+    const manager = readFileSync(new URL("../components/CompanyManager.tsx", import.meta.url), "utf8");
+    expect(manager).not.toContain('localStorage.getItem("finscope.watchlist")');
+    expect(manager).not.toContain('localStorage.setItem("finscope.watchlist"');
+    const app = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    expect(app).toContain("<CompanyManager watchlist={watchlist} setWatchlist={setWatchlist}");
+    expect(app.match(/localStorage\.setItem\("finscope\.watchlist"/g)).toHaveLength(1);
+  });
+
   it("gives the market page a window, and the panels nothing but their chart", () => {
     const source = readFileSync(new URL("../components/MarketPage.tsx", import.meta.url), "utf8");
     expect(source).toContain("MARKET_RANGES");

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { COMPANIES } from "@/lib/company-registry";
-import { summaryKey } from "@/lib/dataset-cache";
+import { COVERED_TICKERS } from "@/lib/company-registry";
+import { requestedTickers, summaryKey } from "@/lib/dataset-cache";
 import { datasetCache } from "@/lib/runtime-env";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 
@@ -29,15 +29,17 @@ const headers = { "Content-Type": "application/json", "Cache-Control": partial }
  * A company with no digest yet is simply absent from the answer rather than
  * faked or zeroed, and its card says so and offers to build it.
  */
-export async function GET() {
+export async function GET(request: Request) {
   const cache = datasetCache();
   if (!cache) return NextResponse.json({ summaries: [], pending: [], reason: "No cache is bound in this environment." }, { headers });
 
-  const covered = COMPANIES.filter((company) => company.resolutionStatus !== "unresolved");
+  // The reader's own watchlist, which is not this file's list: companies they
+  // added themselves are exactly the ones no digest was ever written for.
+  const covered = requestedTickers(new URL(request.url).searchParams.get("tickers"), COVERED_TICKERS);
   const summaries = await Promise.all(covered
-    .map(async (company) => {
+    .map(async (ticker) => {
       try {
-        const stored = await cache.get(summaryKey(company.ticker), "json");
+        const stored = await cache.get(summaryKey(ticker), "json");
         return stored as WatchlistSummary | null;
       } catch {
         // One unreadable key must not empty the whole watchlist.
@@ -49,7 +51,7 @@ export async function GET() {
   // Which companies the warm behind this request is still working through, so
   // the page can say "building" and come back for them rather than settling on
   // an empty card and a Load button the reader has to find and press.
-  const pending = covered.filter((company) => !found.some((item) => item.ticker === company.ticker)).map((company) => company.ticker);
+  const pending = covered.filter((ticker) => !found.some((item) => item.ticker.toUpperCase() === ticker));
 
   return new Response(JSON.stringify({ summaries: found, pending }), {
     headers: { ...headers, "Cache-Control": pending.length ? partial : complete },

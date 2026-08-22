@@ -136,7 +136,7 @@ function restore(): StoredState {
   }
 }
 
-export function QsScreener() {
+export function QsScreener({ tickers = [] }: { tickers?: string[] }) {
   // Read once, on mount, and never again: a lazy initialiser rather than a ref,
   // so nothing reads a mutable box during render.
   const [initial] = useState(restore);
@@ -234,10 +234,13 @@ export function QsScreener() {
    * the same column titles, entering by the same door as a paste. The engine is
    * not touched, called differently, or told where its rows came from.
    */
+  // The reader's own list, named in the request. Asking for nothing scores the
+  // built-in registry, which silently leaves out every company they added.
+  const followed = tickers.join(",");
   const scoreWatchlist = useCallback(async () => {
     setFeeding("working");
     try {
-      const response = await fetch("/api/watchlist");
+      const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(followed)}`);
       const payload = await response.json() as { summaries?: WatchlistSummary[] };
       const summaries = (payload.summaries ?? []).filter((item) => item.qs);
       if (!summaries.length) throw new Error("no summaries");
@@ -261,7 +264,7 @@ export function QsScreener() {
     } catch {
       setFeeding("failed");
     }
-  }, []);
+  }, [followed]);
 
   async function readFile(file: File) {
     try { setText(await file.text()); setFileError(""); }
