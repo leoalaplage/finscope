@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { summariseDataset, type WatchlistSummary } from "@/lib/watchlist-summary";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod } from "@/lib/types";
@@ -23,6 +23,18 @@ const latestPeriod = (dataset: CompanyDataset): FinancialPeriod | undefined => {
   const of = (periodicity: string) => dataset.periods.filter((period) => period.periodicity === periodicity).sort((a, b) => a.periodEnd.localeCompare(b.periodEnd)).at(-1);
   return of("ttm") ?? of("annual");
 };
+
+/**
+ * Every dataset that has already been summarised, kept beside the component.
+ *
+ * A digest is a pure function of a dataset, and a dataset object is replaced
+ * rather than mutated when a company is rebuilt — so this is a memo table, not
+ * state, and it belongs at module scope. Holding it in a ref instead would mean
+ * reading that ref while rendering, which is exactly the thing a ref may not be
+ * used for. Weak, so a company dropped from the watchlist takes its summary
+ * with it.
+ */
+const summarised = new WeakMap<CompanyDataset, WatchlistSummary | null>();
 
 /**
  * The front door: a search box and the companies you follow.
@@ -159,13 +171,11 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
    * computed once per company and not again on every keystroke in the search
    * box; a replaced dataset is a new object and is summarised afresh.
    */
-  const summarised = useRef(new WeakMap<CompanyDataset, WatchlistSummary | null>());
   const localDigests = useMemo(() => {
-    const cache = summarised.current;
     const result: Record<string, WatchlistSummary | null> = {};
     for (const [ticker, data] of Object.entries(datasets)) {
-      if (!cache.has(data)) cache.set(data, summariseDataset(data));
-      result[ticker] = cache.get(data) ?? null;
+      if (!summarised.has(data)) summarised.set(data, summariseDataset(data));
+      result[ticker] = summarised.get(data) ?? null;
     }
     return result;
   }, [datasets]);
