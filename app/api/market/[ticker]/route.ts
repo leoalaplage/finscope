@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { COMPANIES } from "@/lib/company-registry";
+import { resolveMarketProfile } from "@/lib/market-profile";
 import { fetchYahooMarketHistory } from "@/lib/adapters/yahoo";
 import type { MarketFrequency } from "@/lib/types";
 
@@ -24,8 +24,8 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
   const benchmark = BENCHMARKS[symbol];
   const company = benchmark
     ? { ticker: symbol, name: benchmark.name, yahooTicker: benchmark.yahooTicker, currency: benchmark.currency, cik: "", exchange: "Index", sector: "Index", description: benchmark.name, businessType: "operating" } as Parameters<typeof fetchYahooMarketHistory>[0]
-    : COMPANIES.find((item) => item.ticker === symbol);
-  if (!company) return NextResponse.json({ error: "Ticker not supported." }, { status: 404 });
+    : resolveMarketProfile(symbol);
+  if (!company) return NextResponse.json({ error: "That is not a usable exchange symbol." }, { status: 400 });
   const params = new URL(request.url).searchParams;
   const frequency = params.get("frequency") as MarketFrequency;
   const start = params.get("start") ?? "2016-01-01";

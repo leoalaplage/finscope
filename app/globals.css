@@ -645,6 +645,9 @@ tbody tr:last-child > * { border-bottom: 0; }
 .stat-row dt { color: var(--muted); font-size: var(--fs-base); }
 .stat-row dd { margin: 0; }
 .stat-value { font-size: var(--fs-base); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Why a figure is absent, under its own label. A dash on its own reads as a
+   fault; a dash with a reason reads as the auditable behaviour it is. */
+.stat-reason { display: block; max-width: 34ch; margin-top: 2px; font-size: var(--fs-xs); line-height: 1.35; color: var(--muted); opacity: .8; }
 
 /* Several companies: the row is the comparison, so the metric column is
    sticky and the winning cell is marked by weight and colour together —

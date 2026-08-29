@@ -36,6 +36,18 @@ const COMPANY_TABS: Array<{ key: CompanyTab; label: string }> = [
   { key: "sources", label: "Sources" },
 ];
 
+/**
+ * How long a company held in this tab may be reused before it is asked for
+ * again.
+ *
+ * Short enough that a results release reaches an open session on the next
+ * navigation, long enough that clicking between six companies does not refetch
+ * any of them. The server answers a cached copy in a few milliseconds, so the
+ * cost of being wrong in this direction is small; the cost of being wrong in
+ * the other is showing last quarter all day.
+ */
+const SESSION_MAX_AGE_MS = 1_800_000;
+
 const NAV: Array<{ key: Exclude<MainView, "company">; label: string }> = [
   { key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "portfolio", label: "Portfolio" }, { key: "stats", label: "Statistics" }, { key: "charts", label: "Charts" }, { key: "dcf", label: "DCF" }, { key: "qs", label: "QS Screener" },
 ];
@@ -116,6 +128,10 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   }, [view, secondary]);
   const [watchlist, setWatchlist] = useState<CompanyProfile[]>(() => { if (typeof window === "undefined") return DEFAULT_WATCHLIST; try { return JSON.parse(localStorage.getItem("finscope.watchlist") ?? "null") ?? DEFAULT_WATCHLIST; } catch { return DEFAULT_WATCHLIST; } });
   useEffect(() => { localStorage.setItem("finscope.watchlist", JSON.stringify(watchlist)); }, [watchlist]);
+  // When each company was last fetched, so a long-lived session can tell a
+  // company it holds from one it holds and should refresh. Not state: nothing
+  // renders from it, and writing it must never schedule a render.
+  const loadedAt = useRef<Record<string, number>>({});
   // The server renders the offline fixture; live filings arrive here. Keeping
   // the 4 MB dataset out of the HTML is what lets the page render at all.
   const seeded = useRef(initialData.company.ticker);
@@ -125,6 +141,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       const payload = await response.json() as CompanyDataset & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Could not refresh company");
       if (!active) return;
+      loadedAt.current[ticker] = Date.now();
       setDatasets((current) => ({ ...current, [ticker]: payload }));
       setDataset((current) => current.company.ticker === ticker ? payload : current);
     }).catch(() => { /* The fixture stays on screen and is labelled as such. */ });
@@ -150,22 +167,34 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
     window.scrollTo({ top: 0 });
   }
   async function loadCompanyData(ticker: string) {
-    if (datasets[ticker]) return datasets[ticker];
+    // A company held since this tab was opened is reused, up to a point. A
+    // session left open across a results release used to keep serving the
+    // filings it happened to fetch that morning, so reopening the company
+    // showed the old quarter with no way to ask for the new one short of a
+    // reload — the server was current and the browser was not.
+    if (datasets[ticker] && Date.now() - (loadedAt.current[ticker] ?? 0) < SESSION_MAX_AGE_MS) return datasets[ticker];
     const response = await fetch(`/api/company/${encodeURIComponent(ticker)}`, { cache: "no-store" }); const payload = await response.json() as CompanyDataset & { error?: string };
     if (!response.ok) throw new Error(payload.error || "Could not load company");
+    loadedAt.current[ticker] = Date.now();
     setDatasets((current) => ({ ...current, [ticker]: payload }));
     return payload;
   }
   async function openCompany(ticker: string) {
     setSecondary(null); setError("");
-    if (datasets[ticker]) { setDataset(datasets[ticker]); setView("company"); history.replaceState(null, "", `/?ticker=${ticker}&view=company`); return; }
-    setLoading(ticker);
+    // Held company: show it at once and let loadCompanyData decide whether it
+    // is old enough to be worth asking for again, in the background.
+    const held = datasets[ticker];
+    if (held) { setDataset(held); setView("company"); history.replaceState(null, "", `/?ticker=${ticker}&view=company`); }
+    else setLoading(ticker);
     try {
-      const payload = await loadCompanyData(ticker); setDataset(payload); setView("company"); history.replaceState(null, "", `/?ticker=${ticker}&view=company`);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load company"); }
+      const payload = await loadCompanyData(ticker);
+      setDataset((current) => current.company.ticker === ticker || !held ? payload : current);
+      setView("company"); history.replaceState(null, "", `/?ticker=${ticker}&view=company`);
+    } catch (cause) { if (!held) setError(cause instanceof Error ? cause.message : "Could not load company"); }
     finally { setLoading(""); }
   }
   function acceptDataset(next: CompanyDataset) {
+    loadedAt.current[next.company.ticker] = Date.now();
     setDatasets((current) => ({ ...current, [next.company.ticker]: next })); setDataset(next);
     setWatchlist((current) => current.some((company) => company.ticker === next.company.ticker) ? current : [...current, next.company]);
     setManagerOpen(false); setView("company");
@@ -189,7 +218,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       {!secondary && view === "companies" && !ranking && <Suspense fallback={<p className="simple-state">Loading…</p>}><HomePage watchlist={watchlist} datasets={datasets} loading={loading} onOpen={openCompany} onLoad={loadCompanyData} onSearchAdd={() => setManagerOpen(true)} onShowRanking={() => setRanking(true)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></Suspense>}
       {!secondary && view === "companies" && ranking && <div><button className="back-button" onClick={() => setRanking(false)}>← Watchlist</button><CompaniesPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} loading={loading} onSearchAdd={() => setManagerOpen(true)} onLoad={loadCompanyData} onOpen={openCompany} onCharts={(ticker) => openCharts(ticker)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></div>}
       {!secondary && view === "company" && <CompanyPage key={dataset.company.ticker} dataset={dataset} theme={theme} onBack={() => navigate("companies")} onCharts={openCharts} onDcf={openDcf} onCompare={() => navigate("stats")}/>}
-      {!secondary && view === "market" && <Suspense fallback={<p className="simple-state">Loading the session…</p>}><MarketPage/></Suspense>}
+      {!secondary && view === "market" && <Suspense fallback={<p className="simple-state">Loading the session…</p>}><MarketPage watchlist={watchlist.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker)}/></Suspense>}
       {!secondary && view === "portfolio" && <Suspense fallback={<p className="simple-state">Loading your portfolio…</p>}><PortfolioPage watchlist={watchlist} theme={theme} onOpen={openCompany}/></Suspense>}
       {!secondary && view === "stats" && <Suspense fallback={<p className="simple-state">Loading statistics…</p>}><StatisticsPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} onLoad={loadCompanyData}/></Suspense>}
       {!secondary && view === "charts" && <Suspense fallback={<p className="simple-state">Loading…</p>}><ChartsWorkspace initialData={dataset} seed={chartSeed} theme={theme}/></Suspense>}

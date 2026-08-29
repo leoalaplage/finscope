@@ -60,7 +60,26 @@ function cagr(annual: FinancialPeriod[], metric: string, years: 3 | 5 | 10): { v
  * Every one of them is a consensus of analyst estimates, and FinScope has no
  * estimates provider. Printing them would mean inventing them.
  */
+/**
+ * Why free-cash-flow measures are withheld for banks, brokers and exchanges.
+ *
+ * Operating cash flow at a financial institution moves with customer balances,
+ * clearing deposits and margin lending — money that belongs to clients and
+ * passes through the statement. Dividing that by a net revenue line produces a
+ * number that is arithmetically correct and describes nothing: Interactive
+ * Brokers came out at a 395% free-cash-flow margin and a 1773% cash return on
+ * capital, printed on a watchlist card as though they were facts about the
+ * business.
+ *
+ * A blank with a reason costs a reader nothing. A four-figure percentage costs
+ * them their trust in every other number on the page.
+ */
+const FINANCIAL_CASH_FLOW = "Cash flow at a bank, broker or exchange moves with customer and clearing balances, so a free-cash-flow ratio does not measure this business";
+
 export function companyStatistics(dataset: CompanyDataset, price: PricePoint | null): StatGroup[] {
+  const financial = dataset.company.businessType === "financial";
+  /** The value, unless free cash flow is meaningless for this filer. */
+  const cash = (value: number | null) => financial ? null : value;
   const annual = ordered(dataset, "annual");
   const ttmPeriods = ordered(dataset, "ttm");
   // TTM is the right base for a flow when four clean quarters exist; the last
@@ -110,8 +129,8 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
         stat("operatingMargin", "Operating", flow("operatingMargin"), "percent", 1),
         stat("pretaxMargin", "Pre-Tax", flow("pretaxMargin"), "percent", 1),
         stat("netMargin", "Net", flow("netMargin"), "percent", 1),
-        stat("freeCashFlowMargin", "FCF", flow("freeCashFlowMargin"), "percent", 1),
-        stat("freeCashFlowAfterSbcMargin", "FCF after SBC", flow("freeCashFlowAfterSbcMargin"), "percent", 1),
+        stat("freeCashFlowMargin", "FCF", cash(flow("freeCashFlowMargin")), "percent", 1, FINANCIAL_CASH_FLOW),
+        stat("freeCashFlowAfterSbcMargin", "FCF after SBC", cash(flow("freeCashFlowAfterSbcMargin")), "percent", 1, FINANCIAL_CASH_FLOW),
       ],
     },
     {
@@ -121,9 +140,9 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
         // The headline pair, current against the cycle, and the gap between
         // them: a return well below its own five-year average is the first
         // thing to notice about a compounder, and an average alone hides it.
-        stat("cashReturnOnCapital", "Cash RoC", flow("cashReturnOnCapital"), "percent", 1),
-        stat("cashReturnOnCapital", "Cash RoC · 5Yr Avg", average("cashReturnOnCapital").value, "percent", 1, average("cashReturnOnCapital").reason),
-        stat("cashReturnOnCapital", "Cash RoC · vs 5Yr", spread(flow("cashReturnOnCapital"), average("cashReturnOnCapital").value), "points", 1, average("cashReturnOnCapital").reason),
+        stat("cashReturnOnCapital", "Cash RoC", cash(flow("cashReturnOnCapital")), "percent", 1, FINANCIAL_CASH_FLOW),
+        stat("cashReturnOnCapital", "Cash RoC · 5Yr Avg", cash(average("cashReturnOnCapital").value), "percent", 1, financial ? FINANCIAL_CASH_FLOW : average("cashReturnOnCapital").reason),
+        stat("cashReturnOnCapital", "Cash RoC · vs 5Yr", cash(spread(flow("cashReturnOnCapital"), average("cashReturnOnCapital").value)), "points", 1, financial ? FINANCIAL_CASH_FLOW : average("cashReturnOnCapital").reason),
         stat("roic", "ROIC", flow("roic"), "percent", 1),
         stat("roic", "ROIC · 5Yr Avg", average("roic").value, "percent", 1, average("roic").reason),
         stat("returnOnEquity", "ROE · 5Yr Avg", average("returnOnEquity").value, "percent", 1, average("returnOnEquity").reason),
@@ -140,7 +159,7 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
         stat("priceToBook", "P/B", over(marketCap, flow("totalEquity")), "multiple", -1, noPrice ?? "Equity is not positive"),
         stat("enterpriseToSales", "EV/Sales", over(enterpriseValue, flow("revenue")), "multiple", -1, noPrice),
         stat("enterpriseToEbitda", "EV/EBITDA", over(enterpriseValue, flow("ebitda")), "multiple", -1, noPrice ?? "EBITDA is not positive"),
-        stat("priceToFreeCashFlow", "P/FCF", over(marketCap, flow("freeCashFlow")), "multiple", -1, noPrice ?? "Free cash flow is not positive"),
+        stat("priceToFreeCashFlow", "P/FCF", cash(over(marketCap, flow("freeCashFlow"))), "multiple", -1, financial ? FINANCIAL_CASH_FLOW : noPrice ?? "Free cash flow is not positive"),
         stat("enterpriseToGrossProfit", "EV/Gross Profit", over(enterpriseValue, flow("grossProfit")), "multiple", -1, noPrice),
       ],
     },
@@ -151,7 +170,7 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
         stat("netDebt", "Net Debt", netDebt, "currency", -1),
         stat("debtToEquity", "Debt/Equity", flow("debtToEquity"), "ratio", -1),
         stat("interestCoverage", "EBIT/Interest", flow("interestCoverage"), "ratio", 1, "Reports no interest expense"),
-        stat("capitalIntensity", "Capex/Sales", flow("capitalIntensity"), "percent", -1),
+        stat("capitalIntensity", "Capex/Sales", cash(flow("capitalIntensity")), "percent", -1, FINANCIAL_CASH_FLOW),
       ],
     },
     {
@@ -163,8 +182,8 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
         stat("netIncomePerShare", "Dil EPS 3Yr", growth("netIncomePerShare", 3).value, "percent", 1, growth("netIncomePerShare", 3).reason),
         stat("netIncomePerShare", "Dil EPS 5Yr", growth("netIncomePerShare", 5).value, "percent", 1, growth("netIncomePerShare", 5).reason),
         stat("netIncomePerShare", "Dil EPS 10Yr", growth("netIncomePerShare", 10).value, "percent", 1, growth("netIncomePerShare", 10).reason),
-        stat("freeCashFlow", "FCF 5Yr", growth("freeCashFlow", 5).value, "percent", 1, growth("freeCashFlow", 5).reason),
-        stat("freeCashFlowPerShare", "FCF/share 5Yr", growth("freeCashFlowPerShare", 5).value, "percent", 1, growth("freeCashFlowPerShare", 5).reason),
+        stat("freeCashFlow", "FCF 5Yr", cash(growth("freeCashFlow", 5).value), "percent", 1, financial ? FINANCIAL_CASH_FLOW : growth("freeCashFlow", 5).reason),
+        stat("freeCashFlowPerShare", "FCF/share 5Yr", cash(growth("freeCashFlowPerShare", 5).value), "percent", 1, financial ? FINANCIAL_CASH_FLOW : growth("freeCashFlowPerShare", 5).reason),
         // A rising share count dilutes the owner, so less is better here.
         stat("dilutedShares", "Shares 5Yr", growth("dilutedShares", 5).value, "percent", -1, growth("dilutedShares", 5).reason),
       ],

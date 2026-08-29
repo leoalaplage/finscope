@@ -5,9 +5,18 @@ import { summariseDataset } from "@/lib/watchlist-summary";
 import { datasetCache } from "@/lib/runtime-env";
 
 
+/**
+ * An hour at the edge, not six.
+ *
+ * Six hours of edge cache sat on top of a KV copy that was itself allowed to
+ * age, and the two delays added up: a company rebuilt at 07:00 could still be
+ * served from yesterday until early afternoon. The KV hit costs a few
+ * milliseconds of CPU, so an hour buys nearly all of the protection and none of
+ * the staleness, and `stale-while-revalidate` still absorbs a burst.
+ */
 const headers = {
   "Content-Type": "application/json",
-  "Cache-Control": `public, s-maxage=21600, stale-while-revalidate=86400`,
+  "Cache-Control": `public, s-maxage=3600, stale-while-revalidate=86400`,
 };
 
 /**
@@ -31,23 +40,38 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
   const cache = datasetCache();
   const key = datasetKey(symbol);
   const warming = request.headers.get("X-FinScope-Warm") === "1";
+  /*
+   * The timer asking for this company to be built again, not served again.
+   *
+   * Every other caller wants whatever is cached, which is the entire point of
+   * the cache. The scheduled refresh wants the opposite: it has already decided
+   * this copy is out of date, and answering it from KV would hand it the very
+   * bytes it was sent to replace — the refresh would report success and change
+   * nothing, which is how a published quarter stayed invisible for a week.
+   *
+   * Only the warm path may ask, so a reader cannot spend a twelve-megabyte
+   * parse of the Worker's CPU budget by adding a header.
+   */
+  const rebuilding = warming && request.headers.get("X-FinScope-Rebuild") === "1";
 
-  try {
-    // Backfilling a missing digest costs a parse, so only the timer pays it,
-    // and only for a company cached before digests existed. A reader asking for
-    // this company gets the stream and no extra work.
-    if (warming && cache && !(await cache.get(summaryKey(symbol), "text"))) {
-      const stored = await cache.get(key, "text");
-      if (stored) {
-        const summary = summariseDataset(JSON.parse(stored) as Parameters<typeof summariseDataset>[0]);
-        if (summary) await cache.put(summaryKey(symbol), JSON.stringify(summary), { expirationTtl: CACHE_SECONDS });
-        return new Response(stored, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
+  if (!rebuilding) {
+    try {
+      // Backfilling a missing digest costs a parse, so only the timer pays it,
+      // and only for a company cached before digests existed. A reader asking
+      // for this company gets the stream and no extra work.
+      if (warming && cache && !(await cache.get(summaryKey(symbol), "text"))) {
+        const stored = await cache.get(key, "text");
+        if (stored) {
+          const summary = summariseDataset(JSON.parse(stored) as Parameters<typeof summariseDataset>[0]);
+          if (summary) await cache.put(summaryKey(symbol), JSON.stringify(summary), { expirationTtl: CACHE_SECONDS });
+          return new Response(stored, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
+        }
       }
+      const warm = await cache?.get(key, "stream");
+      if (warm) return new Response(warm, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
+    } catch {
+      // A cache that misbehaves must never take the endpoint down with it.
     }
-    const warm = await cache?.get(key, "stream");
-    if (warm) return new Response(warm, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
-  } catch {
-    // A cache that misbehaves must never take the endpoint down with it.
   }
 
   try {

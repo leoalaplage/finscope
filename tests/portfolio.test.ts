@@ -3,7 +3,8 @@ import { concentration, portfolioSeries, rebasePair, seriesStats, valuePortfolio
 import type { WatchlistSummary } from "../lib/watchlist-summary";
 
 const summary = (ticker: string, over: Partial<WatchlistSummary> = {}): WatchlistSummary => ({
-  ticker, name: `${ticker} Inc.`, currency: "USD", periodEnd: "2026-06-30", periodLabel: "TTM",
+  ticker, name: `${ticker} Inc.`, currency: "USD", retrievedAt: "2026-06-30T00:00:00.000Z", businessType: "operating",
+  periodEnd: "2026-06-30", periodLabel: "TTM",
   shares: 100, revenue: 1_000, revenueGrowth: .1, freeCashFlow: 200, freeCashFlowMargin: .2,
   cashReturnOnCapital: .3, netDebt: 50,
   freeCashFlowAfterSbcMargin5Y: .18, cashReturnOnCapital5Y: .28, freeCashFlowPerShareCagr5Y: .12,

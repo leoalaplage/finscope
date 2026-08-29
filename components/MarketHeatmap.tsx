@@ -217,13 +217,22 @@ function Section({ title, note, movers, missing, aspect }: {
  * coloured tiles is the fastest way to see the shape of a session and the
  * worst way to read forty numbers in order, and both readers exist.
  */
-export function MarketHeatmap() {
+/**
+ * `watchlist` is the reader's own list of tickers, not this codebase's.
+ *
+ * The endpoint used to read the built-in registry whatever anyone asked, so the
+ * lower half of this page — the one labelled "Watchlist" — quietly showed a
+ * different set of companies from the watchlist page next to it, and a company
+ * the reader added never appeared in it at all.
+ */
+export function MarketHeatmap({ watchlist = [] }: { watchlist?: string[] }) {
   const [data, setData] = useState<MoversPayload | null>(null);
   const [error, setError] = useState("");
 
+  const followed = watchlist.join(",");
   useEffect(() => {
     let active = true;
-    fetch("/api/movers")
+    fetch(`/api/movers${followed ? `?tickers=${encodeURIComponent(followed)}` : ""}`)
       .then(async (response) => {
         const payload = await response.json() as MoversPayload;
         if (!active) return;
@@ -233,7 +242,7 @@ export function MarketHeatmap() {
       })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Quotes are unavailable."); });
     return () => { active = false; };
-  }, []);
+  }, [followed]);
 
   const ranked = useMemo(() => data ? [...data.index, ...data.watchlist].sort((a, b) => b.changePercent - a.changePercent) : [], [data]);
 

@@ -236,7 +236,10 @@ function IndexChart({ entry, range }: { entry: Panel; range: MarketRange }) {
       <div className="index-quote">
         <strong>{quoted(last)}</strong>
         <span className={rising ? "index-change positive-text" : "index-change negative-text"}>
-          {signed(entry.change)} ({entry.changePercent == null ? "—" : `${(Math.abs(entry.changePercent) * 100).toFixed(2)}%`})
+          {/* Both halves carry the sign. Stating "−9.41 (0.02%)" makes the
+              reader check twice whether the index rose or fell, which is the
+              one thing this line exists to answer. */}
+          {signed(entry.change)} ({entry.changePercent == null ? "—" : `${entry.changePercent < 0 ? "−" : "+"}${(Math.abs(entry.changePercent) * 100).toFixed(2)}%`})
         </span>
       </div>
     </header>
@@ -286,7 +289,7 @@ function IndexChart({ entry, range }: { entry: Panel; range: MarketRange }) {
  * answers "what is the market doing" rather than "what is this business worth",
  * and mixing the two would make both harder to read.
  */
-export function MarketPage() {
+export function MarketPage({ watchlist = [] }: { watchlist?: string[] }) {
   const [range, setRange] = useState<MarketRange>(() => {
     if (typeof window === "undefined") return "1D";
     const saved = localStorage.getItem("finscope.marketRange");
@@ -405,7 +408,7 @@ export function MarketPage() {
 
     {/* Loaded apart from the indices: fifty tiles are a second request and a
         second answer, and the lines above should not wait for them. */}
-    <Suspense fallback={<p className="simple-state">Loading today&rsquo;s moves…</p>}><MarketHeatmap/></Suspense>
+    <Suspense fallback={<p className="simple-state">Loading today&rsquo;s moves…</p>}><MarketHeatmap watchlist={watchlist}/></Suspense>
 
     {entries?.some((entry) => !failed(entry)) &&
       <p className="market-foot">Prices from Yahoo Finance, delayed as the exchange requires.</p>}

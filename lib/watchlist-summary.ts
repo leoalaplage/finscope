@@ -1,6 +1,6 @@
 import { cagrForPeriods, derivedValue } from "./finance";
 import { qsPriceInputs, qsRow, type QsPriceInputs } from "./qs-export";
-import type { CompanyDataset, FinancialPeriod } from "./types";
+import type { CompanyDataset, CompanyProfile, FinancialPeriod } from "./types";
 
 /**
  * The few figures a watchlist card shows, and nothing else.
@@ -19,6 +19,26 @@ export interface WatchlistSummary {
   ticker: string;
   name: string;
   currency: string;
+  /**
+   * When the filings behind this digest were read.
+   *
+   * Carried so the daily warm-up can tell a current company from a stale one
+   * without reading the six-megabyte dataset back to look at its own timestamp.
+   * See `refreshableTickers` in dataset-cache.ts: before this existed the timer
+   * skipped anything already cached, so a company was only ever rebuilt when
+   * its key expired a week later — and a set of results published the day after
+   * a build stayed invisible for the rest of that week.
+   */
+  retrievedAt: string;
+  /**
+   * Whether this is a bank, broker or exchange.
+   *
+   * A card must not state a free-cash-flow margin for one. Carried on the
+   * digest rather than read from the reader's own watchlist entry, because a
+   * company they added themselves has whatever profile the SEC search produced
+   * and the digest is built from the dataset that was actually normalized.
+   */
+  businessType: CompanyProfile["businessType"];
   /** The period every figure below is taken from. */
   periodEnd: string;
   periodLabel: string;
@@ -88,6 +108,8 @@ export function summariseDataset(dataset: CompanyDataset): WatchlistSummary | nu
     ticker: dataset.company.ticker,
     name: dataset.company.name,
     currency: dataset.company.currency,
+    retrievedAt: dataset.retrievedAt,
+    businessType: dataset.company.businessType,
     periodEnd: period.periodEnd,
     periodLabel: period.label,
     shares: derivedValue(period, "sharesOutstanding") ?? derivedValue(period, "dilutedShares"),

@@ -6,6 +6,33 @@ import { summariseDataset, type WatchlistSummary } from "@/lib/watchlist-summary
 import type { CompanyDataset, CompanyProfile, FinancialPeriod } from "@/lib/types";
 
 const percent = (value: number | null) => value == null || !Number.isFinite(value) ? "—" : `${(value * 100).toFixed(1)}%`;
+/** The QS row states its rates already multiplied out, so this one does not. */
+const qsPercent = (value: number | string | null | undefined) => typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(1)}%` : "—";
+
+/**
+ * The three figures a card shows, chosen for the kind of business it is.
+ *
+ * Free cash flow at a bank, broker or exchange moves with customer and
+ * clearing balances, so dividing it by a net revenue line produces a number
+ * that is arithmetically correct and describes nothing — Interactive Brokers
+ * came out at a 394.9% free-cash-flow margin and a 1773.5% cash return on
+ * capital, printed on the front page as though they were facts about the
+ * company. What a financial firm is measured on instead is what it keeps of
+ * what it charges and how fast both have grown, which the stored QS row
+ * already carries.
+ */
+function cardFigures(digest: WatchlistSummary | null | undefined, financial: boolean) {
+  if (financial) return [
+    { label: "Operating margin", value: qsPercent(digest?.qs["Operating Margin"]) },
+    { label: "Revenue CAGR · 5Y", value: qsPercent(digest?.qs["Revenue 5Y CAGR"]) },
+    { label: "Net income CAGR · 5Y", value: qsPercent(digest?.qs["Net Income 5Y CAGR"]) },
+  ];
+  return [
+    { label: "FCF margin · 5Y", value: percent(digest?.freeCashFlowAfterSbcMargin5Y ?? null) },
+    { label: "Cash RoC · 5Y", value: percent(digest?.cashReturnOnCapital5Y ?? null) },
+    { label: "FCF / share CAGR · 5Y", value: percent(digest?.freeCashFlowPerShareCagr5Y ?? null) },
+  ];
+}
 
 /**
  * How often to ask for the digests again, and how long to keep asking.
@@ -137,7 +164,7 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
    * however many times "Load all" was pressed. Naming the companies makes the
    * answer cover them, and depending on the list makes adding one ask again.
    */
-  const followed = watchlist.map((company) => company.ticker).join(",");
+  const followed = watchlist.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker).join(",");
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -238,6 +265,22 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
             const known = period != null || digest != null;
             const busy = pending[company.ticker] === "loading" || loading === company.ticker;
             const failed = pending[company.ticker] === "failed";
+            /*
+             * An instrument with no filing feed is a settled fact, not a
+             * pending one.
+             *
+             * HES Beheer was delisted in 2014 and the registry has always said
+             * so, but its card asked the server for a digest that can never
+             * exist, polled twenty times and then froze on "Building
+             * financials…" for good — a permanently broken-looking card in the
+             * first screen a visitor sees.
+             */
+            const unresolved = company.resolutionStatus === "unresolved";
+            // The dataset's own profile wins where there is one: a company the
+            // reader added carries whatever the SEC search decided, and the
+            // digest was built from the dataset that was actually normalized.
+            const financial = (digest?.businessType ?? dataset?.company.businessType ?? company.businessType) === "financial";
+            const figures = cardFigures(digest, financial);
             return <li key={company.ticker}>
               <button type="button" className="company-card" onClick={() => onOpen(company.ticker)}>
                 <span className="company-card-head">
@@ -259,15 +302,15 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
                   * business.
                   */}
                 <span className="company-card-stats">
-                  {known && <span><small>FCF margin · 5Y</small>{percent(digest?.freeCashFlowAfterSbcMargin5Y ?? null)}</span>}
-                  {known && <span><small>Cash RoC · 5Y</small>{percent(digest?.cashReturnOnCapital5Y ?? null)}</span>}
-                  {known && <span className="company-card-wide"><small>FCF / share CAGR · 5Y</small>{percent(digest?.freeCashFlowPerShareCagr5Y ?? null)}</span>}
+                  {known && figures.map((figure, position) => <span key={figure.label} className={position === 2 ? "company-card-wide" : undefined}>
+                    <small>{figure.label}</small>{figure.value}
+                  </span>)}
                 </span>
                 {/* A company the server is still building is not a company
                     that failed, and must not be labelled like one. */}
-                {!known && <span className="company-card-state">{summaries == null ? "Loading…" : busy ? "Loading financials…" : failed ? "Could not load — try again" : building.has(company.ticker) ? "Building financials…" : "Financials not loaded"}</span>}
+                {!known && <span className="company-card-state">{unresolved ? "No filing feed available" : summaries == null ? "Loading…" : busy ? "Loading financials…" : failed ? "Could not load — try again" : building.has(company.ticker) ? "Building financials…" : "Financials not loaded"}</span>}
               </button>
-              {!known && summaries != null && !busy && !building.has(company.ticker) && <button type="button" className="company-card-load" onClick={() => load(company.ticker)}>{failed ? "Retry" : "Load"}</button>}
+              {!known && !unresolved && summaries != null && !busy && !building.has(company.ticker) && <button type="button" className="company-card-load" onClick={() => load(company.ticker)}>{failed ? "Retry" : "Load"}</button>}
               <button type="button" className="company-card-remove" title={`Remove ${company.ticker} from the watchlist`} aria-label={`Remove ${company.ticker} from the watchlist`}
                 onClick={() => onRemove(company.ticker)}>×</button>
             </li>;

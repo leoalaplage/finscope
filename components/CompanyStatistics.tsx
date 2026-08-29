@@ -26,7 +26,17 @@ function SingleCompany({ groups, currency }: { groups: StatGroup[]; currency: st
       <h3>{group.title}</h3>
       {group.note && <p className="stat-note">{group.note}</p>}
       <dl>{group.stats.map((stat) => <div className="stat-row" key={`${group.title}-${stat.label}`}>
-        <dt title={stat.formula}>{stat.label}</dt>
+        {/*
+          * A missing value says why, in the open.
+          *
+          * The reason has always been computed — "Visa publishes no combined
+          * share count", "cash flow at a broker moves with customer balances" —
+          * and has always been hidden in a `title`, which a touch screen never
+          * shows and a mouse shows after a second of hovering something that
+          * looks like nothing. So a reader met a row of dashes and concluded
+          * the application was broken. An explained gap is the product working.
+          */}
+        <dt title={stat.formula}>{stat.label}{stat.value == null && stat.reason && <small className="stat-reason">{stat.reason}</small>}</dt>
         <dd><StatValue stat={stat} currency={currency}/></dd>
       </div>)}</dl>
     </section>)}

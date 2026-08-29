@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { fetchQuotes } from "@/lib/adapters/quotes";
-import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
+import { COVERED_TICKERS, companyByTicker } from "@/lib/company-registry";
+import { resolveMarketProfile } from "@/lib/market-profile";
 import { datasetCache } from "@/lib/runtime-env";
-import { summaryKey } from "@/lib/dataset-cache";
+import { requestedTickers, summaryKey } from "@/lib/dataset-cache";
 import { SP500_REVIEWED, SP500_TOP_50 } from "@/lib/sp500";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 
@@ -28,8 +29,23 @@ const headers = {
  * market symbol has no move to show, and a permanently grey tile in the middle
  * of a heat map reads as a market signal rather than as a missing feed.
  */
-export async function GET() {
-  const watchlist = DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved");
+export async function GET(request: Request) {
+  /*
+   * The reader's own watchlist, not this file's.
+   *
+   * The lower half of the heat map is labelled "Watchlist" and used to draw the
+   * built-in registry, so a company the reader added themselves never appeared
+   * in it. The same correction was made for /api/watchlist; this endpoint was
+   * missed. A registry entry supplies the sector and the Yahoo symbol where we
+   * have one; a company we do not know is drawn under its own ticker.
+   */
+  const asked = requestedTickers(new URL(request.url).searchParams.get("tickers"), COVERED_TICKERS);
+  const watchlist = asked.flatMap((ticker) => {
+    const known = companyByTicker(ticker);
+    if (known?.resolutionStatus === "unresolved") return [];
+    const profile = known ?? resolveMarketProfile(ticker);
+    return profile ? [profile] : [];
+  });
   const symbols = [
     ...SP500_TOP_50.map((member) => member.symbol),
     ...watchlist.map((company) => company.yahooTicker ?? company.ticker),

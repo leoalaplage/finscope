@@ -1,5 +1,7 @@
 import { DEFAULT_WATCHLIST } from "./company-registry";
 import { datasetCache, selfFetcher } from "./runtime-env";
+import { TICKER_PATTERN } from "./market-profile";
+import type { WatchlistSummary } from "./watchlist-summary";
 
 /**
  * The cache key version.
@@ -71,8 +73,12 @@ export function datasetKey(ticker: string) {
  * s3: carries the three five-year figures the watchlist card shows — free cash
  *     flow margin after stock-based compensation, cash return on capital, and
  *     the compound growth of free cash flow per share.
+ * s4: carries when the filings were read and whether the company is a financial
+ *     institution — the first so the timer can find a stale company without
+ *     reading the dataset, the second so a card never states a free-cash-flow
+ *     margin for a broker.
  */
-const SUMMARY_SHAPE = "s3";
+const SUMMARY_SHAPE = "s4";
 
 /**
  * The card-sized digest stored beside each dataset.
@@ -86,8 +92,22 @@ export function summaryKey(ticker: string) {
 
 export interface WarmReport { warmed: string[]; failed: Array<{ ticker: string; reason: string }> }
 
-/** A plausible exchange symbol: letters, digits, and the dot and dash classes use. */
-const TICKER = /^[A-Z0-9][A-Z0-9.-]{0,11}$/;
+/**
+ * How old a cached company may be before the timer rebuilds it.
+ *
+ * The lifetime of a key and the age at which it is refreshed are two different
+ * questions, and conflating them is what made a set of published results
+ * invisible for up to a week. `CACHE_SECONDS` answers "how long may this be
+ * served if everything else fails"; this answers "when should it be replaced".
+ *
+ * Twenty hours, against crons six hours apart, means a company built at 07:00
+ * is eligible again at the following 07:00 run: once a day, every day, with no
+ * run rebuilding what the previous one just did. A quarterly filing is
+ * therefore on screen within a day of being published rather than within a
+ * week, and the daily cost is exactly what the design always intended — one
+ * rebuild per company per day.
+ */
+export const REFRESH_AFTER_MS = 20 * 3_600_000;
 
 /**
  * How many companies one reader may ask to be looked up at once.
@@ -112,12 +132,12 @@ export const WATCHLIST_LIMIT = 60;
  * which is what an older client sends.
  */
 export function requestedTickers(param: string | null | undefined, fallback: string[]): string[] {
-  const asked = [...new Set((param ?? "").split(",").map((item) => item.trim().toUpperCase()).filter((item) => TICKER.test(item)))];
+  const asked = [...new Set((param ?? "").split(",").map((item) => item.trim().toUpperCase()).filter((item) => TICKER_PATTERN.test(item)))];
   return asked.length ? asked.slice(0, WATCHLIST_LIMIT) : fallback;
 }
 
 /**
- * Whether a company is already cached, without reading it.
+ * Whether a company is cached, and whether that copy is still current.
  *
  * KV has no existence check, so this asks for the value — but as a stream, and
  * cancels it. Asking for `"text"` instead, which is what this used to do, pulls
@@ -127,16 +147,31 @@ export function requestedTickers(param: string | null | undefined, fallback: str
  *
  * Both keys are checked. The watchlist reads the digest, and a dataset cached
  * without one would leave that company's card blank forever.
+ *
+ * The digest is also where the answer to "how old is this" comes from. It is a
+ * few hundred bytes and carries the moment the filings were read, so the age of
+ * a five-megabyte dataset costs one small read rather than parsing the dataset
+ * back. A digest written before that field existed parses to `NaN` and is
+ * reported stale, which rebuilds it once and then behaves.
  */
-async function isCached(cache: KVNamespace, ticker: string) {
+type CacheState = "missing" | "stale" | "current";
+
+async function cacheState(cache: KVNamespace, ticker: string): Promise<CacheState> {
   const dataset = await cache.get(datasetKey(ticker), "stream");
-  if (!dataset) return false;
+  if (!dataset) return "missing";
   await dataset.cancel();
-  // The digest is a few hundred bytes, so reading it outright costs nothing.
-  return (await cache.get(summaryKey(ticker), "text")) != null;
+  const stored = await cache.get(summaryKey(ticker), "text");
+  if (!stored) return "missing";
+  let builtAt = Number.NaN;
+  try {
+    builtAt = Date.parse((JSON.parse(stored) as WatchlistSummary).retrievedAt);
+  } catch {
+    // An unreadable digest is one worth writing again.
+  }
+  return Number.isFinite(builtAt) && Date.now() - builtAt < REFRESH_AFTER_MS ? "current" : "stale";
 }
 
-/** The watchlist companies that have no usable cache entry yet. */
+/** The watchlist companies that have no usable cache entry at all. */
 export async function missingTickers(
   tickers = DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker),
 ): Promise<string[]> {
@@ -145,7 +180,7 @@ export async function missingTickers(
   const missing: string[] = [];
   for (const ticker of tickers) {
     try {
-      if (!(await isCached(cache, ticker))) missing.push(ticker);
+      if (await cacheState(cache, ticker) === "missing") missing.push(ticker);
     } catch {
       // An unreadable key is a key worth rebuilding.
       missing.push(ticker);
@@ -174,9 +209,17 @@ function claimKey(ticker: string) {
  *
  * The service binding in production, the global fetch under `vite dev`. See
  * selfFetcher for why the two cannot be the same call.
+ *
+ * `rebuild` is what makes refreshing a stale company possible at all. The
+ * endpoint answers a cached copy before it considers doing any work — which is
+ * the whole point of the cache — so a warm request for a company that is
+ * present but out of date would be served the very copy it was sent to
+ * replace, and the timer would report success having changed nothing.
  */
-async function requestCompany(origin: string, ticker: string): Promise<Response> {
-  const request = new Request(new URL(`/api/company/${encodeURIComponent(ticker)}`, origin), { headers: { "X-FinScope-Warm": "1" } });
+async function requestCompany(origin: string, ticker: string, rebuild = false): Promise<Response> {
+  const headers: Record<string, string> = { "X-FinScope-Warm": "1" };
+  if (rebuild) headers["X-FinScope-Rebuild"] = "1";
+  const request = new Request(new URL(`/api/company/${encodeURIComponent(ticker)}`, origin), { headers });
   const self = selfFetcher();
   return self ? self.fetch(request) : fetch(request);
 }
@@ -299,16 +342,26 @@ export async function warmWatchlist(
   const cache = datasetCache();
 
   for (const ticker of tickers) {
-    // A key already written under this version is current by construction:
-    // the version changes whenever meaning does.
-    if (cache && await isCached(cache, ticker)) { report.warmed.push(ticker); continue; }
+    /*
+     * Only a copy that is both present and recent is left alone.
+     *
+     * This used to skip anything already cached, on the reasoning that the key
+     * version changes whenever normalization changes meaning. That is true and
+     * beside the point: the version tracks *our* semantics, not the company's
+     * filings. With nothing else refreshing a key, the only thing that ever
+     * replaced a dataset was its own week-long expiry — so Veeva published a
+     * quarter the day after its build and the site showed the previous quarter
+     * for the rest of the week, which is exactly the day a reader looks.
+     */
+    const state = cache ? await cacheState(cache, ticker) : "missing";
+    if (state === "current") { report.warmed.push(ticker); continue; }
     let reason = "";
     // A refusal means the platform is throttling us, not that the company is
     // broken, so the wait before trying again is long rather than immediate.
     for (let attempt = 0; attempt < retries; attempt++) {
       if (attempt > 0) await wait(retryMs);
       try {
-        const response = await requestCompany(origin, ticker);
+        const response = await requestCompany(origin, ticker, state === "stale");
         // The endpoint has already written to KV by the time it answers, so
         // the body is dead weight — five megabytes of it, per company.
         await response.body?.cancel();

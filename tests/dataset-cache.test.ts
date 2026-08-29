@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CACHE_SECONDS, datasetKey, KEY_VERSION, missingTickers, requestedTickers, summaryKey, WATCHLIST_LIMIT, warmSomeMissing, warmWatchlist } from "../lib/dataset-cache";
+import { CACHE_SECONDS, datasetKey, KEY_VERSION, missingTickers, REFRESH_AFTER_MS, requestedTickers, summaryKey, WATCHLIST_LIMIT, warmSomeMissing, warmWatchlist } from "../lib/dataset-cache";
 import { COVERED_TICKERS, DEFAULT_WATCHLIST } from "../lib/company-registry";
 import { setRuntimeBindings } from "../lib/runtime-env";
 
@@ -10,6 +10,15 @@ const path = (request: Request) => new URL(request.url).pathname;
 const INSTANT = { paceMs: 0, retryMs: 0, retries: 2 };
 
 /**
+ * A stored digest, as old as the test needs it to be.
+ *
+ * The age lives here rather than in each test because it is the only field the
+ * warm-up reads: a company is refreshed when the digest beside it says the
+ * filings were read longer ago than the refresh window.
+ */
+const digest = (ageMs: number) => JSON.stringify({ retrievedAt: new Date(Date.now() - ageMs).toISOString() });
+
+/**
  * A KV double that only needs get/put for this code path.
  *
  * `get` honours the type argument, because the code under test relies on it:
@@ -17,10 +26,10 @@ const INSTANT = { paceMs: 0, retryMs: 0, retries: 2 };
  * is never pulled into memory to answer a yes/no question, and a double that
  * hands back a string either way would let that regress unnoticed.
  */
-function cacheDouble(warm: string[] = [], digested = warm) {
+function cacheDouble(warm: string[] = [], digested = warm, ageMs = 0) {
   const store = new Map<string, string>([
     ...warm.map((ticker) => [datasetKey(ticker), "{}"] as const),
-    ...digested.map((ticker) => [summaryKey(ticker), "{}"] as const),
+    ...digested.map((ticker) => [summaryKey(ticker), digest(ageMs)] as const),
   ]);
   return {
     store,
@@ -46,6 +55,15 @@ describe("dataset cache keys", () => {
     // so one skipped cron empties the watchlist. See CACHE_SECONDS.
     expect(CACHE_SECONDS).toBeGreaterThanOrEqual(6 * 86_400);
   });
+
+  it("refreshes far more often than it expires, so a filing is never a week late", () => {
+    // These two answer different questions and were once the same answer: with
+    // nothing refreshing a key, expiry was the only thing that ever replaced a
+    // dataset, so a quarter published the day after a build stayed invisible
+    // for the rest of that week.
+    expect(REFRESH_AFTER_MS).toBeLessThanOrEqual(86_400_000);
+    expect(REFRESH_AFTER_MS).toBeLessThan(CACHE_SECONDS * 1_000);
+  });
 });
 
 describe("scheduled warm-up", () => {
@@ -60,13 +78,56 @@ describe("scheduled warm-up", () => {
     expect(report.failed).toEqual([]);
   });
 
-  it("skips a company already stored under the current version", async () => {
+  it("skips a company stored recently enough to still be current", async () => {
     setRuntimeBindings({ DATASET_CACHE: cacheDouble(["AAPL"]) });
     const call = vi.fn(async () => new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", call);
     const report = await warmWatchlist(ORIGIN, ["AAPL", "MSFT"], INSTANT);
     expect(call).toHaveBeenCalledTimes(1);
     expect(report.warmed).toEqual(["AAPL", "MSFT"]);
+  });
+
+  it("rebuilds a company whose stored copy has aged past the refresh window", async () => {
+    // The Veeva case. The run used to skip anything already cached, so the only
+    // thing that ever replaced a dataset was its own week-long expiry: results
+    // published the day after a build were invisible for the rest of the week.
+    setRuntimeBindings({ DATASET_CACHE: cacheDouble(["AAPL"], ["AAPL"], REFRESH_AFTER_MS + 60_000) });
+    const seen: Request[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (request: Request) => { seen.push(request); return new Response("{}", { status: 200 }); }));
+    const report = await warmWatchlist(ORIGIN, ["AAPL"], INSTANT);
+    expect(seen.map(path)).toEqual(["/api/company/AAPL"]);
+    expect(report.warmed).toEqual(["AAPL"]);
+  });
+
+  it("asks a stale company to be rebuilt, not served from the copy it is replacing", async () => {
+    // Without the header the endpoint answers from KV — the very bytes this run
+    // exists to replace — and the refresh reports success having changed
+    // nothing at all.
+    setRuntimeBindings({ DATASET_CACHE: cacheDouble(["AAPL"], ["AAPL"], REFRESH_AFTER_MS + 60_000) });
+    const seen: Request[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (request: Request) => { seen.push(request); return new Response("{}", { status: 200 }); }));
+    await warmWatchlist(ORIGIN, ["AAPL"], INSTANT);
+    expect(seen[0].headers.get("X-FinScope-Rebuild")).toBe("1");
+  });
+
+  it("does not ask for a rebuild when there is nothing cached to replace", async () => {
+    const seen: Request[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (request: Request) => { seen.push(request); return new Response("{}", { status: 200 }); }));
+    await warmWatchlist(ORIGIN, ["AAPL"], INSTANT);
+    expect(seen[0].headers.get("X-FinScope-Rebuild")).toBeNull();
+    expect(seen[0].headers.get("X-FinScope-Warm")).toBe("1");
+  });
+
+  it("treats a digest written before build times were recorded as stale", async () => {
+    // One rebuild, once, rather than a company frozen for ever because the
+    // shape it was stored in cannot say how old it is.
+    const cache = cacheDouble(["AAPL"]);
+    cache.store.set(summaryKey("AAPL"), "{}");
+    setRuntimeBindings({ DATASET_CACHE: cache });
+    const call = vi.fn(async () => new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", call);
+    await warmWatchlist(ORIGIN, ["AAPL"], INSTANT);
+    expect(call).toHaveBeenCalledTimes(1);
   });
 
   it("revisits a company whose dataset predates the watchlist digest", async () => {
