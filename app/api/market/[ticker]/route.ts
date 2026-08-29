@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveMarketProfile } from "@/lib/market-profile";
-import { cachedJson, isToday, SETTLED_SECONDS, TODAY_SECONDS } from "@/lib/market-cache";
+import { cachedJson, isToday, SETTLED_SECONDS, TODAY_SECONDS, type Completeness } from "@/lib/market-cache";
 import { fetchYahooMarketHistory } from "@/lib/adapters/yahoo";
 import type { MarketFrequency } from "@/lib/types";
 
@@ -43,6 +43,10 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       `market:${company.ticker}:${frequency}:${start}:${end}`,
       seconds,
       async () => ({ ticker: company.ticker, frequency, bars: await fetchYahooMarketHistory(company, start, end, frequency) }),
+      // A history with no bars in it is not a history. Yahoo answering 200 with
+      // an empty chart looks exactly like a company that has never traded, and
+      // storing that for a day empties every price series on the page.
+      (answer): Completeness => answer.bars.length ? "full" : "empty",
     );
     return new Response(body, {
       headers: {
