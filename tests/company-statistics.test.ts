@@ -253,3 +253,36 @@ describe("cash return on capital", () => {
     expect(formatStat(-.045, "points")).toBe("-4.5 pp");
   });
 });
+
+describe("a financial institution", () => {
+  it("withholds every free-cash-flow measure, and says why once", () => {
+    /*
+     * Interactive Brokers stated a 394.9% free-cash-flow margin and a 1773.5%
+     * cash return on capital on the front page. Cash flow at a broker moves
+     * with customer and clearing balances, so those ratios are arithmetically
+     * correct and describe nothing.
+     */
+    const base = dataset();
+    const broker = { ...base, company: { ...base.company, businessType: "financial" as const } };
+    const groups = companyStatistics(broker, null);
+    const withheld = groups.flatMap((group) => group.stats).filter((stat) => stat.reason === "Not meaningful at a financial institution");
+    expect(withheld.map((stat) => stat.label).sort()).toEqual(
+      ["Capex/Sales", "Cash RoC", "Cash RoC · 5Yr Avg", "Cash RoC · vs 5Yr", "FCF", "FCF 5Yr", "FCF after SBC", "FCF/share 5Yr", "P/FCF"],
+    );
+    for (const stat of withheld) expect(stat.value).toBeNull();
+
+    // The long explanation is stated once, at the top of the first group it
+    // applies to. Repeating it on nine rows is the same information served
+    // badly enough that nobody reads any of it.
+    const explanations = groups.filter((group) => group.note?.includes("customer and clearing balances"));
+    expect(explanations).toHaveLength(1);
+    expect(explanations[0].title).toBe("Margins (TTM)");
+  });
+
+  it("leaves an operating company's cash measures alone", () => {
+    const groups = companyStatistics(dataset(), null);
+    const margin = groups.find((group) => group.title === "Margins (TTM)")!.stats.find((stat) => stat.label === "FCF")!;
+    expect(margin.value).not.toBeNull();
+    expect(groups.some((group) => group.note?.includes("customer and clearing balances"))).toBe(false);
+  });
+});

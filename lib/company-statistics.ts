@@ -74,7 +74,16 @@ function cagr(annual: FinancialPeriod[], metric: string, years: 3 | 5 | 10): { v
  * A blank with a reason costs a reader nothing. A four-figure percentage costs
  * them their trust in every other number on the page.
  */
-const FINANCIAL_CASH_FLOW = "Cash flow at a bank, broker or exchange moves with customer and clearing balances, so a free-cash-flow ratio does not measure this business";
+const FINANCIAL_CASH_FLOW = "Not meaningful at a financial institution";
+
+/**
+ * The same point at length, stated once at the top of the group.
+ *
+ * The short reason above sits on eight rows. Repeating a twenty-word
+ * explanation on each of them is the right information served badly: the panel
+ * becomes a wall of one sentence, and a reader stops reading any of it.
+ */
+const FINANCIAL_NOTE = "Free-cash-flow measures are withheld: operating cash flow at a bank, broker or exchange moves with customer and clearing balances — money belonging to clients that passes through the statement — so dividing it by a net revenue line gives a figure that is arithmetically correct and describes nothing.";
 
 export function companyStatistics(dataset: CompanyDataset, price: PricePoint | null): StatGroup[] {
   const financial = dataset.company.businessType === "financial";
@@ -123,6 +132,7 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
     },
     {
       title: "Margins (TTM)",
+      note: financial ? FINANCIAL_NOTE : undefined,
       stats: [
         stat("grossMargin", "Gross", flow("grossMargin"), "percent", 1),
         stat("ebitdaMargin", "EBITDA", flow("ebitdaMargin"), "percent", 1),
@@ -135,7 +145,9 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
     },
     {
       title: "Returns on Capital",
-      note: "Cash RoC divides free cash flow by the same capital base as ROIC. ROIC's numerator applies a tax rate, and falls back to an assumed one when the reported rate is unusable; cash carries no such assumption.",
+      note: financial
+        ? "ROIC, ROE, ROCE and ROA are stated; the cash return is not, for the reason given under Margins."
+        : "Cash RoC divides free cash flow by the same capital base as ROIC. ROIC's numerator applies a tax rate, and falls back to an assumed one when the reported rate is unusable; cash carries no such assumption.",
       stats: [
         // The headline pair, current against the cycle, and the gap between
         // them: a return well below its own five-year average is the first
