@@ -15,13 +15,19 @@ It uses Next.js App Router semantics through Vinext, React 19, strict TypeScript
 
 ### Navigation
 
-- **Companies** — the ranked watchlist table, with a column picker so the visible metrics are the reader's choice, and a quality-versus-valuation scatter.
-- **Company** — Statements (income statement and balance sheet drawn as flow diagrams), Overview (a KPI card grid, one chart per measure), Statistics, Balance Sheet, Margins, Growth & Cash Quality, Per Share, Capital Allocation and Valuation.
-- **Statistics** — the headline panel for one company, or up to six compared row by row with the better value in each row marked.
+Five destinations, and a search box in the header that reaches any company from any page — the watchlist you follow, and every SEC filer behind it.
+
+- **Watchlist** — the companies you follow as cards stating five-year figures, with the ranked table and its column picker one click away, plus a quality-versus-valuation scatter.
+- **Market** — the three US indices intraday, and the day's moves as sector treemaps.
+- **Portfolio** — transactions, value, and return with deposits stripped out.
 - **Charts** — the multi-company, multi-metric workspace.
-- **Valuation** — a reverse DCF on free cash flow per share (four assumptions, out comes the price you would have to pay for your target return) and the full FCFF model behind a tab.
-- **QS Screener** — the standalone quality-score screen, with PNG export.
-- Secondary views reachable from a company: Data Quality, Formula Audit, Import status and Sources.
+- **QS Screener** — the quality-score screen, with PNG export.
+
+Everything about a single company is on that company's page, in six tabs: **Overview** (a KPI card grid, one chart per measure), **Statistics** (the headline panel, alone or with up to five other companies compared row by row), **Statements** (income statement, cash flow and balance sheet drawn as flow diagrams, then the balance sheet in detail), **Financials** (statements, per share, margins, capital allocation, growth and cash quality), **Valuation** (multiples against their own five-year history, a reverse DCF on free cash flow per share, and the full FCFF model) and **Sources**.
+
+Every view is addressable: `/?ticker=VEEV&view=company&tab=valuation` opens exactly that, and Back and Forward work.
+
+Secondary views reachable from the footer: Data Quality, Formula Audit, Import status and Sources.
 
 ### Data views
 
@@ -66,9 +72,15 @@ app/                       App Router pages and API endpoints
   api/price/[ticker]/      historical Yahoo session-matching endpoint
   api/prices/, api/market/ batch and market-series price endpoints
 components/                interactive research workspace
+  FinanceApp.tsx           the shell, the address bar, and the company page
+  HeaderSearch.tsx         watchlist and SEC search, from any page
+  Skeleton.tsx             the shape of what is loading, at its own size
 lib/
   adapters/sec.ts          official-filing provider adapter
   adapters/yahoo.ts        historical adjusted-close adapter
+  market-profile.ts        the company a market endpoint needs, registry or not
+  market-cache.ts          prices and history in KV, settled apart from live
+  dataset-cache.ts         key versions, freshness and the warm-up
   periods.ts               annual/quarter/TTM normalization engine
   finance.ts               centralized, pure financial formulas
   metrics.ts               the metric registry and its display groups
@@ -103,11 +115,16 @@ The generated Worker output is deployed to Cloudflare. Two pieces of runtime con
 | Binding | Type | Purpose |
 |---|---|---|
 | `DATASET_CACHE` | KV namespace `finscope-datasets` | Caches normalized company datasets. |
-| `SELF_ORIGIN` | Variable (optional) | Where the daily warm-up addresses its own endpoints; defaults to the workers.dev hostname. |
+| `SELF` | Service binding to this same Worker | How the warm-up invokes its own endpoints. A plain fetch at this Worker's own hostname does not re-enter it. |
+| `SELF_ORIGIN` | Variable (optional) | Where the warm-up addresses its own endpoints; defaults to the workers.dev hostname. |
 | `SEC_USER_AGENT` | Variable | Identifies the automated SEC client with contact information. |
 | `SITE_ORIGIN` | Variable (optional) | Canonical origin for social-preview URLs; defaults to the workers.dev hostname. |
 
-A cron trigger (`0 7 * * *`) rebuilds every watchlist company into the cache daily, so the data is already there when a reader arrives.
+Cron triggers at 01:00, 07:00, 13:00 and 19:00 UTC keep the cache current. A company is rebuilt once its stored digest says the filings were read more than twenty hours ago, so a quarterly result is on screen within a day of being published rather than whenever the key happened to expire. **At most six companies are rebuilt per run**, which is not an optimisation but a limit: rebuilding eighteen filers inside ninety seconds got the Worker throttled and the whole site answered `1102` for four minutes. Four runs a day at six each still covers twenty-four companies.
+
+The request that reads a reader's watchlist also warms what is missing from it, and refreshes one aged company behind that — which is the only thing that ever refreshes a company the reader added themselves, since no cron knows about it.
+
+Prices and market history are cached in the same namespace, separated by whether they are settled: five minutes for today's price, a day for a close that is a matter of record.
 
 The front page is prerendered and served for about a millisecond of Worker CPU. Keep dynamic APIs out of `app/layout.tsx`: one `headers()` call there makes every page under it dynamic, and the whole application tree is then server-rendered on every visit.
 
