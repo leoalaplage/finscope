@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveMarketProfile } from "@/lib/market-profile";
+import { cachedJson, isToday, SETTLED_SECONDS, TODAY_SECONDS } from "@/lib/market-cache";
 import { fetchYahooMarketHistory } from "@/lib/adapters/yahoo";
 import type { MarketFrequency } from "@/lib/types";
 
@@ -34,8 +35,22 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
     return NextResponse.json({ error: "Valid start, end and frequency (daily, weekly, monthly, quarterly or annual) are required." }, { status: 400 });
   }
   try {
-    const bars = await fetchYahooMarketHistory(company, start, end, frequency);
-    return NextResponse.json({ ticker: company.ticker, frequency, bars }, { headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" } });
+    // A window ending today keeps moving; one that ended yesterday is settled.
+    // Every overview chart and every price series asks through here, and each
+    // one used to be a cold round trip to Yahoo.
+    const seconds = isToday(end) ? TODAY_SECONDS : SETTLED_SECONDS;
+    const { body, hit } = await cachedJson(
+      `market:${company.ticker}:${frequency}:${start}:${end}`,
+      seconds,
+      async () => ({ ticker: company.ticker, frequency, bars: await fetchYahooMarketHistory(company, start, end, frequency) }),
+    );
+    return new Response(body, {
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": `public, s-maxage=${seconds}, stale-while-revalidate=${SETTLED_SECONDS}`,
+        "X-FinScope-Cache": hit ? "hit" : "miss",
+      },
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Market history unavailable." }, { status: 502 });
   }

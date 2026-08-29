@@ -46,3 +46,40 @@ describe("resolving a company for market data", () => {
     expect(TICKER_PATTERN.test("BRK.B")).toBe(true);
   });
 });
+
+describe("caching market answers", () => {
+  it("keeps today apart from a settled session", async () => {
+    const { isToday, TODAY_SECONDS, SETTLED_SECONDS } = await import("../lib/market-cache");
+    expect(isToday(new Date().toISOString().slice(0, 10))).toBe(true);
+    expect(isToday("2020-01-02")).toBe(false);
+    // A closing price for a past session is settled; today's is not, and
+    // answering both with a day of caching froze the headline price for a
+    // whole trading day.
+    expect(TODAY_SECONDS).toBeLessThanOrEqual(600);
+    expect(SETTLED_SECONDS).toBeGreaterThanOrEqual(3_600);
+  });
+
+  it("builds once and serves the stored body afterwards", async () => {
+    const { cachedJson, marketKey } = await import("../lib/market-cache");
+    const { setRuntimeBindings } = await import("../lib/runtime-env");
+    const store = new Map<string, string>();
+    setRuntimeBindings({ DATASET_CACHE: {
+      get: async (key: string) => store.get(key) ?? null,
+      put: async (key: string, value: string) => { store.set(key, value); },
+    } });
+    let built = 0;
+    const build = async () => { built += 1; return { price: 12 }; };
+    expect(await cachedJson("price:X:2020-01-02", 60, build)).toEqual({ body: '{"price":12}', hit: false });
+    expect(await cachedJson("price:X:2020-01-02", 60, build)).toEqual({ body: '{"price":12}', hit: true });
+    expect(built).toBe(1);
+    expect(store.has(marketKey("price:X:2020-01-02"))).toBe(true);
+    setRuntimeBindings({});
+  });
+
+  it("still answers when nothing is bound, as under a bare vite dev", async () => {
+    const { cachedJson } = await import("../lib/market-cache");
+    const { setRuntimeBindings } = await import("../lib/runtime-env");
+    setRuntimeBindings({});
+    expect(await cachedJson("price:X:2020-01-02", 60, async () => ({ price: 3 }))).toEqual({ body: '{"price":3}', hit: false });
+  });
+});

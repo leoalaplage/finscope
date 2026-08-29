@@ -5,9 +5,51 @@ describe("UI regressions", () => {
   it("keeps the primary navigation intentionally limited", () => {
     const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
     // The key stays "companies" on purpose: it is in every saved link.
-    expect(source).toContain('{ key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "portfolio", label: "Portfolio" }, { key: "stats", label: "Statistics" }, { key: "charts", label: "Charts" }, { key: "dcf", label: "DCF" }, { key: "qs", label: "QS Screener" }');
+    expect(source).toContain('{ key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "portfolio", label: "Portfolio" }, { key: "charts", label: "Charts" }, { key: "qs", label: "QS Screener" }');
     expect(source).not.toContain('label: "Data Quality"');
     expect(source).not.toContain('label: "Formula Audit"');
+  });
+
+  it("keeps everything about one company on that company's page", () => {
+    /*
+     * Statistics and DCF were destinations in the main navigation that both
+     * showed the company you were already reading — the DCF page was literally
+     * keyed on its ticker, and the Statistics tab rendered the very same panel
+     * as the Statistics page, with a button between them that threw you from
+     * one to the other.
+     */
+    const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    expect(source).toContain('type MainView = "companies" | "company" | "market" | "portfolio" | "charts" | "qs"');
+    expect(source).not.toContain("function DcfPage");
+    expect(source).not.toContain("StatisticsPage");
+    // Both live inside the company page now, and comparison happens there.
+    expect(source).toContain("CompanyStatisticsTab");
+    expect(source).toContain('{ key: "valuation", label: "Valuation" }');
+    expect(source).toContain("FcfYieldCalculator");
+    const tab = readFileSync(new URL("../components/CompanyStatisticsTab.tsx", import.meta.url), "utf8");
+    // The open company is the first column and cannot be removed.
+    expect(tab).toContain("const shown = [dataset, ...others]");
+    expect(tab).toContain("company.ticker !== anchor");
+  });
+
+  it("reads the address bar as well as writing to it", () => {
+    /*
+     * Four calls wrote a ticker and a view into the URL and nothing read them
+     * back, so a shared link opened the watchlist showing Apple, a refresh lost
+     * the page, and Back did nothing at all.
+     */
+    const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    expect(source).toContain("function readRoute(");
+    expect(source).toContain("readRoute(location.search)");
+    expect(source).toContain('addEventListener("popstate", apply)');
+    expect(source).toContain('removeEventListener("popstate", apply)');
+    // Pushed, so Back retraces pages; the URL carries the company tab too.
+    expect(source).toContain("history.pushState");
+    expect(source).toContain('params.set("tab"');
+    // Everything read out of the URL is checked against what it may be.
+    expect(source).toContain("TICKER_PATTERN.test(ticker)");
+    expect(source).toContain("COMPANY_TAB_KEYS.has(tab)");
+    expect(source).toContain("NAV_KEYS.has(view)");
   });
 
   it("gives a two-series card a key and one honest headline", () => {

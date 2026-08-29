@@ -24,10 +24,12 @@ test("server-renders the FinScope research workspace", async () => {
   // The offline fixture, which is what makes this page renderable with no
   // network and no Worker CPU. See app/page.tsx.
   assert.match(html, /Apple Inc\./);
-  // Every top-level destination, by its current label.
-  for (const label of ["Watchlist", "Market", "Portfolio", "Statistics", "Charts", "DCF", "QS Screener"]) {
+  // Every top-level destination, by its current label. Statistics and DCF are
+  // deliberately absent: both are about one company and are tabs on its page.
+  for (const label of ["Watchlist", "Market", "Portfolio", "Charts", "QS Screener"]) {
     assert.match(html, new RegExp(`>${label}<`), `navigation is missing ${label}`);
   }
+  assert.doesNotMatch(html, /<nav aria-label="Main navigation">[\s\S]*?>DCF<[\s\S]*?<\/nav>/);
   // The default theme is stamped in the markup rather than applied by an
   // effect, so a reader never meets a white flash before the bundle boots.
   assert.match(html, /<html lang="en" data-theme="dark"/);

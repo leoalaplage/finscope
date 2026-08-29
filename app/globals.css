@@ -672,6 +672,13 @@ tbody tr:last-child > * { border-bottom: 0; }
 .stat-picker button.active { background: var(--accent); border-color: transparent; color: var(--accent-contrast); }
 .stat-picker button.active:hover:not(:disabled) { background: var(--accent); }
 .stat-picker-count { margin-left: 6px; font-size: var(--fs-xs); color: var(--muted); }
+/* The company you are reading, first and fixed. It is not a choice in this
+   group — you are on its page — so it is stated rather than offered. */
+.stat-picker-anchor {
+  display: inline-flex; align-items: center; min-height: 28px; padding: 0 12px;
+  border-radius: var(--radius-pill); background: var(--accent); color: var(--accent-contrast);
+  font-size: var(--fs-sm); font-weight: 600;
+}
 
 @media (max-width: 1100px) { .stat-columns { columns: 2; } }
 @media (max-width: 700px) { .stat-columns { columns: 1; } .stat-panel { padding: 14px; } }
