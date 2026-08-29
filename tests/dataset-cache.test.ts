@@ -294,6 +294,38 @@ describe("filling the cache on the way to serving a request", () => {
     expect(seen).toEqual(["/api/company/ZZZZ", "/api/company/YYYY"]);
   });
 
+  it("refreshes one aged company alongside the missing ones, since nothing else ever will", async () => {
+    /*
+     * The timer walks the built-in list, so a company the reader added is
+     * refreshed by nothing at all: built once, on the visit that added it, and
+     * then aged for ever. Costco came back six days old while every built-in
+     * company was current.
+     *
+     * One per request, and after the missing ones: a stale company has a
+     * perfectly good copy on screen, and a missing one has an empty card.
+     */
+    const cache = cacheDouble(["OLD"], ["OLD"], REFRESH_AFTER_MS + 60_000);
+    setRuntimeBindings({ DATASET_CACHE: cache });
+    const seen: Request[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (request: Request) => { seen.push(request); return new Response("{}", { status: 200 }); }));
+    await warmSomeMissing(ORIGIN, 3, ["OLD", "GONE"]);
+    expect(seen.map(path)).toEqual(["/api/company/GONE", "/api/company/OLD"]);
+    // The aged one has to ask for a rebuild or it is served its own stale copy.
+    expect(seen[0].headers.get("X-FinScope-Rebuild")).toBeNull();
+    expect(seen[1].headers.get("X-FinScope-Rebuild")).toBe("1");
+  });
+
+  it("refreshes no more aged companies than its budget, whatever a reader follows", async () => {
+    // A reader with sixty companies must not turn one page load into sixty
+    // twelve-megabyte parses.
+    const aged = ["A", "B", "C", "D"];
+    setRuntimeBindings({ DATASET_CACHE: cacheDouble(aged, aged, REFRESH_AFTER_MS + 60_000) });
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (request: Request) => { seen.push(path(request)); return new Response("{}", { status: 200 }); }));
+    await warmSomeMissing(ORIGIN, 3, aged);
+    expect(seen).toHaveLength(1);
+  });
+
   it("records a refusal instead of throwing into the request that triggered it", async () => {
     setRuntimeBindings({ DATASET_CACHE: cacheDouble() });
     vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 503 })));

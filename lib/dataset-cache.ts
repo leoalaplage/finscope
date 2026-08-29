@@ -185,18 +185,39 @@ async function cacheState(cache: KVNamespace, ticker: string): Promise<CacheStat
 export async function missingTickers(
   tickers = DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker),
 ): Promise<string[]> {
+  return (await tickersNeedingWork(tickers)).missing;
+}
+
+/**
+ * What a reader's own watchlist needs building, and what it needs refreshing.
+ *
+ * The daily timer walks the built-in list, so a company the reader added
+ * themselves is refreshed by nothing at all: it was built once, on the visit
+ * that added it, and then aged for ever. Costco came back reading filings from
+ * six days earlier while every built-in company was current — the same
+ * staleness the timer exists to prevent, for exactly the companies the timer
+ * has never heard of.
+ *
+ * Missing and stale are kept apart because they are answered differently. A
+ * missing company leaves an empty card and is worth building on the reader's
+ * next request; a stale one has a perfectly good copy on screen, so at most one
+ * per request is refreshed behind it.
+ */
+export async function tickersNeedingWork(tickers: string[]): Promise<{ missing: string[]; stale: string[] }> {
   const cache = datasetCache();
-  if (!cache) return [];
-  const missing: string[] = [];
+  if (!cache) return { missing: [], stale: [] };
+  const missing: string[] = []; const stale: string[] = [];
   for (const ticker of tickers) {
     try {
-      if (await cacheState(cache, ticker) === "missing") missing.push(ticker);
+      const state = await cacheState(cache, ticker);
+      if (state === "missing") missing.push(ticker);
+      else if (state === "stale") stale.push(ticker);
     } catch {
       // An unreadable key is a key worth rebuilding.
       missing.push(ticker);
     }
   }
-  return missing;
+  return { missing, stale };
 }
 
 /**
@@ -278,17 +299,25 @@ async function recordWarm(cache: KVNamespace, line: string) {
  * missing, so each poll advances the batch and the page fills in over a handful
  * of round trips rather than one long one.
  */
-export async function warmSomeMissing(origin: string, batch = 3, tickers?: string[]): Promise<WarmReport> {
+export async function warmSomeMissing(origin: string, batch = 3, tickers?: string[], staleBudget = 1): Promise<WarmReport> {
   const report: WarmReport = { warmed: [], failed: [] };
   const cache = datasetCache();
   if (!cache) return report;
 
   // Whichever companies the reader asked about, not whichever ones this file
   // happens to list: a company they added themselves is missing far more often
-  // than a built-in one, and is the only kind nothing else will ever build.
-  const missing = await missingTickers(tickers);
-  if (missing.length) await recordWarm(cache, `warm-on-read: ${missing.length} missing, trying ${missing.slice(0, batch).join(",")} via ${origin}`);
-  for (const ticker of missing) {
+  // than a built-in one, and is the only kind nothing else will ever build —
+  // or refresh, which is why one aged company comes along for the ride.
+  const asked = tickers ?? DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker);
+  const { missing, stale } = await tickersNeedingWork(asked);
+  const refresh = stale.slice(0, staleBudget);
+  const work: Array<{ ticker: string; rebuild: boolean }> = [
+    ...missing.map((ticker) => ({ ticker, rebuild: false })),
+    ...refresh.map((ticker) => ({ ticker, rebuild: true })),
+  ];
+  if (!work.length) return report;
+  await recordWarm(cache, `warm-on-read: ${missing.length} missing, ${stale.length} stale, trying ${work.slice(0, batch).map((item) => item.ticker).join(",")} via ${origin}`);
+  for (const { ticker, rebuild } of work) {
     if (report.warmed.length + report.failed.length >= batch) break;
     try {
       if (await cache.get(claimKey(ticker), "text")) continue;
@@ -298,7 +327,7 @@ export async function warmSomeMissing(origin: string, batch = 3, tickers?: strin
       // never a wrong answer. An empty watchlist is the worse outcome.
     }
     try {
-      const response = await requestCompany(origin, ticker);
+      const response = await requestCompany(origin, ticker, rebuild);
       // The endpoint writes to KV before it answers, so the body is of no use
       // here. Cancelling it avoids buffering five megabytes to discard them.
       await response.body?.cancel();
@@ -308,7 +337,7 @@ export async function warmSomeMissing(origin: string, batch = 3, tickers?: strin
       report.failed.push({ ticker, reason: error instanceof Error ? error.message : "unreachable" });
     }
   }
-  if (missing.length) await recordWarm(cache, `warm-on-read done: warmed ${report.warmed.join(",") || "none"}; failed ${report.failed.map((item) => `${item.ticker} (${item.reason})`).join(",") || "none"}`);
+  await recordWarm(cache, `warm-on-read done: warmed ${report.warmed.join(",") || "none"}; failed ${report.failed.map((item) => `${item.ticker} (${item.reason})`).join(",") || "none"}`);
   return report;
 }
 
