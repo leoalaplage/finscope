@@ -94,10 +94,21 @@ function useMeasuredWidth<T extends HTMLElement>() {
     // browser is free to defer it — a background tab does exactly that — so
     // waiting for it leaves the element at a width of zero and the chart
     // drawn from nothing. The observer's job is the *changes*.
-    apply(element.getBoundingClientRect().width);
+    const measure = () => apply(element.getBoundingClientRect().width);
+    measure();
     const observer = new ResizeObserver((entries) => apply(entries[0]?.contentRect.width ?? 0));
     observer.observe(element);
-    return () => observer.disconnect();
+    /*
+     * And again when the page becomes visible.
+     *
+     * A hidden tab lays nothing out and delivers no resize observation at all,
+     * so a map mounted in one measures zero — and the observer, whose job is
+     * the changes, never corrects it because nothing ever changes. Opening the
+     * site with a middle click, or restoring a window full of tabs, left an
+     * empty heat map that stayed empty until the window was dragged.
+     */
+    document.addEventListener("visibilitychange", measure);
+    return () => { observer.disconnect(); document.removeEventListener("visibilitychange", measure); };
   }, []);
   return [ref, width] as const;
 }
@@ -127,10 +138,16 @@ function Treemap({ movers, aspect, zoomed, onZoom }: {
   onZoom: (sector: string | null) => void;
 }) {
   const [ref, width] = useMeasuredWidth<HTMLDivElement>();
-  // A zoomed sector gets the same width and more height, which is the whole
-  // point: the companies that were three pixels wide need room, not a
-  // magnifier over the same rectangle.
-  const height = Math.max(zoomed ? 380 : 220, Math.round(Math.max(width, 240) / (zoomed ? aspect * 0.55 : aspect)));
+  /*
+   * A zoomed sector gets the same width and more height, which is the whole
+   * point: the companies that were three pixels wide need room, not a
+   * magnifier over the same rectangle. Bounded above as well as below —
+   * following the width unchecked made a fifteen-company sector a thousand
+   * pixels tall, which is a scroll rather than a map.
+   */
+  const height = zoomed
+    ? Math.min(620, Math.max(380, Math.round(Math.max(width, 240) / (aspect * 0.55))))
+    : Math.max(220, Math.round(Math.max(width, 240) / aspect));
 
   const groups = useMemo<Array<PlacedGroup<Mover>>>(() => {
     const priced = movers.filter((mover) => mover.marketCap != null && mover.marketCap > 0);

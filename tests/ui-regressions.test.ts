@@ -76,15 +76,35 @@ describe("UI regressions", () => {
     expect(source).toContain('fill={rising ? "var(--card)" : colour}');
   });
 
-  it("leads the Charts page with the chart, not with seven rows of controls", () => {
+  it("puts what chooses the view in the toolbar and what tunes it behind one line", () => {
+    /*
+     * An early version put presets, panels, scale, layout, four checkboxes and
+     * a per-series grid above the first plot — seven rows of controls between
+     * a reader and the company they came to look at. Moving all of it below
+     * the chart fixed that and created another problem: the three controls
+     * that change what the chart *is* were two screens from the chart.
+     *
+     * The split is by what a control does, not by where it sits. Panels, scale
+     * and layout are buttons in the toolbar; the rest is a disclosure that is
+     * one line high until it is opened.
+     */
     const source = readFileSync(new URL("../components/ChartsWorkspace.tsx", import.meta.url), "utf8");
+    const toolbar = source.indexOf('className="chart-toolbar"');
     const chart = source.indexOf('className={`chart-stack');
-    // Presets, panels, scale, layout, the checkboxes and the per-series grid
-    // all sat above the first plot. They are settings; they belong under it.
-    for (const control of ['className="chart-presets"', 'className="chart-appearance"', 'className="series-options"']) {
-      expect(source.indexOf(control)).toBeGreaterThan(chart);
+    for (const control of ['aria-label="Panels"', 'aria-label="Scale"', 'aria-label="Layout"']) {
+      const at = source.indexOf(control);
+      expect(at, control).toBeGreaterThan(toolbar);
+      expect(at, control).toBeLessThan(chart);
     }
-    expect(source).toContain('className="chart-settings"');
+    // Buttons, not selects: a button shows its state without being opened.
+    expect(source).not.toContain("event.target.value as ScaleMode");
+    expect(source).not.toContain("event.target.value as LayoutMode");
+    // Everything else stays behind a disclosure, so the plot is still near the
+    // top of the page.
+    expect(source).toContain('<details className="chart-settings">');
+    for (const control of ['className="chart-presets"', 'className="chart-appearance"', 'className="series-options"']) {
+      expect(source.indexOf(control)).toBeGreaterThan(source.indexOf('<details className="chart-settings">'));
+    }
     // What names the subject stays above it.
     expect(source.indexOf('aria-label="Companies on this chart"')).toBeLessThan(chart);
     expect(source.indexOf('aria-label="Metrics on this chart"')).toBeLessThan(chart);
@@ -361,6 +381,32 @@ describe("the redesign", () => {
     // The relative-volume gauge and its footnote are gone.
     expect(source).not.toContain("relativeVolume");
     expect(source).not.toContain("index-gauge");
+  });
+
+  it("measures the heat map again when the page becomes visible", () => {
+    /*
+     * A hidden tab lays nothing out and delivers no resize observation, so a
+     * map mounted in a background tab measures zero width and the observer —
+     * whose job is the changes — never corrects it, because nothing changes.
+     * Opening the site with a middle click left an empty heat map that stayed
+     * empty until the window was dragged.
+     */
+    const source = readFileSync(new URL("../components/MarketHeatmap.tsx", import.meta.url), "utf8");
+    expect(source).toContain('document.addEventListener("visibilitychange", measure)');
+    expect(source).toContain('document.removeEventListener("visibilitychange", measure)');
+  });
+
+  it("lets a crowded sector fill the heat map", () => {
+    // Area is market value, so the smallest companies in the busiest sectors
+    // come out a few pixels wide and carry neither name nor number.
+    const source = readFileSync(new URL("../components/MarketHeatmap.tsx", import.meta.url), "utf8");
+    expect(source).toContain("const [zoom, setZoom] = useState<string | null>(null)");
+    expect(source).toContain('className="heat-sector-name"');
+    expect(source).toContain('className="heat-zoom-out"');
+    // Room, not a magnifier: the zoomed map is taller — and bounded, because
+    // following the width unchecked made a fifteen-company sector a thousand
+    // pixels tall, which is a scroll rather than a map.
+    expect(source).toContain("Math.min(620, Math.max(380,");
   });
 
   it("states the index chart as performance, not as a level", () => {

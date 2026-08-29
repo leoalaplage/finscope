@@ -116,7 +116,7 @@ export function ChartsWorkspace({ initialData, seed, theme = "dark" }: { initial
   function updateChart(id: string, update: (chart: WorkspaceChart) => WorkspaceChart) { setCharts((current) => current.map((chart) => chart.id === id ? update(chart) : chart)); }
 
   return <div className="charts-page">
-    <header className="page-heading"><div><h1>Charts</h1><p>Pick companies and metrics. Each unit gets its own panel on a shared date axis. Frequency, series type, colours and scales are chosen from the metrics themselves — open <b>Chart settings</b> to override any of them.</p></div></header>
+    <header className="page-heading"><div><h1>Charts</h1><p>Pick companies and metrics. Frequency, range, panels, scale and layout are the buttons below; series type, colours and the rest are chosen from the metrics themselves, and <b>Chart settings</b> overrides any of them.</p></div></header>
     {/* One chart. Adding, duplicating, reordering and removing them were seven
         buttons of workspace management above a page whose job is to draw a
         line; companies and metrics are added to the chart that is already
@@ -450,7 +450,37 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, theme, on
       </div>
       <button className={`pill${chart.values === "indexed" ? " active" : ""}`} onClick={() => onChange((current) => ({ ...current, values: current.values === "indexed" ? "raw" : "indexed" }))}>Index to zero</button>
       <button className={`pill${chart.values === "change" ? " active" : ""}`} onClick={() => onChange((current) => ({ ...current, values: current.values === "change" ? "raw" : "change" }))}>% change</button>
-      <button className={`pill${chart.scale === "log" ? " active" : ""}`} onClick={() => onChange((current) => ({ ...current, scale: current.scale === "log" ? "auto" : "log" }))}>Log</button>
+      {/*
+        * Panels, scale and layout as buttons, beside the frequency and the
+        * range rather than behind a disclosure below the plot.
+        *
+        * They were three dropdowns at the bottom of the page, which is where
+        * the settings were moved to stop seven rows of controls standing
+        * between the reader and the chart. But these three change what the
+        * chart *is* — one plot or two axes, zero-based or fitted, one chart or
+        * one per company — so they are part of choosing the view, not of
+        * tuning it, and a button that shows its state beats a select you have
+        * to open to read.
+        */}
+      <div className="segmented" role="group" aria-label="Panels">
+        {([["split", "One panel per unit"], ["overlay", "Overlay · 2 axes"]] as const).map(([value, label]) =>
+          <button key={value} className={(chart.overlay ? "overlay" : "split") === value ? "active" : ""}
+            disabled={chart.values !== "raw"}
+            title={chart.values !== "raw" ? "Rebased series already share one axis" : value === "overlay"
+              ? "Two measures on one plot area. Where the lines cross is then decided by the two ranges rather than by the data."
+              : "Each unit gets its own panel on a shared date axis"}
+            onClick={() => onChange((current) => ({ ...current, overlay: value === "overlay" }))}>{label}</button>)}
+      </div>
+      <div className="segmented" role="group" aria-label="Scale">
+        {([["auto", "Auto"], ["zero", "Zero"], ["fit", "Fit"], ["log", "Log"]] as const).map(([value, label]) =>
+          <button key={value} className={chart.scale === value ? "active" : ""}
+            onClick={() => onChange((current) => ({ ...current, scale: value as ScaleMode }))}>{label}</button>)}
+      </div>
+      {tickers.length > 1 && <div className="segmented" role="group" aria-label="Layout">
+        {([["combined", "One chart"], ["per-company", "Per company"], ["grid", "Grid"]] as const).map(([value, label]) =>
+          <button key={value} className={chart.layout === value ? "active" : ""}
+            onClick={() => onChange((current) => ({ ...current, layout: value as LayoutMode }))}>{label}</button>)}
+      </div>}
       {chart.series.some((series) => MARKET_SERIES_METRICS.has(series.metric)) && <span className="segmented" role="group" aria-label="Moving averages">
         {MOVING_AVERAGES.map((window) => <button key={window} className={chart.movingAverages.includes(window) ? "active" : ""} aria-pressed={chart.movingAverages.includes(window)}
           title={`${window}-session simple moving average`}
@@ -458,46 +488,16 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, theme, on
       </span>}
     </section>
 
-    {!drawn.length && <p className="simple-state">{anyLoading ? "Loading data…" : chart.series.length ? "No observations in this window. Widen the time range or pick another metric." : "Add a company and a metric to draw this chart."}</p>}
-    {drawn.length > 0 && <div className={`chart-stack${chart.layout === "grid" && groups.length > 1 ? " grid" : ""}${expanded ? " expanded" : ""}`} ref={surface}>
-      {expanded && <div className="chart-stack-bar">
-        <b>{title}</b>
-        <button type="button" onClick={() => setExpanded(false)}>Exit full screen<small>Esc</small></button>
-      </div>}
-      {groups.flatMap((group) => {
-      const panels = chart.values !== "raw" || chart.overlay || chart.series.some((series) => series.axis !== undefined) ? [0] : [...new Set(group.bundles.map((bundle) => bundle.plan.panel))].sort((a, b) => a - b);
-      return panels.map((panel) => {
-        const bundles = panels.length === 1 ? group.bundles : group.bundles.filter((bundle) => bundle.plan.panel === panel);
-        // In grid mode the group label already names the metric, so repeating
-        // its unit family would only pad the heading.
-        const family = chart.layout === "grid" ? "" : chart.values === "indexed" ? "Indexed to 100" : [...new Set(bundles.map((item) => familyLabel(unitFamily(item.series.metric))))].join(" · ");
-        const heading = [group.label, family].filter(Boolean).join(" · ");
-        return <ChartPanel key={`${group.key}-${panel}`} chart={chart} rows={rows} bundles={bundles} heading={heading} datasets={datasets}
-          single={groups.length === 1 && panels.length === 1} compact={chart.layout === "grid" && groups.length > 1}
-          showBrush={chart.layout !== "grid" && group.key === groups.at(-1)?.key && panel === panels.at(-1) && rows.length > 60}/>;
-      });
-      })}
-    </div>}
-    <section className="series-chips" aria-label="Series on this chart">{bundles.map((bundle) => {
-      const family = unitFamily(bundle.series.metric);
-      const latest = bundle.observations.at(-1);
-      const analysis = bundle.observations.length > 1 ? analyzeVisibleSeries(bundle.observations, family === "percent" ? "margin" : "cagr") : null;
-      return <div className={`series-chip${bundle.series.visible ? "" : " muted"}`} key={bundle.series.uid}>
-        <button className="series-toggle" onClick={() => onChange((current) => toggleSeries(current, bundle.series.uid))} aria-pressed={bundle.series.visible} title={bundle.series.visible ? "Hide series" : "Show series"}>
-          <i style={{ background: bundle.series.visible ? bundle.plan.color : "transparent", borderColor: bundle.plan.color }}/>
-          <b>{bundle.series.ticker} · {METRICS[bundle.series.metric]?.short ?? bundle.series.metric}</b>
-          <small>{frequencyLabel(bundle.plan.frequency)}{latest ? ` · ${formatChartValue(latest.value, family, bundle.currency)}` : ""}{analysis?.value != null ? ` · ${analysis.kind === "margin" ? `${analysis.value >= 0 ? "+" : ""}${(analysis.value * 100).toFixed(1)} pp` : `${analysis.value >= 0 ? "+" : ""}${(analysis.value * 100).toFixed(1)}% CAGR`}` : bundle.status === "Ready" ? "" : ` · ${bundle.status}`}</small>
-        </button>
-        {bundle.error && <small className="error-text">{bundle.error}<button className="text-button" onClick={() => { onRetryCompany(bundle.series.ticker); setRetryNonce((value) => value + 1); }}>Retry</button></small>}
-        {!bundle.error && bundle.warning && <small className="warning-text">{bundle.warning}</small>}
-        <button className="series-remove" aria-label={`Remove ${bundle.series.ticker} ${bundle.series.metric}`} onClick={() => onChange((current) => removeSeries(current, bundle.series.uid))}>×</button>
-      </div>;
-    })}</section>
-
-    {/* Everything below the chart is a setting, not the subject. The page put
-        presets, panels, scale, layout, four checkboxes and a per-series grid
-        above the first plot, so a reader met seven rows of controls before a
-        single line of the company they came to look at. */}
+    {/*
+      * The settings, with the rest of the controls rather than below the plot.
+      *
+      * They lived under the chart because an earlier version put presets,
+      * panels, scale, layout, four checkboxes and a per-series grid above the
+      * first plot — seven rows of controls between a reader and the company
+      * they came to look at. Splitting them by what they do works better than
+      * splitting them by where they sit: what chooses the view is in the
+      * toolbar above, and what tunes it is here, one line high until opened.
+      */}
     <details className="chart-settings">
       <summary>Chart settings<small>{chart.series.filter(hasOverrides).length ? `${chart.series.filter(hasOverrides).length} adjusted` : "all automatic"}</small></summary>
       <div className="chart-settings-body">
@@ -513,15 +513,8 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, theme, on
       {CHART_PRESETS.map((preset) => <button key={preset.id} onClick={() => onChange((current) => applyPreset(current, preset, fallbackTicker))}>{preset.label}</button>)}
     </div>
     <section className="chart-appearance">
-      <label>Panels<select value={chart.overlay ? "overlay" : "split"} onChange={(event) => onChange((current) => ({ ...current, overlay: event.target.value === "overlay" }))} disabled={chart.values !== "raw"}>
-        <option value="split">One per unit</option><option value="overlay">Overlay on two axes</option>
-      </select>{chart.values !== "raw" && <small>Rebased series already share one axis</small>}</label>
-      <label>Scale<select value={chart.scale === "log" ? "auto" : chart.scale} onChange={(event) => onChange((current) => ({ ...current, scale: event.target.value as ScaleMode }))} disabled={chart.scale === "log"}>
-        <option value="auto">Auto</option><option value="zero">Start at zero</option><option value="fit">Fit to data</option>
-      </select>{chart.scale === "log" && <small>Log is on</small>}</label>
-      <label>Layout<select value={chart.layout} onChange={(event) => onChange((current) => ({ ...current, layout: event.target.value as LayoutMode }))} disabled={tickers.length < 2}>
-        <option value="combined">One chart</option><option value="per-company">One per company</option><option value="grid">Grid: company × metric</option>
-      </select>{tickers.length < 2 && <small>Add a second company to split</small>}</label>
+      {/* Panels, scale and layout moved up to the toolbar: they choose the
+          view. What is left here tunes it. */}
       <label className="chart-switch"><input type="checkbox" checked={chart.showGrid} onChange={(event) => onChange((current) => ({ ...current, showGrid: event.target.checked }))}/> Grid</label>
       <label className="chart-switch"><input type="checkbox" checked={chart.showPoints} onChange={(event) => onChange((current) => ({ ...current, showPoints: event.target.checked }))}/> Points</label>
       <label className="chart-switch"><input type="checkbox" checked={chart.showSplits} onChange={(event) => onChange((current) => ({ ...current, showSplits: event.target.checked }))}/> Splits</label>
@@ -560,6 +553,42 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, theme, on
     </details>}
       </div>
     </details>
+    {!drawn.length && <p className="simple-state">{anyLoading ? "Loading data…" : chart.series.length ? "No observations in this window. Widen the time range or pick another metric." : "Add a company and a metric to draw this chart."}</p>}
+    {drawn.length > 0 && <div className={`chart-stack${chart.layout === "grid" && groups.length > 1 ? " grid" : ""}${expanded ? " expanded" : ""}`} ref={surface}>
+      {expanded && <div className="chart-stack-bar">
+        <b>{title}</b>
+        <button type="button" onClick={() => setExpanded(false)}>Exit full screen<small>Esc</small></button>
+      </div>}
+      {groups.flatMap((group) => {
+      const panels = chart.values !== "raw" || chart.overlay || chart.series.some((series) => series.axis !== undefined) ? [0] : [...new Set(group.bundles.map((bundle) => bundle.plan.panel))].sort((a, b) => a - b);
+      return panels.map((panel) => {
+        const bundles = panels.length === 1 ? group.bundles : group.bundles.filter((bundle) => bundle.plan.panel === panel);
+        // In grid mode the group label already names the metric, so repeating
+        // its unit family would only pad the heading.
+        const family = chart.layout === "grid" ? "" : chart.values === "indexed" ? "Indexed to 100" : [...new Set(bundles.map((item) => familyLabel(unitFamily(item.series.metric))))].join(" · ");
+        const heading = [group.label, family].filter(Boolean).join(" · ");
+        return <ChartPanel key={`${group.key}-${panel}`} chart={chart} rows={rows} bundles={bundles} heading={heading} datasets={datasets}
+          single={groups.length === 1 && panels.length === 1} compact={chart.layout === "grid" && groups.length > 1}
+          showBrush={chart.layout !== "grid" && group.key === groups.at(-1)?.key && panel === panels.at(-1) && rows.length > 60}/>;
+      });
+      })}
+    </div>}
+    <section className="series-chips" aria-label="Series on this chart">{bundles.map((bundle) => {
+      const family = unitFamily(bundle.series.metric);
+      const latest = bundle.observations.at(-1);
+      const analysis = bundle.observations.length > 1 ? analyzeVisibleSeries(bundle.observations, family === "percent" ? "margin" : "cagr") : null;
+      return <div className={`series-chip${bundle.series.visible ? "" : " muted"}`} key={bundle.series.uid}>
+        <button className="series-toggle" onClick={() => onChange((current) => toggleSeries(current, bundle.series.uid))} aria-pressed={bundle.series.visible} title={bundle.series.visible ? "Hide series" : "Show series"}>
+          <i style={{ background: bundle.series.visible ? bundle.plan.color : "transparent", borderColor: bundle.plan.color }}/>
+          <b>{bundle.series.ticker} · {METRICS[bundle.series.metric]?.short ?? bundle.series.metric}</b>
+          <small>{frequencyLabel(bundle.plan.frequency)}{latest ? ` · ${formatChartValue(latest.value, family, bundle.currency)}` : ""}{analysis?.value != null ? ` · ${analysis.kind === "margin" ? `${analysis.value >= 0 ? "+" : ""}${(analysis.value * 100).toFixed(1)} pp` : `${analysis.value >= 0 ? "+" : ""}${(analysis.value * 100).toFixed(1)}% CAGR`}` : bundle.status === "Ready" ? "" : ` · ${bundle.status}`}</small>
+        </button>
+        {bundle.error && <small className="error-text">{bundle.error}<button className="text-button" onClick={() => { onRetryCompany(bundle.series.ticker); setRetryNonce((value) => value + 1); }}>Retry</button></small>}
+        {!bundle.error && bundle.warning && <small className="warning-text">{bundle.warning}</small>}
+        <button className="series-remove" aria-label={`Remove ${bundle.series.ticker} ${bundle.series.metric}`} onClick={() => onChange((current) => removeSeries(current, bundle.series.uid))}>×</button>
+      </div>;
+    })}</section>
+
     {chart.showDataTable && drawn.length > 0 && <DataTable bundles={drawn} rows={rows}/>}
   </article>;
 }
