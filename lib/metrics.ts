@@ -5,7 +5,7 @@ export interface MetricDefinition { label: string; short: string; color: string;
 
 export const METRICS: Record<string, MetricDefinition> = {
   revenue: { label: "Revenue", short: "Revenue", color: "#53d39c", kind: "currency" },
-  grossProfit: { label: "Gross profit", short: "Gross profit", color: "#67b7ff", kind: "currency" },
+  grossProfit: { label: "Gross profit", short: "Gross profit", color: "#67b7ff", kind: "currency", formula: FORMULAS.grossProfit },
   costOfRevenue: { label: "Cost of revenue", short: "Cost of revenue", color: "#94a3b8", kind: "currency" },
   operatingIncome: { label: "Operating income", short: "Operating income", color: "#a78bfa", kind: "currency" },
   netIncome: { label: "Net income", short: "Net income", color: "#f4bc56", kind: "currency" },

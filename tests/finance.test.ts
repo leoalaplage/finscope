@@ -4,7 +4,7 @@ import {
   perShare, splitAdjustedShares, ttm, cagrForPeriods, derivedValue,
 } from "../lib/finance";
 import { APPLE_DATASET } from "../lib/demo-data";
-import type { FinancialPeriod } from "../lib/types";
+import type { FinancialPeriod, MetricKey, NormalizedFact } from "../lib/types";
 
 describe("financial calculations", () => {
   it("calculates free cash flow with positive or negative capex conventions", () => {
@@ -68,4 +68,62 @@ describe("data integrity and market-dependent calculations", () => {
     expect(["reported", "restated"]).toContain(revenue.provenance.status);
   });
 
+});
+
+describe("gross profit where the filer publishes no subtotal", () => {
+  const fact = (metric: MetricKey, value: number): NormalizedFact => ({
+    metric, value, currency: "USD", unit: "currency", periodStart: "2025-01-01", periodEnd: "2025-12-31",
+    periodicity: "annual", fiscalYear: 2025,
+    provenance: { provider: "SEC", sourceUrl: "sec", retrievedAt: "now", concept: "Test", status: "reported" },
+  });
+  const period = (facts: Partial<Record<MetricKey, NormalizedFact>>): FinancialPeriod => ({
+    label: "FY2025", periodStart: "2025-01-01", periodEnd: "2025-12-31", periodicity: "annual",
+    fiscalYear: 2025, currency: "USD", filingDate: "2026-02-01", accession: "test",
+    facts: facts as FinancialPeriod["facts"],
+  });
+
+  it("subtracts the cost of revenue from the revenue", () => {
+    /*
+     * Alphabet, Meta, Airbnb, Paychex, Zoetis and FactSet tag a cost of
+     * revenue and no GrossProfit, so the overview drew an empty card for two
+     * of the largest companies in the world while both inputs sat in the same
+     * period.
+     */
+    const filed = period({ revenue: fact("revenue", 402_800), costOfRevenue: fact("costOfRevenue", 162_500) });
+    expect(derivedValue(filed, "grossProfit")).toBe(240_300);
+    expect(derivedValue(filed, "grossMargin")).toBeCloseTo(0.5966, 4);
+  });
+
+  it("prefers the filed subtotal over the subtraction", () => {
+    // Verified against NVIDIA, which files all three: 215.9bn less 62.5bn is
+    // the 153.5bn GrossProfit it reports. Where they ever disagreed, the
+    // filed figure is the one with an accession number behind it.
+    const both = period({
+      revenue: fact("revenue", 215_900), costOfRevenue: fact("costOfRevenue", 62_500), grossProfit: fact("grossProfit", 153_460),
+    });
+    expect(derivedValue(both, "grossProfit")).toBe(153_460);
+  });
+
+  it("reads a cost filed as a negative the same way", () => {
+    const negated = period({ revenue: fact("revenue", 1_000), costOfRevenue: fact("costOfRevenue", -400) });
+    expect(derivedValue(negated, "grossProfit")).toBe(600);
+  });
+
+  it("stays unavailable where the filer reports no cost of revenue at all", () => {
+    // Visa, Mastercard, Booking, S&P Global, CME, Interactive Brokers, MSCI
+    // and Copart present operating expenses by function with no cost-of-sales
+    // line. There is nothing to subtract, and inventing a zero would state a
+    // 100% gross margin as though it had been filed.
+    const noCost = period({ revenue: fact("revenue", 1_000) });
+    expect(derivedValue(noCost, "grossProfit")).toBeNull();
+    expect(derivedValue(noCost, "grossMargin")).toBeNull();
+  });
+
+  it("carries the derived figure into gross profit per share", () => {
+    const withShares = period({
+      revenue: fact("revenue", 1_000), costOfRevenue: fact("costOfRevenue", 400),
+      dilutedShares: { ...fact("dilutedShares", 100), unit: "shares" },
+    });
+    expect(derivedValue(withShares, "grossProfitPerShare")).toBe(6);
+  });
 });

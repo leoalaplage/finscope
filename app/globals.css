@@ -920,6 +920,23 @@ tbody tr:last-child > * { border-bottom: 0; }
  * company that stopped reporting the line. The card draws its own span now,
  * and this says where that span ends.
  */
+/* What a company has stopped reporting, under the grid rather than as a card
+   of eight-year-old figures sitting among fourteen current ones. */
+.kpi-retired {
+  max-width: 92ch;
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+.kpi-retired p { margin: 0; }
+.kpi-retired p + p { margin-top: 6px; }
+.kpi-retired b { color: var(--text); font-weight: 600; }
+
 .kpi-coverage {
   margin: 0 0 10px;
   padding: 6px 9px;

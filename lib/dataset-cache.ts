@@ -77,8 +77,12 @@ export function datasetKey(ticker: string) {
  *     institution — the first so the timer can find a stale company without
  *     reading the dataset, the second so a card never states a free-cash-flow
  *     margin for a broker.
+ * s5: gross profit is read as the subtraction it is where the filer publishes
+ *     both sides and no subtotal, so six companies — Alphabet and Meta among
+ *     them — have a gross margin in their screener row for the first time.
+ *     Recomputed from the stored dataset; no filing is parsed again for it.
  */
-const SUMMARY_SHAPE = "s4";
+const SUMMARY_SHAPE = "s5";
 
 /**
  * The card-sized digest stored beside each dataset.

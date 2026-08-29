@@ -226,6 +226,40 @@ describe("the redesign", () => {
     expect(css).toContain(".kpi-coverage {");
   });
 
+  it("takes a measure the company stopped reporting out of the grid and says so", () => {
+    /*
+     * Booking presents operating expenses by function and files no
+     * cost-of-sales line, so there is no gross-profit subtotal to read and
+     * nothing to subtract either. Its card sat among fourteen current measures
+     * showing figures from 2017.
+     */
+    const grid = readFileSync(new URL("../components/CompanyKpiGrid.tsx", import.meta.url), "utf8");
+    expect(grid).toContain("RETIRED_AFTER_YEARS");
+    expect(grid).toContain("no longer reports");
+    expect(grid).toContain('className="kpi-retired"');
+    // Removing it silently would hide a real fact about the filings, so the
+    // line says where the history still is.
+    expect(grid).toContain("still in Charts and under Financials");
+    /*
+     * A filed line and a calculation stop for entirely different reasons, and
+     * the first version said "Booking no longer reports cash roc" — which is
+     * both wrong (it is computed here, not filed) and badly cased.
+     */
+    expect(grid).toContain("no longer reports");
+    expect(grid).toContain("cannot be computed for the latest period");
+    expect(grid).toContain("stoppedFiling");
+    expect(grid).toContain("stoppedComputing");
+    // Booking's equity is negative after years of buybacks, so there is no
+    // capital base to divide a return by. That is worth saying.
+    expect(grid).toContain("Invested capital is not positive");
+    // Titles are stated in this line as they are written on the cards. The
+    // first version lowercased them and produced "cash roc".
+    expect(grid).toContain("list(stoppedFiling.map((entry) => entry.card.title))");
+    expect(grid).toContain("list(stoppedComputing.map((entry) => entry.card.title))");
+    const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+    expect(css).toContain(".kpi-retired {");
+  });
+
   it("gives every overview chart a trend badge and its own PNG", () => {
     const grid = readFileSync(new URL("../components/CompanyKpiGrid.tsx", import.meta.url), "utf8");
     expect(grid).toContain("summariseSeries");

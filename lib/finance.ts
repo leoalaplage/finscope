@@ -1,6 +1,7 @@
 import type { FinancialPeriod, MetricKey } from "./types";
 
 export const FORMULAS = {
+  grossProfit: "Revenue − Cost of revenue, where the filer publishes no subtotal",
   grossMargin: "Gross profit / Revenue",
   operatingMargin: "Operating income / Revenue",
   netMargin: "Net income / Revenue",
@@ -216,18 +217,49 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
   // an aggregate working-capital concept that two thirds of filers never tag.
   const sbc = valueOf(period, "stockBasedCompensation");
   const fcfAfterSbc = fcf == null || sbc == null || !compatibleCurrencyFacts(["stockBasedCompensation"]) ? null : fcf - Math.abs(sbc);
+  /*
+   * Gross profit as filed, or the subtraction it is when the filer publishes
+   * both sides and no subtotal.
+   *
+   * Six of the twenty-one companies here tag a cost of revenue and no
+   * `GrossProfit` — Alphabet, Meta, Airbnb, Paychex, Zoetis and FactSet — so
+   * the overview drew an empty gross-profit card for two of the largest
+   * companies in the world while every figure needed to fill it sat in the same
+   * period. Nothing here is estimated: it is one reported number less another,
+   * within a single period, and it is the same arithmetic the income-statement
+   * diagram has been doing all along, which is why a company could show a gross
+   * profit ribbon under Statements and nothing at all under Overview.
+   *
+   * Checked against a filer that publishes all three: NVIDIA's FY2026 revenue
+   * of 215.9bn less its 62.5bn cost of revenue is 153.5bn, which is the
+   * `GrossProfit` it files to the cent.
+   *
+   * The absolute value guards the handful of filers who tag the cost as a
+   * negative, the way capital expenditures are treated a few lines above.
+   */
+  const reportedGross = valueOf(period, "grossProfit");
+  const costOfRevenue = valueOf(period, "costOfRevenue");
+  const grossProfit = reportedGross ?? (
+    revenue != null && costOfRevenue != null && compatibleCurrencyFacts(["revenue", "costOfRevenue"])
+      ? revenue - Math.abs(costOfRevenue)
+      : null
+  );
   const map: Record<string, number | null> = {
     freeCashFlow: fcf,
     freeCashFlowAfterSbc: fcfAfterSbc,
     freeCashFlowAfterSbcMargin: margin(fcfAfterSbc, revenue),
     freeCashFlowAfterSbcPerShare: compatiblePerShare(fcfAfterSbc,["operatingCashFlow","capitalExpenditures","stockBasedCompensation"]),
-    grossMargin: margin(valueOf(period, "grossProfit"), revenue),
+    grossProfit,
+    grossMargin: margin(grossProfit, revenue),
     operatingMargin: margin(valueOf(period, "operatingIncome"), revenue),
     netMargin: margin(valueOf(period, "netIncome"), revenue),
     operatingCashFlowMargin: margin(valueOf(period, "operatingCashFlow"), revenue),
     freeCashFlowMargin: margin(fcf, revenue),
     revenuePerShare: compatiblePerShare(revenue,["revenue"]),
-    grossProfitPerShare: compatiblePerShare(valueOf(period, "grossProfit"),["grossProfit"]),
+    // The dependency check names whichever facts the figure actually came
+    // from, or a derived gross profit would fail a test for a fact that does
+    // not exist and quietly disappear again.
+    grossProfitPerShare: compatiblePerShare(grossProfit, reportedGross != null ? ["grossProfit"] : ["revenue", "costOfRevenue"]),
     operatingIncomePerShare: compatiblePerShare(valueOf(period, "operatingIncome"),["operatingIncome"]),
     netIncomePerShare: compatiblePerShare(valueOf(period, "netIncome"),["netIncome"]),
     operatingCashFlowPerShare: compatiblePerShare(valueOf(period, "operatingCashFlow"),["operatingCashFlow"]),

@@ -5,8 +5,9 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { formatChartValue, unitFamily } from "@/lib/auto-chart";
 import { chartPalette, niceTicks, type ThemeName } from "@/lib/charting";
 import { chartSurface, exportSvgToPng } from "@/lib/chart-export";
+import { Skeleton } from "./Skeleton";
 import { summariseSeries } from "@/lib/chart-summary";
-import { derivedValue } from "@/lib/finance";
+import { derivedValue, investedCapital } from "@/lib/finance";
 import { CHARTABLE_METRICS } from "@/lib/metrics";
 import { candlesForPeriods, closeOn, freeCashFlowYieldOn, periodsWithin, type PeriodCandle } from "@/lib/overview-market";
 import type { SeriesStyle } from "@/lib/chart-workspace";
@@ -18,13 +19,18 @@ import type { CompanyDataset, FinancialPeriod, MarketBar, SeriesFrequency } from
  * any of it came to per share. `pair` puts two series on one card where they
  * only mean something together — cash against debt is a position, not two facts.
  */
-const CARDS: Array<{ metric: string; title: string; pair?: string; pairTitle?: string; net?: string; kind?: "candles" | "market" }> = [
+const CARDS: Array<{ metric: string; title: string; pair?: string; pairTitle?: string; net?: string; kind?: "candles" | "market"; filed?: true }> = [
   { metric: "stockPrice", title: "Share price", kind: "candles" },
   { metric: "freeCashFlowYield", title: "FCF yield", kind: "market" },
-  { metric: "revenue", title: "Revenue" },
-  { metric: "grossProfit", title: "Gross profit" },
-  { metric: "operatingIncome", title: "Operating income" },
-  { metric: "netIncome", title: "Net income" },
+  // `filed` marks a line the company states in its own income statement or
+  // balance sheet. The rest are computed here from those lines, and the two
+  // stop for entirely different reasons: a filer can stop reporting a subtotal,
+  // where a calculation stops because one of its inputs did — which is not
+  // something to describe as the company having stopped reporting it.
+  { metric: "revenue", title: "Revenue", filed: true },
+  { metric: "grossProfit", title: "Gross profit", filed: true },
+  { metric: "operatingIncome", title: "Operating income", filed: true },
+  { metric: "netIncome", title: "Net income", filed: true },
   { metric: "freeCashFlow", title: "Free cash flow" },
   { metric: "freeCashFlowAfterSbc", title: "Free cash flow after SBC" },
   { metric: "netIncomePerShare", title: "EPS" },
@@ -32,8 +38,8 @@ const CARDS: Array<{ metric: string; title: string; pair?: string; pairTitle?: s
   { metric: "cashReturnOnCapital", title: "Cash RoC" },
   { metric: "operatingMargin", title: "Operating margin" },
   { metric: "freeCashFlowMargin", title: "FCF margin" },
-  { metric: "dilutedShares", title: "Diluted shares" },
-  { metric: "cashAndEquivalents", title: "Cash & debt", pair: "totalDebt", pairTitle: "Total debt", net: "netDebt" },
+  { metric: "dilutedShares", title: "Diluted shares", filed: true },
+  { metric: "cashAndEquivalents", title: "Cash & debt", pair: "totalDebt", pairTitle: "Total debt", net: "netDebt", filed: true },
 ];
 
 /**
@@ -299,13 +305,36 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
       </div>
       <small>{quarterLabel(periods[0])} → {quarterLabel(periods.at(-1)!)}{marketFailed ? " · market history unavailable" : ""}</small>
     </div>
-    <div className="kpi-grid">{CARDS.map((card, index) => {
-    // A market card waits for its prices rather than drawing an empty chart and
-    // filling in later, which reads as a company with no share price.
-    if ((card.kind === "candles" || card.kind === "market") && bars == null) {
-      return <article key={card.metric} className="kpi-card"><header><div><h3>{card.title}</h3><small>Loading</small></div></header>
-        <div className="kpi-canvas"><p className="simple-state">Loading market history…</p></div></article>;
-    }
+    <KpiCards cards={CARDS} periods={periods} candles={candles} bars={bars} dataset={dataset} theme={theme} frequency={frequency} onOpenMetric={onOpenMetric}/>
+  </>;
+}
+
+/**
+ * How far behind the company's own reporting a measure may fall before it stops
+ * being one of its headline figures.
+ *
+ * Booking last filed a gross-profit line for the fourth quarter of 2017; it
+ * presents operating expenses by function and has no cost-of-sales line at all,
+ * so there is nothing to subtract either. A card for it sat in the middle of
+ * fourteen current measures showing figures from eight years ago, which is not
+ * an overview of the business.
+ *
+ * Two years rather than one, because a measure can legitimately lag: a filer
+ * that omits capital expenditures from one quarter loses free cash flow for it
+ * without having stopped reporting anything.
+ */
+const RETIRED_AFTER_YEARS = 2;
+
+/** "A, B and C" — the titles as they are written on the cards, not lowercased. */
+const list = (titles: string[]) => new Intl.ListFormat("en-US", { style: "long", type: "conjunction" }).format(titles);
+
+function KpiCards({ cards, periods, candles, bars, dataset, theme, frequency, onOpenMetric }: {
+  cards: typeof CARDS; periods: FinancialPeriod[]; candles: Array<PeriodCandle | null> | null; bars: MarketBar[] | null;
+  dataset: CompanyDataset; theme: ThemeName; frequency: SeriesFrequency;
+  onOpenMetric: (metric: string, presentation: { style: SeriesStyle; frequency: SeriesFrequency }) => void;
+}) {
+  const latest = periods.at(-1)!.periodEnd;
+  const built = cards.map((card) => {
     const rows: CardRow[] = periods.map((period, position) => {
       const candle = card.kind === "candles" ? candles?.[position] ?? null : undefined;
       const value = card.kind === "candles" ? candle?.close ?? null
@@ -321,13 +350,69 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
         range: candle ? [candle.low, candle.high] : undefined,
       };
     });
-    if (!rows.some((row) => row.value != null || row.pair != null)) return null;
-    return <KpiCard key={card.metric} card={card} rows={rows} index={index} dataset={dataset} theme={theme}
-      // A card opens in Charts as the thing it is on screen. The price card
-      // draws weekly candles; handing over this page's trailing-twelve-month
-      // frequency asked Charts for quarterly filings of a share price.
-      onOpen={() => onOpenMetric(card.metric, card.kind === "candles"
-        ? { style: "candle", frequency: "weekly" }
-        : { style: "bar", frequency })}/>;
-  })}</div></>;
+    const known = [...rows].reverse().find((row) => row.value != null || row.pair != null || row.candle != null);
+    const behindYears = known ? (Date.parse(latest) - Date.parse(known.date)) / (365.2425 * 86_400_000) : Infinity;
+    return { card, rows, known, retired: behindYears > RETIRED_AFTER_YEARS };
+  });
+
+  // Nothing at all in the window is not worth mentioning; a measure the company
+  // used to report and no longer does very much is.
+  const live = built.filter((entry) => entry.known && !entry.retired);
+  const retired = built.filter((entry) => entry.known && entry.retired);
+  const stoppedFiling = retired.filter((entry) => entry.card.filed);
+  const stoppedComputing = retired.filter((entry) => !entry.card.filed);
+  /*
+   * The reason a return stops, where it is knowable and worth stating.
+   *
+   * Booking has bought back so much stock that its equity is negative — debt
+   * plus equity less cash comes to about minus six billion — so there is no
+   * capital base to divide free cash flow by, and `investedCapital` refuses to
+   * report a return on a negative one. That is a real and interesting fact
+   * about the company, and far better than a card that simply stops.
+   */
+  const noCapitalBase = stoppedComputing.some((entry) => entry.card.metric === "cashReturnOnCapital")
+    && investedCapital(periods.at(-1)!) == null;
+
+  return <>
+    <div className="kpi-grid">{live.map((entry) => {
+      const index = built.indexOf(entry);
+      // A market card waits for its prices rather than drawing an empty chart
+      // and filling in later, which reads as a company with no share price.
+      if ((entry.card.kind === "candles" || entry.card.kind === "market") && bars == null) {
+        return <article key={entry.card.metric} className="kpi-card"><header><div><h3>{entry.card.title}</h3><small>Loading</small></div></header>
+          <div className="kpi-canvas"><Skeleton label={`${entry.card.title.toLowerCase()} history`} chart height={180}/></div></article>;
+      }
+      return <KpiCard key={entry.card.metric} card={entry.card} rows={entry.rows} index={index} dataset={dataset} theme={theme}
+        // A card opens in Charts as the thing it is on screen. The price card
+        // draws weekly candles; handing over this page's trailing-twelve-month
+        // frequency asked Charts for quarterly filings of a share price.
+        onOpen={() => onOpenMetric(entry.card.metric, entry.card.kind === "candles"
+          ? { style: "candle", frequency: "weekly" }
+          : { style: "bar", frequency })}/>;
+    })}</div>
+
+    {/*
+      * What this company has stopped reporting, said once and out of the way.
+      *
+      * Booking's gross-profit card sat among fourteen current measures showing
+      * figures from 2017, because Booking presents operating expenses by
+      * function and files no cost-of-sales line — there is no subtotal to read
+      * and nothing to subtract. Leaving the card in the grid made an overview
+      * of the business look broken; removing it silently would hide a real
+      * fact about the filings. It is stated here instead, with where the
+      * history still is.
+      */}
+    {retired.length > 0 && <div className="kpi-retired">
+      {stoppedFiling.length > 0 && <p>
+        <b>{dataset.company.name} no longer reports {list(stoppedFiling.map((entry) => entry.card.title))}.</b>
+        {" "}Last filed {stoppedFiling.map((entry) => `${entry.card.title} for ${entry.known!.label}`).join(", ")}.
+      </p>}
+      {stoppedComputing.length > 0 && <p>
+        <b>{list(stoppedComputing.map((entry) => entry.card.title))} cannot be computed for the latest period.</b>
+        {" "}Last available {stoppedComputing.map((entry) => `${entry.card.title} for ${entry.known!.label}`).join(", ")}.
+        {noCapitalBase && " Invested capital is not positive: this company has returned more to its owners than it retains, so there is no capital base to divide a return by."}
+      </p>}
+      <p>The history is still in Charts and under Financials; nothing is carried forward to fill a gap.</p>
+    </div>}
+  </>;
 }
