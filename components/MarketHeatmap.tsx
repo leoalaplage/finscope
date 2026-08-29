@@ -120,9 +120,17 @@ const compactCap = (value: number | null) =>
  * shows nothing rather than a clipped fragment; the tooltip and the table below
  * still carry every figure.
  */
-function Treemap({ movers, aspect }: { movers: Mover[]; aspect: number }) {
+function Treemap({ movers, aspect, zoomed, onZoom }: {
+  movers: Mover[]; aspect: number;
+  /** The sector filling the map, or null for all of them. */
+  zoomed: string | null;
+  onZoom: (sector: string | null) => void;
+}) {
   const [ref, width] = useMeasuredWidth<HTMLDivElement>();
-  const height = Math.max(220, Math.round(Math.max(width, 240) / aspect));
+  // A zoomed sector gets the same width and more height, which is the whole
+  // point: the companies that were three pixels wide need room, not a
+  // magnifier over the same rectangle.
+  const height = Math.max(zoomed ? 380 : 220, Math.round(Math.max(width, 240) / (zoomed ? aspect * 0.55 : aspect)));
 
   const groups = useMemo<Array<PlacedGroup<Mover>>>(() => {
     const priced = movers.filter((mover) => mover.marketCap != null && mover.marketCap > 0);
@@ -144,7 +152,12 @@ function Treemap({ movers, aspect }: { movers: Mover[]; aspect: number }) {
       {/* The sector's name sits on its block, not in a legend: a reader
           should never have to match a colour to a list to know what they
           are looking at. */}
-      {group.rect.width > 78 && group.rect.height > 34 && <span className="heat-sector-name">{group.key}</span>}
+      {/* The sector's name sits on its block, not in a legend — and it is the
+          way into that sector, because the tiles a reader cannot read are
+          always the small ones inside a crowded block. */}
+      {group.rect.width > 78 && group.rect.height > 34 && <button type="button" className="heat-sector-name"
+        title={zoomed ? `Back to every sector` : `Show only ${group.key}`}
+        onClick={() => onZoom(zoomed ? null : group.key)}>{group.key}{zoomed ? " ←" : " ⤢"}</button>}
       {group.items.map((tile) => {
         const mover = tile.data;
         const room = tile.width > 44 && tile.height > 26;
@@ -186,18 +199,29 @@ function summarise(movers: Mover[]) {
 function Section({ title, note, movers, missing, aspect }: {
   title: string; note: string; movers: Mover[]; missing: number; aspect: number;
 }) {
-  const stats = summarise(movers);
-  const unsized = movers.filter((mover) => mover.marketCap == null).length;
+  /*
+   * Which sector fills the map, if any.
+   *
+   * Area is market value, so the smallest companies in the busiest sectors come
+   * out a few pixels wide and carry neither their name nor their number — the
+   * tiles a reader most wants to read are exactly the ones the encoding makes
+   * unreadable. Showing one sector at a time gives those tiles the whole width.
+   */
+  const [zoom, setZoom] = useState<string | null>(null);
+  const shown = useMemo(() => zoom ? movers.filter((mover) => mover.sector === zoom) : movers, [movers, zoom]);
+  const stats = summarise(shown);
+  const unsized = shown.filter((mover) => mover.marketCap == null).length;
   return <section className="heat-section">
     <div className="heat-head">
       <div>
-        <h3>{title}</h3>
+        <h3>{title}{zoom ? ` · ${zoom}` : ""}</h3>
         <small>
-          {note}
-          {missing > 0 ? ` · ${missing} without a quote right now` : ""}
+          {zoom ? `${shown.length} companies in ${zoom}` : note}
+          {missing > 0 && !zoom ? ` · ${missing} without a quote right now` : ""}
           {unsized > 0 ? ` · ${unsized} without a share count, so not on the map` : ""}
         </small>
       </div>
+      {zoom && <button type="button" className="heat-zoom-out" onClick={() => setZoom(null)}>← Every sector</button>}
       {stats && <div className="heat-stats">
         <span className="positive-text">{stats.up} up</span>
         <span className="negative-text">{stats.down} down</span>
@@ -205,8 +229,8 @@ function Section({ title, note, movers, missing, aspect }: {
         <span>Worst {stats.worst.label} {signedPercent(stats.worst.changePercent)}</span>
       </div>}
     </div>
-    {movers.length
-      ? <Treemap movers={movers} aspect={aspect}/>
+    {shown.length
+      ? <Treemap movers={shown} aspect={aspect} zoomed={zoom} onZoom={setZoom}/>
       : <p className="simple-state">No quotes for this group right now.</p>}
   </section>;
 }

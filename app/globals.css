@@ -911,6 +911,28 @@ tbody tr:last-child > * { border-bottom: 0; }
 .kpi-card-footer button { min-height: 26px; padding: 0 10px; border-color: transparent; background: transparent; font-size: var(--fs-xs); border-radius: var(--radius-pill); color: var(--muted); }
 .kpi-card-footer button:hover:not(:disabled) { background: var(--control); color: var(--text); }
 @media (hover: none) { .kpi-card-footer { opacity: 1; } }
+/* A sector's name is the way into it: the tiles a reader cannot read are always
+   the small ones inside a crowded block, and the fix is room, not a magnifier. */
+.heat-sector-name { min-height: 0; padding: 0; border: 0; background: none; font: inherit; cursor: pointer; }
+.heat-sector-name:hover { background: none; text-decoration: underline; text-underline-offset: 2px; }
+.heat-zoom-out { min-height: 30px; padding: 0 12px; font-size: var(--fs-sm); font-weight: 600; }
+
+/* ---- Watchlist performance --------------------------------------------
+   The heat map answers what moved today, as a shape. This answers whether
+   today is a blip, which needs several horizons in a form you can order by. */
+.performance-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.performance-table th, .performance-table td { padding: 7px 12px; text-align: right; white-space: nowrap; }
+.performance-table thead th { position: sticky; top: 0; z-index: 1; background: var(--card); border-bottom: 1px solid var(--border-strong); font-size: var(--fs-sm); }
+.performance-table thead th:first-child, .performance-table tbody th[scope="row"] { text-align: left; }
+.performance-table tbody th[scope="row"] { font-size: var(--fs-base); font-weight: 700; }
+.performance-table tbody tr { border-bottom: 1px solid var(--border); }
+.performance-table tbody tr:hover { background: var(--grid); }
+.performance-table thead button { min-height: 0; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-weight: 600; }
+.performance-table thead button:hover { background: none; color: var(--text); }
+.performance-table th[aria-sort] button { color: var(--text); }
+.performance-table th[aria-sort="descending"] button::after { content: " ↓"; }
+.performance-table th[aria-sort="ascending"] button::after { content: " ↑"; }
+
 /* ---- Freshness checkup -------------------------------------------------
    Period against period, so the state has to read as a state rather than as a
    date the reader must compare in their head. */

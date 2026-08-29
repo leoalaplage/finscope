@@ -11,6 +11,7 @@ type Entry = Panel | Failed;
 const failed = (entry: Entry): entry is Failed => "error" in entry;
 
 const MarketHeatmap = lazy(() => import("./MarketHeatmap").then((module) => ({ default: module.MarketHeatmap })));
+const PerformanceTable = lazy(() => import("./PerformanceTable").then((module) => ({ default: module.PerformanceTable })));
 
 /**
  * How often the page asks for a new picture of the market.
@@ -410,6 +411,7 @@ export function MarketPage({ watchlist = [] }: { watchlist?: string[] }) {
     {/* Loaded apart from the indices: fifty tiles are a second request and a
         second answer, and the lines above should not wait for them. */}
     <Suspense fallback={<SkeletonCards label="today’s moves" count={2} height={280}/>}><MarketHeatmap watchlist={watchlist}/></Suspense>
+    <Suspense fallback={<SkeletonCards label="watchlist performance" count={1} height={260}/>}><PerformanceTable tickers={watchlist}/></Suspense>
 
     {entries?.some((entry) => !failed(entry)) &&
       <p className="market-foot">Prices are delayed as the exchange requires.</p>}
