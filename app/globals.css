@@ -911,6 +911,25 @@ tbody tr:last-child > * { border-bottom: 0; }
 .kpi-card-footer button { min-height: 26px; padding: 0 10px; border-color: transparent; background: transparent; font-size: var(--fs-xs); border-radius: var(--radius-pill); color: var(--muted); }
 .kpi-card-footer button:hover:not(:disabled) { background: var(--control); color: var(--text); }
 @media (hover: none) { .kpi-card-footer { opacity: 1; } }
+/*
+ * Why a card's bars stop where they do.
+ *
+ * Booking stopped tagging a gross-profit line after 2017, so its card drew
+ * eight years of history and then eight years of blank axis under an undated
+ * headline — which reads as an application that lost the data rather than as a
+ * company that stopped reporting the line. The card draws its own span now,
+ * and this says where that span ends.
+ */
+.kpi-coverage {
+  margin: 0 0 10px;
+  padding: 6px 9px;
+  border-left: 2px solid var(--warning);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: color-mix(in oklab, var(--warning) 8%, transparent);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+}
 
 /* ---- QS Screener ------------------------------------------------------
    The scores used to arrive as a PNG inside an iframe. Everything below

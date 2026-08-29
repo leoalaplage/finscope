@@ -286,3 +286,23 @@ describe("a financial institution", () => {
     expect(groups.some((group) => group.note?.includes("customer and clearing balances"))).toBe(false);
   });
 });
+
+describe("a value the filings do not carry", () => {
+  it("says so rather than printing a bare dash", () => {
+    // Booking stopped tagging a gross-profit line after 2017. Its row went
+    // blank and stayed blank, with no way for a reader to tell a filer that
+    // does not report something from an application that failed.
+    const base = dataset();
+    const stripped = { ...base, periods: base.periods.map((period) => ({ ...period, facts: { ...period.facts, grossProfit: undefined } })) };
+    const groups = companyStatistics(stripped as typeof base, null);
+    const gross = groups.find((group) => group.title === "Profile")!.stats.find((stat) => stat.label === "Gross Profit")!;
+    expect(gross.value).toBeNull();
+    expect(gross.reason).toBe("Not reported in the filings for this period");
+  });
+
+  it("keeps a specific reason where one is known", () => {
+    const groups = companyStatistics(dataset(), null);
+    const coverage = groups.find((group) => group.title === "Financial Health")!.stats.find((stat) => stat.label === "EBIT/Interest")!;
+    if (coverage.value == null) expect(coverage.reason).toBe("Reports no interest expense");
+  });
+});

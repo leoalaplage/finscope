@@ -204,6 +204,28 @@ describe("the redesign", () => {
     expect(source).not.toContain('className="anchor-nav"');
   });
 
+  it("draws each overview card over the span it has, and says where that span ends", () => {
+    /*
+     * Booking stopped tagging a gross-profit line after 2017 — the SEC has
+     * nothing after that — so its card drew eight years of bars and then eight
+     * years of blank axis running to 2026, under a headline of "$12.4B" with
+     * no date on it. That reads as an application that lost the data.
+     */
+    const grid = readFileSync(new URL("../components/CompanyKpiGrid.tsx", import.meta.url), "utf8");
+    expect(grid).toContain("const drawn =");
+    expect(grid).toContain("const endsEarly =");
+    expect(grid).toContain("Not reported after");
+    expect(grid).toContain('className="kpi-coverage"');
+    // The chart, the headline, the badge and the export all read the drawn
+    // span, or one of them quotes a window the reader is not looking at.
+    expect(grid).toContain("<BarChart data={drawn}");
+    expect(grid).toContain("summariseSeries(drawn.map(");
+    expect(grid).toContain("const latest = [...drawn].reverse()");
+    expect(grid).toContain("SEC filings to ${drawn.at(-1)?.label");
+    const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+    expect(css).toContain(".kpi-coverage {");
+  });
+
   it("gives every overview chart a trend badge and its own PNG", () => {
     const grid = readFileSync(new URL("../components/CompanyKpiGrid.tsx", import.meta.url), "utf8");
     expect(grid).toContain("summariseSeries");

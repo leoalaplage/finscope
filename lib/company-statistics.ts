@@ -107,8 +107,18 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
     numerator == null || denominator == null || denominator <= 0 ? null : numerator / denominator;
 
   const noPrice = close == null ? "No matched market price" : undefined;
+  /*
+   * A missing value always says something, even when nothing specific is known.
+   *
+   * Most rows here pass a reason and the rest passed none, so a reader met a
+   * bare dash and had no way to tell "this filer does not report it" from "the
+   * application failed". Booking stopped tagging a gross-profit line after
+   * 2017; its Gross Profit row simply went blank and stayed blank. The generic
+   * fallback is deliberately about the filings rather than about us, because
+   * that is where the gap is; a specific reason always wins.
+   */
   const stat = (key: string, label: string, value: number | null, format: StatFormat, polarity: 1 | -1 | 0, reason?: string): Stat =>
-    ({ key, label, value, format, polarity, formula: METRICS[key]?.formula, reason: value == null ? reason : undefined });
+    ({ key, label, value, format, polarity, formula: METRICS[key]?.formula, reason: value == null ? reason ?? "Not reported in the filings for this period" : undefined });
 
   const average = (metric: string) => averageOver(annual, metric);
   /** A difference between two rates belongs in points, not percent of a percent. */

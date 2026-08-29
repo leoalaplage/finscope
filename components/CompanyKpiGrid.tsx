@@ -97,7 +97,31 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
   const palette = chartPalette(theme);
   const family = unitFamily(card.metric);
   const candles = card.kind === "candles";
-  const values = rows.flatMap((row) => (candles ? [row.candle?.low, row.candle?.high] : [row.value, row.pair]).filter((value): value is number => value != null && Number.isFinite(value)));
+
+  /*
+   * The span this card actually has figures for, rather than the page's.
+   *
+   * Every card was drawn across the whole window the reader chose, empty
+   * columns included. Booking stopped tagging a gross-profit line after 2017 —
+   * the SEC simply has nothing after that — so its card drew eight bars' worth
+   * of history and then eight years of blank axis running out to 2026, under a
+   * headline of "$12.4B" with no date on it. That reads as an application that
+   * lost the data, not as a company that stopped reporting the line, and it is
+   * the single most alarming thing a research tool can look like.
+   *
+   * So a card draws the range it has and says where that range ends. The page
+   * header still states the window everything was asked for, which is what
+   * makes the difference visible rather than hidden.
+   */
+  const has = (row: CardRow) => row.value != null || row.pair != null || row.candle != null;
+  const firstKnown = rows.findIndex(has);
+  const lastKnown = firstKnown < 0 ? -1 : rows.length - 1 - [...rows].reverse().findIndex(has);
+  const drawn = firstKnown < 0 ? rows : rows.slice(firstKnown, lastKnown + 1);
+  /** Whether the filings stop before the window the reader asked for. */
+  const endsEarly = lastKnown >= 0 && lastKnown < rows.length - 1;
+  const startsLate = firstKnown > 0;
+
+  const values = drawn.flatMap((row) => (candles ? [row.candle?.low, row.candle?.high] : [row.value, row.pair]).filter((value): value is number => value != null && Number.isFinite(value)));
   // A pair takes the two hues the balance-sheet diagram already uses for what
   // the company owns and what is claimed against it, rather than two palette
   // slots that fall wherever the card happens to sit in the grid.
@@ -109,8 +133,8 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
   const ticks = values.length
     ? niceTicks(candles ? Math.min(...values) : Math.min(0, ...values), candles ? Math.max(...values) : Math.max(0, ...values), 4)
     : [];
-  const latest = [...rows].reverse().find((row) => row.value != null);
-  const latestPair = [...rows].reverse().find((row) => row.pair != null);
+  const latest = [...drawn].reverse().find((row) => row.value != null);
+  const latestPair = [...drawn].reverse().find((row) => row.pair != null);
   const format = (value: number) => formatChartValue(value, family, dataset.company.currency);
   // The badge summarises the drawn points, so it can never quote a window the
   // reader is not looking at.
@@ -120,16 +144,16 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
   // them — and compounding either half describes neither: cash that fell while
   // debt fell faster is a company getting stronger, and one CAGR would call it
   // a company shrinking.
-  const summary = card.pair ? null : summariseSeries(rows.map((row) => ({ date: row.date, value: row.value })), card.metric);
+  const summary = card.pair ? null : summariseSeries(drawn.map((row) => ({ date: row.date, value: row.value })), card.metric);
   // A position needs both halves reported in the same period. Arista tags no
   // borrowings at all, and a card reading "Net cash $2.3B" beside "Total debt
   // —" states a figure it does not have; it falls back to the balance it does.
-  const net = card.net ? [...rows].reverse().find((row) => row.value != null && row.pair != null)?.net ?? null : null;
+  const net = card.net ? [...drawn].reverse().find((row) => row.value != null && row.pair != null)?.net ?? null : null;
   const headline = card.pair
     ? net != null
       ? { label: net > 0 ? "Net debt" : "Net cash", display: format(Math.abs(net)) }
       : { label: "Latest", display: latest?.value == null ? "—" : format(latest.value) }
-    : { label: summary?.label || (rows[0] ? "Trailing" : ""), display: latest?.value == null ? "—" : format(latest.value) };
+    : { label: summary?.label || (drawn[0] ? "Trailing" : ""), display: latest?.value == null ? "—" : format(latest.value) };
   // "Cash & debt" names the card, not the blue bars in it.
   const valueTitle = card.pair ? card.title.split(" & ")[0] : card.title;
   const chartable = CHARTABLE_METRICS.has(card.metric);
@@ -142,13 +166,28 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
       title: `${dataset.company.ticker} · ${card.title}`,
       subtitle: net != null ? `${dataset.company.name} · ${headline.label} ${headline.display}`
         : summary?.value == null ? dataset.company.name : `${dataset.company.name} · ${summary.label} ${summary.display}`,
-      footer: `FinScope · SEC filings to ${rows.at(-1)?.label ?? ""}`,
+      footer: `FinScope · SEC filings to ${drawn.at(-1)?.label ?? ""}`,
     });
   }
 
+  /*
+   * What the card covers, said in words when it is not what was asked for.
+   *
+   * "CAGR 7.8Y" beside a headline of "$12.4B" on a page whose header says
+   * "Q1 2010 → Q2 2026" invites exactly one reading: this is the company's
+   * gross profit today. It is the figure for the first quarter of 2018,
+   * because that is the last one Booking filed the line for.
+   */
+  const coverage = endsEarly
+    ? `Not reported after ${drawn.at(-1)?.label ?? ""}`
+    : startsLate ? `First reported ${drawn[0]?.label ?? ""}` : "";
+
   return <article className="kpi-card">
     <header>
-      <div><h3>{card.title}</h3><small>{headline.label}</small></div>
+      <div>
+        <h3>{card.title}</h3>
+        <small>{headline.label}{endsEarly && drawn.at(-1) ? ` · to ${drawn.at(-1)!.label}` : ""}</small>
+      </div>
       <div className="kpi-card-actions">
         <strong>{headline.display}</strong>
         {summary?.value != null && <span className={`kpi-badge${summary.value >= 0 ? "" : " down"}`} title={summary.label}>{summary.display}</span>}
@@ -161,8 +200,9 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
       <li><i style={{ background: colour }}/>{valueTitle}<b>{latest?.value == null ? "—" : format(latest.value)}</b></li>
       <li><i style={{ background: pairColour }}/>{card.pairTitle}<b>{latestPair?.pair == null ? "—" : format(latestPair.pair)}</b></li>
     </ul>}
+    {coverage && <p className="kpi-coverage">{coverage}. The filer stopped tagging this line; FinScope reports the gap rather than carrying the last value forward.</p>}
     <div className="kpi-canvas" ref={canvas}><ResponsiveContainer width="100%" height="100%">
-      <BarChart data={rows} margin={{ top: 6, right: 6, bottom: 0, left: 0 }} barGap={2}>
+      <BarChart data={drawn} margin={{ top: 6, right: 6, bottom: 0, left: 0 }} barGap={2}>
         <CartesianGrid vertical={false} stroke="var(--chart-grid)"/>
         <XAxis dataKey="label" tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={28} angle={-45} textAnchor="end" height={46}/>
         <YAxis width={58} tickLine={false} axisLine={false} domain={ticks.length >= 2 ? [ticks[0], ticks.at(-1)!] : ["auto", "auto"]} ticks={ticks.length >= 2 ? ticks : undefined} tickFormatter={(value) => format(Number(value))}/>
@@ -183,7 +223,7 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
           ? <Bar dataKey="range" isAnimationActive={false} shape={(props: object) => <Candle {...props as Parameters<typeof Candle>[0]} up={palette[2].value} down={palette[7].value}/>}/>
           : <Bar dataKey="value" fill={colour} radius={[3, 3, 0, 0]} isAnimationActive={false}>
               {/* A negative bar is not the same event as a positive one, so it is not the same colour. */}
-              {rows.map((row) => <Cell key={row.label} fill={row.value != null && row.value < 0 ? "var(--danger)" : colour}/>)}
+              {drawn.map((row) => <Cell key={row.label} fill={row.value != null && row.value < 0 ? "var(--danger)" : colour}/>)}
             </Bar>}
         {card.pair && <Bar dataKey="pair" fill={pairColour} radius={[3, 3, 0, 0]} isAnimationActive={false}/>}
       </BarChart>
