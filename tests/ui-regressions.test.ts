@@ -5,7 +5,7 @@ describe("UI regressions", () => {
   it("keeps the primary navigation intentionally limited", () => {
     const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
     // The key stays "companies" on purpose: it is in every saved link.
-    expect(source).toContain('{ key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "portfolio", label: "Portfolio" }, { key: "charts", label: "Charts" }, { key: "qs", label: "QS Screener" }');
+    expect(source).toContain('{ key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "charts", label: "Charts" }, { key: "qs", label: "QS Screener" }');
     expect(source).not.toContain('label: "Data Quality"');
     expect(source).not.toContain('label: "Formula Audit"');
   });
@@ -19,7 +19,7 @@ describe("UI regressions", () => {
      * one to the other.
      */
     const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
-    expect(source).toContain('type MainView = "companies" | "company" | "market" | "portfolio" | "charts" | "qs"');
+    expect(source).toContain('type MainView = "companies" | "company" | "market" | "charts" | "qs"');
     expect(source).not.toContain("function DcfPage");
     expect(source).not.toContain("StatisticsPage");
     // Both live inside the company page now, and comparison happens there.
@@ -97,6 +97,15 @@ describe("UI regressions", () => {
     expect(source).toContain('["monthly", "M", "Monthly sessions"]');
     // Hollow rising, solid falling: green against red is a CVD warning.
     expect(source).toContain('fill={rising ? "var(--card)" : colour}');
+  });
+
+  it("names no market-data vendor in the interface", () => {
+    // The provider is an implementation detail of the adapter, not something a
+    // reader of a research page needs told on six different screens.
+    for (const file of ["FinanceApp", "MarketPage", "ChartsWorkspace", "DcfValuation", "CompanyManager", "FormulaDataAudit"]) {
+      const source = readFileSync(new URL(`../components/${file}.tsx`, import.meta.url), "utf8");
+      expect(source, `${file} still names the vendor`).not.toContain("Yahoo Finance");
+    }
   });
 
   it("uses a white, system-font interface and shared chart tooltip tokens", () => {
@@ -204,60 +213,31 @@ describe("the redesign", () => {
     expect(source).not.toContain('className="anchor-nav"');
   });
 
-  it("draws each overview card over the span it has, and says where that span ends", () => {
+  it("draws each overview card over the span it has, and leaves out one with nothing recent", () => {
     /*
-     * Booking stopped tagging a gross-profit line after 2017 — the SEC has
-     * nothing after that — so its card drew eight years of bars and then eight
-     * years of blank axis running to 2026, under a headline of "$12.4B" with
-     * no date on it. That reads as an application that lost the data.
+     * Booking's gross-profit card drew eight quarters of bars and then eight
+     * years of blank axis running to 2026, under a headline carrying no date.
+     * A first attempt explained that in two sentences under the chart, which
+     * is a paragraph of apology under a drawing that had already said it.
      */
     const grid = readFileSync(new URL("../components/CompanyKpiGrid.tsx", import.meta.url), "utf8");
     expect(grid).toContain("const drawn =");
-    expect(grid).toContain("const endsEarly =");
-    expect(grid).toContain("Not reported after");
-    expect(grid).toContain('className="kpi-coverage"');
+    expect(grid).toContain("RETIRED_AFTER_YEARS");
     // The chart, the headline, the badge and the export all read the drawn
     // span, or one of them quotes a window the reader is not looking at.
     expect(grid).toContain("<BarChart data={drawn}");
     expect(grid).toContain("summariseSeries(drawn.map(");
     expect(grid).toContain("const latest = [...drawn].reverse()");
     expect(grid).toContain("SEC filings to ${drawn.at(-1)?.label");
+    // No prose about the gap: the card is left out, or it draws its own span.
+    // The class names, not the prose: the comment above the change quotes the
+    // sentences it removed, which is exactly what a source-level test should
+    // not trip over.
+    expect(grid).not.toContain('className="kpi-coverage"');
+    expect(grid).not.toContain('className="kpi-retired"');
     const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
-    expect(css).toContain(".kpi-coverage {");
-  });
-
-  it("takes a measure the company stopped reporting out of the grid and says so", () => {
-    /*
-     * Booking presents operating expenses by function and files no
-     * cost-of-sales line, so there is no gross-profit subtotal to read and
-     * nothing to subtract either. Its card sat among fourteen current measures
-     * showing figures from 2017.
-     */
-    const grid = readFileSync(new URL("../components/CompanyKpiGrid.tsx", import.meta.url), "utf8");
-    expect(grid).toContain("RETIRED_AFTER_YEARS");
-    expect(grid).toContain("no longer reports");
-    expect(grid).toContain('className="kpi-retired"');
-    // Removing it silently would hide a real fact about the filings, so the
-    // line says where the history still is.
-    expect(grid).toContain("still in Charts and under Financials");
-    /*
-     * A filed line and a calculation stop for entirely different reasons, and
-     * the first version said "Booking no longer reports cash roc" — which is
-     * both wrong (it is computed here, not filed) and badly cased.
-     */
-    expect(grid).toContain("no longer reports");
-    expect(grid).toContain("cannot be computed for the latest period");
-    expect(grid).toContain("stoppedFiling");
-    expect(grid).toContain("stoppedComputing");
-    // Booking's equity is negative after years of buybacks, so there is no
-    // capital base to divide a return by. That is worth saying.
-    expect(grid).toContain("Invested capital is not positive");
-    // Titles are stated in this line as they are written on the cards. The
-    // first version lowercased them and produced "cash roc".
-    expect(grid).toContain("list(stoppedFiling.map((entry) => entry.card.title))");
-    expect(grid).toContain("list(stoppedComputing.map((entry) => entry.card.title))");
-    const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
-    expect(css).toContain(".kpi-retired {");
+    expect(css).not.toContain(".kpi-coverage");
+    expect(css).not.toContain(".kpi-retired");
   });
 
   it("gives every overview chart a trend badge and its own PNG", () => {
@@ -307,7 +287,9 @@ describe("the redesign", () => {
     expect(source).toContain("sortRowsBy");
   });
 
-  it("states the portfolio's value and its return as separate answers", () => {
+  // The portfolio is out of the navigation for now, by request; its component
+  // and its tests stay so it can come back without being rewritten.
+  it.skip("states the portfolio's value and its return as separate answers", () => {
     // They differ by exactly the money paid in, and quoting either alone is how
     // a reader comes to believe a deposit was a good year.
     const source = readFileSync(new URL("../components/PortfolioPage.tsx", import.meta.url), "utf8");
@@ -352,7 +334,7 @@ describe("the redesign", () => {
     // Asking once on mount is what left an added company out of every later
     // answer; the request has to follow the list.
     expect(home).toContain("}, [followed]);");
-    for (const file of ["PortfolioPage", "QsScreener"]) {
+    for (const file of ["QsScreener"]) {
       const source = readFileSync(new URL(`../components/${file}.tsx`, import.meta.url), "utf8");
       expect(source).toContain("/api/watchlist?tickers=");
     }

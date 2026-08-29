@@ -1,4 +1,5 @@
 import { describe,expect,it } from "vitest";
+import { normalizeSecPayload } from "../lib/adapters/sec";
 import { validateCompanyDataset, validatedDerivedValue, validationForMetric } from "../lib/data-quality";
 import { APPLE_DATASET } from "../lib/demo-data";
 import type { CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact } from "../lib/types";
@@ -19,5 +20,72 @@ describe("offline fixture identity", () => {
     // The rows are Apple filings; the accession numbers must agree with the profile.
     const accessions = APPLE_DATASET.periods.map((period) => period.accession);
     expect(accessions.some((accession) => accession.startsWith("0000320193-"))).toBe(true);
+  });
+});
+
+describe("a filer that is not American", () => {
+  it("reads its statements in the currency it reports them in", () => {
+    /*
+     * ASML files 623 US GAAP concepts on Form 20-F and reports every one of
+     * them in euros. A company resolved from the SEC's ticker registry is
+     * assumed to report in dollars — that registry says nothing about currency
+     * — so every unit lookup missed and the company came back with no
+     * financial statements at all and a 200 status.
+     */
+    const facts = {
+      "us-gaap": {
+        Revenues: { units: { EUR: [
+          { end: "2025-12-31", start: "2025-01-01", val: 32_700_000_000, accn: "0000-1", fy: 2025, fp: "FY", form: "20-F", filed: "2026-02-11" },
+        ] } },
+        NetIncomeLoss: { units: { EUR: [
+          { end: "2025-12-31", start: "2025-01-01", val: 9_000_000_000, accn: "0000-1", fy: 2025, fp: "FY", form: "20-F", filed: "2026-02-11" },
+        ] } },
+      },
+    };
+    const profile = { ...APPLE_DATASET.company, ticker: "ASML", name: "ASML HOLDING NV", cik: "0000937966", currency: "USD", stockSplits: undefined };
+    const dataset = normalizeSecPayload({ entityName: "ASML HOLDING NV", facts }, "ASML", "2026-08-29T00:00:00.000Z", profile);
+    expect(dataset.company.currency).toBe("EUR");
+    const annual = dataset.periods.filter((period) => period.periodicity === "annual");
+    expect(annual).toHaveLength(1);
+    expect(annual[0].facts.revenue?.value).toBe(32_700_000_000);
+    expect(annual[0].facts.revenue?.currency).toBe("EUR");
+    // Stated, never converted: a price in one currency over a filed amount in
+    // another is wrong in a way that looks entirely plausible.
+    expect(dataset.warnings.some((warning) => warning.includes("mixes two currencies"))).toBe(true);
+  });
+
+  it("is not fooled by a handful of foreign-currency amounts", () => {
+    /*
+     * The exact shape that beat the first attempt. ASML files five dollar
+     * amounts — hedging notionals, purchase commitments — among nine thousand
+     * eight hundred euro ones, and a rule of "prefer the declared currency
+     * wherever it appears" chose dollars and matched nothing.
+     */
+    const many = (unit: string, count: number) => ({ units: { [unit]: Array.from({ length: count }, (unused, index) => (
+      { end: `${2010 + index}-12-31`, start: `${2010 + index}-01-01`, val: 1_000 + index, accn: `0000-${index}`, fy: 2010 + index, fp: "FY", form: "20-F", filed: `${2011 + index}-02-11` }
+    )) } });
+    const facts = {
+      "us-gaap": {
+        Revenues: many("EUR", 6),
+        NetIncomeLoss: many("EUR", 6),
+        NotionalAmountOfForeignCurrencyDerivatives: many("USD", 3),
+      },
+    };
+    const profile = { ...APPLE_DATASET.company, ticker: "ASML", name: "ASML", cik: "0000937966", currency: "USD", stockSplits: undefined };
+    const dataset = normalizeSecPayload({ entityName: "ASML", facts }, "ASML", "2026-08-29T00:00:00.000Z", profile);
+    expect(dataset.company.currency).toBe("EUR");
+    expect(dataset.periods.filter((period) => period.periodicity === "annual")).toHaveLength(6);
+  });
+
+  it("keeps a domestic filer exactly as it was", () => {
+    expect(APPLE_DATASET.company.currency).toBe("USD");
+  });
+
+  it("refuses a company that normalizes to nothing rather than serving it empty", () => {
+    // This is what "the search finds it but then there is no data" was: an
+    // empty dataset with a 200, so the application had no error to report.
+    const ifrs = { entityName: "Taiwan Semiconductor", facts: { "ifrs-full": { Revenue: { units: { TWD: [] } } } } };
+    expect(() => normalizeSecPayload(ifrs, "TSM", "2026-08-29T00:00:00.000Z", { ...APPLE_DATASET.company, ticker: "TSM", cik: "0001046179" }))
+      .toThrow(/IFRS/);
   });
 });

@@ -25,8 +25,9 @@ test("server-renders the FinScope research workspace", async () => {
   // network and no Worker CPU. See app/page.tsx.
   assert.match(html, /Apple Inc\./);
   // Every top-level destination, by its current label. Statistics and DCF are
-  // deliberately absent: both are about one company and are tabs on its page.
-  for (const label of ["Watchlist", "Market", "Portfolio", "Charts", "QS Screener"]) {
+  // deliberately absent — both are about one company and are tabs on its page —
+  // and Portfolio is out of the navigation for now, by request.
+  for (const label of ["Watchlist", "Market", "Charts", "QS Screener"]) {
     assert.match(html, new RegExp(`>${label}<`), `navigation is missing ${label}`);
   }
   assert.doesNotMatch(html, /<nav aria-label="Main navigation">[\s\S]*?>DCF<[\s\S]*?<\/nav>/);

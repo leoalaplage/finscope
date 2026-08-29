@@ -50,7 +50,7 @@ function valuationObservations(dataset: CompanyDataset, metric: string, frequenc
       return [{
         date: period.periodEnd, value, fiscalPeriodEnd: period.periodEnd, filingDate: period.filingDate,
         frequency, currency: period.currency, unit: METRICS[metric]?.kind ?? "ratio",
-        source: "SEC + Yahoo Finance", status: "Calculated and verified" as const, rawObservation: true as const,
+        source: "SEC filings and market prices", status: "Calculated and verified" as const, rawObservation: true as const,
       }];
     });
 }

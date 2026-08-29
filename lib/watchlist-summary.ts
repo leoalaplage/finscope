@@ -30,6 +30,8 @@ export interface WatchlistSummary {
    * a build stayed invisible for the rest of that week.
    */
   retrievedAt: string;
+  /** The filer's CIK, so a freshness check can ask the SEC about this company. */
+  cik: string;
   /**
    * Whether this is a bank, broker or exchange.
    *
@@ -109,6 +111,7 @@ export function summariseDataset(dataset: CompanyDataset): WatchlistSummary | nu
     name: dataset.company.name,
     currency: dataset.company.currency,
     retrievedAt: dataset.retrievedAt,
+    cik: dataset.company.cik,
     businessType: dataset.company.businessType,
     periodEnd: period.periodEnd,
     periodLabel: period.label,

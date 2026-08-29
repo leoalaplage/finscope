@@ -412,6 +412,6 @@ export function MarketPage({ watchlist = [] }: { watchlist?: string[] }) {
     <Suspense fallback={<SkeletonCards label="today’s moves" count={2} height={280}/>}><MarketHeatmap watchlist={watchlist}/></Suspense>
 
     {entries?.some((entry) => !failed(entry)) &&
-      <p className="market-foot">Prices from Yahoo Finance, delayed as the exchange requires.</p>}
+      <p className="market-foot">Prices are delayed as the exchange requires.</p>}
   </div>;
 }

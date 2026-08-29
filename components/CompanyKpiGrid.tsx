@@ -7,7 +7,7 @@ import { chartPalette, niceTicks, type ThemeName } from "@/lib/charting";
 import { chartSurface, exportSvgToPng } from "@/lib/chart-export";
 import { Skeleton } from "./Skeleton";
 import { summariseSeries } from "@/lib/chart-summary";
-import { derivedValue, investedCapital } from "@/lib/finance";
+import { derivedValue } from "@/lib/finance";
 import { CHARTABLE_METRICS } from "@/lib/metrics";
 import { candlesForPeriods, closeOn, freeCashFlowYieldOn, periodsWithin, type PeriodCandle } from "@/lib/overview-market";
 import type { SeriesStyle } from "@/lib/chart-workspace";
@@ -125,7 +125,6 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
   const drawn = firstKnown < 0 ? rows : rows.slice(firstKnown, lastKnown + 1);
   /** Whether the filings stop before the window the reader asked for. */
   const endsEarly = lastKnown >= 0 && lastKnown < rows.length - 1;
-  const startsLate = firstKnown > 0;
 
   const values = drawn.flatMap((row) => (candles ? [row.candle?.low, row.candle?.high] : [row.value, row.pair]).filter((value): value is number => value != null && Number.isFinite(value)));
   // A pair takes the two hues the balance-sheet diagram already uses for what
@@ -177,16 +176,13 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
   }
 
   /*
-   * What the card covers, said in words when it is not what was asked for.
+   * The card states its span on its own axis and in one date beside the CAGR.
    *
-   * "CAGR 7.8Y" beside a headline of "$12.4B" on a page whose header says
-   * "Q1 2010 → Q2 2026" invites exactly one reading: this is the company's
-   * gross profit today. It is the figure for the first quarter of 2018,
-   * because that is the last one Booking filed the line for.
+   * It used to carry two sentences of explanation as well — "First reported
+   * Q2 2010", "The filer stopped tagging this line…" — which is a paragraph of
+   * apology under a chart that had already stopped where it stopped. A drawing
+   * that ends in 2017 with "to Q4 2017" in its header has said it.
    */
-  const coverage = endsEarly
-    ? `Not reported after ${drawn.at(-1)?.label ?? ""}`
-    : startsLate ? `First reported ${drawn[0]?.label ?? ""}` : "";
 
   return <article className="kpi-card">
     <header>
@@ -206,7 +202,6 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
       <li><i style={{ background: colour }}/>{valueTitle}<b>{latest?.value == null ? "—" : format(latest.value)}</b></li>
       <li><i style={{ background: pairColour }}/>{card.pairTitle}<b>{latestPair?.pair == null ? "—" : format(latestPair.pair)}</b></li>
     </ul>}
-    {coverage && <p className="kpi-coverage">{coverage}. The filer stopped tagging this line; FinScope reports the gap rather than carrying the last value forward.</p>}
     <div className="kpi-canvas" ref={canvas}><ResponsiveContainer width="100%" height="100%">
       <BarChart data={drawn} margin={{ top: 6, right: 6, bottom: 0, left: 0 }} barGap={2}>
         <CartesianGrid vertical={false} stroke="var(--chart-grid)"/>
@@ -325,9 +320,6 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
  */
 const RETIRED_AFTER_YEARS = 2;
 
-/** "A, B and C" — the titles as they are written on the cards, not lowercased. */
-const list = (titles: string[]) => new Intl.ListFormat("en-US", { style: "long", type: "conjunction" }).format(titles);
-
 function KpiCards({ cards, periods, candles, bars, dataset, theme, frequency, onOpenMetric }: {
   cards: typeof CARDS; periods: FinancialPeriod[]; candles: Array<PeriodCandle | null> | null; bars: MarketBar[] | null;
   dataset: CompanyDataset; theme: ThemeName; frequency: SeriesFrequency;
@@ -355,23 +347,17 @@ function KpiCards({ cards, periods, candles, bars, dataset, theme, frequency, on
     return { card, rows, known, retired: behindYears > RETIRED_AFTER_YEARS };
   });
 
-  // Nothing at all in the window is not worth mentioning; a measure the company
-  // used to report and no longer does very much is.
-  const live = built.filter((entry) => entry.known && !entry.retired);
-  const retired = built.filter((entry) => entry.known && entry.retired);
-  const stoppedFiling = retired.filter((entry) => entry.card.filed);
-  const stoppedComputing = retired.filter((entry) => !entry.card.filed);
   /*
-   * The reason a return stops, where it is knowable and worth stating.
+   * A measure with nothing recent behind it is simply not shown.
    *
-   * Booking has bought back so much stock that its equity is negative — debt
-   * plus equity less cash comes to about minus six billion — so there is no
-   * capital base to divide free cash flow by, and `investedCapital` refuses to
-   * report a return on a negative one. That is a real and interesting fact
-   * about the company, and far better than a card that simply stops.
+   * Booking last filed a gross-profit line for the fourth quarter of 2017 and
+   * files no cost-of-sales line to subtract from either, so there is nothing to
+   * draw. It had a card of eight-year-old figures among fourteen current ones,
+   * then a paragraph explaining why. Neither belongs on an overview: the card
+   * is left out, and the measure is still there in Charts and under Financials
+   * for anyone who wants the history.
    */
-  const noCapitalBase = stoppedComputing.some((entry) => entry.card.metric === "cashReturnOnCapital")
-    && investedCapital(periods.at(-1)!) == null;
+  const live = built.filter((entry) => entry.known && !entry.retired);
 
   return <>
     <div className="kpi-grid">{live.map((entry) => {
@@ -390,29 +376,5 @@ function KpiCards({ cards, periods, candles, bars, dataset, theme, frequency, on
           ? { style: "candle", frequency: "weekly" }
           : { style: "bar", frequency })}/>;
     })}</div>
-
-    {/*
-      * What this company has stopped reporting, said once and out of the way.
-      *
-      * Booking's gross-profit card sat among fourteen current measures showing
-      * figures from 2017, because Booking presents operating expenses by
-      * function and files no cost-of-sales line — there is no subtotal to read
-      * and nothing to subtract. Leaving the card in the grid made an overview
-      * of the business look broken; removing it silently would hide a real
-      * fact about the filings. It is stated here instead, with where the
-      * history still is.
-      */}
-    {retired.length > 0 && <div className="kpi-retired">
-      {stoppedFiling.length > 0 && <p>
-        <b>{dataset.company.name} no longer reports {list(stoppedFiling.map((entry) => entry.card.title))}.</b>
-        {" "}Last filed {stoppedFiling.map((entry) => `${entry.card.title} for ${entry.known!.label}`).join(", ")}.
-      </p>}
-      {stoppedComputing.length > 0 && <p>
-        <b>{list(stoppedComputing.map((entry) => entry.card.title))} cannot be computed for the latest period.</b>
-        {" "}Last available {stoppedComputing.map((entry) => `${entry.card.title} for ${entry.known!.label}`).join(", ")}.
-        {noCapitalBase && " Invested capital is not positive: this company has returned more to its owners than it retains, so there is no capital base to divide a return by."}
-      </p>}
-      <p>The history is still in Charts and under Financials; nothing is carried forward to fill a gap.</p>
-    </div>}
   </>;
 }

@@ -70,12 +70,23 @@ export function normalizeShareUnitScales(input: RawFinancialFact[]) {
 }
 
 /**
+ * The forms that carry a full financial year.
+ *
+ * A domestic filer's is the 10-K. A foreign private issuer files a 20-F, a
+ * Canadian one a 40-F, and neither files quarterly reports — so a company on
+ * one of those has annual periods and no quarters, which is a real coverage
+ * limit rather than a failure.
+ */
+export const ANNUAL_FORMS: ReadonlySet<string> = new Set(["10-K", "20-F", "40-F"]);
+export const isAnnualForm = (form: string) => ANNUAL_FORMS.has(form);
+
+/**
  * SEC `fy` identifies the fiscal year of the filing, not always the comparative
  * period carried inside it. Relabeling from the actual period end makes older
  * restatements compete in the same context instead of becoming duplicate years.
  */
 export function relabelFiscalYears(input: RawFinancialFact[]) {
-  const annualEnds = input.filter((fact) => fact.fiscalPeriod === "FY" && fact.form === "10-K").map((fact) => fact.end.slice(5));
+  const annualEnds = input.filter((fact) => fact.fiscalPeriod === "FY" && isAnnualForm(fact.form)).map((fact) => fact.end.slice(5));
   const fiscalEnd = [...new Set(annualEnds)].sort((left,right)=>annualEnds.filter((item)=>item===right).length-annualEnds.filter((item)=>item===left).length)[0] ?? "12-31";
   return input.map((fact) => {
     const calendarYear = Number(fact.end.slice(0,4));
@@ -359,7 +370,7 @@ function instantFact(index: FactIndex, metric: MetricKey, fy: number, quarter: "
 
 export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: string) {
   const { facts, index } = prepare(input);
-  const years = [...new Set(facts.filter((fact) => fact.fiscalPeriod === "FY" && fact.form === "10-K").map((fact) => fact.fiscalYear))].sort();
+  const years = [...new Set(facts.filter((fact) => fact.fiscalPeriod === "FY" && isAnnualForm(fact.form)).map((fact) => fact.fiscalYear))].sort();
   return years.map((fiscalYear): FinancialPeriod | null => {
     const annualFacts: FinancialPeriod["facts"] = {};
     let anchor: RawFinancialFact | undefined;
@@ -387,7 +398,7 @@ export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: stri
 
 export function normalizeQuarterlyPeriods(input: RawFinancialFact[], currency: string) {
   const { facts, index } = prepare(input);
-  const years = [...new Set(facts.filter((fact) => fact.form === "10-Q" || fact.form === "10-K").map((fact) => fact.fiscalYear))].sort();
+  const years = [...new Set(facts.filter((fact) => fact.form === "10-Q" || isAnnualForm(fact.form)).map((fact) => fact.fiscalYear))].sort();
   const periods: FinancialPeriod[] = [];
   for (const fiscalYear of years) {
     for (const quarter of ["Q1", "Q2", "Q3", "Q4"] as const) {

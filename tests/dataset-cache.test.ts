@@ -158,14 +158,20 @@ describe("scheduled warm-up", () => {
     expect(report.failed).toEqual([]);
   });
 
-  it("keeps building a company with nothing cached, whatever the rebuild budget", async () => {
-    // A stale company has a copy to serve. A missing one leaves an empty card,
-    // so it must never be the thing a budget skips.
-    setRuntimeBindings({ DATASET_CACHE: cacheDouble(["A"], ["A"], REFRESH_AFTER_MS + 60_000) });
+  it("bounds the whole run, because a key-version change makes every company missing at once", async () => {
+    /*
+     * The budget used to cover only aged copies. Changing the key version
+     * makes every company missing, so the first run after one tried all
+     * twenty-one — which is the burst that refused every request to this
+     * Worker for four minutes.
+     */
+    setRuntimeBindings({ DATASET_CACHE: cacheDouble() });
     const seen: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (request: Request) => { seen.push(path(request)); return new Response("{}", { status: 200 }); }));
-    await warmWatchlist(ORIGIN, ["A", "B", "C"], { ...INSTANT, rebuildBudget: 0 });
-    expect(seen).toEqual(["/api/company/B", "/api/company/C"]);
+    const report = await warmWatchlist(ORIGIN, ["A", "B", "C", "D", "E"], { ...INSTANT, rebuildBudget: 2 });
+    expect(seen).toHaveLength(2);
+    // Skipped for budget is not failed: the next run takes them.
+    expect(report.failed).toEqual([]);
   });
 
   it("treats a digest written before build times were recorded as stale", async () => {

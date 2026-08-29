@@ -40,8 +40,12 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     2018 made filers restate a year under a new concept while its quarters
  *     kept the old one, and seventeen of the twenty-one companies here lost
  *     about five quarters to it — Apple two whole years.
+ * v14: an annual report on Form 20-F or 40-F is read like a 10-K, and a
+ *     company that normalizes to no periods at all is an error rather than an
+ *     empty answer. ASML files 623 US GAAP concepts, every one of them on a
+ *     20-F, and came back as a company with nothing in it and a 200 status.
  */
-export const KEY_VERSION = "v13";
+export const KEY_VERSION = "v14";
 
 /**
  * A week, refreshed daily. The gap between the two is the point.
@@ -374,7 +378,7 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  * with nobody waiting — and the SEC asks automated clients to be gentle.
  */
 /**
- * How many aged companies one run may rebuild.
+ * How many companies one run may build or rebuild.
  *
  * Not an optimisation — a safety limit, learned the hard way. Rebuilding
  * eighteen filers inside ninety seconds got this Worker throttled outright:
@@ -421,11 +425,23 @@ export async function warmWatchlist(
      */
     const state = cache ? await cacheState(cache, ticker) : "missing";
     if (state === "current") { report.warmed.push(ticker); continue; }
-    // An aged copy is still a good copy. Spending the rest of the run on it,
-    // and getting the whole Worker throttled for it, is not a trade worth
-    // making when tomorrow morning is four runs away.
-    if (state === "stale" && rebuilt >= rebuildBudget) { report.warmed.push(ticker); continue; }
-    if (state === "stale") rebuilt += 1;
+    /*
+     * The budget covers the whole run, not only the aged half.
+     *
+     * An aged copy is still a good copy, and spending the rest of the run on
+     * it — and getting the whole Worker throttled for it — is not a trade
+     * worth making when the next run is six hours away. But a *missing* one is
+     * every bit as expensive to build, and a key-version change makes every
+     * company missing at once. Bounding only the aged half meant the first run
+     * after such a change tried all twenty-one, which is exactly the burst
+     * that refused every request to this Worker for four minutes.
+     *
+     * A company skipped for budget is not a failure: it is either serveable
+     * from an older copy or already reported as missing to the reader, and the
+     * next run takes it.
+     */
+    if (rebuilt >= rebuildBudget) { report.warmed.push(ticker); continue; }
+    rebuilt += 1;
     let reason = "";
     // A refusal means the platform is throttling us, not that the company is
     // broken, so the wait before trying again is long rather than immediate.

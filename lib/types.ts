@@ -237,7 +237,16 @@ export interface RawFinancialFact {
   accession: string;
   fiscalYear: number;
   fiscalPeriod: "Q1" | "Q2" | "Q3" | "FY";
-  form: "10-Q" | "10-K";
+  /**
+   * The filing this fact came out of.
+   *
+   * A foreign private issuer files an annual report on Form 20-F (Canadian
+   * issuers on 40-F) instead of a 10-K, and files no quarterly report at all.
+   * Reading only 10-K and 10-Q meant ASML — which reports 623 US GAAP concepts
+   * on Form 20-F — normalized to zero periods and was served as an empty
+   * company with a 200.
+   */
+  form: "10-Q" | "10-K" | "20-F" | "40-F";
   concept: string;
   sourceUrl: string;
   retrievedAt: string;

@@ -25,7 +25,7 @@ import type { SeriesFrequency } from "@/lib/types";
  * They are tabs on its page now. What is left is the four ways of choosing a
  * company and the one workspace that is genuinely about several at once.
  */
-type MainView = "companies" | "company" | "market" | "portfolio" | "charts" | "qs";
+type MainView = "companies" | "company" | "market" | "charts" | "qs";
 type SecondaryView = "quality" | "audit" | "coverage" | "sources" | null;
 type Evidence = { label: string; value: number | null; period: FinancialPeriod; metric: string };
 
@@ -61,7 +61,7 @@ const COMPANY_TAB_KEYS = new Set<string>(COMPANY_TABS.map((item) => item.key));
 const SESSION_MAX_AGE_MS = 1_800_000;
 
 const NAV: Array<{ key: Exclude<MainView, "company">; label: string }> = [
-  { key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "portfolio", label: "Portfolio" }, { key: "charts", label: "Charts" }, { key: "qs", label: "QS Screener" },
+  { key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "charts", label: "Charts" }, { key: "qs", label: "QS Screener" },
 ];
 const NAV_KEYS = new Set<string>(NAV.map((item) => item.key));
 
@@ -74,13 +74,13 @@ const FcfYieldCalculator = lazy(() => import("./FcfYieldCalculator").then((modul
 const FormulaDataAudit = lazy(() => import("./FormulaDataAudit").then((module) => ({ default: module.FormulaDataAudit })));
 const QsScreener = lazy(() => import("./QsScreener").then((module) => ({ default: module.QsScreener })));
 const MarketPage = lazy(() => import("./MarketPage").then((module) => ({ default: module.MarketPage })));
-const PortfolioPage = lazy(() => import("./PortfolioPage").then((module) => ({ default: module.PortfolioPage })));
 const CompanyStatisticsTab = lazy(() => import("./CompanyStatisticsTab").then((module) => ({ default: module.CompanyStatisticsTab })));
 const QualityValuationScatter = lazy(() => import("./QualityValuationScatter").then((module) => ({ default: module.QualityValuationScatter })));
 const CompanyKpiGrid = lazy(() => import("./CompanyKpiGrid").then((module) => ({ default: module.CompanyKpiGrid })));
 const StatementSankey = lazy(() => import("./StatementSankey").then((module) => ({ default: module.StatementSankey })));
 const BalanceSheetPanel = lazy(() => import("./BalanceSheetPanel").then((module) => ({ default: module.BalanceSheetPanel })));
 const HomePage = lazy(() => import("./HomePage").then((module) => ({ default: module.HomePage })));
+const FreshnessCheck = lazy(() => import("./FreshnessCheck").then((module) => ({ default: module.FreshnessCheck })));
 
 const currency = (value: number | null | undefined, code = "USD") => value == null || !Number.isFinite(value) ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: code, notation: Math.abs(value) >= 1_000_000 ? "compact" : "standard", maximumFractionDigits: 2 }).format(value);
 const number = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? "—" : new Intl.NumberFormat("en-US", { notation: Math.abs(value) >= 1_000_000 ? "compact" : "standard", maximumFractionDigits: 2 }).format(value);
@@ -348,13 +348,12 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       {secondary === "quality" && <SecondaryHeading title="Data Quality" onBack={closePanel}/>} {secondary === "quality" && <Suspense fallback={<SkeletonTable label="the data quality report"/>}><DataQuality dataset={dataset} onRefresh={(next) => { setDataset(next); setDatasets((current) => ({ ...current, [next.company.ticker]: next })); }}/></Suspense>}
       {secondary === "audit" && <SecondaryHeading title="Formula Audit" onBack={closePanel}/>} {secondary === "audit" && <Suspense fallback={<SkeletonTable label="the formula audit"/>}><FormulaDataAudit dataset={dataset}/></Suspense>}
       {secondary === "coverage" && <SecondaryHeading title="Import status" onBack={closePanel}/>} {secondary === "coverage" && <Suspense fallback={<SkeletonTable label="the import status"/>}><CoverageMatrix initialData={dataset}/></Suspense>}
-      {secondary === "sources" && <SourcesPage dataset={dataset} onBack={closePanel}/>}
+      {secondary === "sources" && <SourcesPage tickers={watchlist.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker)} onBack={closePanel}/>}
       {!secondary && view === "qs" && <Suspense fallback={<SkeletonTable label="the QS Screener" rows={10}/>}><QsScreener tickers={watchlist.map((company) => company.ticker)}/></Suspense>}
       {!secondary && view === "companies" && !ranking && <Suspense fallback={<SkeletonCards label="your watchlist" count={8}/>}><HomePage watchlist={watchlist} datasets={datasets} loading={loading} onOpen={openCompany} onLoad={loadCompanyData} onSearchAdd={() => setManagerOpen(true)} onShowRanking={() => showRanking(true)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></Suspense>}
       {!secondary && view === "companies" && ranking && <div><button className="back-button" onClick={() => showRanking(false)}>← Watchlist</button><CompaniesPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} loading={loading} onSearchAdd={() => setManagerOpen(true)} onLoad={loadCompanyData} onOpen={openCompany} onCharts={(ticker) => openCharts(ticker)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></div>}
       {!secondary && view === "company" && <CompanyPage key={dataset.company.ticker} dataset={dataset} theme={theme} watchlist={watchlist} datasets={datasets} tab={companyTab} onTab={openTab} onBack={() => navigate("companies")} onCharts={openCharts} onLoad={loadCompanyData}/>}
       {!secondary && view === "market" && <Suspense fallback={<SkeletonCards label="the market session" count={3} height={230}/>}><MarketPage watchlist={watchlist.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker)}/></Suspense>}
-      {!secondary && view === "portfolio" && <Suspense fallback={<Skeleton label="your portfolio" chart height={320}/>}><PortfolioPage watchlist={watchlist} theme={theme} onOpen={openCompany}/></Suspense>}
       {!secondary && view === "charts" && <Suspense fallback={<Skeleton label="the chart workspace" chart height={420}/>}><ChartsWorkspace initialData={dataset} seed={chartSeed} theme={theme}/></Suspense>}
     </main>
     <footer className="site-footer"><span>Auditable financial research · Not investment advice</span><details><summary>More</summary><div><button onClick={() => openPanel("quality")}>Data Quality</button><button onClick={() => openPanel("audit")}>Formula Audit</button><button onClick={() => openPanel("coverage")}>Import status</button><button onClick={() => openPanel("sources")}>Sources</button></div></details></footer>
@@ -661,7 +660,7 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
       </section>
     </div>}
 
-    {tab === "sources" && <section id="sources" className="plain-section"><h2>Sources & Data Quality</h2><div className="table-scroll"><table><tbody><tr><th>Fundamentals</th><td>SEC EDGAR Company Facts</td></tr><tr><th>Market data</th><td>Yahoo Finance adjusted close</td></tr><tr><th>Validation</th><td>{dataset.quality?.lastValidatedAt?.slice(0, 10) ?? dataset.retrievedAt.slice(0, 10)}</td></tr><tr><th>Coverage</th><td>{dataset.quality?.coverage.map((item) => `${item.periodicity}: ${item.periodCount}`).join(" · ") ?? `${dataset.periods.length} periods`}</td></tr></tbody></table></div>{dataset.warnings.length ? <ul>{dataset.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : <p>No active data warnings.</p>}</section>}
+    {tab === "sources" && <section id="sources" className="plain-section"><h2>Sources & Data Quality</h2><div className="table-scroll"><table><tbody><tr><th>Fundamentals</th><td>SEC EDGAR Company Facts</td></tr><tr><th>Market data</th><td>Split-adjusted closing prices</td></tr><tr><th>Validation</th><td>{dataset.quality?.lastValidatedAt?.slice(0, 10) ?? dataset.retrievedAt.slice(0, 10)}</td></tr><tr><th>Coverage</th><td>{dataset.quality?.coverage.map((item) => `${item.periodicity}: ${item.periodCount}`).join(" · ") ?? `${dataset.periods.length} periods`}</td></tr></tbody></table></div>{dataset.warnings.length ? <ul>{dataset.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : <p>No active data warnings.</p>}</section>}
     {evidence && <EvidenceDialog evidence={evidence} onClose={() => setEvidence(null)}/>}
   </div>;
 }
@@ -772,4 +771,5 @@ function EvidenceDialog({ evidence, onClose }: { evidence: Evidence; onClose: ()
   const fact = evidence.period.facts[evidence.metric as MetricKey]; return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="evidence-dialog" role="dialog" aria-modal="true" aria-labelledby="evidence-title"><div className="section-heading"><h2 id="evidence-title">{evidence.label}</h2><button onClick={onClose}>Close</button></div><dl><div><dt>Value</dt><dd>{number(evidence.value)}</dd></div><div><dt>Source</dt><dd>{fact?.provenance.provider ?? "Calculated"}</dd></div><div><dt>Period</dt><dd>{evidence.period.periodEnd} · {evidence.period.periodicity}</dd></div><div><dt>Formula</dt><dd>{fact?.provenance.formula ?? METRICS[evidence.metric]?.formula ?? "Direct reported fact"}</dd></div><div><dt>Validation</dt><dd>{fact?.validation?.status ?? fact?.provenance.status ?? (evidence.value == null ? "Missing" : "Calculated and verified")}</dd></div></dl>{fact?.provenance.sourceUrl && <a href={fact.provenance.sourceUrl} target="_blank" rel="noreferrer">Open source</a>}</section></div>;
 }
 
-function SourcesPage({ dataset, onBack }: { dataset: CompanyDataset; onBack: () => void }) { return <div><header className="page-heading"><div><h1>Sources</h1><p>{dataset.company.name} · data lineage and calculation policy.</p></div><button onClick={onBack}>Back</button></header><section className="plain-section"><h2>Primary sources</h2><div className="table-scroll"><table><tbody><tr><th>Fundamentals</th><td><a href="https://www.sec.gov/search-filings/edgar-application-programming-interfaces" target="_blank" rel="noreferrer">SEC EDGAR Company Facts</a></td></tr><tr><th>Market data</th><td><a href="https://help.yahoo.com/kb/adjusted-close-sln28256.html" target="_blank" rel="noreferrer">Yahoo Finance adjusted close</a></td></tr></tbody></table></div></section><section className="plain-section"><h2>Methodology</h2><p>Direct reported quarters are preferred. Derived quarters, TTM windows, per-share metrics and margins retain their formula and validation status. Chart fundamentals stay on their fiscal dates; market observations stay on their trading-session dates.</p></section></div>; }
+function SourcesPage({ tickers, onBack }: { tickers: string[]; onBack: () => void }) { return <div><header className="page-heading"><div><h1>Sources</h1><p>Data lineage, calculation policy, and a check that what you are reading is the latest filed.</p></div><button onClick={onBack}>Back</button></header>
+  <Suspense fallback={<SkeletonTable label="the freshness check" rows={4}/>}><FreshnessCheck tickers={tickers}/></Suspense><section className="plain-section"><h2>Primary sources</h2><div className="table-scroll"><table><tbody><tr><th>Fundamentals</th><td><a href="https://www.sec.gov/search-filings/edgar-application-programming-interfaces" target="_blank" rel="noreferrer">SEC EDGAR Company Facts</a></td></tr><tr><th>Market data</th><td>Split-adjusted closing prices, matched to an explicit session date</td></tr></tbody></table></div></section><section className="plain-section"><h2>Methodology</h2><p>Direct reported quarters are preferred. Derived quarters, TTM windows, per-share metrics and margins retain their formula and validation status. Chart fundamentals stay on their fiscal dates; market observations stay on their trading-session dates.</p></section></div>; }

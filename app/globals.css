@@ -911,42 +911,17 @@ tbody tr:last-child > * { border-bottom: 0; }
 .kpi-card-footer button { min-height: 26px; padding: 0 10px; border-color: transparent; background: transparent; font-size: var(--fs-xs); border-radius: var(--radius-pill); color: var(--muted); }
 .kpi-card-footer button:hover:not(:disabled) { background: var(--control); color: var(--text); }
 @media (hover: none) { .kpi-card-footer { opacity: 1; } }
-/*
- * Why a card's bars stop where they do.
- *
- * Booking stopped tagging a gross-profit line after 2017, so its card drew
- * eight years of history and then eight years of blank axis under an undated
- * headline — which reads as an application that lost the data rather than as a
- * company that stopped reporting the line. The card draws its own span now,
- * and this says where that span ends.
- */
-/* What a company has stopped reporting, under the grid rather than as a card
-   of eight-year-old figures sitting among fourteen current ones. */
-.kpi-retired {
-  max-width: 92ch;
-  margin: 14px 0 0;
-  padding: 10px 14px;
-  border: 1px solid var(--card-border);
-  border-radius: var(--card-radius);
-  background: var(--card);
-  color: var(--muted);
-  font-size: var(--fs-xs);
-  line-height: 1.5;
-}
-.kpi-retired p { margin: 0; }
-.kpi-retired p + p { margin-top: 6px; }
-.kpi-retired b { color: var(--text); font-weight: 600; }
-
-.kpi-coverage {
-  margin: 0 0 10px;
-  padding: 6px 9px;
-  border-left: 2px solid var(--warning);
-  border-radius: 0 var(--radius) var(--radius) 0;
-  background: color-mix(in oklab, var(--warning) 8%, transparent);
-  color: var(--muted);
-  font-size: var(--fs-xs);
-  line-height: 1.4;
-}
+/* ---- Freshness checkup -------------------------------------------------
+   Period against period, so the state has to read as a state rather than as a
+   date the reader must compare in their head. */
+.freshness-table td small { display: block; margin-top: 2px; max-width: 42ch; font-size: var(--fs-xs); color: var(--muted); }
+.freshness-state { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-sm); font-weight: 600; }
+.freshness-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
+.freshness-state.current { color: var(--accent); }
+.freshness-state.current::before { background: var(--accent); }
+.freshness-state.behind { color: var(--danger); }
+.freshness-state.behind::before { background: var(--danger); }
+.freshness-state.unknown { color: var(--muted); }
 
 /* ---- QS Screener ------------------------------------------------------
    The scores used to arrive as a PNG inside an iframe. Everything below

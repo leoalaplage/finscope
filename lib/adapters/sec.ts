@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { COMPANIES } from "../company-registry";
-import { adjustPeriodsForSplits, buildTtmPeriods, normalizeAnnualPeriods, normalizeQuarterlyPeriods } from "../periods";
+import { adjustPeriodsForSplits, buildTtmPeriods, isAnnualForm, normalizeAnnualPeriods, normalizeQuarterlyPeriods } from "../periods";
 import { validateCompanyDataset } from "../data-quality";
 import type { CompanyDataset, FinancialPeriod, MetricKey, RawFinancialFact } from "../types";
 
@@ -117,7 +117,11 @@ function extractFacts(
       const unitKey = spec.unit === "shares" ? "shares" : spec.unit === "perShare" ? `${currency}/shares` : currency;
       const unitFacts: SecUnit[] = node.units[unitKey] ?? [];
       for (const fact of unitFacts) {
-        if ((fact.form !== "10-Q" && fact.form !== "10-K") || fact.fy == null || !["Q1", "Q2", "Q3", "FY"].includes(fact.fp ?? "")) continue;
+        // A foreign private issuer files a 20-F rather than a 10-K, and no
+        // quarterly report at all. Reading only the domestic pair meant ASML —
+        // 623 US GAAP concepts, every one of them on Form 20-F — normalized to
+        // nothing and was served as an empty company with a 200 status.
+        if ((fact.form !== "10-Q" && !isAnnualForm(fact.form)) || fact.fy == null || !["Q1", "Q2", "Q3", "FY"].includes(fact.fp ?? "")) continue;
         output.push({
           metric, value: fact.val, currency, unit: spec.unit === "perShare" ? "currency" : spec.unit, start: fact.start, end: fact.end,
           filed: fact.filed, accession: fact.accn, fiscalYear: fact.fy,
@@ -330,11 +334,45 @@ function recoverSharesFromDividends(periods: FinancialPeriod[], ratesSeen: boole
   });
 }
 
+/**
+ * The currency a filer actually reports in.
+ *
+ * Every monetary fact is filed under a unit key that is its ISO currency code,
+ * and the extractor asks for exactly one of them. A company resolved from the
+ * SEC's ticker registry is assumed to report in dollars, because that registry
+ * says nothing about currency — so ASML, which files 623 US GAAP concepts on
+ * Form 20-F and reports every one of them in euros, matched nothing at all and
+ * came back as a company with no financial statements.
+ *
+ * The most-used monetary unit is the answer, and the declared one only where
+ * the filer publishes no monetary facts at all. Preferring the declared
+ * currency whenever it appears at all is not good enough: ASML files five
+ * dollar amounts — hedging notionals and purchase commitments — among nine
+ * thousand eight hundred euro ones, and those five were enough to keep
+ * choosing dollars and finding nothing. A domestic filer's dominant unit is
+ * the dollar, so nothing about them changes.
+ *
+ * `shares`, `pure` and `EUR/shares` are not currencies and are excluded by
+ * shape.
+ */
+function reportingCurrency(namespaces: z.infer<typeof SecResponseSchema>["facts"], declared: string): string {
+  const counts = new Map<string, number>();
+  for (const node of Object.values(namespaces["us-gaap"] ?? {})) {
+    for (const [unit, facts] of Object.entries(node.units)) {
+      if (!/^[A-Z]{3}$/.test(unit)) continue;
+      counts.set(unit, (counts.get(unit) ?? 0) + facts.length);
+    }
+  }
+  return [...counts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? declared;
+}
+
 export function normalizeSecPayload(payload: unknown, ticker: string, retrievedAt = new Date().toISOString(), resolvedCompany?: CompanyDataset["company"]): CompanyDataset {
-  const company = resolvedCompany ?? COMPANIES.find((item) => item.ticker === ticker.toUpperCase());
-  if (!company) throw new Error("Ticker not supported by the SEC adapter registry.");
-  if (!company.cik) throw new Error(company.resolutionNote || "No reliable regulatory identifier is available for this instrument.");
+  const resolved = resolvedCompany ?? COMPANIES.find((item) => item.ticker === ticker.toUpperCase());
+  if (!resolved) throw new Error("Ticker not supported by the SEC adapter registry.");
+  if (!resolved.cik) throw new Error(resolved.resolutionNote || "No reliable regulatory identifier is available for this instrument.");
   const parsed = SecResponseSchema.parse(payload);
+  const currency = reportingCurrency(parsed.facts, resolved.currency);
+  const company = currency === resolved.currency ? resolved : { ...resolved, currency };
   const rawFacts = extractFacts(parsed.facts, company.cik, company.currency, retrievedAt);
   // Order matters. The dividend rate is repaired first, because the share
   // recovery divides by it; the recovery runs before split adjustment, so the
@@ -347,12 +385,39 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
   const annual = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.annual, reconciled.ratesSeen), company.stockSplits);
   const quarterly = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.quarterly, reconciled.ratesSeen), company.stockSplits);
   const ttm = buildTtmPeriods(quarterly, company.currency);
+
+  /*
+   * A company with nothing in it is a failure, not an answer.
+   *
+   * This used to return an empty dataset with a 200, so the application had no
+   * error to report and simply drew a company with no figures anywhere — which
+   * is what "the search finds it but then there is no data" was. Two filers
+   * reach here that way: one whose facts are all on a form we did not read, and
+   * one that reports under IFRS, where not a single concept in this adapter's
+   * map exists. Both are now said out loud.
+   */
+  if (!annual.length && !quarterly.length) {
+    const spaces = Object.keys(parsed.facts);
+    throw new Error(spaces.includes("ifrs-full") && !spaces.includes("us-gaap")
+      ? `${parsed.entityName} reports under IFRS rather than US GAAP. FinScope reads US GAAP concepts, so this filer's statements cannot be normalized yet.`
+      : `No standardized US GAAP facts were found for ${parsed.entityName} on Forms 10-K, 10-Q, 20-F or 40-F.`);
+  }
+
   return validateCompanyDataset({
     company: { ...company, name: parsed.entityName }, periods: [...annual, ...quarterly, ...ttm], retrievedAt,
     warnings: [
       "Quarterly cash-flow facts may be isolated from year-to-date disclosures; every derived quarter is marked calculated with its source accessions.",
-      ttm.length ? `TTM is available through ${ttm.at(-1)!.periodEnd} from four consecutive fiscal quarters.` : "TTM unavailable: four consecutive reliable quarters were not found.",
+      ttm.length ? `TTM is available through ${ttm.at(-1)!.periodEnd} from four consecutive fiscal quarters.`
+        : quarterly.length ? "TTM unavailable: four consecutive reliable quarters were not found."
+        : "This filer publishes an annual report only — a foreign private issuer files no quarterly report with the SEC — so quarterly and trailing-twelve-month views are empty by construction rather than by failure.",
       "Standardized concepts only: company extensions and non-GAAP values remain separate and are not imputed.",
+      ...(company.currency === "USD" ? [] : [
+        // Stated rather than converted. An exchange rate applied silently to a
+        // filed figure is the kind of quiet estimate this application exists
+        // not to make, and a multiple that divides a dollar price by a euro
+        // profit is wrong in a way that looks entirely plausible.
+        `${company.name} reports in ${company.currency} while its shares are quoted in the currency of their listing. Statements are shown as filed and are not converted; any figure combining a price with a filed amount — market capitalisation, and every valuation multiple — mixes two currencies and should not be relied on for this company.`,
+      ]),
     ],
   });
 }
@@ -380,4 +445,61 @@ async function resolveSecCompany(ticker: string) {
   const results = await searchSecCompanies(ticker); const exact = results.find((entry) => entry.ticker === ticker.toUpperCase());
   if (!exact) throw new Error("Ticker could not be resolved uniquely in the SEC registry.");
   return exact;
+}
+
+const SubmissionsSchema = z.object({
+  cik: z.union([z.string(), z.number()]).optional(),
+  filings: z.object({
+    recent: z.object({
+      form: z.array(z.string()),
+      filingDate: z.array(z.string()),
+      reportDate: z.array(z.string()),
+      accessionNumber: z.array(z.string()).optional(),
+    }),
+  }),
+});
+
+/** The periodic reports a checkup cares about; an 8-K is news, not a statement. */
+const PERIODIC = new Set(["10-K", "10-Q", "20-F", "40-F"]);
+
+export interface LatestFiling {
+  form: string;
+  /** When the company filed it. */
+  filingDate: string;
+  /** The period it reports on, which is what a dataset can be compared against. */
+  reportDate: string;
+  accession?: string;
+}
+
+/**
+ * The most recent periodic report this company has filed, from the SEC itself.
+ *
+ * This is the only way to answer "is what we hold the latest there is" without
+ * trusting our own cache to tell us about its own staleness — which is exactly
+ * the reasoning that let Veeva's results sit unseen for days. The submissions
+ * document is a couple of hundred kilobytes and carries the form, the filing
+ * date and the period each report covers, so the comparison is against the
+ * company's own calendar rather than against a clock.
+ */
+export async function fetchLatestFiling(cik: string): Promise<LatestFiling | null> {
+  const padded = cik.padStart(10, "0");
+  const response = await fetch(`https://data.sec.gov/submissions/CIK${padded}.json`, {
+    headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com", Accept: "application/json" },
+  });
+  if (!response.ok) throw new Error(`SEC returned ${response.status}.`);
+  const recent = SubmissionsSchema.parse(await response.json()).filings.recent;
+  let best: LatestFiling | null = null;
+  for (let index = 0; index < recent.form.length; index++) {
+    if (!PERIODIC.has(recent.form[index])) continue;
+    const candidate: LatestFiling = {
+      form: recent.form[index],
+      filingDate: recent.filingDate[index],
+      reportDate: recent.reportDate[index],
+      accession: recent.accessionNumber?.[index],
+    };
+    // Ordered newest first in practice, but compared rather than assumed: an
+    // amendment can be filed out of order and a checkup must not be fooled.
+    if (!best || candidate.reportDate > best.reportDate) best = candidate;
+  }
+  return best;
 }
