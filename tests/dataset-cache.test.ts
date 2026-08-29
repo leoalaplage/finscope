@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CACHE_SECONDS, datasetKey, KEY_VERSION, missingTickers, REFRESH_AFTER_MS, requestedTickers, summaryKey, WATCHLIST_LIMIT, warmSomeMissing, warmWatchlist } from "../lib/dataset-cache";
+import { CACHE_SECONDS, datasetKey, digestIsCurrent, KEY_VERSION, missingTickers, REFRESH_AFTER_MS, requestedTickers, summaryKey, WATCHLIST_LIMIT, warmSomeMissing, warmWatchlist } from "../lib/dataset-cache";
 import { COVERED_TICKERS, DEFAULT_WATCHLIST } from "../lib/company-registry";
 import { setRuntimeBindings } from "../lib/runtime-env";
 
@@ -63,6 +63,27 @@ describe("dataset cache keys", () => {
     // for the rest of that week.
     expect(REFRESH_AFTER_MS).toBeLessThanOrEqual(86_400_000);
     expect(REFRESH_AFTER_MS).toBeLessThan(CACHE_SECONDS * 1_000);
+  });
+});
+
+describe("whether a stored copy is still current", () => {
+  it("accepts a digest written inside the refresh window", () => {
+    expect(digestIsCurrent(digest(0))).toBe(true);
+    expect(digestIsCurrent(digest(REFRESH_AFTER_MS - 60_000))).toBe(true);
+  });
+
+  it("rejects one written before it, which is what a rebuild is allowed on", () => {
+    // The endpoint reads this to decide whether a rebuild request may spend a
+    // twelve-megabyte parse. The header is public and cannot be a credential,
+    // so this condition is the whole bound on it.
+    expect(digestIsCurrent(digest(REFRESH_AFTER_MS + 60_000))).toBe(false);
+  });
+
+  it("rejects an absent, unparseable or timeless digest rather than trusting it", () => {
+    expect(digestIsCurrent(null)).toBe(false);
+    expect(digestIsCurrent("not json")).toBe(false);
+    expect(digestIsCurrent("{}")).toBe(false);
+    expect(digestIsCurrent(JSON.stringify({ retrievedAt: "whenever" }))).toBe(false);
   });
 });
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchSecCompany } from "@/lib/adapters/sec";
-import { CACHE_SECONDS, datasetKey, summaryKey } from "@/lib/dataset-cache";
+import { CACHE_SECONDS, datasetKey, digestIsCurrent, summaryKey } from "@/lib/dataset-cache";
 import { summariseDataset } from "@/lib/watchlist-summary";
 import { datasetCache } from "@/lib/runtime-env";
 
@@ -41,7 +41,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
   const key = datasetKey(symbol);
   const warming = request.headers.get("X-FinScope-Warm") === "1";
   /*
-   * The timer asking for this company to be built again, not served again.
+   * A request for this company to be built again, not served again.
    *
    * Every other caller wants whatever is cached, which is the entire point of
    * the cache. The scheduled refresh wants the opposite: it has already decided
@@ -49,10 +49,16 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
    * bytes it was sent to replace — the refresh would report success and change
    * nothing, which is how a published quarter stayed invisible for a week.
    *
-   * Only the warm path may ask, so a reader cannot spend a twelve-megabyte
-   * parse of the Worker's CPU budget by adding a header.
+   * The header is not a credential and cannot be one: this endpoint is public
+   * and anyone may set it. What bounds it is the condition below — a rebuild
+   * happens only where the stored copy is genuinely old enough to be due one,
+   * so asking for it can at most bring forward work that was going to happen
+   * anyway, once per company per refresh window. Normalizing a filer is the
+   * most expensive thing this application does, and an unbounded "parse this
+   * again" that any caller could repeat would be a way to exhaust the Worker.
    */
-  const rebuilding = warming && request.headers.get("X-FinScope-Rebuild") === "1";
+  const asksRebuild = warming && request.headers.get("X-FinScope-Rebuild") === "1";
+  const rebuilding = asksRebuild && cache != null && !digestIsCurrent(await cache.get(summaryKey(symbol), "text").catch(() => null));
 
   if (!rebuilding) {
     try {

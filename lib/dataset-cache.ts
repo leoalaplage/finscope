@@ -156,19 +156,29 @@ export function requestedTickers(param: string | null | undefined, fallback: str
  */
 type CacheState = "missing" | "stale" | "current";
 
-async function cacheState(cache: KVNamespace, ticker: string): Promise<CacheState> {
-  const dataset = await cache.get(datasetKey(ticker), "stream");
-  if (!dataset) return "missing";
-  await dataset.cancel();
-  const stored = await cache.get(summaryKey(ticker), "text");
-  if (!stored) return "missing";
+/**
+ * Whether a stored digest is recent enough that its dataset need not be built
+ * again. A digest from before build times were recorded reads as `NaN` and is
+ * reported stale, which rebuilds it once and then behaves.
+ */
+export function digestIsCurrent(stored: string | null): boolean {
+  if (!stored) return false;
   let builtAt = Number.NaN;
   try {
     builtAt = Date.parse((JSON.parse(stored) as WatchlistSummary).retrievedAt);
   } catch {
     // An unreadable digest is one worth writing again.
   }
-  return Number.isFinite(builtAt) && Date.now() - builtAt < REFRESH_AFTER_MS ? "current" : "stale";
+  return Number.isFinite(builtAt) && Date.now() - builtAt < REFRESH_AFTER_MS;
+}
+
+async function cacheState(cache: KVNamespace, ticker: string): Promise<CacheState> {
+  const dataset = await cache.get(datasetKey(ticker), "stream");
+  if (!dataset) return "missing";
+  await dataset.cancel();
+  const stored = await cache.get(summaryKey(ticker), "text");
+  if (!stored) return "missing";
+  return digestIsCurrent(stored) ? "current" : "stale";
 }
 
 /** The watchlist companies that have no usable cache entry at all. */
