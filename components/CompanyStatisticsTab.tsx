@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CompanyStatistics } from "./CompanyStatistics";
+import { SkeletonTable } from "./Skeleton";
 import type { CompanyDataset, CompanyProfile, PricePoint } from "@/lib/types";
 
 /**
@@ -103,7 +104,7 @@ export function CompanyStatisticsTab({ dataset, price, watchlist, datasets, onLo
       <span className="stat-picker-count">{shown.length} of {MAX_COMPARED}</span>
     </div>
 
-    {pending.length > 0 && <p className="simple-state">Loading {pending.join(", ")}…</p>}
+    {pending.length > 0 && <SkeletonTable label={`${pending.join(", ")} for comparison`} rows={4}/>}
     <CompanyStatistics datasets={shown} prices={{ [anchor]: price, ...prices }}/>
   </section>;
 }

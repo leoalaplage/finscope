@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { SkeletonCards } from "./Skeleton";
 import { groupedTreemap, type PlacedGroup } from "@/lib/treemap";
 
 /**
@@ -247,7 +248,7 @@ export function MarketHeatmap({ watchlist = [] }: { watchlist?: string[] }) {
   const ranked = useMemo(() => data ? [...data.index, ...data.watchlist].sort((a, b) => b.changePercent - a.changePercent) : [], [data]);
 
   if (error) return <p className="notice">{error}</p>;
-  if (!data) return <p className="simple-state">Loading today&rsquo;s moves…</p>;
+  if (!data) return <SkeletonCards label="today’s moves" count={2} height={280}/>;
 
   return <div className="heatmaps">
     <div className="heat-title">

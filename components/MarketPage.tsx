@@ -1,6 +1,7 @@
 "use client";
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SkeletonCards } from "./Skeleton";
 import { MARKET_RANGES, type MarketRange, type MarketWindow } from "@/lib/adapters/intraday";
 
 type Panel = MarketWindow & { id: string; description: string };
@@ -399,7 +400,7 @@ export function MarketPage({ watchlist = [] }: { watchlist?: string[] }) {
     </div>
 
     {error && <p className="notice">{error}</p>}
-    {entries == null && <p className="simple-state">Loading the market…</p>}
+    {entries == null && <SkeletonCards label="the market session" count={3} height={230}/>}
     {entries != null && !entries.length && !error && <p className="simple-state">No index data is available right now.</p>}
 
     <div className="index-grid">
@@ -408,7 +409,7 @@ export function MarketPage({ watchlist = [] }: { watchlist?: string[] }) {
 
     {/* Loaded apart from the indices: fifty tiles are a second request and a
         second answer, and the lines above should not wait for them. */}
-    <Suspense fallback={<p className="simple-state">Loading today&rsquo;s moves…</p>}><MarketHeatmap watchlist={watchlist}/></Suspense>
+    <Suspense fallback={<SkeletonCards label="today’s moves" count={2} height={280}/>}><MarketHeatmap watchlist={watchlist}/></Suspense>
 
     {entries?.some((entry) => !failed(entry)) &&
       <p className="market-foot">Prices from Yahoo Finance, delayed as the exchange requires.</p>}

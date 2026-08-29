@@ -158,7 +158,33 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
 .site-header nav button:hover:not(.active) { background: transparent; color: var(--text); }
 .site-header nav button.active { background: var(--surface); color: var(--text); font-weight: 650; box-shadow: var(--shadow); }
 :root[data-theme="dark"] .site-header nav button.active { background: var(--control-hover); }
-.header-company { justify-self: end; color: var(--muted); font-size: var(--fs-sm); font-weight: 600; letter-spacing: .02em; }
+.header-company { display: flex; align-items: center; justify-content: flex-end; gap: 10px; justify-self: end; min-width: 0; color: var(--muted); font-size: var(--fs-sm); font-weight: 600; letter-spacing: .02em; }
+/* The open company, as a way back to it rather than as a label. */
+.header-ticker { min-height: 28px; padding: 0 10px; border: 0; border-radius: var(--radius-pill); background: var(--grid); color: var(--muted); font-size: var(--fs-sm); font-weight: 700; letter-spacing: .02em; }
+.header-ticker:hover { background: var(--control-hover); color: var(--text); }
+
+/*
+ * A way to reach any company, from wherever you are.
+ *
+ * Reaching one used to mean going back to the Watchlist and searching there, or
+ * opening the import dialog — so the answer to "what does this other company's
+ * balance sheet look like" started with leaving what you were reading.
+ */
+.header-search { position: relative; display: flex; align-items: center; gap: 7px; width: min(280px, 34vw); padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--control); color: var(--muted); transition: border-color var(--ease), box-shadow var(--ease); }
+.header-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.header-search input { min-width: 0; min-height: 30px; flex: 1; padding: 0; border: 0; background: none; color: var(--text); font-size: var(--fs-base); font-weight: 400; letter-spacing: 0; }
+.header-search input:focus-visible { outline: none; }
+.header-search input::-webkit-search-cancel-button { appearance: none; }
+
+.header-results { position: absolute; z-index: 30; top: calc(100% + 6px); right: 0; width: min(360px, 90vw); max-height: 60vh; margin: 0; padding: 5px; overflow-y: auto; list-style: none; border: 1px solid var(--border); border-radius: var(--card-radius); background: var(--surface); box-shadow: var(--shadow-pop); }
+.header-results li { margin: 0; }
+.header-results button { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 4px 10px; width: 100%; padding: 7px 10px; border: 0; border-radius: var(--radius); background: transparent; text-align: left; }
+/* Hover and keyboard selection are the same state, so they look the same. */
+.header-results button.active, .header-results button:hover:not(:disabled) { background: var(--control-hover); }
+.header-results button b { font-size: var(--fs-base); font-weight: 700; }
+.header-results button span { min-width: 0; overflow: hidden; color: var(--muted); font-size: var(--fs-sm); font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.header-results button small { color: var(--muted); font-size: var(--fs-micro); font-weight: 600; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+.header-result-empty { padding: 10px; color: var(--muted); font-size: var(--fs-sm); font-weight: 400; }
 .site-main { width: min(100% - 40px, 1320px); min-width: 0; flex: 1; margin: 0 auto; padding: 36px 0 72px; overflow-x: clip; }
 .site-footer { display: flex; justify-content: space-between; align-items: flex-start; min-height: 58px; padding: 18px 24px; border-top: 1px solid var(--border); color: var(--muted); font-size: var(--fs-sm); }
 .site-footer details { position: relative; }
@@ -191,11 +217,49 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
  * facts" instead of "one table", and they reflow on a phone without leaving
  * orphaned rules behind.
  */
-.company-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0 0 26px; border-block: 0; }
-.company-facts div { padding: 12px 14px; border: 1px solid var(--card-border); border-right: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); }
-.company-facts div:last-child { border-right: 1px solid var(--card-border); }
-.company-facts dt { color: var(--muted); font-size: var(--fs-micro); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-.company-facts dd { margin: 5px 0 0; font-size: var(--fs-lg); font-weight: 650; font-variant-numeric: tabular-nums; }
+/*
+ * The company's headline: one figure that answers, one that supports it, and
+ * the provenance underneath.
+ *
+ * This was four cards of identical weight — price, market cap, currency, and a
+ * period end date — so nothing led and the eye had nowhere to land. Currency is
+ * already in the line above. What replaces it is the thing this application
+ * exists to state: which filing these numbers come from, and when it was read.
+ */
+.company-headline {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: end;
+  gap: 8px 32px;
+  margin: 0 0 26px;
+  padding: 16px 18px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+.company-figure { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.company-figure span { color: var(--muted); font-size: var(--fs-micro); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.company-figure strong { font-size: 28px; font-weight: 650; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+/* Supporting, not competing: the market capitalisation is the price wearing a
+   bigger number, and drawing both at the same size says they rank equally. */
+.company-figure.quiet strong { font-size: var(--fs-xl); font-weight: 600; color: var(--muted); }
+.figure-missing { font-size: var(--fs-body); font-style: normal; font-weight: 500; color: var(--muted); }
+/* A number arriving, at the size of the number. "Loading…" set in place of a
+   price made the whole line change width the moment it landed. */
+.figure-waiting {
+  display: inline-block; width: 5.5ch; height: .72em; border-radius: 5px; vertical-align: baseline;
+  background:
+    linear-gradient(90deg, transparent 0%, color-mix(in oklab, var(--text) 8%, transparent) 50%, transparent 100%),
+    var(--control);
+  background-size: 120px 100%, 100% 100%;
+  background-repeat: no-repeat, no-repeat;
+  animation: skeleton-sweep 1.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) { .figure-waiting { animation: none; } }
+.company-provenance { grid-column: 3; justify-self: end; max-width: 46ch; margin: 0; color: var(--muted); font-size: var(--fs-xs); text-align: right; text-wrap: balance; }
+.company-provenance b { font-weight: 600; color: var(--text); }
+.company-provenance a { color: var(--accent); }
 .anchor-nav { position: sticky; z-index: 10; top: 54px; display: flex; gap: 16px; overflow-x: auto; margin-bottom: 30px; padding: 12px 0; border-bottom: 1px solid var(--border); background: var(--background); white-space: nowrap; }
 .anchor-nav a { color: var(--muted); font-size: var(--fs-sm); text-decoration: none; }
 .anchor-nav a:hover { color: var(--text); text-decoration: underline; }
@@ -232,6 +296,42 @@ tbody tr:last-child > * { border-bottom: 0; }
 .text-button:hover, .value-button:hover { background: transparent; text-decoration-color: var(--accent); }
 .value-button { width: 100%; text-align: right; }
 .simple-state, .notice { padding: 16px 18px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); color: var(--muted); }
+
+/* --- Waiting -------------------------------------------------------------- */
+/*
+ * The shape of what is coming, rather than the word for it.
+ *
+ * Every panel used to collapse to "Loading…" in a one-line box, so the page
+ * arrived at one height and jumped to another as each piece landed — which
+ * reads as a fault even when nothing is wrong. These hold the space.
+ *
+ * The shimmer travels across the whole block rather than pulsing each bar,
+ * because a grid of independently pulsing rectangles is a distraction rather
+ * than a signal. It is a background animation on a gradient, so it costs no
+ * layout and no paint of the page around it.
+ */
+.skeleton { display: flex; flex-direction: column; gap: 10px; padding: 18px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); }
+.skeleton-line { height: 12px; border-radius: 6px; }
+.skeleton-table .skeleton-head { height: 14px; margin-bottom: 4px; opacity: .75; }
+.skeleton-block { display: block; width: 100%; border-radius: var(--card-radius); }
+.skeleton-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.skeleton-line, .skeleton-block {
+  background:
+    linear-gradient(90deg, transparent 0%, color-mix(in oklab, var(--text) 7%, transparent) 50%, transparent 100%),
+    var(--control);
+  background-size: 240px 100%, 100% 100%;
+  background-repeat: no-repeat, no-repeat;
+  animation: skeleton-sweep 1.4s linear infinite;
+}
+@keyframes skeleton-sweep {
+  from { background-position: -240px 0, 0 0; }
+  to { background-position: calc(100% + 240px) 0, 0 0; }
+}
+/* A moving gradient is exactly the kind of thing this setting is about. The
+   block still holds its space, which is the part that matters. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line, .skeleton-block { animation: none; }
+}
 .notice { border-color: color-mix(in oklab, var(--warning) 34%, var(--card-border)); }
 
 .chart-controls { align-items: end; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
@@ -447,7 +547,9 @@ tbody tr:last-child > * { border-bottom: 0; }
 
 @media (max-width: 850px) {
   .site-main { width: min(100% - 24px, 1320px); padding-top: 24px; }
-  .company-facts, .dcf-results-grid, .metrics-grid, .valuation-grid, .quality-grid, .dcf-history-grid, .price-proof { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .company-headline { grid-template-columns: 1fr 1fr; }
+  .company-provenance { grid-column: 1 / -1; justify-self: start; text-align: left; max-width: none; }
+  .dcf-results-grid, .metrics-grid, .valuation-grid, .quality-grid, .dcf-history-grid, .price-proof { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .anchor-nav { top: 54px; }
   .page-heading, .company-title, .section-heading, .panel-head, .view-title { align-items: flex-start; flex-direction: column; gap: 10px; }
   .workspace-chart-header { flex-direction: column; }
@@ -466,7 +568,9 @@ tbody tr:last-child > * { border-bottom: 0; }
      strip from the rule above scrolls instead; here the targets only get a
      little more thumb. */
   .site-header nav button { min-height: 34px; padding: 0 13px; }
-  .company-facts { grid-template-columns: 1fr 1fr; }
+  /* Below this the header has no room for it, and the Watchlist page has its
+     own search box a tap away. */
+  .header-search { display: none; }
   .chart-controls { display: grid; }
   .chart-controls label { flex: none; min-width: 0; }
   .series-chip { width: 100%; }
