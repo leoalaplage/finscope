@@ -139,6 +139,35 @@ describe("scheduled warm-up", () => {
     expect(seen[0].headers.get("X-FinScope-Warm")).toBe("1");
   });
 
+  it("rebuilds only a few aged companies per run, so a refresh cannot throttle the Worker", async () => {
+    /*
+     * Learned in production: eighteen rebuilds in ninety seconds got the Worker
+     * refused outright for several minutes, front page included. Refreshing the
+     * whole watchlist in one pass would have done that every morning. Four runs
+     * a day at this budget still covers every company daily.
+     */
+    const aged = ["A", "B", "C", "D", "E", "F", "G", "H"];
+    setRuntimeBindings({ DATASET_CACHE: cacheDouble(aged, aged, REFRESH_AFTER_MS + 60_000) });
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (request: Request) => { seen.push(path(request)); return new Response("{}", { status: 200 }); }));
+    const report = await warmWatchlist(ORIGIN, aged, { ...INSTANT, rebuildBudget: 3 });
+    expect(seen).toHaveLength(3);
+    // The five left alone still have a perfectly serveable copy, so they are
+    // not failures — the next run takes them.
+    expect(report.warmed).toEqual(aged);
+    expect(report.failed).toEqual([]);
+  });
+
+  it("keeps building a company with nothing cached, whatever the rebuild budget", async () => {
+    // A stale company has a copy to serve. A missing one leaves an empty card,
+    // so it must never be the thing a budget skips.
+    setRuntimeBindings({ DATASET_CACHE: cacheDouble(["A"], ["A"], REFRESH_AFTER_MS + 60_000) });
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (request: Request) => { seen.push(path(request)); return new Response("{}", { status: 200 }); }));
+    await warmWatchlist(ORIGIN, ["A", "B", "C"], { ...INSTANT, rebuildBudget: 0 });
+    expect(seen).toEqual(["/api/company/B", "/api/company/C"]);
+  });
+
   it("treats a digest written before build times were recorded as stale", async () => {
     // One rebuild, once, rather than a company frozen for ever because the
     // shape it was stored in cannot say how old it is.

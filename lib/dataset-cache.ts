@@ -340,16 +340,39 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  * Sequential on purpose. There is no deadline to beat — this runs on a timer
  * with nobody waiting — and the SEC asks automated clients to be gentle.
  */
-export interface WarmPacing { paceMs?: number; retryMs?: number; retries?: number }
+/**
+ * How many aged companies one run may rebuild.
+ *
+ * Not an optimisation — a safety limit, learned the hard way. Rebuilding
+ * eighteen filers inside ninety seconds got this Worker throttled outright:
+ * every subsequent request was refused within ten milliseconds of CPU, and the
+ * site answered "Worker exceeded resource limits" for several minutes —
+ * including the prerendered front page, which costs no CPU of its own and is
+ * refused anyway once the account is being throttled.
+ *
+ * Refreshing the whole watchlist in one pass would therefore have taken the
+ * site down at 07:00 every morning. Six per run against four runs a day covers
+ * twenty-four companies, so every one is still refreshed daily — just never
+ * more than six at a time. A company skipped for budget is not a failure: its
+ * stored copy is perfectly serveable, it is simply a few hours older than the
+ * ideal, and the next run takes it.
+ *
+ * A company with nothing cached at all is outside this budget. That one has no
+ * copy to serve and a reader is looking at an empty card.
+ */
+const REBUILD_BUDGET = 6;
+
+export interface WarmPacing { paceMs?: number; retryMs?: number; retries?: number; rebuildBudget?: number }
 
 export async function warmWatchlist(
   origin: string,
   tickers = DEFAULT_WATCHLIST.map((company) => company.ticker),
   pacing: WarmPacing = {},
 ): Promise<WarmReport> {
-  const { paceMs = PACE_MS, retryMs = RETRY_MS, retries = RETRIES } = pacing;
+  const { paceMs = PACE_MS, retryMs = RETRY_MS, retries = RETRIES, rebuildBudget = REBUILD_BUDGET } = pacing;
   const report: WarmReport = { warmed: [], failed: [] };
   const cache = datasetCache();
+  let rebuilt = 0;
 
   for (const ticker of tickers) {
     /*
@@ -365,6 +388,11 @@ export async function warmWatchlist(
      */
     const state = cache ? await cacheState(cache, ticker) : "missing";
     if (state === "current") { report.warmed.push(ticker); continue; }
+    // An aged copy is still a good copy. Spending the rest of the run on it,
+    // and getting the whole Worker throttled for it, is not a trade worth
+    // making when tomorrow morning is four runs away.
+    if (state === "stale" && rebuilt >= rebuildBudget) { report.warmed.push(ticker); continue; }
+    if (state === "stale") rebuilt += 1;
     let reason = "";
     // A refusal means the platform is throttling us, not that the company is
     // broken, so the wait before trying again is long rather than immediate.
