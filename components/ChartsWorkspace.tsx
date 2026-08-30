@@ -5,6 +5,7 @@ import { Area, Bar, Brush, CartesianGrid, ComposedChart, LabelList, Line, Refere
 import { AreaChart as AreaIcon, BarChart3, Brush as BrushIcon, CandlestickChart, Eye, EyeOff, LineChart as LineIcon, Palette, X } from "lucide-react";
 import { createAutoChartPlan, familyLabel, formatChartValue, indexToZero, periodChange, unitFamily, validateSeries, type AutoSeriesPlan, type UnitFamily } from "@/lib/auto-chart";
 import { chartDomain, logTicks, niceTicks, type ThemeName } from "@/lib/charting";
+import { getJson } from "@/lib/fetch-json";
 import { derivedValue, safeDivide } from "@/lib/finance";
 import { recessionBands, snapToAxis, splitMarks } from "@/lib/chart-annotations";
 import { addCompany, addMetric, applyChartFrequency, applyPreset, CHART_PRESETS, removeCompany, chartMetrics, chartTickers, chartTitle, createWorkspaceChart, createWorkspaceSeries, deserializeWorkspace, focusCompany, hasOverrides, patchSeries, RANGE_OPTIONS, removeSeries, resetSeries, serializeWorkspace, SERIES_COLORS, toggleSeries, type LayoutMode, type RangePreset, type ScaleMode, type SeriesAxis, type SeriesStyle, type WorkspaceChart, type WorkspaceSeries } from "@/lib/chart-workspace";
@@ -90,11 +91,9 @@ export function ChartsWorkspace({ initialData, seed, theme = "dark" }: { initial
     for (const ticker of requiredTickers.split("|").filter(Boolean)) {
       if (datasets[ticker] || companyErrors[ticker] || pending.current.has(ticker)) continue;
       pending.current.add(ticker);
-      fetch(`/api/company/${encodeURIComponent(ticker)}`, { cache: "no-store" }).then(async (response) => {
-        const payload = await response.json() as CompanyDataset & { error?: string };
-        if (!response.ok) throw new Error(payload.error || "Could not load company");
+      getJson<CompanyDataset>(`/api/company/${encodeURIComponent(ticker)}`, { what: ticker, init: { cache: "no-store" } }).then((payload) => {
         if (active) setDatasets((current) => ({ ...current, [ticker]: payload }));
-      }).catch((cause) => active && setCompanyErrors((current) => ({ ...current, [ticker]: cause instanceof Error ? cause.message : "Could not load company" })))
+      }).catch((cause) => active && setCompanyErrors((current) => ({ ...current, [ticker]: cause instanceof Error ? cause.message : `Could not load ${ticker}` })))
         .finally(() => pending.current.delete(ticker));
     }
     return () => { active = false; };
@@ -197,11 +196,9 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, theme, on
       const provider = providerMarketFrequency(frequency as AutoSeriesPlan["frequency"]);
       if (!provider) continue;
       queueMicrotask(() => { setMarketLoading((current) => ({ ...current, [request]: true })); setMarketErrors((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== request))); });
-      fetch(`/api/market/${encodeURIComponent(ticker)}?start=${earliest}&end=${today()}&frequency=${provider}`, { cache: "no-store" }).then(async (response) => {
-        const payload = await response.json() as { bars?: MarketBar[]; error?: string };
-        if (!response.ok) throw new Error(payload.error || "Could not load stock price");
+      getJson<{ bars?: MarketBar[] }>(`/api/market/${encodeURIComponent(ticker)}?start=${earliest}&end=${today()}&frequency=${provider}`, { what: `the price history for ${ticker}`, init: { cache: "no-store" } }).then((payload) => {
         if (active) setBars((current) => ({ ...current, [request]: payload.bars ?? [] }));
-      }).catch((cause) => active && setMarketErrors((current) => ({ ...current, [request]: cause instanceof Error ? cause.message : "Could not load stock price" })))
+      }).catch((cause) => active && setMarketErrors((current) => ({ ...current, [request]: cause instanceof Error ? cause.message : "The price history is unavailable." })))
         .finally(() => active && setMarketLoading((current) => ({ ...current, [request]: false })));
     }
     return () => { active = false; };
@@ -232,9 +229,7 @@ function ChartEditor({ chart, datasets, companyErrors, fallbackTicker, theme, on
       byTicker.set(ticker, [...(byTicker.get(ticker) ?? []), date]);
     }
     for (const [ticker, dates] of byTicker) {
-      fetch(`/api/prices/${encodeURIComponent(ticker)}?dates=${dates.join(",")}`).then(async (response) => {
-        const payload = await response.json() as { points?: Array<{ requestedDate: string; point?: PricePoint }>; error?: string };
-        if (!response.ok) throw new Error(payload.error || "Valuation prices unavailable");
+      getJson<{ points?: Array<{ requestedDate: string; point?: PricePoint }> }>(`/api/prices/${encodeURIComponent(ticker)}?dates=${dates.join(",")}`, { what: `prices for ${ticker}` }).then((payload) => {
         if (active) setPeriodPrices((current) => ({ ...current, ...Object.fromEntries((payload.points ?? []).map((item) => [`${ticker}|${item.requestedDate}`, item.point ?? null])) }));
       }).catch(() => { /* The series reports no data rather than a wrong multiple. */ });
     }

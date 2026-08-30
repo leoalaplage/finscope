@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { summariseDataset, type WatchlistSummary } from "@/lib/watchlist-summary";
+import { getJson } from "@/lib/fetch-json";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod } from "@/lib/types";
 
 const percent = (value: number | null) => value == null || !Number.isFinite(value) ? "—" : `${(value * 100).toFixed(1)}%`;
@@ -170,9 +171,8 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
     let timer: ReturnType<typeof setTimeout> | undefined;
     let rounds = 0;
     const poll = () => {
-      fetch(`/api/watchlist?tickers=${encodeURIComponent(followed)}`, { cache: "no-store" })
-        .then(async (response) => {
-          const payload = await response.json() as { summaries?: WatchlistSummary[]; pending?: string[] };
+      getJson<{ summaries?: WatchlistSummary[]; pending?: string[] }>(`/api/watchlist?tickers=${encodeURIComponent(followed)}`, { what: "your watchlist", init: { cache: "no-store" } })
+        .then((payload) => {
           if (!active) return;
           setSummaries(Object.fromEntries((payload.summaries ?? []).map((item) => [item.ticker, item])));
           const pending = payload.pending ?? [];

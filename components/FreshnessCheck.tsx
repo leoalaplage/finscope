@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getJson } from "@/lib/fetch-json";
 import type { FreshnessRow } from "@/app/api/freshness/route";
 
 /** The endpoint answers about six companies at a time; the page asks in turn. */
@@ -39,9 +40,7 @@ export function FreshnessCheck({ tickers }: { tickers: string[] }) {
       // reader would rather watch it fill in than wait for one long request.
       for (let index = 0; index < tickers.length; index += BATCH) {
         const batch = tickers.slice(index, index + BATCH);
-        const response = await fetch(`/api/freshness?tickers=${encodeURIComponent(batch.join(","))}`, { cache: "no-store" });
-        const payload = await response.json() as { rows?: FreshnessRow[]; error?: string };
-        if (!response.ok) throw new Error(payload.error || "The check could not be completed");
+        const payload = await getJson<{ rows?: FreshnessRow[] }>(`/api/freshness?tickers=${encodeURIComponent(batch.join(","))}`, { what: "the freshness check", init: { cache: "no-store" } });
         collected.push(...(payload.rows ?? []));
         setRows([...collected]);
         setDone(Math.min(index + BATCH, tickers.length));

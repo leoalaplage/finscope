@@ -383,6 +383,24 @@ describe("the redesign", () => {
     expect(source).not.toContain("index-gauge");
   });
 
+  it("draws the heat map without waiting to be measured", () => {
+    /*
+     * The map used to be positioned at the width the browser reported and drew
+     * nothing until that arrived. A hidden tab lays nothing out and delivers
+     * no resize observation, so a map mounted in one measured zero and stayed
+     * empty for good — a middle click, or restoring a window full of tabs.
+     * Nothing about a treemap's proportions needs pixels.
+     */
+    const source = readFileSync(new URL("../components/MarketHeatmap.tsx", import.meta.url), "utf8");
+    expect(source).toContain("{ x: 0, y: 0, width: 100, height: 100 }");
+    expect(source).toContain("`${group.rect.x}%`");
+    // The measured width survives for one job only: whether a tile has room
+    // for its ticker, where being wrong hides a label rather than the map.
+    expect(source).toContain('const px = (share: number, axis: "x" | "y")');
+    expect(source).toContain("width || 1100");
+    expect(source).not.toContain("if (!priced.length || width <= 0) return [];");
+  });
+
   it("measures the heat map again when the page becomes visible", () => {
     /*
      * A hidden tab lays nothing out and delivers no resize observation, so a

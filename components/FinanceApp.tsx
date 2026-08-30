@@ -2,6 +2,7 @@
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { HeaderSearch } from "./HeaderSearch";
+import { getJson } from "@/lib/fetch-json";
 import { Skeleton, SkeletonCards, SkeletonTable } from "./Skeleton";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { TICKER_PATTERN } from "@/lib/market-profile";
@@ -296,8 +297,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
     // showed the old quarter with no way to ask for the new one short of a
     // reload — the server was current and the browser was not.
     if (datasets[ticker] && Date.now() - (loadedAt.current[ticker] ?? 0) < SESSION_MAX_AGE_MS) return datasets[ticker];
-    const response = await fetch(`/api/company/${encodeURIComponent(ticker)}`, { cache: "no-store" }); const payload = await response.json() as CompanyDataset & { error?: string };
-    if (!response.ok) throw new Error(payload.error || "Could not load company");
+    const payload = await getJson<CompanyDataset>(`/api/company/${encodeURIComponent(ticker)}`, { what: `${ticker}`, init: { cache: "no-store" } });
     loadedAt.current[ticker] = Date.now();
     setDatasets((current) => ({ ...current, [ticker]: payload }));
     return payload;
@@ -534,7 +534,7 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
   // Which discounted-cash-flow model the Valuation tab is showing.
   const [model, setModel] = useState<"reverse" | "fcff">("reverse");
   useEffect(() => { localStorage.setItem("finscope.periodicity", periodicity); }, [periodicity]);
-  useEffect(() => { let active = true; fetch(`/api/price/${dataset.company.ticker}?date=${new Date().toISOString().slice(0, 10)}`).then(async (response) => { const payload = await response.json() as PricePoint & { error?: string }; if (!response.ok) throw new Error(payload.error || "Could not load stock price"); if (active) setPrice(payload); }).catch((cause) => active && setPriceError(cause instanceof Error ? cause.message : "Could not load stock price")); return () => { active = false; }; }, [dataset.company.ticker]);
+  useEffect(() => { let active = true; getJson<PricePoint>(`/api/price/${dataset.company.ticker}?date=${new Date().toISOString().slice(0, 10)}`, { what: "the share price" }).then((payload) => { if (active) setPrice(payload); }).catch((cause) => active && setPriceError(cause instanceof Error ? cause.message : "The share price is unavailable.")); return () => { active = false; }; }, [dataset.company.ticker]);
   const selected = sortedPeriods(dataset, periodicity); const latest = latestPeriod(dataset); const annual = sortedPeriods(dataset, "annual");
   // The statement diagrams are drawn from the last complete fiscal year, not
   // from a trailing window: a Sankey of TTM figures would mix four filings and
@@ -551,7 +551,8 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
     <header className="company-title">
       <div>
         <h1>{dataset.company.name}</h1>
-        <p>{dataset.company.ticker} · {dataset.company.exchange} · {dataset.company.sector}</p>
+        {/* A sector we do not know is not a sector called "Unclassified". */}
+        <p>{[dataset.company.ticker, dataset.company.exchange, dataset.company.sector].filter((part) => part && part !== "Unclassified").join(" · ")}</p>
       </div>
       <div className="company-title-actions">
         <button className="button-primary" onClick={() => onCharts(dataset.company.ticker)}>Open in Charts</button>
@@ -699,10 +700,8 @@ function GrowthQuality({ dataset, annual }: { dataset: CompanyDataset; annual: F
   useEffect(() => {
     let active = true;
     const earliest = annual[0]?.periodEnd ?? `${new Date().getUTCFullYear() - 11}-01-01`;
-    fetch(`/api/market/${encodeURIComponent(dataset.company.ticker)}?start=${earliest}&end=${new Date().toISOString().slice(0, 10)}&frequency=monthly`)
-      .then(async (response) => {
-        const payload = await response.json() as { bars?: Array<{ date: string; close: number; adjustedClose: number | null }>; error?: string };
-        if (!response.ok) throw new Error(payload.error);
+    getJson<{ bars?: Array<{ date: string; close: number; adjustedClose: number | null }> }>(`/api/market/${encodeURIComponent(dataset.company.ticker)}?start=${earliest}&end=${new Date().toISOString().slice(0, 10)}&frequency=monthly`, { what: "the share price history" })
+      .then((payload) => {
         if (active) setBars((payload.bars ?? []).flatMap((bar) => { const value = bar.adjustedClose ?? bar.close; return value == null ? [] : [{ date: bar.date, value }]; }));
       }).catch(() => active && setBars([]));
     return () => { active = false; };
@@ -761,7 +760,7 @@ function CurrentAndAverageTable({ periods, metrics, onOpen, onCharts, currencyCo
 
 function ValuationTable({ dataset, price }: { dataset: CompanyDataset; price: PricePoint | null }) {
   const ttm = useMemo(() => sortedPeriods(dataset, "ttm"), [dataset]); const [points, setPoints] = useState<Record<string, PricePoint | null>>({}); const [error, setError] = useState(""); const dates = useMemo(() => [...new Set([...ttm.map((period) => period.filingDate), new Date().toISOString().slice(0, 10)])], [ttm]);
-  useEffect(() => { let active = true; fetch(`/api/prices/${dataset.company.ticker}?dates=${dates.join(",")}&published=1`).then(async (response) => { const payload = await response.json() as { points?: Array<{ requestedDate: string; point?: PricePoint }>; error?: string }; if (!response.ok) throw new Error(payload.error || "Valuation history unavailable"); if (active) setPoints(Object.fromEntries((payload.points ?? []).map((item) => [item.requestedDate, item.point ?? null]))); }).catch((cause) => active && setError(cause instanceof Error ? cause.message : "Valuation history unavailable")); return () => { active = false; }; }, [dataset.company.ticker, dates]);
+  useEffect(() => { let active = true; getJson<{ points?: Array<{ requestedDate: string; point?: PricePoint }> }>(`/api/prices/${dataset.company.ticker}?dates=${dates.join(",")}&published=1`, { what: "the valuation history" }).then((payload) => { if (active) setPoints(Object.fromEntries((payload.points ?? []).map((item) => [item.requestedDate, item.point ?? null]))); }).catch((cause) => active && setError(cause instanceof Error ? cause.message : "The valuation history is unavailable.")); return () => { active = false; }; }, [dataset.company.ticker, dates]);
   const latest = ttm.at(-1) ?? sortedPeriods(dataset, "annual").at(-1); const current = latest && price ? valuationSnapshot(latest, price) : null; const history = buildValuationHistory(ttm, points); const stats = valuationStatistics(history, "priceToFreeCashFlow", current?.metrics.priceToFreeCashFlow ?? null, 5);
   if (error) return <p className="simple-state">{error}. Fundamental data remains available.</p>;
   return <div className="table-scroll"><table><thead><tr><th>Metric</th><th>Current</th><th>AVG 5Y</th><th>Median 5Y</th><th>Premium / Discount</th><th>Percentile</th></tr></thead><tbody><tr><th>Price / Free cash flow</th><td>{ratio(stats.current)}</td><td>{ratio(stats.average)}</td><td>{ratio(stats.median)}</td><td>{percent(stats.premiumToAverage)}</td><td>{stats.percentile == null ? "—" : `${(stats.percentile * 100).toFixed(0)}%`}</td></tr></tbody></table></div>;

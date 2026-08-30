@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CompanyStatistics } from "./CompanyStatistics";
 import { SkeletonTable } from "./Skeleton";
+import { getJson } from "@/lib/fetch-json";
 import type { CompanyDataset, CompanyProfile, PricePoint } from "@/lib/types";
 
 /**
@@ -53,11 +54,9 @@ export function CompanyStatisticsTab({ dataset, price, watchlist, datasets, onLo
     let active = true;
     for (const ticker of compared) {
       if (ticker in prices) continue;
-      fetch(`/api/price/${encodeURIComponent(ticker)}?date=${today()}`).then(async (response) => {
-        const payload = await response.json() as PricePoint & { error?: string };
-        if (!response.ok) throw new Error(payload.error || "Price unavailable");
-        if (active) setPrices((current) => ({ ...current, [ticker]: payload }));
-      }).catch(() => active && setPrices((current) => ({ ...current, [ticker]: null })));
+      getJson<PricePoint>(`/api/price/${encodeURIComponent(ticker)}?date=${today()}`, { what: `the price for ${ticker}` })
+        .then((payload) => { if (active) setPrices((current) => ({ ...current, [ticker]: payload })); })
+        .catch(() => active && setPrices((current) => ({ ...current, [ticker]: null })));
     }
     return () => { active = false; };
   }, [compared, prices]);

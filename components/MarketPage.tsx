@@ -2,6 +2,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SkeletonCards } from "./Skeleton";
+import { readParsed } from "@/lib/fetch-json";
 import { MARKET_RANGES, type MarketRange, type MarketWindow } from "@/lib/adapters/intraday";
 
 type Panel = MarketWindow & { id: string; description: string };
@@ -318,10 +319,13 @@ export function MarketPage({ watchlist = [] }: { watchlist?: string[] }) {
   const load = useCallback(async (window: MarketRange) => {
     try {
       const response = await fetch(`/api/indices?range=${window}`, { cache: "no-store" });
-      const payload = await response.json() as { indices?: Entry[]; error?: string };
+      // A failed status still carries one entry per index, each saying what
+      // went wrong with that one, and three named panels with three reasons
+      // beat a page that says only that something failed.
+      const { data, error: failure } = await readParsed<{ indices?: Entry[] }>(response, { what: "the market session" });
       if (!alive.current) return;
-      if (!response.ok && !payload.indices?.length) throw new Error(payload.error || "Market data is unavailable.");
-      setAnswer({ range: window, entries: payload.indices ?? [] });
+      if (failure && !data?.indices?.length) throw new Error(failure);
+      setAnswer({ range: window, entries: data?.indices ?? [] });
       setUpdatedAt(new Date());
       setError("");
     } catch (cause) {

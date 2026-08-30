@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SkeletonCards } from "./Skeleton";
+import { getJson } from "@/lib/fetch-json";
 import { groupedTreemap, type PlacedGroup } from "@/lib/treemap";
 
 /**
@@ -149,9 +150,24 @@ function Treemap({ movers, aspect, zoomed, onZoom }: {
     ? Math.min(620, Math.max(380, Math.round(Math.max(width, 240) / (aspect * 0.55))))
     : Math.max(220, Math.round(Math.max(width, 240) / aspect));
 
+  /*
+   * Laid out in percentages, not pixels.
+   *
+   * The map used to be positioned at the width the browser reported, and drew
+   * nothing at all until that width arrived. A hidden tab lays nothing out and
+   * delivers no resize observation, so a map mounted in one measured zero and
+   * stayed empty — opening the site with a middle click, or restoring a window
+   * full of tabs, gave a heat map that never appeared. Nothing about a
+   * treemap's proportions needs pixels: the rectangles are shares of the whole,
+   * and CSS resolves them against whatever width the element turns out to have.
+   *
+   * The measured width is still used, but only to decide whether a tile has
+   * room for its ticker — and getting that wrong hides a label rather than the
+   * whole map.
+   */
   const groups = useMemo<Array<PlacedGroup<Mover>>>(() => {
     const priced = movers.filter((mover) => mover.marketCap != null && mover.marketCap > 0);
-    if (!priced.length || width <= 0) return [];
+    if (!priced.length) return [];
     const bySector = new Map<string, Mover[]>();
     for (const mover of priced) bySector.set(mover.sector, [...(bySector.get(mover.sector) ?? []), mover]);
     return groupedTreemap(
@@ -159,33 +175,41 @@ function Treemap({ movers, aspect, zoomed, onZoom }: {
         key,
         items: items.map((mover) => ({ weight: mover.marketCap!, data: mover })),
       })),
-      { x: 0, y: 0, width, height },
+      { x: 0, y: 0, width: 100, height: 100 },
     );
-  }, [movers, width, height]);
+  }, [movers]);
+
+  /** A share of the map, in the pixels it is currently being shown at. */
+  const px = (share: number, axis: "x" | "y") => share / 100 * (axis === "x" ? (width || 1100) : height);
 
   return <div className="heat-map" ref={ref} style={{ height }}>
     {groups.map((group) => <div key={group.key} className="heat-sector"
-      style={{ left: group.rect.x, top: group.rect.y, width: group.rect.width, height: group.rect.height }}>
+      style={{ left: `${group.rect.x}%`, top: `${group.rect.y}%`, width: `${group.rect.width}%`, height: `${group.rect.height}%` }}>
       {/* The sector's name sits on its block, not in a legend: a reader
           should never have to match a colour to a list to know what they
           are looking at. */}
       {/* The sector's name sits on its block, not in a legend — and it is the
           way into that sector, because the tiles a reader cannot read are
           always the small ones inside a crowded block. */}
-      {group.rect.width > 78 && group.rect.height > 34 && <button type="button" className="heat-sector-name"
+      {px(group.rect.width, "x") > 78 && px(group.rect.height, "y") > 34 && <button type="button" className="heat-sector-name"
         title={zoomed ? `Back to every sector` : `Show only ${group.key}`}
         onClick={() => onZoom(zoomed ? null : group.key)}>{group.key}{zoomed ? " ←" : " ⤢"}</button>}
       {group.items.map((tile) => {
         const mover = tile.data;
-        const room = tile.width > 44 && tile.height > 26;
-        const roomForValue = tile.width > 54 && tile.height > 40;
+        const tileW = px(tile.width, "x"); const tileH = px(tile.height, "y");
+        const room = tileW > 44 && tileH > 26;
+        const roomForValue = tileW > 54 && tileH > 40;
+        // Positioned inside its sector, so each share is of the sector rather
+        // than of the whole map.
+        const within = (value: number, origin: number, span: number) => `${(value - origin) / span * 100}%`;
         return <div key={mover.symbol} className={`heat-tile ${mover.changePercent >= 0 ? "up" : "down"}`}
           style={{
-            left: tile.x - group.rect.x, top: tile.y - group.rect.y, width: tile.width, height: tile.height,
+            left: within(tile.x, group.rect.x, group.rect.width), top: within(tile.y, group.rect.y, group.rect.height),
+            width: `${tile.width / group.rect.width * 100}%`, height: `${tile.height / group.rect.height * 100}%`,
             background: tileFill(mover.changePercent), color: tileInk(mover.changePercent),
           }}
           title={`${mover.label} · ${mover.sector} · ${compactCap(mover.marketCap)}${mover.price == null ? "" : ` · ${mover.price.toLocaleString("en-US", { maximumFractionDigits: 2 })}`} · ${signedPercent(mover.changePercent)} today`}>
-          {room && <b style={{ fontSize: Math.max(9, Math.min(15, Math.round(tile.width / 5.4))) }}>{mover.label}</b>}
+          {room && <b style={{ fontSize: Math.max(9, Math.min(15, Math.round(tileW / 5.4))) }}>{mover.label}</b>}
           {roomForValue && <span>{signedPercent(mover.changePercent)}</span>}
         </div>;
       })}
@@ -274,15 +298,9 @@ export function MarketHeatmap({ watchlist = [] }: { watchlist?: string[] }) {
   const followed = watchlist.join(",");
   useEffect(() => {
     let active = true;
-    fetch(`/api/movers${followed ? `?tickers=${encodeURIComponent(followed)}` : ""}`)
-      .then(async (response) => {
-        const payload = await response.json() as MoversPayload;
-        if (!active) return;
-        if (!response.ok) throw new Error(payload.error || "Quotes are unavailable.");
-        setData(payload);
-        setError("");
-      })
-      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Quotes are unavailable."); });
+    getJson<MoversPayload>(`/api/movers${followed ? `?tickers=${encodeURIComponent(followed)}` : ""}`, { what: "today's moves" })
+      .then((payload) => { if (active) { setData(payload); setError(""); } })
+      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Today's moves are unavailable."); });
     return () => { active = false; };
   }, [followed]);
 

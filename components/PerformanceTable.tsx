@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getJson } from "@/lib/fetch-json";
 import { WINDOWS, type WindowId } from "@/lib/performance";
 import type { PerformanceRow } from "@/app/api/performance/route";
 
@@ -58,10 +59,8 @@ export function PerformanceTable({ tickers }: { tickers: string[] }) {
         // fetched and reduced, and a table that fills in reads better than one
         // that arrives all at once several seconds late.
         for (let index = 0; index < list.length; index += BATCH) {
-          const response = await fetch(`/api/performance?tickers=${encodeURIComponent(list.slice(index, index + BATCH).join(","))}`);
-          const payload = await response.json() as { rows?: PerformanceRow[]; error?: string };
+          const payload = await getJson<{ rows?: PerformanceRow[] }>(`/api/performance?tickers=${encodeURIComponent(list.slice(index, index + BATCH).join(","))}`, { what: "watchlist performance" });
           if (!active) return;
-          if (!response.ok) throw new Error(payload.error || "Performance unavailable");
           collected.push(...(payload.rows ?? []));
           setState({ followed, rows: [...collected], done: index + BATCH >= list.length, error: "" });
         }

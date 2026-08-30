@@ -6,6 +6,7 @@ import { formatChartValue, unitFamily } from "@/lib/auto-chart";
 import { chartPalette, niceTicks, type ThemeName } from "@/lib/charting";
 import { chartSurface, exportSvgToPng } from "@/lib/chart-export";
 import { Skeleton } from "./Skeleton";
+import { getJson } from "@/lib/fetch-json";
 import { summariseSeries } from "@/lib/chart-summary";
 import { derivedValue } from "@/lib/finance";
 import { CHARTABLE_METRICS } from "@/lib/metrics";
@@ -273,12 +274,8 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
     if (!earliest) return;
     let active = true;
     const start = `${Number(earliest.slice(0, 4)) - 1}${earliest.slice(4)}`;
-    fetch(`/api/market/${encodeURIComponent(ticker)}?start=${start}&end=${new Date().toISOString().slice(0, 10)}&frequency=weekly`)
-      .then(async (response) => {
-        const payload = await response.json() as { bars?: MarketBar[]; error?: string };
-        if (!response.ok) throw new Error(payload.error);
-        if (active) setMarket({ ticker, bars: payload.bars ?? [] });
-      })
+    getJson<{ bars?: MarketBar[] }>(`/api/market/${encodeURIComponent(ticker)}?start=${start}&end=${new Date().toISOString().slice(0, 10)}&frequency=weekly`, { what: `the price history for ${ticker}` })
+      .then((payload) => { if (active) setMarket({ ticker, bars: payload.bars ?? [] }); })
       .catch(() => { if (active) setMarket({ ticker, bars: null }); });
     return () => { active = false; };
   }, [ticker, earliest]);

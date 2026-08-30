@@ -11,6 +11,7 @@ import {
 } from "@/lib/qs/screener";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import type { PricePoint } from "@/lib/types";
+import { readJson } from "@/lib/fetch-json";
 
 /**
  * The QS Screener, drawn as a table rather than exported as a picture.
@@ -241,7 +242,7 @@ export function QsScreener({ tickers = [] }: { tickers?: string[] }) {
     setFeeding("working");
     try {
       const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(followed)}`);
-      const payload = await response.json() as { summaries?: WatchlistSummary[] };
+      const payload = await readJson<{ summaries?: WatchlistSummary[] }>(response, { what: "your watchlist" });
       const summaries = (payload.summaries ?? []).filter((item) => item.qs);
       if (!summaries.length) throw new Error("no summaries");
 
