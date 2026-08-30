@@ -26,7 +26,7 @@ import type { SeriesFrequency } from "@/lib/types";
  * They are tabs on its page now. What is left is the four ways of choosing a
  * company and the one workspace that is genuinely about several at once.
  */
-type MainView = "companies" | "company" | "market" | "charts" | "qs";
+type MainView = "search" | "companies" | "company" | "market" | "charts" | "qs";
 type SecondaryView = "quality" | "audit" | "coverage" | "sources" | null;
 type Evidence = { label: string; value: number | null; period: FinancialPeriod; metric: string };
 
@@ -62,7 +62,7 @@ const COMPANY_TAB_KEYS = new Set<string>(COMPANY_TABS.map((item) => item.key));
 const SESSION_MAX_AGE_MS = 1_800_000;
 
 const NAV: Array<{ key: Exclude<MainView, "company">; label: string }> = [
-  { key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "charts", label: "Charts" }, { key: "qs", label: "QS Screener" },
+  { key: "search", label: "Search" }, { key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "charts", label: "Charts" }, { key: "qs", label: "QS Screener" },
 ];
 const NAV_KEYS = new Set<string>(NAV.map((item) => item.key));
 
@@ -81,6 +81,7 @@ const CompanyKpiGrid = lazy(() => import("./CompanyKpiGrid").then((module) => ({
 const StatementSankey = lazy(() => import("./StatementSankey").then((module) => ({ default: module.StatementSankey })));
 const BalanceSheetPanel = lazy(() => import("./BalanceSheetPanel").then((module) => ({ default: module.BalanceSheetPanel })));
 const HomePage = lazy(() => import("./HomePage").then((module) => ({ default: module.HomePage })));
+const SearchPage = lazy(() => import("./SearchPage").then((module) => ({ default: module.SearchPage })));
 const FreshnessCheck = lazy(() => import("./FreshnessCheck").then((module) => ({ default: module.FreshnessCheck })));
 
 const currency = (value: number | null | undefined, code = "USD") => value == null || !Number.isFinite(value) ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: code, notation: Math.abs(value) >= 1_000_000 ? "compact" : "standard", maximumFractionDigits: 2 }).format(value);
@@ -158,7 +159,8 @@ function readRoute(search: string) {
 export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   const [datasets, setDatasets] = useState<Record<string, CompanyDataset>>({ [initialData.company.ticker]: initialData });
   const [dataset, setDataset] = useState(initialData);
-  const [view, setView] = useState<MainView>("companies");
+  /* The application opens on the question, not on somebody else's watchlist. */
+  const [view, setView] = useState<MainView>("search");
   /* Which tab of the company page is open. Held here rather than inside that
      page so it can be read from and written to the address bar. */
   const [companyTab, setCompanyTab] = useState<CompanyTab>("overview");
@@ -342,13 +344,14 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   }
 
   return <div className="site-shell">
-    <header className="site-header"><button className="wordmark" onClick={() => navigate("companies")}>FinScope</button><nav aria-label="Main navigation" ref={navRef}>{NAV.map((item) => <button key={item.key} className={view === item.key && !secondary ? "active" : ""} onClick={() => navigate(item.key)}>{item.label}</button>)}</nav><span className="header-company"><HeaderSearch watchlist={watchlist} onOpen={openCompany} onAdd={addAndOpen}/><button className="header-ticker" title={`Open ${dataset.company.ticker}`} onClick={() => openCompany(dataset.company.ticker)}>{dataset.company.ticker}</button><button className="theme-toggle" aria-label="Switch between the light and dark theme" title="Switch between the light and dark theme" onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}/></span></header>
+    <header className="site-header"><button className="wordmark" onClick={() => navigate("companies")}>FinScope</button><nav aria-label="Main navigation" ref={navRef}>{NAV.map((item) => <button key={item.key} className={view === item.key && !secondary ? "active" : ""} onClick={() => navigate(item.key)}>{item.label}</button>)}</nav><span className="header-company">{/* Not on the page that is itself a search field. */}{view !== "search" && <HeaderSearch watchlist={watchlist} onOpen={openCompany} onAdd={addAndOpen}/>}<button className="header-ticker" title={`Open ${dataset.company.ticker}`} onClick={() => openCompany(dataset.company.ticker)}>{dataset.company.ticker}</button><button className="theme-toggle" aria-label="Switch between the light and dark theme" title="Switch between the light and dark theme" onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}/></span></header>
     {error && <div className="global-message" role="alert"><span><b>Could not load company.</b> {error}. Existing data remains available.</span><button onClick={() => setError("")}>Dismiss</button></div>}
     <main className="site-main">
       {secondary === "quality" && <SecondaryHeading title="Data Quality" onBack={closePanel}/>} {secondary === "quality" && <Suspense fallback={<SkeletonTable label="the data quality report"/>}><DataQuality dataset={dataset} onRefresh={(next) => { setDataset(next); setDatasets((current) => ({ ...current, [next.company.ticker]: next })); }}/></Suspense>}
       {secondary === "audit" && <SecondaryHeading title="Formula Audit" onBack={closePanel}/>} {secondary === "audit" && <Suspense fallback={<SkeletonTable label="the formula audit"/>}><FormulaDataAudit dataset={dataset}/></Suspense>}
       {secondary === "coverage" && <SecondaryHeading title="Import status" onBack={closePanel}/>} {secondary === "coverage" && <Suspense fallback={<SkeletonTable label="the import status"/>}><CoverageMatrix initialData={dataset}/></Suspense>}
       {secondary === "sources" && <SourcesPage tickers={watchlist.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker)} onBack={closePanel}/>}
+      {!secondary && view === "search" && <Suspense fallback={<Skeleton label="the search page" lines={4}/>}><SearchPage watchlist={watchlist} onOpen={openCompany} onAdd={addAndOpen} onBrowse={() => navigate("companies")}/></Suspense>}
       {!secondary && view === "qs" && <Suspense fallback={<SkeletonTable label="the QS Screener" rows={10}/>}><QsScreener tickers={watchlist.map((company) => company.ticker)}/></Suspense>}
       {!secondary && view === "companies" && !ranking && <Suspense fallback={<SkeletonCards label="your watchlist" count={8}/>}><HomePage watchlist={watchlist} datasets={datasets} loading={loading} onOpen={openCompany} onLoad={loadCompanyData} onSearchAdd={() => setManagerOpen(true)} onShowRanking={() => showRanking(true)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></Suspense>}
       {!secondary && view === "companies" && ranking && <div><button className="back-button" onClick={() => showRanking(false)}>← Watchlist</button><CompaniesPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} loading={loading} onSearchAdd={() => setManagerOpen(true)} onLoad={loadCompanyData} onOpen={openCompany} onCharts={(ticker) => openCharts(ticker)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></div>}

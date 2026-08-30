@@ -5,7 +5,7 @@ describe("UI regressions", () => {
   it("keeps the primary navigation intentionally limited", () => {
     const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
     // The key stays "companies" on purpose: it is in every saved link.
-    expect(source).toContain('{ key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "charts", label: "Charts" }, { key: "qs", label: "QS Screener" }');
+    expect(source).toContain('{ key: "search", label: "Search" }, { key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "charts", label: "Charts" }, { key: "qs", label: "QS Screener" }');
     expect(source).not.toContain('label: "Data Quality"');
     expect(source).not.toContain('label: "Formula Audit"');
   });
@@ -19,7 +19,7 @@ describe("UI regressions", () => {
      * one to the other.
      */
     const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
-    expect(source).toContain('type MainView = "companies" | "company" | "market" | "charts" | "qs"');
+    expect(source).toContain('type MainView = "search" | "companies" | "company" | "market" | "charts" | "qs"');
     expect(source).not.toContain("function DcfPage");
     expect(source).not.toContain("StatisticsPage");
     // Both live inside the company page now, and comparison happens there.
@@ -128,10 +128,22 @@ describe("UI regressions", () => {
     }
   });
 
-  it("uses a white, system-font interface and shared chart tooltip tokens", () => {
+  it("sets the interface in SF Pro, the way SF Pro is meant to be set", () => {
+    /*
+     * On Apple platforms `-apple-system` resolves to SF Pro; it cannot be
+     * self-hosted, because Apple licenses it for building software for its own
+     * platforms rather than for redistribution from a web server. What was
+     * missing was never the font — it was the treatment: SF Pro is drawn
+     * tighter as it grows, and setting it without that is the one thing that
+     * makes an interface using it look like an interface that is not.
+     */
     const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
-    expect(css).toContain("--background: #ffffff");
-    expect(css).toContain('font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif');
+    expect(css).toContain("--sans: -apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\"");
+    expect(css).toContain("font-family: var(--sans)");
+    expect(css).toContain("--track-display:");
+    expect(css).toContain("letter-spacing: var(--track-display)");
+    // Every figure here belongs to a column of figures.
+    expect(css).toContain("font-variant-numeric: tabular-nums");
     expect(css).toContain(".recharts-default-tooltip { color: var(--text)");
   });
 
@@ -439,12 +451,33 @@ describe("the redesign", () => {
     expect(source).toContain("asPercent");
   });
 
-  it("gives every one-of-N control the same track and thumb", () => {
-    // Segmented groups, the time range, the period switch and the header's
-    // destinations were four different treatments of the same choice.
+  it("gives every one-of-N control inside the page the same track and thumb", () => {
+    /*
+     * Segmented groups, the time range and the period switch are the same
+     * choice and look the same. The header's destinations no longer do: a pill
+     * in a tray made the top-level navigation read as one more setting, so it
+     * is a word with the accent rule under it instead — the same mark the
+     * wordmark and every section label use.
+     */
     const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
-    for (const control of [".site-header nav button.active", ".segmented button.active", ".range-buttons button.active", ".period-buttons button.active"]) {
+    for (const control of [".segmented button.active", ".range-buttons button.active", ".period-buttons button.active"]) {
       expect(css).toContain(`${control} { background: var(--surface); color: var(--text); font-weight: 650; box-shadow: var(--shadow); }`);
     }
+    expect(css).toContain(".site-header nav button.active::after");
+  });
+
+  it("opens on the question rather than on somebody else's watchlist", () => {
+    /*
+     * The application used to land on twenty-two cards of figures for
+     * companies the reader had not asked about, before they had said what they
+     * came for.
+     */
+    const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    expect(source).toContain('useState<MainView>("search")');
+    expect(source).toContain("<SearchPage watchlist={watchlist}");
+    const page = readFileSync(new URL("../components/SearchPage.tsx", import.meta.url), "utf8");
+    // The cursor belongs in the field on a page whose only purpose is the field.
+    expect(page).toContain("field.current?.focus()");
+    expect(page).toContain('aria-autocomplete="list"');
   });
 });

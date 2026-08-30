@@ -1,11 +1,43 @@
+/*
+ * FinScope reads official filings and shows you where every number came from.
+ * The interface is set like the record it is: precise, quiet, dense only where
+ * density earns it. Not a dashboard — a document you can check.
+ *
+ * Three decisions carry the whole thing.
+ *
+ * One accent, used as a signal. Green means the active thing, the positive
+ * thing, the traceable thing; red means a fall or a refusal. There is no third
+ * hue, so when colour appears it means something.
+ *
+ * Neutrals that belong to the accent. A pure grey beside a green reads as two
+ * unrelated decisions; every neutral here carries a few degrees of the same
+ * hue, so the page looks chosen rather than assembled.
+ *
+ * Rules instead of boxes. A financial record is ruled, not boxed: hairlines and
+ * space separate things, and a border is used where an edge is genuinely
+ * needed rather than as the default way to group.
+ */
+
 :root {
+  /*
+   * SF Pro, which on Apple platforms is what `-apple-system` resolves to —
+   * the same way apple.com asks for it. It cannot be self-hosted: Apple
+   * licenses it for building software for its own platforms, not for
+   * redistribution from a web server. Elsewhere the stack falls to each
+   * platform's own UI face rather than to a downloaded near-miss, because a
+   * system face is already rendering-tuned for that system.
+   */
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+          "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  /* Figures that line up in a column, everywhere a column of figures appears. */
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
   /*
    * One scale, eight steps, and nothing between them.
    *
-   * The stylesheet had thirteen font sizes and fifty-three padding values, which
-   * is not a design so much as an accumulation: two panels a few pixels apart
-   * read as a mistake rather than a distinction. Every size below is a step a
-   * reader can tell from its neighbour.
+   * The stylesheet had thirteen font sizes and fifty-three padding values,
+   * which is not a design so much as an accumulation: two panels a few pixels
+   * apart read as a mistake rather than a distinction.
    */
   --fs-micro: 10px;   /* uppercase eyebrows, axis ticks, badges */
   --fs-xs: 11px;      /* captions and notes */
@@ -13,88 +45,108 @@
   --fs-base: 13px;    /* dense tabular values */
   --fs-body: 14px;    /* running text */
   --fs-lg: 16px;      /* card titles, the wordmark */
-  --fs-xl: 20px;      /* section headings */
-  --fs-display: clamp(24px, 4vw, 34px);
+  --fs-xl: 21px;      /* section headings */
+  --fs-h3: 15px;      /* panel sub-heads, index names */
+  --fs-display: clamp(28px, 4.4vw, 40px);
+
+  /*
+   * SF Pro is drawn tighter as it grows, and setting it without that is the
+   * single thing that makes an interface using it look like it is not.
+   */
+  --track-display: -.028em;
+  --track-title: -.018em;
+  --track-label: .055em;
 
   --sp-1: 2px; --sp-2: 4px; --sp-3: 6px; --sp-4: 8px; --sp-5: 10px;
   --sp-6: 12px; --sp-7: 16px; --sp-8: 24px; --sp-9: 32px;
 
-  --fs-h3: 15px;      /* panel sub-heads, index names */
-
-  --background: #ffffff;
-  /*
-   * Three planes, not two.
-   *
-   * `--surface` is the raised one — dialogs, popovers, the sheet a table sits
-   * on. `--control` is the recessed one a button or a field is cut into. They
-   * used to be the same white as the page, which is why a button was a rule
-   * around nothing and a dropdown floated with no edge to it. Separating them
-   * is what lets a control read as pressable without a heavy border.
-   */
+  /* --- Light -------------------------------------------------------------- */
+  /* Neutrals carry a few degrees of the accent's hue, so nothing reads as a
+     grey borrowed from somewhere else. */
+  --background: #fbfcfb;
   --surface: #ffffff;
-  --control: #f4f5f6;
-  --control-hover: #e9eaec;
-  --text: #101418;
-  --muted: #5c6470;
-  --border: #e4e6e9;
-  --border-strong: #c3c8cf;
-  --accent: #1f5f4a;
-  --accent-soft: #eaf4ef;
+  --control: #f1f4f2;
+  --control-hover: #e6ebe8;
+  --text: #0e1512;
+  --muted: #5a6763;
+  --border: #e3e9e5;
+  --border-strong: #c3cec8;
+  --accent: #0f7a54;
+  --accent-soft: #e6f3ed;
   --accent-contrast: #ffffff;
-  --danger: #a61b1b;
-  --danger-soft: #fdefef;
+  --danger: #a32020;
+  --danger-soft: #fceeee;
   --warning: #8a5a00;
-  --grid: #f0f1f3;
-  --radius: 8px;
+  --grid: #eef2f0;
   --card: #ffffff;
-  --card-border: #e4e6e9;
-  --card-radius: 12px;
-  --radius-pill: 999px;
-  --axis: #6a7280;
-  --chart-grid: #eef0f2;
+  --card-border: #e3e9e5;
+  --axis: #67746f;
+  --chart-grid: #edf1ef;
   --label-halo: #ffffff;
-  --shadow: 0 1px 2px rgba(16, 20, 24, .04), 0 1px 3px rgba(16, 20, 24, .04);
-  --shadow-lift: 0 2px 4px rgba(16, 20, 24, .05), 0 8px 20px rgba(16, 20, 24, .07);
-  --shadow-pop: 0 10px 30px rgba(16, 20, 24, .14);
+
+  --radius: 7px;
+  --card-radius: 10px;
+  --radius-pill: 999px;
+
+  /* Shadows are a whisper. Depth comes from the rule and the space. */
+  --shadow: 0 1px 2px rgba(14, 21, 18, .045);
+  --shadow-lift: 0 1px 2px rgba(14, 21, 18, .05), 0 6px 16px rgba(14, 21, 18, .06);
+  --shadow-pop: 0 12px 36px rgba(14, 21, 18, .14);
   --ease: .16s cubic-bezier(.2, 0, .2, 1);
 }
 
 /*
- * Dark is a selected palette, not an inversion. Surfaces are a cool near-black
- * with a card one step lighter, so a panel reads as a raised object rather than
- * a bordered hole; series colours are re-stepped for it in charting.ts.
+ * Dark is a selected palette, not an inversion. The ground is a near-black
+ * carrying the accent's hue rather than the blue every dark interface defaults
+ * to, and a surface is one step up so a panel reads as a raised object rather
+ * than a bordered hole.
  */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: #0f1116;
-  --surface: #171a21;
-  --control: #1d212a;
-  --control-hover: #262b36;
-  --text: #e9ebf0;
-  --muted: #98a0ae;
-  --border: #242832;
-  --border-strong: #3a414f;
+  --background: #0b100e;
+  --surface: #131917;
+  --control: #1a211e;
+  --control-hover: #232b28;
+  --text: #e8efeb;
+  --muted: #94a29c;
+  --border: #212926;
+  --border-strong: #3a4642;
   --accent: #53d39c;
-  --accent-soft: #17302a;
-  --accent-contrast: #08120e;
+  --accent-soft: #122d23;
+  --accent-contrast: #06120d;
   --danger: #ff8a96;
-  --danger-soft: #2c1a1e;
+  --danger-soft: #2b191c;
   --warning: #f0b849;
-  --grid: #1d212a;
-  --card: #171a21;
-  --card-border: #242832;
-  --axis: #98a0ae;
-  --chart-grid: #232833;
-  --label-halo: #171a21;
-  --shadow: 0 1px 2px rgba(0, 0, 0, .35);
-  --shadow-lift: 0 2px 4px rgba(0, 0, 0, .3), 0 10px 24px rgba(0, 0, 0, .34);
-  --shadow-pop: 0 12px 34px rgba(0, 0, 0, .5);
+  --grid: #1a211e;
+  --card: #131917;
+  --card-border: #212926;
+  --axis: #94a29c;
+  --chart-grid: #202a26;
+  --label-halo: #131917;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-lift: 0 1px 2px rgba(0, 0, 0, .35), 0 8px 22px rgba(0, 0, 0, .32);
+  --shadow-pop: 0 14px 40px rgba(0, 0, 0, .55);
 }
 
 * { box-sizing: border-box; }
 html { scroll-behavior: auto; background: var(--background); }
 :root { color-scheme: light; }
-body { margin: 0; background: var(--background); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: var(--fs-body); line-height: 1.45; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  line-height: 1.45;
+  /* Every figure in this application belongs to a column of figures. */
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+/* SF Pro tightens as it grows; not saying so is what makes an interface using
+   it look like an interface that is not. */
+h1, h2, h3, .kpi-card strong, .company-figure strong { letter-spacing: var(--track-title); }
+h1 { letter-spacing: var(--track-display); }
 ::selection { background: var(--accent-soft); color: var(--text); }
 /* Scrollbars in the interface's own colours rather than the platform's, which
    on a near-black page draws a light grey slab down the right-hand side. */
@@ -112,8 +164,8 @@ button, input, select, textarea { color: inherit; font: inherit; }
  * on the page and made hover read as selection. The fill carries the affordance
  * now; the border is there to seat the shape, and hover moves the fill.
  */
-button, select, input, textarea { min-height: 34px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--control); color: var(--text); }
-button { padding: 6px 12px; cursor: pointer; transition: background var(--ease), border-color var(--ease), color var(--ease); }
+button, select, input, textarea { min-height: 33px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--control); color: var(--text); font-family: var(--sans); }
+button { padding: 6px 12px; cursor: pointer; font-weight: 500; letter-spacing: -.004em; transition: background var(--ease), border-color var(--ease), color var(--ease); }
 button:hover:not(:disabled) { background: var(--control-hover); }
 button:disabled { cursor: not-allowed; opacity: .5; }
 input, select, textarea { padding: 6px 10px; transition: border-color var(--ease), box-shadow var(--ease); }
@@ -138,13 +190,29 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
  * colour before, which meant a chart sliding beneath it vanished at a hard edge
  * rather than passing behind something.
  */
-.site-header { position: sticky; z-index: 20; top: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 56px; padding: 0 20px; border-bottom: 1px solid var(--border); background: color-mix(in oklab, var(--background) 94%, transparent); backdrop-filter: saturate(1.4) blur(14px); }
+/*
+ * The bar is a rule with things on it, not a tray.
+ *
+ * A translucent slab with a blur behind it is what every application looks
+ * like; a hairline and the page's own ground is what a record looks like. The
+ * only weight in here is the wordmark and whichever destination you are on.
+ */
+.site-header { position: sticky; z-index: 20; top: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 54px; padding: 0 20px; border-bottom: 1px solid var(--border); background: color-mix(in oklab, var(--background) 88%, transparent); backdrop-filter: saturate(1.6) blur(18px); }
 /* A button stretched across its grid column, still wearing the button
    background: invisible while surface equalled background, and a lighter empty
    box down the left of the header the moment dark mode gave them two values. */
-.wordmark { display: inline-flex; align-items: center; gap: 8px; justify-self: start; min-height: 0; padding: 0; border: 0; background: none; color: var(--text); font-size: var(--fs-lg); font-weight: 700; letter-spacing: -.02em; text-decoration: none; }
-.wordmark:hover { background: none; opacity: .78; }
-.wordmark::before { content: ""; width: 9px; height: 9px; border-radius: 3px; background: var(--accent); }
+/*
+ * The mark: a short accent rule, the way a ledger rules a column.
+ *
+ * A rounded green square beside a word is the default logo of every product
+ * built this decade. A two-pixel vertical rule is the same accent doing
+ * something the subject actually does — it is the mark used again on every
+ * section heading and on the active destination, so the identity is one
+ * gesture repeated rather than a badge in a corner.
+ */
+.wordmark { display: inline-flex; align-items: center; gap: 9px; justify-self: start; min-height: 0; padding: 0; border: 0; background: none; color: var(--text); font-size: var(--fs-lg); font-weight: 640; letter-spacing: -.024em; text-decoration: none; }
+.wordmark:hover { background: none; opacity: .74; }
+.wordmark::before { content: ""; width: 2px; height: 15px; border-radius: 1px; background: var(--accent); }
 /*
  * Destinations as pills rather than as an underlined strip.
  *
@@ -153,11 +221,19 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
  * genuinely hard to find on a phone, where the strip scrolls. A filled pill is
  * the same information as a shape you can see at a glance.
  */
-.site-header nav { display: flex; align-items: center; gap: 2px; align-self: center; padding: 3px; border-radius: var(--radius-pill); background: var(--grid); }
-.site-header nav button { min-height: 30px; padding: 0 14px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--muted); font-size: var(--fs-base); font-weight: 550; white-space: nowrap; }
-.site-header nav button:hover:not(.active) { background: transparent; color: var(--text); }
-.site-header nav button.active { background: var(--surface); color: var(--text); font-weight: 650; box-shadow: var(--shadow); }
-:root[data-theme="dark"] .site-header nav button.active { background: var(--control-hover); }
+/*
+ * Destinations as words, with the accent rule under the one you are on.
+ *
+ * The pill-in-a-tray is the same shape as every segmented control in the
+ * application, which made the top-level navigation read as one more setting.
+ * A word and a two-pixel rule is quieter and says something the pill cannot:
+ * this is where you are, in the same mark the wordmark uses.
+ */
+.site-header nav { display: flex; align-items: center; gap: 2px; align-self: center; }
+.site-header nav button { position: relative; min-height: 34px; padding: 0 13px; border: 0; border-radius: var(--radius); background: transparent; color: var(--muted); font-size: var(--fs-body); font-weight: 500; letter-spacing: -.006em; white-space: nowrap; }
+.site-header nav button:hover:not(.active) { background: var(--control); color: var(--text); }
+.site-header nav button.active { background: transparent; color: var(--text); font-weight: 590; }
+.site-header nav button.active::after { content: ""; position: absolute; right: 13px; bottom: 3px; left: 13px; height: 2px; border-radius: 1px; background: var(--accent); }
 .header-company { display: flex; align-items: center; justify-content: flex-end; gap: 10px; justify-self: end; min-width: 0; color: var(--muted); font-size: var(--fs-sm); font-weight: 600; letter-spacing: .02em; }
 /* The open company, as a way back to it rather than as a label. */
 .header-ticker { min-height: 28px; padding: 0 10px; border: 0; border-radius: var(--radius-pill); background: var(--grid); color: var(--muted); font-size: var(--fs-sm); font-weight: 700; letter-spacing: .02em; }
@@ -197,6 +273,18 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
 
 .page-heading, .company-title, .section-heading, .panel-head, .selector-head, .view-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 24px; }
 .page-heading p, .company-title p, .view-title p { margin: 0; max-width: 82ch; color: var(--muted); }
+/*
+ * The same accent rule the wordmark uses, now marking a section.
+ *
+ * One gesture repeated is an identity; a different treatment per level is an
+ * accumulation. The rule sits beside a section's title exactly as it sits
+ * beside the product's name and under the destination you are on.
+ */
+.section-heading > h2, .plain-section > h2 { position: relative; padding-left: 13px; }
+.section-heading > h2::before, .plain-section > h2::before {
+  content: ""; position: absolute; top: .18em; bottom: .18em; left: 0;
+  width: 2px; border-radius: 1px; background: var(--accent);
+}
 .back-button { margin-bottom: 16px; padding-left: 10px; border-color: transparent; background: transparent; color: var(--muted); font-size: var(--fs-base); font-weight: 550; }
 .back-button:hover:not(:disabled) { background: var(--control); color: var(--text); }
 .company-title-actions, .view-actions, .row-actions, .chart-actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -859,6 +947,83 @@ tbody tr:last-child > * { border-bottom: 0; }
 .financial-table tr.balance-total { border-top: 1px solid var(--border-strong); }
 .financial-table tr.balance-total th, .financial-table tr.balance-total td { font-weight: 700; }
 
+/* --- The front door ------------------------------------------------------
+   One field, and every filer behind it. The application used to open on
+   somebody else's watchlist: twenty-two cards of figures for companies the
+   reader had not asked about, before they had said what they came for. */
+.search-page { width: min(100%, 720px); margin: 0 auto; padding: clamp(24px, 9vh, 88px) 0 64px; }
+.search-lede { margin: 0 0 26px; }
+.search-lede h1 {
+  margin: 0 0 12px;
+  font-size: var(--fs-display);
+  font-weight: 640;
+  line-height: 1.08;
+  letter-spacing: var(--track-display);
+  text-wrap: balance;
+}
+.search-lede p { max-width: 58ch; margin: 0; color: var(--muted); font-size: var(--fs-body); line-height: 1.55; }
+
+/* The field is the page. It gets the size that says so, and the accent only
+   when it has the cursor. */
+.search-field {
+  display: flex; align-items: center; gap: 11px;
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+  color: var(--muted);
+  transition: border-color var(--ease), box-shadow var(--ease);
+}
+.search-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.search-field input {
+  flex: 1; min-width: 0; min-height: 54px;
+  padding: 0; border: 0; background: none;
+  color: var(--text);
+  font-size: 19px; font-weight: 400; letter-spacing: -.012em;
+  font-variant-numeric: normal;
+}
+.search-field input:focus-visible { outline: none; }
+.search-field input::-webkit-search-cancel-button { appearance: none; }
+.search-working { width: 13px; height: 13px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: search-spin .7s linear infinite; }
+@keyframes search-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .search-working { animation: none; } }
+
+.search-notice { margin: 14px 0 0; }
+
+/* Results as ruled rows, not as cards. A record lists; it does not tile. */
+.search-results { margin: 10px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--border); }
+.search-results li { border-bottom: 1px solid var(--border); }
+.search-results button {
+  display: grid; grid-template-columns: 74px 1fr auto; align-items: baseline; gap: 14px;
+  width: 100%; min-height: 52px; padding: 10px 12px;
+  border: 0; border-radius: 0; background: transparent; text-align: left;
+}
+.search-results button.active, .search-results button:hover:not(:disabled) { background: var(--control); }
+.search-results button b { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.014em; }
+.search-results button span { min-width: 0; overflow: hidden; color: var(--muted); font-size: var(--fs-body); text-overflow: ellipsis; white-space: nowrap; }
+.search-results button small { color: var(--muted); font-size: var(--fs-micro); font-weight: 600; letter-spacing: var(--track-label); text-transform: uppercase; }
+.search-results button.active small { color: var(--accent); }
+.search-empty { padding: 18px 12px; color: var(--muted); font-size: var(--fs-body); }
+
+/* The accent rule again, this time labelling a block. One gesture, repeated. */
+.rule-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--muted); font-size: var(--fs-micro); font-weight: 650;
+  letter-spacing: var(--track-label); text-transform: uppercase;
+}
+.rule-label::before { content: ""; width: 2px; height: 11px; border-radius: 1px; background: var(--accent); }
+
+.search-followed { margin-top: 44px; }
+.search-followed-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.search-tickers { display: flex; flex-wrap: wrap; gap: 6px; }
+.search-tickers button {
+  min-height: 30px; padding: 0 11px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: transparent; color: var(--muted);
+  font-size: var(--fs-base); font-weight: 600; letter-spacing: -.004em;
+}
+.search-tickers button:hover { border-color: var(--border-strong); background: var(--control); color: var(--text); }
+
 /* --- Landing: search and watchlist ---------------------------------------- */
 .home { max-width: 1180px; margin: 0 auto; }
 .home-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 24px; margin: 8px 0 20px; }
@@ -875,7 +1040,9 @@ tbody tr:last-child > * { border-bottom: 0; }
 
 .company-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
 .company-cards > li { position: relative; }
-.company-card { display: flex; flex-direction: column; gap: 14px; width: 100%; padding: 16px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color var(--ease), transform var(--ease), box-shadow var(--ease); }
+/* A card is a surface with a hairline, not a shadowed slab. Depth comes from
+   the rule and the space; the shadow only appears when you point at it. */
+.company-card { display: flex; flex-direction: column; gap: 14px; width: 100%; padding: 16px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color var(--ease), transform var(--ease), box-shadow var(--ease); }
 .company-card:hover, .company-card:focus-visible { border-color: var(--border-strong); box-shadow: var(--shadow-lift); transform: translateY(-2px); }
 .company-card-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .company-card-head b { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -.01em; }
