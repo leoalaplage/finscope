@@ -44,8 +44,13 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     company that normalizes to no periods at all is an error rather than an
  *     empty answer. ASML files 623 US GAAP concepts, every one of them on a
  *     20-F, and came back as a company with nothing in it and a 200 status.
+ * v15: a quarter republished as a comparative inside a later annual report is
+ *     read, and dated by the year it belongs to rather than by the calendar
+ *     year of its end. Microsoft's restated fiscal 2017 quarters were in the
+ *     filings all along under the restated concept, carrying the filing's own
+ *     `fp: "FY"`; seven companies gain quarters and no existing value moves.
  */
-export const KEY_VERSION = "v14";
+export const KEY_VERSION = "v15";
 
 /**
  * A week, refreshed daily. The gap between the two is the point.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { adjustPeriodsForSplits, buildTtmPeriods, dedupeFacts, normalizeAnnualPeriods, normalizeQuarterlyPeriods, normalizeShareUnitScales, relabelFiscalYears } from "../lib/periods";
+import { normalizeSecPayload } from "../lib/adapters/sec";
 import type { MetricKey, RawFinancialFact } from "../lib/types";
 
 function raw(metric: MetricKey, value: number, start: string | undefined, end: string, fiscalPeriod: RawFinancialFact["fiscalPeriod"], fiscalYear = 2025, filed = "2025-11-01"): RawFinancialFact {
@@ -165,5 +166,83 @@ describe("a year restated under a new concept keeps its quarters", () => {
     const concepts = new Set(periods.map((period) => period.facts.revenue?.provenance.concept));
     expect(concepts.size).toBe(1);
     expect(periods.reduce((total, period) => total + (period.facts.revenue?.value ?? 0), 0)).toBeCloseTo(70, 6);
+  });
+});
+
+describe("a quarter published as a comparative in a later annual report", () => {
+  /**
+   * The Microsoft shape, in miniature.
+   *
+   * A June-year filer restates a year under a new concept and republishes that
+   * year's four quarters inside the annual report that restated it. Every one
+   * of those comparatives inherits the filing's own `fp: "FY"`.
+   */
+  const fact = (concept: string, start: string, end: string, val: number, fp: string, form: string, filed: string) =>
+    ({ start, end, val, accn: `a-${filed}`, fy: 2018, fp, form, filed });
+
+  const payload = {
+    entityName: "Comparative Corp",
+    facts: {
+      "us-gaap": {
+        // The old basis: FY2017 as originally filed, with its own quarters.
+        SalesRevenueNet: { units: { USD: [
+          fact("SalesRevenueNet", "2016-07-01", "2017-06-30", 90_000, "FY", "10-K", "2017-08-02"),
+          fact("SalesRevenueNet", "2016-07-01", "2016-09-30", 20_500, "Q1", "10-Q", "2016-10-20"),
+          fact("SalesRevenueNet", "2016-10-01", "2016-12-31", 24_100, "Q2", "10-Q", "2017-01-26"),
+          fact("SalesRevenueNet", "2017-01-01", "2017-03-31", 22_100, "Q3", "10-Q", "2017-04-27"),
+        ] } },
+        // The new basis: the restated year and its four quarters, all carrying
+        // the annual report's `fp: "FY"`.
+        RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: [
+          fact("x", "2016-07-01", "2017-06-30", 96_600, "FY", "10-K", "2018-08-03"),
+          fact("x", "2016-07-01", "2016-09-30", 21_900, "FY", "10-K", "2018-08-03"),
+          fact("x", "2016-10-01", "2016-12-31", 25_800, "FY", "10-K", "2018-08-03"),
+          fact("x", "2017-01-01", "2017-03-31", 23_200, "FY", "10-K", "2018-08-03"),
+          fact("x", "2017-04-01", "2017-06-30", 25_700, "FY", "10-K", "2018-08-03"),
+        ] } },
+      },
+    },
+  };
+  const profile = { name: "Comparative Corp", ticker: "CMP", cik: "0000000001", exchange: "NASDAQ", currency: "USD", sector: "x", description: "x" };
+
+  it("recovers the restated quarters, and they sum to the restated year", () => {
+    /*
+     * Microsoft adopted the revenue standard in fiscal 2018 and restated 2017
+     * with it. Its 2018 annual report carries fiscal 2017's four quarters
+     * under the restated concept — 21.9, 25.8, 23.2 and 25.6 billion, summing
+     * to the 96.6 the year is now stated at — but every one carries the
+     * filing's own `fp: "FY"`, so nothing looking in the quarterly contexts
+     * ever saw them and two years vanished from every quarterly and trailing
+     * view.
+     */
+    const dataset = normalizeSecPayload(payload, "CMP", "2026-08-30T00:00:00.000Z", profile);
+    const quarters = dataset.periods
+      .filter((period) => period.periodicity === "quarterly" && period.periodEnd > "2016-06-30" && period.periodEnd <= "2017-06-30")
+      .sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+    expect(quarters.map((period) => period.periodEnd)).toEqual(["2016-09-30", "2016-12-31", "2017-03-31", "2017-06-30"]);
+    expect(quarters.map((period) => period.facts.revenue?.value)).toEqual([21_900, 25_800, 23_200, 25_700]);
+
+    // The point of the whole exercise: the four add up to the year.
+    const year = dataset.periods.find((period) => period.periodicity === "annual" && period.periodEnd === "2017-06-30");
+    expect(year?.facts.revenue?.value).toBe(96_600);
+    expect(quarters.reduce((sum, period) => sum + (period.facts.revenue?.value ?? 0), 0)).toBe(96_600);
+  });
+
+  it("takes the restated quarters over the ones filed on the old basis", () => {
+    // Both are in the filings. Publishing 20.5 under a year of 96.6 would give
+    // four quarters that add up to a year the company no longer reports.
+    const dataset = normalizeSecPayload(payload, "CMP", "2026-08-30T00:00:00.000Z", profile);
+    const first = dataset.periods.find((period) => period.periodicity === "quarterly" && period.periodEnd === "2016-09-30");
+    expect(first?.facts.revenue?.value).toBe(21_900);
+    expect(first?.facts.revenue?.value).not.toBe(20_500);
+  });
+
+  it("dates a comparative quarter by the year it belongs to, not by its end", () => {
+    // September 2016 is the first quarter of a June filer's fiscal 2017.
+    // Dating it by the calendar year of its end put it two quarters away.
+    const dataset = normalizeSecPayload(payload, "CMP", "2026-08-30T00:00:00.000Z", profile);
+    const first = dataset.periods.find((period) => period.periodicity === "quarterly" && period.periodEnd === "2016-09-30");
+    expect(first?.fiscalYear).toBe(2017);
+    expect(first?.fiscalQuarter).toBe("Q1");
   });
 });

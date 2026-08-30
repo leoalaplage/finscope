@@ -91,7 +91,20 @@ export function relabelFiscalYears(input: RawFinancialFact[]) {
   return input.map((fact) => {
     const calendarYear = Number(fact.end.slice(0,4));
     const endMonthDay = fact.end.slice(5);
-    const fiscalYear = fact.fiscalPeriod === "FY" ? calendarYear : endMonthDay > fiscalEnd ? calendarYear + 1 : calendarYear;
+    /*
+     * `FY` means "the year this filing is about", not "this fact covers a year".
+     *
+     * An annual report carries its own quarters as comparatives, and every one
+     * of them inherits the filing's `fp: "FY"`. Dating those by the calendar
+     * year of their end put Microsoft's September 2016 quarter — which is the
+     * first quarter of its fiscal 2017 — into 2016, two quarters away from the
+     * year it belongs to. The shortcut is right for a fact that really does
+     * span the year, and for an instant; anything shorter is dated the way
+     * every other period is, by whether it ends after the fiscal year does.
+     */
+    const spansTheYear = !fact.start || daysBetween(fact.start, fact.end) >= 300;
+    const fiscalYear = fact.fiscalPeriod === "FY" && spansTheYear ? calendarYear
+      : endMonthDay > fiscalEnd ? calendarYear + 1 : calendarYear;
     return { ...fact, fiscalYear };
   });
 }
@@ -304,10 +317,47 @@ function yearConcept(index: FactIndex, metric: MetricKey, fy: number): string | 
   return best;
 }
 
+/**
+ * A quarter the filer published inside a later annual report, as a comparative.
+ *
+ * This is where a restated year's quarters actually are. Microsoft adopted the
+ * revenue standard in fiscal 2018 and restated 2017 with it: the 2018 annual
+ * report carries fiscal 2017's four quarters — 21.9, 25.8, 23.2 and 25.6
+ * billion — under the same concept as the restated year, and they sum to the
+ * 96.6 billion that year is now stated at. But they carry the filing's own
+ * `fp: "FY"`, so nothing that looked in the quarterly contexts ever saw them,
+ * and two years of Microsoft's history were missing from every quarterly and
+ * trailing view.
+ *
+ * Matched by where the quarter falls in the year rather than by its label: the
+ * first ends about ninety-one days after the year opens, the second about a
+ * hundred and eighty-two, and a filer's quarters are never far off that.
+ */
+const QUARTER_DAYS = 91.31;
+function comparativeQuarter(index: FactIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3", concept: string | undefined): RawFinancialFact | undefined {
+  const scoped = concept ? sameConcept(contexts(index, metric, fy, "FY"), concept) : contexts(index, metric, fy, "FY");
+  const annual = selectAnnual(scoped);
+  if (!annual?.start) return undefined;
+  const position = quarter === "Q1" ? 1 : quarter === "Q2" ? 2 : 3;
+  const target = Date.parse(annual.start) + position * QUARTER_DAYS * 86_400_000;
+  return latest(scoped.filter((fact) => {
+    if (!fact.start) return false;
+    const days = daysBetween(fact.start, fact.end);
+    return days >= 55 && days <= 125
+      && fact.start >= annual.start! && fact.end < annual.end
+      && Math.abs(Date.parse(fact.end) - target) <= 25 * 86_400_000;
+  }));
+}
+
 function quarterFact(index: FactIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4"): NormalizedFact | undefined {
   const all = contexts(index, metric, fy, quarter === "Q4" ? "FY" : quarter);
   const concept = yearConcept(index, metric, fy);
-  return quarterFromConcept(index, metric, fy, quarter, concept ? sameConcept(all, concept) : all);
+  const found = quarterFromConcept(index, metric, fy, quarter, concept ? sameConcept(all, concept) : all);
+  if (found || quarter === "Q4") return found;
+  // Nothing under the quarter's own label; the restated one may be sitting in
+  // the annual report that restated it.
+  const comparative = comparativeQuarter(index, metric, fy, quarter, concept);
+  return comparative ? normalized(comparative, "quarterly", quarter) : undefined;
 }
 
 function quarterFromConcept(index: FactIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4", candidates: RawFinancialFact[]): NormalizedFact | undefined {
