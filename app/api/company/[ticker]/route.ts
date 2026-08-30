@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchSecCompany } from "@/lib/adapters/sec";
-import { CACHE_SECONDS, datasetKey, digestIsCurrent, summaryKey } from "@/lib/dataset-cache";
+import { CACHE_SECONDS, datasetKey, digestIsCurrent, fallbackDatasetKeys, summaryKey } from "@/lib/dataset-cache";
 import { summariseDataset } from "@/lib/watchlist-summary";
 import { datasetCache } from "@/lib/runtime-env";
 
@@ -75,6 +75,27 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       }
       const warm = await cache?.get(key, "stream");
       if (warm) return new Response(warm, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
+
+      /*
+       * The previous version's copy, while this one is being built.
+       *
+       * Changing the key version empties the cache for every company at once,
+       * and rebuilding twenty-one filers from raw XBRL takes longer than the
+       * platform allows in one go — so every bump meant a stretch of cards
+       * reading "Building financials…" and, twice, a throttled Worker. Only
+       * versions declared safe to stand in are read, and the answer is cached
+       * for minutes rather than hours so the new build replaces it promptly.
+       */
+      for (const previous of fallbackDatasetKeys(symbol)) {
+        const stale = await cache?.get(previous, "stream");
+        if (stale) {
+          return new Response(stale, { headers: {
+            ...headers,
+            "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+            "X-FinScope-Cache": "previous-version",
+          } });
+        }
+      }
     } catch {
       // A cache that misbehaves must never take the endpoint down with it.
     }

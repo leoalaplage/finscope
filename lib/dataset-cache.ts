@@ -53,6 +53,32 @@ import type { WatchlistSummary } from "./watchlist-summary";
 export const KEY_VERSION = "v15";
 
 /**
+ * Versions whose stored data may still be served while this one is being built.
+ *
+ * Changing the key version empties the cache for every company at once, and
+ * rebuilding twenty-one filers from raw XBRL takes far longer than the platform
+ * will allow in one go — so every bump has meant a stretch of watchlist cards
+ * reading "Building financials…" and, twice now, a throttled Worker. Serving
+ * the previous copy in the meantime removes the outage entirely: the reader
+ * sees the company they asked for while the new one is built behind them.
+ *
+ * Listed rather than assumed, and per bump. A version that *adds* periods
+ * without moving any existing figure — which v15 was, measured against the raw
+ * filings for all twenty-one companies — is safe to stand in for. One that
+ * corrects a wrong number is not, and leaves this empty so nothing serves the
+ * figure it exists to replace.
+ */
+const SERVEABLE_WHILE_BUILDING: string[] = ["v14"];
+
+/** The same key under a version we are willing to serve from while rebuilding. */
+export function fallbackDatasetKeys(ticker: string) {
+  return SERVEABLE_WHILE_BUILDING.map((version) => `company:${version}:${ticker.toUpperCase()}`);
+}
+export function fallbackSummaryKeys(ticker: string) {
+  return SERVEABLE_WHILE_BUILDING.flatMap((version) => [`summary:${version}.${SUMMARY_SHAPE}:${ticker.toUpperCase()}`]);
+}
+
+/**
  * A week, refreshed daily. The gap between the two is the point.
  *
  * The filings behind a dataset change quarterly at most, so a day-old copy is
