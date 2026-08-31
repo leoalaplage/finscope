@@ -3,6 +3,7 @@ import { qsPriceInputs, qsRow, type QsPriceInputs } from "./qs-export";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod } from "./types";
 import { shareCount } from "./market-basis";
 import { isFinancialBusiness } from "./business-type";
+import { currentDatasetPeriod } from "./current-period";
 
 /**
  * The few figures a watchlist card shows, and nothing else.
@@ -98,7 +99,7 @@ function fiveYearAverage(annual: FinancialPeriod[], metric: string): number | nu
 
 /** Trailing twelve months where the filings support it, the last year otherwise. */
 export function summaryPeriod(dataset: CompanyDataset): FinancialPeriod | undefined {
-  return sorted(dataset, "ttm").at(-1) ?? sorted(dataset, "annual").at(-1);
+  return currentDatasetPeriod(dataset);
 }
 
 export function summariseDataset(dataset: CompanyDataset): WatchlistSummary | null {

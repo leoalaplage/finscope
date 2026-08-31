@@ -17,6 +17,7 @@ import type { CompanyDataset, CompanyProfile, FinancialPeriod, MetricKey, Period
 import type { ThemeName } from "@/lib/charting";
 import type { SeriesStyle } from "@/lib/chart-workspace";
 import type { SeriesFrequency } from "@/lib/types";
+import { currentDatasetPeriod } from "@/lib/current-period";
 
 /**
  * Where you can be, at the top level.
@@ -107,7 +108,7 @@ const readableDate = (iso: string) => {
 const edgarUrl = (cik: string) => `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${encodeURIComponent(cik)}&type=10-&dateb=&owner=include&count=40`;
 
 const sortedPeriods = (dataset: CompanyDataset, periodicity: Periodicity) => dataset.periods.filter((period) => period.periodicity === periodicity).sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
-const latestPeriod = (dataset: CompanyDataset) => sortedPeriods(dataset, "ttm").at(-1) ?? sortedPeriods(dataset, "annual").at(-1);
+const latestPeriod = (dataset: CompanyDataset) => currentDatasetPeriod(dataset);
 const change = (current: number | null, previous: number | null) => current != null && previous != null && previous !== 0 ? current / previous - 1 : null;
 
 /**
@@ -793,7 +794,7 @@ function CurrentAndAverageTable({ periods, metrics, onOpen, onCharts, currencyCo
 function ValuationTable({ dataset, price }: { dataset: CompanyDataset; price: PricePoint | null }) {
   const ttm = useMemo(() => sortedPeriods(dataset, "ttm"), [dataset]); const [points, setPoints] = useState<Record<string, PricePoint | null>>({}); const [error, setError] = useState(""); const dates = useMemo(() => [...new Set([...ttm.map((period) => period.filingDate), new Date().toISOString().slice(0, 10)])], [ttm]);
   useEffect(() => { let active = true; getJson<{ points?: Array<{ requestedDate: string; point?: PricePoint }> }>(`/api/prices/${dataset.company.ticker}?dates=${dates.join(",")}&published=1`, { what: "the valuation history" }).then((payload) => { if (active) setPoints(Object.fromEntries((payload.points ?? []).map((item) => [item.requestedDate, item.point ?? null]))); }).catch((cause) => active && setError(cause instanceof Error ? cause.message : "The valuation history is unavailable.")); return () => { active = false; }; }, [dataset.company.ticker, dates]);
-  const latest = ttm.at(-1) ?? sortedPeriods(dataset, "annual").at(-1); const current = latest && price ? valuationSnapshot(latest, price) : null; const history = buildValuationHistory(ttm, points); const stats = valuationStatistics(history, "priceToFreeCashFlow", current?.metrics.priceToFreeCashFlow ?? null, 5);
+  const latest = currentDatasetPeriod(dataset); const current = latest && price ? valuationSnapshot(latest, price) : null; const history = buildValuationHistory(ttm, points); const stats = valuationStatistics(history, "priceToFreeCashFlow", current?.metrics.priceToFreeCashFlow ?? null, 5);
   if (error) return <p className="simple-state">{error}. Fundamental data remains available.</p>;
   // A row of dashes is not an answer. Where the multiple could not be struck —
   // a price in another currency, no readable share count — say which.

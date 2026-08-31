@@ -3,6 +3,7 @@ import { marketBasis, shareCount } from "./market-basis";
 import { isFinancialBusiness } from "./business-type";
 import { METRICS } from "./metrics";
 import type { CompanyDataset, FinancialPeriod, PricePoint } from "./types";
+import { currentDatasetPeriod } from "./current-period";
 
 export type StatFormat = "currency" | "percent" | "ratio" | "multiple" | "shares" | "perShare" | "points";
 
@@ -102,10 +103,11 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
    */
   const cashReason = financial ? FINANCIAL_CASH_FLOW : undefined;
   const annual = ordered(dataset, "annual");
-  const ttmPeriods = ordered(dataset, "ttm");
-  // TTM is the right base for a flow when four clean quarters exist; the last
-  // reported year is the honest fallback rather than an annualised quarter.
-  const current = ttmPeriods.at(-1) ?? annual.at(-1) ?? null;
+  // A trailing window when there is one that is genuinely more recent than the
+  // last annual report, and the year itself when there is not — a filer whose
+  // quarters stopped being derivable years ago must not have a decade-old
+  // window read as its current one.
+  const current = currentDatasetPeriod(dataset) ?? null;
 
   /*
    * Every priced figure in this panel comes from one basis, or from none.

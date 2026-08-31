@@ -3,6 +3,7 @@ import { shareCount, type SharesBasis } from "./market-basis";
 import { balanceSheetHealth } from "./statement-flows";
 import type { CompanyDataset, FinancialPeriod } from "./types";
 import { isFinancialBusiness } from "./business-type";
+import { currentDatasetPeriod } from "./current-period";
 
 /**
  * The watchlist, written as the table the QS Screener already reads.
@@ -68,7 +69,7 @@ export interface QsRow { ticker: string; values: Record<string, number | string 
 export interface QsPriceInputs { shares: number | null; sharesBasis: SharesBasis | null; currency: string | null; netDebt: number | null; operatingIncome: number | null; freeCashFlow: number | null }
 
 export function qsPriceInputs(dataset: CompanyDataset): QsPriceInputs {
-  const current = ordered(dataset, "ttm").at(-1) ?? ordered(dataset, "annual").at(-1) ?? null;
+  const current = currentDatasetPeriod(dataset) ?? null;
   const counted = current ? shareCount(current) : null;
   const financial = isFinancialBusiness(dataset.company.businessType);
   return {
@@ -107,7 +108,7 @@ export function qsValuationColumns(inputs: QsPriceInputs, price: number | null, 
  */
 export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
   const annual = ordered(dataset, "annual");
-  const current = ordered(dataset, "ttm").at(-1) ?? annual.at(-1) ?? null;
+  const current = currentDatasetPeriod(dataset) ?? null;
   const now = (metric: string) => current ? derivedValue(current, metric) : null;
   const financial = isFinancialBusiness(dataset.company.businessType);
   const industrial = (value: number | null) => financial ? null : value;

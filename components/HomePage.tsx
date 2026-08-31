@@ -6,6 +6,7 @@ import { summariseDataset, type WatchlistSummary } from "@/lib/watchlist-summary
 import { getJson } from "@/lib/fetch-json";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod } from "@/lib/types";
 import { isFinancialBusiness } from "@/lib/business-type";
+import { currentDatasetPeriod } from "@/lib/current-period";
 
 const percent = (value: number | null) => value == null || !Number.isFinite(value) ? "—" : `${(value * 100).toFixed(1)}%`;
 /** The QS row states its rates already multiplied out, so this one does not. */
@@ -48,10 +49,7 @@ function cardFigures(digest: WatchlistSummary | null | undefined, financial: boo
 const POLL_MS = 2_000;
 const MAX_POLLS = 20;
 
-const latestPeriod = (dataset: CompanyDataset): FinancialPeriod | undefined => {
-  const of = (periodicity: string) => dataset.periods.filter((period) => period.periodicity === periodicity).sort((a, b) => a.periodEnd.localeCompare(b.periodEnd)).at(-1);
-  return of("ttm") ?? of("annual");
-};
+const latestPeriod = (dataset: CompanyDataset): FinancialPeriod | undefined => currentDatasetPeriod(dataset);
 
 /**
  * Every dataset that has already been summarised, kept beside the component.

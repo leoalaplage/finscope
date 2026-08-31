@@ -1,5 +1,6 @@
 import { derivedValue } from "./finance";
 import type { FinancialPeriod } from "./types";
+import { currentPeriod } from "./current-period";
 
 /**
  * A reverse discounted-cash-flow on free cash flow per share.
@@ -117,7 +118,7 @@ export interface FcfYieldBase {
 export function fcfYieldBase(periods: FinancialPeriod[], currentPrice: number | null): FcfYieldBase | null {
   const ttm = periods.filter((period) => period.periodicity === "ttm").sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
   const annual = periods.filter((period) => period.periodicity === "annual").sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
-  const period = ttm.at(-1) ?? annual.at(-1);
+  const period = currentPeriod([...ttm, ...annual]);
   if (!period) return null;
 
   const fcfPerShare = derivedValue(period, "freeCashFlowPerShare");
