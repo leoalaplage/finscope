@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isFinancialBusiness, verifiedBusinessType } from "../lib/business-type";
+import { businessTypeFromSic, classifyBusiness, isFinancialBusiness, verifiedBusinessType } from "../lib/business-type";
 import { normalizeSecPayload } from "../lib/adapters/sec";
 import { derivedValue } from "../lib/finance";
 import type { CompanyProfile } from "../lib/types";
@@ -27,6 +27,46 @@ describe("verified economic classification", () => {
     expect(verifiedBusinessType("320193")).toBeUndefined();
     expect(isFinancialBusiness("bank")).toBe(true);
     expect(isFinancialBusiness("operating")).toBe(false);
+  });
+
+  it("classifies dynamically resolved financial filers from their SEC SIC", () => {
+    expect(businessTypeFromSic(6021)).toBe("bank");
+    expect(businessTypeFromSic("6211")).toBe("broker");
+    expect(businessTypeFromSic(6331)).toBe("insurer");
+    expect(businessTypeFromSic(6719)).toBe("holding");
+    expect(businessTypeFromSic(6798)).toBe("financial");
+    expect(businessTypeFromSic(7372)).toBeUndefined();
+
+    expect(classifyBusiness({ ...profile("BAC", "0000070858"), sic: 6021 }).businessType).toBe("bank");
+    // The verified CIK remains more precise than a broad industry code.
+    expect(classifyBusiness({ ...profile("BRK-B", "0001067983"), sic: 6331 }).businessType).toBe("holding");
+  });
+
+  it("builds a financial filing period without requiring industrial revenue", () => {
+    const gsProfile = { ...profile("GS", "0000886982"), name: "GOLDMAN SACHS GROUP INC", sic: 6211 };
+    const dataset = normalizeSecPayload({ entityName: "The Goldman Sachs Group, Inc.", facts: { "us-gaap": {
+      NetIncomeLoss: flow(12_000, "Net income"),
+      Assets: point(2_100_000, "Assets"),
+      StockholdersEquity: point(120_000, "Stockholders' equity"),
+    } } }, "GS", "2026-08-31T00:00:00.000Z", gsProfile);
+    const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
+
+    expect(dataset.company.businessType).toBe("broker");
+    expect(dataset.company.name).toBe("GOLDMAN SACHS GROUP INC");
+    expect(annual.facts.revenue).toBeUndefined();
+    expect(annual.facts.netIncome?.value).toBe(12_000);
+    expect(annual.facts.totalAssets?.value).toBe(2_100_000);
+  });
+
+  it("reads a financial institution's standardized net-revenue line", () => {
+    const dataset = normalizeSecPayload({ entityName: "The Goldman Sachs Group, Inc.", facts: { "us-gaap": {
+      RevenuesNetOfInterestExpense: flow(53_510, "Revenues net of interest expense"),
+      NetIncomeLoss: flow(16_000, "Net income"),
+    } } }, "GS", "2026-08-31T00:00:00.000Z", { ...profile("GS", "0000886982"), sic: 6211 });
+    const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
+
+    expect(annual.facts.revenue?.value).toBe(53_510);
+    expect(annual.facts.revenue?.provenance.concept).toBe("us-gaap:RevenuesNetOfInterestExpense");
   });
 
   it("rebuilds JPMorgan borrowings from the two non-overlapping filed totals", () => {
@@ -93,6 +133,21 @@ describe("verified economic classification", () => {
     }), "TEST", "2026-08-31T00:00:00.000Z", profile("TEST", "0000000001"));
     const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
     expect(annual.facts.totalDebt).toBeUndefined();
+  });
+
+  it("adds an ambiguous long-term line only when a third filed balance proves its role", () => {
+    // Adobe's gross carrying amount is close to current + the balance-sheet
+    // long-term line, and materially far from the long-term line alone. That
+    // independent identity proves that the latter is non-current here.
+    const dataset = normalizeSecPayload(payload({
+      LongTermDebt: point(4_802, "Long-term debt"),
+      DebtCurrent: point(1_843, "Current debt"),
+      DebtInstrumentCarryingAmount: point(6_600, "Gross debt carrying amount"),
+    }), "ADBE", "2026-08-31T00:00:00.000Z", profile("ADBE", "0000796343"));
+    const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
+
+    expect(annual.facts.totalDebt?.value).toBe(6_645);
+    expect(annual.facts.totalDebt?.provenance.formula).toContain("role validated");
   });
 
   it("counts one current balance once, whichever concepts name it", () => {

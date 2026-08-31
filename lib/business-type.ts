@@ -17,13 +17,35 @@ const VERIFIED_TYPES_BY_CIK: Readonly<Record<string, BusinessType>> = {
   "0001381197": "broker",     // Interactive Brokers
 };
 
+/**
+ * Classify an arbitrary filer from the SEC's Standard Industrial
+ * Classification. Division H (6000-6799) is finance, insurance and real
+ * estate; the narrower groups let us name the models whose balance sheets need
+ * a specific treatment. Remaining Division H codes deliberately stay generic
+ * `financial` instead of being guessed into a more specific model.
+ *
+ * A manual CIK decision wins where the broad SIC cannot express the boundary:
+ * Berkshire carries an insurance SIC but is analysed as a holding company, and
+ * CME/Cboe share a broad code that covers both brokers and exchanges.
+ */
+export function businessTypeFromSic(sic: number | string | null | undefined): BusinessType | undefined {
+  const code = typeof sic === "string" ? Number.parseInt(sic, 10) : sic;
+  if (code == null || !Number.isInteger(code)) return undefined;
+  if (code >= 6000 && code <= 6099) return "bank";
+  if (code === 6211 || code === 6221) return "broker";
+  if (code >= 6300 && code <= 6399) return "insurer";
+  if (code === 6719) return "holding";
+  if (code >= 6000 && code <= 6799) return "financial";
+  return undefined;
+}
+
 export function verifiedBusinessType(cik: string): BusinessType | undefined {
   return VERIFIED_TYPES_BY_CIK[cik.padStart(10, "0")];
 }
 
 export function classifyBusiness(profile: CompanyProfile): CompanyProfile {
-  const verified = verifiedBusinessType(profile.cik);
-  return verified && verified !== profile.businessType ? { ...profile, businessType: verified } : profile;
+  const classified = verifiedBusinessType(profile.cik) ?? businessTypeFromSic(profile.sic);
+  return classified && classified !== profile.businessType ? { ...profile, businessType: classified } : profile;
 }
 
 /** Legacy `financial` remains readable in locally stored watchlists. */

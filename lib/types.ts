@@ -59,6 +59,7 @@ export type MetricKey =
   | "longTermDebtNoncurrent"
   | "longTermDebtAndLeases"
   | "otherLongTermDebt"
+  | "debtInstrumentCarryingAmount"
   | "shortTermBorrowings"
   | "financeLeaseLiability"
   | "totalAssets"
@@ -135,6 +136,9 @@ export interface CompanyProfile {
   stockSplits?: Array<{ date: string; ratio: number }>;
   regulatoryId?: string;
   businessType?: BusinessType;
+  /** SEC Standard Industrial Classification, when the profile was resolved from EDGAR. */
+  sic?: number;
+  sicDescription?: string;
   resolutionStatus?: "verified" | "partial" | "unresolved";
   resolutionNote?: string;
 }

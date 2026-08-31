@@ -68,8 +68,12 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     A long-term total whose current side is a filed zero is now complete on
  *     its own, which is what Adobe publishes and what its invested capital and
  *     ROIC were withheld for want of.
+ * v19: a dynamically resolved filer carries its official SEC SIC and therefore
+ *     receives a financial economic type before any industrial ROIC, FCFF or
+ *     enterprise-value measure is considered. Exact ticker matches are also
+ *     prioritised before the twelve-result search limit.
  */
-export const KEY_VERSION = "v18";
+export const KEY_VERSION = "v19";
 
 /**
  * Versions whose stored data may still be served while this one is being built.
@@ -92,6 +96,8 @@ export const KEY_VERSION = "v18";
  * broad current-debt concept at all, so it both withholds Adobe's borrowings
  * and, where a filer names one current balance twice, would have counted it
  * twice.
+ * v19 cannot serve v18 either: a dynamic bank cached by v18 is still labelled
+ * as an operating company and can expose industrial ratios that v19 withholds.
  * The cost is the familiar one: cards read
  * "Building financials…" until the warm-up has been round the watchlist.
  */
@@ -146,8 +152,11 @@ export function datasetKey(ticker: string) {
  * s6: the screener's price inputs carry the currency the statements are kept in
  *     and which share count they are on, so the columns finished in the browser
  *     refuse a quote in another currency instead of dividing across two.
+ * s7: the current period is the later of TTM and annual. A stale historical TTM
+ *     no longer wins merely because one exists, so cached cards and QS rows use
+ *     the same genuinely current period as the company page.
  */
-const SUMMARY_SHAPE = "s6";
+const SUMMARY_SHAPE = "s7";
 
 /**
  * The card-sized digest stored beside each dataset.

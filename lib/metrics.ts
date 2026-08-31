@@ -70,6 +70,7 @@ export const METRICS: Record<string, MetricDefinition> = {
   longTermDebtNoncurrent: { label: "Long-term debt · non-current", short: "Debt · non-current", color: "#FF647C", kind: "currency" },
   longTermDebtAndLeases: { label: "Long-term debt and leases", short: "LT debt + leases", color: "#FF647C", kind: "currency" },
   otherLongTermDebt: { label: "Other reported long-term debt", short: "Other LT debt", color: "#FF647C", kind: "currency" },
+  debtInstrumentCarryingAmount: { label: "Debt instrument carrying amount", short: "Debt carrying amount", color: "#FB7185", kind: "currency" },
   shortTermBorrowings: { label: "Short-term borrowings", short: "ST borrowings", color: "#FB7185", kind: "currency" },
   financeLeaseLiability: { label: "Finance lease liability", short: "Finance leases", color: "#F9737F", kind: "currency" },
   goodwill: { label: "Goodwill", short: "Goodwill", color: "#94A3B8", kind: "currency" },

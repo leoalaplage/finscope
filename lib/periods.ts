@@ -12,7 +12,7 @@ export const FLOW_METRICS: MetricKey[] = [
   "dilutedEpsReported",
 ];
 export const WEIGHTED_SHARE_METRICS: MetricKey[] = ["basicShares", "dilutedShares"];
-export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities", "totalEquity", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt", "shortTermBorrowings", "financeLeaseLiability", "totalLiabilities", "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable", "shortTermInvestments", "longTermInvestments", "retainedEarnings"];
+export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities", "totalEquity", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt", "debtInstrumentCarryingAmount", "shortTermBorrowings", "financeLeaseLiability", "totalLiabilities", "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable", "shortTermInvestments", "longTermInvestments", "retainedEarnings"];
 const SPLIT_ADJUSTED_METRICS: MetricKey[] = [...WEIGHTED_SHARE_METRICS, "sharesOutstanding", "sharesIssued", "treasuryShares"];
 /** Per-share amounts move the other way: a split divides them. */
 const SPLIT_DIVIDED_METRICS: MetricKey[] = ["dilutedEpsReported", "dividendsPerShare"];
@@ -156,7 +156,7 @@ function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", 
  * application shows a hole where it has no trustworthy value, so the hole is
  * what the reader gets.
  */
-const NEVER_NEGATIVE = new Set<MetricKey>(["revenue", "costOfRevenue", "basicShares", "dilutedShares", "sharesOutstanding", "totalEquity", "capitalExpenditures", "operatingCashFlow", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt", "shortTermBorrowings", "financeLeaseLiability", "totalLiabilities", "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable", "shortTermInvestments", "longTermInvestments", "researchAndDevelopment", "sellingGeneralAndAdministrative", "operatingExpenses"]);
+const NEVER_NEGATIVE = new Set<MetricKey>(["revenue", "costOfRevenue", "basicShares", "dilutedShares", "sharesOutstanding", "totalEquity", "capitalExpenditures", "operatingCashFlow", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt", "debtInstrumentCarryingAmount", "shortTermBorrowings", "financeLeaseLiability", "totalLiabilities", "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable", "shortTermInvestments", "longTermInvestments", "researchAndDevelopment", "sellingGeneralAndAdministrative", "operatingExpenses"]);
 function implausible(metric: MetricKey, value: number) {
   if (!Number.isFinite(value)) return true;
   if (WEIGHTED_SHARE_METRICS.includes(metric) || metric === "sharesOutstanding") return value <= 0;
@@ -476,7 +476,12 @@ export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: stri
     let anchor: RawFinancialFact | undefined;
     for (const metric of [...FLOW_METRICS, ...WEIGHTED_SHARE_METRICS]) {
       const raw = publishedAnnual(index, metric, fiscalYear);
-      if (raw) { annualFacts[metric] = normalized(raw, "annual"); if (metric === "revenue") anchor = raw; }
+      // Revenue remains the preferred anchor because it is normally the first
+      // full-year flow. A financial filer may publish no standardized revenue
+      // concept at all, however; net income or another reported annual flow is
+      // still sufficient to establish the exact fiscal window and attach its
+      // point-in-time balance sheet. Goldman Sachs is the real-world case.
+      if (raw) { annualFacts[metric] = normalized(raw, "annual"); anchor ??= raw; }
     }
     if (!anchor) return null;
     for (const metric of POINT_METRICS) {
@@ -502,26 +507,25 @@ export function normalizeQuarterlyPeriods(input: RawFinancialFact[], currency: s
   const periods: FinancialPeriod[] = [];
   for (const fiscalYear of years) {
     for (const quarter of ["Q1", "Q2", "Q3", "Q4"] as const) {
-      const revenue = quarterFact(index, "revenue", fiscalYear, quarter);
-      if (!revenue?.periodStart) continue;
-      const periodFacts: FinancialPeriod["facts"] = { revenue };
+      const periodFacts: FinancialPeriod["facts"] = {};
+      let anchor: NormalizedFact | undefined;
       for (const metric of [...FLOW_METRICS, ...WEIGHTED_SHARE_METRICS]) {
-        if (metric === "revenue") continue;
         const fact = quarterFact(index, metric, fiscalYear, quarter);
-        if (fact) periodFacts[metric] = fact;
+        if (fact) { periodFacts[metric] = fact; anchor ??= fact; }
       }
+      if (!anchor?.periodStart) continue;
       for (const metric of POINT_METRICS) {
-        const fact = instantFact(index, metric, fiscalYear, quarter, revenue.periodEnd);
+        const fact = instantFact(index, metric, fiscalYear, quarter, anchor.periodEnd);
         if (fact) periodFacts[metric] = fact;
       }
       if (periodFacts.shareRepurchases || periodFacts.shareIssuance) {
         periodFacts.netShareRepurchases = {
           metric: "netShareRepurchases", value: (periodFacts.shareRepurchases?.value ?? 0) - (periodFacts.shareIssuance?.value ?? 0),
-          currency, unit: "currency", periodStart: revenue.periodStart, periodEnd: revenue.periodEnd, periodicity: "quarterly", fiscalYear, fiscalQuarter: quarter,
-          provenance: { provider: "Calculated", sourceUrl: revenue.provenance.sourceUrl, retrievedAt: revenue.provenance.retrievedAt, concept: "NetShareRepurchases", status: "calculated", formula: "Gross repurchases − issuance proceeds", note: "Cash-flow measure, distinct from the change in shares outstanding." },
+          currency, unit: "currency", periodStart: anchor.periodStart, periodEnd: anchor.periodEnd, periodicity: "quarterly", fiscalYear, fiscalQuarter: quarter,
+          provenance: { provider: "Calculated", sourceUrl: anchor.provenance.sourceUrl, retrievedAt: anchor.provenance.retrievedAt, concept: "NetShareRepurchases", status: "calculated", formula: "Gross repurchases − issuance proceeds", note: "Cash-flow measure, distinct from the change in shares outstanding." },
         };
       }
-      periods.push({ label: `${quarter} FY${fiscalYear}`, fiscalYear, fiscalQuarter: quarter, periodStart: revenue.periodStart, periodEnd: revenue.periodEnd, periodicity: "quarterly", filingDate: revenue.provenance.filingDate ?? "", accession: revenue.provenance.accession ?? "", currency, durationDays: daysBetween(revenue.periodStart, revenue.periodEnd), facts: periodFacts });
+      periods.push({ label: `${quarter} FY${fiscalYear}`, fiscalYear, fiscalQuarter: quarter, periodStart: anchor.periodStart, periodEnd: anchor.periodEnd, periodicity: "quarterly", filingDate: anchor.provenance.filingDate ?? "", accession: anchor.provenance.accession ?? "", currency, durationDays: daysBetween(anchor.periodStart, anchor.periodEnd), facts: periodFacts });
     }
   }
   return periods.sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
@@ -563,7 +567,10 @@ export function buildTtmPeriods(quarters: FinancialPeriod[], currency: string) {
       facts[metric] = { metric, value, currency, unit: "shares", periodStart: window[0].periodStart, periodEnd: latestQuarter.periodEnd, periodicity: "ttm", fiscalYear: latestQuarter.fiscalYear, fiscalQuarter: latestQuarter.fiscalQuarter, provenance: { provider: "Calculated", sourceUrl: sourceFacts[3]!.provenance.sourceUrl, retrievedAt: sourceFacts[3]!.provenance.retrievedAt, concept: sourceFacts[3]!.provenance.concept, status: "calculated", formula: "Day-weighted average of four quarterly weighted-average share counts", note: `Weighted across ${totalDays} days.` } };
     }
     for (const metric of POINT_METRICS) if (latestQuarter.facts[metric]) facts[metric] = { ...latestQuarter.facts[metric]!, periodicity: "ttm" };
-    if (facts.shareRepurchases || facts.shareIssuance) facts.netShareRepurchases = { metric: "netShareRepurchases", value: (facts.shareRepurchases?.value ?? 0) - (facts.shareIssuance?.value ?? 0), currency, unit: "currency", periodStart: window[0].periodStart, periodEnd: latestQuarter.periodEnd, periodicity: "ttm", fiscalYear: latestQuarter.fiscalYear, fiscalQuarter: latestQuarter.fiscalQuarter, provenance: { provider: "Calculated", sourceUrl: latestQuarter.facts.revenue!.provenance.sourceUrl, retrievedAt: latestQuarter.facts.revenue!.provenance.retrievedAt, concept: "NetShareRepurchases", status: "calculated", formula: "TTM gross repurchases − TTM issuance proceeds" } };
+    if (facts.shareRepurchases || facts.shareIssuance) {
+      const source = facts.shareRepurchases ?? facts.shareIssuance!;
+      facts.netShareRepurchases = { metric: "netShareRepurchases", value: (facts.shareRepurchases?.value ?? 0) - (facts.shareIssuance?.value ?? 0), currency, unit: "currency", periodStart: window[0].periodStart, periodEnd: latestQuarter.periodEnd, periodicity: "ttm", fiscalYear: latestQuarter.fiscalYear, fiscalQuarter: latestQuarter.fiscalQuarter, provenance: { provider: "Calculated", sourceUrl: source.provenance.sourceUrl, retrievedAt: source.provenance.retrievedAt, concept: "NetShareRepurchases", status: "calculated", formula: "TTM gross repurchases − TTM issuance proceeds" } };
+    }
     periods.push({ label: `TTM ${latestQuarter.fiscalQuarter} FY${latestQuarter.fiscalYear}`, fiscalYear: latestQuarter.fiscalYear, fiscalQuarter: latestQuarter.fiscalQuarter, periodStart: window[0].periodStart, periodEnd: latestQuarter.periodEnd, periodicity: "ttm", filingDate: latestQuarter.filingDate, accession: latestQuarter.accession, currency, durationDays: window.reduce((sum, period) => sum + (period.durationDays ?? 0), 0), ttmQuarterEnds: window.map((period) => period.periodEnd), facts });
   }
   return periods;

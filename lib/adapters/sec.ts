@@ -2,7 +2,7 @@ import { z } from "zod";
 import { COMPANIES } from "../company-registry";
 import { adjustPeriodsForSplits, buildTtmPeriods, isAnnualForm, normalizeAnnualPeriods, normalizeQuarterlyPeriods } from "../periods";
 import { validateCompanyDataset } from "../data-quality";
-import { classifyBusiness, verifiedBusinessType } from "../business-type";
+import { businessTypeFromSic, classifyBusiness, verifiedBusinessType } from "../business-type";
 import type { BusinessType, CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "../types";
 
 const SecUnitSchema = z.object({
@@ -24,7 +24,10 @@ type ConceptSpec = {
 };
 
 export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepurchases">, ConceptSpec> = {
-  revenue: { namespace: "us-gaap", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "Revenues", "SalesRevenueNet"], unit: "currency" },
+  // Financial institutions commonly state the top line net of interest expense
+  // rather than under generic Revenues. It is a fallback only: an industrial
+  // filer's contract/total revenue concepts retain their existing preference.
+  revenue: { namespace: "us-gaap", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "Revenues", "SalesRevenueNet", "RevenuesNetOfInterestExpense"], unit: "currency" },
   grossProfit: { namespace: "us-gaap", tags: ["GrossProfit"], unit: "currency" },
   costOfRevenue: { namespace: "us-gaap", tags: ["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSold"], unit: "currency" },
   operatingIncome: { namespace: "us-gaap", tags: ["OperatingIncomeLoss"], unit: "currency" },
@@ -88,6 +91,11 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   longTermDebtNoncurrent: { namespace: "us-gaap", tags: ["LongTermDebtNoncurrent"], unit: "currency" },
   longTermDebtAndLeases: { namespace: "us-gaap", tags: ["LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent", "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"], unit: "currency" },
   otherLongTermDebt: { namespace: "us-gaap", tags: ["LongTermDebt", "ConvertibleLongTermNotesPayable", "UnsecuredLongTermDebt", "NotesPayable"], unit: "currency" },
+  // A validation anchor, not a total-debt fallback. Its gross amount can prove
+  // whether a filer's ambiguous `LongTermDebt` line is non-current: when gross
+  // debt agrees with LongTermDebt + current debt, but not with LongTermDebt on
+  // its own, the two balance-sheet lines are demonstrably non-overlapping.
+  debtInstrumentCarryingAmount: { namespace: "us-gaap", tags: ["DebtInstrumentCarryingAmount"], unit: "currency" },
   // Borrowing that is not the current maturity of long-term debt: commercial
   // paper, bank lines, overdrafts. Genuinely additive to a long-term balance,
   // which is what makes JPMorgan's 64.8bn belong beside its 435.2bn.
@@ -244,7 +252,39 @@ function combinedDebtFact(parts: NormalizedFact[], formula: string, note: string
   };
 }
 
+type AmbiguousLongTermRole = "noncurrent" | "includes-current";
+
+/**
+ * `LongTermDebt` is used inconsistently in real filings: NVIDIA uses it for an
+ * all-in long-term total, while Adobe uses it for the non-current balance-sheet
+ * line. Guessing the role either double-counts one filer or drops current debt
+ * for the other.
+ *
+ * `DebtInstrumentCarryingAmount` provides independent evidence. Gross and net
+ * debt can differ slightly through discounts and issuance costs; within 3% is
+ * accepted as a reconciliation, and one interpretation must beat the other by
+ * at least 2 percentage points. Conflicting or weak evidence yields no role and
+ * preserves fail-closed behavior.
+ */
+function ambiguousLongTermRole(periods: FinancialPeriod[]): AmbiguousLongTermRole | null {
+  const votes: AmbiguousLongTermRole[] = [];
+  for (const period of periods) {
+    const current = period.facts.longTermDebtCurrent?.value;
+    const longTerm = period.facts.otherLongTermDebt?.value;
+    const gross = period.facts.debtInstrumentCarryingAmount?.value;
+    if (current == null || current <= 0 || longTerm == null || longTerm <= 0 || gross == null || gross <= 0) continue;
+    const scale = Math.max(Math.abs(gross), 1);
+    const standaloneDistance = Math.abs(gross - longTerm) / scale;
+    const summedDistance = Math.abs(gross - (longTerm + current)) / scale;
+    if (summedDistance <= .03 && standaloneDistance - summedDistance >= .02) votes.push("noncurrent");
+    else if (standaloneDistance <= .03 && summedDistance - standaloneDistance >= .02) votes.push("includes-current");
+  }
+  if (!votes.length) return null;
+  return votes.every((vote) => vote === votes[0]) ? votes[0] : null;
+}
+
 function combineDebtComponents(periods: FinancialPeriod[], businessType: BusinessType | undefined): FinancialPeriod[] {
+  const longTermRole = ambiguousLongTermRole(periods);
   return periods.map((period) => {
     if (period.facts.totalDebt?.value != null) return period;
     const current = period.facts.longTermDebtCurrent;
@@ -274,6 +314,15 @@ function combineDebtComponents(periods: FinancialPeriod[], businessType: Busines
       // Banks explicitly publish short-term borrowings alongside this
       // aggregate. Their absence cannot be read as a filed zero.
       else if (businessType === "bank") return period;
+    } else if (otherLongTerm?.value != null && current?.value != null && longTermRole === "noncurrent") {
+      // The independent gross carrying amount proves that this filer's
+      // ambiguous LongTermDebt concept is its non-current balance-sheet line.
+      // Adobe's Q1 reconciliation establishes the role for its later quarter:
+      // 4.802bn non-current + 1.843bn current = 6.645bn total debt.
+      parts = [otherLongTerm, current];
+      formula = "Reported non-current long-term debt + Current debt, role validated against gross debt carrying amount";
+      const currentIsBroad = current.provenance.concept === "us-gaap:DebtCurrent";
+      if (shortTerm?.value != null && !currentIsBroad) { parts.push(shortTerm); formula += " + Short-term borrowings"; }
     } else if (otherLongTerm?.value != null && shortTerm?.value != null) {
       // LongTermDebt and UnsecuredLongTermDebt explicitly exclude short-term
       // borrowing. They only become a total when the matching short-term line
@@ -482,6 +531,8 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
   const annual = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.annual, reconciled.ratesSeen), company.stockSplits);
   const quarterly = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.quarterly, reconciled.ratesSeen), company.stockSplits);
   const ttm = buildTtmPeriods(quarterly, company.currency);
+  const identityKey = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const payloadIdentityMismatch = identityKey(parsed.entityName) !== identityKey(company.name);
 
   /*
    * A company with nothing in it is a failure, not an answer.
@@ -501,8 +552,14 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
   }
 
   return validateCompanyDataset({
-    company: { ...company, name: parsed.entityName }, periods: [...annual, ...quarterly, ...ttm], retrievedAt,
+    // The ticker registry binds ticker to CIK and is the identity authority.
+    // Company Facts occasionally carries a subsidiary-like display name for
+    // that same CIK (BAC currently says "BofA Finance LLC"). Retain the exact
+    // registry/profile identity and surface the disagreement instead of
+    // relabelling the requested stock.
+    company, periods: [...annual, ...quarterly, ...ttm], retrievedAt,
     warnings: [
+      ...(payloadIdentityMismatch ? [`SEC identity mismatch: the ticker registry identifies ${company.name}, while Company Facts labels the payload ${parsed.entityName}. FinScope retains the ticker-to-CIK registry identity.`] : []),
       "Quarterly cash-flow facts may be isolated from year-to-date disclosures; every derived quarter is marked calculated with its source accessions.",
       ttm.length ? `TTM is available through ${ttm.at(-1)!.periodEnd} from four consecutive fiscal quarters.`
         : quarterly.length ? "TTM unavailable: four consecutive reliable quarters were not found."
@@ -536,15 +593,46 @@ export async function searchSecCompanies(query: string) {
   const response = await fetch("https://www.sec.gov/files/company_tickers.json", { headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" }, next: { revalidate: 86_400 } });
   if (!response.ok) throw new Error(`SEC company registry returned ${response.status}.`);
   const entries = Object.values(await response.json() as Record<string, SecTickerEntry>); const needle = query.trim().toUpperCase();
-  return entries.filter((entry) => entry.ticker.includes(needle) || entry.title.toUpperCase().includes(needle)).slice(0, 12).map((entry) => {
+  // The registry is CIK-ordered. Prioritise an exact symbol before applying the
+  // display limit, otherwise a one-letter ticker can disappear behind twelve
+  // unrelated company names that happen to contain the same letter.
+  return entries.filter((entry) => entry.ticker.includes(needle) || entry.title.toUpperCase().includes(needle))
+    .sort((left, right) => Number(right.ticker === needle) - Number(left.ticker === needle))
+    .slice(0, 12).map((entry) => {
     const cik = String(entry.cik_str).padStart(10, "0");
     return { name: entry.title, ticker: entry.ticker, cik, regulatoryId: `CIK ${cik}`, exchange: "US listing", currency: "USD", yahooTicker: entry.ticker, sector: "Unclassified", description: "Dynamically resolved from the SEC company registry.", resolutionStatus: "partial" as const, resolutionNote: "The CIK is verified by the SEC. The exchange listing and the split history are not, so long per-share price series for this company are unadjusted.", businessType: verifiedBusinessType(cik) ?? "operating" };
   });
 }
+
+const SecBusinessMetadataSchema = z.object({
+  sic: z.union([z.string(), z.number()]),
+  sicDescription: z.string().optional(),
+});
+
+async function resolveSecBusinessMetadata(cik: string) {
+  const response = await fetch(`https://data.sec.gov/submissions/CIK${cik.padStart(10, "0")}.json`, {
+    headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com", Accept: "application/json" },
+    next: { revalidate: 86_400 },
+  });
+  if (!response.ok) throw new Error(`SEC company classification returned ${response.status}.`);
+  const parsed = SecBusinessMetadataSchema.parse(await response.json());
+  const sic = typeof parsed.sic === "string" ? Number.parseInt(parsed.sic, 10) : parsed.sic;
+  if (!Number.isInteger(sic)) throw new Error("The SEC company classification did not contain a valid SIC code.");
+  return { sic, sicDescription: parsed.sicDescription };
+}
+
 async function resolveSecCompany(ticker: string) {
   const results = await searchSecCompanies(ticker); const exact = results.find((entry) => entry.ticker === ticker.toUpperCase());
   if (!exact) throw new Error("Ticker could not be resolved uniquely in the SEC registry.");
-  return exact;
+  // Identity is not enough: defaulting a dynamic ticker to `operating` exposes
+  // industrial ROIC and FCFF for a bank or insurer. Classification failure is
+  // therefore a load failure, not permission to guess the economic model.
+  const metadata = await resolveSecBusinessMetadata(exact.cik);
+  const businessType = verifiedBusinessType(exact.cik) ?? businessTypeFromSic(metadata.sic) ?? "operating";
+  return {
+    ...exact, ...metadata, businessType,
+    resolutionNote: `${exact.resolutionNote} Economic model classified from SEC SIC ${metadata.sic}${metadata.sicDescription ? ` (${metadata.sicDescription})` : ""}.`,
+  };
 }
 
 const SubmissionsSchema = z.object({
