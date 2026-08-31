@@ -15,6 +15,7 @@ import { alignMixedSeries, frequencyLabel, frequencyOptions, fundamentalObservat
 import { CHART_METRIC_GROUPS as METRIC_GROUPS, METRICS, VALUATION_METRICS } from "@/lib/metrics";
 import { analyzeVisibleSeries } from "@/lib/series-analysis";
 import type { CompanyDataset, MarketBar, PricePoint, SeriesFrequency, SeriesObservation } from "@/lib/types";
+import { marketBasis } from "@/lib/market-basis";
 
 const DEFAULT_METRICS = ["stockPrice", "freeCashFlowPerShare"];
 const STORAGE_KEY = "finscope.chartWorkspace.v3";
@@ -37,10 +38,11 @@ function valuationObservations(dataset: CompanyDataset, metric: string, frequenc
     .sort((left, right) => left.periodEnd.localeCompare(right.periodEnd))
     .flatMap((period) => {
       const point = prices[`${dataset.company.ticker}|${period.periodEnd}`];
-      const close = point?.priceClose ?? point?.close ?? null;
-      const shares = derivedValue(period, "sharesOutstanding") ?? derivedValue(period, "dilutedShares");
-      if (close == null || shares == null) return [];
-      const marketCap = close * shares;
+      // The same basis the rest of the application prices on: no conversion, so
+      // a quote in another currency draws nothing rather than a plausible line.
+      const basis = point ? marketBasis(period, point).basis : null;
+      if (!basis) return [];
+      const marketCap = basis.marketCap;
       const positive = (value: number | null) => value != null && value > 0 ? value : null;
       const denominator = metric === "priceToEarnings" ? positive(derivedValue(period, "netIncome"))
         : metric === "priceToSales" ? positive(derivedValue(period, "revenue"))

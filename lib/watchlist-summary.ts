@@ -1,6 +1,7 @@
 import { cagrForPeriods, derivedValue } from "./finance";
 import { qsPriceInputs, qsRow, type QsPriceInputs } from "./qs-export";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod } from "./types";
+import { shareCount } from "./market-basis";
 
 /**
  * The few figures a watchlist card shows, and nothing else.
@@ -115,7 +116,7 @@ export function summariseDataset(dataset: CompanyDataset): WatchlistSummary | nu
     businessType: dataset.company.businessType,
     periodEnd: period.periodEnd,
     periodLabel: period.label,
-    shares: derivedValue(period, "sharesOutstanding") ?? derivedValue(period, "dilutedShares"),
+    shares: shareCount(period)?.shares ?? null,
     revenue: derivedValue(period, "revenue"),
     revenueGrowth: thisYear != null && lastYear != null && lastYear > 0 ? thisYear / lastYear - 1 : null,
     freeCashFlow: derivedValue(period, "freeCashFlow"),

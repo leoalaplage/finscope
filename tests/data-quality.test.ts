@@ -50,8 +50,10 @@ describe("a filer that is not American", () => {
     expect(annual[0].facts.revenue?.value).toBe(32_700_000_000);
     expect(annual[0].facts.revenue?.currency).toBe("EUR");
     // Stated, never converted: a price in one currency over a filed amount in
-    // another is wrong in a way that looks entirely plausible.
-    expect(dataset.warnings.some((warning) => warning.includes("mixes two currencies"))).toBe(true);
+    // another is wrong in a way that looks entirely plausible. The warning now
+    // describes a refusal rather than a caution — see fail-closed.test.ts for
+    // the figures it withholds.
+    expect(dataset.warnings.some((warning) => warning.includes("withheld rather than computed across two currencies"))).toBe(true);
   });
 
   it("is not fooled by a handful of foreign-currency amounts", () => {

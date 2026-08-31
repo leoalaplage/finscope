@@ -51,9 +51,53 @@ export const FORMULAS = {
   enterpriseToGrossProfit: "Enterprise value / Gross profit",
 } as const;
 
+/**
+ * Division that refuses anything it cannot state as a number.
+ *
+ * A null, a zero denominator, and — since the capital-intensity ratio was found
+ * publishing `NaN` for a filer that tags no capital expenditure — anything that
+ * is not finite on either side or in the result. An infinity or a NaN reaching
+ * a formatter becomes an em dash on the page, which reads exactly like a fact
+ * the filer never reported. It is not: it is arithmetic we should not have run.
+ */
 export function safeDivide(numerator: number | null | undefined, denominator: number | null | undefined) {
-  if (numerator == null || denominator == null || denominator === 0) return null;
-  return numerator / denominator;
+  if (numerator == null || denominator == null || !Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0) return null;
+  const value = numerator / denominator;
+  return Number.isFinite(value) ? value : null;
+}
+
+/**
+ * A ratio whose denominator has to be positive before the ratio means anything.
+ *
+ * Return on equity and debt to equity are arithmetically defined over a
+ * negative equity base and describe nothing there. Booking Financial has bought
+ * back more stock than it has retained earnings, so its equity is minus four
+ * billion, and the panel stated a return on equity of −96.9% and a debt-to-equity
+ * of −3.36× as though they were facts about the business. A company financed
+ * below zero is not one that earns a negative return on its owners' capital; it
+ * is one the measure cannot describe.
+ */
+export function divideByPositive(numerator: number | null | undefined, denominator: number | null | undefined) {
+  if (denominator == null || denominator <= 0) return null;
+  return safeDivide(numerator, denominator);
+}
+
+/**
+ * Net debt, or nothing.
+ *
+ * Both balances are required. The previous form read `(debt ?? 0) − cash`,
+ * which turned "this filer tags no debt concept we map" into "this company has
+ * no debt" — and the difference between those two statements is the whole
+ * point of the application. JPMorgan came out at minus 343bn of net debt, a
+ * bank stated as though it were sitting on a third of a trillion in net cash,
+ * while its own annual report carries at least 500bn of borrowings this
+ * adapter does not yet read. An absent fact is unknown; only a filed zero is
+ * zero.
+ */
+export function netDebt(period: FinancialPeriod): number | null {
+  const debt = valueOf(period, "totalDebt"); const cash = valueOf(period, "cashAndEquivalents");
+  if (debt == null || cash == null) return null;
+  return debt - cash;
 }
 
 export function freeCashFlow(operatingCashFlow: number | null, capex: number | null) {
@@ -144,25 +188,43 @@ export function valueOf(period: FinancialPeriod, key: MetricKey) {
 /**
  * The financing view of invested capital: what the providers of capital put in,
  * net of the cash the business is not using. Preferred over the operating view
- * because the SEC data carries equity and debt reliably, while a full operating
- * build-up would need fixed assets and intangibles that several filers omit.
+ * because a full operating build-up would need fixed assets and intangibles
+ * that several filers omit.
+ *
+ * All three balances are required. Treating an unmapped debt concept as zero
+ * understates the capital base, and understating the denominator of a return
+ * overstates the return — which is how a company with 90bn of borrowings once
+ * showed a 247% return on invested capital. A missing balance is unknown, and
+ * unknown capital earns an unknown return.
  */
 export function investedCapital(period: FinancialPeriod): number | null {
-  const debt = valueOf(period, "totalDebt"); const equity = valueOf(period, "totalEquity");
-  if (equity == null) return null;
-  const capital = (debt ?? 0) + equity - (valueOf(period, "cashAndEquivalents") ?? 0);
+  const debt = valueOf(period, "totalDebt"); const equity = valueOf(period, "totalEquity"); const cash = valueOf(period, "cashAndEquivalents");
+  if (debt == null || equity == null || cash == null) return null;
+  const capital = debt + equity - cash;
   return capital > 0 ? capital : null;
 }
 
-/** Operating profit after the tax the company actually paid on it. */
-export function nopat(period: FinancialPeriod): number | null {
+/**
+ * Operating profit after the tax the company actually paid on it — and whether
+ * that rate is the company's or ours.
+ *
+ * When the reported rate is unusable the statutory 21% stands in, and that is
+ * an assumption, not a filed figure. It travels with the value here so a caller
+ * can say so on the page instead of presenting an assumed rate as a reading.
+ */
+export function nopatBasis(period: FinancialPeriod): { value: number | null; assumedTaxRate: boolean; rate: number | null } {
   const operating = valueOf(period, "operatingIncome");
-  if (operating == null) return null;
+  if (operating == null) return { value: null, assumedTaxRate: false, rate: null };
   const pretax = valueOf(period, "incomeBeforeTax"); const tax = valueOf(period, "incomeTaxExpense");
   const rate = pretax != null && tax != null && pretax > 0 ? tax / pretax : null;
   // A rate outside nought to sixty percent is a one-off, not a run rate.
-  const effective = rate != null && rate >= 0 && rate <= .6 ? rate : .21;
-  return operating * (1 - effective);
+  const reported = rate != null && rate >= 0 && rate <= .6 ? rate : null;
+  const effective = reported ?? .21;
+  return { value: operating * (1 - effective), assumedTaxRate: reported == null, rate: effective };
+}
+
+export function nopat(period: FinancialPeriod): number | null {
+  return nopatBasis(period).value;
 }
 
 /**
@@ -206,6 +268,10 @@ export function capitalEmployed(period: FinancialPeriod): number | null {
 export function derivedValue(period: FinancialPeriod, key: string): number | null {
   const revenue = valueOf(period, "revenue");
   const diluted = valueOf(period, "dilutedShares");
+  const capex = valueOf(period, "capitalExpenditures");
+  const cash = valueOf(period, "cashAndEquivalents");
+  const currentAssets = valueOf(period, "currentAssets");
+  const currentLiabilities = valueOf(period, "currentLiabilities");
   const compatibleCurrencyFacts = (keys: MetricKey[]) => keys.map((metric) => period.facts[metric]).every((fact) => fact?.unit === "currency" && fact.currency === period.currency && fact.periodEnd === period.periodEnd);
   const compatibleShares = period.facts.dilutedShares?.unit === "shares" && period.facts.dilutedShares.currency === period.currency && period.facts.dilutedShares.periodEnd === period.periodEnd;
   const fcf = compatibleCurrencyFacts(["operatingCashFlow","capitalExpenditures"]) ? freeCashFlow(valueOf(period, "operatingCashFlow"), valueOf(period, "capitalExpenditures")) : null;
@@ -279,9 +345,12 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     // assumption. Free cash flow carries none: it is what the business
     // actually produced after paying for its own maintenance.
     cashReturnOnCapital: safeDivide(fcf, investedCapital(period)),
-    capitalIntensity: revenue ? safeDivide(Math.abs(valueOf(period, "capitalExpenditures") ?? Number.NaN), revenue) : null,
-    netDebt: valueOf(period, "totalDebt") == null && valueOf(period, "cashAndEquivalents") == null ? null : (valueOf(period, "totalDebt") ?? 0) - (valueOf(period, "cashAndEquivalents") ?? 0),
-    netWorkingCapital: valueOf(period, "currentAssets") == null || valueOf(period, "currentLiabilities") == null ? null : valueOf(period, "currentAssets")! - valueOf(period, "currentLiabilities")! - (valueOf(period, "cashAndEquivalents") ?? 0),
+    capitalIntensity: capex == null ? null : safeDivide(Math.abs(capex), revenue),
+    netDebt: netDebt(period),
+    // Working capital excluding cash needs the cash balance as much as it needs
+    // the two current totals; without it the figure is a different measure
+    // wearing this one's label.
+    netWorkingCapital: currentAssets == null || currentLiabilities == null || cash == null ? null : currentAssets - currentLiabilities - cash,
     ebitda: ebitda(period),
     ebitdaMargin: margin(ebitda(period), revenue),
     pretaxMargin: margin(valueOf(period, "incomeBeforeTax"), revenue),
@@ -291,15 +360,17 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     // opening and closing balances. The average is marginally more correct for
     // a year of heavy issuance, but it needs a prior balance sheet, and mixing
     // the two conventions across companies would be worse than either.
-    returnOnEquity: safeDivide(valueOf(period, "netIncome"), valueOf(period, "totalEquity")),
+    returnOnEquity: divideByPositive(valueOf(period, "netIncome"), valueOf(period, "totalEquity")),
     returnOnAssets: safeDivide(valueOf(period, "netIncome"), valueOf(period, "totalAssets")),
     returnOnTangibleAssets: safeDivide(valueOf(period, "netIncome"), tangibleAssets(period)),
     returnOnCapitalEmployed: safeDivide(valueOf(period, "operatingIncome"), capitalEmployed(period)),
-    debtToEquity: safeDivide(valueOf(period, "totalDebt"), valueOf(period, "totalEquity")),
+    debtToEquity: divideByPositive(valueOf(period, "totalDebt"), valueOf(period, "totalEquity")),
     // A company with no interest expense is not infinitely covered, it is
     // simply unlevered. Dividing by zero would print ∞, so it stays unavailable.
     interestCoverage: safeDivide(valueOf(period, "operatingIncome"), valueOf(period, "interestExpense")),
-    dividendPayout: safeDivide(valueOf(period, "dividendsPaid"), valueOf(period, "netIncome")),
+    // A share of a loss is not a payout ratio: a company distributing cash in a
+    // year it lost money has a payout its earnings cannot describe.
+    dividendPayout: divideByPositive(valueOf(period, "dividendsPaid"), valueOf(period, "netIncome")),
   };
   return map[key] ?? valueOf(period, key as MetricKey);
 }

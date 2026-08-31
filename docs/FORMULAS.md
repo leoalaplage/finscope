@@ -2,6 +2,8 @@
 
 Every formula is implemented in `lib/finance.ts` and named in the `FORMULAS` map, so the string a reader sees in the provenance drawer is the same one the code evaluates. A missing or invalid input returns `null` and displays as unavailable — never as zero, and never as an estimate.
 
+**Fail closed.** A figure that needs a balance, a share count or a price is withheld the moment one of them is missing or incompatible, and the screen says which. An absent fact is unknown, not zero: reading an untagged debt concept as no debt put JPMorgan at 343bn of net *cash* and, by understating the capital base, once put Apple's return on invested capital at 247%. Only a filed zero is zero. The one place an assumption is still applied is NOPAT's tax rate, and it is labelled as one wherever it appears.
+
 ## Margins and cash flow
 
 | Metric | Formula | Rule |
@@ -22,12 +24,12 @@ Every formula is implemented in `lib/finance.ts` and named in the `FORMULAS` map
 | Metric | Formula | Rule |
 |---|---|---|
 | **EBITDA** | Operating income + Depreciation and amortization | Built up from operating income rather than down from net income, so it never picks up financing or one-off items. |
-| **Invested capital** | Total debt + Total equity − Cash and equivalents | The *financing* view. The operating build-up would need fixed assets and intangibles that several filers omit; equity and debt are carried reliably. |
-| **NOPAT** | Operating income × (1 − Effective tax rate) | Effective rate from income tax expense over pre-tax income. |
+| **Invested capital** | Total debt + Total equity − Cash and equivalents | The *financing* view; the operating build-up would need fixed assets and intangibles that several filers omit. **All three balances are required.** A filer whose borrowings this adapter does not read — a bank, a broker, or a company with genuinely none — has no invested capital and therefore no ROIC and no cash return on capital, rather than a return flattered by a capital base missing its debt. |
+| **NOPAT** | Operating income × (1 − Effective tax rate) | Effective rate from income tax expense over pre-tax income. Where that rate is missing, negative or above 60% — a loss-making year, or one settled at an unusual rate — the statutory 21% stands in, and the rows built on it carry "assumed 21%" in their stated formula. It is the only assumption in this document. |
 | **ROIC** | NOPAT / Invested capital | |
 | **Cash RoC** | Free cash flow / Invested capital | The same question as ROIC asked of cash. NOPAT applies an effective tax rate and falls back to an assumed 21% when the reported one is unusable, so ROIC always carries one assumption; free cash flow carries none. Reported current *and* against its own five-year average, because a return below its own recent mean is the first thing to notice about a compounder. |
 | **Incremental ROIC** | Δ NOPAT over the window / Δ Invested capital over the window | What the *marginal* capital earned, which is what a compounder is judged on. |
-| **ROE** | Net income / Total equity | |
+| **ROE** | Net income / Total equity | Requires equity above zero. A company that has bought back more stock than it has retained earnings is financed below zero, and a return on a negative base describes nothing: Booking's −96.9% ROE and −3.36× debt-to-equity were arithmetic, not facts about the business. Debt/equity and price-to-book follow the same rule. |
 | **ROA** | Net income / Total assets | |
 | **ROTA** | Net income / (Total assets − Goodwill − Acquired intangibles) | Unavailable when the filer tags neither goodwill nor intangibles: that is not a statement that it owns none, and reporting total assets under a tangible label would publish ROA twice under two names. Apple stopped tagging goodwill in 2017. |
 | **ROCE** | Operating income / (Total assets − Current liabilities) | |
@@ -93,10 +95,13 @@ Every ribbon is a filed figure or a subtraction from one. Where a filing does no
 
 ## Valuation
 
+Every priced figure is built by one function, `marketBasis` in `lib/market-basis.ts`, so the company header, the statistics panel, the ranking table, the screener and the valuation history cannot disagree about what a market capitalisation is.
+
 | Metric | Formula | Rule |
 |---|---|---|
-| Market capitalization | Matched stock close × diluted shares | Price date and fiscal end must match by the price-selection rule. |
-| P/S, P/E, P/OCF, P/FCF | Market capitalization / matching flow | Never combines current price with historical flow data. |
+| Market capitalization | Matched stock close × period-end shares outstanding | Price date and fiscal end must match by the price-selection rule. **The price must be quoted in the currency the statements are filed in**; nothing is converted, so for a filer reporting in another currency the market capitalisation and every multiple built on it are withheld with that reason stated. Where the filer publishes no period-end count — a multi-class filer tags each class separately and only undimensioned facts reach us — the diluted weighted average stands in and the substitution is stated on the figure, never silent. |
+| Enterprise value | Market capitalization + Net debt | Requires **both** a debt and a cash balance. Without one there is no enterprise value and no EV multiple, rather than an EV computed against an assumed zero. |
+| P/S, P/E, P/OCF, P/FCF | Market capitalization / matching flow | Never combines current price with historical flow data. A multiple needs a positive denominator everywhere it is shown: a price over a loss is not a cheap company, and the same rule now governs Latest figures, Statistics, Charts and the valuation history alike. |
 | **Reverse DCF entry price** | FCF/share × (1 + g)^n ÷ exit yield ÷ (1 + desired return)^n | Four assumptions, no cost of capital: the desired return *is* the discount rate. The exit yield and its reciprocal multiple are the same assumption. |
 | FCF yield | Free cash flow / Market capitalization | Same matched price period. |
 | Buyback yield | Gross repurchase cash flow / Market capitalization | Separate from effective share-count change. |
@@ -134,6 +139,7 @@ The SEC lets a filer tag the same economic fact several ways. Preference order i
 |---|---|---|
 | Net income | `NetIncomeLoss`, `NetIncomeLossAvailableToCommonStockholdersBasic`, `ProfitLoss` | `ProfitLoss` is consolidated income *including* non-controlling interests. Interactive Brokers tags no `NetIncomeLoss` at all — the public company owns a small slice of the group — so falling straight through to `ProfitLoss` overstated its earnings by 4.5×. |
 | Capital expenditures | `PaymentsToAcquirePropertyPlantAndEquipment`, `PaymentsToAcquireProductiveAssets`, `PaymentsForProceedsFromProductiveAssets`, `PaymentsForSoftware` | Software-first filers capitalize development rather than property. Without the fallbacks IBKR had no capex at all, Veeva stopped in 2020 and Cboe covered 12 years instead of 17. |
+| Shares outstanding | `us-gaap:CommonStockSharesOutstanding`, then `dei:EntityCommonStockSharesOutstanding` | The first is the balance-sheet parenthetical, dated at the period end. The second is the cover page, dated when the report was filed — Apple's is 17 October against a 27 September year end — so it is discarded by the period-end anchoring and cannot be the primary source. Reading only the cover page left six of seven audited companies with no share count at all. |
 | Total debt | `LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent`, else **current portion + non-current portion, summed** | The current and non-current portions are two halves of one balance, not alternatives. Choosing between them reported Apple's borrowings as 12.4bn instead of 90.7bn, which turned its net debt into net cash and its ROIC into 247%. |
 | Diluted shares | `WeightedAverageNumberOfDilutedSharesOutstanding`, `WeightedAverageNumberOfShareOutstandingBasicAndDiluted`, then **Net income / Diluted EPS**, then **Dividends paid / Dividends per share** | Two recoveries, in that order, for filers that tag a share count per class and never in total. The earnings recovery is exact by definition and wins. The dividend recovery is the last resort for Visa, which tags no combined share count *and* no diluted EPS — every per-share metric for it was unavailable. It lands within a third of a percent of the count Visa states in its own filings. |
 

@@ -8,7 +8,7 @@ const summary = (ticker: string, over: Partial<WatchlistSummary> = {}): Watchlis
   shares: 100, revenue: 1_000, revenueGrowth: .1, freeCashFlow: 200, freeCashFlowMargin: .2,
   cashReturnOnCapital: .3, netDebt: 50,
   freeCashFlowAfterSbcMargin5Y: .18, cashReturnOnCapital5Y: .28, freeCashFlowPerShareCagr5Y: .12,
-  qs: {}, qsPrice: { shares: 100, netDebt: 50, operatingIncome: 300, freeCashFlow: 200 },
+  qs: {}, qsPrice: { shares: 100, sharesBasis: "outstanding" as const, currency: "USD", netDebt: 50, operatingIncome: 300, freeCashFlow: 200 },
   ...over,
 });
 

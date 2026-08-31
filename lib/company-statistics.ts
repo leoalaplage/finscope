@@ -1,4 +1,5 @@
-import { cagrForPeriods, derivedValue, safeDivide, valueOf } from "./finance";
+import { cagrForPeriods, derivedValue, nopatBasis, safeDivide } from "./finance";
+import { marketBasis, shareCount } from "./market-basis";
 import { METRICS } from "./metrics";
 import type { CompanyDataset, FinancialPeriod, PricePoint } from "./types";
 
@@ -89,24 +90,50 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
   const financial = dataset.company.businessType === "financial";
   /** The value, unless free cash flow is meaningless for this filer. */
   const cash = (value: number | null) => financial ? null : value;
+  /*
+   * ...and the reason that goes with it, only where it is the reason.
+   *
+   * The withheld-for-a-bank sentence used to sit on these rows unconditionally,
+   * so an operating company missing an input met "Not meaningful at a financial
+   * institution" — a true sentence about somebody else, which reads as a
+   * misclassification of the company being looked at.
+   */
+  const cashReason = financial ? FINANCIAL_CASH_FLOW : undefined;
   const annual = ordered(dataset, "annual");
   const ttmPeriods = ordered(dataset, "ttm");
   // TTM is the right base for a flow when four clean quarters exist; the last
   // reported year is the honest fallback rather than an annualised quarter.
   const current = ttmPeriods.at(-1) ?? annual.at(-1) ?? null;
-  const close = price ? price.priceClose ?? price.close : null;
+
+  /*
+   * Every priced figure in this panel comes from one basis, or from none.
+   *
+   * The basis refuses a price quoted in a currency the statements are not kept
+   * in, and refuses to read an unreported debt balance as zero. When it refuses,
+   * market cap, enterprise value, all six multiples and the dividend yield are
+   * unavailable together and carry the same reason — rather than one of them
+   * quietly using a dollar price against a euro profit while the row beside it
+   * says the price is missing.
+   */
+  const priced = current ? marketBasis(current, price) : { basis: null, reason: "No reported period to price" as string | undefined };
+  const basis = priced.basis;
+  const close = basis?.price ?? null;
 
   const flow = (metric: string) => current ? derivedValue(current, metric) : null;
-  const shares = current ? valueOf(current, "sharesOutstanding") ?? valueOf(current, "dilutedShares") : null;
-  const marketCap = close != null && shares != null ? close * shares : null;
+  const counted = current ? shareCount(current) : null;
+  const shares = counted?.shares ?? null;
+  const marketCap = basis?.marketCap ?? null;
   const netDebt = flow("netDebt");
-  const enterpriseValue = marketCap != null && netDebt != null ? marketCap + netDebt : null;
+  const enterpriseValue = basis?.enterpriseValue ?? null;
 
   /** A multiple is only meaningful over a positive denominator. */
   const over = (numerator: number | null, denominator: number | null) =>
     numerator == null || denominator == null || denominator <= 0 ? null : numerator / denominator;
 
-  const noPrice = close == null ? "No matched market price" : undefined;
+  const noPrice = priced.reason;
+  /** Why there is no enterprise value: no price, or no readable debt balance. */
+  const noEnterpriseValue = noPrice ?? basis?.enterpriseValueReason;
+  const netDebtReason = "The filing tags no debt or no cash balance; an absent balance is not a zero one";
   /*
    * A missing value always says something, even when nothing specific is known.
    *
@@ -117,8 +144,20 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
    * fallback is deliberately about the filings rather than about us, because
    * that is where the gap is; a specific reason always wins.
    */
-  const stat = (key: string, label: string, value: number | null, format: StatFormat, polarity: 1 | -1 | 0, reason?: string): Stat =>
-    ({ key, label, value, format, polarity, formula: METRICS[key]?.formula, reason: value == null ? reason ?? "Not reported in the filings for this period" : undefined });
+  const stat = (key: string, label: string, value: number | null, format: StatFormat, polarity: 1 | -1 | 0, reason?: string, formula?: string): Stat =>
+    ({ key, label, value, format, polarity, formula: formula ?? METRICS[key]?.formula, reason: value == null ? reason ?? "Not reported in the filings for this period" : undefined });
+
+  /*
+   * A return computed on an assumed tax rate says so.
+   *
+   * NOPAT falls back to the statutory 21% whenever the reported effective rate
+   * is missing, negative or above sixty percent — a loss-making year, or one
+   * settled at an unusual rate. The figure is still worth showing; presenting
+   * it with the same authority as one built from the company's own tax line is
+   * not, and the evidence drawer could not tell the two paths apart either.
+   */
+  const taxAssumed = current ? nopatBasis(current).assumedTaxRate : false;
+  const roicFormula = taxAssumed ? "NOPAT / Invested capital, where NOPAT applies an assumed 21% tax rate — the rate this period reports is unusable" : METRICS.roic?.formula;
 
   const average = (metric: string) => averageOver(annual, metric);
   /** A difference between two rates belongs in points, not percent of a percent. */
@@ -132,10 +171,11 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
   const groups: StatGroup[] = [
     {
       title: "Profile",
+      note: basis?.sharesNote,
       stats: [
-        stat("marketCapitalization", "Market Cap", marketCap, "currency", 0, noPrice ?? "No share count"),
-        stat("enterpriseValue", "EV", enterpriseValue, "currency", 0, noPrice ?? "No debt or cash balance"),
-        stat("sharesOutstanding", "Shares Out", shares, "shares", 0),
+        stat("marketCapitalization", "Market Cap", marketCap, "currency", 0, noPrice ?? "The filing carries no share count"),
+        stat("enterpriseValue", "EV", enterpriseValue, "currency", 0, noEnterpriseValue),
+        stat("sharesOutstanding", "Shares Out", shares, "shares", 0, counted ? undefined : "The filing carries no share count"),
         stat("revenue", "Revenue", flow("revenue"), "currency", 1),
         stat("grossProfit", "Gross Profit", flow("grossProfit"), "currency", 1),
       ],
@@ -149,8 +189,8 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
         stat("operatingMargin", "Operating", flow("operatingMargin"), "percent", 1),
         stat("pretaxMargin", "Pre-Tax", flow("pretaxMargin"), "percent", 1),
         stat("netMargin", "Net", flow("netMargin"), "percent", 1),
-        stat("freeCashFlowMargin", "FCF", cash(flow("freeCashFlowMargin")), "percent", 1, FINANCIAL_CASH_FLOW),
-        stat("freeCashFlowAfterSbcMargin", "FCF after SBC", cash(flow("freeCashFlowAfterSbcMargin")), "percent", 1, FINANCIAL_CASH_FLOW),
+        stat("freeCashFlowMargin", "FCF", cash(flow("freeCashFlowMargin")), "percent", 1, cashReason),
+        stat("freeCashFlowAfterSbcMargin", "FCF after SBC", cash(flow("freeCashFlowAfterSbcMargin")), "percent", 1, cashReason),
       ],
     },
     {
@@ -162,11 +202,11 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
         // The headline pair, current against the cycle, and the gap between
         // them: a return well below its own five-year average is the first
         // thing to notice about a compounder, and an average alone hides it.
-        stat("cashReturnOnCapital", "Cash RoC", cash(flow("cashReturnOnCapital")), "percent", 1, FINANCIAL_CASH_FLOW),
-        stat("cashReturnOnCapital", "Cash RoC · 5Yr Avg", cash(average("cashReturnOnCapital").value), "percent", 1, financial ? FINANCIAL_CASH_FLOW : average("cashReturnOnCapital").reason),
-        stat("cashReturnOnCapital", "Cash RoC · vs 5Yr", cash(spread(flow("cashReturnOnCapital"), average("cashReturnOnCapital").value)), "points", 1, financial ? FINANCIAL_CASH_FLOW : average("cashReturnOnCapital").reason),
-        stat("roic", "ROIC", flow("roic"), "percent", 1),
-        stat("roic", "ROIC · 5Yr Avg", average("roic").value, "percent", 1, average("roic").reason),
+        stat("cashReturnOnCapital", "Cash RoC", cash(flow("cashReturnOnCapital")), "percent", 1, cashReason),
+        stat("cashReturnOnCapital", "Cash RoC · 5Yr Avg", cash(average("cashReturnOnCapital").value), "percent", 1, cashReason ?? average("cashReturnOnCapital").reason),
+        stat("cashReturnOnCapital", "Cash RoC · vs 5Yr", cash(spread(flow("cashReturnOnCapital"), average("cashReturnOnCapital").value)), "points", 1, cashReason ?? average("cashReturnOnCapital").reason),
+        stat("roic", "ROIC", flow("roic"), "percent", 1, undefined, roicFormula),
+        stat("roic", "ROIC · 5Yr Avg", average("roic").value, "percent", 1, average("roic").reason, roicFormula),
         stat("returnOnEquity", "ROE · 5Yr Avg", average("returnOnEquity").value, "percent", 1, average("returnOnEquity").reason),
         stat("returnOnCapitalEmployed", "ROCE · 5Yr Avg", average("returnOnCapitalEmployed").value, "percent", 1, average("returnOnCapitalEmployed").reason),
         stat("returnOnAssets", "ROA · 5Yr Avg", average("returnOnAssets").value, "percent", 1, average("returnOnAssets").reason),
@@ -175,24 +215,26 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
     },
     {
       title: "Valuation (TTM)",
-      note: close == null ? "No matched market price for this company." : undefined,
+      note: noPrice,
       stats: [
         stat("priceToEarnings", "P/E", over(marketCap, flow("netIncome")), "multiple", -1, noPrice ?? "Earnings are not positive"),
         stat("priceToBook", "P/B", over(marketCap, flow("totalEquity")), "multiple", -1, noPrice ?? "Equity is not positive"),
-        stat("enterpriseToSales", "EV/Sales", over(enterpriseValue, flow("revenue")), "multiple", -1, noPrice),
-        stat("enterpriseToEbitda", "EV/EBITDA", over(enterpriseValue, flow("ebitda")), "multiple", -1, noPrice ?? "EBITDA is not positive"),
-        stat("priceToFreeCashFlow", "P/FCF", cash(over(marketCap, flow("freeCashFlow"))), "multiple", -1, financial ? FINANCIAL_CASH_FLOW : noPrice ?? "Free cash flow is not positive"),
-        stat("enterpriseToGrossProfit", "EV/Gross Profit", over(enterpriseValue, flow("grossProfit")), "multiple", -1, noPrice),
+        stat("enterpriseToSales", "EV/Sales", over(enterpriseValue, flow("revenue")), "multiple", -1, noEnterpriseValue),
+        stat("enterpriseToEbitda", "EV/EBITDA", over(enterpriseValue, flow("ebitda")), "multiple", -1, noEnterpriseValue ?? "EBITDA is not positive"),
+        stat("priceToFreeCashFlow", "P/FCF", cash(over(marketCap, flow("freeCashFlow"))), "multiple", -1, cashReason ?? noPrice ?? "Free cash flow is not positive"),
+        stat("enterpriseToGrossProfit", "EV/Gross Profit", over(enterpriseValue, flow("grossProfit")), "multiple", -1, noEnterpriseValue),
       ],
     },
     {
       title: "Financial Health",
       stats: [
         stat("cashAndEquivalents", "Cash", flow("cashAndEquivalents"), "currency", 1),
-        stat("netDebt", "Net Debt", netDebt, "currency", -1),
-        stat("debtToEquity", "Debt/Equity", flow("debtToEquity"), "ratio", -1),
+        stat("netDebt", "Net Debt", netDebt, "currency", -1, netDebtReason),
+        // Booking is financed below zero, so the ratio has no base to stand on
+        // and the row says that rather than "not reported".
+        stat("debtToEquity", "Debt/Equity", flow("debtToEquity"), "ratio", -1, (flow("totalEquity") ?? 0) <= 0 && flow("totalEquity") != null ? "Equity is not positive" : undefined),
         stat("interestCoverage", "EBIT/Interest", flow("interestCoverage"), "ratio", 1, "Reports no interest expense"),
-        stat("capitalIntensity", "Capex/Sales", cash(flow("capitalIntensity")), "percent", -1, FINANCIAL_CASH_FLOW),
+        stat("capitalIntensity", "Capex/Sales", cash(flow("capitalIntensity")), "percent", -1, cashReason),
       ],
     },
     {
@@ -204,8 +246,8 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
         stat("netIncomePerShare", "Dil EPS 3Yr", growth("netIncomePerShare", 3).value, "percent", 1, growth("netIncomePerShare", 3).reason),
         stat("netIncomePerShare", "Dil EPS 5Yr", growth("netIncomePerShare", 5).value, "percent", 1, growth("netIncomePerShare", 5).reason),
         stat("netIncomePerShare", "Dil EPS 10Yr", growth("netIncomePerShare", 10).value, "percent", 1, growth("netIncomePerShare", 10).reason),
-        stat("freeCashFlow", "FCF 5Yr", cash(growth("freeCashFlow", 5).value), "percent", 1, financial ? FINANCIAL_CASH_FLOW : growth("freeCashFlow", 5).reason),
-        stat("freeCashFlowPerShare", "FCF/share 5Yr", cash(growth("freeCashFlowPerShare", 5).value), "percent", 1, financial ? FINANCIAL_CASH_FLOW : growth("freeCashFlowPerShare", 5).reason),
+        stat("freeCashFlow", "FCF 5Yr", cash(growth("freeCashFlow", 5).value), "percent", 1, cashReason ?? growth("freeCashFlow", 5).reason),
+        stat("freeCashFlowPerShare", "FCF/share 5Yr", cash(growth("freeCashFlowPerShare", 5).value), "percent", 1, cashReason ?? growth("freeCashFlowPerShare", 5).reason),
         // A rising share count dilutes the owner, so less is better here.
         stat("dilutedShares", "Shares 5Yr", growth("dilutedShares", 5).value, "percent", -1, growth("dilutedShares", 5).reason),
       ],
@@ -213,6 +255,8 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
     {
       title: "Dividends",
       stats: [
+        // Dividends per share are filed in the statements' currency, so this is
+        // a price the basis has already matched to that currency or nothing.
         stat("dividendYield", "Yield", paysDividend ? safeDivide(dividendsPerShare, close) : null, "percent", 1, noDividend ?? noPrice),
         stat("dividendPayout", "Payout", paysDividend ? flow("dividendPayout") : null, "percent", 0, noDividend),
         stat("dividendsPerShare", "DPS", dividendsPerShare, "perShare", 1, noDividend),

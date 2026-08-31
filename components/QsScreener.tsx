@@ -252,13 +252,15 @@ export function QsScreener({ tickers = [] }: { tickers?: string[] }) {
           const priced = await fetch(`/api/price/${encodeURIComponent(item.ticker)}?date=${today}`);
           if (!priced.ok) return null;
           const point = await priced.json() as PricePoint;
-          return point.priceClose ?? point.close ?? null;
+          // The currency travels with the close: the valuation columns refuse a
+          // price quoted in one currency against statements kept in another.
+          return { value: point.priceClose ?? point.close ?? null, currency: point.currency };
         } catch { return null; }
       }));
 
       const rows: QsRow[] = summaries.map((item, index) => ({
         ticker: item.ticker,
-        values: { ...item.qs, ...qsValuationColumns(item.qsPrice, prices[index]) },
+        values: { ...item.qs, ...qsValuationColumns(item.qsPrice, prices[index]?.value ?? null, prices[index]?.currency) },
       }));
       setText(qsTable(rows));
       setFeeding("");

@@ -1,4 +1,5 @@
 import { cagrForPeriods, derivedValue, valueOf } from "./finance";
+import { shareCount, type SharesBasis } from "./market-basis";
 import { balanceSheetHealth } from "./statement-flows";
 import type { CompanyDataset, FinancialPeriod } from "./types";
 
@@ -63,12 +64,17 @@ export interface QsRow { ticker: string; values: Record<string, number | string 
  * yesterday's close into today's score, which is the kind of quiet staleness
  * this application refuses everywhere else.
  */
-export interface QsPriceInputs { shares: number | null; netDebt: number | null; operatingIncome: number | null; freeCashFlow: number | null }
+export interface QsPriceInputs { shares: number | null; sharesBasis: SharesBasis | null; currency: string | null; netDebt: number | null; operatingIncome: number | null; freeCashFlow: number | null }
 
 export function qsPriceInputs(dataset: CompanyDataset): QsPriceInputs {
   const current = ordered(dataset, "ttm").at(-1) ?? ordered(dataset, "annual").at(-1) ?? null;
+  const counted = current ? shareCount(current) : null;
   return {
-    shares: current ? valueOf(current, "sharesOutstanding") ?? valueOf(current, "dilutedShares") : null,
+    shares: counted?.shares ?? null,
+    sharesBasis: counted?.basis ?? null,
+    // Carried so the client can refuse to divide a price quoted in one
+    // currency into a statement kept in another.
+    currency: current?.currency ?? null,
     netDebt: current ? derivedValue(current, "netDebt") : null,
     operatingIncome: current ? derivedValue(current, "operatingIncome") : null,
     freeCashFlow: current ? derivedValue(current, "freeCashFlow") : null,
@@ -76,8 +82,11 @@ export function qsPriceInputs(dataset: CompanyDataset): QsPriceInputs {
 }
 
 /** The four columns that need a price, from one definition used on both sides. */
-export function qsValuationColumns(inputs: QsPriceInputs, price: number | null): Record<string, number | null> {
-  const marketCap = price != null && Number.isFinite(price) && price > 0 && inputs.shares != null ? price * inputs.shares : null;
+export function qsValuationColumns(inputs: QsPriceInputs, price: number | null, priceCurrency?: string | null): Record<string, number | null> {
+  // A price in another currency finishes nothing: the columns stay empty rather
+  // than stating a dollar market capitalisation against a euro cash flow.
+  const compatible = priceCurrency == null || inputs.currency == null || priceCurrency === inputs.currency;
+  const marketCap = compatible && price != null && Number.isFinite(price) && price > 0 && inputs.shares != null ? price * inputs.shares : null;
   const enterpriseValue = marketCap != null && inputs.netDebt != null ? marketCap + inputs.netDebt : null;
   return {
     "Market Cap": billions(marketCap),

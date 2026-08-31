@@ -8,6 +8,7 @@ import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { TICKER_PATTERN } from "@/lib/market-profile";
 import { COMPANY_COLUMNS, DEFAULT_COLUMNS, DEFAULT_COMPANY_FILTERS, DEFAULT_COMPANY_SORT, filterCompanyRows, preferredDirection, sortCompanyRows, type CompanyFilters, type CompanyRankingRow, type CompanySortKey, type SortDirection } from "@/lib/company-ranking";
 import { cagrBetweenDates, cagrForPeriods, derivedValue, valueOf } from "@/lib/finance";
+import { marketBasis, multipleOf } from "@/lib/market-basis";
 import { CALLOUTS, DEFAULT_CALLOUTS, growthConsistency, growthGap, growthTable, HORIZONS, incrementalReturn, percentileAmong, ruleOfForty, worstDrawdown, type Horizon } from "@/lib/growth-quality";
 import { CHARTABLE_METRICS, METRICS, VIEW_METRICS } from "@/lib/metrics";
 import { balanceSheetDiagram, cashFlowDiagram, incomeStatementDiagram } from "@/lib/statement-flows";
@@ -424,8 +425,11 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
     return () => { active = false; };
   }, [datasets, loadedTickers, prices, valuationPremiums, bulkState.running]);
   const rawRows = useMemo<RankingDisplayRow[]>(() => watchlist.map((profile) => {
-    const data = datasets[profile.ticker]; const point = prices[profile.ticker]; const currentPrice = point?.priceClose ?? point?.close ?? null; const period = data ? latestPeriod(data) : undefined; const annual = data ? sortedPeriods(data, "annual") : []; const latestAnnual = annual.at(-1); const prior5 = annual.at(-6);
-    const dilution = latestAnnual && prior5 ? change(valueOf(latestAnnual, "dilutedShares"), valueOf(prior5, "dilutedShares")) : null; const shares = period ? derivedValue(period, "sharesOutstanding") ?? derivedValue(period, "dilutedShares") : null; const fcf = period ? derivedValue(period, "freeCashFlow") : null; const marketCap = currentPrice != null && shares != null ? currentPrice * shares : null; const pfcf = marketCap != null && fcf != null && fcf > 0 ? marketCap / fcf : null;
+    const data = datasets[profile.ticker]; const point = prices[profile.ticker]; const period = data ? latestPeriod(data) : undefined; const annual = data ? sortedPeriods(data, "annual") : []; const latestAnnual = annual.at(-1); const prior5 = annual.at(-6);
+    const dilution = latestAnnual && prior5 ? change(valueOf(latestAnnual, "dilutedShares"), valueOf(prior5, "dilutedShares")) : null; const fcf = period ? derivedValue(period, "freeCashFlow") : null;
+    // One basis for the card, the table and the scatter: a price matched to the
+    // currency the statements are kept in, over a stated share count.
+    const marketCap = period ? marketBasis(period, point).basis?.marketCap ?? null : null; const pfcf = multipleOf(marketCap, fcf);
     const gap = data ? growthGap(annual, 10) : null;
     return { profile, ticker: profile.ticker, marketCap, fcfMargin: period ? derivedValue(period, "freeCashFlowMargin") : null, fcfShareCagr: data ? cagrForPeriods(annual, "freeCashFlowPerShare", 5).value : null, revenueShareCagr: data ? cagrForPeriods(annual, "revenuePerShare", 5).value : null, operatingMargin: period ? derivedValue(period, "operatingMargin") : null, dilution, pfcf, valuationVsAverage: valuationPremiums[profile.ticker] ?? null,
       revenueCagr10: gap?.revenue ?? null, fcfCagr10: gap?.freeCashFlow ?? null, fcfVsRevenue10: gap?.spread ?? null,
@@ -547,7 +551,16 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
   const balanceFlow = lastFullYear ? balanceSheetDiagram(lastFullYear) : null;
   const cashFlow = lastFullYear ? cashFlowDiagram(lastFullYear) : null;
   if (!latest) return <p className="simple-state">No data available</p>;
-  const shares = derivedValue(latest, "sharesOutstanding") ?? derivedValue(latest, "dilutedShares"); const currentPrice = price?.priceClose ?? price?.close ?? null; const marketCap = currentPrice != null && shares != null ? currentPrice * shares : null;
+  /*
+   * The headline figures, or the reason there are none.
+   *
+   * A market capitalisation is a price times a share count, and both halves can
+   * be wrong in ways that look right: ASML's shares are quoted in dollars while
+   * its books are kept in euros, and most filers publish no period-end share
+   * count in this feed at all. `marketBasis` answers both questions once, for
+   * every screen, and refuses rather than mixing.
+   */
+  const priced = marketBasis(latest, price); const basis = priced.basis; const marketCap = basis?.marketCap ?? null;
   const openMetric = (metric: string, period = latest) => setEvidence({ label: METRICS[metric]?.label ?? metric, value: derivedValue(period, metric), period, metric });
   return <div className="company-page">
     <button className="back-button" onClick={onBack}>← Companies</button>
@@ -577,11 +590,17 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
     <div className="company-headline">
       <div className="company-figure">
         <span>Share price</span>
-        <strong>{priceError ? <em className="figure-missing">Unavailable</em> : price ? currency(currentPrice, dataset.company.currency) : <span className="figure-waiting" role="status" aria-label="Loading the share price"/>}</strong>
+        <strong>{priceError ? <em className="figure-missing">Unavailable</em> : price ? currency(price.priceClose ?? price.close, price.currency) : <span className="figure-waiting" role="status" aria-label="Loading the share price"/>}</strong>
       </div>
       <div className="company-figure quiet">
         <span>Market cap</span>
-        <strong>{marketCap == null && price == null ? <span className="figure-waiting" role="status" aria-label="Loading the market capitalisation"/> : currency(marketCap, dataset.company.currency)}</strong>
+        <strong>{marketCap == null && price == null && !priceError ? <span className="figure-waiting" role="status" aria-label="Loading the market capitalisation"/> : marketCap == null ? <em className="figure-missing">Unavailable</em> : currency(marketCap, dataset.company.currency)}</strong>
+        {/* Never a bare dash where a figure was withheld: the reason is the
+            point, and it is the same sentence every other screen gives. */}
+        {marketCap == null && (price != null || priceError) && <small>{priceError || priced.reason}</small>}
+        {/* The long form of this is in the Statistics panel, on the row that
+            states the same figure; here it is one line under the number. */}
+        {basis?.sharesBasis === "diluted" && <small>On the diluted weighted average: the filer publishes no period-end share count.</small>}
       </div>
       <p className="company-provenance">
         Latest filing <b>{latest.label}</b>, to {readableDate(latest.periodEnd)}.
@@ -597,7 +616,7 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
     {tab === "overview" && <div className="company-block">
       <section id="overview" className="plain-section"><SectionTitle title="Overview" onCharts={() => onCharts(dataset.company.ticker)}/>
       <Suspense fallback={<SkeletonCards label="the overview charts" count={4} height={220}/>}><CompanyKpiGrid dataset={dataset} theme={theme} onOpenMetric={(metric, presentation) => onCharts(dataset.company.ticker, metric, presentation)}/></Suspense>
-      <h3 className="kpi-table-heading">Latest figures</h3><MetricSummaryTable dataset={dataset} price={currentPrice} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)}/></section>
+      <h3 className="kpi-table-heading">Latest figures</h3><MetricSummaryTable dataset={dataset} price={price} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)}/></section>
     </div>}
 
     {/* A balance sheet is a statement, so it stopped being a seventh tab of its
@@ -685,13 +704,16 @@ function MetricName({ metric, label, onCharts, onOpen }: { metric: string; label
 
 function SectionTitle({ title, onCharts }: { title: string; onCharts: () => void }) { return <div className="section-heading"><h2>{title}</h2><button onClick={onCharts}>Open in Charts</button></div>; }
 
-function MetricSummaryTable({ dataset, price, onOpen, onCharts }: { dataset: CompanyDataset; price: number | null; onOpen: (metric: string) => void; onCharts: (metric: string) => void }) {
-  const latest = latestPeriod(dataset)!; const annual = sortedPeriods(dataset, "annual"); const previous = annual.at(-2); const latestAnnual = annual.at(-1); const shares = derivedValue(latest, "dilutedShares"); const marketCap = price != null && shares != null ? price * shares : null; const pfcf = marketCap != null ? marketCap / (derivedValue(latest, "freeCashFlow") || Number.NaN) : null;
+function MetricSummaryTable({ dataset, price, onOpen, onCharts }: { dataset: CompanyDataset; price: PricePoint | null; onOpen: (metric: string) => void; onCharts: (metric: string) => void }) {
+  // Diluted shares stay the row's own subject, but the multiple below is built
+  // on the same basis as Statistics and Valuation — and refuses a negative free
+  // cash flow, which this table used to divide into and print.
+  const latest = latestPeriod(dataset)!; const annual = sortedPeriods(dataset, "annual"); const previous = annual.at(-2); const latestAnnual = annual.at(-1); const shares = derivedValue(latest, "dilutedShares"); const marketCap = marketBasis(latest, price).basis?.marketCap ?? null; const pfcf = multipleOf(marketCap, derivedValue(latest, "freeCashFlow"));
   const metrics: Array<[string, number | null, string]> = [
     ["Revenue", derivedValue(latest, "revenue"), "revenue"], ["Revenue growth", latestAnnual && previous ? change(derivedValue(latestAnnual, "revenue"), derivedValue(previous, "revenue")) : null, "revenueGrowth"],
     ["Operating margin", derivedValue(latest, "operatingMargin"), "operatingMargin"], ["Free cash flow", derivedValue(latest, "freeCashFlow"), "freeCashFlow"], ["FCF margin", derivedValue(latest, "freeCashFlowMargin"), "freeCashFlowMargin"],
     ["FCF / share", derivedValue(latest, "freeCashFlowPerShare"), "freeCashFlowPerShare"], ["FCF / share CAGR 5Y", cagrForPeriods(annual, "freeCashFlowPerShare", 5).value, "freeCashFlowPerShareCagr"], ["EPS", derivedValue(latest, "netIncomePerShare"), "netIncomePerShare"],
-    ["Diluted shares", shares, "dilutedShares"], ["Dilution 5Y", annual.length > 5 ? change(derivedValue(annual.at(-1)!, "dilutedShares"), derivedValue(annual.at(-6)!, "dilutedShares")) : null, "shareCountChange"], ["ROIC", derivedValue(latest, "roic"), "roic"], ["P / FCF", Number.isFinite(pfcf ?? NaN) ? pfcf : null, "priceToFreeCashFlow"],
+    ["Diluted shares", shares, "dilutedShares"], ["Dilution 5Y", annual.length > 5 ? change(derivedValue(annual.at(-1)!, "dilutedShares"), derivedValue(annual.at(-6)!, "dilutedShares")) : null, "shareCountChange"], ["ROIC", derivedValue(latest, "roic"), "roic"], ["P / FCF", pfcf, "priceToFreeCashFlow"],
   ];
   return <div className="table-scroll"><table><thead><tr><th>Metric</th><th>Current</th><th>Period</th></tr></thead><tbody>{metrics.map(([label, value, metric]) => <tr key={label}><th><MetricName metric={metric} label={label} onCharts={onCharts} onOpen={() => onOpen(metric)}/></th><td>{METRICS[metric]?.kind === "percent" || metric.toLowerCase().includes("growth") || metric.toLowerCase().includes("cagr") || metric.toLowerCase().includes("margin") || metric === "shareCountChange" || metric === "roic" ? percent(value) : metric === "priceToFreeCashFlow" ? ratio(value) : metric === "dilutedShares" ? number(value) : currency(value, dataset.company.currency)}</td><td>{latest.periodEnd}</td></tr>)}</tbody></table></div>;
 }
@@ -766,7 +788,10 @@ function ValuationTable({ dataset, price }: { dataset: CompanyDataset; price: Pr
   useEffect(() => { let active = true; getJson<{ points?: Array<{ requestedDate: string; point?: PricePoint }> }>(`/api/prices/${dataset.company.ticker}?dates=${dates.join(",")}&published=1`, { what: "the valuation history" }).then((payload) => { if (active) setPoints(Object.fromEntries((payload.points ?? []).map((item) => [item.requestedDate, item.point ?? null]))); }).catch((cause) => active && setError(cause instanceof Error ? cause.message : "The valuation history is unavailable.")); return () => { active = false; }; }, [dataset.company.ticker, dates]);
   const latest = ttm.at(-1) ?? sortedPeriods(dataset, "annual").at(-1); const current = latest && price ? valuationSnapshot(latest, price) : null; const history = buildValuationHistory(ttm, points); const stats = valuationStatistics(history, "priceToFreeCashFlow", current?.metrics.priceToFreeCashFlow ?? null, 5);
   if (error) return <p className="simple-state">{error}. Fundamental data remains available.</p>;
-  return <div className="table-scroll"><table><thead><tr><th>Metric</th><th>Current</th><th>AVG 5Y</th><th>Median 5Y</th><th>Premium / Discount</th><th>Percentile</th></tr></thead><tbody><tr><th>Price / Free cash flow</th><td>{ratio(stats.current)}</td><td>{ratio(stats.average)}</td><td>{ratio(stats.median)}</td><td>{percent(stats.premiumToAverage)}</td><td>{stats.percentile == null ? "—" : `${(stats.percentile * 100).toFixed(0)}%`}</td></tr></tbody></table></div>;
+  // A row of dashes is not an answer. Where the multiple could not be struck —
+  // a price in another currency, no readable share count — say which.
+  const withheld = latest && price && !current ? marketBasis(latest, price).reason : undefined;
+  return <><div className="table-scroll"><table><thead><tr><th>Metric</th><th>Current</th><th>AVG 5Y</th><th>Median 5Y</th><th>Premium / Discount</th><th>Percentile</th></tr></thead><tbody><tr><th>Price / Free cash flow</th><td>{ratio(stats.current)}</td><td>{ratio(stats.average)}</td><td>{ratio(stats.median)}</td><td>{percent(stats.premiumToAverage)}</td><td>{stats.percentile == null ? "—" : `${(stats.percentile * 100).toFixed(0)}%`}</td></tr></tbody></table></div>{withheld && <p className="simple-state">{withheld}</p>}</>;
 }
 
 function EvidenceDialog({ evidence, onClose }: { evidence: Evidence; onClose: () => void }) {

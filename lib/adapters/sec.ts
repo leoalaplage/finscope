@@ -16,7 +16,11 @@ const SecResponseSchema = z.object({
 });
 
 type SecUnit = z.infer<typeof SecUnitSchema>;
-type ConceptSpec = { namespace: "us-gaap" | "dei"; tags: string[]; unit: "currency" | "shares" | "perShare" };
+type ConceptSpec = {
+  namespace: "us-gaap" | "dei"; tags: string[]; unit: "currency" | "shares" | "perShare";
+  /** Further taxonomies to try, in preference order after `tags`. */
+  also?: Array<{ namespace: "us-gaap" | "dei"; tags: string[] }>;
+};
 
 export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepurchases">, ConceptSpec> = {
   revenue: { namespace: "us-gaap", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "Revenues", "SalesRevenueNet"], unit: "currency" },
@@ -44,7 +48,25 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   // Only used to recover a share count when the filer publishes none directly.
   dilutedEpsReported: { namespace: "us-gaap", tags: ["EarningsPerShareDiluted"], unit: "perShare" },
   basicShares: { namespace: "us-gaap", tags: ["WeightedAverageNumberOfSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"], unit: "shares" },
-  sharesOutstanding: { namespace: "dei", tags: ["EntityCommonStockSharesOutstanding"], unit: "shares" },
+  /*
+   * The count of shares in issue on the day the balance sheet closes.
+   *
+   * Two concepts carry it and only the cover-page one was read. That one is
+   * dated the day the report is filed — Apple's is 17 October against a
+   * 27 September year end — and the annual normalizer anchors point facts to
+   * the period end, so it was thrown away again at the next step. Six of the
+   * seven companies in the data audit had no share count at all, and market
+   * capitalisation silently fell back to the diluted weighted average: 1.6%
+   * away from Apple's real count, 3.2% from JPMorgan's, 4.4% from Rivian's.
+   *
+   * `us-gaap:CommonStockSharesOutstanding` is the balance-sheet parenthetical,
+   * instant-dated at the period end, and it is exactly the 14,773,260,000
+   * shares Apple states. It leads; the cover-page count stays as the fallback
+   * for filers that publish no parenthetical. Filers with several share
+   * classes tag both per class, so they reach this endpoint through neither —
+   * which is why the diluted fallback survives, now labelled rather than silent.
+   */
+  sharesOutstanding: { namespace: "us-gaap", tags: ["CommonStockSharesOutstanding"], unit: "shares", also: [{ namespace: "dei", tags: ["EntityCommonStockSharesOutstanding"] }] },
   sharesIssued: { namespace: "us-gaap", tags: ["CommonStockSharesIssued"], unit: "shares" },
   treasuryShares: { namespace: "us-gaap", tags: ["TreasuryStockShares"], unit: "shares" },
   stockBasedCompensation: { namespace: "us-gaap", tags: ["ShareBasedCompensation", "AllocatedShareBasedCompensationExpense"], unit: "currency" },
@@ -108,10 +130,14 @@ function extractFacts(
 ) {
   const output: RawFinancialFact[] = [];
   for (const [metric, spec] of Object.entries(SEC_CONCEPTS) as Array<[keyof typeof SEC_CONCEPTS, ConceptSpec]>) {
-    const namespace = namespaces[spec.namespace] ?? {};
+    // One flat preference order across taxonomies: a metric may be tagged in
+    // us-gaap by one filer and in dei by another.
+    const candidates = [{ namespace: spec.namespace, tags: spec.tags }, ...(spec.also ?? [])]
+      .flatMap((source) => source.tags.map((tag) => ({ space: source.namespace, tag })));
     // Insert fallbacks first so the first (preferred) taxonomy concept wins
     // when filing date and period end are otherwise identical.
-    for (const tag of [...spec.tags].reverse()) {
+    for (const { space, tag } of candidates.reverse()) {
+      const namespace = namespaces[space] ?? {};
       const node = namespace[tag];
       if (!node) continue;
       const unitKey = spec.unit === "shares" ? "shares" : spec.unit === "perShare" ? `${currency}/shares` : currency;
@@ -126,7 +152,7 @@ function extractFacts(
           metric, value: fact.val, currency, unit: spec.unit === "perShare" ? "currency" : spec.unit, start: fact.start, end: fact.end,
           filed: fact.filed, accession: fact.accn, fiscalYear: fact.fy,
           fiscalPeriod: fact.fp as RawFinancialFact["fiscalPeriod"], form: fact.form as RawFinancialFact["form"],
-          concept: `${spec.namespace}:${tag}`, sourceUrl: sourceUrl(cik, fact.accn), retrievedAt,
+          concept: `${space}:${tag}`, sourceUrl: sourceUrl(cik, fact.accn), retrievedAt,
         });
       }
     }
@@ -416,7 +442,7 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
         // filed figure is the kind of quiet estimate this application exists
         // not to make, and a multiple that divides a dollar price by a euro
         // profit is wrong in a way that looks entirely plausible.
-        `${company.name} reports in ${company.currency} while its shares are quoted in the currency of their listing. Statements are shown as filed and are not converted; any figure combining a price with a filed amount — market capitalisation, and every valuation multiple — mixes two currencies and should not be relied on for this company.`,
+        `${company.name} reports in ${company.currency} while its shares are quoted in the currency of their listing. Statements are shown as filed and are never converted, and every figure that would combine a price with a filed amount — market capitalisation, enterprise value, all valuation multiples, the dividend yield and the price comparisons in both valuation models — is withheld rather than computed across two currencies. The statements themselves, and everything derived inside them, are unaffected.`,
       ]),
     ],
   });

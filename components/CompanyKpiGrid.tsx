@@ -327,7 +327,7 @@ function KpiCards({ cards, periods, candles, bars, dataset, theme, frequency, on
     const rows: CardRow[] = periods.map((period, position) => {
       const candle = card.kind === "candles" ? candles?.[position] ?? null : undefined;
       const value = card.kind === "candles" ? candle?.close ?? null
-        : card.kind === "market" ? freeCashFlowYieldOn(period, closeOn(bars ?? [], period.periodEnd))
+        : card.kind === "market" ? freeCashFlowYieldOn(period, closeOn(bars ?? [], period.periodEnd), bars?.[0]?.currency ?? null)
         : derivedValue(period, card.metric);
       return {
         label: quarterLabel(period),

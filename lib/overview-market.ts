@@ -1,5 +1,6 @@
 import { derivedValue } from "./finance";
 import type { FinancialPeriod, MarketBar } from "./types";
+import { shareCount } from "./market-basis";
 
 export interface PeriodCandle { open: number; high: number; low: number; close: number }
 
@@ -78,9 +79,12 @@ export function closeOn(bars: MarketBar[], date: string, toleranceDays = 14): nu
  * because a negative yield is not a cheaper company. A test holds the two to
  * the same answer.
  */
-export function freeCashFlowYieldOn(period: FinancialPeriod, price: number | null): number | null {
+export function freeCashFlowYieldOn(period: FinancialPeriod, price: number | null, priceCurrency?: string | null): number | null {
   if (price == null || !Number.isFinite(price) || price <= 0) return null;
-  const shares = derivedValue(period, "sharesOutstanding") ?? derivedValue(period, "dilutedShares");
+  // A dollar quote over a euro cash flow is a yield out by the exchange rate
+  // and indistinguishable from a real one, so a known mismatch stops here.
+  if (priceCurrency != null && priceCurrency !== period.currency) return null;
+  const counted = shareCount(period); const shares = counted?.shares ?? null;
   const freeCashFlow = derivedValue(period, "freeCashFlow");
   if (shares == null || shares <= 0 || freeCashFlow == null || freeCashFlow <= 0) return null;
   return freeCashFlow / (price * shares);

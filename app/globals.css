@@ -332,6 +332,8 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
 /* Supporting, not competing: the market capitalisation is the price wearing a
    bigger number, and drawing both at the same size says they rank equally. */
 .company-figure.quiet strong { font-size: var(--fs-xl); font-weight: 600; color: var(--muted); }
+/* Why a headline figure is missing, under the figure that is missing. */
+.company-figure small { color: var(--muted); font-size: var(--fs-micro); line-height: 1.4; max-width: 42ch; text-transform: none; letter-spacing: 0; }
 .figure-missing { font-size: var(--fs-body); font-style: normal; font-weight: 500; color: var(--muted); }
 /* A number arriving, at the size of the number. "Loading…" set in place of a
    price made the whole line change width the moment it landed. */

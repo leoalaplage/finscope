@@ -1,18 +1,30 @@
 import { derivedValue, safeDivide, valueOf } from "./finance";
+import { marketBasis, multipleOf, type SharesBasis } from "./market-basis";
 import { runMarketInvariants } from "./accounting-invariants";
 import type { AccountingInvariantResult, FinancialPeriod, PricePoint } from "./types";
 
 export type ValuationMetric = "priceToEarnings"|"priceToSales"|"priceToFreeCashFlow"|"priceToOperatingCashFlow"|"enterpriseToSales"|"enterpriseToEbit"|"enterpriseToEbitda"|"enterpriseToFreeCashFlow"|"earningsYield"|"freeCashFlowYield"|"operatingCashFlowYield"|"buybackYield"|"shareholderYield";
-export interface ValuationSnapshot { date:string; filingDate:string; periodEnd:string; price:number; shares:number; marketCap:number; enterpriseValue:number; metrics:Record<ValuationMetric,number|null>; invariants:AccountingInvariantResult[] }
+export interface ValuationSnapshot { date:string; filingDate:string; periodEnd:string; price:number; shares:number; sharesBasis:SharesBasis; marketCap:number; enterpriseValue:number|null; unavailable?:string; metrics:Record<ValuationMetric,number|null>; invariants:AccountingInvariantResult[] }
 
-function positiveMultiple(numerator:number|null,denominator:number|null){return numerator!=null&&denominator!=null&&numerator>0&&denominator>0?numerator/denominator:null}
+const positiveMultiple=multipleOf;
+/**
+ * A priced period, or nothing at all.
+ *
+ * The currency check, the share-count basis and the refusal to read a missing
+ * debt balance as zero all live in `marketBasis`, so this snapshot and the
+ * headline figure on the company page can no longer disagree about what a
+ * market capitalisation is. Enterprise value is now nullable: a company whose
+ * borrowings this adapter cannot read has no enterprise value, and every
+ * multiple built on one goes with it.
+ */
 export function valuationSnapshot(period:FinancialPeriod,point:PricePoint):ValuationSnapshot|null{
-  const shares=derivedValue(period,"sharesOutstanding")??derivedValue(period,"dilutedShares"); const price=point.priceClose??point.close;
-  if(shares==null||shares<=0||price<=0)return null;const marketCap=price*shares;const debt=valueOf(period,"totalDebt")??0;const cash=valueOf(period,"cashAndEquivalents")??0;const enterpriseValue=marketCap+debt-cash;
+  const {basis}=marketBasis(period,point);
+  if(!basis)return null;
+  const {price,shares,marketCap,enterpriseValue}=basis;
   const revenue=derivedValue(period,"revenue");const earnings=derivedValue(period,"netIncome");const ocf=derivedValue(period,"operatingCashFlow");const fcf=derivedValue(period,"freeCashFlow");const ebit=derivedValue(period,"operatingIncome");const da=derivedValue(period,"depreciationAndAmortization");const ebitda=ebit!=null&&da!=null?ebit+da:null;const buybacks=derivedValue(period,"netShareRepurchases");
   const dividends=derivedValue(period,"dividendsPaid");const metrics:Record<ValuationMetric,number|null>={priceToEarnings:positiveMultiple(marketCap,earnings),priceToSales:positiveMultiple(marketCap,revenue),priceToFreeCashFlow:positiveMultiple(marketCap,fcf),priceToOperatingCashFlow:positiveMultiple(marketCap,ocf),enterpriseToSales:positiveMultiple(enterpriseValue,revenue),enterpriseToEbit:positiveMultiple(enterpriseValue,ebit),enterpriseToEbitda:positiveMultiple(enterpriseValue,ebitda),enterpriseToFreeCashFlow:positiveMultiple(enterpriseValue,fcf),earningsYield:earnings!=null&&earnings>0?safeDivide(earnings,marketCap):null,freeCashFlowYield:fcf!=null&&fcf>0?safeDivide(fcf,marketCap):null,operatingCashFlowYield:ocf!=null&&ocf>0?safeDivide(ocf,marketCap):null,buybackYield:buybacks!=null?safeDivide(buybacks,marketCap):null,shareholderYield:buybacks!=null||dividends!=null?safeDivide((buybacks??0)+(dividends??0),marketCap):null};
-  const fundamentalSources=Object.values(period.facts).flatMap((fact)=>fact?.provenance.sourceUrl?[fact.provenance.sourceUrl]:[]);const invariants=runMarketInvariants({ticker:point.ticker,date:point.date,price,shares,marketCap,debt,cash,otherAdjustments:0,enterpriseValue,freeCashFlow:fcf,priceToFreeCashFlow:metrics.priceToFreeCashFlow,freeCashFlowYield:metrics.freeCashFlowYield,priceToEarnings:metrics.priceToEarnings,earningsYield:metrics.earningsYield,priceSource:point.sourceUrl,fundamentalSources});
-  return {date:point.date,filingDate:period.filingDate,periodEnd:period.periodEnd,price,shares,marketCap,enterpriseValue,metrics,invariants};
+  const fundamentalSources=Object.values(period.facts).flatMap((fact)=>fact?.provenance.sourceUrl?[fact.provenance.sourceUrl]:[]);const invariants=runMarketInvariants({ticker:point.ticker,date:point.date,price,shares,marketCap,debt:valueOf(period,"totalDebt"),cash:valueOf(period,"cashAndEquivalents"),otherAdjustments:0,enterpriseValue,freeCashFlow:fcf,priceToFreeCashFlow:metrics.priceToFreeCashFlow,freeCashFlowYield:metrics.freeCashFlowYield,priceToEarnings:metrics.priceToEarnings,earningsYield:metrics.earningsYield,priceSource:point.sourceUrl,fundamentalSources});
+  return {date:point.date,filingDate:period.filingDate,periodEnd:period.periodEnd,price,shares,sharesBasis:basis.sharesBasis,marketCap,enterpriseValue,unavailable:basis.enterpriseValueReason,metrics,invariants};
 }
 export function buildValuationHistory(periods:FinancialPeriod[],points:Record<string,PricePoint|null>){
   return periods.filter((period)=>period.periodicity==="ttm").sort((a,b)=>a.filingDate.localeCompare(b.filingDate)).flatMap((period)=>{

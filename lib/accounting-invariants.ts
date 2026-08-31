@@ -22,10 +22,13 @@ export function runDatasetInvariants(dataset:CompanyDataset):AccountingInvariant
  for(const annual of dataset.periods.filter((period)=>period.periodicity==="annual")){const quarters=dataset.periods.filter((period)=>period.periodicity==="quarterly"&&period.fiscalYear===annual.fiscalYear);for(const metric of ["revenue","operatingIncome","netIncome","operatingCashFlow","capitalExpenditures"]){const values=quarters.map((item)=>derivedValue(item,metric));const recalculated=values.length===4&&values.every((value)=>value!=null)?(values as number[]).reduce((sum,value)=>sum+value,0):null;results.push(compare(dataset,annual,metric,"Annual = Q1 + Q2 + Q3 + Q4",derivedValue(annual,metric),recalculated,urls(annual,[metric]),.01,.05));}}
  return results;}
 
-export interface MarketInvariantInput{ticker:string;date:string;price:number;shares:number;marketCap:number;debt:number;cash:number;otherAdjustments:number;enterpriseValue:number;freeCashFlow:number|null;priceToFreeCashFlow:number|null;freeCashFlowYield:number|null;priceToEarnings:number|null;earningsYield:number|null;priceSource:string;fundamentalSources:string[]}
+export interface MarketInvariantInput{ticker:string;date:string;price:number;shares:number;marketCap:number;debt:number|null;cash:number|null;otherAdjustments:number;enterpriseValue:number|null;freeCashFlow:number|null;priceToFreeCashFlow:number|null;freeCashFlowYield:number|null;priceToEarnings:number|null;earningsYield:number|null;priceSource:string;fundamentalSources:string[]}
 export function runMarketInvariants(input:MarketInvariantInput){const dataset={company:{ticker:input.ticker}} as CompanyDataset,period={periodEnd:input.date} as FinancialPeriod,sources=[input.priceSource,...input.fundamentalSources];return[
  compare(dataset,period,"marketCapitalization","Market cap = Price × Shares",input.marketCap,input.price*input.shares,sources),
- compare(dataset,period,"enterpriseValue","EV = Market cap + Debt − Cash + other adjustments",input.enterpriseValue,input.marketCap+input.debt-input.cash+input.otherAdjustments,sources),
+ // An unknown debt or cash balance leaves the identity untestable rather than
+ // testable against zero: the old form recomputed EV from `?? 0` inputs and
+ // passed every time, which is a check confirming its own mistake.
+ compare(dataset,period,"enterpriseValue","EV = Market cap + Debt − Cash + other adjustments",input.enterpriseValue,input.debt==null||input.cash==null?null:input.marketCap+input.debt-input.cash+input.otherAdjustments,sources),
  compare(dataset,period,"priceToFreeCashFlow","P/FCF = Market cap / TTM FCF",input.priceToFreeCashFlow,input.freeCashFlow!=null&&input.freeCashFlow>0?input.marketCap/input.freeCashFlow:null,sources),
  compare(dataset,period,"freeCashFlowYield","FCF yield = TTM FCF / Market cap",input.freeCashFlowYield,input.freeCashFlow!=null&&input.freeCashFlow>0?input.freeCashFlow/input.marketCap:null,sources),
  compare(dataset,period,"earningsYield","Earnings yield = inverse P/E",input.earningsYield,input.priceToEarnings!=null&&input.priceToEarnings>0?1/input.priceToEarnings:null,sources),

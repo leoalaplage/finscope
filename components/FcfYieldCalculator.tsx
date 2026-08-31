@@ -35,7 +35,17 @@ function Field({ label, value, onChange, suffix, step = 0.1, hint }: {
  */
 export function FcfYieldCalculator({ dataset, price, theme }: { dataset: CompanyDataset; price: PricePoint | null; theme: ThemeName }) {
   const code = dataset.company.currency;
-  const currentPrice = price ? price.priceClose ?? price.close : null;
+  /*
+   * A yield needs both halves in one currency.
+   *
+   * Free cash flow per share comes from statements filed in the company's
+   * reporting currency; the quote comes from the exchange its shares list on.
+   * Dividing one by the other across a currency boundary produces a yield that
+   * is wrong by the exchange rate and looks entirely ordinary, so the price
+   * side is dropped and the model runs on the filings alone.
+   */
+  const foreignQuote = price != null && price.currency !== code;
+  const currentPrice = foreignQuote ? null : price ? price.priceClose ?? price.close : null;
   const base = useMemo(() => fcfYieldBase(dataset.periods, currentPrice), [dataset, currentPrice]);
   const annual = useMemo(() => dataset.periods.filter((period) => period.periodicity === "annual"), [dataset]);
 
@@ -70,6 +80,7 @@ export function FcfYieldCalculator({ dataset, price, theme }: { dataset: Company
           <div><span>SBC impact</span><strong className={base.sbcImpact != null && base.sbcImpact < 0 ? "negative" : undefined}>{percent(base.sbcImpact)}</strong></div>
         </div>
         <small>Reported to {base.periodEnd}. SBC impact is how much of free cash flow per share stock compensation consumes.</small>
+        {foreignQuote && <small>The share price is quoted in {price!.currency} and this company files in {code}; the market comparison is withheld rather than converted.</small>}
       </div>
 
       <Field label="FCF / share" value={Number(inputs.fcfPerShare.toFixed(2))} step={0.01} suffix={code === "USD" ? "$" : code}
