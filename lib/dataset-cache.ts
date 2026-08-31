@@ -49,8 +49,14 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     year of its end. Microsoft's restated fiscal 2017 quarters were in the
  *     filings all along under the restated concept, carrying the filing's own
  *     `fp: "FY"`; seven companies gain quarters and no existing value moves.
+ * v16: revenue is the total the filer states rather than the contract revenue
+ *     inside it — Berkshire's 2025 moves from 247.2bn to the 371.4bn its own
+ *     income statement carries — and the period-end share count is read from
+ *     the balance sheet rather than only from the cover page, which gives ten
+ *     of the audited filers a true count where market capitalisation had been
+ *     falling back to the diluted weighted average. Both change stored facts.
  */
-export const KEY_VERSION = "v15";
+export const KEY_VERSION = "v16";
 
 /**
  * Versions whose stored data may still be served while this one is being built.
@@ -66,9 +72,13 @@ export const KEY_VERSION = "v15";
  * without moving any existing figure — which v15 was, measured against the raw
  * filings for all twenty-one companies — is safe to stand in for. One that
  * corrects a wrong number is not, and leaves this empty so nothing serves the
- * figure it exists to replace.
+ * figure it exists to replace — which is why v16 lists nothing. It moves
+ * Berkshire's revenue by 124bn and several companies' share counts by a
+ * percent or four, and a v15 copy standing in would serve exactly the figures
+ * the bump exists to correct. The cost is the familiar one: cards read
+ * "Building financials…" until the warm-up has been round the watchlist.
  */
-const SERVEABLE_WHILE_BUILDING: string[] = ["v14"];
+const SERVEABLE_WHILE_BUILDING: string[] = [];
 
 /** The same key under a version we are willing to serve from while rebuilding. */
 export function fallbackDatasetKeys(ticker: string) {
@@ -116,8 +126,11 @@ export function datasetKey(ticker: string) {
  *     both sides and no subtotal, so six companies — Alphabet and Meta among
  *     them — have a gross margin in their screener row for the first time.
  *     Recomputed from the stored dataset; no filing is parsed again for it.
+ * s6: the screener's price inputs carry the currency the statements are kept in
+ *     and which share count they are on, so the columns finished in the browser
+ *     refuse a quote in another currency instead of dividing across two.
  */
-const SUMMARY_SHAPE = "s5";
+const SUMMARY_SHAPE = "s6";
 
 /**
  * The card-sized digest stored beside each dataset.
