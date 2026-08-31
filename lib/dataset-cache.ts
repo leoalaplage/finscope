@@ -55,8 +55,13 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     the balance sheet rather than only from the cover page, which gives ten
  *     of the audited filers a true count where market capitalisation had been
  *     falling back to the diluted weighted average. Both change stored facts.
+ * v17: financial companies carry a verified economic type, and debt may be
+ *     rebuilt from explicitly non-overlapping long- and short-term borrowing
+ *     totals. JPMorgan's stated borrowing total includes both 435.2bn of
+ *     long-term debt and 64.8bn of short-term borrowings; CME's published
+ *     unsecured debt and finance-lease components are likewise kept distinct.
  */
-export const KEY_VERSION = "v16";
+export const KEY_VERSION = "v17";
 
 /**
  * Versions whose stored data may still be served while this one is being built.
@@ -72,10 +77,10 @@ export const KEY_VERSION = "v16";
  * without moving any existing figure — which v15 was, measured against the raw
  * filings for all twenty-one companies — is safe to stand in for. One that
  * corrects a wrong number is not, and leaves this empty so nothing serves the
- * figure it exists to replace — which is why v16 lists nothing. It moves
- * Berkshire's revenue by 124bn and several companies' share counts by a
- * percent or four, and a v15 copy standing in would serve exactly the figures
- * the bump exists to correct. The cost is the familiar one: cards read
+ * figure it exists to replace. v17 therefore lists nothing: a v16 copy has the
+ * old generic financial classification and lacks the new borrowing totals, so
+ * serving it would make the interface disagree with the new fail-closed rules.
+ * The cost is the familiar one: cards read
  * "Building financials…" until the warm-up has been round the watchlist.
  */
 const SERVEABLE_WHILE_BUILDING: string[] = [];

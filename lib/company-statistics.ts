@@ -1,5 +1,6 @@
 import { cagrForPeriods, derivedValue, nopatBasis, safeDivide } from "./finance";
 import { marketBasis, shareCount } from "./market-basis";
+import { isFinancialBusiness } from "./business-type";
 import { METRICS } from "./metrics";
 import type { CompanyDataset, FinancialPeriod, PricePoint } from "./types";
 
@@ -76,6 +77,7 @@ function cagr(annual: FinancialPeriod[], metric: string, years: 3 | 5 | 10): { v
  * them their trust in every other number on the page.
  */
 const FINANCIAL_CASH_FLOW = "Not meaningful at a financial institution";
+const FINANCIAL_CAPITAL_MODEL = "Not comparable for this financial business model";
 
 /**
  * The same point at length, stated once at the top of the group.
@@ -87,7 +89,7 @@ const FINANCIAL_CASH_FLOW = "Not meaningful at a financial institution";
 const FINANCIAL_NOTE = "Free-cash-flow measures are withheld: operating cash flow at a bank, broker or exchange moves with customer and clearing balances — money belonging to clients that passes through the statement — so dividing it by a net revenue line gives a figure that is arithmetically correct and describes nothing.";
 
 export function companyStatistics(dataset: CompanyDataset, price: PricePoint | null): StatGroup[] {
-  const financial = dataset.company.businessType === "financial";
+  const financial = isFinancialBusiness(dataset.company.businessType);
   /** The value, unless free cash flow is meaningless for this filer. */
   const cash = (value: number | null) => financial ? null : value;
   /*
@@ -123,8 +125,8 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
   const counted = current ? shareCount(current) : null;
   const shares = counted?.shares ?? null;
   const marketCap = basis?.marketCap ?? null;
-  const netDebt = flow("netDebt");
-  const enterpriseValue = basis?.enterpriseValue ?? null;
+  const netDebt = financial ? null : flow("netDebt");
+  const enterpriseValue = financial ? null : basis?.enterpriseValue ?? null;
 
   /** A multiple is only meaningful over a positive denominator. */
   const over = (numerator: number | null, denominator: number | null) =>
@@ -132,8 +134,8 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
 
   const noPrice = priced.reason;
   /** Why there is no enterprise value: no price, or no readable debt balance. */
-  const noEnterpriseValue = noPrice ?? basis?.enterpriseValueReason;
-  const netDebtReason = "The filing tags no debt or no cash balance; an absent balance is not a zero one";
+  const noEnterpriseValue = financial ? FINANCIAL_CAPITAL_MODEL : noPrice ?? basis?.enterpriseValueReason;
+  const netDebtReason = financial ? FINANCIAL_CAPITAL_MODEL : "The filing tags no debt or no cash balance; an absent balance is not a zero one";
   /*
    * A missing value always says something, even when nothing specific is known.
    *
@@ -196,7 +198,7 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
     {
       title: "Returns on Capital",
       note: financial
-        ? "ROIC, ROE, ROCE and ROA are stated; the cash return is not, for the reason given under Margins."
+        ? "ROIC and cash return on capital are withheld because industrial invested capital is not a comparable regulatory-capital measure. ROE, ROCE and ROA remain stated."
         : "Cash RoC divides free cash flow by the same capital base as ROIC. ROIC's numerator applies a tax rate, and falls back to an assumed one when the reported rate is unusable; cash carries no such assumption.",
       stats: [
         // The headline pair, current against the cycle, and the gap between
@@ -205,8 +207,8 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
         stat("cashReturnOnCapital", "Cash RoC", cash(flow("cashReturnOnCapital")), "percent", 1, cashReason),
         stat("cashReturnOnCapital", "Cash RoC · 5Yr Avg", cash(average("cashReturnOnCapital").value), "percent", 1, cashReason ?? average("cashReturnOnCapital").reason),
         stat("cashReturnOnCapital", "Cash RoC · vs 5Yr", cash(spread(flow("cashReturnOnCapital"), average("cashReturnOnCapital").value)), "points", 1, cashReason ?? average("cashReturnOnCapital").reason),
-        stat("roic", "ROIC", flow("roic"), "percent", 1, undefined, roicFormula),
-        stat("roic", "ROIC · 5Yr Avg", average("roic").value, "percent", 1, average("roic").reason, roicFormula),
+        stat("roic", "ROIC", financial ? null : flow("roic"), "percent", 1, financial ? FINANCIAL_CAPITAL_MODEL : undefined, roicFormula),
+        stat("roic", "ROIC · 5Yr Avg", financial ? null : average("roic").value, "percent", 1, financial ? FINANCIAL_CAPITAL_MODEL : average("roic").reason, roicFormula),
         stat("returnOnEquity", "ROE · 5Yr Avg", average("returnOnEquity").value, "percent", 1, average("returnOnEquity").reason),
         stat("returnOnCapitalEmployed", "ROCE · 5Yr Avg", average("returnOnCapitalEmployed").value, "percent", 1, average("returnOnCapitalEmployed").reason),
         stat("returnOnAssets", "ROA · 5Yr Avg", average("returnOnAssets").value, "percent", 1, average("returnOnAssets").reason),

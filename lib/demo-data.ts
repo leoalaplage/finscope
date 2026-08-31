@@ -81,6 +81,7 @@ export const APPLE_DATASET: CompanyDataset = {
   periods,
   retrievedAt,
   warnings: [
+    "Offline fixture: these frozen Apple facts keep FinScope inspectable while the live SEC dataset is loading or unavailable.",
     "SEC XBRL starts in 2009 for this fixture; older filing documents need a separate legacy parser.",
     "Missing facts are shown as unavailable and never interpolated.",
     "The 2020 four-for-one stock split creates a break in raw diluted-share series; per-share comparisons should use split-adjusted filing values.",

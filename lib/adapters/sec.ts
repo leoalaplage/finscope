@@ -2,7 +2,8 @@ import { z } from "zod";
 import { COMPANIES } from "../company-registry";
 import { adjustPeriodsForSplits, buildTtmPeriods, isAnnualForm, normalizeAnnualPeriods, normalizeQuarterlyPeriods } from "../periods";
 import { validateCompanyDataset } from "../data-quality";
-import type { CompanyDataset, FinancialPeriod, MetricKey, RawFinancialFact } from "../types";
+import { classifyBusiness, verifiedBusinessType } from "../business-type";
+import type { BusinessType, CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "../types";
 
 const SecUnitSchema = z.object({
   start: z.string().optional(), end: z.string(), val: z.number(), accn: z.string(),
@@ -73,14 +74,16 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   shareRepurchases: { namespace: "us-gaap", tags: ["PaymentsForRepurchaseOfCommonStock"], unit: "currency" },
   shareIssuance: { namespace: "us-gaap", tags: ["ProceedsFromStockOptionsExercised", "ProceedsFromIssuanceOfCommonStock", "ProceedsFromIssuanceOfSharesUnderIncentiveAndShareBasedCompensationPlansIncludingStockOptions"], unit: "currency" },
   cashAndEquivalents: { namespace: "us-gaap", tags: ["CashAndCashEquivalentsAtCarryingValue", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"], unit: "currency" },
-  // Only the combined concept. The current and non-current portions are two
-  // halves of one balance, so choosing between them as fallbacks reported half
-  // a company's debt: Apple tags no combined figure, and the old fallback order
-  // returned its 12.4bn current portion as if that were the whole 90.7bn.
-  // They are extracted separately below and summed when the total is absent.
-  totalDebt: { namespace: "us-gaap", tags: ["LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent", "DebtLongtermAndShorttermCombinedAmount"], unit: "currency" },
+  // A true all-debt concept only. Long-term aggregates and short-term
+  // borrowings are extracted separately below: JPM publishes both and calling
+  // the former "total debt" omitted 64.8bn from the same balance sheet.
+  totalDebt: { namespace: "us-gaap", tags: ["DebtLongtermAndShorttermCombinedAmount"], unit: "currency" },
   longTermDebtCurrent: { namespace: "us-gaap", tags: ["LongTermDebtCurrent"], unit: "currency" },
   longTermDebtNoncurrent: { namespace: "us-gaap", tags: ["LongTermDebtNoncurrent"], unit: "currency" },
+  longTermDebtAndLeases: { namespace: "us-gaap", tags: ["LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent", "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"], unit: "currency" },
+  otherLongTermDebt: { namespace: "us-gaap", tags: ["LongTermDebt", "ConvertibleLongTermNotesPayable", "UnsecuredLongTermDebt", "NotesPayable"], unit: "currency" },
+  shortTermBorrowings: { namespace: "us-gaap", tags: ["ShortTermBorrowings", "OtherShortTermBorrowings"], unit: "currency" },
+  financeLeaseLiability: { namespace: "us-gaap", tags: ["FinanceLeaseLiability"], unit: "currency" },
   currentAssets: { namespace: "us-gaap", tags: ["AssetsCurrent"], unit: "currency" },
   // Including noncontrolling interests as a fallback: Visa reports almost only
   // that form, and invested capital wants the whole financing base anyway.
@@ -213,26 +216,61 @@ function recoverDilutedShares(periods: FinancialPeriod[]): FinancialPeriod[] {
  * Summing them is addition on two published figures, not an estimate, so the
  * result is marked calculated and carries both source accessions.
  */
-function combineDebtComponents(periods: FinancialPeriod[]): FinancialPeriod[] {
+function combinedDebtFact(parts: NormalizedFact[], formula: string, note: string): NormalizedFact {
+  const base = parts[0];
+  const calculated = parts.length > 1;
+  return {
+    ...base,
+    metric: "totalDebt",
+    value: parts.reduce((sum, fact) => sum + fact.value!, 0),
+    provenance: {
+      ...base.provenance,
+      provider: calculated ? "Calculated" : base.provenance.provider,
+      status: calculated ? "calculated" : base.provenance.status,
+      concept: parts.map((fact) => fact.provenance.concept).join(" + "),
+      formula: calculated ? formula : base.provenance.formula,
+      sourceAccessions: [...new Set(parts.map((fact) => fact.provenance.accession).filter((item): item is string => Boolean(item)))],
+      note,
+    },
+  };
+}
+
+function combineDebtComponents(periods: FinancialPeriod[], businessType: BusinessType | undefined): FinancialPeriod[] {
   return periods.map((period) => {
     if (period.facts.totalDebt?.value != null) return period;
     const current = period.facts.longTermDebtCurrent;
     const noncurrent = period.facts.longTermDebtNoncurrent;
-    const parts = [current, noncurrent].filter((fact): fact is NonNullable<typeof fact> => fact?.value != null);
+    const longTermCombined = period.facts.longTermDebtAndLeases;
+    const otherLongTerm = period.facts.otherLongTermDebt;
+    const shortTerm = period.facts.shortTermBorrowings;
+    const financeLease = period.facts.financeLeaseLiability;
+
+    let parts: NormalizedFact[] = [];
+    let formula = "";
+    if (current?.value != null && noncurrent?.value != null) {
+      parts = [current, noncurrent];
+      formula = "Current portion of long-term debt + Non-current long-term debt";
+      // A separately filed short-term borrowing is additive to the two
+      // long-term portions. Its absence is not read as zero.
+      if (shortTerm?.value != null) { parts.push(shortTerm); formula += " + Short-term borrowings"; }
+    } else if (longTermCombined?.value != null) {
+      parts = [longTermCombined];
+      formula = "Long-term debt and lease obligations, current and non-current";
+      if (shortTerm?.value != null) { parts.push(shortTerm); formula += " + Short-term borrowings"; }
+      // Banks explicitly publish short-term borrowings alongside this
+      // aggregate. Their absence cannot be read as a filed zero.
+      else if (businessType === "bank") return period;
+    } else if (otherLongTerm?.value != null && shortTerm?.value != null) {
+      // LongTermDebt and UnsecuredLongTermDebt explicitly exclude short-term
+      // borrowing. They only become a total when the matching short-term line
+      // exists on the same balance-sheet date.
+      parts = [otherLongTerm, shortTerm];
+      formula = "Reported long-term debt + Short-term borrowings";
+      if (financeLease?.value != null) { parts.push(financeLease); formula += " + Finance lease liability"; }
+    }
     if (!parts.length) return period;
-    const base = noncurrent ?? current!;
-    return { ...period, facts: { ...period.facts, totalDebt: {
-      ...base, metric: "totalDebt", value: parts.reduce((sum, fact) => sum + fact.value!, 0),
-      provenance: {
-        ...base.provenance, provider: "Calculated", status: "calculated",
-        concept: parts.map((fact) => fact.provenance.concept).join(" + "),
-        formula: "Current portion of long-term debt + Non-current long-term debt",
-        sourceAccessions: [...new Set(parts.map((fact) => fact.provenance.accession).filter((item): item is string => Boolean(item)))],
-        note: parts.length === 1
-          ? "The filer tags no combined debt total and only one portion is reported, so this is that portion alone."
-          : "The filer tags no combined debt total; the two reported portions are summed.",
-      },
-    } } };
+    const totalDebt = combinedDebtFact(parts, formula, "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero.");
+    return { ...period, facts: { ...period.facts, totalDebt } };
   });
 }
 
@@ -398,15 +436,16 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
   if (!resolved.cik) throw new Error(resolved.resolutionNote || "No reliable regulatory identifier is available for this instrument.");
   const parsed = SecResponseSchema.parse(payload);
   const currency = reportingCurrency(parsed.facts, resolved.currency);
-  const company = currency === resolved.currency ? resolved : { ...resolved, currency };
+  const classified = classifyBusiness(resolved);
+  const company = currency === classified.currency ? classified : { ...classified, currency };
   const rawFacts = extractFacts(parsed.facts, company.cik, company.currency, retrievedAt);
   // Order matters. The dividend rate is repaired first, because the share
   // recovery divides by it; the recovery runs before split adjustment, so the
   // count it produces is on the as-filed basis every other share fact starts
   // from and gets adjusted exactly once.
   const reconciled = reconcileDividendsPerShare(
-    combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency))),
-    combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency))),
+    combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.businessType),
+    combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.businessType),
   );
   const annual = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.annual, reconciled.ratesSeen), company.stockSplits);
   const quarterly = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.quarterly, reconciled.ratesSeen), company.stockSplits);
@@ -465,7 +504,10 @@ export async function searchSecCompanies(query: string) {
   const response = await fetch("https://www.sec.gov/files/company_tickers.json", { headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" }, next: { revalidate: 86_400 } });
   if (!response.ok) throw new Error(`SEC company registry returned ${response.status}.`);
   const entries = Object.values(await response.json() as Record<string, SecTickerEntry>); const needle = query.trim().toUpperCase();
-  return entries.filter((entry) => entry.ticker.includes(needle) || entry.title.toUpperCase().includes(needle)).slice(0, 12).map((entry) => ({ name: entry.title, ticker: entry.ticker, cik: String(entry.cik_str).padStart(10,"0"), regulatoryId: `CIK ${String(entry.cik_str).padStart(10,"0")}`, exchange: "US listing", currency: "USD", yahooTicker: entry.ticker, sector: "Unclassified", description: "Dynamically resolved from the SEC company registry.", resolutionStatus: "partial" as const, resolutionNote: "The CIK is verified by the SEC. The exchange listing and the split history are not, so long per-share price series for this company are unadjusted.", businessType: "operating" as const }));
+  return entries.filter((entry) => entry.ticker.includes(needle) || entry.title.toUpperCase().includes(needle)).slice(0, 12).map((entry) => {
+    const cik = String(entry.cik_str).padStart(10, "0");
+    return { name: entry.title, ticker: entry.ticker, cik, regulatoryId: `CIK ${cik}`, exchange: "US listing", currency: "USD", yahooTicker: entry.ticker, sector: "Unclassified", description: "Dynamically resolved from the SEC company registry.", resolutionStatus: "partial" as const, resolutionNote: "The CIK is verified by the SEC. The exchange listing and the split history are not, so long per-share price series for this company are unadjusted.", businessType: verifiedBusinessType(cik) ?? "operating" };
+  });
 }
 async function resolveSecCompany(ticker: string) {
   const results = await searchSecCompanies(ticker); const exact = results.find((entry) => entry.ticker === ticker.toUpperCase());

@@ -86,4 +86,16 @@ describe("the watchlist digest", () => {
     expect(summary.qs["Market Cap"]).toBeNull();
     expect(summary.qsPrice.shares).toBe(50);
   });
+
+  it("does not cache industrial cash-flow or leverage measures for a bank", () => {
+    const bank = dataset([period("ttm", "2026-06-30", { ...flows, ...balances })]);
+    bank.company = { ...bank.company, businessType: "bank" };
+    const summary = summariseDataset(bank)!;
+    expect(summary.freeCashFlow).toBeNull();
+    expect(summary.freeCashFlowMargin).toBeNull();
+    expect(summary.cashReturnOnCapital).toBeNull();
+    expect(summary.netDebt).toBeNull();
+    expect(summary.qs["ROIC"]).toBeNull();
+    expect(summary.qsPrice.netDebt).toBeNull();
+  });
 });

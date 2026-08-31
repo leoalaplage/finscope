@@ -217,7 +217,13 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       loadCompanyData(ticker).then((payload) => {
         if (!active || !payload) return;
         setDataset((current) => current.company.ticker === ticker || route.ticker === ticker ? payload : current);
-      }).catch(() => { /* The fixture stays on screen and is labelled as such. */ });
+      }).catch((cause) => {
+        if (!active) return;
+        setError(cause instanceof Error ? cause.message : `Could not load ${ticker}`);
+        // A failed deep link to another ticker must never present Apple's
+        // fixture as though it belonged to the requested company.
+        if (route.ticker && route.ticker !== initialData.company.ticker) setView("search");
+      });
     };
     apply();
     // Back and Forward are navigation, and were doing nothing whatsoever.
@@ -316,7 +322,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       const payload = await loadCompanyData(ticker);
       setDataset((current) => current.company.ticker === ticker || !held ? payload : current);
       setCompanyTab(tab); setView("company"); writeRoute({ view: "company", ticker, tab, secondary: null });
-    } catch (cause) { if (!held) setError(cause instanceof Error ? cause.message : "Could not load company"); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load company"); }
     finally { setLoading(""); }
   }
   function acceptDataset(next: CompanyDataset) {
@@ -543,6 +549,7 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
   useEffect(() => { localStorage.setItem("finscope.periodicity", periodicity); }, [periodicity]);
   useEffect(() => { let active = true; getJson<PricePoint>(`/api/price/${dataset.company.ticker}?date=${new Date().toISOString().slice(0, 10)}`, { what: "the share price" }).then((payload) => { if (active) setPrice(payload); }).catch((cause) => active && setPriceError(cause instanceof Error ? cause.message : "The share price is unavailable.")); return () => { active = false; }; }, [dataset.company.ticker]);
   const selected = sortedPeriods(dataset, periodicity); const latest = latestPeriod(dataset); const annual = sortedPeriods(dataset, "annual");
+  const fixture = dataset.warnings.some((warning) => warning.startsWith("Offline fixture:"));
   // The statement diagrams are drawn from the last complete fiscal year, not
   // from a trailing window: a Sankey of TTM figures would mix four filings and
   // could not be checked against any single one of them.
@@ -603,8 +610,8 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
         {basis?.sharesBasis === "diluted" && <small>On the diluted weighted average: the filer publishes no period-end share count.</small>}
       </div>
       <p className="company-provenance">
-        Latest filing <b>{latest.label}</b>, to {readableDate(latest.periodEnd)}.
-        {" "}Read from SEC EDGAR on {readableDate(dataset.retrievedAt)}.
+        {latest.periodicity === "ttm" ? <>Latest calculated period <b>{latest.label}</b>, through {readableDate(latest.periodEnd)}.</> : <>Latest filing period <b>{latest.label}</b>, to {readableDate(latest.periodEnd)}.</>}
+        {fixture ? <> Offline fixture from SEC facts, frozen on {readableDate(dataset.retrievedAt)}.</> : <> Read from SEC EDGAR on {readableDate(dataset.retrievedAt)}.</>}
         {dataset.company.cik && <> <a href={edgarUrl(dataset.company.cik)} target="_blank" rel="noreferrer">See the filings</a></>}
       </p>
     </div>

@@ -4,6 +4,7 @@ import { derivedValue, investedCapital, netDebt } from "../lib/finance";
 import { marketBasis, multipleOf, shareCount } from "../lib/market-basis";
 import { valuationSnapshot } from "../lib/valuation-history";
 import type { CompanyDataset, FinancialPeriod, MetricKey, PricePoint } from "../lib/types";
+import { dcfBaseFromPeriods } from "../components/DcfValuation";
 
 /*
  * What an absent fact is allowed to become.
@@ -69,6 +70,12 @@ describe("a missing balance is unknown, not zero", () => {
     // which is how a company with 90bn of borrowings once showed 247% ROIC.
     expect(derivedValue(period(noDebt), "roic")).toBeNull();
     expect(derivedValue(period(noDebt), "cashReturnOnCapital")).toBeNull();
+  });
+
+  it("does not let the FCFF equity bridge replace an absent cash or debt balance with zero", () => {
+    expect(dcfBaseFromPeriods([period(complete, "USD", "annual")])).not.toBeNull();
+    expect(dcfBaseFromPeriods([period(without(complete, "totalDebt"), "USD", "annual")])).toBeNull();
+    expect(dcfBaseFromPeriods([period(without(complete, "cashAndEquivalents"), "USD", "annual")])).toBeNull();
   });
 
   it("withholds working capital when the cash it excludes is unreported", () => {

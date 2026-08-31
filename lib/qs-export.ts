@@ -2,6 +2,7 @@ import { cagrForPeriods, derivedValue, valueOf } from "./finance";
 import { shareCount, type SharesBasis } from "./market-basis";
 import { balanceSheetHealth } from "./statement-flows";
 import type { CompanyDataset, FinancialPeriod } from "./types";
+import { isFinancialBusiness } from "./business-type";
 
 /**
  * The watchlist, written as the table the QS Screener already reads.
@@ -69,15 +70,16 @@ export interface QsPriceInputs { shares: number | null; sharesBasis: SharesBasis
 export function qsPriceInputs(dataset: CompanyDataset): QsPriceInputs {
   const current = ordered(dataset, "ttm").at(-1) ?? ordered(dataset, "annual").at(-1) ?? null;
   const counted = current ? shareCount(current) : null;
+  const financial = isFinancialBusiness(dataset.company.businessType);
   return {
     shares: counted?.shares ?? null,
     sharesBasis: counted?.basis ?? null,
     // Carried so the client can refuse to divide a price quoted in one
     // currency into a statement kept in another.
     currency: current?.currency ?? null,
-    netDebt: current ? derivedValue(current, "netDebt") : null,
+    netDebt: financial ? null : current ? derivedValue(current, "netDebt") : null,
     operatingIncome: current ? derivedValue(current, "operatingIncome") : null,
-    freeCashFlow: current ? derivedValue(current, "freeCashFlow") : null,
+    freeCashFlow: financial ? null : current ? derivedValue(current, "freeCashFlow") : null,
   };
 }
 
@@ -107,6 +109,8 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
   const annual = ordered(dataset, "annual");
   const current = ordered(dataset, "ttm").at(-1) ?? annual.at(-1) ?? null;
   const now = (metric: string) => current ? derivedValue(current, metric) : null;
+  const financial = isFinancialBusiness(dataset.company.businessType);
+  const industrial = (value: number | null) => financial ? null : value;
 
   const operatingCashFlow = now("operatingCashFlow");
   const capex = now("capitalExpenditures");
@@ -122,31 +126,31 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
       "Ticker": dataset.company.ticker,
       "Sector": dataset.company.sector,
 
-      "ROIC": percent(now("roic")),
-      "ROIC 5Yr Avg": percent(fiveYearAverage(annual, "roic")),
+      "ROIC": percent(industrial(now("roic"))),
+      "ROIC 5Yr Avg": percent(industrial(fiveYearAverage(annual, "roic"))),
       "Operating Margin": percent(now("operatingMargin")),
-      "FCF Margin 5Yr Avg": percent(fiveYearAverage(annual, "freeCashFlowMargin")),
-      "FCF / Net Income": percent(now("cashConversion")),
+      "FCF Margin 5Yr Avg": percent(industrial(fiveYearAverage(annual, "freeCashFlowMargin"))),
+      "FCF / Net Income": percent(industrial(now("cashConversion"))),
       "Gross Margin 5Yr Avg": percent(fiveYearAverage(annual, "grossMargin")),
       "Shares Outstanding 5Y CAGR": percent(growth("dilutedShares")),
       "SBC to Revenue": percent(now("stockBasedCompensationToRevenue")),
 
-      "Net Debt / EBITDA": ratio(health("netDebtToEbitda")),
+      "Net Debt / EBITDA": ratio(industrial(health("netDebtToEbitda"))),
       "EBIT / Interest Expense": ratio(now("interestCoverage")),
       "Current Ratio": ratio(health("currentRatio")),
       // The registry carries one total borrowing, not a maturity split, so this
       // is total debt over total assets and is labelled as the column the
       // screener knows. Overstating the long-term share would flatter no one:
       // the metric scores lower the higher it is.
-      "Long-term Debt to Assets": ratio(over(valueOf(current ?? annual.at(-1) ?? ({} as FinancialPeriod), "totalDebt"), now("totalAssets"))),
-      "OCF/Capex": ratio(over(operatingCashFlow, capex == null ? null : Math.abs(capex))),
+      "Long-term Debt to Assets": ratio(industrial(over(valueOf(current ?? annual.at(-1) ?? ({} as FinancialPeriod), "totalDebt"), now("totalAssets")))),
+      "OCF/Capex": ratio(industrial(over(operatingCashFlow, capex == null ? null : Math.abs(capex)))),
 
       "Revenue 5Y CAGR": percent(growth("revenue")),
-      "FCF 5Y CAGR": percent(growth("freeCashFlow")),
+      "FCF 5Y CAGR": percent(industrial(growth("freeCashFlow"))),
       "Net Income 5Y CAGR": percent(growth("netIncome")),
 
-      "OCF": billions(operatingCashFlow),
-      "Capex": billions(capex == null ? null : Math.abs(capex)),
+      "OCF": billions(industrial(operatingCashFlow)),
+      "Capex": billions(industrial(capex == null ? null : Math.abs(capex))),
       ...qsValuationColumns(qsPriceInputs(dataset), price),
     },
   };

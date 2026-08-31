@@ -1,4 +1,5 @@
 export type Periodicity = "annual" | "quarterly" | "ttm";
+export type BusinessType = "operating" | "bank" | "broker" | "exchange" | "insurer" | "holding" | "financial";
 export type FactStatus = "reported" | "restated" | "calculated" | "unavailable";
 export type ValidationStatus = "Verified" | "Calculated and verified" | "Suspected anomaly" | "Confirmed invalid" | "Missing" | "Restated" | "Source conflict" | "Verified outlier";
 
@@ -56,6 +57,10 @@ export type MetricKey =
   | "totalEquity"
   | "longTermDebtCurrent"
   | "longTermDebtNoncurrent"
+  | "longTermDebtAndLeases"
+  | "otherLongTermDebt"
+  | "shortTermBorrowings"
+  | "financeLeaseLiability"
   | "totalAssets"
   | "goodwill"
   | "intangibleAssets"
@@ -129,7 +134,7 @@ export interface CompanyProfile {
   tickerHistory?: Array<{ ticker: string; from?: string; to?: string }>;
   stockSplits?: Array<{ date: string; ratio: number }>;
   regulatoryId?: string;
-  businessType?: "operating" | "financial" | "international";
+  businessType?: BusinessType;
   resolutionStatus?: "verified" | "partial" | "unresolved";
   resolutionNote?: string;
 }

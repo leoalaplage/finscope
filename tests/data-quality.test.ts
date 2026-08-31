@@ -20,6 +20,9 @@ describe("offline fixture identity", () => {
     // The rows are Apple filings; the accession numbers must agree with the profile.
     const accessions = APPLE_DATASET.periods.map((period) => period.accession);
     expect(accessions.some((accession) => accession.startsWith("0000320193-"))).toBe(true);
+    expect(APPLE_DATASET.periods[0].facts.revenue?.provenance.provider).toBe("SEC");
+    expect(APPLE_DATASET.periods[0].facts.revenue?.provenance.note).toContain("Offline fixture");
+    expect(APPLE_DATASET.warnings.some((warning) => warning.startsWith("Offline fixture:"))).toBe(true);
   });
 });
 

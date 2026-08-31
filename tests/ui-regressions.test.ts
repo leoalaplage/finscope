@@ -52,6 +52,16 @@ describe("UI regressions", () => {
     expect(source).toContain("NAV_KEYS.has(view)");
   });
 
+  it("does not call a calculated TTM a filing or hide the offline fixture", () => {
+    const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    expect(source).toContain("Latest calculated period");
+    expect(source).toContain("Latest filing period");
+    expect(source).toContain("Offline fixture from SEC facts");
+    expect(source).toContain('if (route.ticker && route.ticker !== initialData.company.ticker) setView("search")');
+    // A retry that keeps an existing fixture still reports the live failure.
+    expect(source).toContain('catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load company"); }');
+  });
+
   it("gives a two-series card a key and one honest headline", () => {
     // Cash and debt were drawn in two colours the card never named, under a
     // number that was the cash alone and a CAGR that described only half of a

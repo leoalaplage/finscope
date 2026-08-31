@@ -74,6 +74,16 @@ describe("the watchlist as the screener's table", () => {
     expect(row["Current Ratio"]).not.toBeNull();
   });
 
+  it("withholds industrial capital and cash-flow measures for a bank", () => {
+    const bank = { ...company, company: { ...company.company, businessType: "bank" as const } };
+    const row = qsRow(bank, 50).values;
+    for (const column of ["ROIC", "ROIC 5Yr Avg", "FCF Margin 5Yr Avg", "FCF / Net Income", "Net Debt / EBITDA", "Long-term Debt to Assets", "OCF/Capex", "FCF 5Y CAGR", "EV/EBIT", "EV/FCF", "FCF Yield", "OCF", "Capex"]) {
+      expect(row[column], column).toBeNull();
+    }
+    expect(row["Operating Margin"]).not.toBeNull();
+    expect(row["Market Cap"]).not.toBeNull();
+  });
+
   it("omits the forward-looking columns instead of inventing estimates", () => {
     for (const column of ["Revenue Forward 3Y CAGR", "Forward P/FCF", "PEG"]) {
       expect(QS_COLUMNS).not.toContain(column);

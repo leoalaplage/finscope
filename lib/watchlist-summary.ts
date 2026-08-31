@@ -2,6 +2,7 @@ import { cagrForPeriods, derivedValue } from "./finance";
 import { qsPriceInputs, qsRow, type QsPriceInputs } from "./qs-export";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod } from "./types";
 import { shareCount } from "./market-basis";
+import { isFinancialBusiness } from "./business-type";
 
 /**
  * The few figures a watchlist card shows, and nothing else.
@@ -107,6 +108,8 @@ export function summariseDataset(dataset: CompanyDataset): WatchlistSummary | nu
   const latestYear = annual.at(-1); const priorYear = annual.at(-2);
   const thisYear = latestYear ? derivedValue(latestYear, "revenue") : null;
   const lastYear = priorYear ? derivedValue(priorYear, "revenue") : null;
+  const financial = isFinancialBusiness(dataset.company.businessType);
+  const industrial = (value: number | null) => financial ? null : value;
   return {
     ticker: dataset.company.ticker,
     name: dataset.company.name,
@@ -119,13 +122,13 @@ export function summariseDataset(dataset: CompanyDataset): WatchlistSummary | nu
     shares: shareCount(period)?.shares ?? null,
     revenue: derivedValue(period, "revenue"),
     revenueGrowth: thisYear != null && lastYear != null && lastYear > 0 ? thisYear / lastYear - 1 : null,
-    freeCashFlow: derivedValue(period, "freeCashFlow"),
-    freeCashFlowMargin: derivedValue(period, "freeCashFlowMargin"),
-    cashReturnOnCapital: derivedValue(period, "cashReturnOnCapital"),
-    netDebt: derivedValue(period, "netDebt"),
-    freeCashFlowAfterSbcMargin5Y: fiveYearAverage(annual, "freeCashFlowAfterSbcMargin"),
-    cashReturnOnCapital5Y: fiveYearAverage(annual, "cashReturnOnCapital"),
-    freeCashFlowPerShareCagr5Y: cagrForPeriods(annual, "freeCashFlowPerShare", 5).value,
+    freeCashFlow: industrial(derivedValue(period, "freeCashFlow")),
+    freeCashFlowMargin: industrial(derivedValue(period, "freeCashFlowMargin")),
+    cashReturnOnCapital: industrial(derivedValue(period, "cashReturnOnCapital")),
+    netDebt: industrial(derivedValue(period, "netDebt")),
+    freeCashFlowAfterSbcMargin5Y: industrial(fiveYearAverage(annual, "freeCashFlowAfterSbcMargin")),
+    cashReturnOnCapital5Y: industrial(fiveYearAverage(annual, "cashReturnOnCapital")),
+    freeCashFlowPerShareCagr5Y: industrial(cagrForPeriods(annual, "freeCashFlowPerShare", 5).value),
     qs: qsRow(dataset, null).values,
     qsPrice: qsPriceInputs(dataset),
   };

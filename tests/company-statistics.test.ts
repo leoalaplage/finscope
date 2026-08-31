@@ -277,6 +277,12 @@ describe("a financial institution", () => {
     const explanations = groups.filter((group) => group.note?.includes("customer and clearing balances"));
     expect(explanations).toHaveLength(1);
     expect(explanations[0].title).toBe("Margins (TTM)");
+
+    const capitalModel = groups.flatMap((group) => group.stats).filter((stat) => stat.reason === "Not comparable for this financial business model");
+    expect(capitalModel.map((stat) => stat.label).sort()).toEqual(
+      ["EV", "EV/EBITDA", "EV/Gross Profit", "EV/Sales", "Net Debt", "ROIC", "ROIC · 5Yr Avg"].sort(),
+    );
+    for (const stat of capitalModel) expect(stat.value).toBeNull();
   });
 
   it("leaves an operating company's cash measures alone", () => {
