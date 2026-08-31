@@ -82,7 +82,14 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   longTermDebtNoncurrent: { namespace: "us-gaap", tags: ["LongTermDebtNoncurrent"], unit: "currency" },
   longTermDebtAndLeases: { namespace: "us-gaap", tags: ["LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent", "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"], unit: "currency" },
   otherLongTermDebt: { namespace: "us-gaap", tags: ["LongTermDebt", "ConvertibleLongTermNotesPayable", "UnsecuredLongTermDebt", "NotesPayable"], unit: "currency" },
-  shortTermBorrowings: { namespace: "us-gaap", tags: ["ShortTermBorrowings", "OtherShortTermBorrowings"], unit: "currency" },
+  // `DebtCurrent` is the broad balance-sheet total many industrial filers use
+  // for debt due within a year. Adobe is a representative case: it reports
+  // `LongTermDebt` and an explicit `DebtCurrent` (including a filed zero), but
+  // no `LongTermDebtCurrent` or `ShortTermBorrowings`. Missing this synonym
+  // made a complete financing base look incomplete and withheld ROIC. Keep the
+  // broad total first; the narrower borrowing concepts are fallbacks rather
+  // than addends, so a company publishing both is never double-counted.
+  shortTermBorrowings: { namespace: "us-gaap", tags: ["DebtCurrent", "ShortTermBorrowings", "OtherShortTermBorrowings"], unit: "currency" },
   financeLeaseLiability: { namespace: "us-gaap", tags: ["FinanceLeaseLiability"], unit: "currency" },
   currentAssets: { namespace: "us-gaap", tags: ["AssetsCurrent"], unit: "currency" },
   // Including noncontrolling interests as a fallback: Visa reports almost only

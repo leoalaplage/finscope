@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isFinancialBusiness, verifiedBusinessType } from "../lib/business-type";
 import { normalizeSecPayload } from "../lib/adapters/sec";
+import { derivedValue } from "../lib/finance";
 import type { CompanyProfile } from "../lib/types";
 
 const END = "2025-12-31";
@@ -55,5 +56,37 @@ describe("verified economic classification", () => {
     const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
     expect(annual.facts.otherLongTermDebt?.value).toBe(1_491);
     expect(annual.facts.totalDebt).toBeUndefined();
+  });
+
+  it("recognizes Adobe's filed current-debt zero and restores its ROIC", () => {
+    const dataset = normalizeSecPayload(payload({
+      OperatingIncomeLoss: flow(8_706, "Operating income"),
+      IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: flow(8_734, "Income before tax"),
+      IncomeTaxExpenseBenefit: flow(1_604, "Income tax expense"),
+      LongTermDebt: point(6_210, "Long-term debt"),
+      DebtCurrent: point(0, "Current debt"),
+      StockholdersEquity: point(11_623, "Stockholders' equity"),
+      CashAndCashEquivalentsAtCarryingValue: point(5_431, "Cash and cash equivalents"),
+    }), "ADBE", "2026-08-31T00:00:00.000Z", profile("ADBE", "0000796343"));
+    const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
+
+    expect(annual.facts.shortTermBorrowings?.value).toBe(0);
+    expect(annual.facts.shortTermBorrowings?.provenance.concept).toBe("us-gaap:DebtCurrent");
+    expect(annual.facts.totalDebt?.value).toBe(6_210);
+    expect(annual.facts.totalDebt?.provenance.formula).toBe("Reported long-term debt + Short-term borrowings");
+    expect(derivedValue(annual, "roic")).toBeCloseTo(.5731, 3);
+  });
+
+  it("prefers broad current debt to a narrower short-term borrowing line", () => {
+    const dataset = normalizeSecPayload(payload({
+      LongTermDebt: point(1_000, "Long-term debt"),
+      DebtCurrent: point(100, "Current debt"),
+      ShortTermBorrowings: point(60, "Short-term borrowings"),
+    }), "TEST", "2026-08-31T00:00:00.000Z", profile("TEST", "0000000001"));
+    const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
+
+    expect(annual.facts.shortTermBorrowings?.value).toBe(100);
+    expect(annual.facts.shortTermBorrowings?.provenance.concept).toBe("us-gaap:DebtCurrent");
+    expect(annual.facts.totalDebt?.value).toBe(1_100);
   });
 });
