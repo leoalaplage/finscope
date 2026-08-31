@@ -101,14 +101,24 @@ export const KEY_VERSION = "v19";
  * The cost is the familiar one: cards read
  * "Building financials…" until the warm-up has been round the watchlist.
  */
-const SERVEABLE_WHILE_BUILDING: string[] = [];
+const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [];
 
-/** The same key under a version we are willing to serve from while rebuilding. */
+/**
+ * The same key under a version we are willing to serve from while rebuilding.
+ *
+ * A digest is addressed by two things, the dataset version *and* the shape of
+ * the digest itself, and the fallback used to pair an older version with the
+ * *current* shape — a key that has never existed whenever a bump moved both,
+ * which is most of them. So the mechanism built to keep cards populated during
+ * a rebuild could not find anything to populate them with, and every bump
+ * emptied the watchlist whether or not the previous copy was safe to show. The
+ * shape a version was written under is now recorded beside it.
+ */
 export function fallbackDatasetKeys(ticker: string) {
-  return SERVEABLE_WHILE_BUILDING.map((version) => `company:${version}:${ticker.toUpperCase()}`);
+  return SERVEABLE_WHILE_BUILDING.map(({ version }) => `company:${version}:${ticker.toUpperCase()}`);
 }
 export function fallbackSummaryKeys(ticker: string) {
-  return SERVEABLE_WHILE_BUILDING.flatMap((version) => [`summary:${version}.${SUMMARY_SHAPE}:${ticker.toUpperCase()}`]);
+  return SERVEABLE_WHILE_BUILDING.map(({ version, shape }) => `summary:${version}.${shape}:${ticker.toUpperCase()}`);
 }
 
 /**

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CACHE_SECONDS, datasetKey, digestIsCurrent, KEY_VERSION, missingTickers, REFRESH_AFTER_MS, requestedTickers, summaryKey, WATCHLIST_LIMIT, warmSomeMissing, warmWatchlist } from "../lib/dataset-cache";
+import { CACHE_SECONDS, datasetKey, digestIsCurrent, fallbackDatasetKeys, fallbackSummaryKeys, KEY_VERSION, missingTickers, REFRESH_AFTER_MS, requestedTickers, summaryKey, WATCHLIST_LIMIT, warmSomeMissing, warmWatchlist } from "../lib/dataset-cache";
 import { COVERED_TICKERS, DEFAULT_WATCHLIST } from "../lib/company-registry";
 import { setRuntimeBindings } from "../lib/runtime-env";
 
@@ -394,5 +394,19 @@ describe("the watchlist a reader asks about", () => {
 
   it("keeps the dots and dashes real symbols carry", () => {
     expect(requestedTickers("brk.b,rds-a", COVERED_TICKERS)).toEqual(["BRK.B", "RDS-A"]);
+  });
+});
+
+describe("standing in for a version being rebuilt", () => {
+  it("addresses a previous digest by the shape it was written under", () => {
+    // A digest key carries the dataset version and the digest shape. Pairing an
+    // old version with today's shape names a key that was never written, which
+    // is why the stand-in never once filled a card through four bumps.
+    for (const key of fallbackSummaryKeys("aapl")) {
+      const [, version, rest] = key.split(":");
+      expect(rest).toBe("AAPL");
+      expect(version).toMatch(/^v\d+\.s\d+$/);
+    }
+    for (const key of fallbackDatasetKeys("aapl")) expect(key).toMatch(/^company:v\d+:AAPL$/);
   });
 });
