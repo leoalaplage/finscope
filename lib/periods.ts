@@ -231,6 +231,56 @@ function selectAnnual(candidates: RawFinancialFact[]) {
   }));
 }
 
+/** The one concept that means every revenue the company earned. */
+const TOTAL_REVENUE = "us-gaap:Revenues";
+const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
+
+/**
+ * Revenue is the total the filer reports, not a component of it.
+ *
+ * `RevenueFromContractWithCustomer...` is revenue recognised under the
+ * contracts standard. `Revenues` is the income-statement line. For most filers
+ * those are the same number and the preference order between them is a
+ * formality — Costco tags 275.2bn under both. For a company that earns
+ * materially outside contracts with customers they are not: Berkshire Hathaway
+ * tags 247.2bn of contract revenue and 371.4bn of total revenues for 2025, the
+ * 124bn difference being insurance premiums earned and investment income, and
+ * FinScope published the smaller figure under the label "Revenue" — a third of
+ * the company's income missing from the headline, from every margin computed
+ * on it, and from every multiple.
+ *
+ * The rule is one-directional on purpose. A total cannot be smaller than a
+ * component of itself, so `Revenues` wins only where it is strictly larger; a
+ * filer whose `Revenues` sits below its contract tag is describing something
+ * narrower under that name — Mastercard's net revenue against its gross — and
+ * nothing here disturbs the concept already chosen. A tenth of a percent is
+ * left as rounding.
+ *
+ * The reconciliation travels with the fact: the drawer states both figures and
+ * their difference rather than silently swapping one for the other.
+ */
+export function preferTotalRevenue(candidates: RawFinancialFact[], chosen: RawFinancialFact | undefined) {
+  if (!chosen || chosen.concept === TOTAL_REVENUE) return chosen;
+  const total = latest(candidates.filter((fact) =>
+    fact.concept === TOTAL_REVENUE && fact.end === chosen.end && fact.start === chosen.start && fact.currency === chosen.currency));
+  if (!total || total.value <= chosen.value * 1.001) return chosen;
+  const note = `Reconciled to the filer's total: ${compact.format(chosen.value)} tagged as ${chosen.concept.replace("us-gaap:", "")} and ${compact.format(total.value)} as Revenues, a difference of ${compact.format(total.value - chosen.value)} earned outside contracts with customers. The total is the income-statement line and is the figure reported here.`;
+  return { ...total, normalizationNote: total.normalizationNote ? `${total.normalizationNote} ${note}` : note };
+}
+
+/**
+ * The annual fact a year is published under, after that reconciliation.
+ *
+ * Used both to build the annual period and to choose the concept its quarters
+ * are derived from, so a year stated as a total is never divided into quarters
+ * tagged as a component of it.
+ */
+function publishedAnnual(index: FactIndex, metric: MetricKey, fy: number) {
+  const all = contexts(index, metric, fy, "FY");
+  const chosen = selectAnnual(all);
+  return metric === "revenue" ? preferTotalRevenue(all, chosen) : chosen;
+}
+
 /**
  * A derived quarter may only be built from facts sharing one concept.
  *
@@ -278,7 +328,7 @@ function sameMeasure(index: FactIndex, metric: MetricKey, fy: number, concept: s
  * does not add up.
  */
 function conceptsToTry(index: FactIndex, metric: MetricKey, fy: number): string[] {
-  const published = selectAnnual(contexts(index, metric, fy, "FY"));
+  const published = publishedAnnual(index, metric, fy);
   const year = published?.concept;
   const filed = QUARTERS.flatMap((quarter) => contexts(index, metric, fy, quarter === "Q4" ? "FY" : quarter));
   const others = [...new Set(filed.map((fact) => fact.concept))].filter((concept) => concept !== year);
@@ -425,7 +475,7 @@ export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: stri
     const annualFacts: FinancialPeriod["facts"] = {};
     let anchor: RawFinancialFact | undefined;
     for (const metric of [...FLOW_METRICS, ...WEIGHTED_SHARE_METRICS]) {
-      const raw = selectAnnual(contexts(index, metric, fiscalYear, "FY"));
+      const raw = publishedAnnual(index, metric, fiscalYear);
       if (raw) { annualFacts[metric] = normalized(raw, "annual"); if (metric === "revenue") anchor = raw; }
     }
     if (!anchor) return null;
