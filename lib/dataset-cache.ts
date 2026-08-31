@@ -60,10 +60,14 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     totals. JPMorgan's stated borrowing total includes both 435.2bn of
  *     long-term debt and 64.8bn of short-term borrowings; CME's published
  *     unsecured debt and finance-lease components are likewise kept distinct.
- * v18: `DebtCurrent` is recognized as the broad current-debt total paired with
- *     a separately reported long-term balance. Adobe explicitly files zero
- *     current debt alongside 6.21bn of long-term debt; reading that filed zero
- *     restores its invested capital and ROIC without inventing a balance.
+ * v18: `DebtCurrent` — debt due within a year, short-term borrowing and current
+ *     maturities together — is read as a synonym for the current portion rather
+ *     than as a separate short-term line, so one balance is counted once
+ *     however many concepts name it. NVIDIA files 999m under both concepts and
+ *     came out at 9,467m of borrowings against the 8,468m it states itself.
+ *     A long-term total whose current side is a filed zero is now complete on
+ *     its own, which is what Adobe publishes and what its invested capital and
+ *     ROIC were withheld for want of.
  */
 export const KEY_VERSION = "v18";
 
@@ -84,8 +88,10 @@ export const KEY_VERSION = "v18";
  * figure it exists to replace. v17 therefore lists nothing: a v16 copy has the
  * old generic financial classification and lacks the new borrowing totals, so
  * serving it would make the interface disagree with the new fail-closed rules.
- * v18 likewise cannot serve v17 while rebuilding: v17 withholds Adobe's ROIC
- * because it does not recognize the current-debt concept that v18 adds.
+ * v18 likewise cannot serve v17 while rebuilding: v17 has no reading of the
+ * broad current-debt concept at all, so it both withholds Adobe's borrowings
+ * and, where a filer names one current balance twice, would have counted it
+ * twice.
  * The cost is the familiar one: cards read
  * "Building financials…" until the warm-up has been round the watchlist.
  */

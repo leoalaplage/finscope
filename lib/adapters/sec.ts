@@ -78,18 +78,20 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   // borrowings are extracted separately below: JPM publishes both and calling
   // the former "total debt" omitted 64.8bn from the same balance sheet.
   totalDebt: { namespace: "us-gaap", tags: ["DebtLongtermAndShorttermCombinedAmount"], unit: "currency" },
-  longTermDebtCurrent: { namespace: "us-gaap", tags: ["LongTermDebtCurrent"], unit: "currency" },
+  // `DebtCurrent` is the broad balance-sheet total for debt due within a year:
+  // short-term borrowings *and* the current maturities of long-term debt. It is
+  // therefore a synonym for the current portion, never an addend beside it —
+  // NVIDIA files 999m under both concepts for the same date, and treating the
+  // second as separate short-term borrowing reported 9,467m of debt against the
+  // 8,468m its own long-term-debt tag states.
+  longTermDebtCurrent: { namespace: "us-gaap", tags: ["LongTermDebtCurrent", "DebtCurrent"], unit: "currency" },
   longTermDebtNoncurrent: { namespace: "us-gaap", tags: ["LongTermDebtNoncurrent"], unit: "currency" },
   longTermDebtAndLeases: { namespace: "us-gaap", tags: ["LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent", "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"], unit: "currency" },
   otherLongTermDebt: { namespace: "us-gaap", tags: ["LongTermDebt", "ConvertibleLongTermNotesPayable", "UnsecuredLongTermDebt", "NotesPayable"], unit: "currency" },
-  // `DebtCurrent` is the broad balance-sheet total many industrial filers use
-  // for debt due within a year. Adobe is a representative case: it reports
-  // `LongTermDebt` and an explicit `DebtCurrent` (including a filed zero), but
-  // no `LongTermDebtCurrent` or `ShortTermBorrowings`. Missing this synonym
-  // made a complete financing base look incomplete and withheld ROIC. Keep the
-  // broad total first; the narrower borrowing concepts are fallbacks rather
-  // than addends, so a company publishing both is never double-counted.
-  shortTermBorrowings: { namespace: "us-gaap", tags: ["DebtCurrent", "ShortTermBorrowings", "OtherShortTermBorrowings"], unit: "currency" },
+  // Borrowing that is not the current maturity of long-term debt: commercial
+  // paper, bank lines, overdrafts. Genuinely additive to a long-term balance,
+  // which is what makes JPMorgan's 64.8bn belong beside its 435.2bn.
+  shortTermBorrowings: { namespace: "us-gaap", tags: ["ShortTermBorrowings", "OtherShortTermBorrowings"], unit: "currency" },
   financeLeaseLiability: { namespace: "us-gaap", tags: ["FinanceLeaseLiability"], unit: "currency" },
   currentAssets: { namespace: "us-gaap", tags: ["AssetsCurrent"], unit: "currency" },
   // Including noncontrolling interests as a fallback: Visa reports almost only
@@ -259,7 +261,12 @@ function combineDebtComponents(periods: FinancialPeriod[], businessType: Busines
       formula = "Current portion of long-term debt + Non-current long-term debt";
       // A separately filed short-term borrowing is additive to the two
       // long-term portions. Its absence is not read as zero.
-      if (shortTerm?.value != null) { parts.push(shortTerm); formula += " + Short-term borrowings"; }
+      //
+      // Unless the current side is the broad `DebtCurrent` total, which already
+      // contains short-term borrowing as well as current maturities: adding the
+      // narrower line to it would count that borrowing twice.
+      const currentIsBroad = current.provenance.concept === "us-gaap:DebtCurrent";
+      if (shortTerm?.value != null && !currentIsBroad) { parts.push(shortTerm); formula += " + Short-term borrowings"; }
     } else if (longTermCombined?.value != null) {
       parts = [longTermCombined];
       formula = "Long-term debt and lease obligations, current and non-current";
@@ -274,6 +281,24 @@ function combineDebtComponents(periods: FinancialPeriod[], businessType: Busines
       parts = [otherLongTerm, shortTerm];
       formula = "Reported long-term debt + Short-term borrowings";
       if (financeLease?.value != null) { parts.push(financeLease); formula += " + Finance lease liability"; }
+    } else if (otherLongTerm?.value != null && current?.value === 0) {
+      /*
+       * A filed zero closes the balance sheet.
+       *
+       * `LongTermDebt` is the whole long-term balance including its current
+       * maturities, so a current-debt line filed at zero says two things at
+       * once: nothing matures within the year, and there is no short-term
+       * borrowing either — `DebtCurrent` covers both. The long-term figure is
+       * then the entire borrowing, proved rather than assumed. Adobe files
+       * exactly this: 6.21bn of long-term debt against a stated zero, and its
+       * invested capital was withheld for want of a number it had published.
+       *
+       * A non-zero current line cannot be added here: it overlaps the current
+       * maturities already inside the long-term figure, and the filing does not
+       * say by how much.
+       */
+      parts = [otherLongTerm, current];
+      formula = "Reported long-term debt, with current debt filed as zero";
     }
     if (!parts.length) return period;
     const totalDebt = combinedDebtFact(parts, formula, "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero.");

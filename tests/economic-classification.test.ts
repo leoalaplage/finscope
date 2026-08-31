@@ -58,7 +58,12 @@ describe("verified economic classification", () => {
     expect(annual.facts.totalDebt).toBeUndefined();
   });
 
-  it("recognizes Adobe's filed current-debt zero and restores its ROIC", () => {
+  it("reads a long-term debt total closed by a filed current-debt zero", () => {
+    // Adobe publishes 6.21bn of long-term debt — a figure that already contains
+    // its current maturities — and states its current debt as zero. The zero is
+    // the proof: nothing matures inside the year and there is no short-term
+    // borrowing either, so the long-term figure is the whole borrowing and
+    // invested capital no longer has to be withheld.
     const dataset = normalizeSecPayload(payload({
       OperatingIncomeLoss: flow(8_706, "Operating income"),
       IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: flow(8_734, "Income before tax"),
@@ -70,23 +75,61 @@ describe("verified economic classification", () => {
     }), "ADBE", "2026-08-31T00:00:00.000Z", profile("ADBE", "0000796343"));
     const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
 
-    expect(annual.facts.shortTermBorrowings?.value).toBe(0);
-    expect(annual.facts.shortTermBorrowings?.provenance.concept).toBe("us-gaap:DebtCurrent");
+    expect(annual.facts.longTermDebtCurrent?.value).toBe(0);
+    expect(annual.facts.longTermDebtCurrent?.provenance.concept).toBe("us-gaap:DebtCurrent");
     expect(annual.facts.totalDebt?.value).toBe(6_210);
-    expect(annual.facts.totalDebt?.provenance.formula).toBe("Reported long-term debt + Short-term borrowings");
+    expect(annual.facts.totalDebt?.provenance.formula).toBe("Reported long-term debt, with current debt filed as zero");
     expect(derivedValue(annual, "roic")).toBeCloseTo(.5731, 3);
   });
 
-  it("prefers broad current debt to a narrower short-term borrowing line", () => {
+  it("refuses a long-term debt total whose current side is not proved", () => {
+    // The same shape with a current figure that is not zero. `LongTermDebt`
+    // already contains its current maturities, and the filing does not say how
+    // much of the current line is those maturities and how much is new
+    // borrowing, so the two cannot be added and nothing is published.
     const dataset = normalizeSecPayload(payload({
-      LongTermDebt: point(1_000, "Long-term debt"),
+      LongTermDebt: point(6_210, "Long-term debt"),
+      DebtCurrent: point(400, "Current debt"),
+    }), "TEST", "2026-08-31T00:00:00.000Z", profile("TEST", "0000000001"));
+    const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
+    expect(annual.facts.totalDebt).toBeUndefined();
+  });
+
+  it("counts one current balance once, whichever concepts name it", () => {
+    /*
+     * `DebtCurrent` is debt due within a year — short-term borrowing *and* the
+     * current maturities of long-term debt — so it is a synonym for the current
+     * portion, not something to add beside it. NVIDIA files 999m under both
+     * `LongTermDebtCurrent` and `DebtCurrent` for the same date; adding the
+     * second reported 9,467m of borrowings against the 8,468m NVIDIA's own
+     * long-term-debt tag states, and net debt, enterprise value, ROIC and
+     * debt-to-equity all moved with it.
+     */
+    const dataset = normalizeSecPayload(payload({
+      LongTermDebtCurrent: point(999, "Current portion of long-term debt"),
+      DebtCurrent: point(999, "Current debt"),
+      LongTermDebtNoncurrent: point(7_469, "Non-current long-term debt"),
+      LongTermDebt: point(8_468, "Long-term debt"),
+    }), "NVDA", "2026-08-31T00:00:00.000Z", profile("NVDA", "0001045810"));
+    const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
+
+    expect(annual.facts.longTermDebtCurrent?.provenance.concept).toBe("us-gaap:LongTermDebtCurrent");
+    // And the sum equals the filer's own all-in long-term figure, which is the
+    // check that the two halves were the two halves.
+    expect(annual.facts.totalDebt?.value).toBe(8_468);
+  });
+
+  it("does not add a short-term line the broad current total already contains", () => {
+    // `DebtCurrent` covers short-term borrowing as well as current maturities.
+    // A filer publishing both must not have the narrower line counted twice.
+    const dataset = normalizeSecPayload(payload({
       DebtCurrent: point(100, "Current debt"),
       ShortTermBorrowings: point(60, "Short-term borrowings"),
+      LongTermDebtNoncurrent: point(1_000, "Non-current long-term debt"),
     }), "TEST", "2026-08-31T00:00:00.000Z", profile("TEST", "0000000001"));
     const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
 
-    expect(annual.facts.shortTermBorrowings?.value).toBe(100);
-    expect(annual.facts.shortTermBorrowings?.provenance.concept).toBe("us-gaap:DebtCurrent");
+    expect(annual.facts.longTermDebtCurrent?.value).toBe(100);
     expect(annual.facts.totalDebt?.value).toBe(1_100);
   });
 });
