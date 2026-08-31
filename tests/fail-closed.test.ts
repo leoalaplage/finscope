@@ -43,12 +43,16 @@ function dataset(facts: Partial<Record<MetricKey, number>>, currency = "USD"): C
   };
 }
 
+/** The same company, with one balance the filer never tagged. */
+const without = (facts: Partial<Record<MetricKey, number>>, ...missing: MetricKey[]): Partial<Record<MetricKey, number>> =>
+  Object.fromEntries(Object.entries(facts).filter(([metric]) => !missing.includes(metric as MetricKey)));
+
 const complete = { revenue: 1_000, netIncome: 100, operatingIncome: 200, operatingCashFlow: 250, capitalExpenditures: 50, incomeBeforeTax: 125, incomeTaxExpense: 25, totalEquity: 800, totalDebt: 300, cashAndEquivalents: 100, dilutedShares: 100, sharesOutstanding: 90 };
 
 describe("a missing balance is unknown, not zero", () => {
   it("withholds net debt when either side of it is unreported", () => {
-    const { totalDebt, ...noDebt } = complete;
-    const { cashAndEquivalents, ...noCash } = complete;
+    const noDebt = without(complete, "totalDebt");
+    const noCash = without(complete, "cashAndEquivalents");
     expect(netDebt(period(complete))).toBe(200);
     expect(netDebt(period(noDebt))).toBeNull();
     expect(netDebt(period(noCash))).toBeNull();
@@ -58,7 +62,7 @@ describe("a missing balance is unknown, not zero", () => {
   });
 
   it("withholds invested capital, and the returns on it, when debt is unreported", () => {
-    const { totalDebt, ...noDebt } = complete;
+    const noDebt = without(complete, "totalDebt");
     expect(investedCapital(period(complete))).toBe(1_000);
     expect(investedCapital(period(noDebt))).toBeNull();
     // Understating the capital base overstates every return computed on it,
@@ -110,7 +114,7 @@ describe("a price meeting a filed statement", () => {
 
   it("prefers the period-end share count and says so when it cannot have it", () => {
     expect(shareCount(period(complete))).toMatchObject({ shares: 90, basis: "outstanding" });
-    const { sharesOutstanding, ...noCount } = complete;
+    const noCount = without(complete, "sharesOutstanding");
     const fallback = shareCount(period(noCount))!;
     expect(fallback).toMatchObject({ shares: 100, basis: "diluted" });
     expect(fallback.note).toBeTruthy();
@@ -119,7 +123,7 @@ describe("a price meeting a filed statement", () => {
   });
 
   it("withholds enterprise value, with a reason, when debt cannot be read", () => {
-    const { totalDebt, ...noDebt } = complete;
+    const noDebt = without(complete, "totalDebt");
     const basis = marketBasis(period(noDebt), priceIn("USD")).basis!;
     expect(basis.marketCap).toBe(1_800);
     expect(basis.enterpriseValue).toBeNull();
@@ -132,7 +136,7 @@ describe("a price meeting a filed statement", () => {
   });
 
   it("drops every enterprise multiple with the enterprise value", () => {
-    const { totalDebt, ...noDebt } = complete;
+    const noDebt = without(complete, "totalDebt");
     const snapshot = valuationSnapshot(period(noDebt), priceIn("USD"))!;
     expect(snapshot.metrics.priceToSales).toBeCloseTo(1.8, 10);
     expect(snapshot.metrics.enterpriseToSales).toBeNull();
@@ -158,7 +162,7 @@ describe("the statistics panel says why, not just nothing", () => {
   });
 
   it("explains an unavailable net debt instead of printing a dash", () => {
-    const { totalDebt, ...noDebt } = complete;
+    const noDebt = without(complete, "totalDebt");
     const groups = companyStatistics(dataset(noDebt), priceIn("USD"));
     const health = groups.find((group) => group.title === "Financial Health")!.stats.find((item) => item.label === "Net Debt")!;
     expect(health.value).toBeNull();
@@ -168,7 +172,7 @@ describe("the statistics panel says why, not just nothing", () => {
   it("marks a return built on an assumed tax rate as assumed", () => {
     // No pre-tax income and no tax line: NOPAT falls back to 21%, and the row
     // has to carry that rather than presenting it as the company's own rate.
-    const { incomeBeforeTax, incomeTaxExpense, ...untaxed } = complete;
+    const untaxed = without(complete, "incomeBeforeTax", "incomeTaxExpense");
     const groups = companyStatistics(dataset(untaxed), priceIn("USD"));
     const roic = groups.find((group) => group.title === "Returns on Capital")!.stats.find((item) => item.label === "ROIC")!;
     expect(roic.value).not.toBeNull();
