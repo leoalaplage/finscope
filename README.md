@@ -12,6 +12,7 @@ It uses Next.js App Router semantics through Vinext, React 19, strict TypeScript
 - Live SEC Company Facts adapter with schema validation, concept fallbacks and explicit error handling, backed by a Cloudflare KV cache.
 - Offline Apple fixture covering FY 2009–2025 so the application stays demonstrable when SEC EDGAR is unavailable.
 - Historical Yahoo adjusted close matched to an explicit fiscal date, with an exact / previous-seven-day / next-two-day fallback policy and full date lineage. A current price is never applied to old fundamentals.
+- Figures fail closed. Nothing is converted between currencies, an unreported balance is never read as zero, and a market capitalisation states which share count it is on — so a figure that cannot be built from the filings is withheld with its reason on the row rather than estimated.
 
 ### Navigation
 
