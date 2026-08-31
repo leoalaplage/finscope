@@ -49,6 +49,14 @@ function cardFigures(digest: WatchlistSummary | null | undefined, financial: boo
 const POLL_MS = 2_000;
 const MAX_POLLS = 20;
 
+/** Longer than a cache hit, so only a genuine build earns a pause after it. */
+const BUILD_MS = 800;
+/** The breath between two builds, which keeps a run of them under the limit. */
+const BREATH_MS = 1_500;
+/** A CPU refusal clears in a minute or two, so the retries wait that long. */
+const RETRY_MS = [15_000, 45_000];
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const latestPeriod = (dataset: CompanyDataset): FinancialPeriod | undefined => currentDatasetPeriod(dataset);
 
 /**
@@ -88,7 +96,10 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
   const [summaries, setSummaries] = useState<Record<string, WatchlistSummary> | null>(null);
   // Loading one company from a card is this page's business, so it tracks that
   // here rather than reading a flag the parent sets for a different action.
-  const [pending, setPending] = useState<Record<string, "loading" | "failed">>({});
+  // What each card is doing, and — when it went wrong — what went wrong. A
+  // company refused because the server was busy is not a company that failed,
+  // and "Could not load" told a reader neither which it was nor what to do.
+  const [pending, setPending] = useState<Record<string, { state: "loading" } | { state: "failed"; reason: string }>>({});
   const [bulk, setBulk] = useState({ running: false, done: 0, total: 0 });
 
   /**
@@ -105,38 +116,51 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
    *
    * A refusal is the platform being busy rather than the filing being broken,
    * so what is refused is tried again twice more, after pauses long enough for
-   * a fresh isolate to be handed to us.
+   * a fresh isolate to be handed to us — a minute of them, because that is how
+   * long a CPU refusal actually lasts. Four seconds asked the same exhausted
+   * instance the same question and got the same answer.
+   *
+   * And a build is followed by a breath. Sequential was not enough on its own:
+   * five cold companies back to back is still a burst, and the sixth came back
+   * refused — measured against production on 1 September. The pause is only
+   * taken after a call that was slow enough to have been a real build, so a
+   * watchlist of already-cached companies still fills straight through.
    */
   async function loadEverything() {
     const targets = watchlist.filter((company) => company.resolutionStatus !== "unresolved" && !datasets[company.ticker]).map((company) => company.ticker);
     if (!targets.length) return;
     setBulk({ running: true, done: 0, total: targets.length });
     const done = (ticker: string) => setPending((current) => { const next = { ...current }; delete next[ticker]; return next; });
+    const fail = (ticker: string, cause: unknown) => setPending((current) => ({ ...current, [ticker]: { state: "failed", reason: cause instanceof Error ? cause.message : "Could not load — try again" } }));
     let refused: string[] = [];
     for (const ticker of targets) {
-      setPending((current) => ({ ...current, [ticker]: "loading" }));
+      setPending((current) => ({ ...current, [ticker]: { state: "loading" } }));
+      const started = Date.now();
       try { await onLoad(ticker); done(ticker); }
-      catch { refused.push(ticker); setPending((current) => ({ ...current, [ticker]: "failed" })); }
+      catch (cause) { refused.push(ticker); fail(ticker, cause); }
       setBulk((current) => ({ ...current, done: current.done + 1 }));
+      if (Date.now() - started > BUILD_MS) await pause(BREATH_MS);
     }
     for (let round = 0; round < 2 && refused.length; round++) {
-      await new Promise((resolve) => setTimeout(resolve, 4_000 * (round + 1)));
+      await pause(RETRY_MS[round]);
       const again = refused;
       refused = [];
       for (const ticker of again) {
-        setPending((current) => ({ ...current, [ticker]: "loading" }));
+        setPending((current) => ({ ...current, [ticker]: { state: "loading" } }));
+        const started = Date.now();
         try { await onLoad(ticker); done(ticker); }
-        catch { refused.push(ticker); setPending((current) => ({ ...current, [ticker]: "failed" })); }
+        catch (cause) { refused.push(ticker); fail(ticker, cause); }
+        if (Date.now() - started > BUILD_MS) await pause(BREATH_MS);
       }
     }
     setBulk({ running: false, done: 0, total: 0 });
   }
 
   function load(ticker: string) {
-    setPending((current) => ({ ...current, [ticker]: "loading" }));
+    setPending((current) => ({ ...current, [ticker]: { state: "loading" } }));
     onLoad(ticker)
       .then(() => setPending((current) => { const next = { ...current }; delete next[ticker]; return next; }))
-      .catch(() => setPending((current) => ({ ...current, [ticker]: "failed" })));
+      .catch((cause: unknown) => setPending((current) => ({ ...current, [ticker]: { state: "failed", reason: cause instanceof Error ? cause.message : "Could not load — try again" } })));
   }
 
   /**
@@ -262,8 +286,9 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
             const period = dataset ? latestPeriod(dataset) : undefined;
             const digest = localDigests[company.ticker] ?? summaries?.[company.ticker];
             const known = period != null || digest != null;
-            const busy = pending[company.ticker] === "loading" || loading === company.ticker;
-            const failed = pending[company.ticker] === "failed";
+            const busy = pending[company.ticker]?.state === "loading" || loading === company.ticker;
+            const failure = pending[company.ticker]?.state === "failed" ? pending[company.ticker] as { state: "failed"; reason: string } : null;
+            const failed = failure != null;
             /*
              * An instrument with no filing feed is a settled fact, not a
              * pending one.
@@ -307,7 +332,7 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
                 </span>
                 {/* A company the server is still building is not a company
                     that failed, and must not be labelled like one. */}
-                {!known && <span className="company-card-state">{unresolved ? "No filing feed available" : summaries == null ? "Loading…" : busy ? "Loading financials…" : failed ? "Could not load — try again" : building.has(company.ticker) ? "Building financials…" : "Financials not loaded"}</span>}
+                {!known && <span className="company-card-state">{unresolved ? "No filing feed available" : summaries == null ? "Loading…" : busy ? "Loading financials…" : failure ? failure.reason : building.has(company.ticker) ? "Building financials…" : "Financials not loaded"}</span>}
               </button>
               {!known && !unresolved && summaries != null && !busy && !building.has(company.ticker) && <button type="button" className="company-card-load" onClick={() => load(company.ticker)}>{failed ? "Retry" : "Load"}</button>}
               <button type="button" className="company-card-remove" title={`Remove ${company.ticker} from the watchlist`} aria-label={`Remove ${company.ticker} from the watchlist`}

@@ -28,6 +28,13 @@ import { currentDatasetPeriod } from "@/lib/current-period";
  * They are tabs on its page now. What is left is the four ways of choosing a
  * company and the one workspace that is genuinely about several at once.
  */
+/** Longer than a cache hit, so only a genuine build earns a pause after it. */
+const BUILD_MS = 800;
+/** The breath between two builds, which keeps a run of them under the limit. */
+const BREATH_MS = 1_500;
+/** A CPU refusal clears in a minute or two, so the retries wait that long. */
+const RETRY_MS = [15_000, 45_000];
+
 type MainView = "search" | "companies" | "company" | "market" | "charts" | "qs";
 type SecondaryView = "quality" | "audit" | "coverage" | "sources" | null;
 type Evidence = { label: string; value: number | null; period: FinancialPeriod; metric: string };
@@ -480,19 +487,25 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
     const worker = async () => {
       while (cursor < targets.length) {
         const ticker = targets[cursor++]; setBulkLoading((current) => new Set(current).add(ticker));
+        const started = Date.now();
         try { await onLoad(ticker); } catch { retryable.push(ticker); }
         finally {
           setBulkLoading((current) => { const next = new Set(current); next.delete(ticker); return next; });
           setBulkState((current) => ({ ...current, done: current.done + 1, failed }));
         }
+        // A breath after a real build, and none after a cached read. Five cold
+        // companies back to back is still a burst even done one at a time, and
+        // the sixth comes back refused.
+        if (Date.now() - started > BUILD_MS) await new Promise((resolve) => setTimeout(resolve, BREATH_MS));
       }
       // A refused company is almost always a busy isolate rather than a broken
       // filing, and the isolate needs a moment to be replaced. Retrying
       // instantly asks the same exhausted instance the same question, which is
-      // why a whole batch used to come back as failures; a pause and two
-      // further rounds recover nearly all of them.
+      // why a whole batch used to come back as failures. Two seconds was still
+      // asking too soon: a CPU refusal lasts a minute or two, so the rounds
+      // wait that long.
       for (let round = 0; round < 2 && retryable.length; round++) {
-        await new Promise((resolve) => setTimeout(resolve, 2_000 * (round + 1)));
+        await new Promise((resolve) => setTimeout(resolve, RETRY_MS[round]));
         for (const ticker of retryable.splice(0)) {
           setBulkLoading((current) => new Set(current).add(ticker));
           try { await onLoad(ticker); } catch { retryable.push(ticker); }

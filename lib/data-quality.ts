@@ -1,5 +1,4 @@
 import { derivedValue } from "./finance";
-import { runDatasetInvariants } from "./accounting-invariants";
 import type { CompanyDataset, DataQualityIssue, FinancialPeriod, MetricKey, NormalizedFact, Periodicity, ValidationInfo, ValidationStatus } from "./types";
 
 export const METRIC_DEPENDENCIES: Record<string, MetricKey[]> = {
@@ -85,5 +84,19 @@ export function validateCompanyDataset(dataset: CompanyDataset): CompanyDataset 
   const issues = periods.flatMap((period) => Object.entries(period.facts).map(([metric, fact]) => fact ? issueForFact(dataset.company.ticker, period, metric, fact) : null).filter((issue): issue is DataQualityIssue => issue !== null));
   const coverage = (["annual", "quarterly", "ttm"] as Periodicity[]).map((periodicity) => { const items = periods.filter((period) => period.periodicity === periodicity).sort((a,b)=>a.periodEnd.localeCompare(b.periodEnd)); return { periodicity, firstPeriod: items[0]?.periodEnd ?? null, lastPeriod: items.at(-1)?.periodEnd ?? null, periodCount: items.length }; });
   const normalizedDataset={...dataset,periods};
-  return { ...normalizedDataset, quality: { issues, invariants:runDatasetInvariants(normalizedDataset), coverage, stockSplits: dataset.company.stockSplits ?? [], lastValidatedAt: checkedAt } };
+  /*
+   * The invariants are not stored with the company.
+   *
+   * They are a pure function of the periods sitting beside them — every one is
+   * a formula recomputed from facts already in this object — so writing them
+   * down was storing the same information twice. It was not free: 2,690 results
+   * for Costco, 1.3MB of a 5.4MB dataset, built on every cold normalization,
+   * written to KV, streamed to every reader, and read by exactly one screen
+   * that a reader reaches from the footer. That screen now recomputes them,
+   * which costs it a few milliseconds and costs everyone else nothing.
+   *
+   * Nothing about the figures changes, so a copy stored with them and a copy
+   * stored without are equally correct and no cache version moves.
+   */
+  return { ...normalizedDataset, quality: { issues, coverage, stockSplits: dataset.company.stockSplits ?? [], lastValidatedAt: checkedAt } };
 }
