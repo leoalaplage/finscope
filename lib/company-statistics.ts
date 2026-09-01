@@ -5,6 +5,8 @@ import { METRICS } from "./metrics";
 import type { CompanyDataset, FinancialPeriod, PricePoint } from "./types";
 import { currentDatasetPeriod } from "./current-period";
 
+export type StatisticsPeriodicity = "annual" | "ttm";
+
 export type StatFormat = "currency" | "percent" | "ratio" | "multiple" | "shares" | "perShare" | "points";
 
 export interface Stat {
@@ -89,7 +91,7 @@ const FINANCIAL_CAPITAL_MODEL = "Not comparable for this financial business mode
  */
 const FINANCIAL_NOTE = "Free-cash-flow measures are withheld: operating cash flow at a bank, broker or exchange moves with customer and clearing balances — money belonging to clients that passes through the statement — so dividing it by a net revenue line gives a figure that is arithmetically correct and describes nothing.";
 
-export function companyStatistics(dataset: CompanyDataset, price: PricePoint | null): StatGroup[] {
+export function companyStatistics(dataset: CompanyDataset, price: PricePoint | null, periodicity: StatisticsPeriodicity = "ttm"): StatGroup[] {
   const financial = isFinancialBusiness(dataset.company.businessType);
   /** The value, unless free cash flow is meaningless for this filer. */
   const cash = (value: number | null) => financial ? null : value;
@@ -103,11 +105,12 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
    */
   const cashReason = financial ? FINANCIAL_CASH_FLOW : undefined;
   const annual = ordered(dataset, "annual");
-  // A trailing window when there is one that is genuinely more recent than the
-  // last annual report, and the year itself when there is not — a filer whose
-  // quarters stopped being derivable years ago must not have a decade-old
-  // window read as its current one.
-  const current = currentDatasetPeriod(dataset) ?? null;
+  // Library callers historically received the latest usable period. The UI
+  // disables TTM when one compared company has none, but retaining an annual
+  // fallback here keeps exports and older callers useful without inventing a
+  // trailing value.
+  const current = periodicity === "annual" ? annual.at(-1) ?? null : currentDatasetPeriod(dataset) ?? null;
+  const periodName = periodicity === "ttm" ? "TTM" : "Annual";
 
   /*
    * Every priced figure in this panel comes from one basis, or from none.
@@ -185,7 +188,7 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
       ],
     },
     {
-      title: "Margins (TTM)",
+      title: `Margins (${periodName})`,
       note: financial ? FINANCIAL_NOTE : undefined,
       stats: [
         stat("grossMargin", "Gross", flow("grossMargin"), "percent", 1),
@@ -218,7 +221,7 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
       ],
     },
     {
-      title: "Valuation (TTM)",
+      title: `Valuation (${periodName})`,
       note: noPrice,
       stats: [
         stat("priceToEarnings", "P/E", over(marketCap, flow("netIncome")), "multiple", -1, noPrice ?? "Earnings are not positive"),

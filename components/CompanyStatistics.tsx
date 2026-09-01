@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { bestIn, companyStatistics, formatStat, type Stat, type StatGroup } from "@/lib/company-statistics";
+import { bestIn, companyStatistics, formatStat, type Stat, type StatGroup, type StatisticsPeriodicity } from "@/lib/company-statistics";
 import type { CompanyDataset, PricePoint } from "@/lib/types";
 
 /**
@@ -74,12 +74,12 @@ function Comparison({ columns }: { columns: Array<{ ticker: string; currency: st
  * The same computation feeds both shapes, so a figure can never disagree with
  * itself between the company page and the comparison.
  */
-export function CompanyStatistics({ datasets, prices }: { datasets: CompanyDataset[]; prices: Record<string, PricePoint | null> }) {
+export function CompanyStatistics({ datasets, prices, periodicity = "ttm" }: { datasets: CompanyDataset[]; prices: Record<string, PricePoint | null>; periodicity?: StatisticsPeriodicity }) {
   const columns = useMemo(() => datasets.map((dataset) => ({
     ticker: dataset.company.ticker,
     currency: dataset.company.currency,
-    groups: companyStatistics(dataset, prices[dataset.company.ticker] ?? null),
-  })), [datasets, prices]);
+    groups: companyStatistics(dataset, prices[dataset.company.ticker] ?? null, periodicity),
+  })), [datasets, periodicity, prices]);
 
   if (!columns.length) return <p className="simple-state">Pick at least one company to see its statistics.</p>;
 

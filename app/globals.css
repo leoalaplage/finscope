@@ -562,6 +562,13 @@ tbody tr:last-child > * { border-bottom: 0; }
 .dcf-results-grid, .metrics-grid, .valuation-grid, .quality-grid, .dcf-history-grid, .price-proof { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 24px; border: 0; }
 .dcf-results-grid article, .metric-card, .valuation-card, .quality-grid > div, .dcf-history-grid > div, .price-proof > div { min-width: 0; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); }
 .dcf-results-grid strong, .metric-card strong, .valuation-card strong, .quality-grid strong, .dcf-history-grid strong, .price-proof strong { display: block; margin: 5px 0 3px; font-size: var(--fs-xl); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.valuation-snapshot { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 16px; }
+.valuation-snapshot span { color: var(--muted); font-size: var(--fs-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.valuation-fcf-chart { margin: 0 0 24px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); overflow: hidden; }
+.valuation-fcf-chart figcaption { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 15px; border-bottom: 1px solid var(--card-border); }
+.valuation-fcf-chart h3 { margin: 2px 0 0; font-size: var(--fs-body); }
+.valuation-chart-actions { display: flex; align-items: center; gap: 8px; }
+.valuation-fcf-canvas { height: 300px; padding: 8px 8px 4px 0; }
 .dcf-scenario-tabs { display: flex; margin-bottom: 20px; }
 .dcf-scenario-tabs button { flex: 1; border-radius: 0; }
 .dcf-scenario-tabs strong { display: block; }
@@ -866,16 +873,13 @@ tbody tr:last-child > * { border-bottom: 0; }
 .stat-picker button.active { background: var(--accent); border-color: transparent; color: var(--accent-contrast); }
 .stat-picker button.active:hover:not(:disabled) { background: var(--accent); }
 .stat-picker-count { margin-left: 6px; font-size: var(--fs-xs); color: var(--muted); }
-/* The company you are reading, first and fixed. It is not a choice in this
-   group — you are on its page — so it is stated rather than offered. */
-.stat-picker-anchor {
-  display: inline-flex; align-items: center; min-height: 28px; padding: 0 12px;
-  border-radius: var(--radius-pill); background: var(--accent); color: var(--accent-contrast);
-  font-size: var(--fs-sm); font-weight: 600;
-}
-
 @media (max-width: 1100px) { .stat-columns { columns: 2; } }
-@media (max-width: 700px) { .stat-columns { columns: 1; } .stat-panel { padding: 14px; } }
+@media (max-width: 700px) {
+  .stat-columns { columns: 1; }
+  .stat-panel { padding: 14px; }
+  .valuation-fcf-chart figcaption, .valuation-chart-actions { align-items: flex-start; flex-direction: column; }
+  .valuation-fcf-canvas { height: 250px; }
+}
 
 /* --- Reverse DCF ---------------------------------------------------------- */
 /* Assumptions on the left, what they imply on the right: changing a number and

@@ -4,7 +4,7 @@ Validation date: 2026-09-01.
 
 ## Acceptance checks
 
-- 627 automated tests pass and 2 are explicitly skipped. They cover direct and cumulative quarters, Q4 derivation, day-weighted shares, restatements, shifted fiscal years, 52/53-week years, fiscal-label errors, concept migrations, missing/overlapping quarters, fiscal-year changes, TTM completeness, stock splits, historical-session matching, transient-gateway recovery, date-based CAGR and non-meaningful endpoints.
+- 634 automated tests pass and 2 are explicitly skipped. They cover direct and cumulative quarters, Q4 derivation, day-weighted shares, restatements, shifted fiscal years, 52/53-week years, fiscal-label errors, concept migrations, missing/overlapping quarters, fiscal-year changes, TTM completeness, stock splits, historical-session matching, transient-gateway recovery, Statistics frequency selection, date-based CAGR and non-meaningful endpoints.
 - ESLint passes with no warning or error.
 - Strict TypeScript compilation passes.
 - The production Vinext/Cloudflare Worker build passes for `/`, `/api/company/:ticker` and `/api/price/:ticker`.
@@ -67,6 +67,8 @@ For AAPL, the latest quarterly sequence was checked directly: Q1 FY2025 OCF $29.
 13. A smaller later-tagged revenue segment could replace the company's top line. Positive full-period candidates are selected first and `Revenues` is promoted only when it is the larger reported total.
 14. A single absent quarter produced four conspicuous holes in every long Overview card. Long ranges now display annual filings, while 4Y uses TTM only for a continuous company-wide chain.
 15. A transient 502/503/504 forced the reader to repeat an identical safe read manually. GET requests now retry once after 500 ms, while mutating requests and Cloudflare CPU suspension `1102` responses are never repeated.
+16. Statistics inherited the Overview's annual continuity policy and fixed the page's company as an irremovable first column. Statistics now defaults to a current TTM where every selected company has one, offers an explicit Annual/TTM choice, and treats the first company as the same removable toggle as its peers.
+17. Valuation stated only P/FCF in a table. It now adds a current FCF-yield and FCF/share snapshot, five-year FCF-yield statistics, and an Annual/TTM FCF-per-share chart.
 
 ## Remaining limitations
 

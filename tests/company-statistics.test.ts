@@ -123,6 +123,27 @@ describe("company statistics", () => {
     expect(yieldStat.value).toBeNull();
     expect(yieldStat.reason).toBe("Pays no dividend");
   });
+
+  it("lets the caller choose the latest filed year or the latest TTM", () => {
+    const selectable = dataset();
+    const last = selectable.periods.at(-1)!;
+    selectable.periods.push({
+      ...last,
+      label: "TTM Q4 FY2025",
+      periodicity: "ttm",
+      facts: Object.fromEntries(Object.entries(last.facts).map(([metric, fact]) => [metric, fact && {
+        ...fact,
+        value: metric === "revenue" ? 9_999 : fact.value,
+        periodicity: "ttm",
+      }])) as FinancialPeriod["facts"],
+    });
+    const filed = companyStatistics(selectable, price, "annual");
+    const trailing = companyStatistics(selectable, price, "ttm");
+    expect(find(filed, "Profile", "Revenue").value).not.toBe(9_999);
+    expect(find(trailing, "Profile", "Revenue").value).toBe(9_999);
+    expect(filed.some((group) => group.title === "Margins (Annual)")).toBe(true);
+    expect(trailing.some((group) => group.title === "Margins (TTM)")).toBe(true);
+  });
 });
 
 describe("comparison highlighting", () => {

@@ -27,9 +27,12 @@ describe("UI regressions", () => {
     expect(source).toContain('{ key: "valuation", label: "Valuation" }');
     expect(source).toContain("FcfYieldCalculator");
     const tab = readFileSync(new URL("../components/CompanyStatisticsTab.tsx", import.meta.url), "utf8");
-    // The open company is the first column and cannot be removed.
-    expect(tab).toContain("const shown = [dataset, ...others]");
-    expect(tab).toContain("company.ticker !== anchor");
+    // The open company starts selected but is a real toggle: after choosing a
+    // peer, the reader can remove the anchor and inspect that peer alone.
+    expect(tab).toContain("useState<string[]>([anchor])");
+    expect(tab).toContain("onClick={() => toggle(anchor)}");
+    expect(tab).toContain('aria-label="Statistics period"');
+    expect(tab).toContain('setPeriodicity("ttm")');
   });
 
   it("reads the address bar as well as writing to it", () => {
@@ -84,6 +87,16 @@ describe("UI regressions", () => {
     // Green against red is a CVD warning, not a pass, so the body carries the
     // direction too: hollow rising, solid falling.
     expect(source).toContain('fill={rising ? "var(--card)" : colour}');
+  });
+
+  it("puts cash-flow yield and per-share history inside Valuation", () => {
+    const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
+    const snapshot = readFileSync(new URL("../components/ValuationFundamentals.tsx", import.meta.url), "utf8");
+    expect(source).toContain("ValuationFundamentals");
+    expect(source).toContain("Free cash flow yield");
+    expect(snapshot).toContain("FCF yield");
+    expect(snapshot).toContain("Free cash flow per share");
+    expect(snapshot).toContain('aria-label="FCF per share frequency"');
   });
 
   it("puts what chooses the view in the toolbar and what tunes it behind one line", () => {

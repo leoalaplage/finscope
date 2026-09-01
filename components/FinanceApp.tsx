@@ -81,6 +81,7 @@ const CoverageMatrix = lazy(() => import("./CoverageMatrix").then((module) => ({
 const DataQuality = lazy(() => import("./DataQuality").then((module) => ({ default: module.DataQuality })));
 const DcfValuation = lazy(() => import("./DcfValuation").then((module) => ({ default: module.DcfValuation })));
 const FcfYieldCalculator = lazy(() => import("./FcfYieldCalculator").then((module) => ({ default: module.FcfYieldCalculator })));
+const ValuationFundamentals = lazy(() => import("./ValuationFundamentals").then((module) => ({ default: module.ValuationFundamentals })));
 const FormulaDataAudit = lazy(() => import("./FormulaDataAudit").then((module) => ({ default: module.FormulaDataAudit })));
 const QsScreener = lazy(() => import("./QsScreener").then((module) => ({ default: module.QsScreener })));
 const MarketPage = lazy(() => import("./MarketPage").then((module) => ({ default: module.MarketPage })));
@@ -679,7 +680,12 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
         a Valuation tab that stated one multiple, and a DCF page in the main
         navigation that was keyed on this very company. */}
     {tab === "valuation" && <div className="company-block">
-      <section id="valuation" className="plain-section"><SectionTitle title="Valuation" onCharts={() => onCharts(dataset.company.ticker, "stockPrice")}/><ValuationTable dataset={dataset} price={price}/></section>
+      <section id="valuation" className="plain-section"><SectionTitle title="Valuation" onCharts={() => onCharts(dataset.company.ticker, "stockPrice")}/>
+        <Suspense fallback={<Skeleton label="the cash-flow valuation snapshot" chart height={300}/>}>
+          <ValuationFundamentals dataset={dataset} price={price} theme={theme} onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowPerShare")}/>
+        </Suspense>
+        <ValuationTable dataset={dataset} price={price}/>
+      </section>
       <section id="dcf" className="plain-section">
         <div className="section-heading">
           <h2>Discounted cash flow</h2>
@@ -807,12 +813,17 @@ function CurrentAndAverageTable({ periods, metrics, onOpen, onCharts, currencyCo
 function ValuationTable({ dataset, price }: { dataset: CompanyDataset; price: PricePoint | null }) {
   const ttm = useMemo(() => sortedPeriods(dataset, "ttm"), [dataset]); const [points, setPoints] = useState<Record<string, PricePoint | null>>({}); const [error, setError] = useState(""); const dates = useMemo(() => [...new Set([...ttm.map((period) => period.filingDate), new Date().toISOString().slice(0, 10)])], [ttm]);
   useEffect(() => { let active = true; getJson<{ points?: Array<{ requestedDate: string; point?: PricePoint }> }>(`/api/prices/${dataset.company.ticker}?dates=${dates.join(",")}&published=1`, { what: "the valuation history" }).then((payload) => { if (active) setPoints(Object.fromEntries((payload.points ?? []).map((item) => [item.requestedDate, item.point ?? null]))); }).catch((cause) => active && setError(cause instanceof Error ? cause.message : "The valuation history is unavailable.")); return () => { active = false; }; }, [dataset.company.ticker, dates]);
-  const latest = currentDatasetPeriod(dataset); const current = latest && price ? valuationSnapshot(latest, price) : null; const history = buildValuationHistory(ttm, points); const stats = valuationStatistics(history, "priceToFreeCashFlow", current?.metrics.priceToFreeCashFlow ?? null, 5);
+  const latest = currentDatasetPeriod(dataset); const current = latest && price ? valuationSnapshot(latest, price) : null; const history = buildValuationHistory(ttm, points);
+  const multiple = valuationStatistics(history, "priceToFreeCashFlow", current?.metrics.priceToFreeCashFlow ?? null, 5);
+  const yieldStats = valuationStatistics(history, "freeCashFlowYield", current?.metrics.freeCashFlowYield ?? null, 5);
   if (error) return <p className="simple-state">{error}. Fundamental data remains available.</p>;
   // A row of dashes is not an answer. Where the multiple could not be struck —
   // a price in another currency, no readable share count — say which.
   const withheld = latest && price && !current ? marketBasis(latest, price).reason : undefined;
-  return <><div className="table-scroll"><table><thead><tr><th>Metric</th><th>Current</th><th>AVG 5Y</th><th>Median 5Y</th><th>Premium / Discount</th><th>Percentile</th></tr></thead><tbody><tr><th>Price / Free cash flow</th><td>{ratio(stats.current)}</td><td>{ratio(stats.average)}</td><td>{ratio(stats.median)}</td><td>{percent(stats.premiumToAverage)}</td><td>{stats.percentile == null ? "—" : `${(stats.percentile * 100).toFixed(0)}%`}</td></tr></tbody></table></div>{withheld && <p className="simple-state">{withheld}</p>}</>;
+  return <><div className="table-scroll"><table><thead><tr><th>Metric</th><th>Current</th><th>AVG 5Y</th><th>Median 5Y</th><th>Premium / Discount</th><th>Percentile</th></tr></thead><tbody>
+    <tr><th>Price / Free cash flow</th><td>{ratio(multiple.current)}</td><td>{ratio(multiple.average)}</td><td>{ratio(multiple.median)}</td><td>{percent(multiple.premiumToAverage)}</td><td>{multiple.percentile == null ? "—" : `${(multiple.percentile * 100).toFixed(0)}%`}</td></tr>
+    <tr><th>Free cash flow yield</th><td>{percent(yieldStats.current)}</td><td>{percent(yieldStats.average)}</td><td>{percent(yieldStats.median)}</td><td>{percent(yieldStats.premiumToAverage)}</td><td>{yieldStats.percentile == null ? "—" : `${(yieldStats.percentile * 100).toFixed(0)}%`}</td></tr>
+  </tbody></table></div>{withheld && <p className="simple-state">{withheld}</p>}</>;
 }
 
 function EvidenceDialog({ evidence, onClose }: { evidence: Evidence; onClose: () => void }) {
