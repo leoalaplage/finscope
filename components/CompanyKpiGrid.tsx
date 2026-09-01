@@ -64,6 +64,19 @@ function quarterLabel(period: FinancialPeriod) {
 
 interface CardRow { label: string; date: string; value: number | null; pair: number | null; net: number | null; candle?: PeriodCandle | null; range?: [number, number] }
 
+/** Whether every overview measure that exists stays continuous to the present. */
+function continuousOverview(periods: FinancialPeriod[]) {
+  return CARDS.filter((card) => !card.kind).every((card) => {
+    const metrics = [card.metric, card.pair].filter((metric): metric is string => Boolean(metric));
+    return metrics.every((metric) => {
+      const values = periods.map((period) => derivedValue(period, metric));
+      const first = values.findIndex((value) => value != null);
+      if (first < 0) return true; // A line the filer never reports is not a hole in a line.
+      return values.slice(first).every((value) => value != null);
+    });
+  });
+}
+
 /**
  * A session's range as a wick with the open-to-close body inside it.
  *
@@ -254,15 +267,22 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
    * omit one old quarter, and that one quarter deletes four TTM observations.
    * Drawing the long view from TTM therefore turned filing-detail gaps into the
    * large empty bands that looked like missing company data. Long views use
-   * exact filed years; quarterly TTM remains available in Charts and the 4Y
-   * overview. A filer with no quarterly chain naturally uses annual everywhere.
+   * exact filed years; quarterly TTM remains available in Charts and in the 4Y
+   * overview when every overview line is continuous. A single missing source
+   * quarter makes that company use annual in the overview rather than drawing
+   * four derivative holes. A filer with no quarterly chain naturally uses
+   * annual everywhere.
    */
   const series = useMemo(() => {
     const ttm = dataset.periods.filter((period) => period.periodicity === "ttm").sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
     const annual = dataset.periods.filter((period) => period.periodicity === "annual").sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
     return { ttm, annual };
   }, [dataset]);
-  const available = useMemo(() => range === "4Y" && series.ttm.length >= 4 ? series.ttm : series.annual.length ? series.annual : series.ttm, [range, series]);
+  const available = useMemo(() => {
+    const recentTtm = periodsWithin(series.ttm, 4);
+    const useTtm = range === "4Y" && recentTtm.length >= 4 && continuousOverview(recentTtm);
+    return useTtm ? series.ttm : series.annual.length ? series.annual : series.ttm;
+  }, [range, series]);
   const periods = useMemo(
     () => periodsWithin(available, RANGES.find((item) => item.id === range)?.years ?? 10),
     [available, range],

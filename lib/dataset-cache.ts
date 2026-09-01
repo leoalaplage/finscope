@@ -84,8 +84,14 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     none of them debt-free: each files a borrowing balance, and not the pair
  *     the older rule required. Net debt, enterprise value and the returns on
  *     capital move with it.
+ * v21: facts are assigned to the actual annual window that contains them,
+ *     rather than one modal fiscal-end month/day; instant balances are joined
+ *     by exact date regardless of the filing's fy/fp label; and an exact
+ *     originally reported quarterly basis survives any later annual-only
+ *     restatement, not only the ASC 606 revenue transition. These rules remove
+ *     generic 52/53-week, context-label and concept-migration gaps.
  */
-export const KEY_VERSION = "v20";
+export const KEY_VERSION = "v21";
 
 /**
  * Versions whose stored data may still be served while this one is being built.

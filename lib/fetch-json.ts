@@ -38,6 +38,26 @@ export interface ReadJsonOptions {
   what: string;
 }
 
+const TRANSIENT_GATEWAYS = new Set([502, 503, 504]);
+const RETRY_DELAY_MS = 500;
+const pause = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+/**
+ * Whether one more read can help without making an overloaded Worker worse.
+ *
+ * A gateway can give up while a cold company build is still completing. Its
+ * immediate successor then often lands on the cache that first request just
+ * filled, so making the reader press the same button again is needless. Error
+ * 1102 is different: Cloudflare has suspended the Worker for excess CPU and a
+ * half-second retry only adds pressure, so that response keeps its explicit
+ * wait-a-minute message and is returned at once.
+ */
+async function retryableGateway(response: Response) {
+  if (!TRANSIENT_GATEWAYS.has(response.status)) return false;
+  const body = await response.clone().text().catch(() => "");
+  return !/error code: 1102/i.test(body);
+}
+
 /**
  * The body and the trouble with it, separately, for callers that can use a
  * failed answer.
@@ -94,11 +114,25 @@ export async function readJson<T>(response: Response, options: ReadJsonOptions):
  * on screen.
  */
 export async function getJson<T>(url: string, options: ReadJsonOptions & { init?: RequestInit }): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(url, options.init);
-  } catch {
-    throw new Error(`Could not reach the server for ${options.what}. Check your connection and try again.`);
+  // Every current caller is a read, but keep the guarantee local: if a future
+  // caller supplies a mutating method, never duplicate it automatically.
+  const canRetry = (options.init?.method ?? "GET").toUpperCase() === "GET";
+  const attempts = canRetry ? 2 : 1;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch(url, options.init);
+    } catch {
+      if (attempt + 1 < attempts) { await pause(RETRY_DELAY_MS); continue; }
+      throw new Error(`Could not reach the server for ${options.what}. Check your connection and try again.`);
+    }
+    if (attempt + 1 < attempts && await retryableGateway(response)) {
+      await pause(RETRY_DELAY_MS);
+      continue;
+    }
+    return readJson<T>(response, options);
   }
-  return readJson<T>(response, options);
+  // The loop always returns or throws; this keeps the function total if its
+  // retry policy is edited later.
+  throw new Error(`Could not reach the server for ${options.what}. Check your connection and try again.`);
 }

@@ -954,6 +954,10 @@ tbody tr:last-child > * { border-bottom: 0; }
 .price-drivers td small, .price-drivers th small { display: block; color: var(--muted); font-size: var(--fs-micro); font-weight: 400; }
 .price-drivers th.indented small { text-transform: none; letter-spacing: 0; }
 .price-drivers-reading { margin: 12px 0 0; padding-left: 10px; border-left: 2px solid var(--accent); font-size: var(--fs-body); line-height: 1.5; }
+/* The two parts, then the product: a rule under the second says "these
+   multiply to the one below" without a word of explanation. */
+.price-drivers-total th, .price-drivers-total td { border-top: 1px solid var(--border-strong); font-weight: 650; }
+.price-drivers-part td b { font-weight: 550; }
 .financial-table tr.balance-total { border-top: 1px solid var(--border-strong); }
 .financial-table tr.balance-total th, .financial-table tr.balance-total td { font-weight: 700; }
 

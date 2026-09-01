@@ -1,14 +1,28 @@
 # Validation report
 
-Validation date: 2026-08-13.
+Validation date: 2026-09-01.
 
 ## Acceptance checks
 
-- 26 automated tests pass. They cover direct and cumulative quarters, Q4 derivation, day-weighted shares, restatements, shifted fiscal years, 53-week years, missing/overlapping quarters, fiscal-year changes, TTM completeness, stock splits, historical-session matching, date-based CAGR and non-meaningful endpoints.
+- 627 automated tests pass and 2 are explicitly skipped. They cover direct and cumulative quarters, Q4 derivation, day-weighted shares, restatements, shifted fiscal years, 52/53-week years, fiscal-label errors, concept migrations, missing/overlapping quarters, fiscal-year changes, TTM completeness, stock splits, historical-session matching, transient-gateway recovery, date-based CAGR and non-meaningful endpoints.
 - ESLint passes with no warning or error.
 - Strict TypeScript compilation passes.
 - The production Vinext/Cloudflare Worker build passes for `/`, `/api/company/:ticker` and `/api/price/:ticker`.
 - `git diff --check` passes after final formatting cleanup.
+
+## Arbitrary-ticker coverage sweep
+
+The normalizer was also run from raw SEC Company Facts over a deterministic sample of 110 registry tickers, not only the built-in watchlist. Of the 91 companies for which annual periods could be normalized:
+
+| Annual series | Companies with an internal gap | Result |
+|---|---:|---:|
+| Revenue | 1 | 90/91 continuous |
+| Net income | 0 | 91/91 continuous |
+| Free cash flow | 2 | 89/91 continuous |
+
+For the 86 usable U.S.-GAAP datasets in the sample, annual metric availability was 97% for revenue, 100% for net income, 98% for weighted-average shares, 99% for cash and 99% for equity. Free cash flow is lower because banks and insurers do not have an economically comparable industrial FCF, while some industrial filers do not publish a supported capital-expenditure fact.
+
+Quarterly TTM remains stricter: one unavailable source quarter removes four rolling observations. The Overview therefore uses exact filed annuals for 10Y and Max, and uses 4Y TTM only when every displayed metric is continuous. Quarterly and TTM detail remains available in Charts with the gap left explicit.
 
 ## Live filing profiles
 
@@ -47,6 +61,12 @@ For AAPL, the latest quarterly sequence was checked directly: Q1 FY2025 OCF $29.
 7. CAGR used nominal horizons and did not explain invalid endpoints; it now uses actual dates and returns an N/M reason.
 8. Long-range per-share history mixed pre- and post-split share counts. Validated split events now adjust historical share facts while retaining the original SEC source and calculation factor.
 9. SEC concept fallback priority and same-filing comparative selection could choose a lower-priority or older-period context. Both ordering rules are deterministic now.
+10. A modal fiscal-end month/day incorrectly reassigned facts for 52/53-week filers. Facts are now attached to the actual filed annual window that contains them.
+11. Point-in-time balances carrying an inconsistent `fy` or `fp` were missed. Instant facts are now joined by their exact balance-sheet date.
+12. A later annual-only concept migration could erase exact quarters originally filed under the prior concept. The original basis is retained only when dates, unit, currency and quarterly contexts establish the identity; lineage explains the choice and no value is estimated.
+13. A smaller later-tagged revenue segment could replace the company's top line. Positive full-period candidates are selected first and `Revenues` is promoted only when it is the larger reported total.
+14. A single absent quarter produced four conspicuous holes in every long Overview card. Long ranges now display annual filings, while 4Y uses TTM only for a continuous company-wide chain.
+15. A transient 502/503/504 forced the reader to repeat an identical safe read manually. GET requests now retry once after 500 ms, while mutating requests and Cloudflare CPU suspension `1102` responses are never repeated.
 
 ## Remaining limitations
 
@@ -54,4 +74,6 @@ For AAPL, the latest quarterly sequence was checked directly: Q1 FY2025 OCF $29.
 - Company extensions and non-GAAP metrics are not inferred from narrative disclosures.
 - Split metadata must be validated when a new registry company is added.
 - Point-in-time issued or treasury shares can be absent when a filer does not publish a supported standardized concept.
+- Foreign private issuers reporting only under IFRS need a separate `ifrs-full` adapter; they fail with an explicit limitation instead of returning a partly mapped dataset.
+- A ticker can point to a newly created successor CIK whose Company Facts contain no predecessor history. Exxon Mobil's current registry mapping is such a case in this sample; joining predecessor and successor entities requires a separately validated corporate-lineage registry.
 - This validation is a research-data consistency check, not an audit opinion or investment recommendation.

@@ -284,7 +284,7 @@ describe("the redesign", () => {
 
   it("uses filed annuals for long overview ranges and reserves TTM detail for 4Y", () => {
     const grid = readFileSync(new URL("../components/CompanyKpiGrid.tsx", import.meta.url), "utf8");
-    expect(grid).toContain('range === "4Y" && series.ttm.length >= 4');
+    expect(grid).toContain('range === "4Y" && recentTtm.length >= 4 && continuousOverview(recentTtm)');
     expect(grid).toContain('frequency === "ttm" ? "Quarterly TTM" : "Annual"');
   });
 

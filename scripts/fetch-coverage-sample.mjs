@@ -17,14 +17,12 @@ const get = async (url) => fetch(url, { headers: { "User-Agent": UA } });
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /*
- * A 200 is not enough evidence that a Company Facts download is complete.
- * During the first sweep Exxon was stored as an 80KB payload containing only
- * recent 10-Q facts; the same endpoint normally returns 3MB and its full 10-K
- * history. That single partial response was then classified as a normalizer
- * failure forever because the downloader never revisited an existing file.
- * Four distinct quarterly filings without any annual form is impossible for an
- * established filer and is a useful provider-completeness signal that does not
- * depend on company size or payload bytes.
+ * A 200 is not enough evidence that a Company Facts download is complete. The
+ * submissions feed is checked independently: only when it lists an annual form
+ * do we require the facts payload to contain one. This matters for successor
+ * CIKs such as the current Exxon Mobil registry entry, which genuinely has only
+ * recent quarterly history; its predecessor's much larger payload belongs to a
+ * different legal entity and is not evidence that this response is partial.
  */
 const inspectCompanyFacts = (text, expectsAnnual = false) => {
   try {
@@ -32,9 +30,8 @@ const inspectCompanyFacts = (text, expectsAnnual = false) => {
     const observations = Object.values(body.facts ?? {}).flatMap((namespace) => Object.values(namespace ?? {}))
       .flatMap((concept) => Object.values(concept.units ?? {})).flat();
     const forms = new Set(observations.map((fact) => fact.form));
-    const quarters = new Set(observations.filter((fact) => fact.form === "10-Q").map((fact) => fact.accn));
     const hasAnnual = ["10-K", "20-F", "40-F"].some((form) => forms.has(form));
-    return { valid: Boolean(body.entityName) && observations.length > 0 && (!expectsAnnual || hasAnnual) && (hasAnnual || quarters.size < 4), reason: !body.entityName ? "missing entity" : !observations.length ? "no observations" : expectsAnnual && !hasAnnual ? "submissions list an annual filing but Company Facts contains none" : "four or more 10-Q filings but no annual form" };
+    return { valid: Boolean(body.entityName) && observations.length > 0 && (!expectsAnnual || hasAnnual), reason: !body.entityName ? "missing entity" : !observations.length ? "no observations" : "submissions list an annual filing but Company Facts contains none" };
   } catch (error) {
     return { valid: false, reason: error instanceof Error ? error.message : String(error) };
   }
@@ -54,6 +51,23 @@ const companyFacts = async (url, expectsAnnual) => {
     await pause(attempt * 500);
   }
   return { failure };
+};
+
+const submissions = async (url) => {
+  let largest = null;
+  // A partial submissions response is also valid JSON with HTTP 200. Keep the
+  // largest of three reads; the complete SEC response dominates a transient
+  // fragment without assuming that a genuinely new issuer has a 10-K.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const response = await get(url);
+    if (response.ok) {
+      const body = await response.json();
+      const count = body.filings?.recent?.accessionNumber?.length ?? 0;
+      if (!largest || count > largest.count) largest = { body, count };
+    }
+    await pause(attempt * 250);
+  }
+  return largest?.body ?? null;
 };
 
 mkdirSync(`${dir}/facts`, { recursive: true });
@@ -80,10 +94,9 @@ for (const { ticker, cik } of sample) {
   // The submissions feed is the independent evidence that an established
   // filer has annual reports. It catches a partial Company Facts response even
   // when that response happens to contain only two recent 10-Q accessions.
-  if (!sic[ticker]?.formsComplete) {
-    const response = await get(`https://data.sec.gov/submissions/CIK${cik}.json`);
-    if (response.ok) {
-      const body = await response.json();
+  if (sic[ticker]?.formsComplete !== 2) {
+    const body = await submissions(`https://data.sec.gov/submissions/CIK${cik}.json`);
+    if (body) {
       const forms = new Set(body.filings?.recent?.form ?? []);
       // High-volume filers can push the last 10-K out of `recent`; the SEC
       // lists older submission pages separately. Read pages until an annual is
@@ -94,8 +107,8 @@ for (const { ticker, cik } of sample) {
         if (archived.ok) for (const form of (await archived.json()).form ?? []) forms.add(form);
         await pause(150);
       }
-      sic[ticker] = { sic: body.sic ?? null, sicDescription: body.sicDescription ?? null, forms: [...forms], formsComplete: true };
-    } else sic[ticker] = { sic: null, forms: [], formsComplete: true };
+      sic[ticker] = { sic: body.sic ?? null, sicDescription: body.sicDescription ?? null, forms: [...forms], formsComplete: 2 };
+    } else sic[ticker] = { sic: null, forms: [], formsComplete: 2 };
     writeFileSync(`${dir}/sic.json`, JSON.stringify(sic));
     await pause(150);
   }
@@ -103,7 +116,9 @@ for (const { ticker, cik } of sample) {
   const factFile = `${dir}/facts/${ticker}.json`;
   const missingFile = `${dir}/facts/${ticker}.missing`;
   const existing = existsSync(factFile) ? inspectCompanyFacts(readFileSync(factFile, "utf8"), expectsAnnual) : null;
-  if (!existing?.valid && !existsSync(missingFile)) {
+  // A previous network failure is not permanent evidence that a filer is
+  // unavailable. Invalid and missing samples are retried on the next sweep.
+  if (!existing?.valid) {
     const result = await companyFacts(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`, expectsAnnual);
     if (result.text) writeFileSync(factFile, result.text);
     else writeFileSync(missingFile, result.failure);

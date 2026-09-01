@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { getJson, readJson } from "../lib/fetch-json";
 
 const answer = (body: string, init: ResponseInit = {}) => new Response(body, init);
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("reading a JSON answer", () => {
   it("returns the parsed body when there is one", async () => {
@@ -46,7 +48,29 @@ describe("reading a JSON answer", () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Load failed"); }));
     await expect(getJson("/api/movers", { what: "today's moves" }))
       .rejects.toThrow(/Could not reach the server for today's moves/);
-    vi.unstubAllGlobals();
+  });
+
+  it("recovers automatically when a gateway times out once", async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(answer("<html>Gateway timeout</html>", { status: 504 }))
+      .mockResolvedValueOnce(answer('{"ok":1}'));
+    vi.stubGlobal("fetch", request);
+    await expect(getJson<{ ok: number }>("/api/company/MSFT", { what: "MSFT" })).resolves.toEqual({ ok: 1 });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not hammer a Worker that Cloudflare suspended for excess CPU", async () => {
+    const request = vi.fn(async () => answer("error code: 1102", { status: 503 }));
+    vi.stubGlobal("fetch", request);
+    await expect(getJson("/api/company/MSFT", { what: "MSFT" })).rejects.toThrow(/too busy/i);
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("never retries a mutating request", async () => {
+    const request = vi.fn(async () => answer("<html>Bad gateway</html>", { status: 502 }));
+    vi.stubGlobal("fetch", request);
+    await expect(getJson("/api/action", { what: "the action", init: { method: "POST" } })).rejects.toThrow(/did not answer in time/i);
+    expect(request).toHaveBeenCalledTimes(1);
   });
 
   it("says too many requests rather than a bare 429", async () => {
