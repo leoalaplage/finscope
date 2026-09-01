@@ -25,6 +25,16 @@ export interface Stat {
   formula?: string;
   /** Why the value is missing, when that is worth saying. */
   reason?: string;
+  /**
+   * The period this figure came from, when it is not the one the panel is on.
+   *
+   * A trailing year is built from four filed quarters, and a quarter that omits
+   * one line deletes it from the window — so a company can publish a capital
+   * expenditure every year and have no trailing free cash flow at all. Showing
+   * the year instead is more useful than a blank, and showing it *silently*
+   * would be the one thing this application never does.
+   */
+  asOf?: string;
 }
 
 export interface StatGroup { title: string; note?: string; stats: Stat[] }
@@ -126,7 +136,26 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
   const basis = priced.basis;
   const close = basis?.price ?? null;
 
-  const flow = (metric: string) => current ? derivedValue(current, metric) : null;
+  /*
+   * The figure from the period in view, or the last period that reported it.
+   *
+   * Which period each fallback came from is recorded here and stated on the
+   * row, so a panel headed TTM never quietly contains a figure from a filed
+   * year. Only the other basis is consulted — the trailing window falls back to
+   * the years, and a panel already on the years falls back to nothing.
+   */
+  const elsewhere = periodicity === "ttm" ? annual : [];
+  const fallbacks = new Map<string, string>();
+  const flow = (metric: string) => {
+    if (!current) return null;
+    const direct = derivedValue(current, metric);
+    if (direct != null) return direct;
+    for (let index = elsewhere.length - 1; index >= 0; index--) {
+      const value = derivedValue(elsewhere[index], metric);
+      if (value != null) { fallbacks.set(metric, elsewhere[index].label); return value; }
+    }
+    return null;
+  };
   const counted = current ? shareCount(current) : null;
   const shares = counted?.shares ?? null;
   const marketCap = basis?.marketCap ?? null;
@@ -152,7 +181,9 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
    * that is where the gap is; a specific reason always wins.
    */
   const stat = (key: string, label: string, value: number | null, format: StatFormat, polarity: 1 | -1 | 0, reason?: string, formula?: string): Stat =>
-    ({ key, label, value, format, polarity, formula: formula ?? METRICS[key]?.formula, reason: value == null ? reason ?? "Not reported in the filings for this period" : undefined });
+    ({ key, label, value, format, polarity, formula: formula ?? METRICS[key]?.formula,
+      reason: value == null ? reason ?? "Not reported in the filings for this period" : undefined,
+      asOf: value == null ? undefined : fallbacks.get(key) });
 
   /*
    * A return computed on an assumed tax rate says so.

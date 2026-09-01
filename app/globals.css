@@ -995,6 +995,8 @@ tbody tr:last-child > * { border-bottom: 0; }
 .explained-heading { display: flex; align-items: baseline; gap: 2px; }
 .explained-heading h2, .explained-heading h3 { margin: 0; }
 .driver-legend-toggle { margin: 12px 0 0; font-size: var(--fs-xs); color: var(--muted); }
+/* The period a fallen-back figure actually came from, beside the figure. */
+.stat-asof { display: block; margin-top: 1px; color: var(--muted); font-size: var(--fs-micro); font-weight: 500; letter-spacing: .01em; }
 @media (max-width: 640px) { .driver-legend div { grid-template-columns: 1fr; gap: 2px; } }
 .financial-table tr.balance-total { border-top: 1px solid var(--border-strong); }
 .financial-table tr.balance-total th, .financial-table tr.balance-total td { font-weight: 700; }

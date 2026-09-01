@@ -17,7 +17,12 @@ const FORWARD_NOTE = "Forward multiples, price targets and estimated growth are 
 
 function StatValue({ stat, currency, highlight }: { stat: Stat; currency: string; highlight?: boolean }) {
   const text = formatStat(stat.value, stat.format, currency);
-  return <span className={`stat-value${highlight ? " best" : ""}`} title={stat.value == null ? stat.reason : stat.formula}>{text}</span>;
+  return <span className={`stat-value${highlight ? " best" : ""}`} title={stat.value == null ? stat.reason : stat.formula}>
+    {text}
+    {/* A figure that came from another period says so where it stands, rather
+        than sitting under a heading that misdescribes it. */}
+    {stat.asOf && <small className="stat-asof">{stat.asOf}</small>}
+  </span>;
 }
 
 /** One company: the groups flow down three columns, each group kept whole. */

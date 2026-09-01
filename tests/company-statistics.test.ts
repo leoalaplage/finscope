@@ -333,3 +333,33 @@ describe("a value the filings do not carry", () => {
     if (coverage.value == null) expect(coverage.reason).toBe("Reports no interest expense");
   });
 });
+
+describe("a figure the trailing window does not carry", () => {
+  /*
+   * A trailing year is four filed quarters, and a quarter that omits one line
+   * deletes it from the window — so a company can publish a capital
+   * expenditure every year and still have no trailing free cash flow. Eight of
+   * the companies in the 110-filer sweep are in exactly that position.
+   */
+  const withFallback = () => {
+    const base = dataset();
+    // A trailing period that reports revenue but no capital expenditure, so
+    // free cash flow exists for the year and not for the window.
+    const trailing = period(2026, { revenue: 3_000, netIncome: 600, operatingCashFlow: 900, totalEquity: 1_000, totalDebt: 200, cashAndEquivalents: 300, dilutedShares: 100, sharesOutstanding: 100 }, "ttm");
+    return { ...base, periods: [...base.periods, trailing] };
+  };
+
+  it("falls back to the last period that reported it, and says which", () => {
+    const groups = companyStatistics(withFallback(), price, "ttm");
+    const margin = groups.find((group) => group.title.startsWith("Margins"))!.stats.find((item) => item.label === "FCF")!;
+    expect(margin.value).not.toBeNull();
+    expect(margin.asOf).toBe("FY 2025");
+  });
+
+  it("says nothing extra when the window carries the figure itself", () => {
+    const groups = companyStatistics(dataset(), price, "annual");
+    const margin = groups.find((group) => group.title.startsWith("Margins"))!.stats.find((item) => item.label === "FCF")!;
+    expect(margin.value).not.toBeNull();
+    expect(margin.asOf).toBeUndefined();
+  });
+});
