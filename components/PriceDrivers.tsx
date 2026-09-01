@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Explainer } from "./Explainer";
 import { getJson } from "@/lib/fetch-json";
 import { priceDriverReading, priceDrivers, priceDriverVerdict } from "@/lib/price-drivers";
 import type { CompanyDataset, PricePoint } from "@/lib/types";
@@ -89,14 +90,15 @@ export function PriceDrivers({ dataset }: { dataset: CompanyDataset }) {
     <div className="panel-head">
       <div>
         <span className="panel-kicker">WHAT MOVED THE SHARE PRICE</span>
-        <h2>The business, or the multiple</h2>
+        <h2>The business, or the multiple <Explainer>
+          A share price is only two things multiplied together: the cash the business produces for each share, and what the
+          market is willing to pay for that cash. So when a price moves, one of the two moved — and which one matters, because
+          a company can repeat what it earned and cannot repeat what the market decided to pay. Each year is priced at its own
+          fiscal year end.
+        </Explainer></h2>
       </div>
     </div>
-    <p className="stat-note">
-      A share price is only two things multiplied together: the cash the business produces for each share, and what the market
-      is willing to pay for that cash. So when a price moves, one of the two moved — and which one matters, because a company
-      can repeat what it earned and cannot repeat what the market decided to pay. Each year is priced at its own fiscal year end.
-    </p>
+
     <div className="table-scroll">
       <table className="financial-table">
         <thead><tr><th>Over</th>{results.map((item) => <th key={item.years}>{item.years} years</th>)}</tr></thead>
@@ -139,13 +141,14 @@ export function PriceDrivers({ dataset }: { dataset: CompanyDataset }) {
         </tbody>
       </table>
     </div>
-    {/* Why one of the two is worth more than the other, said once and plainly.
-        Without it "Earned by the business" is a label with no meaning to
-        someone who has not read the chapter it comes from. */}
-    <dl className="driver-legend">
-      <div><dt><span className="driver-badge earned">Earned by the business</span></dt><dd>The company produced the return by making more cash for each share. That is the kind it can produce again.</dd></div>
-      <div><dt><span className="driver-badge borrowed">Paid for by the market</span></dt><dd>The market simply agreed to pay more for the same cash. That part only repeats if the next buyer pays more again.</dd></div>
-    </dl>
+    {/* The verdicts carry their meaning in a title attribute on each badge and
+        at length here, folded: a reader who understands the split does not need
+        the legend, and one who does not is a click from it. */}
+    <p className="driver-legend-toggle">What these mean <Explainer label="show">
+      <b>Earned by the business</b> — the company produced the return by making more cash for each share, which is the kind it
+      can produce again. <b>Paid for by the market</b> — the market simply agreed to pay more for the same cash, and that part
+      only repeats if the next buyer pays more again.
+    </Explainer></p>
     {longest?.drivers
       ? <p className="price-drivers-reading">Over {Math.round(longest.drivers.years)} years: {priceDriverReading(longest.drivers).replace(/^([A-Z])/, (letter) => letter.toLowerCase())}</p>
       : <p className="stat-note">{error || results[0]?.reason || "No priced year carries a free cash flow per share for this company."}</p>}

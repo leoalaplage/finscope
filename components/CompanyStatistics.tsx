@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { ExplainedHeading, Explainer } from "./Explainer";
 import { bestIn, companyStatistics, formatStat, type Stat, type StatGroup, type StatisticsPeriodicity } from "@/lib/company-statistics";
 import type { CompanyDataset, PricePoint } from "@/lib/types";
 
@@ -23,8 +24,7 @@ function StatValue({ stat, currency, highlight }: { stat: Stat; currency: string
 function SingleCompany({ groups, currency }: { groups: StatGroup[]; currency: string }) {
   return <div className="stat-columns">
     {groups.map((group) => <section className="stat-group" key={group.title}>
-      <h3>{group.title}</h3>
-      {group.note && <p className="stat-note">{group.note}</p>}
+      <ExplainedHeading title={group.title} note={group.note}/>
       <dl>{group.stats.map((stat) => <div className="stat-row" key={`${group.title}-${stat.label}`}>
         {/*
           * A missing value says why, in the open.
@@ -87,6 +87,8 @@ export function CompanyStatistics({ datasets, prices, periodicity = "ttm" }: { d
     {columns.length === 1
       ? <SingleCompany groups={columns[0].groups} currency={columns[0].currency}/>
       : <Comparison columns={columns}/>}
-    <p className="stat-footnote">{FORWARD_NOTE}</p>
+    {/* Why the forward half of a conventional panel is absent: worth saying,
+        not worth a paragraph under every reader's first look. */}
+    <p className="stat-footnote">No forward estimates <Explainer label="why">{FORWARD_NOTE}</Explainer></p>
   </div>;
 }
