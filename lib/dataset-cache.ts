@@ -90,8 +90,15 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     originally reported quarterly basis survives any later annual-only
  *     restatement, not only the ASC 606 revenue transition. These rules remove
  *     generic 52/53-week, context-label and concept-migration gaps.
+ * v22: splits are read from the filings. A filer declares its ratio —
+ *     Amazon's twenty-for-one on 27 May 2022 — and the ratio is applied where
+ *     it explains a break in that company's own share counts, which extends
+ *     the correction from the twenty-one curated companies to any filer a
+ *     reader types. Amazon's 2019 earnings per share moves from $22.99 to
+ *     $1.15, and Broadcom, Walmart, Lam Research, Alibaba, Canadian Pacific
+ *     and Flowserve are restated onto one basis with it.
  */
-export const KEY_VERSION = "v21";
+export const KEY_VERSION = "v22";
 
 /**
  * Versions whose stored data may still be served while this one is being built.

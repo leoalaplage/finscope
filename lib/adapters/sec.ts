@@ -589,6 +589,91 @@ function reportingCurrency(namespaces: z.infer<typeof SecResponseSchema>["facts"
   return [...counts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? declared;
 }
 
+/**
+ * The splits a filer declares itself.
+ *
+ * Share counts are filed on the basis of the day they were filed, so a split
+ * leaves every earlier count incomparable with every later one until it is
+ * restated onto today's basis. That restatement used to come from one place: a
+ * list kept by hand in the company registry, covering the twenty-one companies
+ * on the built-in watchlist and nothing else. So Amazon, reached by typing its
+ * ticker, showed 504 million shares for 2019 and 10.2 billion for 2020, and
+ * every per-share figure before the split was twenty times too large — its 2019
+ * earnings per share read $22.99 beside 2020's $2.09, and the ten-year growth
+ * of cash per share came out as a collapse.
+ *
+ * Filers publish the event themselves.
+ * `StockholdersEquityNoteStockSplitConversionRatio1` carries the ratio in an
+ * instant context on the date it took effect; Amazon's is 20 on 27 May 2022.
+ * Reading it makes the correction work for any company rather than for a
+ * curated list, and it is a filed fact like any other rather than a jump
+ * inferred from the numbers.
+ *
+ * A declared ratio is a candidate, not an instruction. Filers tag it against
+ * far more contexts than the event deserves — Tesla carries one against every
+ * quarter end it has closed since, fifteen of them — and taking each at face
+ * value multiplied its share history into nothing. Alphabet declares the
+ * announcement and the effective date a fortnight apart, which applied a
+ * twenty-for-one split twice. So each candidate has to explain a discontinuity
+ * that is actually in the data before it is applied; see `confirmedStockSplits`.
+ *
+ * Only forward splits are read. A reverse split is tagged as the ratio by some
+ * filers and as its reciprocal by others, and applying one the wrong way up
+ * would be far worse than leaving it alone; those companies keep the behaviour
+ * they have until the direction can be established from the filing itself.
+ */
+const SPLIT_CONCEPTS = ["StockholdersEquityNoteStockSplitConversionRatio1", "StockholdersEquityNoteStockSplitConversionRatio"];
+
+export function filedStockSplits(namespaces: z.infer<typeof SecResponseSchema>["facts"]): Array<{ date: string; ratio: number }> {
+  const byDate = new Map<string, number>();
+  for (const tag of SPLIT_CONCEPTS) {
+    for (const fact of namespaces["us-gaap"]?.[tag]?.units?.pure ?? []) {
+      // At or below one is a reverse split or a rounding artefact, and a
+      // hundred-for-one split does not happen; both are left alone.
+      if (!(fact.val > 1) || fact.val > 100 || !fact.end) continue;
+      // The same event is repeated by every later filing that mentions it.
+      byDate.set(fact.end, Math.max(byDate.get(fact.end) ?? 0, fact.val));
+    }
+  }
+  return [...byDate].map(([date, ratio]) => ({ date, ratio })).sort((left, right) => left.date.localeCompare(right.date));
+}
+
+/**
+ * The declared splits that explain a break in this company's own share counts.
+ *
+ * The test of a split is not that a filer mentioned a ratio; it is that the
+ * share count changes by that ratio across it. So each candidate is checked
+ * against the series it claims to explain: the last year filed before the date
+ * and the first filed after it must differ by the declared ratio, within the
+ * few percent a year of ordinary issuance moves. Amazon's twenty-for-one is
+ * confirmed by 504 million shares becoming 10.2 billion; Tesla's fourteen
+ * repeats of its ratio explain nothing and are dropped, and so is the second
+ * copy of Alphabet's, because by then the first has already been applied.
+ *
+ * Run against the series *after* the hand-verified registry splits, so a
+ * company whose splits are already known finds nothing left to explain and is
+ * never adjusted twice.
+ */
+export function confirmedStockSplits(candidates: Array<{ date: string; ratio: number }>, adjustedAnnual: FinancialPeriod[]): Array<{ date: string; ratio: number }> {
+  const series = adjustedAnnual
+    .map((period) => ({ filed: period.facts.dilutedShares?.provenance.filingDate ?? period.filingDate, shares: period.facts.dilutedShares?.value ?? null }))
+    .filter((item): item is { filed: string; shares: number } => item.shares != null && item.shares > 0 && Boolean(item.filed))
+    .sort((left, right) => left.filed.localeCompare(right.filed));
+  const confirmed: Array<{ date: string; ratio: number }> = [];
+  for (const candidate of [...candidates].sort((left, right) => left.date.localeCompare(right.date))) {
+    const before = series.filter((item) => item.filed < candidate.date).at(-1);
+    const after = series.find((item) => item.filed >= candidate.date);
+    if (!before || !after) continue;
+    const observed = after.shares / before.shares;
+    // Everything already confirmed has been applied to the earlier side, so a
+    // second candidate for the same event no longer has a break to explain.
+    const outstanding = confirmed.reduce((product, event) => product * event.ratio, 1);
+    if (Math.abs(observed / (candidate.ratio * outstanding) - 1) > .08) continue;
+    confirmed.push(candidate);
+  }
+  return confirmed;
+}
+
 export function normalizeSecPayload(payload: unknown, ticker: string, retrievedAt = new Date().toISOString(), resolvedCompany?: CompanyDataset["company"]): CompanyDataset {
   const resolved = resolvedCompany ?? COMPANIES.find((item) => item.ticker === ticker.toUpperCase());
   if (!resolved) throw new Error("Ticker not supported by the SEC adapter registry.");
@@ -606,8 +691,15 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
     combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.businessType),
     combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.businessType),
   );
-  const annual = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.annual, reconciled.ratesSeen), company.stockSplits);
-  const quarterly = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.quarterly, reconciled.ratesSeen), company.stockSplits);
+  // The hand-verified splits first; then any the filer declared that still
+  // explain a break in what is left, which is what covers a company nobody
+  // curated a list for.
+  const verifiedAnnual = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.annual, reconciled.ratesSeen), company.stockSplits);
+  const verifiedQuarterly = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.quarterly, reconciled.ratesSeen), company.stockSplits);
+  const detected = confirmedStockSplits(filedStockSplits(parsed.facts), verifiedAnnual);
+  const stockSplits = [...(company.stockSplits ?? []), ...detected].sort((left, right) => left.date.localeCompare(right.date));
+  const annual = adjustPeriodsForSplits(verifiedAnnual, detected);
+  const quarterly = adjustPeriodsForSplits(verifiedQuarterly, detected);
   const ttm = buildTtmPeriods(quarterly, company.currency);
   const identityKey = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const payloadIdentityMismatch = identityKey(parsed.entityName) !== identityKey(company.name);
@@ -635,7 +727,9 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
     // that same CIK (BAC currently says "BofA Finance LLC"). Retain the exact
     // registry/profile identity and surface the disagreement instead of
     // relabelling the requested stock.
-    company, periods: [...annual, ...quarterly, ...ttm], retrievedAt,
+    // The splits travel with the company, so the quality panel reports the
+    // ones actually applied rather than only the hand-verified ones.
+    company: { ...company, stockSplits }, periods: [...annual, ...quarterly, ...ttm], retrievedAt,
     warnings: [
       ...(payloadIdentityMismatch ? [`SEC identity mismatch: the ticker registry identifies ${company.name}, while Company Facts labels the payload ${parsed.entityName}. FinScope retains the ticker-to-CIK registry identity.`] : []),
       "Quarterly cash-flow facts may be isolated from year-to-date disclosures; every derived quarter is marked calculated with its source accessions.",
