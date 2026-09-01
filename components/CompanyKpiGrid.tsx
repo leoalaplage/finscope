@@ -259,6 +259,23 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
   useEffect(() => { localStorage.setItem("finscope.overviewRange", range); }, [range]);
 
   /*
+   * Which basis the cards are drawn on, once the reader has an opinion.
+   *
+   * `auto` is the rule below, and it is a good default rather than a law:
+   * someone comparing this year's trailing figures with the last decade's has
+   * a real question that the rule answered with "no". So the control shows
+   * whichever basis is in force and switching it is remembered — including
+   * across ranges, because a reader who asked for trailing twelve months over
+   * ten years meant it.
+   */
+  const [basis, setBasis] = useState<"auto" | "annual" | "ttm">(() => {
+    if (typeof window === "undefined") return "auto";
+    const saved = localStorage.getItem("finscope.overviewBasis");
+    return saved === "annual" || saved === "ttm" ? saved : "auto";
+  });
+  useEffect(() => { localStorage.setItem("finscope.overviewBasis", basis); }, [basis]);
+
+  /*
    * Match frequency to the question the range asks.
    *
    * Four years is a current operating view, where quarterly TTM adds useful
@@ -278,11 +295,13 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
     const annual = dataset.periods.filter((period) => period.periodicity === "annual").sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
     return { ttm, annual };
   }, [dataset]);
-  const available = useMemo(() => {
+  const effective = useMemo(() => {
+    if (basis !== "auto") return basis === "ttm" && series.ttm.length ? "ttm" : series.annual.length ? "annual" : "ttm";
     const recentTtm = periodsWithin(series.ttm, 4);
     const useTtm = range === "4Y" && recentTtm.length >= 4 && continuousOverview(recentTtm);
-    return useTtm ? series.ttm : series.annual.length ? series.annual : series.ttm;
-  }, [range, series]);
+    return useTtm || !series.annual.length ? "ttm" : "annual";
+  }, [basis, range, series]);
+  const available = useMemo(() => effective === "ttm" ? series.ttm : series.annual, [effective, series]);
   const periods = useMemo(
     () => periodsWithin(available, RANGES.find((item) => item.id === range)?.years ?? 10),
     [available, range],
@@ -315,6 +334,15 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
 
   if (!periods.length) return <p className="simple-state">No reported periods to chart yet.</p>;
   const frequency: SeriesFrequency = periods[0]?.periodicity === "ttm" ? "ttm" : "annual";
+  /*
+   * The reason the rule preferred years over a long window, said rather than
+   * enforced. Company Facts is more complete annually — a filer may publish
+   * every year and omit one old quarter, and that one quarter deletes four
+   * trailing windows — so a ten-year trailing view can arrive with bands
+   * missing. That is a fact about the filings, not about the company, and a
+   * reader who chose this basis should be told which they are looking at.
+   */
+  const broken = frequency === "ttm" && !continuousOverview(periods);
   // Only offer a window the filings can fill: a company with six years of
   // history has no ten-year view, and a button that changes nothing is a bug
   // the reader has to discover by pressing it.
@@ -326,7 +354,16 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
       <div className="segmented" role="group" aria-label="How far back the cards reach">
         {span.map((item) => <button key={item.id} type="button" className={range === item.id ? "active" : ""} aria-pressed={range === item.id} onClick={() => setRange(item.id)}>{item.id}</button>)}
       </div>
-      <small>{frequency === "ttm" ? "Quarterly TTM" : "Annual"} · {quarterLabel(periods[0])} → {quarterLabel(periods.at(-1)!)}{marketFailed ? " · market history unavailable" : ""}</small>
+      {/* Which figures the cards are made of, as a control rather than a
+          consequence of the range beside it. */}
+      <div className="segmented" role="group" aria-label="Which figures the cards are drawn from">
+        <button type="button" className={frequency === "annual" ? "active" : ""} aria-pressed={frequency === "annual"} onClick={() => setBasis("annual")}>Annual</button>
+        <button type="button" className={frequency === "ttm" ? "active" : ""} aria-pressed={frequency === "ttm"}
+          disabled={series.ttm.length < 4}
+          title={series.ttm.length < 4 ? "This filer publishes no usable chain of quarters" : "Rolling four quarters, ending on the latest one filed"}
+          onClick={() => setBasis("ttm")}>TTM</button>
+      </div>
+      <small>{frequency === "ttm" ? "Quarterly TTM" : "Annual"} · {quarterLabel(periods[0])} → {quarterLabel(periods.at(-1)!)}{broken ? " · gaps where a quarter was never filed" : ""}{marketFailed ? " · market history unavailable" : ""}</small>
     </div>
     <KpiCards cards={CARDS} periods={periods} candles={candles} bars={bars} dataset={dataset} theme={theme} frequency={frequency} onOpenMetric={onOpenMetric}/>
   </>;
