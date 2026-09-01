@@ -1,6 +1,6 @@
 # FinScope — passation
 
-État au 1 septembre 2026, fin de session. Écrit pour qu'une autre session
+État au 2 septembre 2026, fin de session. Écrit pour qu'une autre session
 (Codex ou autre) reprenne sans refaire les mesures ni retomber dans les pièges.
 
 ---
@@ -11,8 +11,8 @@ Déployé sur `finscope-financial-research.leoalaplage.workers.dev`
 (Cloudflare Worker + KV). `main` est la branche de travail ; tout ce qui suit
 est commité et poussé.
 
-- **642 tests** (+2 ignorés), `tsc` et `eslint` propres.
-- **Cache : `KEY_VERSION = "v22"`, `SUMMARY_SHAPE = "s7"`**, aucun repli autorisé.
+- **Cache : `KEY_VERSION = "v23"`, `SUMMARY_SHAPE = "s7"`**, aucun repli autorisé.
+- **644 tests** (+2 ignorés), `tsc` et `eslint` propres après le correctif v23 et la refonte UI.
 - 22 sociétés sur 25 en cache ; les autres se construisent seules à la demande.
 
 ### L'audit dont tout part
@@ -66,12 +66,12 @@ COVERAGE_FIXTURES=/tmp/finscope-coverage npx vitest run tests/coverage-sweep.tes
 ```
 
 Il s'ignore tout seul sans les fixtures, donc il ne casse pas la CI.
-**Dernier relevé** (avant le correctif des splits) :
+**Dernier relevé** (après le correctif des actions de couverture) :
 
 | classe | part | exemples |
 |---|---|---|
-| complètes | 28 % | AAPL, MSFT, AMZN, ASML, COST |
-| pas de nombre d'actions à la clôture | 18 % | NVDA, META, WMT, V, KO |
+| complètes | 36 % | NVDA, AAPL, MSFT, WMT, ASML, COST |
+| pas de compte d'actions point-in-time | 5 % | META, V, MA, SE, MOG-A |
 | pas de flux de trésorerie disponible | 13 % | banques (voulu), COP, PSX, CRH |
 | pas de total de dette | 12 % | ANET, VEEV, PLTR, BRK-B, IBKR |
 | normes IFRS → rien | 10 % | HSBC, SAP, AZN, SHEL, NVO, UBS |
@@ -104,6 +104,7 @@ Dans l'ordre, avec les mesures.
 | Période courante = la plus récente | JPMorgan n'affiche plus 2014 ; capitalisation 1 320 → **960 Md$** |
 | Lecture de la dette élargie | sans total : **27 % → 12 %** |
 | Splits lus dans les dépôts | séries continues : **68 → 75** sur 91 ; EPS 2019 d'Amazon 22,99 → **1,15 $** |
+| Actions de couverture datées correctement | compte point-in-time : **62/86 → 77/86** ; base de capitalisation : **84/86 → 85/86** |
 | Capex : 2 concepts de plus | flux disponible : 74 % → **78 %** |
 | Invariants non stockés | société 25 % plus légère, aucune information perdue |
 | Ne plus dessiner la mauvaise société | 5 → **3 requêtes**, plus de chiffres d'Apple sous une URL Microsoft |
@@ -111,6 +112,8 @@ Dans l'ordre, avec les mesures.
 | Cibles tactiles | sous 32 px : **23 → 0** |
 | Construction hors requête | plus de 1102 pour le lecteur : 202 en 0,66 s |
 | Retombée de période bornée | valeur du dernier exercice, **avec sa date**, 18 mois maximum |
+| Refonte de l'identité | indigo = marque/sélection, vert = performance positive ; langage visuel « research desk » |
+| Architecture société simplifiée | 6 → **5 onglets** ; les états financiers vivent dans Financials |
 
 ### Fonctionnalité ajoutée
 
@@ -154,25 +157,16 @@ exemples chiffrés du livre sont les tests.
 
 ## 6. Ce qui reste, par ordre de valeur
 
-1. **L'architecture de la page société** — la seule chose que je n'ai pas
-   tranchée seule : 6 onglets, l'Overview recoupe Statistics. La question à
-   poser au propriétaire du produit : *que doit-on voir dans les cinq premières
-   secondes ?* Tout le reste en découle.
-2. **Le nombre d'actions à la clôture manquant pour 18 %** des sociétés
-   (multi-classes : META, V, MA, KO…). La donnée existe en couverture de
-   rapport (`dei:EntityCommonStockSharesOutstanding`), datée du dépôt et non de
-   la clôture, donc rejetée par l'ancrage actuel. La lire en la datant
-   correctement est un gain net.
-3. **Les sociétés IFRS (10 %)** — HSBC, SAP, AstraZeneca, Shell, Novo Nordisk,
+1. **Les sociétés IFRS (10 %)** — HSBC, SAP, AstraZeneca, Shell, Novo Nordisk,
    UBS. Cotées à New York, invisibles ici. Mapper `ifrs-full` est un chantier
    en soi, pas une correction.
-4. **Les changements de CIK.** ExxonMobil s'est réorganisée : le registre SEC
+2. **Les changements de CIK.** ExxonMobil s'est réorganisée : le registre SEC
    pointe vers une entité neuve qui ne contient qu'un trimestre, toute
    l'histoire est sous l'ancien numéro. Il faut savoir suivre le prédécesseur.
-5. **Sortir le constructeur dans son propre Worker.** Le lien `SELF` existe
+3. **Sortir le constructeur dans son propre Worker.** Le lien `SELF` existe
    déjà et la construction est déjà déportée ; en faire un Worker distinct
    isolerait complètement ses saturations du chemin de lecture.
-6. **Phases 3 à 5 de l'audit** : mobile réel, accessibilité, sécurité,
+4. **Phases 3 à 5 de l'audit** : mobile réel, accessibilité, sécurité,
    performance, licence Yahoo.
 
 ---

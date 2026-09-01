@@ -16,16 +16,21 @@ const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://finscope-financial-resea
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
-  title: "FinScope — Simple, auditable financial research",
-  description: "Research companies, compare financial metrics and build a traceable DCF in one focused workspace.",
+  title: "FinScope — See the business. Verify the numbers.",
+  description: "Traceable financial research from SEC filings, matched market prices and explicit formulas.",
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
   openGraph: {
-    title: "FinScope — Auditable financial research",
-    description: "Simple financial research you can trace.",
+    title: "FinScope — See the business. Verify the numbers.",
+    description: "Traceable financial research from SEC filings, matched market prices and explicit formulas.",
     type: "website",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "FinScope — Financials you can trace." }],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "FinScope — See the business. Verify the numbers." }],
   },
-  twitter: { card: "summary_large_image", title: "FinScope", description: "Simple financial research you can trace.", images: ["/og.png"] },
+  twitter: {
+    card: "summary_large_image",
+    title: "FinScope — See the business. Verify the numbers.",
+    description: "Traceable financial research from SEC filings, matched market prices and explicit formulas.",
+    images: ["/og.png"],
+  },
 };
 
 /**

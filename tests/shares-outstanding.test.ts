@@ -22,7 +22,7 @@ const DILUTED = 15_004_697_000;
 type Unit = { start?: string; end: string; val: number; accn: string; fy: number; fp: string; form: string; filed: string };
 const fact = (val: number, end: string, start?: string): Unit => ({ start, end, val, accn: "0000320193-25-000079", fy: 2025, fp: "FY", form: "10-K", filed: "2025-10-31" });
 
-function build(extra: { gaapOutstanding?: boolean; coverPage?: boolean }) {
+function build(extra: { gaapOutstanding?: boolean; coverPage?: boolean; coverEnd?: string; coverAccession?: string }) {
   const gaap: Record<string, { units: Record<string, Unit[]> }> = {
     RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: [fact(416_161e6, END, "2024-09-29")] } },
     WeightedAverageNumberOfDilutedSharesOutstanding: { units: { shares: [fact(DILUTED, END, "2024-09-29")] } },
@@ -33,7 +33,10 @@ function build(extra: { gaapOutstanding?: boolean; coverPage?: boolean }) {
   if (extra.gaapOutstanding) gaap.CommonStockSharesOutstanding = { units: { shares: [fact(OUTSTANDING, END)] } };
   const facts: Record<string, unknown> = { "us-gaap": gaap };
   // The cover page states the count on the filing date, not the period end.
-  if (extra.coverPage) facts.dei = { EntityCommonStockSharesOutstanding: { units: { shares: [fact(14_776_400_000, "2025-10-17")] } } };
+  if (extra.coverPage) facts.dei = { EntityCommonStockSharesOutstanding: { units: { shares: [{
+    ...fact(14_776_400_000, extra.coverEnd ?? "2025-10-17"),
+    accn: extra.coverAccession ?? "0000320193-25-000079",
+  }] } } };
   return normalizeSecPayload({ entityName: "Apple Inc", facts }, "AAPL", "2026-08-31", company);
 }
 
@@ -52,10 +55,27 @@ describe("period-end shares outstanding", () => {
     expect(basis.marketCap).toBe(250 * OUTSTANDING);
   });
 
-  it("falls back to the diluted average only where no count exists, and says so", () => {
+  it("uses the same filing's cover-page count on its actual observation date", () => {
+    const year = annual(build({ coverPage: true }));
+    expect(year.facts.sharesOutstanding?.value).toBe(14_776_400_000);
+    expect(year.facts.sharesOutstanding?.periodEnd).toBe("2025-10-17");
+    expect(year.facts.sharesOutstanding?.provenance.concept).toBe("dei:EntityCommonStockSharesOutstanding");
+    expect(year.facts.sharesOutstanding?.provenance.note).toContain("not presented as a period-end balance");
+    const counted = shareCount(year)!;
+    expect(counted.basis).toBe("cover-date");
+    expect(counted.note).toContain("2025-10-17");
+    expect(marketBasis(year, price).basis?.marketCap).toBe(250 * 14_776_400_000);
+  });
+
+  it("does not borrow a cover count from another filing or a remote date", () => {
+    expect(annual(build({ coverPage: true, coverAccession: "another-filing" })).facts.sharesOutstanding).toBeUndefined();
+    expect(annual(build({ coverPage: true, coverEnd: "2026-10-17" })).facts.sharesOutstanding).toBeUndefined();
+  });
+
+  it("falls back to the diluted average only where no point-in-time count exists, and says so", () => {
     // A multi-class filer tags the count per class, so nothing undimensioned
     // reaches this endpoint and the average is all there is.
-    const year = annual(build({ coverPage: true }));
+    const year = annual(build({}));
     expect(year.facts.sharesOutstanding?.value).toBeUndefined();
     const counted = shareCount(year)!;
     expect(counted.shares).toBe(DILUTED);

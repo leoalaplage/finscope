@@ -19,7 +19,7 @@ import type { FinancialPeriod, PricePoint } from "./types";
  * to a filed figure is exactly the quiet estimate this application exists not
  * to make — so the answer is to withhold the figure and say why.
  */
-export type SharesBasis = "outstanding" | "diluted";
+export type SharesBasis = "outstanding" | "cover-date" | "diluted";
 
 export interface MarketBasis {
   /** The matched session close, in `currency`. */
@@ -43,7 +43,9 @@ export type MarketBasisResult = { basis: MarketBasis; reason: undefined } | { ba
 /**
  * The share count a market capitalisation may be built on, and what it is.
  *
- * The point-in-time count the filer reports at its period end is the right one.
+ * The point-in-time count the filer reports at its period end is the first
+ * choice. The same filing's cover-page count is the second, retained on the
+ * actual date the filer states and identified wherever it is used.
  * The diluted weighted average is a different measure — an average over the
  * year, including shares issued for options that may not exist yet — and it is
  * 1.6% away from Apple's real count, 3.2% from JPMorgan's and 4.4% from
@@ -51,13 +53,20 @@ export type MarketBasisResult = { basis: MarketBasis; reason: undefined } | { ba
  * the basis travels with the number and every caller states it.
  */
 export function shareCount(period: FinancialPeriod): { shares: number; basis: SharesBasis; note?: string } | null {
-  const outstanding = valueOf(period, "sharesOutstanding");
-  if (outstanding != null && outstanding > 0) return { shares: outstanding, basis: "outstanding" };
+  const outstanding = period.facts.sharesOutstanding;
+  if (outstanding?.value != null && outstanding.value > 0) {
+    if (outstanding.periodEnd === period.periodEnd) return { shares: outstanding.value, basis: "outstanding" };
+    return {
+      shares: outstanding.value,
+      basis: "cover-date",
+      note: `The filer reports ${outstanding.value.toLocaleString("en-US")} shares outstanding as of ${outstanding.periodEnd} on this filing's cover page, after the ${period.periodEnd} fiscal period end. FinScope keeps that stated date rather than calling it a period-end balance.`,
+    };
+  }
   const diluted = valueOf(period, "dilutedShares");
   if (diluted != null && diluted > 0) {
     return {
       shares: diluted, basis: "diluted",
-      note: "The filer publishes no period-end share count this feed can read, so the diluted weighted average stands in. It is an average over the period rather than a count on one day.",
+      note: "The filer publishes no point-in-time share count this feed can read, so the diluted weighted average stands in. It is an average over the period rather than a count on one day.",
     };
   }
   return null;

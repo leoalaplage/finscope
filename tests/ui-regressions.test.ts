@@ -5,7 +5,7 @@ describe("UI regressions", () => {
   it("keeps the primary navigation intentionally limited", () => {
     const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
     // The key stays "companies" on purpose: it is in every saved link.
-    expect(source).toContain('{ key: "search", label: "Search" }, { key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "charts", label: "Charts" }, { key: "qs", label: "QS Screener" }');
+    expect(source).toContain('{ key: "search", label: "Explore" }, { key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "charts", label: "Charts" }, { key: "qs", label: "Screener" }');
     expect(source).not.toContain('label: "Data Quality"');
     expect(source).not.toContain('label: "Formula Audit"');
   });
@@ -25,6 +25,8 @@ describe("UI regressions", () => {
     // Both live inside the company page now, and comparison happens there.
     expect(source).toContain("CompanyStatisticsTab");
     expect(source).toContain('{ key: "valuation", label: "Valuation" }');
+    expect(source).not.toContain('{ key: "statements", label: "Statements" }');
+    expect(source).toContain('useState<"numbers" | "statements">("numbers")');
     expect(source).toContain("FcfYieldCalculator");
     const tab = readFileSync(new URL("../components/CompanyStatisticsTab.tsx", import.meta.url), "utf8");
     // The open company starts selected but is a real toggle: after choosing a

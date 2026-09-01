@@ -97,8 +97,14 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     reader types. Amazon's 2019 earnings per share moves from $22.99 to
  *     $1.15, and Broadcom, Walmart, Lam Research, Alibaba, Canadian Pacific
  *     and Flowserve are restated onto one basis with it.
+ * v23: when the balance sheet carries no share count at the fiscal close, the
+ *     same accession's cover-page count is retained on the exact later date
+ *     the filer states. A 110-filer sweep moves readable point-in-time counts
+ *     from 62/86 to 77/86 and usable market-cap bases from 84/86 to 85/86;
+ *     another filing's cover count and observations over 150 days away are
+ *     rejected rather than borrowed into the period.
  */
-export const KEY_VERSION = "v22";
+export const KEY_VERSION = "v23";
 
 /**
  * Versions whose stored data may still be served while this one is being built.

@@ -47,11 +47,10 @@ type Evidence = { label: string; value: number | null; period: FinancialPeriod; 
  * over several screens. Overview is now one block that stands alone, and the
  * detail behind it is a click rather than a scroll.
  */
-type CompanyTab = "overview" | "statistics" | "statements" | "financials" | "valuation" | "sources";
+type CompanyTab = "overview" | "statistics" | "financials" | "valuation" | "sources";
 const COMPANY_TABS: Array<{ key: CompanyTab; label: string }> = [
   { key: "overview", label: "Overview" },
-  { key: "statistics", label: "Statistics" },
-  { key: "statements", label: "Statements" },
+  { key: "statistics", label: "Analysis" },
   { key: "financials", label: "Financials" },
   { key: "valuation", label: "Valuation" },
   { key: "sources", label: "Sources" },
@@ -71,7 +70,7 @@ const COMPANY_TAB_KEYS = new Set<string>(COMPANY_TABS.map((item) => item.key));
 const SESSION_MAX_AGE_MS = 1_800_000;
 
 const NAV: Array<{ key: Exclude<MainView, "company">; label: string }> = [
-  { key: "search", label: "Search" }, { key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "charts", label: "Charts" }, { key: "qs", label: "QS Screener" },
+  { key: "search", label: "Explore" }, { key: "companies", label: "Watchlist" }, { key: "market", label: "Market" }, { key: "charts", label: "Charts" }, { key: "qs", label: "Screener" },
 ];
 const NAV_KEYS = new Set<string>(NAV.map((item) => item.key));
 
@@ -160,7 +159,7 @@ function readRoute(search: string) {
   return {
     ticker: TICKER_PATTERN.test(ticker) ? ticker : null,
     view: view === "company" || NAV_KEYS.has(view) ? view as MainView : null,
-    tab: COMPANY_TAB_KEYS.has(tab) ? tab as CompanyTab : null,
+    tab: tab === "statements" ? "financials" : COMPANY_TAB_KEYS.has(tab) ? tab as CompanyTab : null,
     secondary: SECONDARY_KEYS.has(panel) ? panel as SecondaryView : null,
     ranking: params.get("table") === "1",
   };
@@ -292,7 +291,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
    *
    * State is pushed rather than replaced, so Back retraces the pages you
    * visited — except the tab within a company, which is replaced: Back should
-   * take you out of a company, not walk you back through its six tabs.
+   * take you out of a company, not walk you back through its five tabs.
    */
   function writeRoute(next: { view?: MainView; ticker?: string; tab?: CompanyTab; secondary?: SecondaryView; ranking?: boolean }, mode: "push" | "replace" = "push") {
     const params = new URLSearchParams();
@@ -400,7 +399,14 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   }
 
   return <div className="site-shell">
-    <header className="site-header"><button className="wordmark" onClick={() => navigate("companies")}>FinScope</button><nav aria-label="Main navigation" ref={navRef}>{NAV.map((item) => <button key={item.key} className={view === item.key && !secondary ? "active" : ""} onClick={() => navigate(item.key)}>{item.label}</button>)}</nav><span className="header-company">{/* Not on the page that is itself a search field. */}{view !== "search" && <HeaderSearch watchlist={watchlist} onOpen={openCompany} onAdd={addAndOpen}/>}<button className="header-ticker" title={`Open ${dataset.company.ticker}`} onClick={() => openCompany(dataset.company.ticker)}>{dataset.company.ticker}</button><button className="theme-toggle" aria-label="Switch between the light and dark theme" title="Switch between the light and dark theme" onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}/></span></header>
+    <header className="site-header">
+      <button className="wordmark" aria-label="Open the FinScope watchlist" onClick={() => navigate("companies")}>
+        <span className="scope-mark" aria-hidden="true"><i/></span>
+        <span className="wordmark-copy"><b>FinScope</b><small>Research desk</small></span>
+      </button>
+      <nav aria-label="Main navigation" ref={navRef}>{NAV.map((item) => <button key={item.key} className={view === item.key && !secondary ? "active" : ""} onClick={() => navigate(item.key)}>{item.label}</button>)}</nav>
+      <span className="header-company">{/* Not on the page that is itself a search field. */}{view !== "search" && <HeaderSearch watchlist={watchlist} onOpen={openCompany} onAdd={addAndOpen}/>}<button className="header-ticker" title={`Open ${dataset.company.ticker}`} onClick={() => openCompany(dataset.company.ticker)}>{dataset.company.ticker}</button><button className="theme-toggle" aria-label="Switch between the light and dark theme" title="Switch between the light and dark theme" onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}/></span>
+    </header>
     {error && <div className="global-message" role="alert"><span><b>Could not load company.</b> {error}. Existing data remains available.</span><button onClick={() => setError("")}>Dismiss</button></div>}
     <main className="site-main">
       {secondary === "quality" && <SecondaryHeading title="Data Quality" onBack={closePanel}/>} {secondary === "quality" && <Suspense fallback={<SkeletonTable label="the data quality report"/>}><DataQuality dataset={dataset} onRefresh={(next) => { setDataset(next); setDatasets((current) => ({ ...current, [next.company.ticker]: next })); }}/></Suspense>}
@@ -418,7 +424,11 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       {!secondary && view === "market" && <Suspense fallback={<SkeletonCards label="the market session" count={3} height={230}/>}><MarketPage watchlist={watchlist.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker)}/></Suspense>}
       {!secondary && view === "charts" && <Suspense fallback={<Skeleton label="the chart workspace" chart height={420}/>}><ChartsWorkspace initialData={dataset} seed={chartSeed} theme={theme}/></Suspense>}
     </main>
-    <footer className="site-footer"><span>Auditable financial research · Not investment advice</span><details><summary>More</summary><div><button onClick={() => openPanel("quality")}>Data Quality</button><button onClick={() => openPanel("audit")}>Formula Audit</button><button onClick={() => openPanel("coverage")}>Import status</button><button onClick={() => openPanel("sources")}>Sources</button></div></details></footer>
+    <footer className="site-footer">
+      <div className="footer-brand"><span className="scope-mark compact" aria-hidden="true"><i/></span><span><b>FinScope</b><small>Every number keeps its trail.</small></span></div>
+      <nav aria-label="Research tools"><button onClick={() => openPanel("quality")}>Data quality</button><button onClick={() => openPanel("audit")}>Formula audit</button><button onClick={() => openPanel("coverage")}>Import status</button><button onClick={() => openPanel("sources")}>Sources</button></nav>
+      <small className="footer-note">Auditable financial research · Not investment advice</small>
+    </footer>
     {managerOpen && <Suspense fallback={null}><CompanyManager watchlist={watchlist} setWatchlist={setWatchlist} onSelect={acceptDataset} onClose={() => setManagerOpen(false)}/></Suspense>}
   </div>;
 }
@@ -604,6 +614,7 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
   const [price, setPrice] = useState<PricePoint | null>(null); const [priceError, setPriceError] = useState(""); const [evidence, setEvidence] = useState<Evidence | null>(null);
   // Which discounted-cash-flow model the Valuation tab is showing.
   const [model, setModel] = useState<"reverse" | "fcff">("reverse");
+  const [financialsView, setFinancialsView] = useState<"numbers" | "statements">("numbers");
   useEffect(() => { localStorage.setItem("finscope.periodicity", periodicity); }, [periodicity]);
   useEffect(() => { let active = true; getJson<PricePoint>(`/api/price/${dataset.company.ticker}?date=${new Date().toISOString().slice(0, 10)}`, { what: "the share price" }).then((payload) => { if (active) setPrice(payload); }).catch((cause) => active && setPriceError(cause instanceof Error ? cause.message : "The share price is unavailable.")); return () => { active = false; }; }, [dataset.company.ticker]);
   const selected = sortedPeriods(dataset, periodicity); const latest = latestPeriod(dataset); const annual = sortedPeriods(dataset, "annual");
@@ -621,23 +632,23 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
    *
    * A market capitalisation is a price times a share count, and both halves can
    * be wrong in ways that look right: ASML's shares are quoted in dollars while
-   * its books are kept in euros, and most filers publish no period-end share
-   * count in this feed at all. `marketBasis` answers both questions once, for
+   * its books are kept in euros, and some filers publish no readable point-in-
+   * time share count in this feed at all. `marketBasis` answers both questions once, for
    * every screen, and refuses rather than mixing.
    */
   const priced = marketBasis(latest, price); const basis = priced.basis; const marketCap = basis?.marketCap ?? null;
   const openMetric = (metric: string, period = latest) => setEvidence({ label: METRICS[metric]?.label ?? metric, value: derivedValue(period, metric), period, metric });
   return <div className="company-page">
-    <button className="back-button" onClick={onBack}>← Companies</button>
+    <div className="company-breadcrumb"><button className="back-button" onClick={onBack}>Watchlist</button><span>/</span><b>{dataset.company.ticker}</b></div>
     <header className="company-title">
       <div>
+        <p className="company-kicker"><span>{dataset.company.ticker}</span>{[dataset.company.exchange, dataset.company.currency, dataset.company.sector].filter((part) => part && part !== "Unclassified").map((part) => <small key={part}>{part}</small>)}</p>
         <h1>{dataset.company.name}</h1>
-        {/* A sector we do not know is not a sector called "Unclassified". */}
-        <p>{[dataset.company.ticker, dataset.company.exchange, dataset.company.sector].filter((part) => part && part !== "Unclassified").join(" · ")}</p>
+        <p>Filed fundamentals, market context and valuation in one traceable record.</p>
       </div>
       <div className="company-title-actions">
-        <button className="button-primary" onClick={() => onCharts(dataset.company.ticker)}>Open in Charts</button>
-        <button onClick={() => onTab("valuation")}>Value it</button>
+        <button className="button-primary" onClick={() => onCharts(dataset.company.ticker)}>Open charts ↗</button>
+        <button onClick={() => onTab("valuation")}>Build valuation</button>
       </div>
     </header>
 
@@ -653,6 +664,7 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
       * subtitle: a date about us rather than about the company.
       */}
     <div className="company-headline">
+      <span className="company-headline-scope" aria-hidden="true"/>
       <div className="company-figure">
         <span>Share price</span>
         <strong>{priceError ? <em className="figure-missing">Unavailable</em> : price ? currency(price.priceClose ?? price.close, price.currency) : <span className="figure-waiting" role="status" aria-label="Loading the share price"/>}</strong>
@@ -665,9 +677,10 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
         {marketCap == null && (price != null || priceError) && <small>{priceError || priced.reason}</small>}
         {/* The long form of this is in the Statistics panel, on the row that
             states the same figure; here it is one line under the number. */}
-        {basis?.sharesBasis === "diluted" && <small>On the diluted weighted average: the filer publishes no period-end share count.</small>}
+        {basis?.sharesBasis === "diluted" && <small>On the diluted weighted average: the filer publishes no readable point-in-time share count.</small>}
+        {basis?.sharesBasis === "cover-date" && <small>On the outstanding count stated on the filing cover page; its exact observation date is shown in Analysis.</small>}
       </div>
-      <p className="company-provenance">
+      <p className="company-provenance"><span>Source status</span>
         {latest.periodicity === "ttm" ? <>Latest calculated period <b>{latest.label}</b>, through {readableDate(latest.periodEnd)}.</> : <>Latest filing period <b>{latest.label}</b>, to {readableDate(latest.periodEnd)}.</>}
         {fixture ? <> Offline fixture from SEC facts, frozen on {readableDate(dataset.retrievedAt)}.</> : <> Read from SEC EDGAR on {readableDate(dataset.retrievedAt)}.</>}
         {dataset.company.cik && <> <a href={edgarUrl(dataset.company.cik)} target="_blank" rel="noreferrer">See the filings</a></>}
@@ -684,28 +697,14 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
       <h3 className="kpi-table-heading">Latest figures</h3><MetricSummaryTable dataset={dataset} price={price} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)}/></section>
     </div>}
 
-    {/* A balance sheet is a statement, so it stopped being a seventh tab of its
-        own and became the end of this one — the diagram and the detail behind
-        it, in that order, rather than two destinations for one document. */}
-    {tab === "statements" && <div className="company-block">
-      <section id="flows" className="plain-section"><SectionTitle title="Statements" onCharts={() => onCharts(dataset.company.ticker, "revenue")}/>
-      <p className="section-note">The latest reported fiscal year, drawn as the flow it describes. Every ribbon is a filed figure or a subtraction from one.</p>
-      <Suspense fallback={<Skeleton label="the statement diagrams" chart height={300}/>}>
-        {incomeFlow ? <StatementSankey diagram={incomeFlow} title="Income statement"/> : <p className="simple-state">The latest year does not carry enough reported lines to draw an income statement.</p>}
-        {cashFlow ? <StatementSankey diagram={cashFlow} title="Cash flow"/> : <p className="simple-state">The latest year does not carry a reported operating cash flow.</p>}
-        {balanceFlow ? <StatementSankey diagram={balanceFlow} title="Balance sheet"/> : <p className="simple-state">The latest year does not carry a reported total for assets.</p>}
-      </Suspense></section>
-      <section id="balance" className="plain-section"><SectionTitle title="Balance sheet in detail" onCharts={() => onCharts(dataset.company.ticker, "totalAssets")}/>
-      <p className="section-note">What the company owns, what it owes, and whether the difference is comfortable. A quality business with a fragile balance sheet is a different proposition.</p>
-      <Suspense fallback={<SkeletonTable label="the balance sheet"/>}><BalanceSheetPanel dataset={dataset}/></Suspense></section>
-    </div>}
-
     {tab === "statistics" && <Suspense fallback={<SkeletonTable label="the statistics panel" rows={12}/>}>
       <CompanyStatisticsTab dataset={dataset} price={price} watchlist={watchlist} datasets={datasets} onLoad={onLoad}/>
     </Suspense>}
 
     {tab === "financials" && <div className="company-block">
-      <section id="financials" className="plain-section"><div className="section-heading"><h2>Financials</h2><div className="period-buttons">{(["annual", "quarterly", "ttm"] as Periodicity[]).map((item) => <button className={periodicity === item ? "active" : ""} key={item} onClick={() => setPeriodicity(item)}>{item === "ttm" ? "TTM" : item[0].toUpperCase() + item.slice(1)}</button>)}</div></div>{selected.length ? <SimpleFinancialTable periods={selected.slice(-10)} metrics={[...VIEW_METRICS.income, ...VIEW_METRICS.cashflow.slice(0, 4)]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/> : <p className="simple-state">No data available for {periodicity}.</p>}</section>
+      <section className="financials-hub"><div><span className="rule-label">Filed record</span><h2>Financials</h2><p>Read the numbers as tables, or see how the latest filed year flows through the business.</p></div><div className="segmented" role="group" aria-label="Financials view"><button className={financialsView === "numbers" ? "active" : ""} onClick={() => setFinancialsView("numbers")}>Tables</button><button className={financialsView === "statements" ? "active" : ""} onClick={() => setFinancialsView("statements")}>Statements</button></div></section>
+      {financialsView === "numbers" && <>
+      <section id="financials" className="plain-section"><div className="section-heading"><h2>Income & cash flow</h2><div className="period-buttons">{(["annual", "quarterly", "ttm"] as Periodicity[]).map((item) => <button className={periodicity === item ? "active" : ""} key={item} onClick={() => setPeriodicity(item)}>{item === "ttm" ? "TTM" : item[0].toUpperCase() + item.slice(1)}</button>)}</div></div>{selected.length ? <SimpleFinancialTable periods={selected.slice(-10)} metrics={[...VIEW_METRICS.income, ...VIEW_METRICS.cashflow.slice(0, 4)]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/> : <p className="simple-state">No data available for {periodicity}.</p>}</section>
       <section id="pershare" className="plain-section"><SectionTitle title="Per Share" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowPerShare")}/>
       <p className="section-note">Every figure divided by the diluted weighted average share count, so growth is what an owner actually kept after dilution.</p>
       {annual.some((period) => derivedValue(period, "revenuePerShare") != null)
@@ -716,6 +715,19 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
       <section id="margins" className="plain-section"><SectionTitle title="Margins" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowMargin")}/><CurrentAndAverageTable periods={annual} metrics={[...VIEW_METRICS.margins]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/></section>
       <section id="capital" className="plain-section"><SectionTitle title="Capital Allocation" onCharts={() => onCharts(dataset.company.ticker, "dilutedShares")}/><CurrentAndAverageTable periods={annual} metrics={["dilutedShares", "shareCountChange", "shareRepurchases", "shareIssuance", "dividendsPaid", "stockBasedCompensation"]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/></section>
       <section id="growth" className="plain-section"><SectionTitle title="Growth & Cash Quality" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowPerShare")}/><GrowthQuality dataset={dataset} annual={annual}/></section>
+      </>}
+      {financialsView === "statements" && <>
+        <section id="flows" className="plain-section"><SectionTitle title="Statement maps" onCharts={() => onCharts(dataset.company.ticker, "revenue")}/>
+        <p className="section-note">The latest reported fiscal year, drawn as the flow it describes. Every ribbon is a filed figure or a subtraction from one.</p>
+        <Suspense fallback={<Skeleton label="the statement diagrams" chart height={300}/>}>
+          {incomeFlow ? <StatementSankey diagram={incomeFlow} title="Income statement"/> : <p className="simple-state">The latest year does not carry enough reported lines to draw an income statement.</p>}
+          {cashFlow ? <StatementSankey diagram={cashFlow} title="Cash flow"/> : <p className="simple-state">The latest year does not carry a reported operating cash flow.</p>}
+          {balanceFlow ? <StatementSankey diagram={balanceFlow} title="Balance sheet"/> : <p className="simple-state">The latest year does not carry a reported total for assets.</p>}
+        </Suspense></section>
+        <section id="balance" className="plain-section"><SectionTitle title="Balance sheet in detail" onCharts={() => onCharts(dataset.company.ticker, "totalAssets")}/>
+        <p className="section-note">What the company owns, what it owes, and whether the difference is comfortable. A quality business with a fragile balance sheet is a different proposition.</p>
+        <Suspense fallback={<SkeletonTable label="the balance sheet"/>}><BalanceSheetPanel dataset={dataset}/></Suspense></section>
+      </>}
     </div>}
 
     {/* What the market charges today against what it has charged, and then the

@@ -73,22 +73,24 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   dilutedEpsReported: { namespace: "us-gaap", tags: ["EarningsPerShareDiluted"], unit: "perShare" },
   basicShares: { namespace: "us-gaap", tags: ["WeightedAverageNumberOfSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"], unit: "shares" },
   /*
-   * The count of shares in issue on the day the balance sheet closes.
+   * The count of shares in issue at a stated point in time.
    *
    * Two concepts carry it and only the cover-page one was read. That one is
-   * dated the day the report is filed — Apple's is 17 October against a
-   * 27 September year end — and the annual normalizer anchors point facts to
-   * the period end, so it was thrown away again at the next step. Six of the
-   * seven companies in the data audit had no share count at all, and market
-   * capitalisation silently fell back to the diluted weighted average: 1.6%
-   * away from Apple's real count, 3.2% from JPMorgan's, 4.4% from Rivian's.
+   * dated as of the day stated on the cover — Apple's is 17 October against a
+   * 27 September year end. It used to be thrown away because point facts were
+   * anchored only to the fiscal close. Six of the seven companies in the data
+   * audit then had no share count at all, and market capitalisation silently
+   * fell back to the diluted weighted average: 1.6% away from Apple's real
+   * count, 3.2% from JPMorgan's, 4.4% from Rivian's.
    *
    * `us-gaap:CommonStockSharesOutstanding` is the balance-sheet parenthetical,
    * instant-dated at the period end, and it is exactly the 14,773,260,000
-   * shares Apple states. It leads; the cover-page count stays as the fallback
-   * for filers that publish no parenthetical. Filers with several share
-   * classes tag both per class, so they reach this endpoint through neither —
-   * which is why the diluted fallback survives, now labelled rather than silent.
+   * shares Apple states. It leads; the cover-page count is attached only to
+   * the same accession, kept on its real observation date and labelled as the
+   * fallback for filers that publish no parenthetical. Filers with several
+   * share classes tag both per class, so they reach this endpoint through
+   * neither — which is why the diluted fallback survives, now labelled rather
+   * than silent.
    */
   sharesOutstanding: { namespace: "us-gaap", tags: ["CommonStockSharesOutstanding"], unit: "shares", also: [{ namespace: "dei", tags: ["EntityCommonStockSharesOutstanding"] }] },
   sharesIssued: { namespace: "us-gaap", tags: ["CommonStockSharesIssued"], unit: "shares" },

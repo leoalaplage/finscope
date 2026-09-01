@@ -27,8 +27,9 @@ const gapCount = (periods: CompanyDataset["periods"], metric: string) => {
  * Run on 1 September 2026 over 110 filers sampled across the SEC registry — the
  * sixty largest, then a spread down to the long tail — it put a number on
  * things that had only been anecdotes: 27% of companies had no debt total at
- * all, 12% no period-end share count, 10% file under IFRS and normalize to
- * nothing.
+ * all, 28% no readable point-in-time share count under the original mapping,
+ * and 10% file under IFRS and normalize to nothing. The cover-date rule later
+ * moves the share-count metric from 62/86 to 77/86 normalized filers.
  *
  * It needs the raw Company Facts payloads, which are far too large to commit,
  * so it skips itself when they are absent. To run it:
@@ -97,7 +98,7 @@ describe.skipIf(!available)("coverage sweep", () => {
       if (!missing.length) return "complete";
       if (missing.includes("revenue")) return "no revenue";
       if (missing.includes("debt")) return "no debt total";
-      if (missing.includes("sharesOut")) return "no period-end share count";
+      if (missing.includes("sharesOut")) return "no reported point-in-time share count";
       if (missing.includes("fcf")) return "no free cash flow";
       return "missing: " + missing.join(",");
     };

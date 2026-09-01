@@ -44,9 +44,9 @@ describe("embedded QS screener", () => {
     expect(embed).toContain("ResizeObserver");
   });
 
-  it("gives the QS Screener its own page next to DCF", () => {
+  it("gives the screener its own primary destination", () => {
     const app = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
-    expect(app).toContain('{ key: "qs", label: "QS Screener" }');
+    expect(app).toContain('{ key: "qs", label: "Screener" }');
     expect(app).toContain('view === "qs"');
     // The screener no longer hides in the footer's secondary-tools menu.
     expect(app).not.toContain('setSecondary("qs")');

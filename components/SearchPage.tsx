@@ -87,10 +87,12 @@ export function SearchPage({ watchlist, onOpen, onAdd, onBrowse }: {
 
   return <div className="search-page">
     <header className="search-lede">
-      <h1>Every filed number, and where it came from.</h1>
+      <div className="search-brandline"><span className="scope-mark hero" aria-hidden="true"><i/></span><span><b>FinScope</b><small>Research without the black box</small></span></div>
+      <span className="search-eyebrow">Filings · Prices · Provenance</span>
+      <h1>See the business.<br/>Verify the numbers.</h1>
       <p>
-        Search any company that files with the SEC. Statements come from the filings themselves, and every
-        figure keeps the period, the concept and the accession it was read from.
+        Search any company that files with the SEC. FinScope turns the filing record into a readable operating
+        history, then keeps every period, concept and accession one click away.
       </p>
     </header>
 
@@ -116,6 +118,12 @@ export function SearchPage({ watchlist, onOpen, onAdd, onBrowse }: {
         }}
       />
       {searching && <span className="search-working" aria-hidden="true"/>}
+    </div>
+
+    <div className="search-proof" aria-label="FinScope data principles">
+      <span><b>SEC sourced</b><small>Filed fundamentals</small></span>
+      <span><b>No estimates</b><small>Unknown stays unknown</small></span>
+      <span><b>Fully traceable</b><small>Source on every figure</small></span>
     </div>
 
     {searchError && <p className="notice search-notice">{searchError}</p>}

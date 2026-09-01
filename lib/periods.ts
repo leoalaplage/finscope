@@ -199,6 +199,7 @@ function calculated(metric: MetricKey, value: number, current: RawFinancialFact,
 
 type FactIndex = Map<string, RawFinancialFact[]>;
 type EndIndex = Map<string, RawFinancialFact[]>;
+type AccessionIndex = Map<string, RawFinancialFact[]>;
 
 /**
  * Deduped facts plus a lookup index, computed once per raw fact array.
@@ -212,7 +213,7 @@ type EndIndex = Map<string, RawFinancialFact[]>;
  * The annual and quarterly passes are handed the same array and would each
  * repeat the dedupe, so the result is memoised against that array by identity.
  */
-const preparedFacts = new WeakMap<RawFinancialFact[], { facts: RawFinancialFact[]; index: FactIndex; endIndex: EndIndex }>();
+const preparedFacts = new WeakMap<RawFinancialFact[], { facts: RawFinancialFact[]; index: FactIndex; endIndex: EndIndex; accessionIndex: AccessionIndex }>();
 
 function prepare(input: RawFinancialFact[]) {
   const cached = preparedFacts.get(input);
@@ -220,6 +221,7 @@ function prepare(input: RawFinancialFact[]) {
   const facts = dedupeFacts(relabelFiscalYears(normalizeShareUnitScales(input)));
   const index: FactIndex = new Map();
   const endIndex: EndIndex = new Map();
+  const accessionIndex: AccessionIndex = new Map();
   for (const fact of facts) {
     const key = `${fact.metric}|${fact.fiscalYear}|${fact.fiscalPeriod}`;
     const bucket = index.get(key);
@@ -229,8 +231,11 @@ function prepare(input: RawFinancialFact[]) {
       const atEnd = endIndex.get(endKey);
       if (atEnd) atEnd.push(fact); else endIndex.set(endKey, [fact]);
     }
+    const accessionKey = `${fact.metric}|${fact.accession}`;
+    const inFiling = accessionIndex.get(accessionKey);
+    if (inFiling) inFiling.push(fact); else accessionIndex.set(accessionKey, [fact]);
   }
-  const value = { facts, index, endIndex };
+  const value = { facts, index, endIndex, accessionIndex };
   preparedFacts.set(input, value);
   return value;
 }
@@ -551,8 +556,45 @@ function instantFact(endIndex: EndIndex, metric: MetricKey, fy: number, quarter:
   return raw ? normalized(raw, "quarterly", quarter) : undefined;
 }
 
+const COVER_PAGE_SHARES = "dei:EntityCommonStockSharesOutstanding";
+const MAX_COVER_PAGE_LAG_DAYS = 150;
+
+/**
+ * The point-in-time share count stated on the filing's cover page.
+ *
+ * It is not a balance-sheet count and must never be redated to look like one.
+ * The SEC gives it the date the filer actually states — normally a few days
+ * before filing — so the fact keeps that date even though it is attached to
+ * the fiscal period whose filing carries it. Matching the accession is the
+ * critical boundary: a later annual report republishes old income-statement
+ * periods, and its current cover count does not belong to those old years.
+ * The lag bound also rejects a delayed comparative context that merely happens
+ * to share fiscal labels.
+ */
+function filingCoverShares(
+  accessionIndex: AccessionIndex,
+  anchor: { periodEnd: string; filingDate: string; accession: string },
+  periodicity: "annual" | "quarterly",
+  fiscalQuarter?: "Q1" | "Q2" | "Q3" | "Q4",
+) {
+  const raw = latest((accessionIndex.get(`sharesOutstanding|${anchor.accession}`) ?? []).filter((fact) => {
+    if (fact.concept !== COVER_PAGE_SHARES || fact.start || fact.end <= anchor.periodEnd || fact.end > anchor.filingDate) return false;
+    return daysBetween(anchor.periodEnd, fact.end) - 1 <= MAX_COVER_PAGE_LAG_DAYS;
+  }));
+  if (!raw) return undefined;
+  const lagDays = daysBetween(anchor.periodEnd, raw.end) - 1;
+  const fact = normalized(raw, periodicity, fiscalQuarter);
+  return {
+    ...fact,
+    provenance: {
+      ...fact.provenance,
+      note: `Cover-page share count reported as of ${raw.end}, ${lagDays} days after the ${anchor.periodEnd} fiscal period end. It is retained on its stated date and is not presented as a period-end balance.`,
+    },
+  };
+}
+
 export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: string) {
-  const { facts, index, endIndex } = prepare(input);
+  const { facts, index, endIndex, accessionIndex } = prepare(input);
   const years = [...new Set(facts.filter((fact) => fact.fiscalPeriod === "FY" && isAnnualForm(fact.form)).map((fact) => fact.fiscalYear))].sort();
   return years.map((fiscalYear): FinancialPeriod | null => {
     const annualFacts: FinancialPeriod["facts"] = {};
@@ -569,7 +611,10 @@ export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: stri
     if (!anchor) return null;
     for (const metric of POINT_METRICS) {
       const raw = latest(endIndex.get(`${metric}|${anchor.end}`) ?? []);
-      if (raw) annualFacts[metric] = normalized(raw, "annual");
+      const fact = raw ? normalized(raw, "annual") : metric === "sharesOutstanding"
+        ? filingCoverShares(accessionIndex, { periodEnd: anchor.end, filingDate: anchor.filed, accession: anchor.accession }, "annual")
+        : undefined;
+      if (fact) annualFacts[metric] = fact;
     }
     if (annualFacts.shareRepurchases || annualFacts.shareIssuance) {
       const buybacks = annualFacts.shareRepurchases?.value ?? 0;
@@ -585,7 +630,7 @@ export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: stri
 }
 
 export function normalizeQuarterlyPeriods(input: RawFinancialFact[], currency: string) {
-  const { facts, index, endIndex } = prepare(input);
+  const { facts, index, endIndex, accessionIndex } = prepare(input);
   const years = [...new Set(facts.filter((fact) => fact.form === "10-Q" || isAnnualForm(fact.form)).map((fact) => fact.fiscalYear))].sort();
   const periods: FinancialPeriod[] = [];
   for (const fiscalYear of years) {
@@ -598,7 +643,13 @@ export function normalizeQuarterlyPeriods(input: RawFinancialFact[], currency: s
       }
       if (!anchor?.periodStart) continue;
       for (const metric of POINT_METRICS) {
-        const fact = instantFact(endIndex, metric, fiscalYear, quarter, anchor.periodEnd);
+        const fact = instantFact(endIndex, metric, fiscalYear, quarter, anchor.periodEnd) ?? (metric === "sharesOutstanding"
+          ? filingCoverShares(accessionIndex, {
+            periodEnd: anchor.periodEnd,
+            filingDate: anchor.provenance.filingDate ?? "",
+            accession: anchor.provenance.accession ?? "",
+          }, "quarterly", quarter)
+          : undefined);
         if (fact) periodFacts[metric] = fact;
       }
       if (periodFacts.shareRepurchases || periodFacts.shareIssuance) {

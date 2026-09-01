@@ -251,8 +251,9 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
   return <div className="home">
     <header className="home-head">
       <div>
+        <span className="rule-label">Research universe</span>
         <h1>Watchlist</h1>
-        <p>{watchlist.length} companies. Open one, or load them all to compare them side by side.</p>
+        <p>{watchlist.length} companies followed locally. Scan operating quality here, then open the full filing record.</p>
       </div>
       <div className="home-head-actions">
         <button type="button" onClick={() => void loadEverything()} disabled={bulk.running || unloaded === 0}>
@@ -308,8 +309,9 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
             return <li key={company.ticker}>
               <button type="button" className="company-card" onClick={() => onOpen(company.ticker)}>
                 <span className="company-card-head">
-                  <b>{company.ticker}</b>
+                  <span className="company-card-heading-row"><b>{company.ticker}</b><span>Open ↗</span></span>
                   <span className="company-card-name">{company.name}</span>
+                  <small className="company-card-meta">{[company.exchange, company.sector].filter((item) => item && item !== "Unclassified").join(" · ")}</small>
                 </span>
                 {/*
                   * Three figures, all measured over five years, and no price.

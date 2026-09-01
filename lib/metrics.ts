@@ -24,7 +24,7 @@ export const METRICS: Record<string, MetricDefinition> = {
   freeCashFlowMargin: { label: "Free cash flow margin", short: "FCF margin", color: "#c8f169", kind: "percent", formula: FORMULAS.freeCashFlowMargin },
   dilutedShares: { label: "Diluted weighted average shares", short: "Diluted shares", color: "#67b7ff", kind: "shares" },
   basicShares: { label: "Basic weighted average shares", short: "Basic shares", color: "#8c9db7", kind: "shares" },
-  sharesOutstanding: { label: "Shares outstanding · period end", short: "Shares outstanding", color: "#f4bc56", kind: "shares" },
+  sharesOutstanding: { label: "Shares outstanding · reported date", short: "Shares outstanding", color: "#f4bc56", kind: "shares" },
   sharesIssued: { label: "Shares issued", short: "Shares issued", color: "#c084fc", kind: "shares" },
   treasuryShares: { label: "Treasury shares", short: "Treasury shares", color: "#fb7185", kind: "shares" },
   stockBasedCompensation: { label: "Stock-based compensation", short: "SBC", color: "#f59e0b", kind: "currency" },
