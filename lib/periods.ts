@@ -356,10 +356,9 @@ function historicalQuarterBasis(index: FactIndex, metric: MetricKey, fy: number,
  * Another concept is therefore allowed, but only where it is demonstrably the
  * same measure: its own annual figure has to match the published one. Apple's
  * 2016 revenue is 215.639bn under both the old tag and the new, so its quarters
- * are the year's quarters and the history is recovered. Microsoft's 2016 moved
- * by six percent when it was restated, so the old quarters are not the new
- * year's, and the gap is left where it is rather than published as a year that
- * does not add up.
+ * are the year's quarters and the history is recovered. The one narrower rule
+ * above covers an annual-only ASC 606 restatement: exact quarters stay on their
+ * explicitly disclosed historical basis instead of being deleted or adjusted.
  */
 function conceptsToTry(index: FactIndex, metric: MetricKey, fy: number): string[] {
   const published = publishedAnnual(index, metric, fy);
@@ -392,9 +391,10 @@ function yearConcept(index: FactIndex, metric: MetricKey, fy: number): string | 
   const candidates = conceptsToTry(index, metric, fy);
   let best: string | undefined; let bestScore = -1;
   for (const concept of candidates) {
-    // Counting filed contexts rather than running every derivation twice: the
-    // normaliser is on a Worker CPU budget, and this is asked once per metric
-    // and year for every company on the page.
+    // Count both ordinary quarterly contexts and reported comparatives carried
+    // by an annual filing. Otherwise an older concept with three 10-Qs beats a
+    // fully restated concept merely because all of the latter's quarters sit
+    // under FY/Q4. This is cached once per metric and fiscal year.
     const score = (["Q1", "Q2", "Q3"] as const).filter((quarter) =>
       sameConcept(contexts(index, metric, fy, quarter), concept).length > 0
       || comparativeQuarter(index, metric, fy, quarter, concept) != null).length;
