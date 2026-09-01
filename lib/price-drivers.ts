@@ -143,6 +143,43 @@ export function priceDrivers(periods: FinancialPeriod[], pricesByPeriodEnd: Reco
 }
 
 /**
+ * Whether the move was earned or bought, in one word.
+ *
+ * The split is only useful to someone who already knows why it matters, and a
+ * reader meeting three multiples has no way to tell which arrangement of them
+ * is the good one. This is the judgement the book makes, and it is a judgement
+ * about *where the return came from* rather than about the shares: a return the
+ * company produced is one it can produce again, and a return the market handed
+ * over is one the next buyer has to hand over again. Neither is a forecast and
+ * neither is advice.
+ */
+export type PriceDriverTone = "earned" | "borrowed" | "mixed" | "lost";
+
+export interface PriceDriverVerdict { tone: PriceDriverTone; label: string; meaning: string }
+
+const VERDICTS: Record<PriceDriverTone, string> = {
+  earned: "The company produced this return, so it is the kind it can produce again.",
+  borrowed: "The market paid more for the same cash. That part only repeats if the next buyer pays more again.",
+  mixed: "Part of the move was produced by the company and part was paid by the market.",
+  lost: "The cash behind each share fell.",
+};
+
+export function priceDriverVerdict(drivers: PriceDrivers): PriceDriverVerdict {
+  const { businessReturn, totalReturn, share } = drivers;
+  const of = (tone: PriceDriverTone, label: string) => ({ tone, label, meaning: VERDICTS[tone] });
+  if (businessReturn <= 0 && totalReturn <= 0) return of("lost", "Both went backwards");
+  if (businessReturn <= 0) return of("borrowed", "Paid for by the market");
+  if (totalReturn <= 0) return of("mixed", "Business grew, price did not");
+  if (!share) return of("mixed", "Half and half");
+  // Three fifths, not two thirds. At the tighter line a move the panel itself
+  // described as "64% from the multiple" was still badged "half and half",
+  // and a verdict that argues with the sentence beside it teaches nothing.
+  if (share.business >= .6) return of("earned", "Earned by the business");
+  if (share.valuation >= .6) return of("borrowed", "Mostly re-rating");
+  return of("mixed", "Half and half");
+}
+
+/**
  * The sentence a reader should take away, which is the point of the split.
  *
  * A return that came from the business is one the company can repeat. A return

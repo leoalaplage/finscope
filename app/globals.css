@@ -958,6 +958,19 @@ tbody tr:last-child > * { border-bottom: 0; }
    multiply to the one below" without a word of explanation. */
 .price-drivers-total th, .price-drivers-total td { border-top: 1px solid var(--border-strong); font-weight: 650; }
 .price-drivers-part td b { font-weight: 550; }
+.price-drivers-part td b.positive { color: var(--accent); }
+.price-drivers-part td b.negative { color: var(--danger); }
+/* The verdict, as a word rather than a colour alone: colour carries it for
+   readers who see it, the sentence carries it for everyone else. */
+.price-drivers-verdicts th, .price-drivers-verdicts td { padding-top: 10px; vertical-align: top; }
+.driver-badge { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: var(--fs-micro); font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
+.driver-badge.earned { background: var(--accent-soft); color: var(--accent); }
+.driver-badge.borrowed { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.driver-badge.mixed, .driver-badge.lost { background: var(--surface-muted, transparent); color: var(--muted); border: 1px solid var(--border); }
+.driver-legend { margin: 14px 0 0; display: grid; gap: 6px; }
+.driver-legend div { display: grid; grid-template-columns: minmax(0, 170px) 1fr; gap: 10px; align-items: baseline; }
+.driver-legend dd { margin: 0; font-size: var(--fs-xs); color: var(--muted); line-height: 1.5; }
+@media (max-width: 640px) { .driver-legend div { grid-template-columns: 1fr; gap: 2px; } }
 .financial-table tr.balance-total { border-top: 1px solid var(--border-strong); }
 .financial-table tr.balance-total th, .financial-table tr.balance-total td { font-weight: 700; }
 

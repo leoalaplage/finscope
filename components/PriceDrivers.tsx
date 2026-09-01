@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getJson } from "@/lib/fetch-json";
-import { priceDriverReading, priceDrivers } from "@/lib/price-drivers";
+import { priceDriverReading, priceDrivers, priceDriverVerdict } from "@/lib/price-drivers";
 import type { CompanyDataset, PricePoint } from "@/lib/types";
 
 /**
@@ -102,9 +102,15 @@ export function PriceDrivers({ dataset }: { dataset: CompanyDataset }) {
         <thead><tr><th>Over</th>{results.map((item) => <th key={item.years}>{item.years} years</th>)}</tr></thead>
         <tbody>
           <tr className="price-drivers-part">
+            {/* More cash per share is unambiguously better, so this row is the
+                one place a colour means what a reader expects it to mean. The
+                row below it is not: paying more for the same cash is neither
+                good nor bad on its own, which is what the verdict is for. */}
             <th>Cash per share<small>what the business produced</small></th>
             {results.map((item) => <td key={item.years}>
-              {item.drivers ? <><b>{times(item.drivers.businessReturn)}</b><small>{rate(item.drivers.annualised.business)}</small></> : "—"}
+              {item.drivers
+                ? <><b className={item.drivers.businessReturn >= 0 ? "positive" : "negative"}>{times(item.drivers.businessReturn)}</b><small>{rate(item.drivers.annualised.business)}</small></>
+                : "—"}
             </td>)}
           </tr>
           <tr className="price-drivers-part">
@@ -121,9 +127,25 @@ export function PriceDrivers({ dataset }: { dataset: CompanyDataset }) {
               {item.drivers ? <><b>{times(item.drivers.totalReturn)}</b><small>{rate(item.drivers.annualised.total)}</small></> : "—"}
             </td>)}
           </tr>
+          <tr className="price-drivers-verdicts">
+            <th>Which means</th>
+            {results.map((item) => {
+              const verdict = item.drivers ? priceDriverVerdict(item.drivers) : null;
+              return <td key={item.years}>
+                {verdict ? <span className={`driver-badge ${verdict.tone}`} title={verdict.meaning}>{verdict.label}</span> : "—"}
+              </td>;
+            })}
+          </tr>
         </tbody>
       </table>
     </div>
+    {/* Why one of the two is worth more than the other, said once and plainly.
+        Without it "Earned by the business" is a label with no meaning to
+        someone who has not read the chapter it comes from. */}
+    <dl className="driver-legend">
+      <div><dt><span className="driver-badge earned">Earned by the business</span></dt><dd>The company produced the return by making more cash for each share. That is the kind it can produce again.</dd></div>
+      <div><dt><span className="driver-badge borrowed">Paid for by the market</span></dt><dd>The market simply agreed to pay more for the same cash. That part only repeats if the next buyer pays more again.</dd></div>
+    </dl>
     {longest?.drivers
       ? <p className="price-drivers-reading">Over {Math.round(longest.drivers.years)} years: {priceDriverReading(longest.drivers).replace(/^([A-Z])/, (letter) => letter.toLowerCase())}</p>
       : <p className="stat-note">{error || results[0]?.reason || "No priced year carries a free cash flow per share for this company."}</p>}

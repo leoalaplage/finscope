@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { priceDriverReading, priceDrivers } from "../lib/price-drivers";
+import { priceDriverReading, priceDrivers, priceDriverVerdict } from "../lib/price-drivers";
 import type { FinancialPeriod, MetricKey, PricePoint } from "../lib/types";
 
 /*
@@ -104,5 +104,37 @@ describe("what moved the share price", () => {
     const result = priceDrivers(periods, prices, 5);
     expect(result.drivers).toBeNull();
     expect(result.reason).toContain("longest available is 1.0");
+  });
+});
+
+describe("whether the move was earned or bought", () => {
+  const verdictOf = (startPerShare: number, endPerShare: number, startPrice: number, endPrice: number) => {
+    const { periods, prices } = book(startPerShare, endPerShare, startPrice, endPrice);
+    return priceDriverVerdict(priceDrivers(periods, prices, 1).drivers!);
+  };
+
+  it("calls a move the company produced an earned one", () => {
+    // Cash per share doubles, the multiple does not move.
+    expect(verdictOf(10, 20, 200, 400)).toMatchObject({ tone: "earned", label: "Earned by the business" });
+  });
+
+  it("warns when the whole rise was paid by the market", () => {
+    // Cash per share flat, the price doubles: nothing was produced.
+    const verdict = verdictOf(10, 10, 200, 400);
+    expect(verdict.tone).toBe("borrowed");
+    expect(verdict.meaning).toContain("next buyer");
+  });
+
+  it("names the case where the business grew and the price did not", () => {
+    expect(verdictOf(10, 20, 200, 200)).toMatchObject({ tone: "mixed", label: "Business grew, price did not" });
+  });
+
+  it("splits a move the two halves made together", () => {
+    // Cash per share doubles and the multiple doubles: half each, by logs.
+    expect(verdictOf(10, 20, 200, 800)).toMatchObject({ tone: "mixed", label: "Half and half" });
+  });
+
+  it("says so when both went backwards", () => {
+    expect(verdictOf(20, 10, 400, 150)).toMatchObject({ tone: "lost" });
   });
 });
