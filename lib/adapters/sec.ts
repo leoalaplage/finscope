@@ -40,12 +40,32 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   // exactly.
   netIncome: { namespace: "us-gaap", tags: ["NetIncomeLoss", "NetIncomeLossAvailableToCommonStockholdersBasic", "ProfitLoss"], unit: "currency" },
   operatingCashFlow: { namespace: "us-gaap", tags: ["NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"], unit: "currency" },
-  // Tags are alternatives in preference order, not addends. The last two cover
-  // filers that report no property-and-equipment line at all: Cboe and
-  // Interactive Brokers use the net productive-assets concept, and Veeva
-  // stopped tagging property purchases after FY2020 and now reports only
-  // capitalized software. Without them free cash flow simply stopped.
-  capitalExpenditures: { namespace: "us-gaap", tags: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForProceedsFromProductiveAssets", "PaymentsForSoftware"], unit: "currency" },
+  /*
+   * Tags are alternatives in preference order, not addends.
+   *
+   * The middle two cover filers that report no property-and-equipment line at
+   * all: Cboe and Interactive Brokers use the net productive-assets concept,
+   * and Veeva stopped tagging property purchases after FY2020 and now reports
+   * only capitalized software. Without them free cash flow simply stopped.
+   *
+   * The last two came out of a sweep of 110 filers, which found ten companies
+   * publishing an operating cash flow this adapter could read and a capital
+   * expenditure it could not. Eli Lilly tags its property purchases under the
+   * "other" variant, and a property company spends through capital
+   * improvements rather than acquisitions — Douglas Emmett has no free cash
+   * flow at all without it.
+   *
+   * `PaymentsToAcquireIntangibleAssets` was considered and rejected. It is the
+   * only capital line Alibaba tags here, but intangible purchases are not
+   * property spending: reading them as the whole of capital expenditure would
+   * understate what the company actually spends and overstate the cash it
+   * keeps. A stated gap is better than a plausible wrong number.
+   *
+   * ConocoPhillips and Phillips 66 remain without one, and nothing here can
+   * fix that: both report capital expenditure only as a company extension,
+   * which this endpoint does not carry.
+   */
+  capitalExpenditures: { namespace: "us-gaap", tags: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForProceedsFromProductiveAssets", "PaymentsForSoftware", "PaymentsToAcquireOtherPropertyPlantAndEquipment", "PaymentsForCapitalImprovements"], unit: "currency" },
   acquisitions: { namespace: "us-gaap", tags: ["PaymentsToAcquireBusinessesNetOfCashAcquired", "PaymentsToAcquireBusinessesGross"], unit: "currency" },
   dividendsPaid: { namespace: "us-gaap", tags: ["PaymentsOfDividends", "PaymentsOfDividendsCommonStock", "PaymentsOfOrdinaryDividends"], unit: "currency" },
   dilutedShares: { namespace: "us-gaap", tags: ["WeightedAverageNumberOfDilutedSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"], unit: "shares" },
