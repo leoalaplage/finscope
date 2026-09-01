@@ -20,7 +20,11 @@
 const args = process.argv.slice(2);
 const originFlag = args.indexOf("--origin");
 const origin = originFlag === -1 ? "https://finscope-financial-research.leoalaplage.workers.dev" : args[originFlag + 1];
-const tickers = args.filter((value, index) => value !== "--origin" && index !== originFlag + 1 && !value.startsWith("--"));
+// `indexOf` returns -1 when the flag is absent, and -1 + 1 is 0 — which
+// quietly dropped the first ticker of every call that did not pass an origin.
+// Found by counting: five tickers in, "4/4 ready" out.
+const skip = originFlag === -1 ? -1 : originFlag + 1;
+const tickers = args.filter((value, index) => index !== originFlag && index !== skip && !value.startsWith("--"));
 
 if (!tickers.length) {
   console.error("Usage: node scripts/warm-cache.mjs TICKER [TICKER…] [--origin https://…]");
