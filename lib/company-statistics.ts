@@ -101,6 +101,15 @@ const FINANCIAL_CAPITAL_MODEL = "Not comparable for this financial business mode
  */
 const FINANCIAL_NOTE = "Free-cash-flow measures are withheld: operating cash flow at a bank, broker or exchange moves with customer and clearing balances — money belonging to clients that passes through the statement — so dividing it by a net revenue line gives a figure that is arithmetically correct and describes nothing.";
 
+/**
+ * How far back a figure may come from when the period on screen lacks it.
+ *
+ * Eighteen months: far enough to reach the annual report behind a trailing
+ * window whatever the fiscal calendar, and not far enough to reach the one
+ * before it.
+ */
+const FALLBACK_LIMIT_MS = 550 * 86_400_000;
+
 export function companyStatistics(dataset: CompanyDataset, price: PricePoint | null, periodicity: StatisticsPeriodicity = "ttm"): StatGroup[] {
   const financial = isFinancialBusiness(dataset.company.businessType);
   /** The value, unless free cash flow is meaningless for this filer. */
@@ -151,8 +160,19 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
     const direct = derivedValue(current, metric);
     if (direct != null) return direct;
     for (let index = elsewhere.length - 1; index >= 0; index--) {
-      const value = derivedValue(elsewhere[index], metric);
-      if (value != null) { fallbacks.set(metric, elsewhere[index].label); return value; }
+      const candidate = elsewhere[index];
+      // Only the annual report behind this window, never further.
+      //
+      // Without the bound the search runs to the end of the history and finds
+      // whatever it can: Arista last tagged a debt balance in 2013, and the
+      // panel offered a thirteen-year-old net debt beside today's market
+      // capitalisation. Stating the year does not make that a figure — it is
+      // the same mistake as the trailing window that stopped in 2014, wearing
+      // a label. One year back is the last balance sheet the company filed;
+      // beyond that the answer is that there is no answer.
+      if (Date.parse(current.periodEnd) - Date.parse(candidate.periodEnd) > FALLBACK_LIMIT_MS) break;
+      const value = derivedValue(candidate, metric);
+      if (value != null) { fallbacks.set(metric, candidate.label); return value; }
     }
     return null;
   };

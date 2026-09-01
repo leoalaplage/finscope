@@ -363,3 +363,22 @@ describe("a figure the trailing window does not carry", () => {
     expect(margin.asOf).toBeUndefined();
   });
 });
+
+describe("how far back a fallback may reach", () => {
+  it("refuses a balance older than the annual report behind the window", () => {
+    /*
+     * Arista last tagged a debt balance in 2013. Without a bound the panel
+     * offered that thirteen-year-old net debt beside today's market
+     * capitalisation — the same mistake as a trailing window that stopped in
+     * 2014, wearing a date as though the date made it current.
+     */
+    const ancient = period(2013, { revenue: 100, totalDebt: 50, cashAndEquivalents: 10, dilutedShares: 100 });
+    // The years since, which report no borrowing at all — as Arista's do.
+    const since = [2024, 2025].map((year) => period(year, { revenue: 2_000, netIncome: 400, operatingCashFlow: 600, capitalExpenditures: 60, totalEquity: 1_000, dilutedShares: 100 }));
+    const trailing = period(2026, { revenue: 3_000, netIncome: 600, operatingCashFlow: 900, capitalExpenditures: 100, totalEquity: 1_000, dilutedShares: 100 }, "ttm");
+    const groups = companyStatistics({ ...dataset(), periods: [ancient, ...since, trailing] }, price, "ttm");
+    const netDebt = groups.find((group) => group.title === "Financial Health")!.stats.find((item) => item.label === "Net Debt")!;
+    expect(netDebt.value).toBeNull();
+    expect(netDebt.asOf).toBeUndefined();
+  });
+});
