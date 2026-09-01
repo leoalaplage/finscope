@@ -169,6 +169,24 @@ function readRoute(search: string) {
 export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   const [datasets, setDatasets] = useState<Record<string, CompanyDataset>>({ [initialData.company.ticker]: initialData });
   const [dataset, setDataset] = useState(initialData);
+  /*
+   * The company the address bar asks for, while it is still on its way.
+   *
+   * The page renders before that company arrives, and what it rendered was the
+   * one the server sent — so opening Microsoft drew Apple first: Apple's
+   * figures under a Microsoft URL for half a second, and Apple's price and ten
+   * years of Apple's weekly closes fetched to draw cards nobody asked for.
+   * Measured on a deep link to MSFT: two wasted requests and 590ms of them.
+   *
+   * Read synchronously here rather than in the effect below, so the first
+   * render already knows it is waiting and shows the shape of the page instead
+   * of another company's numbers.
+   */
+  const [awaiting, setAwaiting] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const requested = readRoute(location.search).ticker;
+    return requested && requested !== initialData.company.ticker ? requested : null;
+  });
   /* The application opens on the question, not on somebody else's watchlist. */
   const [view, setView] = useState<MainView>("search");
   /* Which tab of the company page is open. Held here rather than inside that
@@ -222,12 +240,18 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       if (route.tab) setCompanyTab(route.tab);
       if (route.view) setView(route.view);
       const ticker = route.ticker ?? seeded.current;
+      // Refs rather than state: this effect runs once and on Back, so a
+      // captured `dataset` would be the one from mount and would flash a
+      // skeleton over a company already in hand.
+      setAwaiting(loadedAt.current[ticker] || ticker === initialData.company.ticker ? null : ticker);
       // The company named in the URL, or the fixture's own, refreshed.
       loadCompanyData(ticker).then((payload) => {
         if (!active || !payload) return;
+        setAwaiting(null);
         setDataset((current) => current.company.ticker === ticker || route.ticker === ticker ? payload : current);
       }).catch((cause) => {
         if (!active) return;
+        setAwaiting(null);
         setError(cause instanceof Error ? cause.message : `Could not load ${ticker}`);
         // A failed deep link to another ticker must never present Apple's
         // fixture as though it belonged to the requested company.
@@ -371,7 +395,10 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       {!secondary && view === "qs" && <Suspense fallback={<SkeletonTable label="the QS Screener" rows={10}/>}><QsScreener tickers={watchlist.map((company) => company.ticker)}/></Suspense>}
       {!secondary && view === "companies" && !ranking && <Suspense fallback={<SkeletonCards label="your watchlist" count={8}/>}><HomePage watchlist={watchlist} datasets={datasets} loading={loading} onOpen={openCompany} onLoad={loadCompanyData} onSearchAdd={() => setManagerOpen(true)} onShowRanking={() => showRanking(true)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></Suspense>}
       {!secondary && view === "companies" && ranking && <div><button className="back-button" onClick={() => showRanking(false)}>← Watchlist</button><CompaniesPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} loading={loading} onSearchAdd={() => setManagerOpen(true)} onLoad={loadCompanyData} onOpen={openCompany} onCharts={(ticker) => openCharts(ticker)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></div>}
-      {!secondary && view === "company" && <CompanyPage key={dataset.company.ticker} dataset={dataset} theme={theme} watchlist={watchlist} datasets={datasets} tab={companyTab} onTab={openTab} onBack={() => navigate("companies")} onCharts={openCharts} onLoad={loadCompanyData}/>}
+      {/* Waiting for the company this URL names: its shape, not another
+          company's figures. */}
+      {!secondary && view === "company" && awaiting && <div className="company-block"><SkeletonCards label={awaiting} count={4} height={220}/></div>}
+      {!secondary && view === "company" && !awaiting && <CompanyPage key={dataset.company.ticker} dataset={dataset} theme={theme} watchlist={watchlist} datasets={datasets} tab={companyTab} onTab={openTab} onBack={() => navigate("companies")} onCharts={openCharts} onLoad={loadCompanyData}/>}
       {!secondary && view === "market" && <Suspense fallback={<SkeletonCards label="the market session" count={3} height={230}/>}><MarketPage watchlist={watchlist.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker)}/></Suspense>}
       {!secondary && view === "charts" && <Suspense fallback={<Skeleton label="the chart workspace" chart height={420}/>}><ChartsWorkspace initialData={dataset} seed={chartSeed} theme={theme}/></Suspense>}
     </main>
