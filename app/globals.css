@@ -974,6 +974,13 @@ tbody tr:last-child > * { border-bottom: 0; }
 .driver-legend { margin: 14px 0 0; display: grid; gap: 6px; }
 .driver-legend div { display: grid; grid-template-columns: minmax(0, 170px) 1fr; gap: 10px; align-items: baseline; }
 .driver-legend dd { margin: 0; font-size: var(--fs-xs); color: var(--muted); line-height: 1.5; }
+/* Filtering twenty chips, and reaching a company that is not among them. */
+.stat-picker-filter input { width: 190px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 3px; background: transparent; color: inherit; font: inherit; font-size: var(--fs-sm); }
+.stat-picker-filter input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.stat-picker .stat-picker-add { border-style: dashed; }
+/* The company whose page this is, marked so that removing it is a choice
+   rather than something a reader cannot explain afterwards. */
+.stat-picker .stat-picker-anchor::after { content: "•"; margin-left: 5px; opacity: .45; }
 @media (max-width: 640px) { .driver-legend div { grid-template-columns: 1fr; gap: 2px; } }
 .financial-table tr.balance-total { border-top: 1px solid var(--border-strong); }
 .financial-table tr.balance-total th, .financial-table tr.balance-total td { font-weight: 700; }

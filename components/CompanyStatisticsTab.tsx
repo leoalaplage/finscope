@@ -7,6 +7,7 @@ import { SkeletonTable } from "./Skeleton";
 import { getJson } from "@/lib/fetch-json";
 import type { StatisticsPeriodicity } from "@/lib/company-statistics";
 import { currentDatasetPeriod } from "@/lib/current-period";
+import { TICKER_PATTERN } from "@/lib/market-profile";
 import type { CompanyDataset, CompanyProfile, PricePoint } from "@/lib/types";
 
 /**
@@ -44,6 +45,8 @@ export function CompanyStatisticsTab({ dataset, price, watchlist, datasets, onLo
   const [periodicity, setPeriodicity] = useState<StatisticsPeriodicity>(() =>
     dataset.periods.some((period) => period.periodicity === "ttm") ? "ttm" : "annual");
   const [prices, setPrices] = useState<Record<string, PricePoint | null>>({});
+  const [filter, setFilter] = useState("");
+  const [addError, setAddError] = useState("");
   const requested = useRef(new Set<string>());
 
   // Choosing a company is a request for its filings and its price. Both are
@@ -85,6 +88,38 @@ export function CompanyStatisticsTab({ dataset, price, watchlist, datasets, onLo
    * doing what the key already did — and one that renders twice to do it.
    */
 
+  /*
+   * A way to reach a company that is not on the watchlist.
+   *
+   * The picker listed the twenty-odd companies a reader follows and nothing
+   * else, so "how does this compare with Amazon" had no answer unless Amazon
+   * was already followed — on a page whose entire purpose is comparison. The
+   * field filters those chips as you type, and a ticker it does not recognise
+   * becomes an offer to fetch it: the shell builds any SEC filer on demand,
+   * which is how the search in the header already works.
+   */
+  const needle = filter.trim().toUpperCase();
+  const options = watchlist.filter((company) => company.ticker !== anchor && company.resolutionStatus !== "unresolved"
+    && (!needle || company.ticker.toUpperCase().includes(needle) || company.name.toUpperCase().includes(needle)));
+  // A company compared but not followed still needs a chip of its own, or the
+  // only way to remove it would be to reload the page.
+  const guests = selected.filter((ticker) => ticker !== anchor && !watchlist.some((company) => company.ticker === ticker));
+  const known = new Set([anchor, ...watchlist.map((company) => company.ticker)]);
+  const offer = needle && !known.has(needle) && !selected.includes(needle) && TICKER_PATTERN.test(needle) ? needle : "";
+
+  function add(ticker: string) {
+    setFilter("");
+    setAddError("");
+    if (selected.includes(ticker) || selected.length >= MAX_COMPARED) return;
+    setSelected((current) => [...current, ticker]);
+    // Failure is reported here rather than by the skeleton below, which would
+    // otherwise sit there for a ticker that will never arrive.
+    void onLoad(ticker).catch((cause: unknown) => {
+      setSelected((current) => current.filter((item) => item !== ticker));
+      setAddError(cause instanceof Error ? cause.message : `${ticker} could not be loaded.`);
+    });
+  }
+
   function toggle(ticker: string) {
     setSelected((current) => current.includes(ticker)
       ? current.filter((item) => item !== ticker)
@@ -115,17 +150,26 @@ export function CompanyStatisticsTab({ dataset, price, watchlist, datasets, onLo
     </p>
 
     <div className="stat-picker" role="group" aria-label="Companies to compare">
-      <button className={selected.includes(anchor) ? "active" : ""} aria-pressed={selected.includes(anchor)} onClick={() => toggle(anchor)}>{anchor}</button>
-      {watchlist
-        .filter((company) => company.ticker !== anchor && company.resolutionStatus !== "unresolved")
-        .map((company) => {
-          const on = selected.includes(company.ticker);
-          return <button key={company.ticker} className={on ? "active" : ""} aria-pressed={on}
-            disabled={!on && selected.length >= MAX_COMPARED}
-            onClick={() => toggle(company.ticker)}>{company.ticker}</button>;
-        })}
+      <label className="stat-picker-filter">
+        <input value={filter} onChange={(event) => { setFilter(event.target.value); setAddError(""); }}
+          onKeyDown={(event) => { if (event.key === "Enter" && offer) { event.preventDefault(); add(offer); } }}
+          placeholder="Filter or type a ticker" aria-label="Filter the companies, or type any US ticker to compare with it"/>
+      </label>
+      {/* The page's own company keeps a mark on it, so removing it is an
+          obvious choice rather than an accident you cannot explain. */}
+      <button className={`stat-picker-anchor${selected.includes(anchor) ? " active" : ""}`} aria-pressed={selected.includes(anchor)}
+        title={`${anchor} is the company this page is about`} onClick={() => toggle(anchor)}>{anchor}</button>
+      {[...guests, ...options.map((company) => company.ticker)].map((ticker) => {
+        const on = selected.includes(ticker);
+        return <button key={ticker} className={on ? "active" : ""} aria-pressed={on}
+          disabled={!on && selected.length >= MAX_COMPARED}
+          onClick={() => toggle(ticker)}>{ticker}</button>;
+      })}
+      {offer && <button className="stat-picker-add" disabled={selected.length >= MAX_COMPARED}
+        onClick={() => add(offer)}>+ {offer}</button>}
       <span className="stat-picker-count">{selected.length} of {MAX_COMPARED}</span>
     </div>
+    {addError && <p className="simple-state">{addError}</p>}
 
     {pending.length > 0 && <SkeletonTable label={`${pending.join(", ")} for comparison`} rows={4}/>}
     <CompanyStatistics datasets={shown} prices={{ [anchor]: price, ...prices }} periodicity={effectivePeriodicity}/>
