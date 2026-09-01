@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { fetchSecCompany } from "@/lib/adapters/sec";
-import { CACHE_SECONDS, datasetKey, digestIsCurrent, fallbackDatasetKeys, summaryKey } from "@/lib/dataset-cache";
+import { CACHE_SECONDS, claimKey, datasetKey, digestIsCurrent, fallbackDatasetKeys, requestCompany, summaryKey } from "@/lib/dataset-cache";
 import { summariseDataset } from "@/lib/watchlist-summary";
-import { datasetCache } from "@/lib/runtime-env";
+import { datasetCache, keepAlive } from "@/lib/runtime-env";
 
 
 /**
@@ -99,6 +99,37 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
     } catch {
       // A cache that misbehaves must never take the endpoint down with it.
     }
+  }
+
+  /*
+   * A reader never pays for a build.
+   *
+   * Normalizing a filer costs the Worker a couple of hundred milliseconds of
+   * CPU and tens of megabytes, against an isolate that has 128MB and is shared
+   * by every request it is serving. Doing it inside a reader's request is what
+   * produced `1102 Worker exceeded resource limits` — and a Worker that
+   * exceeds its limits refuses *everything* for minutes, including the
+   * prerendered front page and companies already in cache. Five cold builds in
+   * a row did it reliably, measured on 1 September.
+   *
+   * So the reader is told the company is being prepared, and the building is
+   * handed to a second invocation through the service binding — its own
+   * isolate, its own budget, and a failure there cannot take this one down.
+   * The page polls; the skeleton it already shows covers the wait. Only the
+   * warm request, which is that second invocation, builds anything.
+   */
+  if (!warming) {
+    const claim = cache ? await cache.get(claimKey(symbol), "text").catch(() => null) : null;
+    if (!claim) {
+      // Marked before the handoff so two readers arriving together produce one
+      // build; the claim expires on its own if that build never lands.
+      await cache?.put(claimKey(symbol), "1", { expirationTtl: 60 }).catch(() => undefined);
+      keepAlive(requestCompany(new URL(request.url).origin, symbol));
+    }
+    return new Response(JSON.stringify({ building: true, ticker: symbol }), {
+      status: 202,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
   }
 
   try {

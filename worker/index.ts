@@ -38,7 +38,7 @@ const DEFAULT_ORIGIN = "https://finscope-financial-research.leoalaplage.workers.
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Hand the bindings to route handlers, which only ever see a Request.
-    setRuntimeBindings(env);
+    setRuntimeBindings(env, ctx);
     const url = new URL(request.url);
 
     if (url.pathname === "/_vinext/image") {
@@ -85,7 +85,7 @@ const worker = {
    * far more than one that reports failure and leaves the cache empty.
    */
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    setRuntimeBindings(env);
+    setRuntimeBindings(env, ctx);
     ctx.waitUntil((async () => {
       const started = Date.now();
       const report = await warmWatchlist(env.SELF_ORIGIN ?? DEFAULT_ORIGIN);

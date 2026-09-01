@@ -685,39 +685,6 @@ tbody tr:last-child > * { border-bottom: 0; }
 }
 
 
-/*
- * Fingers, not pointers.
- *
- * The controls here are deliberately dense: this is a document to read, and on
- * a desk a 28-pixel chip is precise and quiet. On a phone it is a coin toss.
- * Measured on the company page at 375 pixels: twenty-seven of forty-nine
- * interactive elements stood under 32 pixels tall, among them every tab, every
- * company chip, the period switches and the link to the filings at thirteen.
- *
- * Asked by pointer rather than by width, so the desktop layout is untouched and
- * a touch laptop or a tablet is treated as what it is. Forty-four pixels is
- * where Apple and Google both land; the secondary chips take forty, which is
- * where a target stops being missed.
- */
-@media (pointer: coarse) {
-  .site-header nav button { min-height: 44px; padding: 0 15px; }
-  .company-tabs button { min-height: 44px; padding: 0 16px; }
-  .wordmark { min-height: 44px; }
-  .header-ticker { min-height: 40px; padding: 0 14px; }
-  .theme-toggle { width: 40px; height: 40px; min-height: 40px; }
-  .segmented button, .range-buttons button, .period-buttons button, .stat-picker button { min-height: 40px; padding: 0 14px; }
-  .stat-picker-filter input { min-height: 40px; }
-  .company-card-load { min-height: 40px; }
-  /* Revealed on hover, which a thumb does not have. */
-  .company-card-remove { min-height: 34px; width: 34px; opacity: .55; }
-  /* A word-sized control keeps its size and gains its margin, so the line it
-     sits on does not grow while the target does. */
-  .explainer-toggle { padding: 10px 10px; margin: -10px -2px; }
-  .company-provenance a { display: inline-block; padding: 6px 0; }
-  /* A table row is a target too when its name and its value both open things. */
-  .financial-table td, .financial-table th, .table-scroll td, .table-scroll th { padding-top: 10px; padding-bottom: 10px; }
-}
-
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 .quality-callouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 18px; border: 0; }
@@ -1598,4 +1565,37 @@ tbody tr:last-child > * { border-bottom: 0; }
   /* The scroll container has nothing left to scroll, and its edge shadows
      would otherwise sit over the cards. */
   .ledger-scroll { overflow: visible; background: none; }
+}
+
+/*
+ * Fingers, not pointers.
+ *
+ * The controls here are deliberately dense: this is a document to read, and on
+ * a desk a 28-pixel chip is precise and quiet. On a phone it is a coin toss.
+ * Measured on the company page at 375 pixels: twenty-seven of forty-nine
+ * interactive elements stood under 32 pixels tall, among them every tab, every
+ * company chip, the period switches and the link to the filings at thirteen.
+ *
+ * Asked by pointer rather than by width, so the desktop layout is untouched and
+ * a touch laptop or a tablet is treated as what it is. Forty-four pixels is
+ * where Apple and Google both land; the secondary chips take forty, which is
+ * where a target stops being missed.
+ */
+@media (pointer: coarse) {
+  .site-header nav button { min-height: 44px; padding: 0 15px; }
+  .company-tabs button { min-height: 44px; padding: 0 16px; }
+  .wordmark { min-height: 44px; }
+  .header-ticker { min-height: 40px; padding: 0 14px; }
+  .theme-toggle { width: 40px; height: 40px; min-height: 40px; }
+  .segmented button, .range-buttons button, .period-buttons button, .stat-picker button { min-height: 40px; padding: 0 14px; }
+  .stat-picker-filter input { min-height: 40px; }
+  .company-card-load { min-height: 40px; }
+  /* Revealed on hover, which a thumb does not have. */
+  .company-card-remove { min-height: 34px; width: 34px; opacity: .55; }
+  /* A word-sized control keeps its size and gains its margin, so the line it
+     sits on does not grow while the target does. */
+  .explainer-toggle { padding: 10px 10px; margin: -10px -2px; }
+  .company-provenance a { display: inline-block; padding: 9px 0; }
+  /* A table row is a target too when its name and its value both open things. */
+  .financial-table td, .financial-table th, .table-scroll td, .table-scroll th { padding-top: 10px; padding-bottom: 10px; }
 }

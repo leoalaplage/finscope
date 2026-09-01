@@ -14,8 +14,28 @@ export interface RuntimeBindings {
 
 let bindings: RuntimeBindings = {};
 
-export function setRuntimeBindings(env: unknown) {
+/**
+ * The request's own execution context, when the platform gave us one.
+ *
+ * A Worker cancels any promise still running when the response goes out, so
+ * work that must outlive the answer — building a company after telling the
+ * reader it is being built — has to be handed to `waitUntil`. Route handlers
+ * never see it, so the entry point leaves it here beside the bindings.
+ */
+export interface RuntimeContext { waitUntil(promise: Promise<unknown>): void }
+
+let context: RuntimeContext | null = null;
+
+export function setRuntimeBindings(env: unknown, ctx?: RuntimeContext) {
   bindings = (env ?? {}) as RuntimeBindings;
+  context = ctx ?? null;
+}
+
+/** Keeps background work alive past the response, where the platform allows. */
+export function keepAlive(promise: Promise<unknown>) {
+  const settled = promise.catch(() => { /* The caller reports its own failures. */ });
+  if (context) context.waitUntil(settled);
+  return settled;
 }
 
 /** The normalized-company cache, or null when running without the binding. */

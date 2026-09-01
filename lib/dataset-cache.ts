@@ -344,7 +344,7 @@ export async function tickersNeedingWork(tickers: string[]): Promise<{ missing: 
  */
 const CLAIM_SECONDS = 120;
 
-function claimKey(ticker: string) {
+export function claimKey(ticker: string) {
   return `warming:${KEY_VERSION}:${ticker.toUpperCase()}`;
 }
 
@@ -360,7 +360,7 @@ function claimKey(ticker: string) {
  * present but out of date would be served the very copy it was sent to
  * replace, and the timer would report success having changed nothing.
  */
-async function requestCompany(origin: string, ticker: string, rebuild = false): Promise<Response> {
+export async function requestCompany(origin: string, ticker: string, rebuild = false): Promise<Response> {
   const headers: Record<string, string> = { "X-FinScope-Warm": "1" };
   if (rebuild) headers["X-FinScope-Rebuild"] = "1";
   const request = new Request(new URL(`/api/company/${encodeURIComponent(ticker)}`, origin), { headers });

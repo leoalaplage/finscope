@@ -339,10 +339,26 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
     // showed the old quarter with no way to ask for the new one short of a
     // reload — the server was current and the browser was not.
     if (datasets[ticker] && Date.now() - (loadedAt.current[ticker] ?? 0) < SESSION_MAX_AGE_MS) return datasets[ticker];
-    const payload = await getJson<CompanyDataset>(`/api/company/${encodeURIComponent(ticker)}`, { what: `${ticker}`, init: { cache: "no-store" } });
-    loadedAt.current[ticker] = Date.now();
-    setDatasets((current) => ({ ...current, [ticker]: payload }));
-    return payload;
+    /*
+     * A company nobody has built yet answers "being prepared" rather than
+     * building itself inside this request, which is what used to exhaust the
+     * Worker and refuse every other request with it. So this waits, which is
+     * what the skeleton on screen is already saying it is doing.
+     *
+     * Quick tries first — a warm company answers immediately and a cold one is
+     * usually there within a few seconds — then a slower cadence, and a plain
+     * sentence rather than an endless spinner if it never arrives.
+     */
+    for (let attempt = 0; attempt < 25; attempt++) {
+      const payload = await getJson<CompanyDataset & { building?: boolean }>(`/api/company/${encodeURIComponent(ticker)}`, { what: `${ticker}`, init: { cache: "no-store" } });
+      if (!payload.building) {
+        loadedAt.current[ticker] = Date.now();
+        setDatasets((current) => ({ ...current, [ticker]: payload }));
+        return payload;
+      }
+      await new Promise((resolve) => setTimeout(resolve, attempt < 4 ? 1_200 : 2_500));
+    }
+    throw new Error(`${ticker} is taking longer than usual to prepare. Try again in a moment.`);
   }
   async function openCompany(ticker: string, tab: CompanyTab = "overview") {
     setSecondary(null); setError("");
