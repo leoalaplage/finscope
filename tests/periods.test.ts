@@ -132,15 +132,18 @@ describe("a year restated under a new concept keeps its quarters", () => {
     expect(periods.reduce((total, period) => total + (period.facts.revenue?.value ?? 0), 0)).toBeCloseTo(70, 6);
   });
 
-  it("refuses the old concept when the restatement moved the year", () => {
-    // A year that genuinely changed has quarters that are not its own. Drawing
-    // them would publish a year that does not add up to itself.
+  it("keeps exact originally reported quarters when an ASC 606 restatement publishes no quarterly allocation", () => {
+    // The quarterly series is explicitly the earlier reported basis; the
+    // annual series remains the later restated 90. Nothing is allocated.
     const facts = [
       ...quarters,
       withConcept(raw("revenue", 70, "2025-01-01", "2025-12-31", "FY"), oldTag),
       withConcept(raw("revenue", 90, "2025-01-01", "2025-12-31", "FY", 2025, "2027-11-01"), newTag),
     ];
-    expect(normalizeQuarterlyPeriods(facts, "USD")).toEqual([]);
+    const periods = normalizeQuarterlyPeriods(facts, "USD");
+    expect(periods.map((period) => period.facts.revenue?.value)).toEqual([10, 15, 20, 25]);
+    expect(periods[0].facts.revenue?.provenance.note).toContain("no value is estimated");
+    expect(normalizeAnnualPeriods(facts, "USD")[0].facts.revenue?.value).toBe(90);
   });
 
   it("still refuses to mix two concepts that are not the same measure", () => {
@@ -226,6 +229,23 @@ describe("a quarter published as a comparative in a later annual report", () => 
     const year = dataset.periods.find((period) => period.periodicity === "annual" && period.periodEnd === "2017-06-30");
     expect(year?.facts.revenue?.value).toBe(96_600);
     expect(quarters.reduce((sum, period) => sum + (period.facts.revenue?.value ?? 0), 0)).toBe(96_600);
+  });
+
+  it("reads annual-form comparatives labelled Q4 like FY contexts", () => {
+    const q4Fact = (start: string, end: string, val: number) =>
+      ({ start, end, val, accn: `q4-${end}`, fy: 2019, fp: "Q4", form: "10-K", filed: "2019-02-13" });
+    const q4Payload = { entityName: "Q4 Context Corp", facts: { "us-gaap": { Revenues: { units: { USD: [
+      q4Fact("2017-01-01", "2017-03-31", 10),
+      q4Fact("2017-04-01", "2017-06-30", 20),
+      q4Fact("2017-07-01", "2017-09-30", 30),
+      q4Fact("2017-10-01", "2017-12-31", 40),
+      q4Fact("2017-01-01", "2017-12-31", 100),
+    ] } } } } };
+    const q4Profile = { name: "Q4 Context Corp", ticker: "Q4C", cik: "0000000004", exchange: "NYSE", currency: "USD", sector: "Test", description: "A fixture." };
+    const dataset = normalizeSecPayload(q4Payload, "Q4C", "2026-09-01", q4Profile);
+    const revenue = dataset.periods.filter((period) => period.periodicity === "quarterly" && period.fiscalYear === 2017)
+      .map((period) => period.facts.revenue?.value);
+    expect(revenue).toEqual([10, 20, 30, 40]);
   });
 
   it("takes the restated quarters over the ones filed on the old basis", () => {

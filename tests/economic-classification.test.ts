@@ -91,11 +91,33 @@ describe("verified economic classification", () => {
     expect(annual.facts.totalDebt?.value).toBeCloseTo(3_468.6, 10);
   });
 
-  it("does not call a lone long-term line total debt", () => {
+  it("reads a lone long-term line as the debt total, and names what it leaves out", () => {
+    /*
+     * This used to be refused. A sweep of 110 US filers found 27% with no debt
+     * total at all — Meta, Home Depot, Caterpillar, McDonald's among them — and
+     * none of them is debt-free: each publishes one borrowing balance and not
+     * the pair the stricter rule insisted on. A filer with no short-term
+     * facility tags no short-term line, and that absence was being read as
+     * "unknown" rather than as what the balance sheet shows.
+     */
     const dataset = normalizeSecPayload(payload({ LongTermDebt: point(1_491, "Long-term debt") }), "TEST", "2026-08-31T00:00:00.000Z", profile("TEST", "0000000001"));
     const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
     expect(annual.facts.otherLongTermDebt?.value).toBe(1_491);
-    expect(annual.facts.totalDebt).toBeUndefined();
+    expect(annual.facts.totalDebt?.value).toBe(1_491);
+    // A single filed balance keeps its own concept and provenance — it is a
+    // reading, not a calculation — and the note says what it is and is not.
+    expect(annual.facts.totalDebt?.provenance.concept).toBe("us-gaap:LongTermDebt");
+    expect(annual.facts.totalDebt?.provenance.note).toContain("Long-term debt as filed, including current maturities");
+    expect(annual.facts.totalDebt?.provenance.note).toContain("no separate short-term borrowing");
+  });
+
+  it("reads a non-current balance alone when that is all the filer tags", () => {
+    // Home Depot and McDonald's tag only a non-current figure at their latest
+    // balance-sheet date. It understates by any current maturity, and says so.
+    const dataset = normalizeSecPayload(payload({ LongTermDebtNoncurrent: point(39_863, "Non-current long-term debt") }), "TEST", "2026-08-31T00:00:00.000Z", profile("TEST", "0000000001"));
+    const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
+    expect(annual.facts.totalDebt?.value).toBe(39_863);
+    expect(annual.facts.totalDebt?.provenance.note).toContain("Current maturities");
   });
 
   it("reads a long-term debt total closed by a filed current-debt zero", () => {
@@ -122,17 +144,18 @@ describe("verified economic classification", () => {
     expect(derivedValue(annual, "roic")).toBeCloseTo(.5731, 3);
   });
 
-  it("refuses a long-term debt total whose current side is not proved", () => {
-    // The same shape with a current figure that is not zero. `LongTermDebt`
-    // already contains its current maturities, and the filing does not say how
-    // much of the current line is those maturities and how much is new
-    // borrowing, so the two cannot be added and nothing is published.
+  it("never adds a current line to a long-term figure that already contains it", () => {
+    // `LongTermDebt` includes its current maturities, and `DebtCurrent` is
+    // those maturities plus any short-term borrowing. The filing does not say
+    // how the current line splits between the two, so the figures are not
+    // summed — the long-term balance stands alone and the sum, 6,610, is never
+    // published. This is the guarantee that survived opening the rule up.
     const dataset = normalizeSecPayload(payload({
       LongTermDebt: point(6_210, "Long-term debt"),
       DebtCurrent: point(400, "Current debt"),
     }), "TEST", "2026-08-31T00:00:00.000Z", profile("TEST", "0000000001"));
     const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
-    expect(annual.facts.totalDebt).toBeUndefined();
+    expect(annual.facts.totalDebt?.value).toBe(6_210);
   });
 
   it("adds an ambiguous long-term line only when a third filed balance proves its role", () => {

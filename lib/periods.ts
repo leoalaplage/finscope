@@ -307,6 +307,40 @@ function sameMeasure(index: FactIndex, metric: MetricKey, fy: number, concept: s
 }
 
 /**
+ * An exact quarterly history on the accounting basis originally reported.
+ *
+ * ASC 606 was sometimes adopted by restating annual totals without publishing
+ * the restated quarter split. Microsoft fiscal 2016 is the important case: the
+ * later contract-revenue annual is 91.154bn, while the previously filed
+ * SalesRevenueNet year is 85.320bn and has all three interim filings needed to
+ * isolate its four exact quarters. There is no honest way to allocate the
+ * 5.834bn restatement across those quarters. Deleting the reported quarters,
+ * however, also deletes eight TTM observations and makes a real filing history
+ * look like a data outage.
+ *
+ * This fallback is deliberately narrow. It applies only to the known
+ * SalesRevenueNet -> ASC 606 taxonomy transition, only when the old annual was
+ * filed before the restatement, covers the identical fiscal window and has all
+ * three interim contexts. A simultaneous gross/net revenue pair (Mastercard)
+ * or total/component pair (Berkshire) cannot satisfy it.
+ */
+const LEGACY_REVENUE = "us-gaap:SalesRevenueNet";
+const ASC_606_REVENUE = new Set([
+  "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+  "us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax",
+]);
+
+function historicalQuarterBasis(index: FactIndex, metric: MetricKey, fy: number, concept: string, published: RawFinancialFact): RawFinancialFact | undefined {
+  if (metric !== "revenue" || concept !== LEGACY_REVENUE || !ASC_606_REVENUE.has(published.concept)) return undefined;
+  const rival = selectAnnual(sameConcept(contexts(index, metric, fy, "FY"), concept));
+  if (!rival?.start || !published.start || rival.start !== published.start || rival.end !== published.end
+    || rival.currency !== published.currency || rival.filed >= published.filed) return undefined;
+  const hasEveryInterim = (["Q1", "Q2", "Q3"] as const).every((quarter) =>
+    sameConcept(contexts(index, metric, fy, quarter), concept).length > 0);
+  return hasEveryInterim ? rival : undefined;
+}
+
+/**
  * Every concept a quarter may be built from, the year's own first.
  *
  * A quarter is built from one concept end to end — that is what stops
@@ -333,7 +367,8 @@ function conceptsToTry(index: FactIndex, metric: MetricKey, fy: number): string[
   const filed = QUARTERS.flatMap((quarter) => contexts(index, metric, fy, quarter === "Q4" ? "FY" : quarter));
   const others = [...new Set(filed.map((fact) => fact.concept))].filter((concept) => concept !== year);
   if (!published || !year) return others;
-  return [year, ...others.filter((concept) => sameMeasure(index, metric, fy, concept, published))];
+  return [year, ...others.filter((concept) => sameMeasure(index, metric, fy, concept, published)
+    || historicalQuarterBasis(index, metric, fy, concept, published) != null)];
 }
 
 /**
@@ -360,7 +395,9 @@ function yearConcept(index: FactIndex, metric: MetricKey, fy: number): string | 
     // Counting filed contexts rather than running every derivation twice: the
     // normaliser is on a Worker CPU budget, and this is asked once per metric
     // and year for every company on the page.
-    const score = (["Q1", "Q2", "Q3"] as const).filter((quarter) => sameConcept(contexts(index, metric, fy, quarter), concept).length > 0).length;
+    const score = (["Q1", "Q2", "Q3"] as const).filter((quarter) =>
+      sameConcept(contexts(index, metric, fy, quarter), concept).length > 0
+      || comparativeQuarter(index, metric, fy, quarter, concept) != null).length;
     if (score > bestScore) { bestScore = score; best = concept; }
   }
   cache.set(key, best);
@@ -402,12 +439,19 @@ function comparativeQuarter(index: FactIndex, metric: MetricKey, fy: number, qua
 function quarterFact(index: FactIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4"): NormalizedFact | undefined {
   const all = contexts(index, metric, fy, quarter === "Q4" ? "FY" : quarter);
   const concept = yearConcept(index, metric, fy);
-  const found = quarterFromConcept(index, metric, fy, quarter, concept ? sameConcept(all, concept) : all);
-  if (found || quarter === "Q4") return found;
-  // Nothing under the quarter's own label; the restated one may be sitting in
-  // the annual report that restated it.
-  const comparative = comparativeQuarter(index, metric, fy, quarter, concept);
-  return comparative ? normalized(comparative, "quarterly", quarter) : undefined;
+  let found = quarterFromConcept(index, metric, fy, quarter, concept ? sameConcept(all, concept) : all);
+  if (!found && quarter !== "Q4") {
+    // Nothing under the quarter's own label; the restated one may be sitting in
+    // the annual report that restated it.
+    const comparative = comparativeQuarter(index, metric, fy, quarter, concept);
+    if (comparative) found = normalized(comparative, "quarterly", quarter);
+  }
+  if (!found || !concept) return found;
+  const published = publishedAnnual(index, metric, fy);
+  const historical = published ? historicalQuarterBasis(index, metric, fy, concept, published) : undefined;
+  if (!published || !historical) return found;
+  const note = `Exact quarter retained on the ${concept.replace("us-gaap:", "")} basis originally reported. A later ASC 606 filing restated the annual total from ${compact.format(historical.value)} to ${compact.format(published.value)} without publishing a restated quarterly allocation; no value is estimated.`;
+  return { ...found, provenance: { ...found.provenance, note: found.provenance.note ? `${found.provenance.note} ${note}` : note } };
 }
 
 function quarterFromConcept(index: FactIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4", candidates: RawFinancialFact[]): NormalizedFact | undefined {

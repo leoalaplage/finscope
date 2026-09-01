@@ -88,7 +88,11 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   // second as separate short-term borrowing reported 9,467m of debt against the
   // 8,468m its own long-term-debt tag states.
   longTermDebtCurrent: { namespace: "us-gaap", tags: ["LongTermDebtCurrent", "DebtCurrent"], unit: "currency" },
-  longTermDebtNoncurrent: { namespace: "us-gaap", tags: ["LongTermDebtNoncurrent"], unit: "currency" },
+  // `LongTermDebtAndCapitalLeaseObligations` is the same balance with finance
+  // leases folded in, and for many filers it is the only non-current figure in
+  // the quarterly statements — Home Depot and AbbVie tag nothing else at their
+  // latest balance-sheet date.
+  longTermDebtNoncurrent: { namespace: "us-gaap", tags: ["LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations"], unit: "currency" },
   longTermDebtAndLeases: { namespace: "us-gaap", tags: ["LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent", "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"], unit: "currency" },
   otherLongTermDebt: { namespace: "us-gaap", tags: ["LongTermDebt", "ConvertibleLongTermNotesPayable", "UnsecuredLongTermDebt", "NotesPayable"], unit: "currency" },
   // A validation anchor, not a total-debt fallback. Its gross amount can prove
@@ -167,11 +171,22 @@ function extractFacts(
         // quarterly report at all. Reading only the domestic pair meant ASML —
         // 623 US GAAP concepts, every one of them on Form 20-F — normalized to
         // nothing and was served as an empty company with a 200 status.
-        if ((fact.form !== "10-Q" && !isAnnualForm(fact.form)) || fact.fy == null || !["Q1", "Q2", "Q3", "FY"].includes(fact.fp ?? "")) continue;
+        const fiscalPeriod = fact.fp === "Q4" && isAnnualForm(fact.form) ? "FY" : fact.fp;
+        /*
+         * Some annual filings label the whole filing — including its annual
+         * fact and the comparative quarters inside it — `fp: "Q4"` rather
+         * than `fp: "FY"`. Mastercard's 2019 10-K does exactly that for the
+         * restated 2017 revenue quarters. Dropping Q4 therefore removed two
+         * reported quarters and five trailing windows even though the values
+         * were present in Company Facts. Within an annual form Q4 has the same
+         * filing-context role as FY; duration still distinguishes a quarter
+         * from a full year later in the normalizer.
+         */
+        if ((fact.form !== "10-Q" && !isAnnualForm(fact.form)) || fact.fy == null || !["Q1", "Q2", "Q3", "FY"].includes(fiscalPeriod ?? "")) continue;
         output.push({
           metric, value: fact.val, currency, unit: spec.unit === "perShare" ? "currency" : spec.unit, start: fact.start, end: fact.end,
           filed: fact.filed, accession: fact.accn, fiscalYear: fact.fy,
-          fiscalPeriod: fact.fp as RawFinancialFact["fiscalPeriod"], form: fact.form as RawFinancialFact["form"],
+          fiscalPeriod: fiscalPeriod as RawFinancialFact["fiscalPeriod"], form: fact.form as RawFinancialFact["form"],
           concept: `${space}:${tag}`, sourceUrl: sourceUrl(cik, fact.accn), retrievedAt,
         });
       }
@@ -296,6 +311,8 @@ function combineDebtComponents(periods: FinancialPeriod[], businessType: Busines
 
     let parts: NormalizedFact[] = [];
     let formula = "";
+    /** Said on the figure when the reading is known to leave a category out. */
+    let excludes = "";
     if (current?.value != null && noncurrent?.value != null) {
       parts = [current, noncurrent];
       formula = "Current portion of long-term debt + Non-current long-term debt";
@@ -330,6 +347,12 @@ function combineDebtComponents(periods: FinancialPeriod[], businessType: Busines
       parts = [otherLongTerm, shortTerm];
       formula = "Reported long-term debt + Short-term borrowings";
       if (financeLease?.value != null) { parts.push(financeLease); formula += " + Finance lease liability"; }
+    } else if (noncurrent?.value != null && shortTerm?.value != null) {
+      // The non-current balance beside a separately filed short-term one, which
+      // is what Caterpillar and AbbVie publish and what no branch above reads.
+      parts = [noncurrent, shortTerm];
+      formula = "Non-current long-term debt + Short-term borrowings";
+      excludes = "Current maturities of long-term debt are not separately tagged at this date and are not included.";
     } else if (otherLongTerm?.value != null && current?.value === 0) {
       /*
        * A filed zero closes the balance sheet.
@@ -349,8 +372,43 @@ function combineDebtComponents(periods: FinancialPeriod[], businessType: Busines
       parts = [otherLongTerm, current];
       formula = "Reported long-term debt, with current debt filed as zero";
     }
+    /*
+     * The most complete filed reading, rather than nothing at all.
+     *
+     * A sweep of 110 US filers on 1 September found 27% with no debt total —
+     * Meta, Home Depot, Caterpillar, McDonald's, Thermo Fisher among them. None
+     * of them is debt-free. Each publishes a borrowing balance; what none of
+     * them publishes is the *pair* the rules above insist on, because a filer
+     * with no short-term facility tags no short-term line and one whose debt is
+     * all long-dated tags no current portion.
+     *
+     * Refusing those is not caution, it is a third of the market missing its
+     * leverage. So a single filed long-term balance is read as the debt total,
+     * and what that reading leaves out is said on the figure rather than left
+     * for the reader to discover. Nothing is assumed to be zero and nothing is
+     * summed across concepts that overlap; the difference from before is only
+     * that one filed number is allowed to stand alone.
+     */
+    if (!parts.length && otherLongTerm?.value != null) {
+      parts = [otherLongTerm];
+      formula = "Long-term debt as filed, including current maturities";
+      excludes = "The filer tags no separate short-term borrowing at this date, so any is not included.";
+    }
+    if (!parts.length && noncurrent?.value != null) {
+      parts = [noncurrent];
+      formula = "Non-current long-term debt as filed";
+      excludes = "Current maturities and short-term borrowing are not separately tagged at this date and are not included.";
+    }
     if (!parts.length) return period;
-    const totalDebt = combinedDebtFact(parts, formula, "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero.");
+    // A single filed balance is not a calculation, so it keeps its own
+    // provenance and the note carries what it is; a sum says how it was made.
+    const note = [
+      parts.length > 1
+        ? "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        : `${formula}.`,
+      excludes,
+    ].filter(Boolean).join(" ");
+    const totalDebt = combinedDebtFact(parts, formula, note);
     return { ...period, facts: { ...period.facts, totalDebt } };
   });
 }

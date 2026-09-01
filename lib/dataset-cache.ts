@@ -72,8 +72,20 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     receives a financial economic type before any industrial ROIC, FCFF or
  *     enterprise-value measure is considered. Exact ticker matches are also
  *     prioritised before the twelve-result search limit.
+ * v20: annual filings labelled `fp: Q4` carry the same comparative facts as FY
+ *     filings, recovering Mastercard's reported 2017 quarters. Exact quarters
+ *     originally filed under SalesRevenueNet also survive a later ASC 606
+ *     annual-only restatement, recovering Microsoft's fiscal 2016 history
+ *     without allocating or estimating the restatement.
+ *     Total debt, in the same version, is the most complete filed reading at
+ *     the balance-sheet date rather than only a pair of balances that prove
+ *     each other. A sweep of 110 US filers found 27% with no debt total at all
+ *     — Meta, Home Depot, Caterpillar, McDonald's, Thermo Fisher, Micron —
+ *     none of them debt-free: each files a borrowing balance, and not the pair
+ *     the older rule required. Net debt, enterprise value and the returns on
+ *     capital move with it.
  */
-export const KEY_VERSION = "v19";
+export const KEY_VERSION = "v20";
 
 /**
  * Versions whose stored data may still be served while this one is being built.
