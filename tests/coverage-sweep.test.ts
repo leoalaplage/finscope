@@ -1,15 +1,22 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { normalizeSecPayload } from "../lib/adapters/sec";
 import { businessTypeFromSic, verifiedBusinessType } from "../lib/business-type";
 import { currentPeriod } from "../lib/current-period";
 import { derivedValue, valueOf } from "../lib/finance";
 import { shareCount } from "../lib/market-basis";
-import type { CompanyProfile } from "../lib/types";
+import type { CompanyDataset, CompanyProfile } from "../lib/types";
 
 
 
-interface Row { ticker: string; type: string; error?: string; annual: number; end?: string; has: Record<string, boolean> }
+interface Row { ticker: string; type: string; error?: string; annual: number; end?: string; has: Record<string, boolean>; gaps?: Record<string, number> }
+const gapCount = (periods: CompanyDataset["periods"], metric: string) => {
+  const values = periods.map((period) => derivedValue(period, metric));
+  const first = values.findIndex((value) => value != null);
+  const fromEnd = [...values].reverse().findIndex((value) => value != null);
+  if (first < 0 || fromEnd < 0) return 0;
+  return values.slice(first, values.length - fromEnd).filter((value) => value == null).length;
+};
 
 /*
  * What a reader gets when they search an arbitrary US ticker.
@@ -55,6 +62,7 @@ describe.skipIf(!available)("coverage sweep", () => {
         const payload = JSON.parse(readFileSync(file, "utf8"));
         const dataset = normalizeSecPayload(payload, entry.ticker, "2026-09-01T00:00:00.000Z", profile);
         const annual = dataset.periods.filter((p) => p.periodicity === "annual");
+        const ttm = dataset.periods.filter((p) => p.periodicity === "ttm");
         const current = currentPeriod(dataset.periods);
         const has: Record<string, boolean> = current ? {
           revenue: derivedValue(current, "revenue") != null,
@@ -68,7 +76,11 @@ describe.skipIf(!available)("coverage sweep", () => {
           netDebt: derivedValue(current, "netDebt") != null,
           roic: derivedValue(current, "roic") != null,
         } : {};
-        rows.push({ ticker: entry.ticker, type: dataset.company.businessType ?? "operating", annual: annual.length, end: current?.periodEnd, has });
+        rows.push({ ticker: entry.ticker, type: dataset.company.businessType ?? "operating", annual: annual.length, end: current?.periodEnd, has, gaps: {
+          annualRevenue: gapCount(annual, "revenue"), annualNetIncome: gapCount(annual, "netIncome"),
+          annualFreeCashFlow: gapCount(annual, "freeCashFlow"), ttmRevenue: gapCount(ttm, "revenue"),
+          ttmNetIncome: gapCount(ttm, "netIncome"), ttmFreeCashFlow: gapCount(ttm, "freeCashFlow"),
+        } });
       } catch (error) {
         rows.push({ ticker: entry.ticker, type: businessType, error: error instanceof Error ? error.message : String(error), annual: 0, has: {} });
       }
@@ -95,8 +107,26 @@ describe.skipIf(!available)("coverage sweep", () => {
       groups.set(key, [...(groups.get(key) ?? []), row.ticker]);
     }
     log(`SWEPT ${rows.length}`);
+    // Per metric, across every filer that produced a period at all: the shape
+    // of the gaps rather than one label per company.
+    const usable = rows.filter((row) => Object.keys(row.has).length > 0);
+    const metrics = [...new Set(usable.flatMap((row) => Object.keys(row.has)))];
+    for (const metric of metrics) {
+      const missing = usable.filter((row) => !row.has[metric]);
+      log(`METRIC ${metric.padEnd(12)} ${String(usable.length - missing.length).padStart(3)}/${usable.length} (${Math.round((usable.length - missing.length) / usable.length * 100)}%) missing: ${missing.map((row) => row.ticker).join(" ")}`);
+    }
     for (const [key, tickers] of [...groups.entries()].sort((a, b) => b[1].length - a[1].length)) {
       log(`CLASS ${String(tickers.length).padStart(3)} (${Math.round(tickers.length / rows.length * 100)}%) ${key}: ${tickers.join(" ")}`);
     }
+    const gapRows = rows.filter((row) => row.gaps);
+    for (const metric of ["annualRevenue", "annualNetIncome", "annualFreeCashFlow", "ttmRevenue", "ttmNetIncome", "ttmFreeCashFlow"]) {
+      const affected = gapRows.filter((row) => (row.gaps?.[metric] ?? 0) > 0);
+      log(`GAPS ${metric} ${affected.length}/${gapRows.length}: ${affected.map((row) => `${row.ticker}:${row.gaps![metric]}`).join(" ") || "none"}`);
+    }
+    // Static raw fixtures turn the sweep into a regression gate, not only a
+    // report. Annual revenue should be effectively continuous; TTM is allowed
+    // a small residual for genuinely unpublished standardized quarters.
+    expect(gapRows.filter((row) => (row.gaps?.annualRevenue ?? 0) > 0).length).toBeLessThanOrEqual(2);
+    expect(gapRows.filter((row) => (row.gaps?.ttmRevenue ?? 0) > 0).length).toBeLessThanOrEqual(8);
   }, 600_000);
 });

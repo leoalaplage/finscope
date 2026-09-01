@@ -43,7 +43,7 @@ for (const [index, ticker] of tickers.entries()) {
       const response = await fetch(`${origin}/api/company/${encodeURIComponent(ticker)}`);
       status = response.status;
       bytes = (await response.arrayBuffer()).byteLength;
-    } catch (error) {
+    } catch {
       status = 0;
     }
     if (status === 200) {

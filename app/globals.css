@@ -946,6 +946,14 @@ tbody tr:last-child > * { border-bottom: 0; }
 .balance-health strong { font-size: var(--fs-xl); font-variant-numeric: tabular-nums; }
 .balance-health small { font-size: var(--fs-micro); color: var(--muted); line-height: 1.35; }
 .financial-table th.indented { padding-left: 24px; font-weight: 400; color: var(--muted); }
+
+/* The two drivers of a share price, side by side.
+   Each cell is a figure over the rate that produced it, so the totals and the
+   per-year rates read as one column rather than two. */
+.price-drivers td { font-variant-numeric: tabular-nums; }
+.price-drivers td small, .price-drivers th small { display: block; color: var(--muted); font-size: var(--fs-micro); font-weight: 400; }
+.price-drivers th.indented small { text-transform: none; letter-spacing: 0; }
+.price-drivers-reading { margin: 12px 0 0; padding-left: 10px; border-left: 2px solid var(--accent); font-size: var(--fs-body); line-height: 1.5; }
 .financial-table tr.balance-total { border-top: 1px solid var(--border-strong); }
 .financial-table tr.balance-total th, .financial-table tr.balance-total td { font-weight: 700; }
 

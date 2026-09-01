@@ -86,8 +86,22 @@ export const isAnnualForm = (form: string) => ANNUAL_FORMS.has(form);
  * restatements compete in the same context instead of becoming duplicate years.
  */
 export function relabelFiscalYears(input: RawFinancialFact[]) {
-  const annualEnds = input.filter((fact) => fact.fiscalPeriod === "FY" && isAnnualForm(fact.form)).map((fact) => fact.end.slice(5));
+  const annualFacts = input.filter((fact) => fact.start && fact.fiscalPeriod === "FY" && isAnnualForm(fact.form)
+    && daysBetween(fact.start, fact.end) >= 300 && daysBetween(fact.start, fact.end) <= 400);
+  const annualEnds = annualFacts.map((fact) => fact.end.slice(5));
   const fiscalEnd = [...new Set(annualEnds)].sort((left,right)=>annualEnds.filter((item)=>item===right).length-annualEnds.filter((item)=>item===left).length)[0] ?? "12-31";
+  /*
+   * Match a short-duration or instant fact to an actual reported fiscal year
+   * before falling back to a month/day rule. A 52/53-week filer does not have
+   * one stable fiscal-end date: Johnson & Johnson has closed on dates from
+   * December 29 through January 3. Comparing every quarter with one modal
+   * month/day moved whole years of facts into the next fiscal year even though
+   * the annual window containing them was present in the same payload.
+   */
+  const annualWindows = [...new Map(annualFacts.map((fact) => [`${fact.start}|${fact.end}`, {
+    start: fact.start!, end: fact.end, fiscalYear: Number(fact.end.slice(0, 4)),
+  }])).values()];
+  const DAY = 86_400_000;
   return input.map((fact) => {
     const calendarYear = Number(fact.end.slice(0,4));
     const endMonthDay = fact.end.slice(5);
@@ -101,10 +115,17 @@ export function relabelFiscalYears(input: RawFinancialFact[]) {
      * year it belongs to. The shortcut is right for a fact that really does
      * span the year, and for an instant; anything shorter is dated the way
      * every other period is, by whether it ends after the fiscal year does.
-     */
+    */
     const spansTheYear = !fact.start || daysBetween(fact.start, fact.end) >= 300;
-    const fiscalYear = fact.fiscalPeriod === "FY" && spansTheYear ? calendarYear
-      : endMonthDay > fiscalEnd ? calendarYear + 1 : calendarYear;
+    const containing = spansTheYear ? undefined : annualWindows
+      .filter((window) => {
+        const start = Date.parse(window.start); const end = Date.parse(window.end);
+        const factStart = Date.parse(fact.start ?? fact.end); const factEnd = Date.parse(fact.end);
+        return factStart >= start - 7 * DAY && factEnd <= end && factEnd >= start - 7 * DAY && end - factEnd <= 370 * DAY;
+      })
+      .sort((left, right) => Date.parse(left.end) - Date.parse(right.end))[0];
+    const fiscalYear = containing?.fiscalYear ?? (fact.fiscalPeriod === "FY" && spansTheYear ? calendarYear
+      : endMonthDay > fiscalEnd ? calendarYear + 1 : calendarYear);
     return { ...fact, fiscalYear };
   });
 }
@@ -177,6 +198,7 @@ function calculated(metric: MetricKey, value: number, current: RawFinancialFact,
 }
 
 type FactIndex = Map<string, RawFinancialFact[]>;
+type EndIndex = Map<string, RawFinancialFact[]>;
 
 /**
  * Deduped facts plus a lookup index, computed once per raw fact array.
@@ -190,19 +212,25 @@ type FactIndex = Map<string, RawFinancialFact[]>;
  * The annual and quarterly passes are handed the same array and would each
  * repeat the dedupe, so the result is memoised against that array by identity.
  */
-const preparedFacts = new WeakMap<RawFinancialFact[], { facts: RawFinancialFact[]; index: FactIndex }>();
+const preparedFacts = new WeakMap<RawFinancialFact[], { facts: RawFinancialFact[]; index: FactIndex; endIndex: EndIndex }>();
 
 function prepare(input: RawFinancialFact[]) {
   const cached = preparedFacts.get(input);
   if (cached) return cached;
   const facts = dedupeFacts(relabelFiscalYears(normalizeShareUnitScales(input)));
   const index: FactIndex = new Map();
+  const endIndex: EndIndex = new Map();
   for (const fact of facts) {
     const key = `${fact.metric}|${fact.fiscalYear}|${fact.fiscalPeriod}`;
     const bucket = index.get(key);
     if (bucket) bucket.push(fact); else index.set(key, [fact]);
+    if (!fact.start) {
+      const endKey = `${fact.metric}|${fact.end}`;
+      const atEnd = endIndex.get(endKey);
+      if (atEnd) atEnd.push(fact); else endIndex.set(endKey, [fact]);
+    }
   }
-  const value = { facts, index };
+  const value = { facts, index, endIndex };
   preparedFacts.set(input, value);
   return value;
 }
@@ -277,8 +305,23 @@ export function preferTotalRevenue(candidates: RawFinancialFact[], chosen: RawFi
  */
 function publishedAnnual(index: FactIndex, metric: MetricKey, fy: number) {
   const all = contexts(index, metric, fy, "FY");
-  const chosen = selectAnnual(all);
-  return metric === "revenue" ? preferTotalRevenue(all, chosen) : chosen;
+  // A zero under a generic revenue tag can be a discontinued segment or an
+  // empty disclosure context published years after the positive income-
+  // statement line. It must not erase a positive annual revenue for the same
+  // fiscal year merely because its filing date is later.
+  const positive = metric === "revenue" ? all.filter((fact) => fact.value > 0) : all;
+  if (metric !== "revenue") return selectAnnual(positive.length ? positive : all);
+  /*
+   * `Revenues` is tested as a total, not allowed to win merely because it was
+   * filed later. P&G carries a 28.4bn segment under that tag beside 82.0bn of
+   * SalesRevenueNet for the same year; selecting the latest tag first made the
+   * segment the company's whole revenue. Start from the preferred non-total
+   * income-statement candidate, then promote Revenues only when it is actually
+   * larger. If it is the only positive concept, it remains the fallback.
+  */
+  const nonTotal = positive.filter((fact) => fact.concept !== TOTAL_REVENUE);
+  const chosen = selectAnnual(nonTotal) ?? selectAnnual(positive.length ? positive : all);
+  return preferTotalRevenue(all, chosen);
 }
 
 /**
@@ -309,32 +352,25 @@ function sameMeasure(index: FactIndex, metric: MetricKey, fy: number, concept: s
 /**
  * An exact quarterly history on the accounting basis originally reported.
  *
- * ASC 606 was sometimes adopted by restating annual totals without publishing
- * the restated quarter split. Microsoft fiscal 2016 is the important case: the
- * later contract-revenue annual is 91.154bn, while the previously filed
- * SalesRevenueNet year is 85.320bn and has all three interim filings needed to
- * isolate its four exact quarters. There is no honest way to allocate the
- * 5.834bn restatement across those quarters. Deleting the reported quarters,
- * however, also deletes eight TTM observations and makes a real filing history
- * look like a data outage.
+ * A later filing sometimes restates an annual total without publishing the
+ * restated quarter split. Microsoft fiscal 2016 is the important case: the
+ * later annual is 91.154bn, while the previously filed year is 85.320bn and has
+ * all three interim filings needed to isolate its four exact quarters. The same
+ * shape appears after acquisitions, dispositions and taxonomy migrations.
+ * There is no honest way to allocate an annual restatement across quarters.
+ * Deleting the exact originally reported quarters, however, also deletes TTM
+ * observations and makes a real filing history look like a data outage.
  *
- * This fallback is deliberately narrow. It applies only to the known
- * SalesRevenueNet -> ASC 606 taxonomy transition, only when the old annual was
- * filed before the restatement, covers the identical fiscal window and has all
- * three interim contexts. A simultaneous gross/net revenue pair (Mastercard)
- * or total/component pair (Berkshire) cannot satisfy it.
+ * The guard is chronology rather than a ticker or tag list: the old annual must
+ * have been filed before the later basis, cover the identical fiscal window
+ * and carry all three interim contexts. A simultaneous gross/net pair or a
+ * total/component pair cannot satisfy it because neither predates the other.
  */
-const LEGACY_REVENUE = "us-gaap:SalesRevenueNet";
-const ASC_606_REVENUE = new Set([
-  "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
-  "us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax",
-]);
-
 function historicalQuarterBasis(index: FactIndex, metric: MetricKey, fy: number, concept: string, published: RawFinancialFact): RawFinancialFact | undefined {
-  if (metric !== "revenue" || concept !== LEGACY_REVENUE || !ASC_606_REVENUE.has(published.concept)) return undefined;
+  if (concept === published.concept) return undefined;
   const rival = selectAnnual(sameConcept(contexts(index, metric, fy, "FY"), concept));
   if (!rival?.start || !published.start || rival.start !== published.start || rival.end !== published.end
-    || rival.currency !== published.currency || rival.filed >= published.filed) return undefined;
+    || rival.currency !== published.currency || rival.unit !== published.unit || rival.filed >= published.filed) return undefined;
   const hasEveryInterim = (["Q1", "Q2", "Q3"] as const).every((quarter) =>
     sameConcept(contexts(index, metric, fy, quarter), concept).length > 0);
   return hasEveryInterim ? rival : undefined;
@@ -450,7 +486,7 @@ function quarterFact(index: FactIndex, metric: MetricKey, fy: number, quarter: "
   const published = publishedAnnual(index, metric, fy);
   const historical = published ? historicalQuarterBasis(index, metric, fy, concept, published) : undefined;
   if (!published || !historical) return found;
-  const note = `Exact quarter retained on the ${concept.replace("us-gaap:", "")} basis originally reported. A later ASC 606 filing restated the annual total from ${compact.format(historical.value)} to ${compact.format(published.value)} without publishing a restated quarterly allocation; no value is estimated.`;
+  const note = `Exact quarter retained on the ${concept.replace("us-gaap:", "")} basis originally reported. A later filing changed the annual basis from ${compact.format(historical.value)} to ${compact.format(published.value)} under ${published.concept.replace("us-gaap:", "")} without publishing a quarterly allocation; no value is estimated.`;
   return { ...found, provenance: { ...found.provenance, note: found.provenance.note ? `${found.provenance.note} ${note}` : note } };
 }
 
@@ -489,7 +525,7 @@ function quarterFromConcept(index: FactIndex, metric: MetricKey, fy: number, qua
       }
     }
   }
-  if (!prior || !current.start || current.start !== prior.start || current.end <= prior.end) return undefined;
+  if (!prior || !current.start || !prior.start || Math.abs(Date.parse(current.start) - Date.parse(prior.start)) > 7 * 86_400_000 || current.end <= prior.end) return undefined;
   const quarterStart = new Date(Date.parse(prior.end) + 86_400_000).toISOString().slice(0, 10);
 
   if (WEIGHTED_SHARE_METRICS.includes(metric)) {
@@ -505,15 +541,18 @@ function quarterFromConcept(index: FactIndex, metric: MetricKey, fy: number, qua
   return calculated(metric, current.value - prior.value, current, prior, `${quarter} = cumulative through ${quarter} − cumulative through ${priorFp}`, quarter, quarterStart);
 }
 
-function instantFact(index: FactIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4", end: string) {
-  const fp = quarter === "Q4" ? "FY" : quarter;
-  const exact = contexts(index, metric, fy, fp).filter((fact) => fact.end === end);
-  const raw = latest(exact);
+function instantFact(endIndex: EndIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4", end: string) {
+  void fy; void quarter;
+  // An instant balance belongs to its date, not to one filing's fy/fp labels.
+  // The same balance is routinely repeated under FY, Q1 and Q2 contexts in
+  // later filings; restricting it to the flow anchor's context manufactured
+  // gaps in shares, cash and debt even when an exact-date fact was available.
+  const raw = latest(endIndex.get(`${metric}|${end}`) ?? []);
   return raw ? normalized(raw, "quarterly", quarter) : undefined;
 }
 
 export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: string) {
-  const { facts, index } = prepare(input);
+  const { facts, index, endIndex } = prepare(input);
   const years = [...new Set(facts.filter((fact) => fact.fiscalPeriod === "FY" && isAnnualForm(fact.form)).map((fact) => fact.fiscalYear))].sort();
   return years.map((fiscalYear): FinancialPeriod | null => {
     const annualFacts: FinancialPeriod["facts"] = {};
@@ -529,7 +568,7 @@ export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: stri
     }
     if (!anchor) return null;
     for (const metric of POINT_METRICS) {
-      const raw = latest(contexts(index, metric, fiscalYear, "FY").filter((fact) => fact.end === anchor!.end));
+      const raw = latest(endIndex.get(`${metric}|${anchor.end}`) ?? []);
       if (raw) annualFacts[metric] = normalized(raw, "annual");
     }
     if (annualFacts.shareRepurchases || annualFacts.shareIssuance) {
@@ -546,7 +585,7 @@ export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: stri
 }
 
 export function normalizeQuarterlyPeriods(input: RawFinancialFact[], currency: string) {
-  const { facts, index } = prepare(input);
+  const { facts, index, endIndex } = prepare(input);
   const years = [...new Set(facts.filter((fact) => fact.form === "10-Q" || isAnnualForm(fact.form)).map((fact) => fact.fiscalYear))].sort();
   const periods: FinancialPeriod[] = [];
   for (const fiscalYear of years) {
@@ -559,7 +598,7 @@ export function normalizeQuarterlyPeriods(input: RawFinancialFact[], currency: s
       }
       if (!anchor?.periodStart) continue;
       for (const metric of POINT_METRICS) {
-        const fact = instantFact(index, metric, fiscalYear, quarter, anchor.periodEnd);
+        const fact = instantFact(endIndex, metric, fiscalYear, quarter, anchor.periodEnd);
         if (fact) periodFacts[metric] = fact;
       }
       if (periodFacts.shareRepurchases || periodFacts.shareIssuance) {

@@ -80,6 +80,15 @@ describe("revenue is the total, not a component of it", () => {
     expect(preferTotalRevenue(facts, facts[1])?.normalizationNote).toBeUndefined();
   });
 
+  it("does not let a later smaller Revenues segment become the annual top line", () => {
+    const year = annualOf(normalize({
+      SalesRevenueNet: [unit(82_006e6, "2024-01-01", "2024-12-31", "FY")],
+      [TOTAL]: [unit(28_400e6, "2024-01-01", "2024-12-31", "FY")],
+    }));
+    expect(year.facts.revenue?.value).toBe(82_006e6);
+    expect(year.facts.revenue?.provenance.concept).toBe("us-gaap:SalesRevenueNet");
+  });
+
   it("derives the quarters of a reconciled year from the same total", () => {
     const dataset = normalize({
       [CONTRACT]: [

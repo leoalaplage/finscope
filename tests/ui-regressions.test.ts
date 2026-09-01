@@ -282,6 +282,12 @@ describe("the redesign", () => {
     expect(css).not.toContain(".kpi-retired");
   });
 
+  it("uses filed annuals for long overview ranges and reserves TTM detail for 4Y", () => {
+    const grid = readFileSync(new URL("../components/CompanyKpiGrid.tsx", import.meta.url), "utf8");
+    expect(grid).toContain('range === "4Y" && series.ttm.length >= 4');
+    expect(grid).toContain('frequency === "ttm" ? "Quarterly TTM" : "Annual"');
+  });
+
   it("gives every overview chart a trend badge and its own PNG", () => {
     const grid = readFileSync(new URL("../components/CompanyKpiGrid.tsx", import.meta.url), "utf8");
     expect(grid).toContain("summariseSeries");

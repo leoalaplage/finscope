@@ -245,13 +245,24 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
   });
   useEffect(() => { localStorage.setItem("finscope.overviewRange", range); }, [range]);
 
-  // Trailing windows, so a card shows a full year of trading at every point
-  // rather than a saw-tooth of seasons. Annual is the fallback for a company
-  // that has not filed four comparable quarters.
-  const available = useMemo(() => {
+  /*
+   * Match frequency to the question the range asks.
+   *
+   * Four years is a current operating view, where quarterly TTM adds useful
+   * information. Ten years and Max are structural histories. Company Facts is
+   * substantially more complete annually: a filer may publish every year but
+   * omit one old quarter, and that one quarter deletes four TTM observations.
+   * Drawing the long view from TTM therefore turned filing-detail gaps into the
+   * large empty bands that looked like missing company data. Long views use
+   * exact filed years; quarterly TTM remains available in Charts and the 4Y
+   * overview. A filer with no quarterly chain naturally uses annual everywhere.
+   */
+  const series = useMemo(() => {
     const ttm = dataset.periods.filter((period) => period.periodicity === "ttm").sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
-    return ttm.length >= 4 ? ttm : dataset.periods.filter((period) => period.periodicity === "annual").sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+    const annual = dataset.periods.filter((period) => period.periodicity === "annual").sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+    return { ttm, annual };
   }, [dataset]);
+  const available = useMemo(() => range === "4Y" && series.ttm.length >= 4 ? series.ttm : series.annual.length ? series.annual : series.ttm, [range, series]);
   const periods = useMemo(
     () => periodsWithin(available, RANGES.find((item) => item.id === range)?.years ?? 10),
     [available, range],
@@ -295,7 +306,7 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
       <div className="segmented" role="group" aria-label="How far back the cards reach">
         {span.map((item) => <button key={item.id} type="button" className={range === item.id ? "active" : ""} aria-pressed={range === item.id} onClick={() => setRange(item.id)}>{item.id}</button>)}
       </div>
-      <small>{quarterLabel(periods[0])} → {quarterLabel(periods.at(-1)!)}{marketFailed ? " · market history unavailable" : ""}</small>
+      <small>{frequency === "ttm" ? "Quarterly TTM" : "Annual"} · {quarterLabel(periods[0])} → {quarterLabel(periods.at(-1)!)}{marketFailed ? " · market history unavailable" : ""}</small>
     </div>
     <KpiCards cards={CARDS} periods={periods} candles={candles} bars={bars} dataset={dataset} theme={theme} frequency={frequency} onOpenMetric={onOpenMetric}/>
   </>;

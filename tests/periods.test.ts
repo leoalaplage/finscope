@@ -27,6 +27,11 @@ function standardYear(start = "2025-01-01", fiscalYear = 2025) {
 
 describe("quarterly SEC normalization", () => {
   it("relabels comparative SEC facts from actual fiscal ends instead of the filing fy",()=>{const old=raw("revenue",100,"2013-08-01","2014-07-31","FY",2016,"2016-09-01");expect(relabelFiscalYears([old])[0].fiscalYear).toBe(2014);expect(normalizeAnnualPeriods([old],"USD")[0].fiscalYear).toBe(2014)});
+  it("matches quarters to reported annual windows when a 52-week fiscal end drifts",()=>{
+    const annual=raw("revenue",100,"2016-01-04","2017-01-01","FY",2018,"2018-02-01");
+    const quarter=raw("revenue",20,"2016-01-04","2016-04-03","FY",2018,"2018-02-01");
+    expect(relabelFiscalYears([annual,quarter]).map((fact)=>fact.fiscalYear)).toEqual([2017,2017]);
+  });
   it("resolves thousand-versus-unit source conflicts by corroborated magnitude",()=>{const facts=[raw("dilutedShares",131_230,"2013-08-01","2014-07-31","FY",2014,"2014-09-01"),raw("dilutedShares",131_230_000,"2013-08-01","2014-07-31","FY",2015,"2015-09-01"),raw("dilutedShares",131_230_000,"2013-08-01","2014-07-31","FY",2016,"2016-09-01")];const selected=dedupeFacts(relabelFiscalYears(facts))[0];expect(selected.value).toBe(131_230_000);expect(selected.sourceConflictValues).toContain(131_230)});
   it("detects a one-million share-unit mismatch without deleting the raw value",()=>{const tiny=raw("dilutedShares",100,"2023-01-01","2023-12-31","FY",2023);const normal=raw("dilutedShares",100_000_000,"2024-01-01","2024-12-31","FY",2024);const normalized=normalizeShareUnitScales([tiny,normal]);expect(normalized[0].value).toBe(100_000_000);expect(normalized[0].sourceConflictValues).toContain(100)});
   it("isolates cumulative cash-flow and annual Q4 facts without dividing by four", () => {
@@ -54,6 +59,20 @@ describe("quarterly SEC normalization", () => {
     const quarters = normalizeQuarterlyPeriods(facts, "USD");
     expect(quarters.at(-1)?.periodEnd).toBe("2025-09-30");
     expect(quarters.at(-1)?.fiscalYear).toBe(2025);
+  });
+
+  it("attaches an instant balance by exact date despite a mismatched filing context", () => {
+    const facts=standardYear();
+    facts.push(raw("cashAndEquivalents",50,undefined,"2025-03-31","Q2",2026,"2026-08-01"));
+    const first=normalizeQuarterlyPeriods(facts,"USD")[0];
+    expect(first.periodEnd).toBe("2025-03-31");
+    expect(first.facts.cashAndEquivalents?.value).toBe(50);
+  });
+
+  it("allows a one-week fiscal-start drift when isolating cumulative quarters", () => {
+    const facts=standardYear().map((fact)=>fact.fiscalPeriod==="FY"?fact:{...fact,start:"2025-01-02"});
+    const quarters=normalizeQuarterlyPeriods(facts,"USD");
+    expect(quarters.map((period)=>period.facts.revenue?.value)).toEqual([10,15,20,25]);
   });
 });
 
@@ -144,6 +163,31 @@ describe("a year restated under a new concept keeps its quarters", () => {
     expect(periods.map((period) => period.facts.revenue?.value)).toEqual([10, 15, 20, 25]);
     expect(periods[0].facts.revenue?.provenance.note).toContain("no value is estimated");
     expect(normalizeAnnualPeriods(facts, "USD")[0].facts.revenue?.value).toBe(90);
+  });
+
+  it("keeps the same exact historical basis for a non-revenue flow concept change", () => {
+    const old="us-gaap:NetCashProvidedByUsedInOperatingActivities";
+    const newer="us-gaap:NetCashProvidedByUsedInOperatingActivitiesContinuingOperations";
+    const facts=[
+      withConcept(raw("operatingCashFlow",10,"2025-01-01","2025-03-31","Q1"),old),
+      withConcept(raw("operatingCashFlow",25,"2025-01-01","2025-06-30","Q2"),old),
+      withConcept(raw("operatingCashFlow",45,"2025-01-01","2025-09-30","Q3"),old),
+      withConcept(raw("operatingCashFlow",70,"2025-01-01","2025-12-31","FY"),old),
+      withConcept(raw("operatingCashFlow",90,"2025-01-01","2025-12-31","FY",2025,"2027-11-01"),newer),
+    ];
+    const periods=normalizeQuarterlyPeriods(facts,"USD");
+    expect(periods.map((period)=>period.facts.operatingCashFlow?.value)).toEqual([10,15,20,25]);
+    expect(periods[0].facts.operatingCashFlow?.provenance.note).toContain("no value is estimated");
+  });
+
+  it("does not let a later zero revenue context erase a positive filed year", () => {
+    const facts=[
+      ...quarters,
+      withConcept(raw("revenue",70,"2025-01-01","2025-12-31","FY"),oldTag),
+      withConcept(raw("revenue",0,"2025-01-01","2025-12-31","FY",2025,"2027-11-01"),"us-gaap:Revenues"),
+    ];
+    expect(normalizeAnnualPeriods(facts,"USD")[0].facts.revenue?.value).toBe(70);
+    expect(normalizeQuarterlyPeriods(facts,"USD")).toHaveLength(4);
   });
 
   it("still refuses to mix two concepts that are not the same measure", () => {

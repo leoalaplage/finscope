@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CompanyStatistics } from "./CompanyStatistics";
+import { PriceDrivers } from "./PriceDrivers";
 import { SkeletonTable } from "./Skeleton";
 import { getJson } from "@/lib/fetch-json";
 import type { CompanyDataset, CompanyProfile, PricePoint } from "@/lib/types";
@@ -105,5 +106,8 @@ export function CompanyStatisticsTab({ dataset, price, watchlist, datasets, onLo
 
     {pending.length > 0 && <SkeletonTable label={`${pending.join(", ")} for comparison`} rows={4}/>}
     <CompanyStatistics datasets={shown} prices={{ [anchor]: price, ...prices }}/>
+    {/* The open company only: the split needs a priced history per company, and
+        four of them side by side would be a second table pretending to be one. */}
+    <PriceDrivers dataset={dataset}/>
   </section>;
 }
