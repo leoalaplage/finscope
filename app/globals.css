@@ -384,7 +384,14 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
 .company-hero-identity { margin: 0; color: var(--muted); font-size: var(--fs-sm); font-weight: 500; letter-spacing: .01em; }
 .company-hero-figures { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-6); margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border); }
 .hero-figure { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.hero-figure span { color: var(--muted); font-size: var(--fs-micro); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+/*
+ * A label introduces a figure; it does not compete with it.
+ *
+ * MARKET CAP and LATEST PERIOD were set in spaced-out uppercase at eleven
+ * pixels, which on a phone made the words louder than the numbers under them.
+ * Sentence case, and the figure keeps the attention.
+ */
+.hero-figure span { color: var(--muted); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; text-transform: none; }
 .hero-figure strong { font-size: var(--fs-xl); font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: -.012em; }
 .hero-figure small { max-width: 46ch; color: var(--muted); font-size: var(--fs-xs); font-weight: 400; }
 .hero-provenance { margin-left: auto; text-align: right; align-items: flex-end; }
@@ -857,7 +864,7 @@ tbody tr:last-child > * { border-bottom: 0; }
 .kpi-card { display: flex; flex-direction: column; min-height: 0; padding: 0; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); overflow: hidden; text-align: left; font: inherit; color: inherit; }
 .kpi-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--card-border); }
 .kpi-card h3 { margin: 0; font-size: var(--fs-h3); line-height: 1.18; }
-.kpi-card header small { margin-top: 3px; font-size: var(--fs-micro); letter-spacing: .05em; text-transform: uppercase; }
+.kpi-card header small { margin-top: 3px; font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; text-transform: none; }
 .kpi-card-actions { display: flex; align-items: center; gap: 8px; }
 .kpi-card-actions strong { font-size: var(--fs-lg); font-weight: 620; font-variant-numeric: proportional-nums; white-space: nowrap; }
 /*
@@ -1096,7 +1103,7 @@ tbody tr:last-child > * { border-bottom: 0; }
 .explained-heading h2, .explained-heading h3 { margin: 0; }
 .driver-legend-toggle { margin: 12px 0 0; font-size: var(--fs-xs); color: var(--muted); }
 /* The period a fallen-back figure actually came from, beside the figure. */
-.stat-asof { display: block; margin-top: 1px; color: var(--muted); font-size: var(--fs-micro); font-weight: 500; letter-spacing: .01em; }
+.stat-asof { display: block; margin-top: 1px; color: var(--muted); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; }
 
 /*
  * A statement table you can actually read across.
