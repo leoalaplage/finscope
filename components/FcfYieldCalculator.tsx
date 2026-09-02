@@ -5,12 +5,10 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { chartPalette, niceTicks, type ThemeName } from "@/lib/charting";
 import { cagrForPeriods } from "@/lib/finance";
 import { calculateFcfYieldModel, fcfYieldBase, multipleToYield, suggestedGrowth, yieldToMultiple, type FcfYieldInputs } from "@/lib/fcf-yield-model";
+import { money as formatMoney, percent, perShare } from "@/lib/format";
 import type { CompanyDataset, PricePoint } from "@/lib/types";
 
-const money = (value: number | null | undefined, code = "USD") => value == null || !Number.isFinite(value)
-  ? "—"
-  : new Intl.NumberFormat("en-US", { style: "currency", currency: code, maximumFractionDigits: Math.abs(value) >= 1000 ? 0 : 2 }).format(value);
-const percent = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? "—" : `${(value * 100).toFixed(2)}%`;
+const money = (value: number | null | undefined, code = "USD") => Math.abs(value ?? 0) >= 1_000 ? formatMoney(value, code) : perShare(value, code);
 
 /** One labelled numeric input with its unit and its explanation. */
 function Field({ label, value, onChange, suffix, step = 0.1, hint }: {

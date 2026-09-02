@@ -502,8 +502,8 @@ tbody tr:last-child > * { border-bottom: 0; }
   * same kind of thing.
   */
 .series-options, .company-picker, .column-picker, .scatter-panel, .callout-picker, .company-filters { border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); }
-.series-options > summary, .company-picker > summary, .column-picker > summary, .scatter-panel > summary, .callout-picker > summary, .company-filters > summary { border-radius: var(--card-radius); padding: 2px; margin: -2px; }
-.series-options > summary:hover, .company-picker > summary:hover, .column-picker > summary:hover, .scatter-panel > summary:hover, .callout-picker > summary:hover, .company-filters > summary:hover { color: var(--accent); }
+.series-options > summary, .company-picker > summary, .column-picker > summary, .callout-picker > summary, .company-filters > summary { border-radius: var(--card-radius); padding: 2px; margin: -2px; }
+.series-options > summary:hover, .company-picker > summary:hover, .column-picker > summary:hover, .callout-picker > summary:hover, .company-filters > summary:hover { color: var(--accent); }
 .series-options { margin-bottom: 16px; padding: 12px 14px; }
 .series-options summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; font-weight: 600; }
 .series-options summary small { display: inline; font-weight: 400; }
@@ -769,10 +769,6 @@ tbody tr:last-child > * { border-bottom: 0; }
 
 .rank-badge { display: block; margin-top: 2px; color: var(--muted); font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
 
-.scatter-panel { margin-bottom: 18px; padding: 12px 14px; }
-.scatter-panel summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; font-weight: 600; }
-.scatter-panel summary small { display: inline; font-weight: 400; }
-.scatter-panel[open] summary { margin-bottom: 14px; }
 .scatter-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin-bottom: 10px; }
 .scatter-controls label { display: grid; gap: 4px; color: var(--muted); font-size: var(--fs-sm); }
 .scatter-controls small { flex: 1; min-width: 220px; }
@@ -1041,6 +1037,44 @@ tbody tr:last-child > * { border-bottom: 0; }
  * row you are on is a table nobody reads twice.
  */
 .table-mode { display: flex; justify-content: flex-end; margin-bottom: var(--space-2); }
+.sensitivity-table td { font-variant-numeric: tabular-nums; text-align: right; }
+.watchlist-table th:nth-child(2) { position: sticky; left: 0; z-index: 1; background: var(--background); }
+.scatter-panel { margin-bottom: var(--space-5); padding: var(--space-4); }
+.scatter-panel .section-heading { display: block; margin-bottom: var(--space-3); }
+
+/*
+ * The model's answer, before the model.
+ *
+ * A DCF used to open with seven equal cards, so the one figure it was asked
+ * for sat beside the terminal-value weight at the same size. The three that
+ * matter get the room now, and the gap between value and price is coloured
+ * because that gap is the entire verdict.
+ */
+.dcf-toolbar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); margin-bottom: var(--space-4); }
+.dcf-verdict { padding: var(--space-4); margin-bottom: var(--space-5); border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); }
+.dcf-verdict-head { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+.dcf-verdict-head span { color: var(--muted); font-size: var(--fs-sm); }
+.dcf-verdict-head strong { display: block; margin: var(--space-1) 0 2px; font-size: var(--fs-display); font-variant-numeric: tabular-nums; letter-spacing: var(--track-display); line-height: 1.05; }
+.dcf-verdict-head small { color: var(--muted); font-size: var(--fs-xs); }
+.dcf-gap.positive strong { color: var(--accent); }
+.dcf-gap.negative strong { color: var(--danger); }
+.dcf-verdict-note { margin: var(--space-3) 0 0; color: var(--muted); font-size: var(--fs-xs); }
+
+/* Three cases and a price, placed on one line. */
+.scenario-range { margin-top: var(--space-5); }
+.scenario-track { position: relative; height: 6px; border-radius: 3px; background: var(--control); }
+.scenario-band { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: var(--accent-soft); }
+.scenario-mark { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--accent); }
+.scenario-price { position: absolute; bottom: calc(100% + 9px); transform: translateX(-50%); display: grid; justify-items: center; white-space: nowrap; color: var(--text); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.scenario-price b { font-size: var(--fs-micro); font-weight: 700; color: var(--muted); letter-spacing: var(--track-label); text-transform: uppercase; }
+.scenario-price::after { content: ""; position: absolute; top: calc(100% + 2px); width: 1px; height: 12px; background: var(--text); }
+.scenario-legend { display: flex; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-3); color: var(--muted); font-size: var(--fs-xs); text-transform: capitalize; }
+.scenario-legend b { margin-left: var(--space-2); color: var(--text); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 720px) {
+  .dcf-verdict-head { grid-template-columns: 1fr; gap: var(--space-3); }
+  .dcf-verdict-head strong { font-size: var(--fs-xl); }
+}
 .statement-table th:first-child { position: sticky; left: 0; z-index: 1; background: var(--background); }
 .statement-table tbody th:first-child::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 1px; background: var(--border); }
 .statement-table td.positive .value-button { color: var(--accent); }
