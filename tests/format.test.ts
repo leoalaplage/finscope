@@ -27,6 +27,11 @@ describe("financial formatting", () => {
     expect(percent(.246)).toBe("24.6%");
     expect(percent(-.126)).toBe("−12.6%");
     expect(change(.132)).toBe("+13.2%");
+    // A day the price did not move has no direction, and a lone minus in
+    // front of a zero is the only thing on the line the eye catches.
+    expect(change(-.0002)).toBe("0.0%");
+    expect(change(.0002)).toBe("0.0%");
+    expect(change(0)).toBe("0.0%");
   });
 
   it("uses one character for a figure that is not there", () => {
@@ -40,6 +45,7 @@ describe("financial formatting", () => {
     expect(multiple(24.34)).toBe("24.3×");
     expect(multiple(2.181, { leading: true })).toBe("×2.18");
     expect(points(.062)).toBe("+6.2 pp");
+    expect(points(-.0002)).toBe("0.0 pp");
     expect(shares(14_773_260_000)).toBe("14.8B");
     expect(readableDate("2025-09-27")).toBe("27 Sep 2025");
   });

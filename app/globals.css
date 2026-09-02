@@ -672,11 +672,16 @@ tbody tr:last-child > * { border-bottom: 0; }
   }
   .wordmark { grid-area: brand; }
   .header-company { grid-area: meta; }
+  /*
+   * On a phone the five sections did not fit, so the nav scrolled sideways —
+   * with no scrollbar, no fade and a hard cut at the edge of the screen. The
+   * whole of QS Screener was past that edge, which is indistinguishable from
+   * an application with four sections. They wrap onto a second line instead.
+   */
   .site-header nav {
     grid-area: nav; justify-self: stretch; width: 100%;
-    overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+    flex-wrap: wrap; row-gap: 2px;
   }
-  .site-header nav::-webkit-scrollbar { display: none; }
   .site-header nav button { flex: none; }
 }
 

@@ -32,3 +32,10 @@ describe("which way is up", () => {
     expect(movementTone("priceToFreeCashFlow", -0.2)).toBe("positive");
   });
 });
+
+describe("a movement too small to print", () => {
+  it("is not coloured as a movement", () => {
+    expect(movementTone("grossMargin", 0.00002)).toBe("flat");
+    expect(movementTone("dilutedShares", -0.00002)).toBe("flat");
+  });
+});

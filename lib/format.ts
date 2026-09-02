@@ -60,6 +60,12 @@ export function percent(value: number | null | undefined, options: { sign?: bool
   const scaled = value * 100;
   const size = Math.abs(scaled);
   const text = `${size.toFixed(size < 100 ? 1 : 0)}%`;
+  /*
+   * A move that rounds to nothing has no direction to report. "−0.0%" is a
+   * sign attached to zero, and it reads as a fall on a day the price did not
+   * move — the minus is the only thing on the line the eye catches.
+   */
+  if (Number.parseFloat(text) === 0) return options.sign ? `0.0%` : text;
   if (scaled < 0) return `−${text}`;
   return options.sign ? `+${text}` : text;
 }
@@ -72,7 +78,9 @@ export function change(value: number | null | undefined): string {
 /** A difference between two rates belongs in points, not percent of a percent. */
 export function points(value: number | null | undefined): string {
   if (!usable(value)) return NO_VALUE;
-  return `${value >= 0 ? "+" : "−"}${Math.abs(value * 100).toFixed(1)} pp`;
+  const size = Math.abs(value * 100).toFixed(1);
+  if (Number.parseFloat(size) === 0) return `${size} pp`;
+  return `${value >= 0 ? "+" : "−"}${size} pp`;
 }
 
 /** A multiple of something: 24.3× earnings, ×2.18 over ten years. */
@@ -112,7 +120,17 @@ export function readableDate(value: string | null | undefined): string {
 }
 
 /** Which way a figure leans, for the one colour rule the interface has. */
+/*
+ * Colour follows what was printed, not what was measured.
+ *
+ * A rate of −0.00018 prints as "0.0%" and used to print it in red: a day the
+ * price did not move, coloured as a fall. Anything that rounds away at the one
+ * decimal these formatters use is flat, which for a money amount means
+ * anything under five hundredths of a cent — zero by any reading.
+ */
+const ROUNDS_TO_NOTHING = 5e-5;
+
 export function tone(value: number | null | undefined): "positive" | "negative" | "flat" {
-  if (!usable(value) || value === 0) return "flat";
+  if (!usable(value) || Math.abs(value) < ROUNDS_TO_NOTHING) return "flat";
   return value > 0 ? "positive" : "negative";
 }
