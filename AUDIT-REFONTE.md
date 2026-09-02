@@ -211,8 +211,8 @@ Chaque phase est déployée et vérifiée avant la suivante.
 | **5** | Financials + Quality (marges, retours, dette, dilution) | tableaux lisibles, annuel/trimestriel, colonne figée, YoY |
 | **6** | Valuation + DCF | hypothèses visibles et modifiables ; valeur intrinsèque, cours, écart |
 | **7** | Screener + Watchlist | table compacte, filtres essentiels, ajout/suppression réels |
-| **8** | suppression du code mort, nettoyage CSS | `PortfolioPage`, `/api/fx`, Sankey, onglet Sources retirés |
-| **9** | QA complète | toutes les routes, tous les boutons, console vide, build vert, 642 tests toujours verts |
+| **8** | suppression du code mort, nettoyage CSS | `PortfolioPage`, `/api/fx` retirés — **les Sankey restent** (décision du 2 sept. : « garde les sankey, il faut prioriser les graphiques visuels aux tableaux ») |
+| **9** | QA complète | toutes les routes, tous les boutons, console vide, build vert, tests toujours verts |
 
 **Non négociable à chaque phase :** aucun bouton mort, aucune donnée inventée,
 aucun état vide sans explication, et les tests existants restent verts.
@@ -227,3 +227,58 @@ aucun état vide sans explication, et les tests existants restent verts.
    copie locale reste en retard (`git pull`).
 2. **Une seule session à la fois** sur ce dépôt. Les collisions d'hier ont coûté
    trois reconstructions de cache complètes.
+
+
+---
+
+## 10. Où en est la refonte, au 2 septembre 2026 au soir
+
+Chaque ligne ci-dessous est déployée en production et vérifiée sur le site, pas
+sur la copie locale.
+
+| phase | état |
+|---|---|
+| 1 · audit | ✅ ce document |
+| 2 · design system | ✅ `lib/format.ts` est le seul module de formatage ; échelle d'espacement `--space-1..6` |
+| 3 · shell | ✅ conteneur 1240 px, marges 64 px, 5 entrées de navigation, **0 cible tactile < 32 px** sur mobile |
+| 4 · Overview | ✅ hero, KPI réordonnés (Revenue, Net income, FCF en tête), price drivers |
+| 5 · Financials | ✅ colonne des mesures figée, bascule **Valeurs / Variation** annuelle, formatage unifié |
+| 6 · Valuation + DCF | ✅ verdict en tête (valeur intrinsèque, cours, écart coloré), les trois scénarios sur une ligne avec le cours, grille de sensibilité en dégradé |
+| 7 · Watchlist | ✅ nuage qualité/prix ouvert par défaut, colonne ticker figée ; **QS Screener laissé tel quel** — il est déjà complet et correct, le modifier n'aurait servi que l'esthétique |
+| 8 · code mort | ✅ `PortfolioPage` (543 lignes) et `/api/fx` supprimés ; `lib/portfolio.ts` et `lib/transactions.ts` conservés avec leurs tests |
+| 9 · QA | ✅ toutes les routes balayées, console vide, aucun `NaN`/`undefined`, build vert, 659 tests |
+
+### Les bugs réels trouvés pendant la QA, et corrigés
+
+1. **Une marge sur cinq ans qui ne voulait rien dire.** Rivian affichait −220 %
+   de marge brute et −1843 % de marge nette sur cinq ans : la moyenne de cinq
+   ratios donne le même poids à l'année où le chiffre d'affaires était de 55 M$
+   qu'à celle où il était de 5 Md$. Une marge pluriannuelle est un agrégat —
+   cinq ans de marge brute sur cinq ans de chiffre d'affaires. `lib/multi-year.ts`,
+   dix-huit ratios, six tests. Rivian tombe maintenant à −40,4 %, ce qui est la
+   marge que l'entreprise a réellement faite.
+2. **Une baisse peinte en rouge alors qu'elle est bonne.** Le nombre d'actions
+   d'Apple baisse de 5,5 % — c'est le rachat qui fonctionne, et la page le
+   colorait en rouge parce que le calcul sortait négatif. `betterDirection()`
+   nomme les mesures où la baisse est le progrès (actions, dette, multiples,
+   rémunération en actions) et celles où le sens est un choix de direction et
+   non un résultat (rachats, dividendes, investissement) : celles-là ne prennent
+   aucune couleur.
+3. **Deux choix sur cinq invisibles sur téléphone.** Sur l'onglet Overview,
+   « Max » et « TTM » étaient rognés hors de leurs propres boutons parce qu'une
+   légende tenait la place.
+4. **Une section entière hors de l'écran.** Les cinq entrées de navigation ne
+   tenaient pas en 375 px, la barre défilait latéralement sans barre de défilement
+   ni dégradé : *QS Screener* était entièrement au-delà du bord.
+5. **Une journée sans mouvement affichée comme une baisse.** −0,018 % s'écrivait
+   « −0,0 % » en rouge.
+6. **Quatorze cases à cocher de 20 px** dans le sélecteur de mesures.
+
+### Ce qui reste ouvert
+
+- **Couverture des données** (le sujet de fond, pas l'interface) : 18 % des
+  sociétés n'ont pas de nombre d'actions à la date de clôture (émetteurs
+  multi-classes — le nombre de la page de garde `dei` existe mais est rejeté sur
+  sa date), 10 % déposent en IFRS, 12 % n'ont pas de total de dette exploitable.
+- **Changements de CIK** (XOM) non suivis.
+- **Comptes utilisateurs** : voie B du §7, non entamée et volontairement.
