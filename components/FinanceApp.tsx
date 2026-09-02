@@ -6,7 +6,7 @@ import { Explainer } from "./Explainer";
 import { getJson } from "@/lib/fetch-json";
 // `change` here is the local ratio helper; the formatter is imported under
 // its own name so the two never shadow each other.
-import { change as formatChange, money, multiple, percent as formatPercent, perShare, readableDate as formatDate, shares, tone } from "@/lib/format";
+import { change as formatChange, money, multiple, NO_VALUE, percent as formatPercent, perShare, points, readableDate as formatDate, shares, tone } from "@/lib/format";
 import { Skeleton, SkeletonCards, SkeletonTable } from "./Skeleton";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { TICKER_PATTERN } from "@/lib/market-profile";
@@ -708,7 +708,9 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
           {marketCap == null && (price != null || priceError) && <small>{priceError || priced.reason}</small>}
           {basis?.sharesBasis === "diluted" && <small>On diluted average shares</small>}
         </div>
-        <div className="hero-figure">
+        {/* Provenance belongs at the far end of the bar, not crowded against
+            the market cap with six hundred pixels of nothing beside it. */}
+        <div className="hero-figure hero-provenance">
           <span>Latest period</span>
           <strong>{latest.label}</strong>
           <small>
@@ -929,9 +931,45 @@ function GrowthQuality({ dataset, annual }: { dataset: CompanyDataset; annual: F
 }
 
 
+/**
+ * Where each measure stands against its own five-year norm.
+ *
+ * The table said 46.9% and 44.5% and left the reader to subtract. The number
+ * that was actually wanted — is this better or worse than this company usually
+ * manages — now has its own column, in points for a rate and in per cent for
+ * everything else, with a bar that runs right when the measure improved and
+ * left when it slipped. The bars share one scale across the group, so the row
+ * that moved most is the one that reaches furthest.
+ */
 function CurrentAndAverageTable({ periods, metrics, onOpen, onCharts, currencyCode }: { periods: FinancialPeriod[]; metrics: string[]; onOpen: (metric: string, period: FinancialPeriod) => void; onCharts: (metric: string) => void; currencyCode: string }) {
   const latest = periods.at(-1); if (!latest) return <p className="simple-state">No data available</p>;
-  return <div className="table-scroll"><table><thead><tr><th>Metric</th><th>Current</th><th>5Y average</th><th>Period</th></tr></thead><tbody>{metrics.map((metric) => { const values = periods.slice(-5).map((period) => derivedValue(period, metric)).filter((value): value is number => value != null && Number.isFinite(value)); const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null; return <tr key={metric}><th><MetricName metric={metric} label={METRICS[metric]?.label ?? metric} onCharts={onCharts} onOpen={() => onOpen(metric, latest)}/></th><td>{metricDisplay(derivedValue(latest, metric), metric, currencyCode)}</td><td>{metricDisplay(average, metric, currencyCode)}</td><td>{latest.periodEnd}</td></tr>; })}</tbody></table></div>;
+  const rows = metrics.map((metric) => {
+    const values = periods.slice(-5).map((period) => derivedValue(period, metric)).filter((value): value is number => value != null && Number.isFinite(value));
+    const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+    const current = derivedValue(latest, metric);
+    const rate = METRICS[metric]?.kind === "percent";
+    /*
+     * A rate moves in points; everything else moves in per cent. And a gap
+     * measured against an average that straddles zero, or that has the other
+     * sign, is a number with no reading — those rows keep their figures and
+     * lose the bar rather than showing a made-up one.
+     */
+    const gap = current == null || average == null ? null
+      : rate ? current - average
+      : average > 0 && current > 0 ? current / average - 1
+      : null;
+    return { metric, current, average, gap, rate };
+  });
+  const widest = Math.max(...rows.map((row) => row.gap == null ? 0 : Math.abs(row.gap)), Number.EPSILON);
+  return <div className="table-scroll"><table className="against-average"><thead><tr><th>Metric</th><th>Current</th><th>5Y average</th><th>Against its average</th></tr></thead><tbody>{rows.map((row) => <tr key={row.metric}>
+    <th><MetricName metric={row.metric} label={METRICS[row.metric]?.label ?? row.metric} onCharts={onCharts} onOpen={() => onOpen(row.metric, latest)}/></th>
+    <td>{metricDisplay(row.current, row.metric, currencyCode)}</td>
+    <td>{metricDisplay(row.average, row.metric, currencyCode)}</td>
+    <td className="gap-cell">{row.gap == null ? NO_VALUE : <span className={`gap-bar ${tone(row.gap)}`}>
+      <i style={{ width: `${Math.abs(row.gap) / widest * 50}%`, [row.gap >= 0 ? "left" : "right"]: "50%" }}/>
+      <b>{row.rate ? points(row.gap) : formatChange(row.gap)}</b>
+    </span>}</td>
+  </tr>)}</tbody></table></div>;
 }
 
 function ValuationTable({ dataset, price }: { dataset: CompanyDataset; price: PricePoint | null }) {

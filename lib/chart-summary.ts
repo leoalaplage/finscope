@@ -6,7 +6,7 @@ export type SummaryKind = "cagr" | "points" | "none";
 export interface MetricSummary {
   kind: SummaryKind;
   value: number | null;
-  /** What the badge is called: "CAGR 4.0Y", "Change 4.0Y". */
+  /** What the badge is called: "4-year CAGR", "4-year change". */
   label: string;
   /** The badge text itself. */
   display: string;
@@ -60,14 +60,18 @@ export function summariseSeries(points: SummaryPoint[], metric: string): MetricS
   // Rounded months first: a calendar year is 365 days, which is 0.999 years,
   // and reading "12M" over a year of data looks like a mistake.
   const months = Math.round(years * 12);
-  const span = months >= 12 ? `${(months / 12).toFixed(1)}Y` : `${months}M`;
+  /*
+   * "CAGR 9.0Y" is accurate and reads like a field name. The span goes in
+   * front of the measure, where English puts it: a nine-year CAGR.
+   */
+  const span = months >= 12 ? `${(months / 12).toFixed(1).replace(/\.0$/, "")}-year` : `${months}-month`;
 
   if (kind === "points") {
     const value = last.value! - first.value!;
-    return { kind, value, years, label: `Change ${span}`, display: formatPoints(value) };
+    return { kind, value, years, label: `${span} change`, display: formatPoints(value) };
   }
 
   const result = cagrBetweenDates(first.value!, last.value!, first.date, last.date);
-  if (result.value == null) return { ...empty(result.reason ?? "Not meaningful"), label: `CAGR ${span}`, years };
-  return { kind, value: result.value, years, label: `CAGR ${span}`, display: formatPercent(result.value) };
+  if (result.value == null) return { ...empty(result.reason ?? "Not meaningful"), label: `${span} CAGR`, years };
+  return { kind, value: result.value, years, label: `${span} CAGR`, display: formatPercent(result.value) };
 }

@@ -358,6 +358,8 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
 .hero-figure span { color: var(--muted); font-size: var(--fs-micro); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .hero-figure strong { font-size: var(--fs-xl); font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: -.012em; }
 .hero-figure small { max-width: 46ch; color: var(--muted); font-size: var(--fs-xs); font-weight: 400; }
+.hero-provenance { margin-left: auto; text-align: right; align-items: flex-end; }
+.hero-provenance strong { font-size: var(--fs-lg); font-weight: 600; }
 /* The price leads, and its move sits on its baseline rather than under it. */
 .hero-figure.lead { flex-direction: row; align-items: baseline; gap: var(--space-2); }
 .hero-figure.lead strong { font-size: var(--fs-display); font-weight: 660; letter-spacing: -.028em; }
@@ -366,6 +368,7 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
 .hero-move.negative { color: var(--danger); }
 @media (max-width: 700px) {
   .company-hero-figures { gap: var(--space-4); }
+  .hero-provenance { margin-left: 0; text-align: left; align-items: flex-start; }
   .hero-figure.lead strong { font-size: var(--fs-xl); }
 }
 
@@ -1038,6 +1041,16 @@ tbody tr:last-child > * { border-bottom: 0; }
  */
 .table-mode { display: flex; justify-content: flex-end; margin-bottom: var(--space-2); }
 .sensitivity-table td { font-variant-numeric: tabular-nums; text-align: right; }
+
+/* A measure against its own five-year norm: the centre line is the average,
+   and the bar runs right when the company improved on itself. */
+.against-average .gap-cell { min-width: 190px; }
+.gap-bar { position: relative; display: block; height: 22px; }
+.gap-bar::before { content: ""; position: absolute; left: 50%; top: 2px; bottom: 2px; width: 1px; background: var(--border-strong); }
+.gap-bar i { position: absolute; top: 6px; height: 10px; border-radius: 2px; background: var(--muted); opacity: .55; }
+.gap-bar.positive i { background: var(--accent); opacity: .85; }
+.gap-bar.negative i { background: var(--danger); opacity: .85; }
+.gap-bar b { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding-left: var(--space-2); background: var(--background); font-variant-numeric: tabular-nums; font-weight: 600; }
 .watchlist-table th:nth-child(2) { position: sticky; left: 0; z-index: 1; background: var(--background); }
 .scatter-panel { margin-bottom: var(--space-5); padding: var(--space-4); }
 .scatter-panel .section-heading { display: block; margin-bottom: var(--space-3); }

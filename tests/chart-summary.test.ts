@@ -22,7 +22,7 @@ describe("summarising the drawn series", () => {
     expect(summary.kind).toBe("cagr");
     expect(summary.value!).toBeCloseTo(.1, 3);
     expect(summary.display).toBe("+10.0%");
-    expect(summary.label).toBe("CAGR 4.0Y");
+    expect(summary.label).toBe("4-year CAGR");
   });
 
   it("states a margin move in points, not as a growth rate", () => {
@@ -41,12 +41,12 @@ describe("summarising the drawn series", () => {
 
   it("measures only the window that is drawn", () => {
     // Three points span two years, so the badge must say two, not ten.
-    expect(summariseSeries(series([100, 110, 121]), "revenue").label).toBe("CAGR 2.0Y");
+    expect(summariseSeries(series([100, 110, 121]), "revenue").label).toBe("2-year CAGR");
   });
 
   it("uses months when the drawn window is under a year", () => {
     const points = [{ date: "2025-01-31", value: 100 }, { date: "2025-07-31", value: 110 }];
-    expect(summariseSeries(points, "revenue").label).toBe("CAGR 6M");
+    expect(summariseSeries(points, "revenue").label).toBe("6-month CAGR");
   });
 
   it("skips gaps rather than treating them as zero", () => {
@@ -56,7 +56,7 @@ describe("summarising the drawn series", () => {
       { date: "2023-12-31", value: 110 },
       { date: "2024-12-31", value: null },
     ], "revenue");
-    expect(summary.label).toBe("CAGR 1.0Y");
+    expect(summary.label).toBe("1-year CAGR");
     expect(summary.value!).toBeCloseTo(.1, 3);
   });
 
