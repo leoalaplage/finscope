@@ -35,7 +35,7 @@ describe("which way is up", () => {
 
 describe("a movement too small to print", () => {
   it("is not coloured as a movement", () => {
-    expect(movementTone("grossMargin", 0.00002)).toBe("flat");
-    expect(movementTone("dilutedShares", -0.00002)).toBe("flat");
+    expect(movementTone("grossMargin", 0.0002)).toBe("flat");
+    expect(movementTone("dilutedShares", -0.0002)).toBe("flat");
   });
 });

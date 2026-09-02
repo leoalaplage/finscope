@@ -184,7 +184,7 @@ export function movementTone(metric: string, gap: number | null | undefined): "p
   const direction = betterDirection(metric);
   // The same threshold the formatter uses: a movement that prints as zero is
   // not coloured as a movement.
-  if (gap == null || !Number.isFinite(gap) || Math.abs(gap) < 5e-5 || direction === "none") return "flat";
+  if (gap == null || !Number.isFinite(gap) || Math.abs(gap) < 5e-4 || direction === "none") return "flat";
   const good = direction === "down" ? gap < 0 : gap > 0;
   return good ? "positive" : "negative";
 }

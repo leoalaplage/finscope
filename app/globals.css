@@ -808,7 +808,15 @@ tbody tr:last-child > * { border-bottom: 0; }
 .kpi-card header small { margin-top: 3px; font-size: var(--fs-micro); letter-spacing: .05em; text-transform: uppercase; }
 .kpi-card-actions { display: flex; align-items: center; gap: 8px; }
 .kpi-card-actions strong { font-size: var(--fs-body); font-variant-numeric: proportional-nums; white-space: nowrap; }
-.kpi-range { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
+/*
+ * The controls keep their width, and the sentence beside them gives way.
+ *
+ * On a phone this row squeezed both segmented controls until "Max" and "TTM"
+ * were clipped off their own buttons — two of the five choices on the tab,
+ * invisible and unclickable, because a caption was holding the space.
+ */
+.kpi-range { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
+.kpi-range .segmented { flex: none; }
 .kpi-range small { font-size: var(--fs-xs); color: var(--muted); }
 .kpi-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; padding: 8px 14px 0; list-style: none; font-size: var(--fs-xs); color: var(--muted); }
 .kpi-legend li { display: flex; align-items: center; gap: 6px; }
@@ -862,7 +870,8 @@ tbody tr:last-child > * { border-bottom: 0; }
    bar rather than as fourteen loose buttons. */
 .chart-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 16px 0 14px; }
 /* A track with a moving thumb, not five boxes welded together. */
-.segmented { display: inline-flex; gap: 2px; padding: 3px; border: 0; border-radius: var(--radius-pill); background: var(--grid); overflow: hidden; }
+.segmented { display: inline-flex; flex: none; gap: 2px; padding: 3px; border: 0; border-radius: var(--radius-pill); background: var(--grid); overflow: hidden; }
+.segmented button { flex: none; white-space: nowrap; }
 .segmented button { min-height: 28px; padding: 2px 12px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--muted); font-size: var(--fs-sm); font-weight: 550; }
 .segmented button:hover:not(.active) { background: transparent; color: var(--text); }
 .segmented button.active { background: var(--surface); color: var(--text); font-weight: 650; box-shadow: var(--shadow); }

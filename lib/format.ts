@@ -126,9 +126,9 @@ export function readableDate(value: string | null | undefined): string {
  * A rate of −0.00018 prints as "0.0%" and used to print it in red: a day the
  * price did not move, coloured as a fall. Anything that rounds away at the one
  * decimal these formatters use is flat, which for a money amount means
- * anything under five hundredths of a cent — zero by any reading.
+ * anything under a twentieth of a cent — zero by any reading.
  */
-const ROUNDS_TO_NOTHING = 5e-5;
+const ROUNDS_TO_NOTHING = 5e-4;
 
 export function tone(value: number | null | undefined): "positive" | "negative" | "flat" {
   if (!usable(value) || Math.abs(value) < ROUNDS_TO_NOTHING) return "flat";
