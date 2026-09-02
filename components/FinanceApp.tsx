@@ -15,6 +15,7 @@ import { cagrBetweenDates, cagrForPeriods, derivedValue, valueOf } from "@/lib/f
 import { marketBasis, multipleOf } from "@/lib/market-basis";
 import { CALLOUTS, DEFAULT_CALLOUTS, growthConsistency, growthGap, growthTable, HORIZONS, incrementalReturn, percentileAmong, ruleOfForty, worstDrawdown, type Horizon } from "@/lib/growth-quality";
 import { betterDirection, CHARTABLE_METRICS, METRICS, movementTone, VIEW_METRICS } from "@/lib/metrics";
+import { multiYearAverage } from "@/lib/multi-year";
 import { balanceSheetDiagram, cashFlowDiagram, incomeStatementDiagram } from "@/lib/statement-flows";
 import { buildValuationHistory, valuationSnapshot, valuationStatistics } from "@/lib/valuation-history";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, MetricKey, Periodicity, PricePoint } from "@/lib/types";
@@ -142,9 +143,11 @@ const change = (current: number | null, previous: number | null) => current != n
  */
 function cashRoCGap(annual: FinancialPeriod[], latest: FinancialPeriod | undefined) {
   const current = latest ? derivedValue(latest, "cashReturnOnCapital") : null;
-  const history = annual.slice(-5).map((period) => derivedValue(period, "cashReturnOnCapital")).filter((value): value is number => value != null && Number.isFinite(value));
-  if (current == null || history.length < 3) return null;
-  return current - history.reduce((sum, value) => sum + value, 0) / history.length;
+  // Five years of free cash flow over five years of invested capital — the
+  // mean of five yearly ratios is a different figure, and a worse one.
+  const history = multiYearAverage(annual.slice(-5), "cashReturnOnCapital");
+  if (current == null || history.value == null || history.periods < 3) return null;
+  return current - history.value;
 }
 
 function metricDisplay(value: number | null, metric: string, code: string) {
@@ -944,9 +947,11 @@ function GrowthQuality({ dataset, annual }: { dataset: CompanyDataset; annual: F
  */
 function CurrentAndAverageTable({ periods, metrics, onOpen, onCharts, currencyCode }: { periods: FinancialPeriod[]; metrics: string[]; onOpen: (metric: string, period: FinancialPeriod) => void; onCharts: (metric: string) => void; currencyCode: string }) {
   const latest = periods.at(-1); if (!latest) return <p className="simple-state">No data available</p>;
+  const window = periods.slice(-5);
   const rows = metrics.map((metric) => {
-    const values = periods.slice(-5).map((period) => derivedValue(period, metric)).filter((value): value is number => value != null && Number.isFinite(value));
-    const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+    // A five-year margin is five years of profit over five years of revenue,
+    // not the mean of five ratios — see lib/multi-year.
+    const { value: average, reason } = multiYearAverage(window, metric);
     const current = derivedValue(latest, metric);
     const rate = METRICS[metric]?.kind === "percent";
     /*
@@ -959,13 +964,13 @@ function CurrentAndAverageTable({ periods, metrics, onOpen, onCharts, currencyCo
       : rate ? current - average
       : average > 0 && current > 0 ? current / average - 1
       : null;
-    return { metric, current, average, gap, rate };
+    return { metric, current, average, gap, rate, reason };
   });
   const widest = Math.max(...rows.map((row) => row.gap == null ? 0 : Math.abs(row.gap)), Number.EPSILON);
   return <div className="table-scroll"><table className="against-average"><thead><tr><th>Metric</th><th>Current</th><th>5Y average</th><th>Against its average</th></tr></thead><tbody>{rows.map((row) => <tr key={row.metric}>
     <th><MetricName metric={row.metric} label={METRICS[row.metric]?.label ?? row.metric} onCharts={onCharts} onOpen={() => onOpen(row.metric, latest)}/></th>
     <td>{metricDisplay(row.current, row.metric, currencyCode)}</td>
-    <td>{metricDisplay(row.average, row.metric, currencyCode)}</td>
+    <td title={row.average == null ? row.reason : undefined}>{metricDisplay(row.average, row.metric, currencyCode)}</td>
     <td className="gap-cell">{row.gap == null ? NO_VALUE : <span className={`gap-bar ${movementTone(row.metric, row.gap)}`} title={`${METRICS[row.metric]?.label ?? row.metric}: ${betterDirection(row.metric) === "none" ? "the direction here is a management choice, not a result" : betterDirection(row.metric) === "down" ? "a fall is the improvement" : "a rise is the improvement"}`}>
       <i style={{ width: `${Math.abs(row.gap) / widest * 50}%`, [row.gap >= 0 ? "left" : "right"]: "50%" }}/>
       <b>{row.rate ? points(row.gap) : formatChange(row.gap)}</b>
