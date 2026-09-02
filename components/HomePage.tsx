@@ -25,15 +25,22 @@ const qsPercent = (value: number | string | null | undefined) => typeof value ==
  * already carries.
  */
 function cardFigures(digest: WatchlistSummary | null | undefined, financial: boolean) {
+  /*
+   * The "· 5Y" is said once above the grid, not sixty-six times inside it.
+   *
+   * Every card carried the horizon on all three of its labels, in uppercase,
+   * so a page of twenty-two companies repeated the same four characters on
+   * every line — and the labels, not the figures, were what the eye landed on.
+   */
   if (financial) return [
     { label: "Operating margin", value: qsPercent(digest?.qs["Operating Margin"]) },
-    { label: "Revenue CAGR · 5Y", value: qsPercent(digest?.qs["Revenue 5Y CAGR"]) },
-    { label: "Net income CAGR · 5Y", value: qsPercent(digest?.qs["Net Income 5Y CAGR"]) },
+    { label: "Revenue CAGR", value: qsPercent(digest?.qs["Revenue 5Y CAGR"]) },
+    { label: "Net income CAGR", value: qsPercent(digest?.qs["Net Income 5Y CAGR"]) },
   ];
   return [
-    { label: "FCF margin · 5Y", value: percent(digest?.freeCashFlowAfterSbcMargin5Y ?? null) },
-    { label: "Cash RoC · 5Y", value: percent(digest?.cashReturnOnCapital5Y ?? null) },
-    { label: "FCF / share CAGR · 5Y", value: percent(digest?.freeCashFlowPerShareCagr5Y ?? null) },
+    { label: "FCF margin", value: percent(digest?.freeCashFlowAfterSbcMargin5Y ?? null) },
+    { label: "Cash return on capital", value: percent(digest?.cashReturnOnCapital5Y ?? null) },
+    { label: "FCF / share CAGR", value: percent(digest?.freeCashFlowPerShareCagr5Y ?? null) },
   ];
 }
 
@@ -252,7 +259,7 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
     <header className="home-head">
       <div>
         <h1>Watchlist</h1>
-        <p>{watchlist.length} companies. Open one, or load them all to compare them side by side.</p>
+        <p>{watchlist.length} companies. Every figure below is measured over five years. Open one, or load them all to compare them side by side.</p>
       </div>
       <div className="home-head-actions">
         <button type="button" onClick={() => void loadEverything()} disabled={bulk.running || unloaded === 0}>

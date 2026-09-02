@@ -1260,20 +1260,28 @@ tbody tr:last-child > * { border-bottom: 0; }
 .home-search input:focus-visible { outline: none; }
 .home-search > button { min-height: 34px; padding: 0 14px; border-radius: 999px; font-size: var(--fs-base); font-weight: 600; }
 
-.company-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.company-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
 .company-cards > li { position: relative; }
 /* A card is a surface with a hairline, not a shadowed slab. Depth comes from
    the rule and the space; the shadow only appears when you point at it. */
-.company-card { display: flex; flex-direction: column; gap: 14px; width: 100%; padding: 16px; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color var(--ease), transform var(--ease), box-shadow var(--ease); }
+.company-card { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; padding: var(--space-4); border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color var(--ease), transform var(--ease), box-shadow var(--ease); }
 .company-card:hover, .company-card:focus-visible { border-color: var(--border-strong); box-shadow: var(--shadow-lift); transform: translateY(-2px); }
 .company-card-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.company-card-head b { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -.01em; }
+.company-card-head b { font-family: var(--display); font-size: 24px; font-weight: 500; letter-spacing: 0; }
 .company-card-name { font-size: var(--fs-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.company-card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.company-card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
 /* The third figure has a long label and no neighbour; it takes the row. */
 .company-card-wide { grid-column: 1 / -1; }
-.company-card-stats > span { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-body); font-weight: 600; font-variant-numeric: tabular-nums; }
-.company-card-stats small { font-size: var(--fs-micro); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+/*
+ * The figure first, and the label under it in a whisper.
+ *
+ * These read label-then-value in uppercase eleven-pixel grey, three to a card
+ * and twenty-two cards to a page: sixty-six shouted labels around the numbers
+ * they were meant to introduce. The number leads now, at a size worth
+ * crossing a page for, and the label sits beneath it in sentence case.
+ */
+.company-card-stats > span { display: flex; flex-direction: column-reverse; gap: 1px; font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.012em; }
+.company-card-stats small { font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); }
 .company-card-state { font-size: var(--fs-xs); color: var(--muted); }
 .company-card-load { position: absolute; top: 14px; right: 14px; min-height: 26px; padding: 0 10px; font-size: var(--fs-xs); border-radius: 999px; }
 
