@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatChartValue, unitFamily } from "@/lib/auto-chart";
-import { chartPalette, niceTicks, type ThemeName } from "@/lib/charting";
+import { niceTicks } from "@/lib/charting";
 import { chartSurface, exportSvgToPng } from "@/lib/chart-export";
 import { Skeleton } from "./Skeleton";
 import { getJson } from "@/lib/fetch-json";
@@ -21,28 +21,37 @@ import type { CompanyDataset, FinancialPeriod, MarketBar, SeriesFrequency } from
  * only mean something together — cash against debt is a position, not two facts.
  */
 const CARDS: Array<{ metric: string; title: string; pair?: string; pairTitle?: string; net?: string; kind?: "candles" | "market"; filed?: true }> = [
-  { metric: "stockPrice", title: "Share price", kind: "candles" },
-  { metric: "freeCashFlowYield", title: "FCF yield", kind: "market" },
-  // `filed` marks a line the company states in its own income statement or
-  // balance sheet. The rest are computed here from those lines, and the two
-  // stop for entirely different reasons: a filer can stop reporting a subtotal,
-  // where a calculation stops because one of its inputs did — which is not
-  // something to describe as the company having stopped reporting it.
+  /*
+   * The business first, the market last.
+   *
+   * The overview opened on the share price and the yield the market accepts —
+   * two figures about what other people think — before saying what the company
+   * earns. A reader arriving at a company wants its trajectory: what it sells,
+   * what it keeps, what it turns into cash, and what an owner holds per share.
+   * The price is on the header now, and its chart waits until the end.
+   *
+   * `filed` marks a line the company states in its own income statement or
+   * balance sheet. The rest are computed here from those lines, and the two
+   * stop for entirely different reasons: a filer can stop reporting a subtotal,
+   * where a calculation stops because one of its inputs did — which is not
+   * something to describe as the company having stopped reporting it.
+   */
   { metric: "revenue", title: "Revenue", filed: true },
-  { metric: "grossProfit", title: "Gross profit", filed: true },
-  { metric: "operatingIncome", title: "Operating income", filed: true },
   { metric: "netIncome", title: "Net income", filed: true },
   { metric: "freeCashFlow", title: "Free cash flow" },
-  { metric: "freeCashFlowAfterSbc", title: "Free cash flow after SBC" },
   { metric: "netIncomePerShare", title: "EPS" },
   { metric: "freeCashFlowPerShare", title: "FCF per share" },
-  { metric: "cashReturnOnCapital", title: "Cash RoC" },
   { metric: "operatingMargin", title: "Operating margin" },
   { metric: "freeCashFlowMargin", title: "FCF margin" },
+  { metric: "grossProfit", title: "Gross profit", filed: true },
+  { metric: "operatingIncome", title: "Operating income", filed: true },
+  { metric: "cashReturnOnCapital", title: "Cash RoC" },
+  { metric: "freeCashFlowAfterSbc", title: "Free cash flow after SBC" },
   { metric: "dilutedShares", title: "Diluted shares", filed: true },
   { metric: "cashAndEquivalents", title: "Cash & debt", pair: "totalDebt", pairTitle: "Total debt", net: "netDebt", filed: true },
+  { metric: "stockPrice", title: "Share price", kind: "candles" },
+  { metric: "freeCashFlowYield", title: "FCF yield", kind: "market" },
 ];
-
 /**
  * How far back the cards reach, in years of history rather than in periods.
  *
@@ -105,16 +114,13 @@ function Candle({ x, y, width, height, payload, up, down }: { x?: number; y?: nu
   </g>;
 }
 
-function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
+function KpiCard({ card, rows, dataset, onOpen }: {
   card: typeof CARDS[number];
   rows: CardRow[];
-  index: number;
   dataset: CompanyDataset;
-  theme: ThemeName;
   onOpen?: () => void;
 }) {
   const canvas = useRef<HTMLDivElement>(null);
-  const palette = chartPalette(theme);
   const family = unitFamily(card.metric);
   const candles = card.kind === "candles";
 
@@ -144,8 +150,19 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
   // A pair takes the two hues the balance-sheet diagram already uses for what
   // the company owns and what is claimed against it, rather than two palette
   // slots that fall wherever the card happens to sit in the grid.
-  const colour = card.pair ? palette[0].value : palette[index % palette.length].value;
-  const pairColour = card.pair ? palette[1].value : palette[(index + 4) % palette.length].value;
+  /*
+   * One accent, and red only for a negative value.
+   *
+   * Each card used to take the next hue in the palette by its position, so
+   * fifteen single-series charts arrived in fifteen colours — blue revenue,
+   * orange yield, magenta margin — and none of those colours meant anything.
+   * A categorical palette is for telling series apart; there is one series
+   * here. What the eye should pick up instead is the shape and the sign.
+   */
+  const colour = "var(--accent)";
+  // Debt is what is claimed against the cash beside it, so it reads as a
+  // neutral weight rather than as a second accent.
+  const pairColour = "var(--muted)";
   // A price never starts at zero: a share that traded between $180 and $220
   // has all of its story in the top eighth of an axis anchored to the origin.
   // Every other measure is a quantity, where the origin is the comparison.
@@ -235,7 +252,7 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
           </div> : null;
         }}/>
         {candles
-          ? <Bar dataKey="range" isAnimationActive={false} shape={(props: object) => <Candle {...props as Parameters<typeof Candle>[0]} up={palette[2].value} down={palette[7].value}/>}/>
+          ? <Bar dataKey="range" isAnimationActive={false} shape={(props: object) => <Candle {...props as Parameters<typeof Candle>[0]} up="var(--accent)" down="var(--danger)"/>}/>
           : <Bar dataKey="value" fill={colour} radius={[3, 3, 0, 0]} isAnimationActive={false}>
               {/* A negative bar is not the same event as a positive one, so it is not the same colour. */}
               {drawn.map((row) => <Cell key={row.label} fill={row.value != null && row.value < 0 ? "var(--danger)" : colour}/>)}
@@ -250,7 +267,9 @@ function KpiCard({ card, rows, index, dataset, theme, onOpen }: {
   </article>;
 }
 
-export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: CompanyDataset; theme: ThemeName; onOpenMetric: (metric: string, presentation: { style: SeriesStyle; frequency: SeriesFrequency }) => void }) {
+// The cards draw in the accent and the danger colour, which are theme tokens,
+// so the grid no longer needs to know which theme is on.
+export function CompanyKpiGrid({ dataset, onOpenMetric }: { dataset: CompanyDataset; onOpenMetric: (metric: string, presentation: { style: SeriesStyle; frequency: SeriesFrequency }) => void }) {
   const [range, setRange] = useState<RangeId>(() => {
     if (typeof window === "undefined") return DEFAULT_RANGE;
     const saved = localStorage.getItem("finscope.overviewRange");
@@ -365,7 +384,7 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
       </div>
       <small>{frequency === "ttm" ? "Quarterly TTM" : "Annual"} · {quarterLabel(periods[0])} → {quarterLabel(periods.at(-1)!)}{broken ? " · gaps where a quarter was never filed" : ""}{marketFailed ? " · market history unavailable" : ""}</small>
     </div>
-    <KpiCards cards={CARDS} periods={periods} candles={candles} bars={bars} dataset={dataset} theme={theme} frequency={frequency} onOpenMetric={onOpenMetric}/>
+    <KpiCards cards={CARDS} periods={periods} candles={candles} bars={bars} dataset={dataset} frequency={frequency} onOpenMetric={onOpenMetric}/>
   </>;
 }
 
@@ -385,9 +404,9 @@ export function CompanyKpiGrid({ dataset, theme, onOpenMetric }: { dataset: Comp
  */
 const RETIRED_AFTER_YEARS = 2;
 
-function KpiCards({ cards, periods, candles, bars, dataset, theme, frequency, onOpenMetric }: {
+function KpiCards({ cards, periods, candles, bars, dataset, frequency, onOpenMetric }: {
   cards: typeof CARDS; periods: FinancialPeriod[]; candles: Array<PeriodCandle | null> | null; bars: MarketBar[] | null;
-  dataset: CompanyDataset; theme: ThemeName; frequency: SeriesFrequency;
+  dataset: CompanyDataset; frequency: SeriesFrequency;
   onOpenMetric: (metric: string, presentation: { style: SeriesStyle; frequency: SeriesFrequency }) => void;
 }) {
   const latest = periods.at(-1)!.periodEnd;
@@ -426,14 +445,13 @@ function KpiCards({ cards, periods, candles, bars, dataset, theme, frequency, on
 
   return <>
     <div className="kpi-grid">{live.map((entry) => {
-      const index = built.indexOf(entry);
       // A market card waits for its prices rather than drawing an empty chart
       // and filling in later, which reads as a company with no share price.
       if ((entry.card.kind === "candles" || entry.card.kind === "market") && bars == null) {
         return <article key={entry.card.metric} className="kpi-card"><header><div><h3>{entry.card.title}</h3><small>Loading</small></div></header>
           <div className="kpi-canvas"><Skeleton label={`${entry.card.title.toLowerCase()} history`} chart height={180}/></div></article>;
       }
-      return <KpiCard key={entry.card.metric} card={entry.card} rows={entry.rows} index={index} dataset={dataset} theme={theme}
+      return <KpiCard key={entry.card.metric} card={entry.card} rows={entry.rows} dataset={dataset}
         // A card opens in Charts as the thing it is on screen. The price card
         // draws weekly candles; handing over this page's trailing-twelve-month
         // frequency asked Charts for quarterly filings of a share price.

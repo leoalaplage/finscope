@@ -343,8 +343,11 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
  * paragraph beside the price is now the period it describes, with the rest
  * behind a word — the same fact, a tenth of the ink.
  */
-.company-hero { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-5); }
+.company-hero { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-5); scroll-margin-top: 70px; }
+/* The row sits clear of the translucent header above it, and the back link
+   drops the margin it carried when it was a block of its own. */
 .company-hero-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.company-hero-bar .back-button { margin: 0 0 0 -10px; }
 .company-hero-actions { display: flex; gap: var(--space-2); }
 .company-hero-actions button { min-height: 34px; padding: 0 14px; font-size: var(--fs-sm); font-weight: 600; }
 .company-hero-actions .is-following { border-color: var(--accent); color: var(--accent); }

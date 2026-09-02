@@ -51,14 +51,22 @@ type Evidence = { label: string; value: number | null; period: FinancialPeriod; 
  * over several screens. Overview is now one block that stands alone, and the
  * detail behind it is a click rather than a scroll.
  */
-type CompanyTab = "overview" | "statistics" | "statements" | "financials" | "valuation" | "sources";
+type CompanyTab = "overview" | "financials" | "quality" | "valuation";
+/*
+ * Four destinations, not six.
+ *
+ * Statistics, Statements and Sources were three tabs describing the same
+ * company from angles that overlapped: Statistics repeated the overview's
+ * figures in a table, Statements held half a document whose other half was
+ * under Financials, and Sources was a four-row table already in the footer.
+ * What a reader actually asks, in order, is what this business is, what it
+ * files, how good it is, and what it costs.
+ */
 const COMPANY_TABS: Array<{ key: CompanyTab; label: string }> = [
   { key: "overview", label: "Overview" },
-  { key: "statistics", label: "Statistics" },
-  { key: "statements", label: "Statements" },
   { key: "financials", label: "Financials" },
+  { key: "quality", label: "Quality" },
   { key: "valuation", label: "Valuation" },
-  { key: "sources", label: "Sources" },
 ];
 const COMPANY_TAB_KEYS = new Set<string>(COMPANY_TABS.map((item) => item.key));
 
@@ -710,15 +718,14 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
     </nav>
 
     {tab === "overview" && <div className="company-block">
-      <section id="overview" className="plain-section"><SectionTitle title="Overview" onCharts={() => onCharts(dataset.company.ticker)}/>
-      <Suspense fallback={<SkeletonCards label="the overview charts" count={4} height={220}/>}><CompanyKpiGrid dataset={dataset} theme={theme} onOpenMetric={(metric, presentation) => onCharts(dataset.company.ticker, metric, presentation)}/></Suspense>
+      <section id="overview" className="plain-section">
+      <Suspense fallback={<SkeletonCards label="the overview charts" count={4} height={220}/>}><CompanyKpiGrid dataset={dataset} onOpenMetric={(metric, presentation) => onCharts(dataset.company.ticker, metric, presentation)}/></Suspense>
       <h3 className="kpi-table-heading">Latest figures</h3><MetricSummaryTable dataset={dataset} price={price} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)}/></section>
     </div>}
 
-    {/* A balance sheet is a statement, so it stopped being a seventh tab of its
-        own and became the end of this one — the diagram and the detail behind
-        it, in that order, rather than two destinations for one document. */}
-    {tab === "statements" && <div className="company-block">
+    {/* The document, drawn and then tabulated: the flows first because a
+        statement is easier to grasp as a shape than as a column. */}
+    {tab === "financials" && <div className="company-block">
       <section id="flows" className="plain-section"><SectionTitle title="Statements" onCharts={() => onCharts(dataset.company.ticker, "revenue")}/>
       <p className="section-note">The latest reported fiscal year, drawn as the flow it describes. Every ribbon is a filed figure or a subtraction from one.</p>
       <Suspense fallback={<Skeleton label="the statement diagrams" chart height={300}/>}>
@@ -729,13 +736,6 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
       <section id="balance" className="plain-section"><SectionTitle title="Balance sheet in detail" onCharts={() => onCharts(dataset.company.ticker, "totalAssets")}/>
       <p className="section-note">What the company owns, what it owes, and whether the difference is comfortable. A quality business with a fragile balance sheet is a different proposition.</p>
       <Suspense fallback={<SkeletonTable label="the balance sheet"/>}><BalanceSheetPanel dataset={dataset}/></Suspense></section>
-    </div>}
-
-    {tab === "statistics" && <Suspense fallback={<SkeletonTable label="the statistics panel" rows={12}/>}>
-      <CompanyStatisticsTab dataset={dataset} price={price} watchlist={watchlist} datasets={datasets} onLoad={onLoad}/>
-    </Suspense>}
-
-    {tab === "financials" && <div className="company-block">
       <section id="financials" className="plain-section"><div className="section-heading"><h2>Financials</h2><div className="period-buttons">{(["annual", "quarterly", "ttm"] as Periodicity[]).map((item) => <button className={periodicity === item ? "active" : ""} key={item} onClick={() => setPeriodicity(item)}>{item === "ttm" ? "TTM" : item[0].toUpperCase() + item.slice(1)}</button>)}</div></div>{selected.length ? <SimpleFinancialTable periods={selected.slice(-10)} metrics={[...VIEW_METRICS.income, ...VIEW_METRICS.cashflow.slice(0, 4)]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/> : <p className="simple-state">No data available for {periodicity}.</p>}</section>
       <section id="pershare" className="plain-section"><SectionTitle title="Per Share" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowPerShare")}/>
       <p className="section-note">Every figure divided by the diluted weighted average share count, so growth is what an owner actually kept after dilution.</p>
@@ -744,9 +744,17 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
           <div className="table-scroll pershare-history"><SimpleFinancialTable periods={annual.slice(-10)} metrics={[...VIEW_METRICS.pershare]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/></div></>
         : <p className="simple-state">No per-share figures: {dataset.company.name} publishes no combined diluted share count. Companies with several share classes tag each class separately, and the SEC endpoint carries only undimensioned facts.</p>}
     </section>
+    </div>}
+
+    {/* How good the business is, rather than how big: margins, what it earns on
+        its capital, what it does with the cash, and how fast that compounds. */}
+    {tab === "quality" && <div className="company-block">
       <section id="margins" className="plain-section"><SectionTitle title="Margins" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowMargin")}/><CurrentAndAverageTable periods={annual} metrics={[...VIEW_METRICS.margins]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/></section>
       <section id="capital" className="plain-section"><SectionTitle title="Capital Allocation" onCharts={() => onCharts(dataset.company.ticker, "dilutedShares")}/><CurrentAndAverageTable periods={annual} metrics={["dilutedShares", "shareCountChange", "shareRepurchases", "shareIssuance", "dividendsPaid", "stockBasedCompensation"]} onOpen={openMetric} onCharts={(metric) => onCharts(dataset.company.ticker, metric)} currencyCode={dataset.company.currency}/></section>
       <section id="growth" className="plain-section"><SectionTitle title="Growth & Cash Quality" onCharts={() => onCharts(dataset.company.ticker, "freeCashFlowPerShare")}/><GrowthQuality dataset={dataset} annual={annual}/></section>
+      <Suspense fallback={<SkeletonTable label="the statistics panel" rows={12}/>}>
+        <CompanyStatisticsTab dataset={dataset} price={price} watchlist={watchlist} datasets={datasets} onLoad={onLoad}/>
+      </Suspense>
     </div>}
 
     {/* What the market charges today against what it has charged, and then the
@@ -784,7 +792,6 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
       </section>
     </div>}
 
-    {tab === "sources" && <section id="sources" className="plain-section"><h2>Sources & Data Quality</h2><div className="table-scroll"><table><tbody><tr><th>Fundamentals</th><td>SEC EDGAR Company Facts</td></tr><tr><th>Market data</th><td>Split-adjusted closing prices</td></tr><tr><th>Validation</th><td>{dataset.quality?.lastValidatedAt?.slice(0, 10) ?? dataset.retrievedAt.slice(0, 10)}</td></tr><tr><th>Coverage</th><td>{dataset.quality?.coverage.map((item) => `${item.periodicity}: ${item.periodCount}`).join(" · ") ?? `${dataset.periods.length} periods`}</td></tr></tbody></table></div>{dataset.warnings.length ? <ul>{dataset.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : <p>No active data warnings.</p>}</section>}
     {evidence && <EvidenceDialog evidence={evidence} onClose={() => setEvidence(null)}/>}
   </div>;
 }
