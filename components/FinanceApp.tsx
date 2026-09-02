@@ -14,7 +14,7 @@ import { COMPANY_COLUMNS, DEFAULT_COLUMNS, DEFAULT_COMPANY_FILTERS, DEFAULT_COMP
 import { cagrBetweenDates, cagrForPeriods, derivedValue, valueOf } from "@/lib/finance";
 import { marketBasis, multipleOf } from "@/lib/market-basis";
 import { CALLOUTS, DEFAULT_CALLOUTS, growthConsistency, growthGap, growthTable, HORIZONS, incrementalReturn, percentileAmong, ruleOfForty, worstDrawdown, type Horizon } from "@/lib/growth-quality";
-import { CHARTABLE_METRICS, METRICS, VIEW_METRICS } from "@/lib/metrics";
+import { betterDirection, CHARTABLE_METRICS, METRICS, movementTone, VIEW_METRICS } from "@/lib/metrics";
 import { balanceSheetDiagram, cashFlowDiagram, incomeStatementDiagram } from "@/lib/statement-flows";
 import { buildValuationHistory, valuationSnapshot, valuationStatistics } from "@/lib/valuation-history";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod, MetricKey, Periodicity, PricePoint } from "@/lib/types";
@@ -862,7 +862,8 @@ function SimpleFinancialTable({ periods, metrics, onOpen, onCharts, currencyCode
           const value = derivedValue(period, metric);
           const previous = index > 0 ? derivedValue(periods[index - 1], metric) : null;
           const moved = mode === "yoy" ? change(value, previous) : null;
-          return <td key={period.periodEnd} className={mode === "yoy" && moved != null ? tone(moved) : undefined}>
+          // Green for a rise is wrong on the debt row and on the share count.
+          return <td key={period.periodEnd} className={mode === "yoy" && moved != null ? movementTone(metric, moved) : undefined}>
             <button className="value-button" onClick={() => onOpen(metric, period)}>
               {mode === "value" ? metricDisplay(value, metric, currencyCode) : formatChange(moved)}
             </button>
@@ -965,7 +966,7 @@ function CurrentAndAverageTable({ periods, metrics, onOpen, onCharts, currencyCo
     <th><MetricName metric={row.metric} label={METRICS[row.metric]?.label ?? row.metric} onCharts={onCharts} onOpen={() => onOpen(row.metric, latest)}/></th>
     <td>{metricDisplay(row.current, row.metric, currencyCode)}</td>
     <td>{metricDisplay(row.average, row.metric, currencyCode)}</td>
-    <td className="gap-cell">{row.gap == null ? NO_VALUE : <span className={`gap-bar ${tone(row.gap)}`}>
+    <td className="gap-cell">{row.gap == null ? NO_VALUE : <span className={`gap-bar ${movementTone(row.metric, row.gap)}`} title={`${METRICS[row.metric]?.label ?? row.metric}: ${betterDirection(row.metric) === "none" ? "the direction here is a management choice, not a result" : betterDirection(row.metric) === "down" ? "a fall is the improvement" : "a rise is the improvement"}`}>
       <i style={{ width: `${Math.abs(row.gap) / widest * 50}%`, [row.gap >= 0 ? "left" : "right"]: "50%" }}/>
       <b>{row.rate ? points(row.gap) : formatChange(row.gap)}</b>
     </span>}</td>

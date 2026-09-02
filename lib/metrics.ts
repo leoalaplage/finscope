@@ -145,3 +145,44 @@ export const CHART_METRIC_GROUPS: Array<[string, string[]]> = [
 export const VALUATION_METRICS = new Set(["priceToFreeCashFlow", "priceToEarnings", "priceToSales", "freeCashFlowYield"]);
 
 export const CHARTABLE_METRICS = new Set(CHART_METRIC_GROUPS.flatMap(([, items]) => items));
+
+/**
+ * Which way is up, for the measures where there is an answer.
+ *
+ * A share count that fell 5.5% is a company that bought back stock, and
+ * colouring the fall red because the arithmetic came out negative tells the
+ * reader the opposite of what happened. So the measures where a fall is the
+ * improvement are named here, and the ones where the direction is a judgement
+ * rather than a fact — how much a company chose to spend on buybacks,
+ * dividends or plant — are named too, and get no colour at all. Anything not
+ * listed reads the ordinary way: more is better.
+ */
+const LOWER_IS_BETTER = new Set([
+  "dilutedShares", "sharesOutstanding", "shareCountChange", "shareIssuance",
+  "stockBasedCompensation", "stockBasedCompensationToRevenue", "stockBasedCompensationToFcf",
+  "totalDebt", "netDebt", "debtToEquity", "netDebtToEbitda",
+  "priceToFreeCashFlow", "priceToEarnings", "priceToSales",
+]);
+
+/** Amounts whose direction is a management choice, not a result. */
+const NO_BETTER_DIRECTION = new Set(["capitalExpenditures", "shareRepurchases", "dividendsPaid", "revenuePerShare"]);
+
+export type MetricDirection = "up" | "down" | "none";
+
+export function betterDirection(metric: string): MetricDirection {
+  if (NO_BETTER_DIRECTION.has(metric)) return "none";
+  return LOWER_IS_BETTER.has(metric) ? "down" : "up";
+}
+
+/**
+ * The tone a movement in this metric deserves: good, bad, or neither.
+ *
+ * `tone` in the formatter reads the sign of a number. This reads what that
+ * sign means for the business.
+ */
+export function movementTone(metric: string, gap: number | null | undefined): "positive" | "negative" | "flat" {
+  const direction = betterDirection(metric);
+  if (gap == null || !Number.isFinite(gap) || gap === 0 || direction === "none") return "flat";
+  const good = direction === "down" ? gap < 0 : gap > 0;
+  return good ? "positive" : "negative";
+}
