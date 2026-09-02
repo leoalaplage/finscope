@@ -1681,4 +1681,8 @@ tbody tr:last-child > * { border-bottom: 0; }
   .company-provenance a { display: inline-block; padding: 9px 0; }
   /* A table row is a target too when its name and its value both open things. */
   .financial-table td, .financial-table th, .table-scroll td, .table-scroll th { padding-top: 10px; padding-bottom: 10px; }
+  /* A checkbox is 13px tall whatever you ask of it, so the row it sits in is
+     the target: the label grows, and the tick stays the size the OS drew it. */
+  .stat-picker label, .column-picker label, .series-options label, .company-picker label, .callout-picker label { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+  details > summary { min-height: 40px; display: flex; align-items: center; }
 }
