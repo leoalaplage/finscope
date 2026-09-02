@@ -238,6 +238,8 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   // renders from it, and writing it must never schedule a render.
   const loadedAt = useRef<Record<string, number>>({});
   const seeded = useRef(initialData.company.ticker);
+  /** A company the address bar asked for that could not be built. */
+  const [failed, setFailed] = useState<{ ticker: string; reason: string } | null>(null);
   /*
    * Where the reader actually asked to be, and the live filings for it.
    *
@@ -269,10 +271,17 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       }).catch((cause) => {
         if (!active) return;
         setAwaiting(null);
-        setError(cause instanceof Error ? cause.message : `Could not load ${ticker}`);
-        // A failed deep link to another ticker must never present Apple's
-        // fixture as though it belonged to the requested company.
-        if (route.ticker && route.ticker !== initialData.company.ticker) setView("search");
+        const reason = cause instanceof Error ? cause.message : `Could not load ${ticker}`;
+        /*
+         * A failed deep link must never present the fixture as though it
+         * belonged to the company asked for — and it used to drop the reader on
+         * the search box instead, which from their side is a link to Booking
+         * Holdings that opens an empty search field. The failure belongs on the
+         * page they asked for, naming the company, saying why, and offering the
+         * one thing worth offering: try again.
+         */
+        if (route.ticker && route.ticker !== initialData.company.ticker) setFailed({ ticker, reason });
+        else setError(reason);
       });
     };
     apply();
@@ -313,7 +322,20 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
    */
   function writeRoute(next: { view?: MainView; ticker?: string; tab?: CompanyTab; secondary?: SecondaryView; ranking?: boolean }, mode: "push" | "replace" = "push") {
     const params = new URLSearchParams();
-    params.set("ticker", next.ticker ?? dataset.company.ticker);
+    const destination = next.secondary ? "panel" : next.view ?? view;
+    /*
+     * A URL names a company only where the page shows one.
+     *
+     * Every URL carried `ticker=` regardless of where it pointed, so clicking
+     * Search while Booking Holdings was open produced `?ticker=BKNG&view=search`
+     * — a link that names a company and opens a search box. Sent to someone, or
+     * come back to a week later, it reads as a broken page rather than the
+     * search page it is. Market, search and the screener show no company, so
+     * they no longer claim one.
+     */
+    if (destination !== "search" && destination !== "market" && destination !== "qs") {
+      params.set("ticker", next.ticker ?? dataset.company.ticker);
+    }
     if (next.secondary) params.set("panel", next.secondary);
     else {
       params.set("view", next.view ?? view);
@@ -326,7 +348,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   }
 
   function navigate(next: MainView) {
-    setSecondary(null); setChartSeed(undefined); setRanking(false); setView(next);
+    setSecondary(null); setChartSeed(undefined); setRanking(false); setFailed(null); setView(next);
     writeRoute({ view: next, secondary: null, ranking: false });
     window.scrollTo({ top: 0 });
   }
@@ -378,7 +400,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
     throw new Error(`${ticker} is taking longer than usual to prepare. Try again in a moment.`);
   }
   async function openCompany(ticker: string, tab: CompanyTab = "overview") {
-    setSecondary(null); setError("");
+    setSecondary(null); setError(""); setFailed(null);
     // Held company: show it at once and let loadCompanyData decide whether it
     // is old enough to be worth asking for again, in the background.
     const held = datasets[ticker];
@@ -410,6 +432,12 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
     setWatchlist((current) => current.some((item) => item.ticker === company.ticker) ? current : [...current, company]);
     void openCompany(company.ticker);
   }
+  function retryCompany(ticker: string) {
+    setFailed(null); setAwaiting(ticker);
+    loadCompanyData(ticker)
+      .then((payload) => { if (payload) { setAwaiting(null); setDataset(payload); } })
+      .catch((cause) => { setAwaiting(null); setFailed({ ticker, reason: cause instanceof Error ? cause.message : `Could not load ${ticker}` }); });
+  }
   function openCharts(ticker = dataset.company.ticker, metric?: string, presentation?: { style?: SeriesStyle; frequency?: SeriesFrequency }) {
     setSecondary(null); setChartSeed({ ticker, metric, nonce: Date.now(), ...presentation }); setView("charts");
     writeRoute({ view: "charts", ticker, secondary: null });
@@ -430,8 +458,9 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       {!secondary && view === "companies" && ranking && <div><button className="back-button" onClick={() => showRanking(false)}>← Watchlist</button><CompaniesPage watchlist={watchlist} datasets={datasets} activeTicker={dataset.company.ticker} loading={loading} onSearchAdd={() => setManagerOpen(true)} onLoad={loadCompanyData} onOpen={openCompany} onCharts={(ticker) => openCharts(ticker)} onRemove={(ticker) => setWatchlist((current) => current.filter((company) => company.ticker !== ticker))}/></div>}
       {/* Waiting for the company this URL names: its shape, not another
           company's figures. */}
-      {!secondary && view === "company" && awaiting && <div className="company-block"><SkeletonCards label={awaiting} count={4} height={220}/></div>}
-      {!secondary && view === "company" && !awaiting && <CompanyPage key={dataset.company.ticker} dataset={dataset} theme={theme} watchlist={watchlist} datasets={datasets} tab={companyTab} onTab={openTab} onBack={() => navigate("companies")} onCharts={openCharts} onLoad={loadCompanyData} onToggleWatchlist={() => setWatchlist((current) => current.some((company) => company.ticker === dataset.company.ticker)
+      {!secondary && view === "company" && failed && <CompanyUnavailable ticker={failed.ticker} reason={failed.reason} onRetry={() => retryCompany(failed.ticker)} onSearch={() => navigate("search")}/>}
+      {!secondary && view === "company" && !failed && awaiting && <div className="company-block"><SkeletonCards label={awaiting} count={4} height={220}/></div>}
+      {!secondary && view === "company" && !failed && !awaiting && <CompanyPage key={dataset.company.ticker} dataset={dataset} theme={theme} watchlist={watchlist} datasets={datasets} tab={companyTab} onTab={openTab} onBack={() => navigate("companies")} onCharts={openCharts} onLoad={loadCompanyData} onToggleWatchlist={() => setWatchlist((current) => current.some((company) => company.ticker === dataset.company.ticker)
         ? current.filter((company) => company.ticker !== dataset.company.ticker)
         : [...current, dataset.company])}/>}
       {!secondary && view === "market" && <Suspense fallback={<SkeletonCards label="the market session" count={3} height={230}/>}><MarketPage watchlist={watchlist.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker)}/></Suspense>}
@@ -440,6 +469,27 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
     <footer className="site-footer"><span>Auditable financial research · Not investment advice</span><details><summary>More</summary><div><button onClick={() => openPanel("quality")}>Data Quality</button><button onClick={() => openPanel("audit")}>Formula Audit</button><button onClick={() => openPanel("coverage")}>Import status</button><button onClick={() => openPanel("sources")}>Sources</button></div></details></footer>
     {managerOpen && <Suspense fallback={null}><CompanyManager watchlist={watchlist} setWatchlist={setWatchlist} onSelect={acceptDataset} onClose={() => setManagerOpen(false)}/></Suspense>}
   </div>;
+}
+
+/**
+ * A company the address bar asked for and the server could not build.
+ *
+ * The reader followed a link to one company; showing them a search box, or
+ * another company's figures, are both answers to a question they did not ask.
+ * This says which company, why not, and offers the retry — most of these
+ * failures are a busy isolate rather than a broken filing, and the second
+ * attempt a minute later usually lands.
+ */
+function CompanyUnavailable({ ticker, reason, onRetry, onSearch }: { ticker: string; reason: string; onRetry: () => void; onSearch: () => void }) {
+  return <section className="company-unavailable">
+    <h1>{ticker} could not be loaded</h1>
+    <p>{reason}</p>
+    <p className="company-unavailable-note">Nothing here is a stand-in for {ticker}: no other company&rsquo;s figures are shown under its name, and no value is estimated. Most failures are the filing service being busy rather than a company without filings, and a second attempt usually lands.</p>
+    <div className="company-unavailable-actions">
+      <button type="button" className="button-primary" onClick={onRetry}>Try {ticker} again</button>
+      <button type="button" onClick={onSearch}>Search for another company</button>
+    </div>
+  </section>;
 }
 
 function SecondaryHeading({ title, onBack }: { title: string; onBack: () => void }) { return <header className="page-heading"><div><h1>{title}</h1><p>Secondary research tool for the selected company.</p></div><button onClick={onBack}>Back</button></header>; }

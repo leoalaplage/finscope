@@ -1054,6 +1054,13 @@ tbody tr:last-child > * { border-bottom: 0; }
  * row you are on is a table nobody reads twice.
  */
 .table-mode { display: flex; justify-content: flex-end; margin-bottom: var(--space-2); }
+
+/* A company that could not be built says so where it was asked for. */
+.company-unavailable { max-width: 62ch; padding: var(--space-6) 0; }
+.company-unavailable h1 { margin: 0 0 var(--space-3); }
+.company-unavailable p { margin: 0 0 var(--space-3); color: var(--muted); }
+.company-unavailable-note { font-size: var(--fs-sm); }
+.company-unavailable-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-4); }
 .sensitivity-table td { font-variant-numeric: tabular-nums; text-align: right; }
 
 /* A measure against its own five-year norm: the centre line is the average,

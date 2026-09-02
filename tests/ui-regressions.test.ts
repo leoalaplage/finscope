@@ -63,7 +63,13 @@ describe("UI regressions", () => {
     expect(source).toContain("Four filed quarters, through");
     expect(source).toContain("Filed year, to");
     expect(source).toContain("Offline fixture from SEC facts");
-    expect(source).toContain('if (route.ticker && route.ticker !== initialData.company.ticker) setView("search")');
+    // A deep link that fails must not present the fixture as the company that
+    // was asked for. It used to escape to the search page, which reads as a
+    // link to a company that opens an empty search box; it now fails on the
+    // page it pointed at, naming the company and offering the retry.
+    expect(source).toContain("if (route.ticker && route.ticker !== initialData.company.ticker) setFailed({ ticker, reason })");
+    expect(source).toContain("<CompanyUnavailable");
+    expect(source).not.toContain('setView("search")');
     // A retry that keeps an existing fixture still reports the live failure.
     expect(source).toContain('catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load company"); }');
   });
