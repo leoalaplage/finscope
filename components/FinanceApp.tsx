@@ -6,7 +6,7 @@ import { Explainer } from "./Explainer";
 import { getJson } from "@/lib/fetch-json";
 // `change` here is the local ratio helper; the formatter is imported under
 // its own name so the two never shadow each other.
-import { change as formatChange, money, perShare, readableDate as formatDate, tone } from "@/lib/format";
+import { change as formatChange, money, multiple, percent as formatPercent, perShare, readableDate as formatDate, shares, tone } from "@/lib/format";
 import { Skeleton, SkeletonCards, SkeletonTable } from "./Skeleton";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { TICKER_PATTERN } from "@/lib/market-profile";
@@ -106,10 +106,16 @@ const HomePage = lazy(() => import("./HomePage").then((module) => ({ default: mo
 const SearchPage = lazy(() => import("./SearchPage").then((module) => ({ default: module.SearchPage })));
 const FreshnessCheck = lazy(() => import("./FreshnessCheck").then((module) => ({ default: module.FreshnessCheck })));
 
-const currency = (value: number | null | undefined, code = "USD") => value == null || !Number.isFinite(value) ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: code, notation: Math.abs(value) >= 1_000_000 ? "compact" : "standard", maximumFractionDigits: 2 }).format(value);
-const number = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? "—" : new Intl.NumberFormat("en-US", { notation: Math.abs(value) >= 1_000_000 ? "compact" : "standard", maximumFractionDigits: 2 }).format(value);
-const percent = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? "—" : `${(value * 100).toFixed(1)}%`;
-const ratio = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? "—" : `${value.toFixed(1)}×`;
+/*
+ * The four cell formats this page uses, from the one module that owns them.
+ *
+ * They were four local functions with their own rounding, which is how the
+ * same figure came to read one way here and another on the next screen.
+ */
+const currency = (value: number | null | undefined, code = "USD") => Math.abs(value ?? 0) >= 1_000 || value == null ? money(value, code) : perShare(value, code);
+const number = (value: number | null | undefined) => shares(value);
+const percent = (value: number | null | undefined) => formatPercent(value);
+const ratio = (value: number | null | undefined) => multiple(value);
 /**
  * A readable date, formatted identically on the server and in the browser.
  *
@@ -826,7 +832,41 @@ function MetricSummaryTable({ dataset, price, onOpen, onCharts }: { dataset: Com
   return <div className="table-scroll"><table><thead><tr><th>Metric</th><th>Current</th><th>Period</th></tr></thead><tbody>{metrics.map(([label, value, metric]) => <tr key={label}><th><MetricName metric={metric} label={label} onCharts={onCharts} onOpen={() => onOpen(metric)}/></th><td>{METRICS[metric]?.kind === "percent" || metric.toLowerCase().includes("growth") || metric.toLowerCase().includes("cagr") || metric.toLowerCase().includes("margin") || metric === "shareCountChange" || metric === "roic" ? percent(value) : metric === "priceToFreeCashFlow" ? ratio(value) : metric === "dilutedShares" ? number(value) : currency(value, dataset.company.currency)}</td><td>{latest.periodEnd}</td></tr>)}</tbody></table></div>;
 }
 
-function SimpleFinancialTable({ periods, metrics, onOpen, onCharts, currencyCode }: { periods: FinancialPeriod[]; metrics: string[]; onOpen: (metric: string, period: FinancialPeriod) => void; onCharts: (metric: string) => void; currencyCode: string }) { return <div className="table-scroll"><table><thead><tr><th>Metric</th>{periods.map((period) => <th key={period.periodEnd}>{period.label}<small>{period.periodEnd}</small></th>)}</tr></thead><tbody>{metrics.map((metric) => <tr key={metric}><th><MetricName metric={metric} label={METRICS[metric]?.label ?? metric} onCharts={onCharts} onOpen={() => onOpen(metric, periods.at(-1)!)}/></th>{periods.map((period) => <td key={period.periodEnd}><button className="value-button" onClick={() => onOpen(metric, period)}>{metricDisplay(derivedValue(period, metric), metric, currencyCode)}</button></td>)}</tr>)}</tbody></table></div>; }
+/**
+ * A statement, read across the years.
+ *
+ * Two things it was missing and a reader needs. The metric column now stays put
+ * while the years scroll under it — a table you have to scroll back and forth
+ * to know what row you are on is a table nobody reads. And the same figures can
+ * be read as their year-on-year change, which is the question actually being
+ * asked of a ten-year row of revenue: not what it was, but what it did.
+ */
+function SimpleFinancialTable({ periods, metrics, onOpen, onCharts, currencyCode }: { periods: FinancialPeriod[]; metrics: string[]; onOpen: (metric: string, period: FinancialPeriod) => void; onCharts: (metric: string) => void; currencyCode: string }) {
+  const [mode, setMode] = useState<"value" | "yoy">("value");
+  return <>
+    <div className="table-mode">
+      <div className="segmented" role="group" aria-label="How the figures are shown">
+        <button type="button" className={mode === "value" ? "active" : ""} aria-pressed={mode === "value"} onClick={() => setMode("value")}>Values</button>
+        <button type="button" className={mode === "yoy" ? "active" : ""} aria-pressed={mode === "yoy"} onClick={() => setMode("yoy")}>Change</button>
+      </div>
+    </div>
+    <div className="table-scroll"><table className="statement-table"><thead><tr><th>Metric</th>{periods.map((period) => <th key={period.periodEnd}>{period.label}<small>{period.periodEnd}</small></th>)}</tr></thead><tbody>
+      {metrics.map((metric) => <tr key={metric}>
+        <th><MetricName metric={metric} label={METRICS[metric]?.label ?? metric} onCharts={onCharts} onOpen={() => onOpen(metric, periods.at(-1)!)}/></th>
+        {periods.map((period, index) => {
+          const value = derivedValue(period, metric);
+          const previous = index > 0 ? derivedValue(periods[index - 1], metric) : null;
+          const moved = mode === "yoy" ? change(value, previous) : null;
+          return <td key={period.periodEnd} className={mode === "yoy" && moved != null ? tone(moved) : undefined}>
+            <button className="value-button" onClick={() => onOpen(metric, period)}>
+              {mode === "value" ? metricDisplay(value, metric, currencyCode) : formatChange(moved)}
+            </button>
+          </td>;
+        })}
+      </tr>)}
+    </tbody></table></div>
+  </>;
+}
 
 function GrowthQuality({ dataset, annual }: { dataset: CompanyDataset; annual: FinancialPeriod[] }) {
   const [bars, setBars] = useState<Array<{ date: string; value: number }> | null>(null);

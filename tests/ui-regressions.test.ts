@@ -351,18 +351,15 @@ describe("the redesign", () => {
     expect(source).toContain("sortRowsBy");
   });
 
-  // The portfolio is out of the navigation for now, by request; its component
-  // and its tests stay so it can come back without being rewritten.
-  it.skip("states the portfolio's value and its return as separate answers", () => {
-    // They differ by exactly the money paid in, and quoting either alone is how
-    // a reader comes to believe a deposit was a good year.
-    const source = readFileSync(new URL("../components/PortfolioPage.tsx", import.meta.url), "utf8");
-    expect(source).toContain("Change in value ·");
-    expect(source).toContain("netContribution");
-    expect(source).toContain("with deposits stripped out");
-    // One window control, above the figures it governs.
-    expect(source).toContain('className="portfolio-window"');
-  });
+  /*
+   * The portfolio view is gone from the interface, not from the repository.
+   *
+   * It was parked out of the navigation and stayed there as 543 lines nobody
+   * could reach, which is the definition of a feature that exists only in the
+   * codebase. The arithmetic behind it — `lib/portfolio.ts`, `lib/transactions.ts`
+   * and their tests — is kept: it is proven, it costs nothing while unimported,
+   * and it is what a portfolio would be rebuilt on.
+   */
 
   it("lets a chart fill the window, and draws it taller than a strip", () => {
     const source = readFileSync(new URL("../components/ChartsWorkspace.tsx", import.meta.url), "utf8");

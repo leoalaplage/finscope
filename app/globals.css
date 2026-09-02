@@ -1032,6 +1032,19 @@ tbody tr:last-child > * { border-bottom: 0; }
 .driver-legend-toggle { margin: 12px 0 0; font-size: var(--fs-xs); color: var(--muted); }
 /* The period a fallen-back figure actually came from, beside the figure. */
 .stat-asof { display: block; margin-top: 1px; color: var(--muted); font-size: var(--fs-micro); font-weight: 500; letter-spacing: .01em; }
+
+/*
+ * A statement table you can actually read across.
+ *
+ * The metric column stays while the years scroll under it: a ten-year row is
+ * wider than any screen, and a table you have to scroll back to identify the
+ * row you are on is a table nobody reads twice.
+ */
+.table-mode { display: flex; justify-content: flex-end; margin-bottom: var(--space-2); }
+.statement-table th:first-child { position: sticky; left: 0; z-index: 1; background: var(--background); }
+.statement-table tbody th:first-child::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 1px; background: var(--border); }
+.statement-table td.positive .value-button { color: var(--accent); }
+.statement-table td.negative .value-button { color: var(--danger); }
 @media (max-width: 640px) { .driver-legend div { grid-template-columns: 1fr; gap: 2px; } }
 .financial-table tr.balance-total { border-top: 1px solid var(--border-strong); }
 .financial-table tr.balance-total th, .financial-table tr.balance-total td { font-weight: 700; }
@@ -1465,20 +1478,6 @@ tbody tr:last-child > * { border-bottom: 0; }
 }
 
 @media (max-width: 1100px) { .index-grid { grid-template-columns: 1fr; } }
-
-/* ---- Portfolio ledger ------------------------------------------------- */
-
-.numeric { text-align: right; font-variant-numeric: tabular-nums; }
-.ledger-table input[type="date"] { min-width: 132px; }
-.ledger-table select { min-width: 74px; }
-.ledger-table th small { font-weight: 400; }
-/* A carried-over row is dated the day it was migrated, not the day it was
-   bought, and is dimmed so it is never mistaken for a real trade date. */
-.ledger-migrated td, .ledger-migrated th { opacity: .72; }
-/* The row you are filling in, marked as a tint rather than a block of colour:
-   eight cells each painted accent-soft is a green card with a green button on
-   it, and nothing on the row still reads as the thing to press. */
-.ledger-draft td, .ledger-draft th { background: color-mix(in oklab, var(--accent) 8%, transparent); }
 
 /* ---- Phones ------------------------------------------------------------ */
 
