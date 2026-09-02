@@ -2,7 +2,11 @@
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { HeaderSearch } from "./HeaderSearch";
+import { Explainer } from "./Explainer";
 import { getJson } from "@/lib/fetch-json";
+// `change` here is the local ratio helper; the formatter is imported under
+// its own name so the two never shadow each other.
+import { change as formatChange, money, perShare, readableDate as formatDate, tone } from "@/lib/format";
 import { Skeleton, SkeletonCards, SkeletonTable } from "./Skeleton";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { TICKER_PATTERN } from "@/lib/market-profile";
@@ -106,11 +110,7 @@ const ratio = (value: number | null | undefined) => value == null || !Number.isF
  * hydration mismatch that makes React throw the server's tree away and render
  * the whole application again on the client.
  */
-const DAY = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-const readableDate = (iso: string) => {
-  const parsed = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
-  return Number.isNaN(parsed.getTime()) ? iso.slice(0, 10) : DAY.format(parsed);
-};
+const readableDate = (iso: string) => formatDate(iso);
 
 /** This company's filing history on EDGAR, which is where every figure came from. */
 const edgarUrl = (cik: string) => `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${encodeURIComponent(cik)}&type=10-&dateb=&owner=include&count=40`;
@@ -414,7 +414,9 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
       {/* Waiting for the company this URL names: its shape, not another
           company's figures. */}
       {!secondary && view === "company" && awaiting && <div className="company-block"><SkeletonCards label={awaiting} count={4} height={220}/></div>}
-      {!secondary && view === "company" && !awaiting && <CompanyPage key={dataset.company.ticker} dataset={dataset} theme={theme} watchlist={watchlist} datasets={datasets} tab={companyTab} onTab={openTab} onBack={() => navigate("companies")} onCharts={openCharts} onLoad={loadCompanyData}/>}
+      {!secondary && view === "company" && !awaiting && <CompanyPage key={dataset.company.ticker} dataset={dataset} theme={theme} watchlist={watchlist} datasets={datasets} tab={companyTab} onTab={openTab} onBack={() => navigate("companies")} onCharts={openCharts} onLoad={loadCompanyData} onToggleWatchlist={() => setWatchlist((current) => current.some((company) => company.ticker === dataset.company.ticker)
+        ? current.filter((company) => company.ticker !== dataset.company.ticker)
+        : [...current, dataset.company])}/>}
       {!secondary && view === "market" && <Suspense fallback={<SkeletonCards label="the market session" count={3} height={230}/>}><MarketPage watchlist={watchlist.filter((company) => company.resolutionStatus !== "unresolved").map((company) => company.ticker)}/></Suspense>}
       {!secondary && view === "charts" && <Suspense fallback={<Skeleton label="the chart workspace" chart height={420}/>}><ChartsWorkspace initialData={dataset} seed={chartSeed} theme={theme}/></Suspense>}
     </main>
@@ -590,7 +592,7 @@ function CompaniesPage({ watchlist, datasets, activeTicker, loading, onSearchAdd
  * stays a click away for anyone who wants to build the cash flows up from
  * revenue and discount them at a cost of capital.
  */
-function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, onCharts, onLoad }: {
+function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, onCharts, onLoad, onToggleWatchlist }: {
   dataset: CompanyDataset; theme: ThemeName;
   watchlist: CompanyProfile[]; datasets: Record<string, CompanyDataset>;
   /* The open tab lives in the shell, so it can be read from and written to the
@@ -599,12 +601,38 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
   onBack: () => void;
   onCharts: (ticker?: string, metric?: string, presentation?: { style?: SeriesStyle; frequency?: SeriesFrequency }) => void;
   onLoad: (ticker: string) => Promise<CompanyDataset | undefined>;
+  onToggleWatchlist: () => void;
 }) {
   const [periodicity, setPeriodicity] = useState<Periodicity>(() => typeof window === "undefined" ? "annual" : (localStorage.getItem("finscope.periodicity") as Periodicity) || "annual");
   const [price, setPrice] = useState<PricePoint | null>(null); const [priceError, setPriceError] = useState(""); const [evidence, setEvidence] = useState<Evidence | null>(null);
   // Which discounted-cash-flow model the Valuation tab is showing.
   const [model, setModel] = useState<"reverse" | "fcff">("reverse");
   useEffect(() => { localStorage.setItem("finscope.periodicity", periodicity); }, [periodicity]);
+  /*
+   * What the shares did today, from the two most recent sessions.
+   *
+   * The price endpoint answers one close, so there was no way to say whether it
+   * was up or down — and a header without it is a header nobody checks twice.
+   * Ten days of daily bars is a few kilobytes and gives the previous session
+   * whatever the weekend or the holiday, and where it cannot the figure is
+   * simply absent rather than guessed at zero.
+   */
+  // Kept against the company it was read for, so switching company shows
+  // nothing rather than the previous company's move — and without clearing
+  // state inside the effect, which cascades a render.
+  const [move, setMove] = useState<{ ticker: string; value: number } | null>(null);
+  const dailyMove = move?.ticker === dataset.company.ticker ? move.value : null;
+  useEffect(() => {
+    let active = true;
+    const end = new Date(); const start = new Date(end.getTime() - 12 * 86_400_000);
+    getJson<{ bars?: Array<{ close: number }> }>(`/api/market/${encodeURIComponent(dataset.company.ticker)}?start=${start.toISOString().slice(0, 10)}&end=${end.toISOString().slice(0, 10)}&frequency=daily`, { what: "the latest sessions" })
+      .then((payload) => {
+        const closes = (payload.bars ?? []).map((bar) => bar.close).filter((value): value is number => value != null && value > 0);
+        if (active && closes.length >= 2) setMove({ ticker: dataset.company.ticker, value: closes.at(-1)! / closes.at(-2)! - 1 });
+      })
+      .catch(() => { /* A header figure that cannot be read is simply not shown. */ });
+    return () => { active = false; };
+  }, [dataset.company.ticker]);
   useEffect(() => { let active = true; getJson<PricePoint>(`/api/price/${dataset.company.ticker}?date=${new Date().toISOString().slice(0, 10)}`, { what: "the share price" }).then((payload) => { if (active) setPrice(payload); }).catch((cause) => active && setPriceError(cause instanceof Error ? cause.message : "The share price is unavailable.")); return () => { active = false; }; }, [dataset.company.ticker]);
   const selected = sortedPeriods(dataset, periodicity); const latest = latestPeriod(dataset); const annual = sortedPeriods(dataset, "annual");
   const fixture = dataset.warnings.some((warning) => warning.startsWith("Offline fixture:"));
@@ -626,53 +654,56 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
    * every screen, and refuses rather than mixing.
    */
   const priced = marketBasis(latest, price); const basis = priced.basis; const marketCap = basis?.marketCap ?? null;
+  const followed = watchlist.some((company) => company.ticker === dataset.company.ticker);
   const openMetric = (metric: string, period = latest) => setEvidence({ label: METRICS[metric]?.label ?? metric, value: derivedValue(period, metric), period, metric });
   return <div className="company-page">
-    <button className="back-button" onClick={onBack}>← Companies</button>
-    <header className="company-title">
-      <div>
-        <h1>{dataset.company.name}</h1>
-        {/* A sector we do not know is not a sector called "Unclassified". */}
-        <p>{[dataset.company.ticker, dataset.company.exchange, dataset.company.sector].filter((part) => part && part !== "Unclassified").join(" · ")}</p>
+    {/*
+      * One block: who this is, what it costs, how big it is, and which filing
+      * these figures come from.
+      *
+      * It was three: a back link, a title, and a strip of figures with a
+      * three-line paragraph of provenance beside them that competed with the
+      * price for attention. The paragraph is the same fact either way — it is
+      * now a period, stated, with its detail behind a word.
+      */}
+    <header className="company-hero">
+      <div className="company-hero-bar">
+        <button className="back-button" onClick={onBack}>← Watchlist</button>
+        <div className="company-hero-actions">
+          <button type="button" className={followed ? "is-following" : ""} aria-pressed={followed}
+            onClick={onToggleWatchlist}>{followed ? "Following" : "+ Watchlist"}</button>
+          <button type="button" onClick={() => onCharts(dataset.company.ticker)}>Charts</button>
+        </div>
       </div>
-      <div className="company-title-actions">
-        <button className="button-primary" onClick={() => onCharts(dataset.company.ticker)}>Open in Charts</button>
-        <button onClick={() => onTab("valuation")}>Value it</button>
+
+      <h1>{dataset.company.name}</h1>
+      {/* A sector we do not know is not a sector called "Unclassified". */}
+      <p className="company-hero-identity">{[dataset.company.ticker, dataset.company.exchange, dataset.company.sector].filter((part) => part && part !== "Unclassified").join(" · ")}</p>
+
+      <div className="company-hero-figures">
+        <div className="hero-figure lead">
+          <strong>{priceError ? <em className="figure-missing">Unavailable</em> : price ? perShare(price.priceClose ?? price.close, price.currency) : <span className="figure-waiting" role="status" aria-label="Loading the share price"/>}</strong>
+          {dailyMove != null && <em className={`hero-move ${tone(dailyMove)}`}>{formatChange(dailyMove)}</em>}
+        </div>
+        <div className="hero-figure">
+          <span>Market cap</span>
+          <strong>{marketCap == null && price == null && !priceError ? <span className="figure-waiting" role="status" aria-label="Loading the market capitalisation"/> : money(marketCap, dataset.company.currency)}</strong>
+          {marketCap == null && (price != null || priceError) && <small>{priceError || priced.reason}</small>}
+          {basis?.sharesBasis === "diluted" && <small>On diluted average shares</small>}
+        </div>
+        <div className="hero-figure">
+          <span>Latest period</span>
+          <strong>{latest.label}</strong>
+          <small>
+            {latest.periodicity === "ttm" ? "Four filed quarters, through " : "Filed year, to "}{readableDate(latest.periodEnd)}
+            <Explainer label="source">
+              {fixture ? `Offline fixture from SEC facts, frozen on ${readableDate(dataset.retrievedAt)}.` : `Read from SEC EDGAR on ${readableDate(dataset.retrievedAt)}.`}
+              {dataset.company.cik ? <> <a href={edgarUrl(dataset.company.cik)} target="_blank" rel="noreferrer">See the filings</a></> : null}
+            </Explainer>
+          </small>
+        </div>
       </div>
     </header>
-
-    {/*
-      * Three levels of density, in the order a reader wants them.
-      *
-      * This was four cards of equal weight: the share price, the market
-      * capitalisation, the currency — which the line above already states — and
-      * a bare period end date labelled "Latest period". Nothing was more
-      * important than anything else, and the one thing a reader of an auditable
-      * research tool most wants at the top of a company, which filing this is
-      * and when it was read, was reduced to "Updated 2026-08-25" in the
-      * subtitle: a date about us rather than about the company.
-      */}
-    <div className="company-headline">
-      <div className="company-figure">
-        <span>Share price</span>
-        <strong>{priceError ? <em className="figure-missing">Unavailable</em> : price ? currency(price.priceClose ?? price.close, price.currency) : <span className="figure-waiting" role="status" aria-label="Loading the share price"/>}</strong>
-      </div>
-      <div className="company-figure quiet">
-        <span>Market cap</span>
-        <strong>{marketCap == null && price == null && !priceError ? <span className="figure-waiting" role="status" aria-label="Loading the market capitalisation"/> : marketCap == null ? <em className="figure-missing">Unavailable</em> : currency(marketCap, dataset.company.currency)}</strong>
-        {/* Never a bare dash where a figure was withheld: the reason is the
-            point, and it is the same sentence every other screen gives. */}
-        {marketCap == null && (price != null || priceError) && <small>{priceError || priced.reason}</small>}
-        {/* The long form of this is in the Statistics panel, on the row that
-            states the same figure; here it is one line under the number. */}
-        {basis?.sharesBasis === "diluted" && <small>On the diluted weighted average: the filer publishes no period-end share count.</small>}
-      </div>
-      <p className="company-provenance">
-        {latest.periodicity === "ttm" ? <>Latest calculated period <b>{latest.label}</b>, through {readableDate(latest.periodEnd)}.</> : <>Latest filing period <b>{latest.label}</b>, to {readableDate(latest.periodEnd)}.</>}
-        {fixture ? <> Offline fixture from SEC facts, frozen on {readableDate(dataset.retrievedAt)}.</> : <> Read from SEC EDGAR on {readableDate(dataset.retrievedAt)}.</>}
-        {dataset.company.cik && <> <a href={edgarUrl(dataset.company.cik)} target="_blank" rel="noreferrer">See the filings</a></>}
-      </p>
-    </div>
 
     <nav className="company-tabs" aria-label="Company sections">
       {COMPANY_TABS.map((item) => <button key={item.key} type="button" className={tab === item.key ? "active" : ""} aria-current={tab === item.key} onClick={() => onTab(item.key)}>{item.label}</button>)}

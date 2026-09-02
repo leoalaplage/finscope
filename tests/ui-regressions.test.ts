@@ -57,8 +57,11 @@ describe("UI regressions", () => {
 
   it("does not call a calculated TTM a filing or hide the offline fixture", () => {
     const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
-    expect(source).toContain("Latest calculated period");
-    expect(source).toContain("Latest filing period");
+    // The header now names the period and says what it is made of, which is a
+    // stronger version of the same rule: a trailing window is four filed
+    // quarters, a year is a filed year, and neither is called the other.
+    expect(source).toContain("Four filed quarters, through");
+    expect(source).toContain("Filed year, to");
     expect(source).toContain("Offline fixture from SEC facts");
     expect(source).toContain('if (route.ticker && route.ticker !== initialData.company.ticker) setView("search")');
     // A retry that keeps an existing fixture still reports the live failure.
