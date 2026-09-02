@@ -69,6 +69,25 @@ export default function RootLayout({
      */
     <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
+        {/*
+          * The one typeface this interface owns.
+          *
+          * Everything here was set in the platform's own UI face, which is
+          * what makes a page look assembled rather than designed: SF Pro on a
+          * Mac is the font of every menu bar and every settings panel, and an
+          * application set entirely in it has the visual authority of a
+          * settings panel. Newsreader carries the headings and the company
+          * names — an editorial serif, drawn for screens, which is the voice a
+          * page of filed record should have. Every figure stays in the
+          * grotesk, because figures have to line up in a column and a serif
+          * does not do that as well.
+          *
+          * Preconnected so the two requests overlap the stylesheet, and
+          * swapped so text is readable from the first paint.
+          */}
+        <link rel="preconnect" href="https://fonts.googleapis.com"/>
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin=""/>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap"/>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }}/>
       </head>
       <body>{children}</body>

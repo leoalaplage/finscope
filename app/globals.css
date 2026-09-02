@@ -29,6 +29,17 @@
    */
   --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
           "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  /*
+   * The voice of the page, as distinct from the voice of its controls.
+   *
+   * Headings, company names and the wordmark are set in Newsreader: an
+   * editorial serif drawn for screens, with optical sizes, so a name at 56px
+   * and a section head at 28px are both drawn for the size they are used at.
+   * Everything a reader operates — buttons, labels, tables, and every single
+   * figure — stays in the grotesk above, because a column of numbers has to
+   * line up and a serif does that worse.
+   */
+  --display: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
   /* Figures that line up in a column, everywhere a column of figures appears. */
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
@@ -43,11 +54,20 @@
   --fs-xs: 12px;      /* captions and notes */
   --fs-sm: 13px;      /* secondary controls, table headers */
   --fs-base: 14px;    /* dense tabular values */
-  --fs-body: 15px;    /* running text */
-  --fs-lg: 17px;      /* card titles, the wordmark */
-  --fs-xl: 24px;      /* section headings */
-  --fs-h3: 16px;      /* panel sub-heads, index names */
-  --fs-display: clamp(30px, 4.4vw, 42px);
+  --fs-body: 16px;    /* running text */
+  --fs-lg: 18px;      /* card titles, the wordmark */
+  --fs-xl: 30px;      /* section headings */
+  --fs-h3: 17px;      /* panel sub-heads, index names */
+  --fs-display: clamp(38px, 5.2vw, 60px);
+  /*
+   * The size a headline figure is set at, which is not the size a headline is.
+   *
+   * The share price and the intrinsic value borrowed `--fs-display`. That was
+   * survivable while a heading was 42px; at 60 it would set a price larger
+   * than the company's own name, and a grotesk at 60 next to a serif at 60 is
+   * two things shouting.
+   */
+  --fs-figure: clamp(30px, 3.4vw, 40px);
 
   /*
    * The spacing scale.
@@ -103,7 +123,7 @@
   --radius-pill: 999px;
 
   /* Shadows are a whisper. Depth comes from the rule and the space. */
-  --shadow: 0 1px 2px rgba(14, 21, 18, .045);
+  --shadow: none;
   --shadow-lift: 0 1px 2px rgba(14, 21, 18, .05), 0 6px 16px rgba(14, 21, 18, .06);
   --shadow-pop: 0 12px 36px rgba(14, 21, 18, .14);
   --ease: .16s cubic-bezier(.2, 0, .2, 1);
@@ -137,7 +157,7 @@
   --axis: #94a29c;
   --chart-grid: #202a26;
   --label-halo: #131917;
-  --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow: none;
   --shadow-lift: 0 1px 2px rgba(0, 0, 0, .35), 0 8px 22px rgba(0, 0, 0, .32);
   --shadow-pop: 0 14px 40px rgba(0, 0, 0, .55);
 }
@@ -157,10 +177,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-/* SF Pro tightens as it grows; not saying so is what makes an interface using
-   it look like an interface that is not. */
-h1, h2, h3, .kpi-card strong, .company-figure strong { letter-spacing: var(--track-title); }
-h1 { letter-spacing: var(--track-display); }
+/* The grotesk tightens as it grows; the serif is drawn with its own tracking
+   and is left alone. Figures are grotesk wherever they appear. */
+.kpi-card strong, .company-figure strong { letter-spacing: var(--track-title); }
 ::selection { background: var(--accent-soft); color: var(--text); }
 /* Scrollbars in the interface's own colours rather than the platform's, which
    on a near-black page draws a light grey slab down the right-hand side. */
@@ -188,8 +207,18 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .75; }
 a { color: var(--accent); text-underline-offset: 2px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 h1, h2, h3, p { margin-top: 0; }
-h1 { margin-bottom: 6px; font-size: var(--fs-display); line-height: 1.12; letter-spacing: -0.028em; font-weight: 700; }
-h2 { margin-bottom: 12px; font-size: var(--fs-xl); line-height: 1.25; letter-spacing: -0.015em; }
+/*
+ * Headings are set in the serif, and set to be read rather than to label.
+ *
+ * They were 42px and 24px of the same system sans as the buttons beneath
+ * them, tracked tight, which is a heading that announces nothing. A serif at
+ * 60 and 30, with normal tracking because Newsreader is drawn with its own,
+ * gives the page a top of the hierarchy it did not have.
+ */
+h1, h2, h3 { font-family: var(--display); font-weight: 500; }
+h1 { margin-bottom: 6px; font-size: var(--fs-display); line-height: 1.04; letter-spacing: -0.014em; font-weight: 500; }
+h2 { margin-bottom: 12px; font-size: var(--fs-xl); line-height: 1.18; letter-spacing: -0.01em; font-weight: 500; }
+h3 { font-size: var(--fs-h3); font-weight: 500; }
 h3 { letter-spacing: -0.01em; }
 small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weight: 400; }
 
@@ -224,7 +253,7 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
  * section heading and on the active destination, so the identity is one
  * gesture repeated rather than a badge in a corner.
  */
-.wordmark { display: inline-flex; align-items: center; gap: 9px; justify-self: start; min-height: 0; padding: 0; border: 0; background: none; color: var(--text); font-size: var(--fs-lg); font-weight: 640; letter-spacing: -.024em; text-decoration: none; }
+.wordmark { display: inline-flex; align-items: center; gap: 9px; justify-self: start; min-height: 0; padding: 0; border: 0; background: none; color: var(--text); font-family: var(--display); font-size: 21px; font-weight: 500; letter-spacing: -.004em; text-decoration: none; }
 .wordmark:hover { background: none; opacity: .74; }
 .wordmark::before { content: ""; width: 2px; height: 15px; border-radius: 1px; background: var(--accent); }
 /*
@@ -283,7 +312,7 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
  * 1320 — past that a financial table is not denser, only wider, and the eye
  * stops carrying a row across it.
  */
-.site-main { width: min(100% - 64px, 1240px); min-width: 0; flex: 1; margin: 0 auto; padding: var(--space-5) 0 var(--space-6); overflow-x: clip; }
+.site-main { width: min(100% - 64px, 1240px); min-width: 0; flex: 1; margin: 0 auto; padding: var(--space-6) 0 calc(var(--space-6) * 2); overflow-x: clip; }
 .site-footer { display: flex; justify-content: space-between; align-items: flex-start; min-height: 58px; padding: 18px 24px; border-top: 1px solid var(--border); color: var(--muted); font-size: var(--fs-sm); }
 .site-footer details { position: relative; }
 .site-footer summary { cursor: pointer; border-radius: var(--radius); }
@@ -351,9 +380,9 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
 .company-hero-actions { display: flex; gap: var(--space-2); }
 .company-hero-actions button { min-height: 34px; padding: 0 14px; font-size: var(--fs-sm); font-weight: 600; }
 .company-hero-actions .is-following { border-color: var(--accent); color: var(--accent); }
-.company-hero h1 { margin: var(--space-2) 0 0; }
+.company-hero h1 { margin: var(--space-3) 0 0; }
 .company-hero-identity { margin: 0; color: var(--muted); font-size: var(--fs-sm); font-weight: 500; letter-spacing: .01em; }
-.company-hero-figures { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-5); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border); }
+.company-hero-figures { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-6); margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border); }
 .hero-figure { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .hero-figure span { color: var(--muted); font-size: var(--fs-micro); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .hero-figure strong { font-size: var(--fs-xl); font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: -.012em; }
@@ -362,7 +391,7 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
 .hero-provenance strong { font-size: var(--fs-lg); font-weight: 600; }
 /* The price leads, and its move sits on its baseline rather than under it. */
 .hero-figure.lead { flex-direction: row; align-items: baseline; gap: var(--space-2); }
-.hero-figure.lead strong { font-size: var(--fs-display); font-weight: 660; letter-spacing: -.028em; }
+.hero-figure.lead strong { font-size: var(--fs-figure); font-weight: 660; letter-spacing: -.028em; }
 .hero-move { font-size: var(--fs-lg); font-weight: 620; font-style: normal; font-variant-numeric: tabular-nums; }
 .hero-move.positive { color: var(--accent); }
 .hero-move.negative { color: var(--danger); }
@@ -391,8 +420,8 @@ small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weigh
 .anchor-nav { position: sticky; z-index: 10; top: 54px; display: flex; gap: 16px; overflow-x: auto; margin-bottom: 30px; padding: 12px 0; border-bottom: 1px solid var(--border); background: var(--background); white-space: nowrap; }
 .anchor-nav a { color: var(--muted); font-size: var(--fs-sm); text-decoration: none; }
 .anchor-nav a:hover { color: var(--text); text-decoration: underline; }
-.plain-section { scroll-margin-top: 110px; margin: 0 0 42px; padding-top: 4px; }
-.plain-section + .plain-section { padding-top: 32px; border-top: 1px solid var(--border); }
+.plain-section { scroll-margin-top: 110px; margin: 0 0 var(--space-6); padding-top: 4px; }
+.plain-section + .plain-section { padding-top: var(--space-6); border-top: 1px solid var(--border); }
 
 .list-tools, .chart-controls, .comparison-options, .assumption-strip { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin-bottom: 18px; }
 .list-tools label, .chart-controls label, .comparison-options label, .assumption-strip label, .advanced-panel label { display: grid; gap: 4px; color: var(--muted); font-size: var(--fs-sm); }
@@ -801,13 +830,36 @@ tbody tr:last-child > * { border-bottom: 0; }
 :root[data-theme="light"] .theme-toggle::before { content: "☾"; }
 .header-company { display: inline-flex; align-items: center; }
 
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 14px; margin-bottom: 30px; }
-.kpi-card { display: flex; flex-direction: column; min-height: 0; padding: 0; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); overflow: hidden; text-align: left; font: inherit; color: inherit; }
-.kpi-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 13px 15px; border-bottom: 1px solid var(--card-border); }
-.kpi-card h3 { margin: 0; font-size: var(--fs-body); line-height: 1.2; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-5); }
+/*
+ * The first measure is the story; the rest are the evidence.
+ *
+ * Fifteen identically sized cards in an even grid is a page with no opinion —
+ * revenue and the depreciation schedule drawn at the same size, and a reader
+ * left to work out which one they came for. The first card runs the width of
+ * the page and is drawn nearly half again as tall, so the page opens on the
+ * one line that describes the business and the rest follow as detail.
+ */
+.kpi-grid > .kpi-card:first-child { grid-column: 1 / -1; }
+.kpi-grid > .kpi-card:first-child .kpi-canvas { height: 320px; padding: var(--space-3) var(--space-2) var(--space-1); }
+.kpi-grid > .kpi-card:first-child > header { padding: var(--space-4) var(--space-4) var(--space-3); }
+.kpi-grid > .kpi-card:first-child h3 { font-size: 26px; }
+.kpi-grid > .kpi-card:first-child .kpi-card-actions strong { font-size: 26px; font-weight: 600; }
+/*
+ * A figure on the page, not a figure in a box.
+ *
+ * Every measure on the overview sat in a bordered, shadowed card, so fifteen
+ * of them read as fifteen equally important widgets and the page looked like a
+ * dashboard someone assembled. The comment at the top of this file says rules
+ * instead of boxes; this is that, applied. A hairline and the space around it
+ * separate the cards, and the surface tint carries the grouping.
+ */
+.kpi-card { display: flex; flex-direction: column; min-height: 0; padding: 0; border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); overflow: hidden; text-align: left; font: inherit; color: inherit; }
+.kpi-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--card-border); }
+.kpi-card h3 { margin: 0; font-size: var(--fs-h3); line-height: 1.18; }
 .kpi-card header small { margin-top: 3px; font-size: var(--fs-micro); letter-spacing: .05em; text-transform: uppercase; }
 .kpi-card-actions { display: flex; align-items: center; gap: 8px; }
-.kpi-card-actions strong { font-size: var(--fs-body); font-variant-numeric: proportional-nums; white-space: nowrap; }
+.kpi-card-actions strong { font-size: var(--fs-lg); font-weight: 620; font-variant-numeric: proportional-nums; white-space: nowrap; }
 /*
  * The controls keep their width, and the sentence beside them gives way.
  *
@@ -1088,7 +1140,7 @@ tbody tr:last-child > * { border-bottom: 0; }
 .dcf-verdict { padding: var(--space-4); margin-bottom: var(--space-5); border: 1px solid var(--card-border); border-radius: var(--card-radius); background: var(--card); box-shadow: var(--shadow); }
 .dcf-verdict-head { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
 .dcf-verdict-head span { color: var(--muted); font-size: var(--fs-sm); }
-.dcf-verdict-head strong { display: block; margin: var(--space-1) 0 2px; font-size: var(--fs-display); font-variant-numeric: tabular-nums; letter-spacing: var(--track-display); line-height: 1.05; }
+.dcf-verdict-head strong { display: block; margin: var(--space-1) 0 2px; font-size: var(--fs-figure); font-variant-numeric: tabular-nums; letter-spacing: var(--track-display); line-height: 1.05; }
 .dcf-verdict-head small { color: var(--muted); font-size: var(--fs-xs); }
 .dcf-gap.positive strong { color: var(--accent); }
 .dcf-gap.negative strong { color: var(--danger); }
@@ -1126,9 +1178,9 @@ tbody tr:last-child > * { border-bottom: 0; }
 .search-lede h1 {
   margin: 0 0 12px;
   font-size: var(--fs-display);
-  font-weight: 640;
-  line-height: 1.08;
-  letter-spacing: var(--track-display);
+  font-weight: 500;
+  line-height: 1.04;
+  letter-spacing: -.014em;
   text-wrap: balance;
 }
 .search-lede p { max-width: 58ch; margin: 0; color: var(--muted); font-size: var(--fs-body); line-height: 1.55; }
@@ -1232,11 +1284,11 @@ tbody tr:last-child > * { border-bottom: 0; }
 .home-foot button:hover { text-decoration: underline; }
 
 /* --- Company: tabs and one overview block --------------------------------- */
-.company-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 20px 0 22px; border-bottom: 1px solid var(--border); }
-.company-tabs button { min-height: 38px; margin-bottom: -1px; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; border-radius: var(--radius) var(--radius) 0 0; background: none; color: var(--muted); font-size: var(--fs-base); font-weight: 600; }
+.company-tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: var(--space-5) 0 var(--space-4); border-bottom: 1px solid var(--border); }
+.company-tabs button { min-height: 44px; margin-bottom: -1px; padding: 0 16px; border: 0; border-bottom: 2px solid transparent; border-radius: var(--radius) var(--radius) 0 0; background: none; color: var(--muted); font-family: var(--display); font-size: 19px; font-weight: 500; letter-spacing: 0; }
 .company-tabs button:hover { background: var(--control); color: var(--text); }
 .company-tabs button.active { background: none; color: var(--text); border-bottom-color: var(--accent); }
-.company-block { display: flex; flex-direction: column; gap: 26px; }
+.company-block { display: flex; flex-direction: column; gap: var(--space-6); }
 .company-block > .plain-section { margin: 0; }
 
 /* Each KPI card carries its own trend badge and its own export. */
