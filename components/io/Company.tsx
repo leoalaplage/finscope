@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
+import { Growth } from "./Growth";
 import { Multiples } from "./Multiples";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
 import { Statements } from "./Statements";
@@ -238,6 +239,7 @@ export function Company({ ticker }: { ticker: string }) {
       />
       <Stats view={view} quote={quote} />
       <Multiples view={view} selected={selectedMetric} onSelect={selectMetric} range={range} frequency={frequency} />
+      <Growth view={view} />
       <Statements view={view} selected={selectedMetric} onSelect={selectMetric} />
 
       <footer className="foot">

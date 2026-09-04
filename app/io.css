@@ -173,7 +173,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 .bar-spacer { flex: 1; }
 
-.bar-nav { display: flex; gap: calc(var(--u) * 4); flex: none; }
+.bar-nav { display: flex; gap: calc(var(--u) * 4); flex: none; margin-inline-start: auto; }
 .bar-nav a {
   font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3);
   transition: color .12s ease;
@@ -230,6 +230,30 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .io .search input:focus,
 .io .search input:focus-visible { outline: none; box-shadow: none; }
 .search input::placeholder { color: var(--ink-3); }
+/*
+ * What the letters resolve to, while they are being typed.
+ *
+ * A menu that covers what is under it is a menu doing its job. Without it a
+ * reader typing a company's name cannot see which company they are about to
+ * open, and there is no second place on this page to put that.
+ */
+.results {
+  position: absolute; inset-inline: 0; top: calc(100% + 6px);
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 12px 40px -12px var(--shade), 0 2px 8px -4px var(--shade);
+  overflow: hidden; overflow-y: auto; max-height: 62vh; z-index: 50;
+}
+.result {
+  display: flex; align-items: baseline; gap: calc(var(--u) * 2);
+  width: 100%; padding: 7px 10px; text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.result:last-child { border-bottom: 0; }
+.result[data-active="true"] { background: var(--fill); }
+.result .sym { font-family: var(--mono); font-size: var(--fs-sm); font-weight: 600; min-width: 62px; }
+.result .nm { font-size: var(--fs-sm); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.results-note { padding: 9px 10px; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
+
 .search-key {
   font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-3);
   border: 1px solid var(--line); border-radius: 2px; padding: 1px 4px;
@@ -593,6 +617,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .chip button:hover { color: var(--ink); background: var(--fill); }
 
 .compare-chart-head { margin-bottom: calc(var(--u) * 3); }
+/* The scale is a property of the chart, so it sits against the chart's edge. */
+.compare-scale { display: flex; justify-content: flex-end; margin-bottom: var(--u); }
 
 /* Every line's figure at the cursor, because the reader is asking about all
    of them at once — which is the whole reason this page exists. */

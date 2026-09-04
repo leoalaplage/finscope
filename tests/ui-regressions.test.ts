@@ -280,8 +280,17 @@ describe("the redesign", () => {
     // Still a real document navigation where it navigates at all — the compare
     // page hands the symbol back instead, and passes no destination.
     expect(search).toContain("action={onPick ? undefined : destination}");
-    expect(search).not.toContain('role="listbox"');
-    expect(search).not.toContain('className="results"');
+    /*
+     * The suggestion panel is back, by request.
+     *
+     * It was removed once because it covered the watchlist on the landing page
+     * — which is what a menu does — and its absence is what let "apple" open a
+     * page called APPLE: a reader typing a name could not see which company
+     * they were about to open. Covering the grid is the lesser problem.
+     */
+    expect(search).toContain('role="listbox"');
+    expect(search).toContain('className="results"');
+    expect(search).toContain('aria-autocomplete="list"');
     expect(search).toContain('type="search"');
     expect(css).toContain(".io .search input:focus-visible { outline: none; box-shadow: none; }");
     expect(company).toContain('role="progressbar"');

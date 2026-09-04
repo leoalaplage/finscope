@@ -6,7 +6,8 @@ import { multipleOf } from "@/lib/market-basis";
 import { MultiLine, type Series } from "./Plot";
 import { Search } from "./Search";
 import { COMPARE_RANGES, fundamentalWindow, withinYears, type Range } from "./ranges";
-import { ABSENT, datedCagrOf, delta, formatUnit, money, percent, price as writePrice, ratio, shortDate, type Unit } from "./format";
+import { growthOver } from "./Growth";
+import { ABSENT, delta, formatUnit, money, percent, price as writePrice, ratio, shortDate, type Unit } from "./format";
 import type { IoQuote } from "./quote";
 
 /**
@@ -169,19 +170,19 @@ export function Compare({ initial }: { initial: string[] }) {
             <button type="button" aria-pressed={mode === "table"} onClick={() => setMode("table")}>Table</button>
             <button type="button" aria-pressed={mode === "chart"} onClick={() => setMode("chart")}>Chart</button>
           </div>
-          {mode === "chart" ? (
-            <div className="seg">
-              {COMPARE_RANGES.map((entry) => (
-                <button key={entry} type="button" aria-pressed={range === entry} onClick={() => setRange(entry)}>{entry}</button>
-              ))}
-            </div>
-          ) : null}
+          {/* One range for the page: it draws the chart and it is the window
+              the table's growth block compounds over. */}
+          <div className="seg">
+            {COMPARE_RANGES.map((entry) => (
+              <button key={entry} type="button" aria-pressed={range === entry} onClick={() => setRange(entry)}>{entry}</button>
+            ))}
+          </div>
         </div>
 
         {!ready.length ? (
           <p className="state"><span className="pulse" />Loading</p>
         ) : mode === "table" ? (
-          <CompareTable columns={columns} />
+          <CompareTable columns={columns} range={range} />
         ) : (
           <CompareChart
             columns={ready}
@@ -200,7 +201,8 @@ export function Compare({ initial }: { initial: string[] }) {
 }
 
 /** The latest trailing figure at each company, one measure per row. */
-function CompareTable({ columns }: { columns: Loaded[] }) {
+function CompareTable({ columns, range }: { columns: Loaded[]; range: Range }) {
+  const years = fundamentalWindow(range).years;
   return (
     <div className="sheet">
       <table>
@@ -233,18 +235,15 @@ function CompareTable({ columns }: { columns: Loaded[] }) {
             </tr>
           ))}
           <tr className="group rule">
-            <th className="key" scope="colgroup" colSpan={columns.length + 1}><span className="label">Five-year compound growth</span></th>
+            <th className="key" scope="colgroup" colSpan={columns.length + 1}>
+              <span className="label">Growth · {range} · compound, or points moved for a rate</span>
+            </th>
           </tr>
-          {ROWS.filter((row) => row.cagr).map((row) => (
-            <tr key={`cagr-${row.key}`}>
+          {ROWS.map((row) => (
+            <tr key={`growth-${row.key}`}>
               <th className="key" scope="row">{row.label}</th>
               {columns.map((column) => {
-                const annual = column.view ? withinYears(column.view.annual, 5) : [];
-                const points = annual.flatMap((period) => {
-                  const value = period.values[row.key];
-                  return value == null ? [] : [{ date: period.end, value }];
-                });
-                const rate = datedCagrOf(points);
+                const rate = column.view ? growthOver(column.view.annual, row.key, row.unit, years) : null;
                 return <td key={column.ticker} data-empty={rate == null}>{rate == null ? ABSENT : delta(rate, 1)}</td>;
               })}
             </tr>
@@ -322,11 +321,18 @@ function CompareChart({
   hover: number | null;
   onHover: (index: number | null) => void;
 }) {
-  // Only measures every company on screen actually carries: a row of dashes
-  // for one of them would make the chart say something the data does not.
+  /*
+   * Every measure the table shows, wherever at least one company carries it.
+   *
+   * It used to offer only what all of them carried, which quietly dropped half
+   * the list the moment a bank or a company with no reported debt joined the
+   * comparison — and the two lists then disagreed about what could be compared.
+   * A company that does not report a measure is drawn as no line at all, which
+   * is the same absence the table states as an em dash.
+   */
   const offered = useMemo(() => {
-    const shared = columns.map((column) => new Set(column.view.metrics.map((metric) => metric.key)));
-    return ROWS.filter((row) => shared.every((keys) => keys.has(row.key)));
+    const carried = new Set(columns.flatMap((column) => column.view.metrics.map((metric) => metric.key)));
+    return ROWS.filter((row) => carried.has(row.key));
   }, [columns]);
 
   const metric = offered.find((row) => row.key === metricKey) ?? offered[0] ?? null;
@@ -392,11 +398,7 @@ function CompareChart({
       <div className="readout">
         <span className="v">{metric.label}</span>
         <span className="d">{at ? shortDate(at.date) : `${window.frequency === "annual" ? "Yearly" : "TTM"} · ${range}`}</span>
-        {metric.unit !== "percent" ? (
-          <button className="metric-toggle" type="button" onClick={() => onAbsolute(!absolute)}>
-            {indexed ? "Indexed to 100 · log" : "Absolute"}
-          </button>
-        ) : null}
+
       </div>
       {/*
         * What each line is worth where the pointer is.
@@ -419,6 +421,13 @@ function CompareChart({
           );
         })}
       </div>
+      {metric.unit !== "percent" ? (
+        <div className="compare-scale">
+          <button className="metric-toggle" type="button" onClick={() => onAbsolute(!absolute)}>
+            {indexed ? "Indexed to 100 · log" : "Absolute"}
+          </button>
+        </div>
+      ) : null}
       {series.length ? (
         <div className="price-frame compare-frame">
           <MultiLine series={series} scale={indexed ? "log" : "linear"} onHover={onHover} />
