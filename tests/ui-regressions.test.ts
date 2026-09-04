@@ -325,6 +325,21 @@ describe("the redesign", () => {
     expect(io).toContain("text-align: left; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2);");
   });
 
+  it("puts every destination in the bar, where a reader can find it", () => {
+    /*
+     * The bug this exists for. Compare and the screener were built, deployed
+     * and reachable by URL, and nothing on the site linked to either: an edit
+     * to the bar had silently matched nothing, and the pages existed for
+     * anybody who already knew they existed.
+     */
+    const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
+    expect(shell).toContain('href="/compare"');
+    expect(shell).toContain('href="/screener"');
+    // Document navigation, like every other link here: it works with or
+    // without hydration and every destination is prerendered.
+    expect(shell).not.toContain('from "next/link"');
+  });
+
   it("lands on a search box and the watchlist, not a table of nineteen columns", () => {
     const home = readFileSync(new URL("../components/HomePage.tsx", import.meta.url), "utf8");
     expect(home).toContain("company-cards");

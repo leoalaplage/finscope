@@ -360,9 +360,23 @@ function CompareChart({
     }).filter((entry) => entry.points.length > 1);
   }, [columns, metric, window.frequency, window.years, indexed]);
 
+  /*
+   * The band the lines occupy, written out.
+   *
+   * An indexed chart is drawn on a logarithmic axis, and an axis nobody can see
+   * is an axis nobody can check. Two figures at the ends of the plot say what
+   * the shape is worth, and the caption says the scale it is on — which is the
+   * least this site can do while still refusing a tick ladder.
+   */
+  const bounds = useMemo(() => {
+    const values = series.flatMap((entry) => entry.points.map((point) => point.value));
+    return values.length ? { high: Math.max(...values), low: Math.min(...values) } : null;
+  }, [series]);
+
   if (!metric) return <p className="state"><span className="faint num">No measure is carried by all of these companies.</span></p>;
 
   const at = hover == null ? null : series[0]?.points[hover] ?? null;
+  const write = (value: number) => (indexed ? value.toFixed(0) : formatUnit(value, metric.unit, null));
 
   return (
     <>
@@ -380,13 +394,19 @@ function CompareChart({
         <span className="d">{at ? shortDate(at.date) : `${window.frequency === "annual" ? "Yearly" : "TTM"} · ${range}`}</span>
         {metric.unit !== "percent" ? (
           <button className="metric-toggle" type="button" onClick={() => onAbsolute(!absolute)}>
-            {indexed ? "Indexed to 100" : "Absolute"}
+            {indexed ? "Indexed to 100 · log" : "Absolute"}
           </button>
         ) : null}
       </div>
       {series.length ? (
         <div className="price-frame compare-frame">
-          <MultiLine series={series} onHover={onHover} />
+          <MultiLine series={series} scale={indexed ? "log" : "linear"} onHover={onHover} />
+          {bounds ? (
+            <div className="plot-axis">
+              <span className="plot-tag plot-tag-left" style={{ top: 0 }}>{write(bounds.high)}</span>
+              <span className="plot-tag plot-tag-left" style={{ bottom: 0 }}>{write(bounds.low)}</span>
+            </div>
+          ) : null}
         </div>
       ) : (
         <p className="price-chart plot-empty num faint">Not enough history for this measure.</p>

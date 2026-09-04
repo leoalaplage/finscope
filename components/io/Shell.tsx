@@ -73,6 +73,15 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
       <header className="bar">
         <div className="wrap bar-inner">
           <a href="/" className="mark">FinScope<span className="dim">.io</span></a>
+          {/*
+            * Plain anchors, like the wordmark beside them and the company links
+            * everywhere else on this site: a document navigation works with or
+            * without hydration, and every destination here is prerendered.
+            */}
+          <nav className="bar-nav">
+            <a href="/compare">Compare</a>
+            <a href="/screener">Screener</a>
+          </nav>
           {search ? <Search /> : <span className="bar-spacer" />}
           <ThemeSwitch />
         </div>

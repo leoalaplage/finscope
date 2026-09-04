@@ -552,6 +552,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .price-frame { position: relative; margin-bottom: 22px; }
 .plot-tag { background: var(--bg); padding-inline: 3px; }
 .plot-tag-under { bottom: -19px; }
+.plot-tag-left { left: 0; }
 .plot-empty { display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm); margin-bottom: 22px; }
 
 /* A section caption inside the sheet spans every column, so it needs neither

@@ -219,19 +219,33 @@ export interface Series { label: string; points: PricePoint[] }
  */
 export function MultiLine({
   series,
+  scale = "linear",
   onHover,
 }: {
   series: Series[];
+  /**
+   * Logarithmic wherever the lines have been rebased.
+   *
+   * Indexing puts every company at 100 and then lets them run: NVIDIA reaches
+   * 2,500 while its neighbours sit near 150, and on a linear axis the other
+   * lines are flat against the floor. A log scale is the standard answer
+   * because it makes equal *rates* equal slopes, which is exactly the
+   * comparison an indexed chart is for — doubling looks the same wherever it
+   * starts. A value at or below zero cannot sit on such an axis and is drawn
+   * as a gap, the same way any missing figure is.
+   */
+  scale?: "linear" | "log";
   onHover: (index: number | null) => void;
 }) {
   const frame = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<number | null>(null);
 
-  const length = Math.max(...series.map((entry) => entry.points.length), 0);
-  const extent = useMemo(
-    () => extentOf(series.flatMap((entry) => entry.points.map((point) => point.value)), false),
-    [series],
+  const placed = useMemo(
+    () => series.map((entry) => entry.points.map((point) => (scale === "log" ? (point.value > 0 ? Math.log10(point.value) : null) : point.value))),
+    [series, scale],
   );
+  const length = Math.max(...series.map((entry) => entry.points.length), 0);
+  const extent = useMemo(() => extentOf(placed.flat(), false), [placed]);
 
   const move = (event: ReactPointerEvent<HTMLDivElement>) => {
     const box = frame.current?.getBoundingClientRect();
@@ -253,7 +267,7 @@ export function MultiLine({
           <path
             key={entry.label}
             className={`plot-line plot-stroke-${index % 5}`}
-            d={segments(entry.points.map((point) => point.value), extent)}
+            d={segments(placed[index], extent)}
             vectorEffect="non-scaling-stroke"
           />
         ))}
@@ -263,13 +277,13 @@ export function MultiLine({
       </svg>
       <div className="plot-axis">
         {series.map((entry, index) => {
-          const last = entry.points.at(-1);
-          if (!last) return null;
+          const last = placed[index].at(-1);
+          if (last == null) return null;
           return (
             <span
               key={entry.label}
               className="plot-name"
-              style={{ top: `${((extent.max - last.value) / (extent.max - extent.min)) * 100}%` }}
+              style={{ top: `${((extent.max - last) / (extent.max - extent.min)) * 100}%` }}
             >
               <span className={`plot-swatch plot-stroke-${index % 5}`} />
               {entry.label}
