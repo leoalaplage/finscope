@@ -296,6 +296,7 @@ describe("the redesign", () => {
     const price = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
     expect(company).toContain("metricKey={selectedMetric}");
     expect(company).toContain("onSelect={selectMetric}");
+    expect(company).toContain("?view=iov2");
     expect(multiples).toContain("view.trailing");
     expect(multiples).toContain("Show first 8");
     expect(multiples).toContain("Show all ${panels.length}");
