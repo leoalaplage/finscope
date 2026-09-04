@@ -1,0 +1,406 @@
+/*
+ * FinScope.io — one ink, no ornament.
+ *
+ * The research workspace is a document you can check; this is the instrument
+ * you reach for first. It states a company in one screen and gets out of the
+ * way, which means three rules held without exception.
+ *
+ * One ink. No hue carries meaning anywhere on the site: a rise and a fall are
+ * told apart by their written sign, a score by its number. Colour would be the
+ * fastest thing on the page and it would be saying something the figures
+ * already say, less precisely.
+ *
+ * Nothing is explained that the label already says. There is no helper text, no
+ * tooltip prose, no paragraph under a chart. A reader who wants the definition
+ * of free cash flow is not the reader this page is drawn for.
+ *
+ * Rules, not boxes. Space separates; a hairline separates where space cannot.
+ * Nothing is boxed unless the box is doing work no amount of space could.
+ */
+
+.io {
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text",
+          "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  /* Every figure on this site is monospaced, so a column never shifts under
+     its own update and two rows of digits line up without a table doing it. */
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Cascadia Mono", Consolas, monospace;
+
+  --fs-micro: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+  --fs-xl: 19px;
+  --fs-hero: clamp(30px, 5.2vw, 42px);
+
+  --track-label: .09em;
+  --track-hero: -.03em;
+
+  --u: 4px;
+  --gutter: clamp(16px, 4vw, 32px);
+  --page: 1160px;
+
+  --radius: 3px;
+
+  /* --- Light ------------------------------------------------------------ */
+  --bg: #ffffff;
+  --raise: #fafafa;
+  --fill: #f2f2f3;
+  --line: #ececed;
+  --line-strong: #d6d6d8;
+  --ink: #08080a;
+  --ink-2: #6a6a71;
+  --ink-3: #9d9da4;
+  --inverse: #ffffff;
+  --plot: rgba(8, 8, 10, .82);
+  --plot-soft: rgba(8, 8, 10, .07);
+  --shade: rgba(8, 8, 10, .05);
+
+  color-scheme: light;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100dvh;
+}
+
+/*
+ * Dark, twice: once for the reader who has chosen it and once for the reader
+ * whose system has. Every token above is defined on the bare selector first, so
+ * neither block is ever the only place a colour exists.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .io {
+    --bg: #000000;
+    --raise: #0a0a0b;
+    --fill: #151517;
+    --line: #1c1c1f;
+    --line-strong: #33333a;
+    --ink: #fafafa;
+    --ink-2: #8b8b93;
+    --ink-3: #5c5c64;
+    --inverse: #000000;
+    --plot: rgba(250, 250, 250, .88);
+    --plot-soft: rgba(250, 250, 250, .09);
+    --shade: rgba(250, 250, 250, .06);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] .io {
+  --bg: #000000;
+  --raise: #0a0a0b;
+  --fill: #151517;
+  --line: #1c1c1f;
+  --line-strong: #33333a;
+  --ink: #fafafa;
+  --ink-2: #8b8b93;
+  --ink-3: #5c5c64;
+  --inverse: #000000;
+  --plot: rgba(250, 250, 250, .88);
+  --plot-soft: rgba(250, 250, 250, .09);
+  --shade: rgba(250, 250, 250, .06);
+  color-scheme: dark;
+}
+
+/* The page behind the page: overscroll must not reveal another theme. */
+body:has(.io) { margin: 0; background: var(--bg, #fff); }
+:root:has(.io) { background: #fff; }
+:root[data-theme="dark"]:has(.io) { background: #000; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):has(.io) { background: #000; }
+}
+
+.io *, .io *::before, .io *::after { box-sizing: border-box; }
+.io h1, .io h2, .io h3, .io p, .io figure { margin: 0; }
+.io button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.io a { color: inherit; text-decoration: none; }
+.io :focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; border-radius: 2px; }
+.io ::selection { background: var(--ink); color: var(--inverse); }
+.io { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+
+/* --- The two voices ------------------------------------------------------ */
+
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+
+.label {
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+.muted { color: var(--ink-2); }
+.faint { color: var(--ink-3); }
+
+/* --- Frame --------------------------------------------------------------- */
+
+.wrap { max-width: var(--page); margin: 0 auto; padding-inline: var(--gutter); }
+
+.bar {
+  position: sticky; top: 0; z-index: 40;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.bar-inner { display: flex; align-items: center; gap: calc(var(--u) * 4); height: 52px; }
+
+.mark {
+  flex: none;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+.mark .dim { color: var(--ink-3); font-weight: 500; }
+
+.bar-spacer { flex: 1; }
+
+.ghost {
+  flex: none;
+  font-family: var(--mono); font-size: var(--fs-xs);
+  color: var(--ink-2);
+  padding: 5px 8px; border-radius: var(--radius);
+  transition: color .12s ease, background .12s ease;
+}
+.ghost:hover { color: var(--ink); background: var(--fill); }
+
+/* --- Search -------------------------------------------------------------- */
+
+.search { position: relative; flex: 1 1 auto; min-width: 0; max-width: 420px; }
+.search-field {
+  display: flex; align-items: center; gap: var(--u);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--raise);
+  padding: 0 8px; height: 30px;
+  transition: border-color .12s ease;
+}
+.search:focus-within .search-field { border-color: var(--line-strong); }
+.search input {
+  flex: 1; min-width: 0; height: 100%;
+  border: 0; background: none; outline: none; color: inherit;
+  font-family: var(--mono); font-size: var(--fs-sm);
+}
+.search input::placeholder { color: var(--ink-3); }
+.search-key {
+  font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-3);
+  border: 1px solid var(--line); border-radius: 2px; padding: 1px 4px;
+}
+
+.results {
+  position: absolute; inset-inline: 0; top: calc(100% + 6px);
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 12px 40px -12px var(--shade), 0 2px 8px -4px var(--shade);
+  overflow: hidden; z-index: 50;
+  max-height: 62vh; overflow-y: auto;
+}
+.result {
+  display: flex; align-items: baseline; gap: calc(var(--u) * 2);
+  width: 100%; padding: 7px 10px; text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.result:last-child { border-bottom: 0; }
+.result[data-active="true"] { background: var(--fill); }
+.result .sym { font-family: var(--mono); font-size: var(--fs-sm); font-weight: 600; min-width: 62px; }
+.result .nm { font-size: var(--fs-sm); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.results-note { padding: 9px 10px; font-size: var(--fs-sm); color: var(--ink-3); }
+
+/* --- Home ---------------------------------------------------------------- */
+
+.home { display: flex; flex-direction: column; justify-content: center; min-height: calc(100dvh - 52px); padding-block: calc(var(--u) * 14); }
+.home-title {
+  font-family: var(--mono); font-size: var(--fs-hero); font-weight: 600;
+  letter-spacing: var(--track-hero); line-height: 1.02;
+}
+.home-title .dim { color: var(--ink-3); }
+.home-sub { margin-top: calc(var(--u) * 2); font-size: var(--fs-lg); color: var(--ink-2); max-width: 46ch; }
+.home-search { margin-top: calc(var(--u) * 8); max-width: 560px; }
+.home-search .search { max-width: none; }
+.home-search .search-field { height: 46px; padding-inline: 12px; }
+.home-search .search input { font-size: var(--fs-lg); }
+
+.quick { margin-top: calc(var(--u) * 9); }
+/*
+ * Hairlines drawn by the cells, not by the container behind them.
+ *
+ * A one-pixel gap over a ruled background is the usual trick and it breaks on
+ * the last row: the cells that were never filled show as solid blocks of rule
+ * colour, which reads as data. Each cell drawing its own ring into the gap
+ * instead means an empty cell draws nothing at all.
+ */
+.grid-ruled { display: grid; gap: 1px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.grid-ruled > * { outline: 1px solid var(--line); background: var(--bg); }
+
+.quick-grid { margin-top: calc(var(--u) * 3); grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); }
+.quick-grid a {
+  padding: 10px 11px; min-width: 0;
+  font-family: var(--mono); font-size: var(--fs-sm); font-weight: 600;
+  transition: background .12s ease;
+}
+.quick-grid a:hover { background: var(--fill); }
+.quick-grid a span {
+  display: block; margin-top: 3px;
+  font-size: var(--fs-micro); font-weight: 400; color: var(--ink-3);
+  text-transform: uppercase; letter-spacing: var(--track-label);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* --- Company head -------------------------------------------------------- */
+
+.head { padding-block: calc(var(--u) * 8) calc(var(--u) * 6); }
+.head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: calc(var(--u) * 6); flex-wrap: wrap; }
+.head-id { display: flex; align-items: baseline; gap: calc(var(--u) * 3); flex-wrap: wrap; }
+.head-ticker { font-family: var(--mono); font-size: var(--fs-xl); font-weight: 700; letter-spacing: -.02em; }
+.head-name { font-size: var(--fs-lg); color: var(--ink-2); }
+.head-meta { margin-top: var(--u); display: flex; gap: calc(var(--u) * 3); flex-wrap: wrap; }
+
+.price-block { text-align: right; }
+.price { font-family: var(--mono); font-size: 28px; font-weight: 600; letter-spacing: -.025em; line-height: 1.1; }
+.price-change { font-family: var(--mono); font-size: var(--fs-md); color: var(--ink-2); margin-top: 2px; }
+.price-change[data-dir="up"]::before { content: "▲ "; font-size: 8px; vertical-align: 2px; }
+.price-change[data-dir="down"]::before { content: "▼ "; font-size: 8px; vertical-align: 2px; }
+
+/* --- Sections ------------------------------------------------------------ */
+
+.section { padding-block: calc(var(--u) * 7); border-top: 1px solid var(--line); }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: calc(var(--u) * 4); margin-bottom: calc(var(--u) * 4); min-height: 24px; }
+
+.seg { display: inline-flex; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.seg button {
+  background: var(--bg); padding: 4px 9px;
+  font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3);
+  transition: color .12s ease, background .12s ease;
+}
+.seg button:hover { color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--inverse); }
+
+/* --- Statistics strip ---------------------------------------------------- */
+
+/*
+ * Column counts that divide the number of cells, rather than `auto-fit`.
+ *
+ * `auto-fit` fits as many as the width allows, which for eight cells means five
+ * and then three — and the three empty slots left on the second row read as
+ * missing figures rather than as the end of the list.
+ */
+.stats { grid-template-columns: repeat(8, minmax(0, 1fr)); border-inline: 0; border-radius: 0; }
+.stat { padding: 11px 12px 12px; min-width: 0; }
+.stat .label, .stat-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-value { font-family: var(--mono); font-size: var(--fs-lg); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.stat-value[data-empty="true"] { color: var(--ink-3); }
+.stat-note { font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-3); margin-top: 2px; }
+
+/* --- Charts -------------------------------------------------------------- */
+
+.plot { position: relative; width: 100%; }
+.plot svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.plot-line { fill: none; stroke: var(--plot); stroke-width: 1.25; stroke-linejoin: round; stroke-linecap: round; }
+.plot-area { fill: var(--plot-soft); stroke: none; }
+.plot-base { stroke: var(--line-strong); stroke-width: 1; }
+.plot-bar { fill: var(--plot); }
+.plot-bar-neg { fill: none; stroke: var(--plot); stroke-width: 1; }
+.plot-cursor { stroke: var(--line-strong); stroke-width: 1; }
+.plot-dot { fill: var(--bg); stroke: var(--ink); stroke-width: 1.5; }
+
+.plot-axis { position: absolute; inset: 0; pointer-events: none; }
+.plot-tag { position: absolute; font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-3); white-space: nowrap; }
+
+.price-chart { height: clamp(200px, 30vw, 300px); }
+.readout { display: flex; align-items: baseline; gap: calc(var(--u) * 3); min-height: 20px; margin-bottom: calc(var(--u) * 2); }
+.readout .v { font-family: var(--mono); font-size: var(--fs-md); }
+.readout .d { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
+
+/* --- Small multiples ----------------------------------------------------- */
+
+.multiples { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.multiple { padding: 13px 14px 10px; min-width: 0; }
+.multiple-top { display: flex; align-items: baseline; justify-content: space-between; gap: calc(var(--u) * 2); }
+.multiple-top figcaption { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.multiple-cagr { white-space: nowrap; }
+.multiple-value { font-family: var(--mono); font-size: var(--fs-lg); margin-top: 4px; white-space: nowrap; }
+.multiple-value[data-empty="true"] { color: var(--ink-3); }
+.multiple-cagr { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); }
+.multiple .plot { height: 46px; margin-top: 10px; }
+.multiple-span { display: flex; justify-content: space-between; margin-top: 5px; }
+
+/* --- Statement table ----------------------------------------------------- */
+
+.sheet { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+.sheet table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.sheet th, .sheet td { text-align: right; padding: 6px 12px; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-xs); }
+.sheet thead th { position: sticky; top: 0; z-index: 2; background: var(--bg); color: var(--ink-3); font-weight: 500; border-bottom: 1px solid var(--line-strong); padding-block: 8px; }
+.sheet th.key, .sheet td.key {
+  position: sticky; left: 0; z-index: 1; background: var(--bg);
+  text-align: left; font-family: var(--sans); font-size: var(--fs-sm); color: var(--ink-2);
+  min-width: 220px; border-right: 1px solid var(--line);
+}
+.sheet thead th.key { z-index: 3; }
+.sheet tbody tr:hover td { background: var(--raise); }
+.sheet tbody tr:hover td.key { background: var(--raise); }
+.sheet td[data-empty="true"] { color: var(--ink-3); }
+.sheet tr.group td { padding-top: 16px; }
+.sheet tr.group th { padding-top: 16px; }
+.sheet .rule td, .sheet .rule th { border-top: 1px solid var(--line); }
+
+/* --- States -------------------------------------------------------------- */
+
+.state { padding-block: calc(var(--u) * 20); text-align: center; }
+.state p { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-3); }
+.state .lead { font-size: var(--fs-lg); color: var(--ink); margin-bottom: var(--u); }
+
+.pulse { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-3); animation: io-pulse 1.4s ease-in-out infinite; margin-right: 7px; vertical-align: 1px; }
+@keyframes io-pulse { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+
+.skeleton { background: var(--fill); border-radius: 2px; animation: io-fade 1.5s ease-in-out infinite; }
+@keyframes io-fade { 0%, 100% { opacity: .5; } 50% { opacity: .95; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
+/* --- Foot ---------------------------------------------------------------- */
+
+.foot { border-top: 1px solid var(--line); padding-block: calc(var(--u) * 6) calc(var(--u) * 10); display: flex; gap: calc(var(--u) * 5); flex-wrap: wrap; }
+.foot a { color: var(--ink-2); }
+.foot a:hover { color: var(--ink); }
+
+@media (max-width: 1080px) {
+  .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .multiples { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .multiples { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .bar-inner { gap: calc(var(--u) * 2); }
+  .mark .dim { display: none; }
+  .search-key { display: none; }
+  /* A sector clipped to "COMMUNICATIO…" is worse than no sector at all. */
+  .quick-grid a span { display: none; }
+  .quick-grid { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
+  .home { justify-content: flex-start; min-height: 0; padding-block: calc(var(--u) * 10) calc(var(--u) * 12); }
+  .head-row { flex-direction: column; }
+  .price-block { text-align: left; }
+  .sheet th.key, .sheet td.key { min-width: 160px; }
+}
+
+/* --- Price frame --------------------------------------------------------- */
+
+.price-frame { position: relative; margin-bottom: 22px; }
+.plot-tag { background: var(--bg); padding-inline: 3px; }
+.plot-tag-under { bottom: -19px; }
+.plot-empty { display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm); margin-bottom: 22px; }
+
+/* A section caption inside the sheet spans every column, so it needs neither
+   the key column's rule nor its minimum width. */
+.sheet tr.group th.key { border-right: 0; min-width: 0; }

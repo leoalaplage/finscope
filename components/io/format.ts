@@ -1,0 +1,140 @@
+/**
+ * How a figure is written on this site, and nowhere else is it decided.
+ *
+ * Two rules run through all of it. A number that is not known is written as an
+ * em dash, never as a zero — the whole point of the engine underneath is that
+ * it refuses to infer, and a page that prints 0 for "the filer does not tag
+ * this" throws that away at the last step. And a negative carries a real minus
+ * sign rather than a hyphen, because the two are different widths and a column
+ * of figures set in a monospaced face is the one place that shows.
+ */
+
+export const ABSENT = "—";
+
+const SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", GBP: "£", JPY: "¥", CHF: "CHF\u202f", CAD: "CA$", AUD: "A$" };
+
+export function currencySymbol(currency: string | null | undefined) {
+  if (!currency) return "";
+  return SYMBOLS[currency] ?? `${currency}\u202f`;
+}
+
+const MINUS = "−";
+
+function signed(text: string, negative: boolean) {
+  return negative ? `${MINUS}${text}` : text;
+}
+
+/**
+ * Three significant figures, scaled to the largest unit that fits.
+ *
+ * A balance sheet spans nine orders of magnitude — a share count in the
+ * billions beside a dividend per share of a dollar and change — and writing
+ * every one of them out in full makes a table a reader has to count digits in.
+ */
+export function compact(value: number | null | undefined, decimals = 1): string {
+  if (value == null || !Number.isFinite(value)) return ABSENT;
+  const size = Math.abs(value);
+  if (size === 0) return "0";
+  const units: Array<[number, string]> = [[1e12, "T"], [1e9, "B"], [1e6, "M"], [1e3, "K"]];
+  for (const [scale, suffix] of units) {
+    if (size >= scale) {
+      const scaled = size / scale;
+      const places = scaled >= 100 ? 0 : scaled >= 10 ? decimals : decimals + 1;
+      return signed(`${scaled.toFixed(places)}${suffix}`, value < 0);
+    }
+  }
+  return signed(size >= 10 ? size.toFixed(0) : size.toFixed(2), value < 0);
+}
+
+export function money(value: number | null | undefined, currency: string | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return ABSENT;
+  const body = compact(value);
+  return body.startsWith(MINUS)
+    ? `${MINUS}${currencySymbol(currency)}${body.slice(1)}`
+    : `${currencySymbol(currency)}${body}`;
+}
+
+export function price(value: number | null | undefined, currency: string | null | undefined, places = 2): string {
+  if (value == null || !Number.isFinite(value)) return ABSENT;
+  const body = Math.abs(value).toLocaleString("en-US", { minimumFractionDigits: places, maximumFractionDigits: places });
+  return signed(`${currencySymbol(currency)}${body}`, value < 0);
+}
+
+/** Decimal fractions in, percent out — the engine never stores a percentage. */
+export function percent(value: number | null | undefined, places = 1): string {
+  if (value == null || !Number.isFinite(value)) return ABSENT;
+  return signed(`${(Math.abs(value) * 100).toFixed(places)}%`, value < 0);
+}
+
+export function delta(value: number | null | undefined, places = 2): string {
+  if (value == null || !Number.isFinite(value)) return ABSENT;
+  const body = `${(Math.abs(value) * 100).toFixed(places)}%`;
+  return value < 0 ? `${MINUS}${body}` : `+${body}`;
+}
+
+export function ratio(value: number | null | undefined, places = 1): string {
+  if (value == null || !Number.isFinite(value)) return ABSENT;
+  return signed(`${Math.abs(value).toFixed(places)}×`, value < 0);
+}
+
+export function count(value: number | null | undefined): string {
+  return compact(value);
+}
+
+export type Unit = "currency" | "shares" | "percent" | "perShare" | "ratio";
+
+export function formatUnit(value: number | null | undefined, unit: Unit, currency: string | null | undefined): string {
+  switch (unit) {
+    case "currency": return money(value, currency);
+    case "perShare": return price(value, currency);
+    case "percent": return percent(value);
+    case "ratio": return ratio(value, 2);
+    case "shares": return count(value);
+  }
+}
+
+/** Direction, as the sign it is. No hue on this site carries it. */
+export function direction(value: number | null | undefined): "up" | "down" | "flat" {
+  if (value == null || !Number.isFinite(value) || value === 0) return "flat";
+  return value > 0 ? "up" : "down";
+}
+
+/**
+ * Compound annual growth between the ends of a series.
+ *
+ * Refused where a sign change would make it meaningless: a company that went
+ * from a loss to a profit has no growth rate, it has a turnaround, and writing
+ * one is a claim the arithmetic cannot support.
+ */
+export function cagrOf(values: Array<number | null>, years: number): number | null {
+  const known = values.map((value, index) => [index, value] as const).filter(([, value]) => value != null && Number.isFinite(value));
+  if (known.length < 2) return null;
+  const [endIndex, endValue] = known[known.length - 1] as [number, number];
+  const target = known.find(([index]) => index >= endIndex - years);
+  if (!target) return null;
+  const [startIndex, startValue] = target as [number, number];
+  const span = endIndex - startIndex;
+  if (span < 1 || startValue <= 0 || endValue <= 0) return null;
+  return (endValue / startValue) ** (1 / span) - 1;
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export function shortDate(iso: string | null | undefined): string {
+  if (!iso) return ABSENT;
+  const [year, month, day] = iso.slice(0, 10).split("-");
+  const index = Number(month) - 1;
+  if (!MONTHS[index]) return iso;
+  return `${day} ${MONTHS[index]} ${year}`;
+}
+
+export function yearOf(iso: string): string {
+  return iso.slice(0, 4);
+}
+
+/** Where the filing this figure came from can be read in full. */
+export function edgarUrl(cik: string, accession: string): string | null {
+  const digits = accession.replace(/\D/g, "");
+  if (!cik || digits.length !== 18) return null;
+  return `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${digits}/`;
+}

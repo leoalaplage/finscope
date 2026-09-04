@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import "./globals.css";
 
 /**
  * The canonical origin, as a constant.
@@ -14,18 +13,35 @@ import "./globals.css";
  */
 const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://finscope-financial-research.leoalaplage.workers.dev";
 
+const TITLE = "FinScope.io — Every US filer. Every filed figure.";
+const DESCRIPTION = "Filed financials, market prices and valuation for any US-listed company, read from SEC XBRL.";
+
+/**
+ * No stylesheet is imported here.
+ *
+ * A root layout's CSS is every route's CSS, and the two halves of this
+ * application do not share a design: the research workspace carries eighteen
+ * hundred lines of it and FinScope.io carries a few hundred that contradict
+ * them. Each imports its own, so a reader who opens a company page downloads
+ * and parses none of the workspace's.
+ */
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
-  title: "FinScope — Simple, auditable financial research",
-  description: "Research companies, compare financial metrics and build a traceable DCF in one focused workspace.",
+  title: TITLE,
+  description: DESCRIPTION,
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
   openGraph: {
-    title: "FinScope — Auditable financial research",
-    description: "Simple financial research you can trace.",
+    title: TITLE,
+    description: DESCRIPTION,
     type: "website",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "FinScope — Financials you can trace." }],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: TITLE }],
   },
-  twitter: { card: "summary_large_image", title: "FinScope", description: "Simple financial research you can trace.", images: ["/og.png"] },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/og.png"],
+  },
 };
 
 /**
@@ -69,25 +85,6 @@ export default function RootLayout({
      */
     <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
-        {/*
-          * The one typeface this interface owns.
-          *
-          * Everything here was set in the platform's own UI face, which is
-          * what makes a page look assembled rather than designed: SF Pro on a
-          * Mac is the font of every menu bar and every settings panel, and an
-          * application set entirely in it has the visual authority of a
-          * settings panel. Newsreader carries the headings and the company
-          * names — an editorial serif, drawn for screens, which is the voice a
-          * page of filed record should have. Every figure stays in the
-          * grotesk, because figures have to line up in a column and a serif
-          * does not do that as well.
-          *
-          * Preconnected so the two requests overlap the stylesheet, and
-          * swapped so text is readable from the first paint.
-          */}
-        <link rel="preconnect" href="https://fonts.googleapis.com"/>
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin=""/>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap"/>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }}/>
       </head>
       <body>{children}</body>
