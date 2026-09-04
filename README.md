@@ -142,7 +142,6 @@ lib/
   types.ts                 normalized facts and provenance model
 tests/                     unit and rendered-output tests
 worker/                    Cloudflare Worker entry point
-ios/                       the SwiftUI client — parked, see Status
 ```
 
 The normalized fact is the audit boundary. A value carries its period,
@@ -212,13 +211,13 @@ bundle.
 
 The **research workspace** at `/research` is maintained, not extended.
 
-The **SwiftUI client** under `ios/` is parked. It is not deleted, because it
-holds a working contract against the `/v1` API surface, but nothing is being
-added to it.
-
-Parked alongside it on `local-ios-and-v1-wip`: the versioned `/v1` endpoints,
-the D1 schema and migration, the contract fixtures and the ingestion helpers.
-That work is unfinished and is not on `main`.
+The **SwiftUI client** is parked and is not on `main`. It lives, with the
+unfinished work it was built against, on the
+[`local-ios-and-v1-wip`](https://github.com/leoalaplage/finscope/tree/local-ios-and-v1-wip)
+branch: the `ios/` tree, the versioned `/v1` endpoints, the D1 schema and
+migration, the contract fixtures and the ingestion helpers. It is kept because
+it holds a working contract against that API surface, not because anything is
+being added to it.
 
 Known gaps, stated rather than hidden: IFRS filers are invisible here, a
 company that changes its CIK loses its history, and Apple's trailing-twelve-month
