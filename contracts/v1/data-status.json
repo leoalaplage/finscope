@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "dataVersion": "sec-normalized-v23",
+    "scoreVersion": "qs-v3",
+    "asOf": "2026-09-04T09:55:34.631Z",
+    "retrievedAt": "2026-09-04T09:55:34.631Z",
+    "currency": null,
+    "unit": null,
+    "frequency": "point-in-time",
+    "status": "unavailable",
+    "warnings": [
+      "D1 screener index is not bound; indexed screener results are unavailable."
+    ]
+  },
+  "data": {
+    "service": "degraded",
+    "financials": {
+      "available": true,
+      "dataVersion": "sec-normalized-v23"
+    },
+    "qualityScore": {
+      "available": true,
+      "scoreVersion": "qs-v3",
+      "universeVersion": "watchlist-v1-v23"
+    },
+    "screener": {
+      "available": false,
+      "universeVersion": null
+    }
+  }
+}

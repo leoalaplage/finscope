@@ -119,7 +119,9 @@ struct WatchlistView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Theme.Color.background)
         .refreshable { await viewModel.refresh() }
     }
 }

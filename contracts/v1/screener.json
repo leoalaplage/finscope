@@ -1,0 +1,866 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "dataVersion": "watchlist-v1-v23",
+    "scoreVersion": "qs-v3",
+    "asOf": "2026-09-04T09:55:34.631Z",
+    "retrievedAt": "2026-09-04T09:55:34.631Z",
+    "currency": null,
+    "unit": "mixed",
+    "frequency": "point-in-time",
+    "status": "calculated",
+    "warnings": []
+  },
+  "data": {
+    "universeVersion": "watchlist-v1-v23",
+    "scoreVersion": "qs-v3",
+    "publishedAt": "2026-09-04T09:55:34.631Z",
+    "rows": [
+      {
+        "ticker": "ANET",
+        "name": "Arista Networks, Inc.",
+        "sector": "Networking",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-30",
+        "priceAsOf": "2026-09-03T20:00:03.000Z",
+        "score": {
+          "total": 73.22284786816802,
+          "quality": 60.281407905982896,
+          "health": 85.26315789473684,
+          "growth": 95.99342105263159,
+          "value": null,
+          "coverage": 0.4,
+          "grade": "NR",
+          "rank": 1
+        },
+        "metrics": {
+          "marketCap": 241444100000,
+          "revenueGrowth": 0.311937,
+          "fcfGrowth": 0.42662799999999995,
+          "roic": null,
+          "operatingMargin": 0.431362,
+          "fcfMargin": 0.35265300000000005,
+          "debt": null,
+          "valuation": null
+        },
+        "alerts": [
+          "Share dilution"
+        ],
+        "strengths": [
+          "FCF growth 5y",
+          "FCF/share growth 5y",
+          "Revenue growth 5y"
+        ],
+        "weaknesses": []
+      },
+      {
+        "ticker": "BKNG",
+        "name": "Booking Holdings Inc.",
+        "sector": "Travel",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-30",
+        "priceAsOf": "2026-09-03T20:00:01.000Z",
+        "score": {
+          "total": 72.58027279312157,
+          "quality": 67.67196666666666,
+          "health": 44.959530552909406,
+          "growth": 97.375,
+          "value": 92.64865841269841,
+          "coverage": 0.7025,
+          "grade": "NR",
+          "rank": 2
+        },
+        "metrics": {
+          "marketCap": 155404400000,
+          "revenueGrowth": 0.316948,
+          "fcfGrowth": null,
+          "roic": null,
+          "operatingMargin": 0.32874200000000003,
+          "fcfMargin": 0.317858,
+          "debt": null,
+          "valuation": 16.6024
+        },
+        "alerts": [],
+        "strengths": [
+          "Low dilution",
+          "Net income growth 5y",
+          "Attractive EV/FCF"
+        ],
+        "weaknesses": [
+          "Low LT debt",
+          "Interest coverage"
+        ]
+      },
+      {
+        "ticker": "NVDA",
+        "name": "NVIDIA Corporation",
+        "sector": "Semiconductors",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-07-26",
+        "priceAsOf": "2026-09-03T20:00:00.000Z",
+        "score": {
+          "total": 71.05572571631804,
+          "quality": 74.58061634615385,
+          "health": 86.30137478070174,
+          "growth": 99.07894736842105,
+          "value": 26.861656495726496,
+          "coverage": 0.86,
+          "grade": "A+",
+          "rank": 3
+        },
+        "metrics": {
+          "marketCap": 5573551800000,
+          "revenueGrowth": 0.671906,
+          "fcfGrowth": null,
+          "roic": 0.6914149999999999,
+          "operatingMargin": 0.6521429999999999,
+          "fcfMargin": 0.36017499999999997,
+          "debt": null,
+          "valuation": 43.9702
+        },
+        "alerts": [
+          "EV/FCF > 40 (expensive)"
+        ],
+        "strengths": [
+          "Operating margin",
+          "Revenue growth 5y",
+          "Revenue/share growth 5y"
+        ],
+        "weaknesses": [
+          "FCF yield",
+          "Attractive EV/FCF",
+          "FCF/Net income conv."
+        ]
+      },
+      {
+        "ticker": "MA",
+        "name": "Mastercard Incorporated",
+        "sector": "Payments",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-30",
+        "priceAsOf": "2026-09-03T20:00:03.000Z",
+        "score": {
+          "total": 67.14343863451246,
+          "quality": 87.0015596491228,
+          "health": 50.664308565531464,
+          "growth": 56.29313077694294,
+          "value": 47.07952731379731,
+          "coverage": 0.7575,
+          "grade": "A",
+          "rank": 4
+        },
+        "metrics": {
+          "marketCap": 523955299999.99994,
+          "revenueGrowth": 0.067857,
+          "fcfGrowth": 0.200402,
+          "roic": 0.86971,
+          "operatingMargin": 0.583331,
+          "fcfMargin": 0.45614600000000005,
+          "debt": null,
+          "valuation": 32.1702
+        },
+        "alerts": [],
+        "strengths": [
+          "ROIC",
+          "ROIC 5y",
+          "FCF margin 5y"
+        ],
+        "weaknesses": [
+          "Revenue growth 5y",
+          "Low LT debt",
+          "Current ratio"
+        ]
+      },
+      {
+        "ticker": "V",
+        "name": "Visa Inc.",
+        "sector": "Payments",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-03-31",
+        "priceAsOf": "2026-09-03T20:00:02.000Z",
+        "score": {
+          "total": 65.76646764315593,
+          "quality": 81.04402105263159,
+          "health": 66.4856307057236,
+          "growth": 60.35392022140668,
+          "value": 34.73221997557997,
+          "coverage": 0.8275,
+          "grade": "A",
+          "rank": 5
+        },
+        "metrics": {
+          "marketCap": 733613500000,
+          "revenueGrowth": 0.12861,
+          "fcfGrowth": 0.173319,
+          "roic": 0.467925,
+          "operatingMargin": 0.611151,
+          "fcfMargin": 0.5750759999999999,
+          "debt": null,
+          "valuation": 35.1751
+        },
+        "alerts": [],
+        "strengths": [
+          "FCF margin 5y",
+          "Operating margin",
+          "Low dilution"
+        ],
+        "weaknesses": [
+          "Net income growth 5y"
+        ]
+      },
+      {
+        "ticker": "PAYX",
+        "name": "Paychex, Inc.",
+        "sector": "Business services",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-05-31",
+        "priceAsOf": "2026-09-03T20:00:00.000Z",
+        "score": {
+          "total": 61.777258894837956,
+          "quality": 70.1423302087912,
+          "health": 42.67585941725543,
+          "growth": 41.74719555454505,
+          "value": 77.07979542124542,
+          "coverage": 0.92,
+          "grade": "A-",
+          "rank": 6
+        },
+        "metrics": {
+          "marketCap": 44478400000,
+          "revenueGrowth": 0.09928699999999999,
+          "fcfGrowth": 0.152515,
+          "roic": 0.265462,
+          "operatingMargin": 0.38551900000000006,
+          "fcfMargin": 0.324027,
+          "debt": null,
+          "valuation": 20.6505
+        },
+        "alerts": [],
+        "strengths": [
+          "FCF/Net income conv.",
+          "ROIC 5y",
+          "Attractive EV/FCF"
+        ],
+        "weaknesses": [
+          "Net income growth 5y"
+        ]
+      },
+      {
+        "ticker": "VEEV",
+        "name": "Veeva Systems Inc.",
+        "sector": "Life-sciences software",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-07-31",
+        "priceAsOf": "2026-09-03T20:00:03.000Z",
+        "score": {
+          "total": 61.271658939353664,
+          "quality": 53.52546507064364,
+          "health": 81.57894736842104,
+          "growth": 72.27962344808766,
+          "value": 50.13733333333334,
+          "coverage": 0.525,
+          "grade": "NR",
+          "rank": 7
+        },
+        "metrics": {
+          "marketCap": 46022600000,
+          "revenueGrowth": 0.168796,
+          "fcfGrowth": 0.206363,
+          "roic": null,
+          "operatingMargin": 0.299257,
+          "fcfMargin": 0.391785,
+          "debt": null,
+          "valuation": null
+        },
+        "alerts": [
+          "Share dilution",
+          "SBC/Revenue > 8%"
+        ],
+        "strengths": [
+          "Current ratio",
+          "FCF margin 5y",
+          "FCF/Net income conv."
+        ],
+        "weaknesses": [
+          "Low SBC/Revenue",
+          "Low dilution"
+        ]
+      },
+      {
+        "ticker": "MSCI",
+        "name": "MSCI Inc.",
+        "sector": "Financial data",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-30",
+        "priceAsOf": "2026-09-03T20:00:03.000Z",
+        "score": {
+          "total": 57.34679189097698,
+          "quality": 77.054649122807,
+          "health": 18.439237235055963,
+          "growth": 53.03643004800534,
+          "value": 55.14443915750915,
+          "coverage": 0.8975,
+          "grade": "A-",
+          "rank": 8
+        },
+        "metrics": {
+          "marketCap": 41777100000,
+          "revenueGrowth": 0.130797,
+          "fcfGrowth": 0.1444,
+          "roic": 0.474784,
+          "operatingMargin": 0.556643,
+          "fcfMargin": 0.48408999999999996,
+          "debt": null,
+          "valuation": 30.7932
+        },
+        "alerts": [
+          "Leverage > 2.5x"
+        ],
+        "strengths": [
+          "FCF margin 5y",
+          "Operating margin",
+          "ROIC"
+        ],
+        "weaknesses": [
+          "Low LT debt",
+          "Low leverage",
+          "Interest coverage"
+        ]
+      },
+      {
+        "ticker": "CPRT",
+        "name": "Copart, Inc.",
+        "sector": "Business services",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-04-30",
+        "priceAsOf": "2026-09-03T20:00:01.000Z",
+        "score": {
+          "total": 56.378988357355574,
+          "quality": 48.9020218487395,
+          "health": 45.171,
+          "growth": 78.42941239170756,
+          "value": 67.87233333333333,
+          "coverage": 0.5925,
+          "grade": "NR",
+          "rank": 9
+        },
+        "metrics": {
+          "marketCap": 31088700000,
+          "revenueGrowth": 0.160744,
+          "fcfGrowth": 0.304451,
+          "roic": null,
+          "operatingMargin": 0.365666,
+          "fcfMargin": 0.229325,
+          "debt": null,
+          "valuation": null
+        },
+        "alerts": [
+          "Share dilution"
+        ],
+        "strengths": [
+          "Current ratio",
+          "Low SBC/Revenue",
+          "FCF growth 5y"
+        ],
+        "weaknesses": [
+          "Capex coverage",
+          "FCF margin 5y"
+        ]
+      },
+      {
+        "ticker": "CBOE",
+        "name": "Cboe Global Markets, Inc.",
+        "sector": "Exchanges",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-30",
+        "priceAsOf": "2026-09-03T20:00:00.000Z",
+        "score": {
+          "total": 55.814400066836626,
+          "quality": 59.98321293498168,
+          "health": 67.49203474372204,
+          "growth": 27.737781893220898,
+          "value": null,
+          "coverage": 0.32,
+          "grade": "NR",
+          "rank": 10
+        },
+        "metrics": {
+          "marketCap": 31209600000,
+          "revenueGrowth": 0.065858,
+          "fcfGrowth": null,
+          "roic": null,
+          "operatingMargin": 0.34688699999999995,
+          "fcfMargin": null,
+          "debt": null,
+          "valuation": null
+        },
+        "alerts": [],
+        "strengths": [
+          "Low SBC/Revenue"
+        ],
+        "weaknesses": [
+          "Revenue growth 5y",
+          "Revenue/share growth 5y",
+          "Gross margin"
+        ]
+      },
+      {
+        "ticker": "AAPL",
+        "name": "Apple Inc.",
+        "sector": "Technology",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-27",
+        "priceAsOf": "2026-09-03T20:00:01.000Z",
+        "score": {
+          "total": 53.40312506915342,
+          "quality": 64.70756154761904,
+          "health": 72.35143079039983,
+          "growth": 31.396823864828338,
+          "value": 25.524563174603173,
+          "coverage": 0.85,
+          "grade": "B+",
+          "rank": 11
+        },
+        "metrics": {
+          "marketCap": 4794807700000,
+          "revenueGrowth": 0.086735,
+          "fcfGrowth": 0.061239999999999996,
+          "roic": 0.851927,
+          "operatingMargin": 0.33173,
+          "fcfMargin": 0.262422,
+          "debt": null,
+          "valuation": 35.3929
+        },
+        "alerts": [],
+        "strengths": [
+          "Low dilution",
+          "ROIC",
+          "ROIC 5y"
+        ],
+        "weaknesses": [
+          "Gross margin",
+          "FCF growth 5y",
+          "Current ratio"
+        ]
+      },
+      {
+        "ticker": "ZTS",
+        "name": "Zoetis Inc.",
+        "sector": "Animal health",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-30",
+        "priceAsOf": "2026-09-03T20:02:06.000Z",
+        "score": {
+          "total": 52.263416456153735,
+          "quality": 50.056809457209454,
+          "health": 34.85756140350877,
+          "growth": 21.953916680835462,
+          "value": 97.36626208791208,
+          "coverage": 0.5075,
+          "grade": "NR",
+          "rank": 12
+        },
+        "metrics": {
+          "marketCap": 31595800000,
+          "revenueGrowth": 0.072397,
+          "fcfGrowth": 0.064156,
+          "roic": null,
+          "operatingMargin": null,
+          "fcfMargin": 0.21330200000000002,
+          "debt": null,
+          "valuation": 16.9118
+        },
+        "alerts": [],
+        "strengths": [
+          "FCF yield",
+          "Low SBC/Revenue",
+          "Attractive EV/FCF"
+        ],
+        "weaknesses": [
+          "Low LT debt",
+          "FCF growth 5y",
+          "FCF margin 5y"
+        ]
+      },
+      {
+        "ticker": "META",
+        "name": "Meta Platforms, Inc.",
+        "sector": "Communication services",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-30",
+        "priceAsOf": "2026-09-03T20:00:01.000Z",
+        "score": {
+          "total": 52.14695845840554,
+          "quality": 50.35105394505496,
+          "health": 48.3055893599005,
+          "growth": 64.77994478496072,
+          "value": 50.55437296703297,
+          "coverage": 0.85,
+          "grade": "B+",
+          "rank": 13
+        },
+        "metrics": {
+          "marketCap": 1567031600000,
+          "revenueGrowth": 0.185138,
+          "fcfGrowth": 0.143511,
+          "roic": 0.205307,
+          "operatingMargin": 0.380846,
+          "fcfMargin": 0.276174,
+          "debt": null,
+          "valuation": 39.9071
+        },
+        "alerts": [
+          "SBC/Revenue > 8%"
+        ],
+        "strengths": [
+          "Gross margin",
+          "Revenue/share growth 5y",
+          "Low dilution"
+        ],
+        "weaknesses": [
+          "Capex coverage",
+          "Low SBC/Revenue",
+          "FCF/Net income conv."
+        ]
+      },
+      {
+        "ticker": "SPGI",
+        "name": "S&P Global Inc.",
+        "sector": "Financial data",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-03-31",
+        "priceAsOf": "2026-09-03T20:00:02.000Z",
+        "score": {
+          "total": 51.78645379551099,
+          "quality": 48.415110003663,
+          "health": 59.68213675213675,
+          "growth": 31.427797075079333,
+          "value": 66.7452869108669,
+          "coverage": 0.85,
+          "grade": "B+",
+          "rank": 14
+        },
+        "metrics": {
+          "marketCap": 133371700000,
+          "revenueGrowth": 0.155611,
+          "fcfGrowth": 0.093426,
+          "roic": 0.12551600000000002,
+          "operatingMargin": 0.438779,
+          "fcfMargin": 0.33743,
+          "debt": null,
+          "valuation": 26.0763
+        },
+        "alerts": [
+          "Share dilution"
+        ],
+        "strengths": [
+          "Low SBC/Revenue",
+          "Operating margin",
+          "Capex coverage"
+        ],
+        "weaknesses": [
+          "Current ratio",
+          "ROIC 5y",
+          "Low dilution"
+        ]
+      },
+      {
+        "ticker": "CME",
+        "name": "CME Group Inc.",
+        "sector": "Exchanges",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-30",
+        "priceAsOf": "2026-09-03T20:00:01.000Z",
+        "score": {
+          "total": 50.45094367355438,
+          "quality": 74.85619047619046,
+          "health": 22.275170278637766,
+          "growth": 14.802901125534902,
+          "value": null,
+          "coverage": 0.2275,
+          "grade": "NR",
+          "rank": 15
+        },
+        "metrics": {
+          "marketCap": 101899100000,
+          "revenueGrowth": 0.059528,
+          "fcfGrowth": null,
+          "roic": null,
+          "operatingMargin": 0.651006,
+          "fcfMargin": null,
+          "debt": null,
+          "valuation": null
+        },
+        "alerts": [
+          "Share dilution"
+        ],
+        "strengths": [
+          "Operating margin",
+          "Low SBC/Revenue"
+        ],
+        "weaknesses": [
+          "Revenue growth 5y",
+          "Revenue/share growth 5y",
+          "Current ratio"
+        ]
+      },
+      {
+        "ticker": "FDS",
+        "name": "FactSet Research Systems Inc.",
+        "sector": "Financial data",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-05-31",
+        "priceAsOf": "2026-09-03T20:00:02.000Z",
+        "score": {
+          "total": 49.66140180829402,
+          "quality": 44.868368228937726,
+          "health": 39.86448317588843,
+          "growth": 23.696519430258686,
+          "value": 89.71630777777777,
+          "coverage": 0.92,
+          "grade": "B",
+          "rank": 16
+        },
+        "metrics": {
+          "marketCap": 11196900000,
+          "revenueGrowth": 0.092172,
+          "fcfGrowth": 0.075959,
+          "roic": 0.187454,
+          "operatingMargin": 0.295537,
+          "fcfMargin": 0.279976,
+          "debt": null,
+          "valuation": 17.3632
+        },
+        "alerts": [],
+        "strengths": [
+          "FCF yield",
+          "Attractive EV/EBIT",
+          "Attractive EV/FCF"
+        ],
+        "weaknesses": [
+          "Current ratio",
+          "Net income growth 5y",
+          "FCF/share growth 5y"
+        ]
+      },
+      {
+        "ticker": "MSFT",
+        "name": "Microsoft Corporation",
+        "sector": "Technology",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-30",
+        "priceAsOf": "2026-09-03T20:00:01.000Z",
+        "score": {
+          "total": 48.732572278422104,
+          "quality": 52.100052329670326,
+          "health": 72.30401981854143,
+          "growth": 29.84495257346861,
+          "value": 31.750009401709402,
+          "coverage": 0.92,
+          "grade": "B",
+          "rank": 17
+        },
+        "metrics": {
+          "marketCap": 3788661200000,
+          "revenueGrowth": 0.145737,
+          "fcfGrowth": 0.036046999999999996,
+          "roic": 0.270986,
+          "operatingMargin": 0.467808,
+          "fcfMargin": 0.273495,
+          "debt": null,
+          "valuation": 56.8472
+        },
+        "alerts": [
+          "EV/FCF > 40 (expensive)"
+        ],
+        "strengths": [
+          "Low LT debt",
+          "Low leverage",
+          "Operating margin"
+        ],
+        "weaknesses": [
+          "FCF growth 5y",
+          "FCF/Net income conv.",
+          "Attractive EV/FCF"
+        ]
+      },
+      {
+        "ticker": "ABNB",
+        "name": "Airbnb, Inc.",
+        "sector": "Travel",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-30",
+        "priceAsOf": "2026-09-03T20:00:01.000Z",
+        "score": {
+          "total": 41.56319540954292,
+          "quality": 33.13134952380952,
+          "health": 77.55034055727553,
+          "growth": 66.67083671252684,
+          "value": 5.716972527472529,
+          "coverage": 0.37,
+          "grade": "NR",
+          "rank": 18
+        },
+        "metrics": {
+          "marketCap": 113015700000,
+          "revenueGrowth": 0.293732,
+          "fcfGrowth": null,
+          "roic": 0.634305,
+          "operatingMargin": 0.20807099999999998,
+          "fcfMargin": null,
+          "debt": null,
+          "valuation": null
+        },
+        "alerts": [
+          "Share dilution",
+          "SBC/Revenue > 8%"
+        ],
+        "strengths": [
+          "Gross margin",
+          "Low LT debt",
+          "Revenue growth 5y"
+        ],
+        "weaknesses": [
+          "Low dilution",
+          "Attractive EV/EBIT",
+          "Low SBC/Revenue"
+        ]
+      },
+      {
+        "ticker": "GOOGL",
+        "name": "Alphabet Inc.",
+        "sector": "Communication services",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-30",
+        "priceAsOf": "2026-09-03T20:00:01.000Z",
+        "score": {
+          "total": 41.135133735007074,
+          "quality": 36.453732069597066,
+          "health": 65.2318140350877,
+          "growth": 59.68977237096809,
+          "value": 13.655628205128204,
+          "coverage": 0.92,
+          "grade": "B-",
+          "rank": 19
+        },
+        "metrics": {
+          "marketCap": 4188530399999.9995,
+          "revenueGrowth": 0.17157,
+          "fcfGrowth": 0.11329399999999999,
+          "roic": 0.17593,
+          "operatingMargin": 0.33110300000000004,
+          "fcfMargin": 0.217623,
+          "debt": null,
+          "valuation": 79.4546
+        },
+        "alerts": [
+          "EV/FCF > 40 (expensive)"
+        ],
+        "strengths": [
+          "Low dilution",
+          "Revenue/share growth 5y",
+          "Current ratio"
+        ],
+        "weaknesses": [
+          "FCF/Net income conv.",
+          "Attractive EV/FCF",
+          "Capex coverage"
+        ]
+      },
+      {
+        "ticker": "NOW",
+        "name": "ServiceNow, Inc.",
+        "sector": "Software",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-30",
+        "priceAsOf": "2026-09-03T20:00:03.000Z",
+        "score": {
+          "total": 37.92305703900938,
+          "quality": 30.5792281996337,
+          "health": 31.90752811515969,
+          "growth": 89.27351736842105,
+          "value": 21.949355604395603,
+          "coverage": 0.85,
+          "grade": "C",
+          "rank": 20
+        },
+        "metrics": {
+          "marketCap": 150520000000,
+          "revenueGrowth": 0.240592,
+          "fcfGrowth": 0.273373,
+          "roic": 0.068221,
+          "operatingMargin": 0.114037,
+          "fcfMargin": 0.31240100000000004,
+          "debt": null,
+          "valuation": 33.9594
+        },
+        "alerts": [
+          "Share dilution",
+          "SBC/Revenue > 8%"
+        ],
+        "strengths": [
+          "Net income growth 5y",
+          "FCF growth 5y",
+          "FCF/share growth 5y"
+        ],
+        "weaknesses": [
+          "Low SBC/Revenue",
+          "Attractive EV/EBIT",
+          "ROIC"
+        ]
+      },
+      {
+        "ticker": "IBKR",
+        "name": "Interactive Brokers Group, Inc.",
+        "sector": "Brokerage",
+        "currency": "USD",
+        "fundamentalsAsOf": "2026-06-30",
+        "priceAsOf": "2026-09-03T20:00:01.000Z",
+        "score": {
+          "total": 34.35987171008477,
+          "quality": 31.044249999999998,
+          "health": null,
+          "growth": 44.306736840339084,
+          "value": null,
+          "coverage": 0.15,
+          "grade": "NR",
+          "rank": 21
+        },
+        "metrics": {
+          "marketCap": 41660900000,
+          "revenueGrowth": 0.136498,
+          "fcfGrowth": null,
+          "roic": null,
+          "operatingMargin": null,
+          "fcfMargin": null,
+          "debt": null,
+          "valuation": null
+        },
+        "alerts": [
+          "Share dilution"
+        ],
+        "strengths": [
+          "Net income growth 5y"
+        ],
+        "weaknesses": [
+          "Low dilution",
+          "Revenue/share growth 5y"
+        ]
+      }
+    ],
+    "units": {
+      "score": "score-0-100",
+      "coverage": "ratio-0-1",
+      "rank": "ordinal",
+      "marketCap": "currency",
+      "revenueGrowth": "percent",
+      "fcfGrowth": "percent",
+      "roic": "percent",
+      "operatingMargin": "percent",
+      "fcfMargin": "percent",
+      "debt": "currency",
+      "valuation": "ratio"
+    },
+    "nextCursor": null
+  }
+}

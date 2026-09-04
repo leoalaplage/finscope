@@ -4,6 +4,7 @@ import { balanceSheetHealth } from "./statement-flows";
 import type { CompanyDataset, FinancialPeriod } from "./types";
 import { isFinancialBusiness } from "./business-type";
 import { currentDatasetPeriod } from "./current-period";
+import type { QsStructuredInput } from "./qs/contracts";
 
 /**
  * The watchlist, written as the table the QS Screener already reads.
@@ -106,7 +107,11 @@ export function qsValuationColumns(inputs: QsPriceInputs, price: number | null, 
  * there is no market capitalisation and therefore no valuation column, and the
  * quality, health and growth pillars still score.
  */
-export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
+export function qsStructuredInput(
+  dataset: CompanyDataset,
+  price: number | null,
+  priceCurrency: string | null = dataset.company.currency,
+): QsStructuredInput {
   const annual = ordered(dataset, "annual");
   const current = currentDatasetPeriod(dataset) ?? null;
   const now = (metric: string) => current ? derivedValue(current, metric) : null;
@@ -121,39 +126,102 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
   // second division here that could quietly disagree with it.
   const health = (key: string) => current ? balanceSheetHealth(current).find((item) => item.key === key)?.value ?? null : null;
 
+  const valuation = qsValuationColumns(qsPriceInputs(dataset), price, priceCurrency);
   return {
     ticker: dataset.company.ticker,
-    values: {
-      "Ticker": dataset.company.ticker,
-      "Sector": dataset.company.sector,
-
-      "ROIC": percent(industrial(now("roic"))),
-      "ROIC 5Yr Avg": percent(industrial(fiveYearAverage(annual, "roic"))),
-      "Operating Margin": percent(now("operatingMargin")),
-      "FCF Margin 5Yr Avg": percent(industrial(fiveYearAverage(annual, "freeCashFlowMargin"))),
-      "FCF / Net Income": percent(industrial(now("cashConversion"))),
-      "Gross Margin 5Yr Avg": percent(fiveYearAverage(annual, "grossMargin")),
-      "Shares Outstanding 5Y CAGR": percent(growth("dilutedShares")),
-      "SBC to Revenue": percent(now("stockBasedCompensationToRevenue")),
-
-      "Net Debt / EBITDA": ratio(industrial(health("netDebtToEbitda"))),
-      "EBIT / Interest Expense": ratio(now("interestCoverage")),
-      "Current Ratio": ratio(health("currentRatio")),
+    sector: dataset.company.sector,
+    marketCapBillions: valuation["Market Cap"],
+    metrics: {
+      ROIC: percent(industrial(now("roic"))),
+      ROIC5: percent(industrial(fiveYearAverage(annual, "roic"))),
+      OpM: percent(now("operatingMargin")),
+      FCFM5: percent(industrial(fiveYearAverage(annual, "freeCashFlowMargin"))),
+      FCF_NI: percent(industrial(now("cashConversion"))),
+      GM5: percent(fiveYearAverage(annual, "grossMargin")),
+      ShOut5: percent(growth("dilutedShares")),
+      SBC: percent(now("stockBasedCompensationToRevenue")),
+      NetDebtEBITDA: ratio(industrial(health("netDebtToEbitda"))),
+      EBITInt: ratio(now("interestCoverage")),
+      CurrentRatio: ratio(health("currentRatio")),
       // The registry carries one total borrowing, not a maturity split, so this
       // is total debt over total assets and is labelled as the column the
       // screener knows. Overstating the long-term share would flatter no one:
       // the metric scores lower the higher it is.
-      "Long-term Debt to Assets": ratio(industrial(over(valueOf(current ?? annual.at(-1) ?? ({} as FinancialPeriod), "totalDebt"), now("totalAssets")))),
-      "OCF/Capex": ratio(industrial(over(operatingCashFlow, capex == null ? null : Math.abs(capex)))),
-
-      "Revenue 5Y CAGR": percent(growth("revenue")),
-      "FCF 5Y CAGR": percent(industrial(growth("freeCashFlow"))),
-      "Net Income 5Y CAGR": percent(growth("netIncome")),
-
-      "OCF": billions(industrial(operatingCashFlow)),
-      "Capex": billions(industrial(capex == null ? null : Math.abs(capex))),
-      ...qsValuationColumns(qsPriceInputs(dataset), price),
+      LTDebtAssets: ratio(industrial(over(valueOf(current ?? annual.at(-1) ?? ({} as FinancialPeriod), "totalDebt"), now("totalAssets")))),
+      OCF_Capex: ratio(industrial(over(operatingCashFlow, capex == null ? null : Math.abs(capex)))),
+      Rev5: percent(growth("revenue")),
+      RevFwd3: null,
+      LevFCF5: percent(industrial(growth("freeCashFlow"))),
+      NI5: percent(growth("netIncome")),
+      RevPS5: null,
+      FCFPS5: null,
+      EV_EBIT: valuation["EV/EBIT"],
+      EV_FCF: valuation["EV/FCF"],
+      FwdP_FCF: null,
+      FCFYield: valuation["FCF Yield"],
     },
+    references: {
+      operatingCashFlowBillions: billions(industrial(operatingCashFlow)),
+      capexBillions: billions(industrial(capex == null ? null : Math.abs(capex))),
+      peg: null,
+    },
+  };
+}
+
+/** The legacy CSV-shaped row, produced from the same structured input. */
+export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
+  const input = qsStructuredInput(dataset, price);
+  return {
+    ticker: input.ticker,
+    values: {
+      "Ticker": input.ticker,
+      "Sector": input.sector,
+      "Market Cap": input.marketCapBillions,
+      "ROIC": input.metrics.ROIC,
+      "ROIC 5Yr Avg": input.metrics.ROIC5,
+      "Operating Margin": input.metrics.OpM,
+      "FCF Margin 5Yr Avg": input.metrics.FCFM5,
+      "FCF / Net Income": input.metrics.FCF_NI,
+      "Gross Margin 5Yr Avg": input.metrics.GM5,
+      "Shares Outstanding 5Y CAGR": input.metrics.ShOut5,
+      "SBC to Revenue": input.metrics.SBC,
+      "Net Debt / EBITDA": input.metrics.NetDebtEBITDA,
+      "EBIT / Interest Expense": input.metrics.EBITInt,
+      "Current Ratio": input.metrics.CurrentRatio,
+      "Long-term Debt to Assets": input.metrics.LTDebtAssets,
+      "OCF/Capex": input.metrics.OCF_Capex,
+      "Revenue 5Y CAGR": input.metrics.Rev5,
+      "FCF 5Y CAGR": input.metrics.LevFCF5,
+      "Net Income 5Y CAGR": input.metrics.NI5,
+      "EV/EBIT": input.metrics.EV_EBIT,
+      "EV/FCF": input.metrics.EV_FCF,
+      "FCF Yield": input.metrics.FCFYield,
+      "OCF": input.references.operatingCashFlowBillions,
+      "Capex": input.references.capexBillions,
+    },
+  };
+}
+
+/** Bridges stored legacy digest columns to the structured engine during rollout. */
+export function qsStructuredInputFromRow(row: QsRow): QsStructuredInput {
+  const number = (column: string) => {
+    const value = row.values[column];
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  };
+  return {
+    ticker: row.ticker,
+    sector: typeof row.values.Sector === "string" ? row.values.Sector : "(n/a)",
+    marketCapBillions: number("Market Cap"),
+    metrics: {
+      ROIC: number("ROIC"), ROIC5: number("ROIC 5Yr Avg"), OpM: number("Operating Margin"),
+      FCFM5: number("FCF Margin 5Yr Avg"), FCF_NI: number("FCF / Net Income"), GM5: number("Gross Margin 5Yr Avg"),
+      ShOut5: number("Shares Outstanding 5Y CAGR"), SBC: number("SBC to Revenue"),
+      NetDebtEBITDA: number("Net Debt / EBITDA"), EBITInt: number("EBIT / Interest Expense"), CurrentRatio: number("Current Ratio"),
+      LTDebtAssets: number("Long-term Debt to Assets"), OCF_Capex: number("OCF/Capex"),
+      Rev5: number("Revenue 5Y CAGR"), RevFwd3: null, LevFCF5: number("FCF 5Y CAGR"), NI5: number("Net Income 5Y CAGR"),
+      RevPS5: null, FCFPS5: null, EV_EBIT: number("EV/EBIT"), EV_FCF: number("EV/FCF"), FwdP_FCF: null, FCFYield: number("FCF Yield"),
+    },
+    references: { operatingCashFlowBillions: number("OCF"), capexBillions: number("Capex"), peg: null },
   };
 }
 

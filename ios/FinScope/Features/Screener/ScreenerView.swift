@@ -32,7 +32,9 @@ struct ScreenerView: View {
                 rowsSection(page, freshness ?? .unknown, error: error)
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Theme.Color.background)
         .navigationTitle("QS Screener")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -179,22 +181,21 @@ private struct ScreenerRowView: View {
                             .foregroundStyle(Theme.Color.textPrimary)
                         GradeBadge(grade: row.grade)
                     }
-                    // An ungraded row shows the coverage that withheld the
-                    // grade. Otherwise "73 NR" reads as a glitch rather than
-                    // as a company that publishes too little to compare.
-                    if !row.grade.isRated {
-                        Text("\(Formatter.coverage(row.coverage)) covered")
+                    if let note = qualifier {
+                        Text(note)
                             .font(Theme.Typography.caption)
                             .foregroundStyle(Theme.Color.textTertiary)
                     }
                 }
             }
 
+            // The metric keys are a column heading, so they are set in the
+            // monospaced voice beside the figure they head.
             HStack(spacing: Theme.Spacing.lg) {
                 ForEach(metrics) { metric in
                     HStack(spacing: Theme.Spacing.xs) {
                         Text(metric.compactLabel)
-                            .font(Theme.Typography.caption)
+                            .font(Theme.Typography.dataLabel)
                             .foregroundStyle(Theme.Color.textTertiary)
                         Text(row.metric(metric).map {
                             Formatter.number($0, unit: metric.unit)
@@ -204,22 +205,28 @@ private struct ScreenerRowView: View {
                     }
                 }
                 Spacer(minLength: 0)
-                if row.alertCount > 0 {
-                    Label("\(row.alertCount)", systemImage: "exclamationmark.triangle")
-                        .font(Theme.Typography.caption)
-                        .foregroundStyle(Theme.Color.negative)
-                        .accessibilityLabel("\(row.alertCount) alert\(row.alertCount == 1 ? "" : "s")")
-                }
             }
-            // A fixed height so a row with an alert is the same height as one
-            // without: the symbol is taller than the caption beside it, and
-            // the ragged rows it produced broke the list's separators.
-            .frame(height: Theme.Size.metricLine)
+            .lineLimit(1)
         }
         .padding(.vertical, Theme.Spacing.xs)
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
+    }
+
+    /// The one line that qualifies the score: the coverage that withheld a
+    /// grade, the alerts that cost it points, or both.
+    ///
+    /// Both used to sit on the metrics line inside a fixed 18pt frame. An SF
+    /// Symbol is taller than the caption beside it, so the alert badge
+    /// overflowed the frame — painting a stray glyph below the row and taking
+    /// the list separator with it. It belongs with the score it qualifies
+    /// anyway.
+    private var qualifier: String? {
+        var parts: [String] = []
+        if !row.grade.isRated { parts.append("\(Formatter.coverage(row.coverage)) covered") }
+        if row.alertCount > 0 { parts.append("⚠ \(row.alertCount)") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     private var accessibilityLabel: String {
@@ -229,6 +236,9 @@ private struct ScreenerRowView: View {
                 ? "grade \(row.grade.raw)"
                 : "not rated, only \(Formatter.coverage(row.coverage)) of its metrics published"
         )
+        if row.alertCount > 0 {
+            parts.append("\(row.alertCount) alert\(row.alertCount == 1 ? "" : "s")")
+        }
         for metric in metrics {
             let value = row.metric(metric).map { Formatter.number($0, unit: metric.unit) } ?? "unavailable"
             parts.append("\(metric.label) \(value)")

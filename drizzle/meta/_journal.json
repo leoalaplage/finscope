@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1788514980188,
+      "tag": "0000_aspiring_kat_farrell",
+      "breakpoints": true
+    }
+  ]
 }

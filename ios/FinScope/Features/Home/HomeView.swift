@@ -98,29 +98,57 @@ struct HomeView: View {
     }
 
     private func statusLine(_ status: DataStatus, _ freshness: Freshness) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            HStack(spacing: Theme.Spacing.sm) {
-                Text("\(status.universeSize) companies covered")
-                    .font(Theme.Typography.footnote)
-                    .foregroundStyle(Theme.Color.textSecondary)
-                // "Behind" means a company has filed something FinScope has
-                // not read yet. Worth one quiet clause; never worth hiding —
-                // and stated out of the number actually checked, not out of
-                // the whole universe.
-                if status.behindCount > 0 {
-                    Text("· \(status.behindCount) of \(status.checkedCount) checked is behind")
-                        .font(Theme.Typography.caption)
-                        .foregroundStyle(Theme.Color.textTertiary)
+        Card {
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                SectionHeader("Research universe")
+
+                HStack(alignment: .lastTextBaseline, spacing: Theme.Spacing.sm) {
+                    Text("\(status.universeSize)")
+                        .font(Theme.Typography.scoreNumber)
+                        .foregroundStyle(Theme.Color.textPrimary)
+                        .contentTransition(.numericText())
+                    Text(verbatim: "COMPANIES")
+                        .font(Theme.Typography.mono(.caption, weight: .bold))
+                        .foregroundStyle(Theme.Color.textSecondary)
+                        .tracking(0.8)
+                    Spacer(minLength: 0)
+                }
+
+                HStack(spacing: Theme.Spacing.lg) {
+                    statusDatum("READ", value: "\(status.checkedCount)")
+                    statusDatum("BEHIND", value: "\(status.behindCount)")
+                    statusDatum("DATA", value: status.dataVersion)
+                }
+
+                if let readAt = status.lastReadAt {
+                    Divider()
+                    FreshnessLabel(
+                        freshness: Freshness(
+                            asOf: nil, retrievedAt: readAt,
+                            dataVersion: status.dataVersion, isFromCache: freshness.isFromCache
+                        )
+                    )
                 }
             }
-            if let readAt = status.lastReadAt {
-                FreshnessLabel(
-                    freshness: Freshness(
-                        asOf: nil, retrievedAt: readAt,
-                        dataVersion: status.dataVersion, isFromCache: freshness.isFromCache
-                    )
-                )
-            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "\(status.universeSize) companies covered. \(status.checkedCount) checked. "
+            + "\(status.behindCount) behind."
+        )
+    }
+
+    private func statusDatum(_ label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.hairline) {
+            Text(label)
+                .font(Theme.Typography.mono(.caption2, weight: .bold))
+                .foregroundStyle(Theme.Color.textTertiary)
+                .tracking(0.8)
+            Text(value)
+                .font(Theme.Typography.mono(.footnote, weight: .semibold))
+                .foregroundStyle(Theme.Color.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
     }
 
@@ -198,6 +226,10 @@ struct HomeView: View {
                                 .frame(minWidth: 110, alignment: .leading)
                                 .background(Theme.Color.surface)
                                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
+                                        .stroke(Theme.Color.separator, lineWidth: Theme.Stroke.thin)
+                                }
                             }
                             .buttonStyle(.plain)
                         }

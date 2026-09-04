@@ -2,10 +2,12 @@ import SwiftUI
 
 /// Four tabs, a navigation stack each, one routing table.
 ///
-/// Home, Search, Screener and Watchlist. Settings is presented from Home
-/// rather than taking a fifth slot, and the fiche can be pushed onto any of
-/// the four — so opening Apple from the screener leaves the back button
-/// pointing at the screener.
+/// The switcher is the system tab bar, styled monochrome, rather than custom
+/// chrome above the navigation bar. A top switcher sat *over* the back button
+/// on every pushed screen, and the paged `TabView` carrying it took the
+/// leading inset off every large title — "FinScope" and "QS Screener" were
+/// both clipped against the edge of the display — while swallowing the
+/// horizontal swipes that the recents carousel and the back gesture need.
 struct RootView: View {
     let dependencies: AppDependencies
 
@@ -36,54 +38,74 @@ struct RootView: View {
         Appearance(rawValue: appearanceRaw) ?? .system
     }
 
+    /// Selecting the tab you are already on pops it back to its root, which is
+    /// what the system tab bar does everywhere else on the phone.
+    private var tabSelection: Binding<AppRouter.Tab> {
+        Binding(
+            get: { router.selectedTab },
+            set: { tab in
+                if tab == router.selectedTab {
+                    router.popToRoot()
+                } else {
+                    router.selectedTab = tab
+                }
+                Haptics.selection()
+            }
+        )
+    }
+
     var body: some View {
         @Bindable var router = router
-        TabView(selection: $router.selectedTab) {
-            NavigationStack(path: $router.homePath) {
-                HomeView(
-                    viewModel: homeViewModel,
-                    watchlist: watchlistViewModel,
-                    recents: dependencies.recents,
-                    onOpen: open,
-                    onOpenWatchlist: { router.selectedTab = .watchlist },
-                    onOpenScreener: { router.selectedTab = .screener },
-                    onOpenSettings: { router.push(.settings, in: .home) }
-                )
-                .navigationDestination(for: AppRouter.Route.self, destination: destination)
-            }
-            .tabItem { Label(AppRouter.Tab.home.label, systemImage: AppRouter.Tab.home.systemImage) }
-            .tag(AppRouter.Tab.home)
-
-            NavigationStack(path: $router.searchPath) {
-                SearchView(
-                    viewModel: searchViewModel,
-                    recents: dependencies.recents,
-                    onOpen: open
-                )
-                .navigationDestination(for: AppRouter.Route.self, destination: destination)
-            }
-            .tabItem { Label(AppRouter.Tab.search.label, systemImage: AppRouter.Tab.search.systemImage) }
-            .tag(AppRouter.Tab.search)
-
-            NavigationStack(path: $router.screenerPath) {
-                ScreenerView(viewModel: screenerViewModel, onOpen: open)
+        TabView(selection: tabSelection) {
+                NavigationStack(path: $router.homePath) {
+                    HomeView(
+                        viewModel: homeViewModel,
+                        watchlist: watchlistViewModel,
+                        recents: dependencies.recents,
+                        onOpen: open,
+                        onOpenWatchlist: { router.selectedTab = .watchlist },
+                        onOpenScreener: { router.selectedTab = .screener },
+                        onOpenSettings: { router.push(.settings, in: .home) }
+                    )
                     .navigationDestination(for: AppRouter.Route.self, destination: destination)
-            }
-            .tabItem { Label(AppRouter.Tab.screener.label, systemImage: AppRouter.Tab.screener.systemImage) }
-            .tag(AppRouter.Tab.screener)
+                }
+                .tabItem { Label(AppRouter.Tab.home.label, systemImage: AppRouter.Tab.home.systemImage) }
+                .tag(AppRouter.Tab.home)
 
-            NavigationStack(path: $router.watchlistPath) {
-                WatchlistView(
-                    viewModel: watchlistViewModel,
-                    onOpen: open,
-                    onSearch: { router.selectedTab = .search }
-                )
-                .navigationDestination(for: AppRouter.Route.self, destination: destination)
-            }
-            .tabItem { Label(AppRouter.Tab.watchlist.label, systemImage: AppRouter.Tab.watchlist.systemImage) }
-            .tag(AppRouter.Tab.watchlist)
+                NavigationStack(path: $router.searchPath) {
+                    SearchView(
+                        viewModel: searchViewModel,
+                        recents: dependencies.recents,
+                        onOpen: open
+                    )
+                    .navigationDestination(for: AppRouter.Route.self, destination: destination)
+                }
+                .tabItem { Label(AppRouter.Tab.search.label, systemImage: AppRouter.Tab.search.systemImage) }
+                .tag(AppRouter.Tab.search)
+
+                NavigationStack(path: $router.screenerPath) {
+                    ScreenerView(viewModel: screenerViewModel, onOpen: open)
+                        .navigationDestination(for: AppRouter.Route.self, destination: destination)
+                }
+                .tabItem { Label(AppRouter.Tab.screener.label, systemImage: AppRouter.Tab.screener.systemImage) }
+                .tag(AppRouter.Tab.screener)
+
+                NavigationStack(path: $router.watchlistPath) {
+                    WatchlistView(
+                        viewModel: watchlistViewModel,
+                        onOpen: open,
+                        onSearch: { router.selectedTab = .search }
+                    )
+                    .navigationDestination(for: AppRouter.Route.self, destination: destination)
+                }
+                .tabItem { Label(AppRouter.Tab.watchlist.label, systemImage: AppRouter.Tab.watchlist.systemImage) }
+                .tag(AppRouter.Tab.watchlist)
         }
         .environment(router)
+        // No app-wide `.fontDesign(.monospaced)`. It reached the navigation
+        // titles, the tab bar and every system control, which is how the type
+        // ended up looking oversized in some places and cramped in others.
+        // The voices are chosen per string in `Theme.Typography` instead.
         .tint(Theme.Color.accent)
         .preferredColorScheme(appearance.colorScheme)
         .onOpenURL { router.handle($0) }
@@ -170,7 +192,7 @@ struct RootView: View {
                 .id("\(section.rawValue)-\(ticker)")
         case .settings:
             SettingsView(
-                dataStatus: homeViewModel.status,
+                dataStatus: homeViewModel,
                 onOpenMethodology: { router.push(.methodology, in: .home) },
                 cache: dependencies.cache
             )
@@ -179,6 +201,9 @@ struct RootView: View {
         }
     }
 }
+
+/// FinScope's primary navigation: compact, ruled and deliberately flat. The
+/// active section is the only filled element in the rail.
 
 /// Owns one `StockDetailViewModel` for the lifetime of a pushed fiche.
 ///

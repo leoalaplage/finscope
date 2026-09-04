@@ -121,8 +121,12 @@ struct ErrorBanner: View {
             }
         }
         .padding(Theme.Spacing.md)
-        .background(Theme.Color.negative.opacity(Theme.Opacity.chipFill))
+        .background(Theme.Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
+                .stroke(Theme.Color.textPrimary, lineWidth: Theme.Stroke.thin)
+        }
         .accessibilityElement(children: .combine)
     }
 }

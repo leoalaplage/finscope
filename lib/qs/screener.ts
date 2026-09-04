@@ -17,6 +17,7 @@
 import * as cfg from "./qs-config.js";
 import { chargerTableau } from "./qs-parse.js";
 import { analyser, trier, CRITERES_TRI, PILIERS } from "./qs-engine.js";
+import type { QsStructuredInput } from "./contracts";
 
 export type PillarName = "Quality" | "Health" | "Growth" | "Value";
 
@@ -81,6 +82,58 @@ export interface ScreenerResult {
   /** Metrics no company in the universe carried a usable value for. */
   missing: string[];
   warnings: string[];
+}
+
+interface EngineInput {
+  Ticker: string;
+  Secteur: string;
+  Cap: number | null;
+  brut: Record<string, number | null>;
+  ref: Record<string, number | null>;
+}
+
+function perShareGrowth(total: number | null, shares: number | null): number | null {
+  if (total == null || shares == null) return null;
+  const denominator = 1 + shares / 100;
+  return denominator <= 0 ? null : ((1 + total / 100) / denominator - 1) * 100;
+}
+
+/** Converts typed server input into the engine's native object, without CSV parsing. */
+export function structuredEngineInput(input: QsStructuredInput): EngineInput {
+  // The legacy generated CSV serializes numbers to four decimals. Keeping the
+  // structured path on that same boundary guarantees rollout parity instead
+  // of creating tiny percentile changes merely by removing the serializer.
+  const precise = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? null : Number(value.toFixed(4));
+  const brut = Object.fromEntries(QS_METRICS.map((metric) => [metric.cle, precise(input.metrics[metric.cle])]));
+  if (brut.OCF_Capex == null) {
+    const ocf = precise(input.references.operatingCashFlowBillions);
+    const capex = precise(input.references.capexBillions);
+    if (ocf != null && capex != null && capex !== 0) brut.OCF_Capex = ocf / Math.abs(capex);
+  }
+  if (brut.RevPS5 == null) brut.RevPS5 = perShareGrowth(brut.Rev5, brut.ShOut5);
+  if (brut.FCFPS5 == null) brut.FCFPS5 = perShareGrowth(brut.LevFCF5, brut.ShOut5);
+  return {
+    Ticker: input.ticker,
+    Secteur: input.sector || "(n/a)",
+    Cap: precise(input.marketCapBillions),
+    brut,
+    ref: {
+      PEG: precise(input.references.peg),
+      OCF: precise(input.references.operatingCashFlowBillions),
+      Capex: precise(input.references.capexBillions),
+    },
+  };
+}
+
+/** Scores typed inputs directly. CSV remains only as a backwards-compatible adapter. */
+export function screenStructured(inputs: QsStructuredInput[], filters: ScreenerFilters = {}): ScreenerResult {
+  if (!inputs.length) throw new Error("Need at least one structured company input.");
+  const titles = inputs.map(structuredEngineInput) as ScoredCompany[];
+  const missing = QS_METRICS.filter((metric) => titles.every((company) => company.brut[metric.cle] == null)).map((metric) => metric.cle);
+  const { titres: all, retenus, poids } = analyser(titles, filters) as {
+    titres: ScoredCompany[]; retenus: ScoredCompany[]; poids: Record<PillarName, number>;
+  };
+  return { all, rows: retenus, weights: poids, missing, warnings: [] };
 }
 
 /**

@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "dataVersion": "market-quotes-v1",
+    "scoreVersion": null,
+    "asOf": "2026-09-03T20:00:01.000Z",
+    "retrievedAt": "2026-09-04T09:55:34.631Z",
+    "currency": null,
+    "unit": null,
+    "frequency": "live",
+    "status": "reported",
+    "warnings": []
+  },
+  "data": {
+    "quotes": [
+      {
+        "symbol": "MSFT",
+        "name": "Microsoft Corporation",
+        "price": 510.12,
+        "previousClose": 496.82,
+        "change": 13.300000000000011,
+        "changePercent": 0.02677025884626225,
+        "currency": "USD",
+        "asOf": "2026-09-03T20:00:01.000Z",
+        "status": "reported"
+      },
+      {
+        "symbol": "AAPL",
+        "name": "Apple Inc.",
+        "price": 328.21,
+        "previousClose": 324.96,
+        "change": 3.25,
+        "changePercent": 0.010001230920728705,
+        "currency": "USD",
+        "asOf": "2026-09-03T20:00:01.000Z",
+        "status": "reported"
+      }
+    ]
+  }
+}

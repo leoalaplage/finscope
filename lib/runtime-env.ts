@@ -8,6 +8,7 @@
  */
 export interface RuntimeBindings {
   DATASET_CACHE?: KVNamespace;
+  DB?: D1Database;
   /** This same Worker, bound as a service. See selfFetcher. */
   SELF?: { fetch(request: Request): Promise<Response> };
 }
@@ -41,6 +42,11 @@ export function keepAlive(promise: Promise<unknown>) {
 /** The normalized-company cache, or null when running without the binding. */
 export function datasetCache(): KVNamespace | null {
   return bindings.DATASET_CACHE ?? null;
+}
+
+/** The relational company/screener index, or null until D1 is configured. */
+export function database(): D1Database | null {
+  return bindings.DB ?? null;
 }
 
 /**

@@ -139,7 +139,7 @@ struct ScoreDetailView: View {
                                 .foregroundStyle(Theme.Color.textPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
                             Text(Formatter.score(item.score))
-                                .font(Theme.Typography.mono(.caption, weight: .semibold))
+                                .font(Theme.Typography.mono(.footnote, weight: .bold))
                                 .foregroundStyle(tint)
                         }
                     }
@@ -235,6 +235,10 @@ struct ScoreDetailView: View {
                     .padding(Theme.Spacing.lg)
                     .background(Theme.Color.surface)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
+                            .stroke(Theme.Color.separator, lineWidth: Theme.Stroke.thin)
+                    }
                 }
             }
 

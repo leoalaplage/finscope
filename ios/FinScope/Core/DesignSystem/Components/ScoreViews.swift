@@ -1,23 +1,39 @@
 import SwiftUI
 
-/// The grade, as a badge. `NR` is grey and stays grey.
+/// The grade, set like a compact table marker rather than a button. Rows use
+/// terminal brackets; the score card uses a labelled rule with no surrounding
+/// box competing with the score itself.
 struct GradeBadge: View {
     let grade: ScoreGrade
     var size: Size = .regular
 
     enum Size { case regular, large }
 
+    @ViewBuilder
     var body: some View {
-        Text(grade.raw)
-            .font(size == .large
-                  ? Theme.Typography.mono(.title3, weight: .semibold)
-                  : Theme.Typography.mono(.footnote, weight: .semibold))
-            .foregroundStyle(Theme.Color.grade(grade))
-            .padding(.horizontal, size == .large ? Theme.Spacing.group : Theme.Spacing.sm)
-            .padding(.vertical, size == .large ? Theme.Spacing.xs + 2 : Theme.Spacing.hairline)
-            .background(Theme.Color.grade(grade).opacity(Theme.Opacity.chipFill))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.xs, style: .continuous))
+        if size == .large {
+            VStack(alignment: .leading, spacing: Theme.Spacing.hairline) {
+                Text(verbatim: "GRADE")
+                    .font(Theme.Typography.mono(.caption2, weight: .bold))
+                    .foregroundStyle(Theme.Color.textTertiary)
+                    .tracking(1)
+                Text(grade.raw)
+                    .font(Theme.Typography.mono(.title2, weight: .bold))
+                    .foregroundStyle(grade.isRated ? Theme.Color.textPrimary : Theme.Color.textSecondary)
+            }
+            .padding(.leading, Theme.Spacing.group)
+            .overlay(alignment: .leading) {
+                Rectangle()
+                    .fill(grade.isRated ? Theme.Color.textPrimary : Theme.Color.textSecondary)
+                    .frame(width: 2)
+            }
             .accessibilityLabel(grade.isRated ? "Grade \(grade.raw)" : ScoreGrade.notRatedExplanation)
+        } else {
+            Text("[\(grade.raw)]")
+                .font(Theme.Typography.mono(.footnote, weight: .bold))
+                .foregroundStyle(grade.isRated ? Theme.Color.textPrimary : Theme.Color.textSecondary)
+                .accessibilityLabel(grade.isRated ? "Grade \(grade.raw)" : ScoreGrade.notRatedExplanation)
+        }
     }
 }
 
@@ -39,10 +55,10 @@ struct PillarBar: View {
             }
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    Capsule()
+                    Rectangle()
                         .fill(Theme.Color.textSecondary.opacity(Theme.Opacity.barTrack))
                     if let score {
-                        Capsule()
+                        Rectangle()
                             .fill(Theme.Color.score(score))
                             .frame(width: geometry.size.width * min(max(score, 0), 100) / 100)
                     }
@@ -108,9 +124,9 @@ struct ScoreCard: View {
                     }
                     GeometryReader { geometry in
                         ZStack(alignment: .leading) {
-                            Capsule().fill(Theme.Color.textSecondary.opacity(Theme.Opacity.barTrack))
-                            Capsule()
-                                .fill(coverageIsThin ? Theme.Color.negative : Theme.Color.textSecondary)
+                            Rectangle().fill(Theme.Color.textSecondary.opacity(Theme.Opacity.barTrack))
+                            Rectangle()
+                                .fill(coverageIsThin ? Theme.Color.textPrimary.opacity(0.46) : Theme.Color.textPrimary)
                                 .frame(width: geometry.size.width * min(max(summary.coverage, 0), 1))
                         }
                     }

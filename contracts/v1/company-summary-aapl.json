@@ -1,0 +1,291 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "dataVersion": "sec-normalized-v23",
+    "scoreVersion": null,
+    "asOf": "2026-06-27",
+    "retrievedAt": "2026-09-03T19:00:51.172Z",
+    "currency": "USD",
+    "unit": null,
+    "frequency": "ttm",
+    "status": "calculated",
+    "warnings": [
+      "Quarterly cash-flow facts may be isolated from year-to-date disclosures; every derived quarter is marked calculated with its source accessions.",
+      "TTM is available through 2026-06-27 from four consecutive fiscal quarters.",
+      "Standardized concepts only: company extensions and non-GAAP values remain separate and are not imputed."
+    ]
+  },
+  "data": {
+    "company": {
+      "ticker": "AAPL",
+      "name": "Apple Inc.",
+      "cik": "0000320193",
+      "exchange": "NASDAQ",
+      "sector": "Technology",
+      "currency": "USD",
+      "businessType": "operating",
+      "description": "Consumer technology, devices and services.",
+      "resolutionStatus": "verified"
+    },
+    "latestPeriod": {
+      "label": "TTM Q3 FY2026",
+      "periodStart": "2025-06-29",
+      "periodEnd": "2026-06-27",
+      "fiscalYear": 2026,
+      "fiscalQuarter": "Q3",
+      "frequency": "ttm"
+    },
+    "metrics": {
+      "revenue": {
+        "metric": "revenue",
+        "label": "Revenue",
+        "value": 466823000000,
+        "currency": "USD",
+        "unit": "currency",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "grossProfit": {
+        "metric": "grossProfit",
+        "label": "Gross profit",
+        "value": 227123000000,
+        "currency": "USD",
+        "unit": "currency",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "operatingIncome": {
+        "metric": "operatingIncome",
+        "label": "Operating income",
+        "value": 154859000000,
+        "currency": "USD",
+        "unit": "currency",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "netIncome": {
+        "metric": "netIncome",
+        "label": "Net income",
+        "value": 128930000000,
+        "currency": "USD",
+        "unit": "currency",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "eps": {
+        "metric": "eps",
+        "label": "EPS · diluted",
+        "value": 8.7240840933906,
+        "currency": "USD",
+        "unit": "perShare",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "fcf": {
+        "metric": "fcf",
+        "label": "Free cash flow",
+        "value": 136683000000,
+        "currency": "USD",
+        "unit": "currency",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "fcfPerShare": {
+        "metric": "fcfPerShare",
+        "label": "Free cash flow per share",
+        "value": 9.248692981749068,
+        "currency": "USD",
+        "unit": "perShare",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "grossMargin": {
+        "metric": "grossMargin",
+        "label": "Gross margin",
+        "value": 0.4865291555900202,
+        "currency": null,
+        "unit": "percent",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "operatingMargin": {
+        "metric": "operatingMargin",
+        "label": "Operating margin",
+        "value": 0.3317295848747812,
+        "currency": null,
+        "unit": "percent",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "netMargin": {
+        "metric": "netMargin",
+        "label": "Net margin",
+        "value": 0.27618604910212224,
+        "currency": null,
+        "unit": "percent",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "fcfMargin": {
+        "metric": "fcfMargin",
+        "label": "Free cash flow margin",
+        "value": 0.2927940568480987,
+        "currency": null,
+        "unit": "percent",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "sharesOutstanding": {
+        "metric": "sharesOutstanding",
+        "label": "Shares outstanding · reported date",
+        "value": 14608963000,
+        "currency": null,
+        "unit": "shares",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "reported"
+      },
+      "cash": {
+        "metric": "cash",
+        "label": "Cash and equivalents",
+        "value": 39544000000,
+        "currency": "USD",
+        "unit": "currency",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "reported"
+      },
+      "totalDebt": {
+        "metric": "totalDebt",
+        "label": "Total debt",
+        "value": 82347000000,
+        "currency": "USD",
+        "unit": "currency",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "netDebt": {
+        "metric": "netDebt",
+        "label": "Net debt",
+        "value": 42803000000,
+        "currency": "USD",
+        "unit": "currency",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "roic": {
+        "metric": "roic",
+        "label": "Return on invested capital",
+        "value": 0.8519265822384027,
+        "currency": null,
+        "unit": "percent",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      },
+      "cashReturnOnCapital": {
+        "metric": "cashReturnOnCapital",
+        "label": "Cash return on capital",
+        "value": 0.9092620557067116,
+        "currency": null,
+        "unit": "percent",
+        "frequency": "ttm",
+        "periodStart": "2025-06-29",
+        "periodEnd": "2026-06-27",
+        "fiscalYear": 2026,
+        "fiscalQuarter": "Q3",
+        "status": "calculated"
+      }
+    },
+    "growth": {
+      "revenue5Y": {
+        "value": 0.08673456978048621,
+        "unit": "percent",
+        "frequency": "annual",
+        "status": "calculated",
+        "startDate": "2020-09-26",
+        "endDate": "2025-09-27",
+        "years": 5.002156101768003
+      },
+      "freeCashFlow5Y": {
+        "value": 0.06123962342375511,
+        "unit": "percent",
+        "frequency": "annual",
+        "status": "calculated",
+        "startDate": "2020-09-26",
+        "endDate": "2025-09-27",
+        "years": 5.002156101768003
+      },
+      "freeCashFlowPerShare5Y": {
+        "value": 0.09473681779601884,
+        "unit": "percent",
+        "frequency": "annual",
+        "status": "calculated",
+        "startDate": "2020-09-26",
+        "endDate": "2025-09-27",
+        "years": 5.002156101768003
+      }
+    }
+  }
+}

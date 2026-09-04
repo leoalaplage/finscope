@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "dataVersion": "sec-normalized-v23",
+    "scoreVersion": null,
+    "asOf": "2026-06-27",
+    "retrievedAt": "2026-09-03T19:00:51.172Z",
+    "currency": "USD",
+    "unit": null,
+    "frequency": null,
+    "status": "reported",
+    "warnings": [
+      "Quarterly cash-flow facts may be isolated from year-to-date disclosures; every derived quarter is marked calculated with its source accessions.",
+      "TTM is available through 2026-06-27 from four consecutive fiscal quarters.",
+      "Standardized concepts only: company extensions and non-GAAP values remain separate and are not imputed."
+    ]
+  },
+  "data": {
+    "ticker": "AAPL",
+    "metric": "revenue",
+    "period": "2026-06-27",
+    "validation": {
+      "status": "Verified",
+      "reason": "Finite standardized filing fact with traceable provenance."
+    },
+    "sources": [
+      {
+        "metric": "revenue",
+        "dependency": "revenue",
+        "periodStart": "2026-03-29",
+        "periodEnd": "2026-06-27",
+        "provider": "SEC",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000020/",
+        "accession": "0000320193-26-000020",
+        "filingDate": "2026-07-31",
+        "concept": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "status": "reported",
+        "formula": null,
+        "note": "Directly reported standardized XBRL fact."
+      }
+    ]
+  }
+}

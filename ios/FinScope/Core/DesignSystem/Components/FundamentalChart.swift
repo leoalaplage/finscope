@@ -119,14 +119,14 @@ struct FundamentalChart: View {
                             y: .value(series.label, value)
                         )
                         .foregroundStyle(colour(for: point, value: value))
-                        .cornerRadius(Theme.Radius.xs / 2)
+                        .cornerRadius(0)
                     } else {
                         LineMark(
                             x: .value("Period", point.label),
                             y: .value(series.label, value)
                         )
                         .foregroundStyle(Theme.Color.accent)
-                        .lineStyle(StrokeStyle(lineWidth: Theme.Stroke.chartLine, lineCap: .round))
+                        .lineStyle(StrokeStyle(lineWidth: Theme.Stroke.chartLine, lineCap: .square))
                         // Straight segments between observations, never a
                         // curve: a spline would draw values between two years
                         // that the company never reported.

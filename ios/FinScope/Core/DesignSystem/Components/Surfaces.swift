@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The base container, on the grouped-form surface iOS uses for content.
+/// A compact sheet of financial information: lightly shaded, square-edged and
+/// ruled like a table rather than floating like a consumer-app card.
 struct Card<Content: View>: View {
-    var padding: CGFloat = Theme.Spacing.lg
+    var padding: CGFloat = Theme.Spacing.md
     var elevated: Bool = false
     @ViewBuilder var content: Content
 
@@ -12,6 +13,10 @@ struct Card<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(elevated ? Theme.Color.surfaceElevated : Theme.Color.surface)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
+                    .stroke(Theme.Color.separator, lineWidth: Theme.Stroke.thin)
+            }
     }
 }
 
@@ -23,10 +28,10 @@ struct SectionHeader<Accessory: View>: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
             Text(title)
-                .font(Theme.Typography.footnote)
-                .foregroundStyle(Theme.Color.textSecondary)
+                .font(Theme.Typography.mono(.caption, weight: .bold))
+                .foregroundStyle(Theme.Color.textPrimary)
                 .textCase(.uppercase)
-                .tracking(0.6)
+                .tracking(1.2)
             Spacer(minLength: Theme.Spacing.sm)
             accessory
         }
@@ -78,11 +83,15 @@ struct Chip: View {
                     .accessibilityHidden(true)
             }
         }
-        .foregroundStyle(Theme.Color.accent)
+        .foregroundStyle(Theme.Color.textPrimary)
         .padding(.horizontal, Theme.Spacing.group)
         .padding(.vertical, Theme.Spacing.xs + 2)
-        .background(Theme.Color.accent.opacity(Theme.Opacity.chipFill))
+        .background(Theme.Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.chip, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.Radius.chip, style: .continuous)
+                .stroke(Theme.Color.separator, lineWidth: Theme.Stroke.thin)
+        }
         .contentShape(Rectangle())
         .onTapGesture { onRemove?() }
         .accessibilityLabel(onRemove == nil ? label : "\(label). Remove filter")

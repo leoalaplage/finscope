@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "dataVersion": "sec-company-registry-v1",
+    "scoreVersion": null,
+    "asOf": "2026-09-04",
+    "retrievedAt": "2026-09-04T09:55:34.631Z",
+    "currency": null,
+    "unit": null,
+    "frequency": null,
+    "status": "reported",
+    "warnings": []
+  },
+  "data": {
+    "query": "AAPL",
+    "results": [
+      {
+        "ticker": "AAPL",
+        "name": "Apple Inc.",
+        "cik": "0000320193",
+        "exchange": "US listing",
+        "sector": "Unclassified",
+        "currency": "USD",
+        "businessType": "operating",
+        "description": "Dynamically resolved from the SEC company registry.",
+        "resolutionStatus": "partial",
+        "regulatoryId": "CIK 0000320193"
+      }
+    ],
+    "nextCursor": null
+  }
+}

@@ -27,6 +27,7 @@ const SparkSchema = z.object({
           regularMarketPrice: z.number().nullable().optional(),
           chartPreviousClose: z.number().nullable().optional(),
           regularMarketVolume: z.number().nullable().optional(),
+          regularMarketTime: z.number().nullable().optional(),
         }),
       })),
     })).nullable(),
@@ -42,6 +43,7 @@ export interface Quote {
   change: number | null;
   changePercent: number | null;
   currency: string;
+  asOf: string | null;
 }
 
 const BASE_URLS = () => [process.env.YAHOO_FINANCE_BASE_URL || "https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"];
@@ -89,6 +91,7 @@ async function fetchBatch(symbols: string[]): Promise<Quote[]> {
         change: price != null && previousClose != null ? price - previousClose : null,
         changePercent: price != null && previousClose != null && previousClose !== 0 ? (price - previousClose) / previousClose : null,
         currency: meta.currency ?? "USD",
+        asOf: meta.regularMarketTime == null ? null : new Date(meta.regularMarketTime * 1000).toISOString(),
       }];
     });
   }

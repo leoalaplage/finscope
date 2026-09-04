@@ -1,0 +1,46 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "dataVersion": "watchlist-v1-v23",
+    "scoreVersion": "qs-v3",
+    "asOf": "2026-09-03T20:00:01.000Z",
+    "retrievedAt": "2026-09-04T09:55:34.631Z",
+    "currency": null,
+    "unit": "score-0-100",
+    "frequency": "point-in-time",
+    "status": "calculated",
+    "warnings": []
+  },
+  "data": {
+    "ticker": "AAPL",
+    "scoreVersion": "qs-v3",
+    "universeVersion": "watchlist-v1-v23",
+    "fundamentalsAsOf": "2026-06-27",
+    "priceAsOf": "2026-09-03T20:00:01.000Z",
+    "total": 53.40312506915342,
+    "quality": 64.70756154761904,
+    "health": 72.35143079039983,
+    "growth": 31.396823864828338,
+    "value": 25.524563174603173,
+    "coverage": 0.85,
+    "grade": "B+",
+    "rank": 11,
+    "alerts": [],
+    "strengths": [
+      "Low dilution",
+      "ROIC",
+      "ROIC 5y"
+    ],
+    "weaknesses": [
+      "Gross margin",
+      "FCF growth 5y",
+      "Current ratio"
+    ],
+    "units": {
+      "total": "score-0-100",
+      "pillars": "score-0-100",
+      "coverage": "ratio-0-1",
+      "rank": "ordinal"
+    }
+  }
+}

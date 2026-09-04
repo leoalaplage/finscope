@@ -4,7 +4,10 @@ import SwiftUI
 /// cache. Reached from Home rather than owning a tab, because it is opened
 /// rarely and a fifth tab would cost more than it earns.
 struct SettingsView: View {
-    let dataStatus: LoadState<DataStatus>
+    /// The same view model Home uses, so the two never disagree about how
+    /// current the data is — and so Settings can load it when it is reached
+    /// directly by a deep link rather than by scrolling past Home.
+    @Bindable var dataStatus: HomeViewModel
     let onOpenMethodology: () -> Void
 
     @AppStorage(PreferenceKey.appearance) private var appearanceRaw = Appearance.system.rawValue
@@ -25,7 +28,7 @@ struct SettingsView: View {
             }
 
             Section {
-                if let status = dataStatus.value {
+                if let status = dataStatus.status.value {
                     LabeledContent("Companies covered", value: "\(status.universeSize)")
                     LabeledContent("Freshness checked", value: "\(status.checkedCount)")
                     LabeledContent("Behind a newer filing", value: "\(status.behindCount)")
@@ -85,11 +88,17 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await loadCacheSize() }
+        .task {
+            await dataStatus.load()
+            await loadCacheSize()
+        }
     }
 
     private var cacheDescription: String {
         guard let cacheBytes else { return "—" }
+        // `ByteCountFormatStyle` spells zero as "Zero kB", which reads like a
+        // bug rather than an empty cache.
+        guard cacheBytes > 0 else { return "Empty" }
         return ByteCountFormatStyle(style: .file).format(Int64(cacheBytes))
     }
 
@@ -208,8 +217,13 @@ extension Bundle {
 
 #if DEBUG
 #Preview("Settings") {
-    NavigationStack {
-        SettingsView(dataStatus: .idle, onOpenMethodology: {}, cache: nil)
+    let dependencies = AppDependencies.preview()
+    return NavigationStack {
+        SettingsView(
+            dataStatus: HomeViewModel(repository: dependencies.dataStatus),
+            onOpenMethodology: {},
+            cache: nil
+        )
     }
 }
 

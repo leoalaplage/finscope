@@ -93,7 +93,10 @@ struct StockDetailView: View {
                         .font(Theme.Typography.hero)
                         .foregroundStyle(Theme.Color.textPrimary)
                         .contentTransition(.numericText())
-                    ChangeLabel(changePercent: price.changePercent)
+                    ChangeLabel(
+                        changePercent: price.changePercent,
+                        font: Theme.Typography.mono(.title3, weight: .semibold)
+                    )
                 }
                 .padding(.top, Theme.Spacing.xs)
 

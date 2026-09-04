@@ -763,16 +763,20 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
 }
 
 interface SecTickerEntry { cik_str: number; ticker: string; title: string }
-export async function searchSecCompanies(query: string) {
+export interface SecCompanySearchOptions { offset?: number; limit?: number }
+
+export async function searchSecCompanies(query: string, options: SecCompanySearchOptions = {}) {
   const response = await fetch("https://www.sec.gov/files/company_tickers.json", { headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" }, next: { revalidate: 86_400 } });
   if (!response.ok) throw new Error(`SEC company registry returned ${response.status}.`);
   const entries = Object.values(await response.json() as Record<string, SecTickerEntry>); const needle = query.trim().toUpperCase();
+  const offset = Math.max(0, Math.floor(options.offset ?? 0));
+  const limit = Math.max(1, Math.min(50, Math.floor(options.limit ?? 12)));
   // The registry is CIK-ordered. Prioritise an exact symbol before applying the
   // display limit, otherwise a one-letter ticker can disappear behind twelve
   // unrelated company names that happen to contain the same letter.
   return entries.filter((entry) => entry.ticker.includes(needle) || entry.title.toUpperCase().includes(needle))
     .sort((left, right) => Number(right.ticker === needle) - Number(left.ticker === needle))
-    .slice(0, 12).map((entry) => {
+    .slice(offset, offset + limit).map((entry) => {
     const cik = String(entry.cik_str).padStart(10, "0");
     return { name: entry.title, ticker: entry.ticker, cik, regulatoryId: `CIK ${cik}`, exchange: "US listing", currency: "USD", yahooTicker: entry.ticker, sector: "Unclassified", description: "Dynamically resolved from the SEC company registry.", resolutionStatus: "partial" as const, resolutionNote: "The CIK is verified by the SEC. The exchange listing and the split history are not, so long per-share price series for this company are unadjusted.", businessType: verifiedBusinessType(cik) ?? "operating" };
   });

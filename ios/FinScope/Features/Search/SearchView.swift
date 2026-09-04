@@ -44,7 +44,9 @@ struct SearchView: View {
                 .listRowBackground(Color.clear)
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Theme.Color.background)
         .scrollDismissesKeyboard(.immediately)
         .navigationTitle("Search")
         .searchable(
