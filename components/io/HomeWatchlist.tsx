@@ -1,56 +1,25 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState } from "react";
 import { Pencil } from "lucide-react";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
-
-const STORAGE_KEY = "finscope.io.home-watchlist.v1";
-const STORAGE_EVENT = "finscope:home-watchlist";
-const TICKER = /^[A-Z0-9][A-Z0-9.-]{0,11}$/;
-const DEFAULT_TICKERS = DEFAULT_WATCHLIST.map((company) => company.ticker);
-
-function parseTickers(value: string) {
-  const seen = new Set<string>();
-  return value
-    .toUpperCase()
-    .split(/[^A-Z0-9.-]+/)
-    .map((ticker) => ticker.trim())
-    .filter((ticker) => TICKER.test(ticker) && !seen.has(ticker) && Boolean(seen.add(ticker)))
-    .slice(0, 60);
-}
+import { DEFAULT_TICKERS, parseTickers, useStoredWatchlist, writeWatchlist } from "./watchlist";
 
 /** A reader's list lives on their device; the default remains instant HTML. */
 export function HomeWatchlist() {
-  const stored = useSyncExternalStore(
-    (notify) => { window.addEventListener(STORAGE_EVENT, notify); return () => window.removeEventListener(STORAGE_EVENT, notify); },
-    () => localStorage.getItem(STORAGE_KEY),
-    () => null,
-  );
+  const stored = useStoredWatchlist();
   const [sessionTickers, setSessionTickers] = useState<string[] | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(DEFAULT_TICKERS.join("\n"));
   const profiles = useMemo(() => new Map(DEFAULT_WATCHLIST.map((company) => [company.ticker, company])), []);
   const parsed = useMemo(() => parseTickers(draft), [draft]);
-  const tickers = useMemo(() => {
-    if (sessionTickers) return sessionTickers;
-    try {
-      const value = JSON.parse(stored ?? "null") as unknown;
-      if (Array.isArray(value)) {
-        const valid = parseTickers(value.filter((item): item is string => typeof item === "string").join(" "));
-        if (valid.length) return valid;
-      }
-    } catch { /* The default remains the safe snapshot. */ }
-    return DEFAULT_TICKERS;
-  }, [sessionTickers, stored]);
+  const tickers = sessionTickers ?? stored;
 
   const openEditor = () => { setDraft(tickers.join("\n")); setEditing(true); };
   const save = () => {
     if (!parsed.length) return;
     setSessionTickers(parsed);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-      window.dispatchEvent(new Event(STORAGE_EVENT));
-    } catch { /* The in-memory edit still works. */ }
+    writeWatchlist(parsed);
     setEditing(false);
   };
   const reset = () => setDraft(DEFAULT_TICKERS.join("\n"));

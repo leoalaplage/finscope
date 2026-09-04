@@ -101,7 +101,7 @@ export function Company({ ticker }: { ticker: string }) {
         // The view shape is edge-cached by URL as well as keyed in KV. Carry
         // its schema in the request so a deployment never pairs a new client
         // with an hour-old response from the previous shape.
-        const response = await fetch(`/api/io/${encodeURIComponent(ticker)}?view=iov4`, { signal: controller.signal });
+        const response = await fetch(`/api/io/${encodeURIComponent(ticker)}?view=iov5`, { signal: controller.signal });
         if (response.status === 202) {
           attempts += 1;
           if (attempts <= POLL_LIMIT) {

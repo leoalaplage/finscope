@@ -200,3 +200,83 @@ function BarMarks({ values, extent, active }: { values: Array<number | null>; ex
     </>
   );
 }
+
+export interface Series { label: string; points: PricePoint[] }
+
+/**
+ * Several companies on one axis, told apart without a second colour.
+ *
+ * This is the hard case for a monochrome site, and dashes are the answer that
+ * has always worked in print: five stroke patterns, plus each line's name set
+ * at the end of it where the eye already is. A legend in a corner would make
+ * the reader look away from the chart and match a swatch to a word; a label on
+ * the line itself is read where the line ends.
+ *
+ * Everything is drawn against one extent, because two scales sharing a frame
+ * put their crossing point wherever the axes were placed rather than where the
+ * data crosses. Levels of different sizes are indexed by the caller before they
+ * get here; a rate needs no indexing and gets none.
+ */
+export function MultiLine({
+  series,
+  onHover,
+}: {
+  series: Series[];
+  onHover: (index: number | null) => void;
+}) {
+  const frame = useRef<HTMLDivElement>(null);
+  const [cursor, setCursor] = useState<number | null>(null);
+
+  const length = Math.max(...series.map((entry) => entry.points.length), 0);
+  const extent = useMemo(
+    () => extentOf(series.flatMap((entry) => entry.points.map((point) => point.value)), false),
+    [series],
+  );
+
+  const move = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const box = frame.current?.getBoundingClientRect();
+    if (!box || box.width === 0 || length === 0) return;
+    const fraction = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
+    const index = Math.round(fraction * (length - 1));
+    setCursor(index);
+    onHover(index);
+  };
+  const leave = () => { setCursor(null); onHover(null); };
+
+  if (!extent || length < 2) return null;
+  const cursorX = xOf(cursor ?? 0, length);
+
+  return (
+    <div className="plot price-chart" ref={frame} onPointerMove={move} onPointerLeave={leave} onPointerDown={move}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+        {series.map((entry, index) => (
+          <path
+            key={entry.label}
+            className={`plot-line plot-stroke-${index % 5}`}
+            d={segments(entry.points.map((point) => point.value), extent)}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        {cursor != null ? (
+          <line className="plot-cursor" x1={cursorX} x2={cursorX} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
+        ) : null}
+      </svg>
+      <div className="plot-axis">
+        {series.map((entry, index) => {
+          const last = entry.points.at(-1);
+          if (!last) return null;
+          return (
+            <span
+              key={entry.label}
+              className="plot-name"
+              style={{ top: `${((extent.max - last.value) / (extent.max - extent.min)) * 100}%` }}
+            >
+              <span className={`plot-swatch plot-stroke-${index % 5}`} />
+              {entry.label}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

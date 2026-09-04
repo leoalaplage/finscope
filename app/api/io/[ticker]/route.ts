@@ -24,9 +24,11 @@ import type { CompanyDataset } from "@/lib/types";
 // iov2 added the historical TTM series. iov3 dropped the per-metric colour it
 // also carried: no chart on this site is drawn in anything but one ink. iov4
 // carries every trailing period the filings support rather than six years of
-// them, and lists only the measures a company actually has. Never serve an
-// older shape to a client that asked for this one.
-const VIEW_VERSION = "iov4";
+// them, and lists only the measures a company actually has. iov5 stops
+// shipping the statement layout with every company — it is the shape of the
+// page, not a fact about a filer, and a new section stayed invisible for a day
+// behind the cache. Never serve an older shape to a client that asked for one.
+const VIEW_VERSION = "iov5";
 const VIEW_SECONDS = 86_400;
 
 const viewKey = (ticker: string) => `view:${VIEW_VERSION}.${KEY_VERSION}:${ticker.toUpperCase()}`;

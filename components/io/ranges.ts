@@ -77,11 +77,27 @@ export function offersFrequency(range: Range): boolean {
   return range === "5Y" || range === "MAX";
 }
 
-/** The last `years` of a series, measured from its own final period. */
+/**
+ * The last `years` of a series, measured from its own final period.
+ *
+ * The boundary is loosened by three weeks, and it has to be. A fiscal year does
+ * not end on the same date every year — Apple's ended on 26 September in 2020
+ * and on 27 September in 2025 — so a cutoff struck exactly five years back
+ * excluded the year five years back by one day. "Five-year growth" was then
+ * compounded over four intervals and read three points too low: 3.3% a year for
+ * a company that grew at 8.7%.
+ *
+ * Three weeks is wider than any fiscal calendar drifts and far narrower than
+ * the gap to the next observation, so it can only ever recover the period the
+ * window was named for.
+ */
+const CALENDAR_SLACK_DAYS = 21;
+
 export function withinYears<T extends { end: string }>(periods: T[], years: number | null): T[] {
   if (years == null || periods.length === 0) return periods;
   const cutoff = new Date(`${periods[periods.length - 1].end}T00:00:00Z`);
   cutoff.setUTCFullYear(cutoff.getUTCFullYear() - years);
+  cutoff.setUTCDate(cutoff.getUTCDate() - CALENDAR_SLACK_DAYS);
   const threshold = cutoff.toISOString().slice(0, 10);
   return periods.filter((period) => period.end >= threshold);
 }

@@ -25,7 +25,22 @@ interface Match { ticker: string; name: string; cik: string }
  */
 interface Answer { query: string; matches: Match[] }
 
-export function Search({ size = "bar", focusOnMount = false }: { size?: "bar" | "hero"; focusOnMount?: boolean }) {
+export function Search({
+  size = "bar",
+  focusOnMount = false,
+  onPick,
+}: {
+  size?: "bar" | "hero";
+  focusOnMount?: boolean;
+  /**
+   * Hands the symbol back instead of opening it.
+   *
+   * The comparison page adds a company to a list rather than navigating to one,
+   * and it is the same search doing the same work — resolving what a reader
+   * typed into a symbol the SEC lists. Only the last step differs.
+   */
+  onPick?: (ticker: string) => void;
+}) {
   const field = useRef<HTMLInputElement>(null);
   const submitButton = useRef<HTMLButtonElement>(null);
   const [query, setQuery] = useState("");
@@ -79,8 +94,14 @@ export function Search({ size = "bar", focusOnMount = false }: { size?: "bar" | 
     <form
       className="search"
       role="search"
-      action={destination}
-      onSubmit={(event) => { if (!destination) event.preventDefault(); }}
+      action={onPick ? undefined : destination}
+      onSubmit={(event) => {
+        if (!onPick) { if (!destination) event.preventDefault(); return; }
+        event.preventDefault();
+        if (!chosen) return;
+        onPick(chosen);
+        setQuery("");
+      }}
     >
       <div className="search-field">
         <input
@@ -90,7 +111,7 @@ export function Search({ size = "bar", focusOnMount = false }: { size?: "bar" | 
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Escape") field.current?.blur();
-            if (event.key === "Enter" && destination) {
+            if (event.key === "Enter" && chosen) {
               event.preventDefault();
               submitButton.current?.click();
             }
@@ -104,7 +125,7 @@ export function Search({ size = "bar", focusOnMount = false }: { size?: "bar" | 
           aria-label="Search any US-listed company"
         />
         {size === "bar" ? <kbd className="search-key">⌘K</kbd> : null}
-        <button ref={submitButton} type="submit" className="search-submit" aria-label="Open company" disabled={!destination}>↵</button>
+        <button ref={submitButton} type="submit" className="search-submit" aria-label={onPick ? "Add company" : "Open company"} disabled={!chosen}>{onPick ? "+" : "↵"}</button>
       </div>
     </form>
   );

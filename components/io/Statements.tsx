@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
+import { IO_SECTIONS } from "@/lib/io/sections";
 import { ABSENT, formatUnit, type Unit } from "./format";
 
 /**
@@ -65,7 +66,7 @@ export function Statements({
             </tr>
           </thead>
           <tbody>
-            {view.sections.map((section) => (
+            {IO_SECTIONS.map((section) => (
               <SectionRows
                 key={section.id}
                 label={section.label}

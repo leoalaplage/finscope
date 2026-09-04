@@ -270,10 +270,16 @@ describe("the redesign", () => {
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     expect(page).toContain("<HomeWatchlist />");
     expect(watchlist).toContain('href={`/s/${encodeURIComponent(ticker)}`}');
-    expect(watchlist).toContain("localStorage.setItem(STORAGE_KEY");
+    // The list still persists to the reader's own device; the definition moved
+    // to one module so the screener scores the same list the home page edits.
+    const store = readFileSync(new URL("../components/io/watchlist.ts", import.meta.url), "utf8");
+    expect(store).toContain("localStorage.setItem(WATCHLIST_KEY");
+    expect(watchlist).toContain("writeWatchlist(parsed)");
     expect(watchlist).toContain("Reset 27");
     expect(page).not.toContain('from "next/link"');
-    expect(search).toContain("action={destination}");
+    // Still a real document navigation where it navigates at all — the compare
+    // page hands the symbol back instead, and passes no destination.
+    expect(search).toContain("action={onPick ? undefined : destination}");
     expect(search).not.toContain('role="listbox"');
     expect(search).not.toContain('className="results"');
     expect(search).toContain('type="search"');
@@ -296,7 +302,7 @@ describe("the redesign", () => {
     const price = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
     expect(company).toContain("metricKey={selectedMetric}");
     expect(company).toContain("onSelect={selectMetric}");
-    expect(company).toContain("?view=iov4");
+    expect(company).toContain("?view=iov5");
     expect(multiples).toContain("view.trailing");
     expect(multiples).toContain("Show first 8");
     expect(multiples).toContain("Show all ${panels.length}");
