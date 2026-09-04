@@ -187,6 +187,14 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   border: 0; background: none; outline: none; color: inherit;
   font-family: var(--mono); font-size: var(--fs-sm);
 }
+/*
+ * The field already has one visible boundary: `.search-field`. The shared
+ * keyboard-focus rule is deliberately stronger than `.search input`, so it
+ * used to draw a second rectangle inside that boundary. Keep the focus cue on
+ * the outer field and explicitly suppress the native/ shared ring here.
+ */
+.io .search input:focus,
+.io .search input:focus-visible { outline: none; box-shadow: none; }
 .search input::placeholder { color: var(--ink-3); }
 .search-key {
   font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-3);

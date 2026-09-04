@@ -265,6 +265,7 @@ describe("the redesign", () => {
   it("keeps landing-page company choices usable without the RSC link bridge", () => {
     const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
     const search = readFileSync(new URL("../components/io/Search.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     expect(page).toContain('<a key={company.ticker} href={`/s/${company.ticker}`}>');
     expect(page).not.toContain('from "next/link"');
@@ -272,6 +273,7 @@ describe("the redesign", () => {
     expect(search).not.toContain('role="listbox"');
     expect(search).not.toContain('className="results"');
     expect(search).toContain('type="search"');
+    expect(css).toContain(".io .search input:focus-visible { outline: none; box-shadow: none; }");
     expect(company).toContain('role="progressbar"');
     expect(company).toContain("about {state.progress}%");
   });
