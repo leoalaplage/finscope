@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ABSENT, cagrOf, compact, delta, edgarUrl, formatUnit, money, percent, price, ratio } from "../components/io/format";
+import { ABSENT, cagrOf, compact, datedCagrOf, delta, edgarUrl, formatUnit, money, percent, price, ratio } from "../components/io/format";
 import { companyView, IO_SECTIONS } from "../lib/io/view";
 import type { CompanyDataset, FinancialPeriod, MetricKey } from "../lib/types";
 
@@ -68,13 +68,15 @@ describe("the .io company projection", () => {
     const annual = Array.from({ length: 24 }, (_, index) => period(`${2002 + index}-09-27`, full));
     const quarterly = Array.from({ length: 30 }, (_, index) =>
       period(`${2019 + Math.floor(index / 4)}-0${(index % 4) + 1}-30`, full, { periodicity: "quarterly", label: `Q${(index % 4) + 1}` }));
-    const view = companyView(dataset([...annual, ...quarterly, period("2026-06-27", full, { periodicity: "ttm", label: "TTM Q3 FY2026" })]));
+    const trailing = Array.from({ length: 22 }, (_, index) => period(`${2021 + Math.floor(index / 4)}-0${(index % 4) + 1}-27`, full, { periodicity: "ttm", label: `TTM ${index + 1}` }));
+    const view = companyView(dataset([...annual, ...quarterly, ...trailing]));
 
     expect(view.annual).toHaveLength(20);
     expect(view.quarterly).toHaveLength(24);
     expect(view.annual[0].end < view.annual.at(-1)!.end).toBe(true);
     expect(view.annual.at(-1)!.end).toBe("2025-09-27");
-    expect(view.ttm?.label).toBe("TTM Q3 FY2026");
+    expect(view.trailing).toHaveLength(22);
+    expect(view.ttm?.label).toBe("TTM 22");
     // The current period is the TTM, which is what a price is measured against.
     expect(view.current).toMatchObject({ frequency: "ttm" });
   });
@@ -129,6 +131,8 @@ describe("how a figure is written", () => {
     expect(cagrOf([-50, 10], 5)).toBeNull();
     expect(cagrOf([100, null], 5)).toBeNull();
     expect(cagrOf([100], 5)).toBeNull();
+    expect(datedCagrOf([{ date: "2021-01-01", value: 100 }, { date: "2026-01-01", value: 161.05 }])).toBeCloseTo(.1, 3);
+    expect(datedCagrOf([{ date: "2025-01-01", value: 100 }, { date: "2026-01-01", value: 110 }])).toBeNull();
   });
 
   it("addresses the filing a figure came out of, or nothing", () => {

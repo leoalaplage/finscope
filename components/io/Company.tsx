@@ -46,9 +46,12 @@ type State =
 export function Company({ ticker }: { ticker: string }) {
   const [loaded, setLoaded] = useState<State>({ kind: "loading", ticker, progress: 6 });
   const [quoted, setQuoted] = useState<IoQuote | null>(null);
+  const [selection, setSelection] = useState<{ ticker: string; metric: string | null }>({ ticker, metric: null });
 
   const state: State = loaded.ticker === ticker ? loaded : { kind: "loading", ticker, progress: 6 };
   const quote = quoted?.ticker === ticker ? quoted : null;
+  const selectedMetric = selection.ticker === ticker ? selection.metric : null;
+  const selectMetric = (metric: string | null) => setSelection({ ticker, metric });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -165,9 +168,15 @@ export function Company({ ticker }: { ticker: string }) {
         </div>
       </header>
 
-      <PriceSection ticker={company.ticker} currency={quote?.currency ?? company.currency} />
+      <PriceSection
+        ticker={company.ticker}
+        currency={quote?.currency ?? company.currency}
+        view={view}
+        metricKey={selectedMetric}
+        onClearMetric={() => selectMetric(null)}
+      />
       <Stats view={view} quote={quote} />
-      <Multiples view={view} />
+      <Multiples view={view} selected={selectedMetric} onSelect={selectMetric} />
       <Statements view={view} />
 
       <footer className="foot">

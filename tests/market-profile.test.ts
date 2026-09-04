@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { resolveMarketProfile, TICKER_PATTERN } from "../lib/market-profile";
-import { companyByTicker } from "../lib/company-registry";
+import { companyByTicker, DEFAULT_WATCHLIST } from "../lib/company-registry";
 
 describe("resolving a company for market data", () => {
+  it("starts new readers with the 27 largest S&P 500 securities", () => {
+    expect(DEFAULT_WATCHLIST.map((company) => company.ticker)).toEqual([
+      "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "GOOG", "AVGO", "META", "TSLA",
+      "BRK.B", "MU", "LLY", "JPM", "WMT", "AMD", "V", "JNJ", "XOM", "MA",
+      "INTC", "ORCL", "ABBV", "BAC", "CSCO", "PLTR", "CVX", "COST",
+    ]);
+  });
+
   it("prefers the registry, so a known company keeps its split history", () => {
     const apple = resolveMarketProfile("aapl");
     expect(apple).toBe(companyByTicker("AAPL"));
@@ -11,22 +19,22 @@ describe("resolving a company for market data", () => {
 
   it("resolves a company the registry has never heard of", () => {
     /*
-     * The bug this exists for. `/api/company/COST` returned a fully normalized
-     * set of filings while `/api/price/COST` answered 404 "Ticker not
+     * The bug this exists for. `/api/company/ZZZZ` could return a normalized
+     * set of filings while `/api/price/ZZZZ` answered 404 "Ticker not
      * supported", because the price endpoints read the twenty-one-company
      * registry and the fundamentals endpoint read the SEC. So the first company
      * a reader added themselves loaded its financials and then showed no price,
      * no market capitalisation, no valuation multiple, no chart and no DCF.
-     */
-    const profile = resolveMarketProfile("COST");
-    expect(profile?.ticker).toBe("COST");
-    expect(profile?.yahooTicker).toBe("COST");
+    */
+    const profile = resolveMarketProfile("ZZZZ");
+    expect(profile?.ticker).toBe("ZZZZ");
+    expect(profile?.yahooTicker).toBe("ZZZZ");
   });
 
   it("does not claim a split history it has not verified", () => {
     // A synthesised profile must never let a long per-share price series look
     // as vouched-for as a registry company's.
-    const profile = resolveMarketProfile("COST");
+    const profile = resolveMarketProfile("ZZZZ");
     expect(profile?.stockSplits).toBeUndefined();
     expect(profile?.resolutionStatus).toBe("partial");
     expect(profile?.resolutionNote).toMatch(/split/i);

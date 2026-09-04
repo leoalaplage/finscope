@@ -24,6 +24,7 @@ export interface IoMetric {
   key: string;
   label: string;
   short: string;
+  color: string;
   unit: MetricKind;
   formula: string | null;
 }
@@ -78,6 +79,7 @@ export interface IoCompanyView {
   sections: Array<{ id: string; label: string; metrics: string[] }>;
   annual: IoPeriod[];
   quarterly: IoPeriod[];
+  trailing: IoPeriod[];
   ttm: IoPeriod | null;
   basis: IoValuationBasis | null;
   basisReason: string | null;
@@ -136,7 +138,7 @@ export const IO_SECTIONS: Array<{ id: string; label: string; metrics: string[] }
   },
 ];
 
-const IO_METRIC_KEYS = [...new Set(IO_SECTIONS.flatMap((section) => section.metrics))];
+const IO_METRIC_KEYS = Object.keys(METRICS);
 
 /**
  * How far back the page goes.
@@ -147,6 +149,7 @@ const IO_METRIC_KEYS = [...new Set(IO_SECTIONS.flatMap((section) => section.metr
  */
 const ANNUAL_LIMIT = 20;
 const QUARTERLY_LIMIT = 24;
+const TTM_LIMIT = 24;
 
 function metricCatalogue(): IoMetric[] {
   return IO_METRIC_KEYS.map((key) => {
@@ -155,6 +158,7 @@ function metricCatalogue(): IoMetric[] {
       key,
       label: definition.label,
       short: definition.short,
+      color: definition.color,
       unit: definition.kind,
       formula: definition.formula ?? null,
     };
@@ -207,7 +211,8 @@ function valuationBasis(dataset: CompanyDataset): { basis: IoValuationBasis | nu
 
 export function companyView(dataset: CompanyDataset): IoCompanyView {
   const current = currentDatasetPeriod(dataset);
-  const ttm = ordered(dataset.periods, "ttm", 1).at(-1);
+  const trailing = ordered(dataset.periods, "ttm", TTM_LIMIT).map(projectPeriod);
+  const ttm = trailing.at(-1) ?? null;
   const { basis, reason } = valuationBasis(dataset);
   return {
     company: {
@@ -229,7 +234,8 @@ export function companyView(dataset: CompanyDataset): IoCompanyView {
     sections: IO_SECTIONS,
     annual: ordered(dataset.periods, "annual", ANNUAL_LIMIT).map(projectPeriod),
     quarterly: ordered(dataset.periods, "quarterly", QUARTERLY_LIMIT).map(projectPeriod),
-    ttm: ttm ? projectPeriod(ttm) : null,
+    trailing,
+    ttm,
     basis,
     basisReason: reason,
     warnings: dataset.warnings.slice(0, 4),

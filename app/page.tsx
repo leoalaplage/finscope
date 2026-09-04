@@ -1,7 +1,7 @@
 import "./io.css";
 import { Shell } from "@/components/io/Shell";
 import { Search } from "@/components/io/Search";
-import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
+import { HomeWatchlist } from "@/components/io/HomeWatchlist";
 
 /**
  * Prerendered and served straight from the asset store.
@@ -13,8 +13,6 @@ import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
  * opens instantly is the last thing that should be able to fail that way.
  */
 export const dynamic = "force-static";
-
-const COVERED = DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved");
 
 export default function Home() {
   return (
@@ -29,17 +27,7 @@ export default function Home() {
           <Search size="hero" focusOnMount />
         </div>
 
-        <section className="quick">
-          <h2 className="label">Built and waiting</h2>
-          <div className="grid-ruled quick-grid">
-            {COVERED.map((company) => (
-              <a key={company.ticker} href={`/s/${company.ticker}`}>
-                {company.ticker}
-                <span>{company.sector}</span>
-              </a>
-            ))}
-          </div>
-        </section>
+        <HomeWatchlist />
       </main>
     </Shell>
   );

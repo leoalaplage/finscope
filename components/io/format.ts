@@ -118,6 +118,19 @@ export function cagrOf(values: Array<number | null>, years: number): number | nu
   return (endValue / startValue) ** (1 / span) - 1;
 }
 
+/** CAGR from dated observations, so quarterly and market series share honest time. */
+export function datedCagrOf(points: Array<{ date: string; value: number | null }>): number | null {
+  const known = points.filter((point): point is { date: string; value: number } => point.value != null && Number.isFinite(point.value));
+  if (known.length < 2) return null;
+  const first = known[0];
+  const last = known[known.length - 1];
+  if (first.value <= 0 || last.value <= 0) return null;
+  const elapsed = Date.parse(last.date) - Date.parse(first.date);
+  const years = elapsed / (365.2425 * 86_400_000);
+  if (!Number.isFinite(years) || years <= 1) return null;
+  return (last.value / first.value) ** (1 / years) - 1;
+}
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function shortDate(iso: string | null | undefined): string {

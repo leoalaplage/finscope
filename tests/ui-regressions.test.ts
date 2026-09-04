@@ -264,10 +264,14 @@ describe("the front page must not cost Worker CPU", () => {
 describe("the redesign", () => {
   it("keeps landing-page company choices usable without the RSC link bridge", () => {
     const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+    const watchlist = readFileSync(new URL("../components/io/HomeWatchlist.tsx", import.meta.url), "utf8");
     const search = readFileSync(new URL("../components/io/Search.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
-    expect(page).toContain('<a key={company.ticker} href={`/s/${company.ticker}`}>');
+    expect(page).toContain("<HomeWatchlist />");
+    expect(watchlist).toContain('href={`/s/${encodeURIComponent(ticker)}`}');
+    expect(watchlist).toContain("localStorage.setItem(STORAGE_KEY");
+    expect(watchlist).toContain("Reset 27");
     expect(page).not.toContain('from "next/link"');
     expect(search).toContain("action={destination}");
     expect(search).not.toContain('role="listbox"');
@@ -276,6 +280,28 @@ describe("the redesign", () => {
     expect(css).toContain(".io .search input:focus-visible { outline: none; box-shadow: none; }");
     expect(company).toContain('role="progressbar"');
     expect(company).toContain("about {state.progress}%");
+  });
+
+  it("shows exactly nine default watchlist stocks per desktop row", () => {
+    const registry = readFileSync(new URL("../lib/company-registry.ts", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    const defaults = registry.match(/export const DEFAULT_WATCHLIST[\s\S]*?\n];/)?.[0] ?? "";
+    expect(defaults.match(/\n {2}us\(\{/g)).toHaveLength(27);
+    expect(css).toContain(".quick-grid { margin-top: calc(var(--u) * 3); grid-template-columns: repeat(9, minmax(0, 1fr)); }");
+  });
+
+  it("lets every available TTM metric replace and then restore the price chart", () => {
+    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const multiples = readFileSync(new URL("../components/io/Multiples.tsx", import.meta.url), "utf8");
+    const price = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
+    expect(company).toContain("metricKey={selectedMetric}");
+    expect(company).toContain("onSelect={selectMetric}");
+    expect(multiples).toContain("view.trailing");
+    expect(multiples).toContain("Show first 8");
+    expect(multiples).toContain("Show all ${panels.length}");
+    expect(price).toContain("× Back to price");
+    expect(price).toContain('useState<MetricRange>("5Y")');
+    expect(price).toContain("{delta(cagr)} CAGR");
   });
 
   it("lands on a search box and the watchlist, not a table of nineteen columns", () => {

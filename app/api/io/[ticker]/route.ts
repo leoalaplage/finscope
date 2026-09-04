@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { searchSecCompanies } from "@/lib/adapters/sec";
+import { companyByTicker } from "@/lib/company-registry";
 import { companyView } from "@/lib/io/view";
 import { CACHE_SECONDS, KEY_VERSION, claimKey, datasetKey, fallbackDatasetKeys, requestCompany } from "@/lib/dataset-cache";
 import { TICKER_PATTERN } from "@/lib/market-profile";
@@ -20,7 +21,9 @@ import type { CompanyDataset } from "@/lib/types";
  * dataset good for a week means the view re-derives itself the morning after
  * the filings are refreshed, without anyone having to remember to evict it.
  */
-const VIEW_VERSION = "iov1";
+// iov2 adds the historical TTM series and stable metric colours used by the
+// interactive company page. Never serve an iov1 shape to that client.
+const VIEW_VERSION = "iov2";
 const VIEW_SECONDS = 86_400;
 
 const viewKey = (ticker: string) => `view:${VIEW_VERSION}.${KEY_VERSION}:${ticker.toUpperCase()}`;
@@ -38,6 +41,7 @@ const unknownKey = (ticker: string) => `unlisted:${ticker.toUpperCase()}`;
 const UNKNOWN_SECONDS = 86_400;
 
 async function listedWithSec(symbol: string): Promise<boolean> {
+  if (companyByTicker(symbol)) return true;
   try {
     const matches = await searchSecCompanies(symbol);
     return matches.some((match) => match.ticker.toUpperCase() === symbol);

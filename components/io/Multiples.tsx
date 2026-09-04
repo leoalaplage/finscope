@@ -1,109 +1,112 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
 import { Bars } from "./Plot";
-import { ABSENT, cagrOf, delta, formatUnit, yearOf, type Unit } from "./format";
+import { ABSENT, datedCagrOf, delta, formatUnit, yearOf, type Unit } from "./format";
 
-/**
- * Eight charts, ten years each, and no axis on any of them.
- *
- * The question a small multiple answers is "which way, and how steadily" — and
- * a tick ladder answers neither. What is drawn is the shape; what is written is
- * the latest figure, the span it covers, and the rate it compounded at. A
- * reader who wants the number for 2021 reads it off the table below.
- */
-
-const PANELS = [
-  "revenue",
-  "operatingIncome",
-  "netIncome",
-  "freeCashFlow",
-  "netIncomePerShare",
-  "freeCashFlowPerShare",
-  "operatingMargin",
-  "dilutedShares",
+/** Business importance first; every remaining available metric follows. */
+const PRIORITY = [
+  "revenue", "operatingIncome", "netIncome", "freeCashFlow",
+  "operatingCashFlow", "freeCashFlowPerShare", "operatingMargin", "dilutedShares",
+  "grossProfit", "ebitda", "grossMargin", "netMargin", "freeCashFlowMargin",
+  "revenuePerShare", "netIncomePerShare", "capitalExpenditures", "stockBasedCompensation",
+  "shareRepurchases", "cashAndEquivalents", "totalDebt", "netDebt", "totalEquity",
 ] as const;
 
-const YEARS = 10;
-const CAGR_YEARS = 5;
+const COLLAPSED_COUNT = 8;
+const YEARS = 5;
 
-export function Multiples({ view }: { view: IoCompanyView }) {
+function lastYears<T extends { end: string }>(items: T[], years: number) {
+  const last = items.at(-1);
+  if (!last) return [];
+  const cutoff = new Date(`${last.end}T00:00:00Z`);
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - years);
+  const threshold = cutoff.toISOString().slice(0, 10);
+  return items.filter((item) => item.end >= threshold);
+}
+
+export function Multiples({
+  view,
+  selected,
+  onSelect,
+}: {
+  view: IoCompanyView;
+  selected: string | null;
+  onSelect: (metric: string | null) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
   const metrics = useMemo(() => new Map(view.metrics.map((metric) => [metric.key, metric])), [view.metrics]);
-  const periods = useMemo(() => view.annual.slice(-YEARS), [view.annual]);
+  const periods = useMemo(() => lastYears(view.trailing, YEARS), [view.trailing]);
+  const order = useMemo(() => {
+    const priority = new Map<string, number>(PRIORITY.map((key, index) => [key, index]));
+    return [...view.metrics].sort((left, right) =>
+      (priority.get(left.key) ?? PRIORITY.length + view.metrics.indexOf(left))
+      - (priority.get(right.key) ?? PRIORITY.length + view.metrics.indexOf(right)));
+  }, [view.metrics]);
 
-  const panels = PANELS.map((key) => {
-    const metric = metrics.get(key);
-    if (!metric) return null;
-    const values = periods.map((period) => period.values[key] ?? null);
+  const panels = order.map((metric) => {
+    const values = periods.map((period) => period.values[metric.key] ?? null);
     if (!values.some((value) => value != null)) return null;
-    return { key, metric, values };
+    return { key: metric.key, metric: metrics.get(metric.key) ?? metric, values };
   }).filter((panel): panel is NonNullable<typeof panel> => panel != null);
 
   if (!panels.length || !periods.length) return null;
 
-  const currency = periods[periods.length - 1]?.currency ?? view.company.currency;
+  const visible = expanded ? panels : panels.slice(0, COLLAPSED_COUNT);
+  const currency = periods.at(-1)?.currency ?? view.company.currency;
   const first = periods[0];
-  const last = periods[periods.length - 1];
+  const last = periods.at(-1)!;
 
   return (
     <section className="section" id="history">
-      <div className="section-head">
-        <h2 className="label">Annual history</h2>
-        <span className="label">{yearOf(first.end)}–{yearOf(last.end)}</span>
+      <div className="section-head metrics-head">
+        <div>
+          <h2 className="label">TTM metrics</h2>
+          <span className="label">{yearOf(first.end)}–{yearOf(last.end)} · 5Y</span>
+        </div>
+        {panels.length > COLLAPSED_COUNT ? (
+          <button className="metric-toggle" type="button" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
+            {expanded ? "Show first 8" : `Show all ${panels.length}`}
+          </button>
+        ) : null}
       </div>
 
       <div className="grid-ruled multiples">
-        {panels.map(({ key, metric, values }) => {
+        {visible.map(({ key, metric, values }) => {
           const latest = [...values].reverse().find((value) => value != null) ?? null;
-          /*
-           * A rate for a level, a spread for a rate.
-           *
-           * Compounding a margin is meaningless — a margin that went from 20%
-           * to 30% did not grow at 8.4% a year, it widened by ten points — so a
-           * percentage metric states the spread and everything else states the
-           * compound annual rate.
-           */
+          const known = values.map((value, index) => ({ date: periods[index].end, value })).filter((point) => point.value != null);
           const growth = metric.unit === "percent"
-            ? spreadOf(values, CAGR_YEARS)
-            : cagrOf(values, CAGR_YEARS);
+            ? known.length > 1 ? (known.at(-1)!.value as number) - (known[0].value as number) : null
+            : datedCagrOf(known);
+          const isSelected = selected === key;
           return (
-            <figure className="multiple" key={key}>
-              <div className="multiple-top">
-                <figcaption className="label">{metric.short}</figcaption>
+            <button
+              className="multiple"
+              key={key}
+              type="button"
+              aria-pressed={isSelected}
+              onClick={() => onSelect(isSelected ? null : key)}
+              style={{ "--metric": metric.color } as CSSProperties}
+            >
+              <span className="multiple-top">
+                <span className="label">{metric.short}</span>
                 <span className="multiple-cagr">
-                  {growth == null
-                    ? ABSENT
-                    : metric.unit === "percent"
-                      ? `${delta(growth, 1)} ${CAGR_YEARS}Y`
-                      : `${delta(growth, 1)} CAGR`}
+                  {growth == null ? ABSENT : metric.unit === "percent" ? `${delta(growth, 1)} 5Y` : `${delta(growth, 1)} CAGR`}
                 </span>
-              </div>
-              <div className="multiple-value" data-empty={latest == null}>
+              </span>
+              <span className="multiple-value" data-empty={latest == null}>
                 {latest == null ? ABSENT : formatUnit(latest, metric.unit as Unit, currency)}
-              </div>
-              <div className="plot"><Bars values={values} /></div>
-              <div className="multiple-span">
+              </span>
+              <span className="plot"><Bars values={values} /></span>
+              <span className="multiple-span">
                 <span className="label">{yearOf(first.end)}</span>
                 <span className="label">{yearOf(last.end)}</span>
-              </div>
-            </figure>
+              </span>
+            </button>
           );
         })}
       </div>
     </section>
   );
 }
-
-/** How many points a rate moved over the window, as a decimal fraction. */
-function spreadOf(values: Array<number | null>, years: number): number | null {
-  const known = values.map((value, index) => [index, value] as const).filter(([, value]) => value != null);
-  if (known.length < 2) return null;
-  const [endIndex, endValue] = known[known.length - 1] as [number, number];
-  const start = known.find(([index]) => index >= endIndex - years);
-  if (!start) return null;
-  const [startIndex, startValue] = start as [number, number];
-  if (endIndex === startIndex) return null;
-  return endValue - startValue;
-}
-
