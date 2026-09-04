@@ -188,7 +188,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * narrow screen.
  */
 .theme-switch {
-  flex: none; margin-inline-start: auto;
+  flex: none;
   width: 28px; height: 28px; border-radius: var(--radius);
   display: grid; place-items: center;
   font-size: var(--fs-md); line-height: 1; color: var(--ink-2);
@@ -323,7 +323,15 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: calc(var(--u) * 6); flex-wrap: wrap; }
 .head-id { display: flex; align-items: baseline; gap: calc(var(--u) * 3); flex-wrap: wrap; }
 .head-ticker { font-family: var(--mono); font-size: var(--fs-xl); font-weight: 700; letter-spacing: -.02em; }
-.head-name { font-size: var(--fs-lg); color: var(--ink-2); }
+/*
+ * A company's name, in the same face as its figures.
+ *
+ * It was the last piece of the interface face left on a company page, on the
+ * argument that a name is prose. Beside a monospaced ticker, a monospaced price
+ * and sixty-five monospaced rows it read as a visitor from another document,
+ * and the page is a terminal before it is anything else.
+ */
+.head-name { font-family: var(--mono); font-size: var(--fs-md); color: var(--ink-2); letter-spacing: 0; }
 /*
  * A caption beside a title, as opposed to a company's name.
  *

@@ -64,7 +64,23 @@ export function Company({ ticker }: { ticker: string }) {
   const state: State = loaded.ticker === ticker ? loaded : { kind: "loading", ticker, progress: 6 };
   const quote = quoted?.ticker === ticker ? quoted : null;
   const selectedMetric = selection.ticker === ticker ? selection.metric : null;
-  const selectMetric = (metric: string | null) => setSelection({ ticker, metric });
+  /*
+   * A measure opens on its whole history, in trailing figures.
+   *
+   * The range is shared with the price chart above, and the window a reader was
+   * looking at a share price over is not the window they want a business
+   * measure over: a month of revenue does not exist, and five years of it is a
+   * cycle rather than a record. Picking a measure therefore asks for all of it,
+   * and asks for it as trailing figures — MAX would otherwise fall to the
+   * annual series, which is the right default for a reader who chose MAX and
+   * the wrong one for a reader who chose a measure.
+   */
+  const selectMetric = (metric: string | null) => {
+    setSelection({ ticker, metric });
+    if (!metric) return;
+    setRange("MAX");
+    setOverride({ range: "MAX", frequency: "ttm" });
+  };
   const frequency: Frequency = override?.range === range ? override.frequency : fundamentalWindow(range).frequency;
   const chooseFrequency = (next: Frequency) => setOverride({ range, frequency: next });
 

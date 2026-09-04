@@ -28,6 +28,27 @@ export const RANGES: Range[] = ["1M", "6M", "1Y", "5Y", "MAX"];
  */
 export const COMPARE_RANGES: Range[] = ["1Y", "3Y", "5Y", "10Y", "MAX"];
 
+/**
+ * What a chart of one filed measure offers, which is the same list.
+ *
+ * The reasoning is the reasoning above: a month of filed figures is one
+ * observation. Only a traded price has anything to say below a year, so only
+ * the price chart keeps the short windows.
+ */
+export const METRIC_RANGES: Range[] = COMPARE_RANGES;
+
+/**
+ * A price window read as a fundamental one.
+ *
+ * The page holds a single range across both halves, so a reader on the price
+ * chart at one month who then picks a measure is asking for a month of filed
+ * figures. There is no such thing; the year is what they get, and the caption
+ * says so rather than the chart pretending.
+ */
+export function metricRange(range: Range): Range {
+  return range === "1M" || range === "6M" ? "1Y" : range;
+}
+
 const PRICE: Record<Range, { frequency: "daily" | "weekly" | "monthly"; days: number | null }> = {
   "1M": { frequency: "daily", days: 35 },
   "6M": { frequency: "daily", days: 190 },

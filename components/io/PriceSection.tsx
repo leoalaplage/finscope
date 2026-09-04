@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { Figure, type PricePoint } from "./Plot";
-import { fundamentalWindow, offersFrequency, priceWindow, RANGES, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
+import { fundamentalWindow, METRIC_RANGES, metricRange, offersFrequency, priceWindow, RANGES, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate, type Unit } from "./format";
 
 /**
@@ -70,10 +70,10 @@ export function PriceSection({
   );
 }
 
-function RangePicker({ range, onRange }: { range: Range; onRange: (range: Range) => void }) {
+function RangePicker({ range, onRange, offered = RANGES }: { range: Range; onRange: (range: Range) => void; offered?: Range[] }) {
   return (
     <div className="seg">
-      {RANGES.map((entry) => (
+      {offered.map((entry) => (
         <button key={entry} type="button" aria-pressed={range === entry} onClick={() => onRange(entry)}>
           {entry}
         </button>
@@ -175,10 +175,11 @@ function MetricSection({
   const [hover, setHover] = useState<number | null>(null);
   const metric = view.metrics.find((item) => item.key === metricKey) ?? null;
 
+  const shown = metricRange(range);
   const periods = useMemo<IoPeriod[]>(() => {
     const series = frequency === "annual" ? view.annual : view.trailing;
-    return withinYears(series, fundamentalWindow(range).years);
-  }, [view.annual, view.trailing, frequency, range]);
+    return withinYears(series, fundamentalWindow(shown).years);
+  }, [view.annual, view.trailing, frequency, shown]);
 
   const points = useMemo<PricePoint[]>(() => metric
     ? periods.flatMap((period) => {
@@ -206,7 +207,7 @@ function MetricSection({
       <div className="metric-feature-title">
         <button className="metric-clear" type="button" onClick={onClear}>× Back to price</button>
         <span className="label">{metric.label}</span>
-        {offersFrequency(range) ? (
+        {offersFrequency(shown) ? (
           <div className="seg seg-frequency">
             {FREQUENCIES.map((entry) => (
               <button key={entry.id} type="button" aria-pressed={frequency === entry.id} onClick={() => { onFrequency(entry.id); setHover(null); }}>
@@ -219,10 +220,10 @@ function MetricSection({
       <div className="section-head">
         <div className="readout">
           <span className="v">{active ? write(active.value) : ABSENT}</span>
-          <span className="d">{active ? shortDate(active.date) : range}</span>
+          <span className="d">{active ? shortDate(active.date) : shown}</span>
           {growth != null ? <span className="readout-cagr">{delta(growth)} {metric.unit === "percent" ? "change" : "CAGR"}</span> : null}
         </div>
-        <RangePicker range={range} onRange={onRange} />
+        <RangePicker range={shown} onRange={onRange} offered={METRIC_RANGES} />
       </div>
       {points.length > 1 ? (
         <ChartFrame points={points} shape={shapeFor(metric.unit)} bounds={bounds} onHover={setHover} write={write} />
