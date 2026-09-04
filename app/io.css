@@ -353,10 +353,21 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .state { padding-block: calc(var(--u) * 20); text-align: center; }
 .state p { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-3); }
 .state .lead { font-size: var(--fs-lg); color: var(--ink); margin-bottom: var(--u); }
+.state .load-copy { font-variant-numeric: tabular-nums; }
+
+.load-track {
+  width: min(240px, 72vw); height: 2px; margin: calc(var(--u) * 3) auto 0;
+  background: var(--line); overflow: hidden;
+}
+.load-track span {
+  display: block; height: 100%; background: var(--ink);
+  transition: width .35s ease-out;
+}
 
 .pulse { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-3); animation: io-pulse 1.4s ease-in-out infinite; margin-right: 7px; vertical-align: 1px; }
 @keyframes io-pulse { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .load-track span { transition: none; } }
 
 .skeleton { background: var(--fill); border-radius: 2px; animation: io-fade 1.5s ease-in-out infinite; }
 @keyframes io-fade { 0%, 100% { opacity: .5; } 50% { opacity: .95; } }

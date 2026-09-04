@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 /**
  * The only control on the site.
@@ -27,7 +26,6 @@ interface Answer { query: string; matches: Match[] }
 const SYMBOL = /^[A-Z0-9][A-Z0-9.-]{0,11}$/;
 
 export function Search({ size = "bar", focusOnMount = false }: { size?: "bar" | "hero"; focusOnMount?: boolean }) {
-  const router = useRouter();
   const listId = useId();
   const field = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -83,7 +81,12 @@ export function Search({ size = "bar", focusOnMount = false }: { size?: "bar" | 
     setOpen(false);
     setQuery("");
     field.current?.blur();
-    router.push(`/s/${encodeURIComponent(ticker.toUpperCase())}`);
+    // Native navigation is intentional. The current vinext Link/RSC prefetch
+    // bridge can fail before it installs its click handler in production,
+    // leaving a perfectly valid company link looking inert. A document
+    // navigation works with or without hydration and the destination page is
+    // deliberately tiny; its own loading state takes over immediately.
+    window.location.assign(`/s/${encodeURIComponent(ticker.toUpperCase())}`);
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -100,7 +103,11 @@ export function Search({ size = "bar", focusOnMount = false }: { size?: "bar" | 
     else if (SYMBOL.test(typed)) go(typed);
   };
 
-  const showing = open && needle.length > 0;
+  // On the landing page the large result panel obscures the list the reader
+  // came to choose from. The search still resolves company names in the
+  // background and Enter opens the exact ticker or best match; the compact
+  // header search keeps suggestions because no company grid sits below it.
+  const showing = size === "bar" && open && needle.length > 0;
 
   return (
     <div className="search" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
@@ -117,8 +124,8 @@ export function Search({ size = "bar", focusOnMount = false }: { size?: "bar" | 
           autoCorrect="off"
           aria-label="Search any US-listed company"
           aria-expanded={showing}
-          aria-controls={listId}
-          aria-autocomplete="list"
+          aria-controls={showing ? listId : undefined}
+          aria-autocomplete={size === "bar" ? "list" : "none"}
           role="combobox"
         />
         {size === "bar" ? <kbd className="search-key">⌘K</kbd> : null}

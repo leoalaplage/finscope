@@ -1,6 +1,8 @@
 "use client";
 
-import Link from "next/link";
+/* eslint-disable @next/next/no-html-link-for-pages -- Native navigation is
+   required here while vinext's production RSC link bridge fails to hydrate. */
+
 import { useCallback, useSyncExternalStore } from "react";
 import { Search } from "./Search";
 
@@ -56,7 +58,7 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
     <div className="io">
       <header className="bar">
         <div className="wrap bar-inner">
-          <Link href="/" className="mark">FinScope<span className="dim">.io</span></Link>
+          <a href="/" className="mark">FinScope<span className="dim">.io</span></a>
           {search ? <Search /> : <span className="bar-spacer" />}
           <ThemeSwitch />
         </div>

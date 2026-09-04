@@ -38,16 +38,16 @@ const POLL_LIMIT = 30;
  * the loading view is what renders.
  */
 type State =
-  | { kind: "loading"; ticker: string }
-  | { kind: "building"; ticker: string }
+  | { kind: "loading"; ticker: string; progress: number }
+  | { kind: "building"; ticker: string; progress: number }
   | { kind: "failed"; ticker: string; message: string }
   | { kind: "ready"; ticker: string; view: IoCompanyView };
 
 export function Company({ ticker }: { ticker: string }) {
-  const [loaded, setLoaded] = useState<State>({ kind: "loading", ticker });
+  const [loaded, setLoaded] = useState<State>({ kind: "loading", ticker, progress: 6 });
   const [quoted, setQuoted] = useState<IoQuote | null>(null);
 
-  const state: State = loaded.ticker === ticker ? loaded : { kind: "loading", ticker };
+  const state: State = loaded.ticker === ticker ? loaded : { kind: "loading", ticker, progress: 6 };
   const quote = quoted?.ticker === ticker ? quoted : null;
 
   useEffect(() => {
@@ -61,7 +61,12 @@ export function Company({ ticker }: { ticker: string }) {
         if (response.status === 202) {
           attempts += 1;
           if (attempts <= POLL_LIMIT) {
-            setLoaded({ kind: "building", ticker });
+            // Cloudflare exposes readiness, not byte-level build progress. The
+            // percentage therefore follows the bounded polling window and is
+            // explicitly labelled as an estimate; it never claims completion
+            // before a real dataset arrives.
+            const progress = Math.min(95, 12 + Math.round((attempts / POLL_LIMIT) * 83));
+            setLoaded({ kind: "building", ticker, progress });
             timer = setTimeout(load, POLL_MS);
           } else {
             setLoaded({ kind: "failed", ticker, message: "This company is taking longer than expected to prepare. Ask for it again in a minute." });
@@ -103,11 +108,23 @@ export function Company({ ticker }: { ticker: string }) {
   }
 
   if (state.kind !== "ready") {
+    const label = state.kind === "building" ? "Reading the filings" : "Opening company";
     return (
       <main className="wrap">
         <div className="state">
           <p className="lead num">{ticker}</p>
-          <p><span className="pulse" />{state.kind === "building" ? "Reading the filings" : "Loading"}</p>
+          <p className="load-copy" aria-live="polite">{label} · about {state.progress}%</p>
+          <div
+            className="load-track"
+            role="progressbar"
+            aria-label={`${ticker} loading progress`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={state.progress}
+            aria-valuetext={`About ${state.progress}%`}
+          >
+            <span style={{ width: `${state.progress}%` }} />
+          </div>
         </div>
       </main>
     );

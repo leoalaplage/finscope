@@ -1,4 +1,3 @@
-import Link from "next/link";
 import "./io.css";
 import { Shell } from "@/components/io/Shell";
 import { Search } from "@/components/io/Search";
@@ -34,10 +33,10 @@ export default function Home() {
           <h2 className="label">Built and waiting</h2>
           <div className="grid-ruled quick-grid">
             {COVERED.map((company) => (
-              <Link key={company.ticker} href={`/s/${company.ticker}`}>
+              <a key={company.ticker} href={`/s/${company.ticker}`}>
                 {company.ticker}
                 <span>{company.sector}</span>
-              </Link>
+              </a>
             ))}
           </div>
         </section>

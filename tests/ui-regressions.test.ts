@@ -262,6 +262,18 @@ describe("the front page must not cost Worker CPU", () => {
 });
 
 describe("the redesign", () => {
+  it("keeps landing-page company choices usable without the RSC link bridge", () => {
+    const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+    const search = readFileSync(new URL("../components/io/Search.tsx", import.meta.url), "utf8");
+    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    expect(page).toContain('<a key={company.ticker} href={`/s/${company.ticker}`}>');
+    expect(page).not.toContain('from "next/link"');
+    expect(search).toContain("window.location.assign");
+    expect(search).toContain('size === "bar" && open');
+    expect(company).toContain('role="progressbar"');
+    expect(company).toContain("about {state.progress}%");
+  });
+
   it("lands on a search box and the watchlist, not a table of nineteen columns", () => {
     const home = readFileSync(new URL("../components/HomePage.tsx", import.meta.url), "utf8");
     expect(home).toContain("company-cards");
