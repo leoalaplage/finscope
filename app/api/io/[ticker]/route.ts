@@ -21,11 +21,12 @@ import type { CompanyDataset } from "@/lib/types";
  * dataset good for a week means the view re-derives itself the morning after
  * the filings are refreshed, without anyone having to remember to evict it.
  */
-// iov2 added the historical TTM series. iov3 drops the per-metric colour it
-// also carried: no chart on this site is drawn in anything but one ink, so it
-// was a field the page could never use. Never serve an older shape to a client
-// that asked for this one.
-const VIEW_VERSION = "iov3";
+// iov2 added the historical TTM series. iov3 dropped the per-metric colour it
+// also carried: no chart on this site is drawn in anything but one ink. iov4
+// carries every trailing period the filings support rather than six years of
+// them, and lists only the measures a company actually has. Never serve an
+// older shape to a client that asked for this one.
+const VIEW_VERSION = "iov4";
 const VIEW_SECONDS = 86_400;
 
 const viewKey = (ticker: string) => `view:${VIEW_VERSION}.${KEY_VERSION}:${ticker.toUpperCase()}`;

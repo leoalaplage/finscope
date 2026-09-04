@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fundamentalWindow, priceWindow, shapeFor, withinYears } from "../components/io/ranges";
+import { fundamentalWindow, offersFrequency, priceWindow, shapeFor, withinYears } from "../components/io/ranges";
 
 const period = (end: string) => ({ end });
 
@@ -21,6 +21,16 @@ describe("one range, read by each half of the page", () => {
      */
     expect(fundamentalWindow("MAX")).toEqual({ frequency: "annual", years: null });
     expect(fundamentalWindow("5Y")).toEqual({ frequency: "ttm", years: 5 });
+  });
+
+  it("offers the TTM/Yearly choice only where there is one to make", () => {
+    // Over a year the annual series holds one observation and over six months
+    // it holds none, so the switch there could only make the screen worse.
+    expect(offersFrequency("1M")).toBe(false);
+    expect(offersFrequency("6M")).toBe(false);
+    expect(offersFrequency("1Y")).toBe(false);
+    expect(offersFrequency("5Y")).toBe(true);
+    expect(offersFrequency("MAX")).toBe(true);
   });
 
   it("measures a window from the series' own last period, not from today", () => {

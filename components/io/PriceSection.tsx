@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { Figure, type PricePoint } from "./Plot";
-import { fundamentalWindow, priceWindow, RANGES, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
+import { fundamentalWindow, offersFrequency, priceWindow, RANGES, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate, type Unit } from "./format";
 
 /**
@@ -14,6 +14,9 @@ import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate,
  * top moves everything on the screen at once rather than leaving the figures
  * underneath on a window of their own.
  */
+
+/** Where a measure chosen from the table below sends the reader. */
+export const CHART_ANCHOR = "chart";
 
 interface Bar { date: string; close: number }
 interface Answer { key: string; bars: Bar[] | null }
@@ -39,20 +42,32 @@ export function PriceSection({
   frequency: Frequency;
   onFrequency: (frequency: Frequency) => void;
 }) {
-  return metricKey
-    ? (
-      <MetricSection
-        key={metricKey}
-        view={view}
-        metricKey={metricKey}
-        onClear={onClearMetric}
-        range={range}
-        onRange={onRange}
-        frequency={frequency}
-        onFrequency={onFrequency}
-      />
-    )
-    : <MarketPriceSection ticker={ticker} currency={currency} range={range} onRange={onRange} />;
+  /*
+   * The anchor sits on a wrapper that outlives the swap.
+   *
+   * It used to sit on each of the two sections, which are different elements:
+   * choosing a measure from a statement row unmounted the one the scroll had
+   * just been started on, and the browser cancelled it. The reader saw the row
+   * highlight and nothing else move.
+   */
+  return (
+    <div id={CHART_ANCHOR}>
+      {metricKey
+        ? (
+          <MetricSection
+            key={metricKey}
+            view={view}
+            metricKey={metricKey}
+            onClear={onClearMetric}
+            range={range}
+            onRange={onRange}
+            frequency={frequency}
+            onFrequency={onFrequency}
+          />
+        )
+        : <MarketPriceSection ticker={ticker} currency={currency} range={range} onRange={onRange} />}
+    </div>
+  );
 }
 
 function RangePicker({ range, onRange }: { range: Range; onRange: (range: Range) => void }) {
@@ -191,13 +206,15 @@ function MetricSection({
       <div className="metric-feature-title">
         <button className="metric-clear" type="button" onClick={onClear}>× Back to price</button>
         <span className="label">{metric.label}</span>
-        <div className="seg seg-frequency">
-          {FREQUENCIES.map((entry) => (
-            <button key={entry.id} type="button" aria-pressed={frequency === entry.id} onClick={() => { onFrequency(entry.id); setHover(null); }}>
-              {entry.label}
-            </button>
-          ))}
-        </div>
+        {offersFrequency(range) ? (
+          <div className="seg seg-frequency">
+            {FREQUENCIES.map((entry) => (
+              <button key={entry.id} type="button" aria-pressed={frequency === entry.id} onClick={() => { onFrequency(entry.id); setHover(null); }}>
+                {entry.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
       <div className="section-head">
         <div className="readout">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ABSENT, cagrOf, compact, datedCagrOf, delta, edgarUrl, formatUnit, money, percent, price, ratio } from "../components/io/format";
-import { companyView, IO_SECTIONS } from "../lib/io/view";
+import { companyView } from "../lib/io/view";
 import type { CompanyDataset, FinancialPeriod, MetricKey } from "../lib/types";
 
 const SHARE_METRICS = new Set<MetricKey>(["basicShares", "dilutedShares", "sharesOutstanding"]);
@@ -60,8 +60,25 @@ describe("the .io company projection", () => {
     // Inventory is not filed by this company. An absent balance is never a zero.
     expect(latest.values.inventory).toBeNull();
 
+    /*
+     * The catalogue lists what this company has, not what the registry knows.
+     *
+     * Twenty-one registry measures cannot be computed from a filed period at
+     * all — a market capitalisation, a price-to-earnings, every compound rate —
+     * because they need a quote or a second period, and they used to be shipped
+     * for every company as a column of nulls no chart could draw.
+     */
     const catalogued = new Set(view.metrics.map((metric) => metric.key));
-    for (const section of IO_SECTIONS) for (const key of section.metrics) expect(catalogued.has(key)).toBe(true);
+    expect(catalogued.has("revenue")).toBe(true);
+    expect(catalogued.has("grossMargin")).toBe(true);
+    // Not filed by this company, so not offered as a measure of it.
+    expect(catalogued.has("inventory")).toBe(false);
+    // Never computable from a period alone, so never offered at all.
+    expect(catalogued.has("priceToEarnings")).toBe(false);
+    expect(catalogued.has("marketCapitalization")).toBe(false);
+    for (const key of catalogued) {
+      expect(latest.values[key] != null || view.quarterly.some((period) => period.values[key] != null)).toBe(true);
+    }
   });
 
   it("orders periods oldest first, caps the history, and leads the statements with TTM", () => {

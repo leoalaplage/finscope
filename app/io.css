@@ -406,11 +406,31 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .sheet table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 .sheet th, .sheet td { text-align: right; padding: 6px 12px; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-xs); }
 .sheet thead th { position: sticky; top: 0; z-index: 2; background: var(--bg); color: var(--ink-3); font-weight: 500; border-bottom: 1px solid var(--line-strong); padding-block: 8px; }
+/*
+ * One voice for the whole table.
+ *
+ * The row labels were set in the interface face while every figure beside them
+ * was monospaced, which is defensible on its own terms — prose is a third wider
+ * in a monospaced face — and reads as two tables sharing a border. They are not
+ * prose: they are keys to a column of figures, and the page is a terminal.
+ * Wider column, one size, one face.
+ */
 .sheet th.key, .sheet td.key {
   position: sticky; left: 0; z-index: 1; background: var(--bg);
-  text-align: left; font-family: var(--sans); font-size: var(--fs-sm); color: var(--ink-2);
-  min-width: 220px; border-right: 1px solid var(--line);
+  text-align: left; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2);
+  min-width: 264px; border-right: 1px solid var(--line);
 }
+.sheet th.key { font-weight: 400; }
+
+/* The label is a control, and has to fill its cell to be one. */
+.key-open {
+  display: block; width: 100%; text-align: left;
+  font: inherit; color: inherit; letter-spacing: inherit;
+  transition: color .12s ease;
+}
+.key-open:hover { color: var(--ink); }
+.sheet tr[data-selected="true"] td, .sheet tr[data-selected="true"] th.key { background: var(--fill); }
+.sheet tr[data-selected="true"] .key-open { color: var(--ink); }
 .sheet thead th.key { z-index: 3; }
 .sheet tbody tr:hover td { background: var(--raise); }
 .sheet tbody tr:hover td.key { background: var(--raise); }

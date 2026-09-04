@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
 import { Multiples } from "./Multiples";
-import { PriceSection } from "./PriceSection";
+import { CHART_ANCHOR, PriceSection } from "./PriceSection";
 import { Statements } from "./Statements";
 import { Stats } from "./Stats";
 import type { IoQuote } from "./quote";
@@ -68,6 +68,29 @@ export function Company({ ticker }: { ticker: string }) {
   const frequency: Frequency = override?.range === range ? override.frequency : fundamentalWindow(range).frequency;
   const chooseFrequency = (next: Frequency) => setOverride({ range, frequency: next });
 
+  /*
+   * A measure chosen from a statement row brings the chart to the reader.
+   *
+   * The chart is at the top of the page and the statements run to the bottom of
+   * it, so a row clicked down there would otherwise change something nobody can
+   * see. Done after the commit rather than in the click handler: the handler
+   * runs before React swaps the chart, and the element the scroll was started
+   * on is the one being unmounted.
+   *
+   * It moves only when the chart has actually left the screen — pulling the
+   * page from under someone already looking at it is worse than not moving —
+   * and it jumps rather than glides. Animating seventeen hundred pixels is a
+   * second and a half of blur, and it is a no-op outright wherever the browser
+   * has animations turned off, which would leave the reader where they were
+   * wondering what their click did.
+   */
+  useEffect(() => {
+    if (!selectedMetric) return;
+    const chart = document.getElementById(CHART_ANCHOR);
+    if (!chart || chart.getBoundingClientRect().top >= 0) return;
+    chart.scrollIntoView({ behavior: "auto", block: "start" });
+  }, [selectedMetric]);
+
   useEffect(() => {
     const controller = new AbortController();
     let attempts = 0;
@@ -78,7 +101,7 @@ export function Company({ ticker }: { ticker: string }) {
         // The view shape is edge-cached by URL as well as keyed in KV. Carry
         // its schema in the request so a deployment never pairs a new client
         // with an hour-old response from the previous shape.
-        const response = await fetch(`/api/io/${encodeURIComponent(ticker)}?view=iov3`, { signal: controller.signal });
+        const response = await fetch(`/api/io/${encodeURIComponent(ticker)}?view=iov4`, { signal: controller.signal });
         if (response.status === 202) {
           attempts += 1;
           if (attempts <= POLL_LIMIT) {
@@ -199,7 +222,7 @@ export function Company({ ticker }: { ticker: string }) {
       />
       <Stats view={view} quote={quote} />
       <Multiples view={view} selected={selectedMetric} onSelect={selectMetric} range={range} frequency={frequency} />
-      <Statements view={view} />
+      <Statements view={view} selected={selectedMetric} onSelect={selectMetric} />
 
       <footer className="foot">
         <span className="label">Source</span>

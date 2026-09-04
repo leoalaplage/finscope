@@ -65,6 +65,18 @@ export function fundamentalWindow(range: Range) {
   return FUNDAMENTAL[range] ?? FUNDAMENTAL["1Y"];
 }
 
+/**
+ * Whether the reader is offered the choice between the two series.
+ *
+ * Only where there is a choice to make. Over a year the annual series holds one
+ * observation and over six months it holds none, so a switch there offers a
+ * chart with nothing in it — and a control that can only make the screen worse
+ * is not a control, it is a trap.
+ */
+export function offersFrequency(range: Range): boolean {
+  return range === "5Y" || range === "MAX";
+}
+
 /** The last `years` of a series, measured from its own final period. */
 export function withinYears<T extends { end: string }>(periods: T[], years: number | null): T[] {
   if (years == null || periods.length === 0) return periods;

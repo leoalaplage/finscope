@@ -296,7 +296,7 @@ describe("the redesign", () => {
     const price = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
     expect(company).toContain("metricKey={selectedMetric}");
     expect(company).toContain("onSelect={selectMetric}");
-    expect(company).toContain("?view=iov3");
+    expect(company).toContain("?view=iov4");
     expect(multiples).toContain("view.trailing");
     expect(multiples).toContain("Show first 8");
     expect(multiples).toContain("Show all ${panels.length}");
@@ -307,6 +307,16 @@ describe("the redesign", () => {
     expect(company).toContain("range={range}");
     expect(company).toContain("frequency={frequency}");
     expect(price).not.toContain("useState<MetricRange>");
+    // A row of the statements is a way into the chart, and the label is the
+    // control rather than a second thing to click beside it.
+    const statements = readFileSync(new URL("../components/io/Statements.tsx", import.meta.url), "utf8");
+    const io = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    expect(statements).toContain('className="key-open"');
+    expect(statements).toContain("onSelect(key)");
+    expect(company).toContain("chart.scrollIntoView");
+    // One voice for the table: the row labels are set in the same face as the
+    // figures they key, not in the interface face.
+    expect(io).toContain("text-align: left; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2);");
   });
 
   it("lands on a search box and the watchlist, not a table of nineteen columns", () => {

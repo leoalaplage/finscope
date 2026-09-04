@@ -20,7 +20,15 @@ import { ABSENT, formatUnit, type Unit } from "./format";
 const ANNUAL_COLUMNS = 15;
 const QUARTERLY_COLUMNS = 16;
 
-export function Statements({ view }: { view: IoCompanyView }) {
+export function Statements({
+  view,
+  selected,
+  onSelect,
+}: {
+  view: IoCompanyView;
+  selected: string | null;
+  onSelect: (metric: string) => void;
+}) {
   const [frequency, setFrequency] = useState<"annual" | "quarterly">("annual");
 
   const metrics = useMemo(() => new Map(view.metrics.map((metric) => [metric.key, metric])), [view.metrics]);
@@ -64,6 +72,8 @@ export function Statements({ view }: { view: IoCompanyView }) {
                 keys={section.metrics}
                 columns={columns}
                 metrics={metrics}
+                selected={selected}
+                onSelect={onSelect}
               />
             ))}
           </tbody>
@@ -78,11 +88,15 @@ function SectionRows({
   keys,
   columns,
   metrics,
+  selected,
+  onSelect,
 }: {
   label: string;
   keys: string[];
   columns: IoPeriod[];
   metrics: Map<string, IoCompanyView["metrics"][number]>;
+  selected: string | null;
+  onSelect: (metric: string) => void;
 }) {
   // A metric no period in view carries is left out rather than drawn as a row
   // of em dashes: a bank has no free cash flow here, and eleven empty lines
@@ -101,8 +115,18 @@ function SectionRows({
         const metric = metrics.get(key);
         if (!metric) return null;
         return (
-          <tr key={key}>
-            <th className="key" scope="row">{metric.label}</th>
+          <tr key={key} data-selected={selected === key}>
+            <th className="key" scope="row">
+              {/*
+                * The label is the control. A reader who has found the line they
+                * care about in a table of sixty-five is a reader who wants to
+                * see its shape, and making them scroll back up to hunt for the
+                * same measure among the panels is asking them to find it twice.
+                */}
+              <button type="button" className="key-open" onClick={() => onSelect(key)} aria-pressed={selected === key}>
+                {metric.label}
+              </button>
+            </th>
             {columns.map((period) => {
               const value = period.values[key];
               const text = value == null ? ABSENT : formatUnit(value, metric.unit as Unit, period.currency);
