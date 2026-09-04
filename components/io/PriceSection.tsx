@@ -1,42 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
-import { PriceLine, type PricePoint } from "./Plot";
+import { Figure, type PricePoint } from "./Plot";
+import { fundamentalWindow, priceWindow, RANGES, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate, type Unit } from "./format";
 
-type PriceRange = "1M" | "6M" | "1Y" | "5Y" | "MAX";
-type MetricRange = "1Y" | "3Y" | "5Y" | "MAX";
-
-const PRICE_RANGES: Array<{ id: PriceRange; frequency: "daily" | "weekly" | "monthly"; days: number | null }> = [
-  { id: "1M", frequency: "daily", days: 35 },
-  { id: "6M", frequency: "daily", days: 190 },
-  { id: "1Y", frequency: "daily", days: 370 },
-  { id: "5Y", frequency: "weekly", days: 1830 },
-  { id: "MAX", frequency: "monthly", days: null },
-];
-
-const METRIC_RANGES: Array<{ id: MetricRange; years: number | null }> = [
-  { id: "1Y", years: 1 }, { id: "3Y", years: 3 }, { id: "5Y", years: 5 }, { id: "MAX", years: null },
-];
+/**
+ * The chart the page is built around, and the one control that drives it.
+ *
+ * It shows the share price until the reader picks a measure below, and then it
+ * shows that measure. Both halves read the same range, so choosing MAX at the
+ * top moves everything on the screen at once rather than leaving the figures
+ * underneath on a window of their own.
+ */
 
 interface Bar { date: string; close: number }
 interface Answer { key: string; bars: Bar[] | null }
-
-function priceWindow(range: PriceRange) {
-  const found = PRICE_RANGES.find((entry) => entry.id === range) ?? PRICE_RANGES[2];
-  const end = new Date();
-  const start = found.days == null ? new Date("1985-01-01") : new Date(end.getTime() - found.days * 86_400_000);
-  return { frequency: found.frequency, start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
-}
-
-function periodWindow(periods: IoPeriod[], years: number | null) {
-  if (years == null || periods.length === 0) return periods;
-  const cutoff = new Date(`${periods.at(-1)!.end}T00:00:00Z`);
-  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - years);
-  const threshold = cutoff.toISOString().slice(0, 10);
-  return periods.filter((period) => period.end >= threshold);
-}
 
 export function PriceSection({
   ticker,
@@ -44,20 +24,60 @@ export function PriceSection({
   view,
   metricKey,
   onClearMetric,
+  range,
+  onRange,
+  frequency,
+  onFrequency,
 }: {
   ticker: string;
   currency: string;
   view: IoCompanyView;
   metricKey: string | null;
   onClearMetric: () => void;
+  range: Range;
+  onRange: (range: Range) => void;
+  frequency: Frequency;
+  onFrequency: (frequency: Frequency) => void;
 }) {
   return metricKey
-    ? <MetricSection key={metricKey} view={view} metricKey={metricKey} onClear={onClearMetric} />
-    : <MarketPriceSection ticker={ticker} currency={currency} />;
+    ? (
+      <MetricSection
+        key={metricKey}
+        view={view}
+        metricKey={metricKey}
+        onClear={onClearMetric}
+        range={range}
+        onRange={onRange}
+        frequency={frequency}
+        onFrequency={onFrequency}
+      />
+    )
+    : <MarketPriceSection ticker={ticker} currency={currency} range={range} onRange={onRange} />;
 }
 
-function MarketPriceSection({ ticker, currency }: { ticker: string; currency: string }) {
-  const [range, setRange] = useState<PriceRange>("1Y");
+function RangePicker({ range, onRange }: { range: Range; onRange: (range: Range) => void }) {
+  return (
+    <div className="seg">
+      {RANGES.map((entry) => (
+        <button key={entry} type="button" aria-pressed={range === entry} onClick={() => onRange(entry)}>
+          {entry}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MarketPriceSection({
+  ticker,
+  currency,
+  range,
+  onRange,
+}: {
+  ticker: string;
+  currency: string;
+  range: Range;
+  onRange: (range: Range) => void;
+}) {
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [hover, setHover] = useState<number | null>(null);
   const key = `${ticker}|${range}`;
@@ -101,17 +121,11 @@ function MarketPriceSection({ ticker, currency }: { ticker: string; currency: st
           {move != null ? <span className="readout-change">{delta(move)} {range}</span> : null}
           {cagr != null ? <span className="readout-cagr">{delta(cagr)} CAGR</span> : null}
         </div>
-        <div className="seg">
-          {PRICE_RANGES.map((entry) => (
-            <button key={entry.id} type="button" aria-pressed={range === entry.id} onClick={() => { setRange(entry.id); setHover(null); }}>
-              {entry.id}
-            </button>
-          ))}
-        </div>
+        <RangePicker range={range} onRange={onRange} />
       </div>
 
       {points.length > 1 ? (
-        <ChartFrame points={points} bounds={bounds} onHover={setHover} write={(value) => writePrice(value, currency)} />
+        <ChartFrame points={points} shape="area" bounds={bounds} onHover={setHover} write={(value) => writePrice(value, currency)} />
       ) : failed ? (
         <p className="price-chart plot-empty num faint">No session data for this symbol.</p>
       ) : (
@@ -121,18 +135,43 @@ function MarketPriceSection({ ticker, currency }: { ticker: string; currency: st
   );
 }
 
-function MetricSection({ view, metricKey, onClear }: { view: IoCompanyView; metricKey: string; onClear: () => void }) {
-  const [range, setRange] = useState<MetricRange>("5Y");
+const FREQUENCIES: Array<{ id: Frequency; label: string }> = [
+  { id: "ttm", label: "TTM" },
+  { id: "annual", label: "Yearly" },
+];
+
+function MetricSection({
+  view,
+  metricKey,
+  onClear,
+  range,
+  onRange,
+  frequency,
+  onFrequency,
+}: {
+  view: IoCompanyView;
+  metricKey: string;
+  onClear: () => void;
+  range: Range;
+  onRange: (range: Range) => void;
+  frequency: Frequency;
+  onFrequency: (frequency: Frequency) => void;
+}) {
   const [hover, setHover] = useState<number | null>(null);
   const metric = view.metrics.find((item) => item.key === metricKey) ?? null;
 
-  const periods = useMemo(() => periodWindow(view.trailing, METRIC_RANGES.find((item) => item.id === range)?.years ?? null), [view.trailing, range]);
+  const periods = useMemo<IoPeriod[]>(() => {
+    const series = frequency === "annual" ? view.annual : view.trailing;
+    return withinYears(series, fundamentalWindow(range).years);
+  }, [view.annual, view.trailing, frequency, range]);
+
   const points = useMemo<PricePoint[]>(() => metric
     ? periods.flatMap((period) => {
         const value = period.values[metric.key];
         return value == null || !Number.isFinite(value) ? [] : [{ date: period.end, value }];
       })
     : [], [periods, metric]);
+
   const active = hover == null ? points.at(-1) ?? null : points[hover] ?? null;
   const growth = metric?.unit === "percent"
     ? points.length > 1 ? points.at(-1)!.value - points[0].value : null
@@ -148,10 +187,17 @@ function MetricSection({ view, metricKey, onClear }: { view: IoCompanyView; metr
   if (!metric) return null;
 
   return (
-    <section className="section metric-feature" style={{ borderTop: 0, "--metric": metric.color } as CSSProperties}>
+    <section className="section metric-feature" style={{ borderTop: 0 }}>
       <div className="metric-feature-title">
         <button className="metric-clear" type="button" onClick={onClear}>× Back to price</button>
-        <span className="label">{metric.label} · TTM</span>
+        <span className="label">{metric.label}</span>
+        <div className="seg seg-frequency">
+          {FREQUENCIES.map((entry) => (
+            <button key={entry.id} type="button" aria-pressed={frequency === entry.id} onClick={() => { onFrequency(entry.id); setHover(null); }}>
+              {entry.label}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="section-head">
         <div className="readout">
@@ -159,18 +205,14 @@ function MetricSection({ view, metricKey, onClear }: { view: IoCompanyView; metr
           <span className="d">{active ? shortDate(active.date) : range}</span>
           {growth != null ? <span className="readout-cagr">{delta(growth)} {metric.unit === "percent" ? "change" : "CAGR"}</span> : null}
         </div>
-        <div className="seg">
-          {METRIC_RANGES.map((entry) => (
-            <button key={entry.id} type="button" aria-pressed={range === entry.id} onClick={() => { setRange(entry.id); setHover(null); }}>
-              {entry.id}
-            </button>
-          ))}
-        </div>
+        <RangePicker range={range} onRange={onRange} />
       </div>
       {points.length > 1 ? (
-        <ChartFrame points={points} bounds={bounds} onHover={setHover} write={write} />
+        <ChartFrame points={points} shape={shapeFor(metric.unit)} bounds={bounds} onHover={setHover} write={write} />
       ) : (
-        <p className="price-chart plot-empty num faint">Not enough TTM history for this metric.</p>
+        <p className="price-chart plot-empty num faint">
+          {frequency === "annual" ? "Not enough annual history for this measure." : "Not enough TTM history for this measure."}
+        </p>
       )}
     </section>
   );
@@ -178,18 +220,20 @@ function MetricSection({ view, metricKey, onClear }: { view: IoCompanyView; metr
 
 function ChartFrame({
   points,
+  shape,
   bounds,
   onHover,
   write,
 }: {
   points: PricePoint[];
+  shape: "area" | "bars";
   bounds: { high: number; low: number } | null;
   onHover: (index: number | null) => void;
   write: (value: number) => string;
 }) {
   return (
     <div className="price-frame">
-      <PriceLine points={points} onHover={onHover} />
+      <Figure points={points} shape={shape} onHover={onHover} />
       {bounds ? (
         <div className="plot-axis">
           <span className="plot-tag" style={{ right: 0, top: 0 }}>{write(bounds.high)}</span>

@@ -296,13 +296,17 @@ describe("the redesign", () => {
     const price = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
     expect(company).toContain("metricKey={selectedMetric}");
     expect(company).toContain("onSelect={selectMetric}");
-    expect(company).toContain("?view=iov2");
+    expect(company).toContain("?view=iov3");
     expect(multiples).toContain("view.trailing");
     expect(multiples).toContain("Show first 8");
     expect(multiples).toContain("Show all ${panels.length}");
     expect(price).toContain("× Back to price");
-    expect(price).toContain('useState<MetricRange>("5Y")');
     expect(price).toContain("{delta(cagr)} CAGR");
+    // One range for the whole page: the chart and the figures under it are
+    // driven by the same control rather than each keeping its own.
+    expect(company).toContain("range={range}");
+    expect(company).toContain("frequency={frequency}");
+    expect(price).not.toContain("useState<MetricRange>");
   });
 
   it("lands on a search box and the watchlist, not a table of nineteen columns", () => {

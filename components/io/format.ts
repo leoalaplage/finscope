@@ -127,7 +127,18 @@ export function datedCagrOf(points: Array<{ date: string; value: number | null }
   if (first.value <= 0 || last.value <= 0) return null;
   const elapsed = Date.parse(last.date) - Date.parse(first.date);
   const years = elapsed / (365.2425 * 86_400_000);
-  if (!Number.isFinite(years) || years <= 1) return null;
+  /*
+   * A window of about a year or more can state an annual rate; a fragment of
+   * one cannot, because annualising it multiplies whatever happened in a
+   * quarter by four and calls it a trend.
+   *
+   * The floor sits just under a year rather than at it. Five trailing
+   * observations span a year to within a few days — a company's fiscal
+   * quarters are not all ninety-one days long — and a strict `> 1` refused
+   * every one of them, so the whole grid of figures lost its growth line the
+   * moment the page was put on its own default range.
+   */
+  if (!Number.isFinite(years) || years < 0.9) return null;
   return (last.value / first.value) ** (1 / years) - 1;
 }
 

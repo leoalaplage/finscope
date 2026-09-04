@@ -24,7 +24,6 @@ export interface IoMetric {
   key: string;
   label: string;
   short: string;
-  color: string;
   unit: MetricKind;
   formula: string | null;
 }
@@ -158,7 +157,6 @@ function metricCatalogue(): IoMetric[] {
       key,
       label: definition.label,
       short: definition.short,
-      color: definition.color,
       unit: definition.kind,
       formula: definition.formula ?? null,
     };

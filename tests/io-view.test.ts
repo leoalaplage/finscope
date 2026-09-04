@@ -132,7 +132,17 @@ describe("how a figure is written", () => {
     expect(cagrOf([100, null], 5)).toBeNull();
     expect(cagrOf([100], 5)).toBeNull();
     expect(datedCagrOf([{ date: "2021-01-01", value: 100 }, { date: "2026-01-01", value: 161.05 }])).toBeCloseTo(.1, 3);
-    expect(datedCagrOf([{ date: "2025-01-01", value: 100 }, { date: "2026-01-01", value: 110 }])).toBeNull();
+    /*
+     * A window of exactly a year states its rate, because over one year the
+     * compound rate simply is the change. This used to be refused along with
+     * the fragments, and the refusal only became visible once the figures below
+     * the chart were put on the page's own default range: every panel in the
+     * grid lost its growth line at once.
+     */
+    expect(datedCagrOf([{ date: "2025-01-01", value: 100 }, { date: "2026-01-01", value: 110 }])).toBeCloseTo(.1, 3);
+    // A fragment of a year has no annual rate: multiplying a quarter by four
+    // and calling it a trend is exactly the estimate this application refuses.
+    expect(datedCagrOf([{ date: "2025-10-01", value: 100 }, { date: "2026-01-01", value: 110 }])).toBeNull();
   });
 
   it("addresses the filing a figure came out of, or nothing", () => {

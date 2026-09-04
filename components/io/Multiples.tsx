@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
-import { Bars } from "./Plot";
+import { Bars, Line } from "./Plot";
+import { fundamentalWindow, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, yearOf, type Unit } from "./format";
 
 /** Business importance first; every remaining available metric follows. */
@@ -15,29 +16,29 @@ const PRIORITY = [
 ] as const;
 
 const COLLAPSED_COUNT = 8;
-const YEARS = 5;
-
-function lastYears<T extends { end: string }>(items: T[], years: number) {
-  const last = items.at(-1);
-  if (!last) return [];
-  const cutoff = new Date(`${last.end}T00:00:00Z`);
-  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - years);
-  const threshold = cutoff.toISOString().slice(0, 10);
-  return items.filter((item) => item.end >= threshold);
-}
 
 export function Multiples({
   view,
   selected,
   onSelect,
+  range,
+  frequency,
 }: {
   view: IoCompanyView;
   selected: string | null;
   onSelect: (metric: string | null) => void;
+  range: Range;
+  frequency: Frequency;
 }) {
   const [expanded, setExpanded] = useState(false);
   const metrics = useMemo(() => new Map(view.metrics.map((metric) => [metric.key, metric])), [view.metrics]);
-  const periods = useMemo(() => lastYears(view.trailing, YEARS), [view.trailing]);
+  // The same window the chart above is on, from the same table. A page showing
+  // twenty years of price over five years of figures was answering one question
+  // twice, differently.
+  const periods = useMemo(
+    () => withinYears(frequency === "annual" ? view.annual : view.trailing, fundamentalWindow(range).years),
+    [view.annual, view.trailing, frequency, range],
+  );
   const order = useMemo(() => {
     const priority = new Map<string, number>(PRIORITY.map((key, index) => [key, index]));
     return [...view.metrics].sort((left, right) =>
@@ -62,8 +63,8 @@ export function Multiples({
     <section className="section" id="history">
       <div className="section-head metrics-head">
         <div>
-          <h2 className="label">TTM metrics</h2>
-          <span className="label">{yearOf(first.end)}–{yearOf(last.end)} · 5Y</span>
+          <h2 className="label">{frequency === "annual" ? "Annual figures" : "TTM figures"}</h2>
+          <span className="label">{yearOf(first.end)}–{yearOf(last.end)}</span>
         </div>
         {panels.length > COLLAPSED_COUNT ? (
           <button className="metric-toggle" type="button" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
@@ -80,6 +81,7 @@ export function Multiples({
             ? known.length > 1 ? (known.at(-1)!.value as number) - (known[0].value as number) : null
             : datedCagrOf(known);
           const isSelected = selected === key;
+          const shape = shapeFor(metric.unit);
           return (
             <button
               className="multiple"
@@ -87,18 +89,17 @@ export function Multiples({
               type="button"
               aria-pressed={isSelected}
               onClick={() => onSelect(isSelected ? null : key)}
-              style={{ "--metric": metric.color } as CSSProperties}
             >
               <span className="multiple-top">
                 <span className="label">{metric.short}</span>
                 <span className="multiple-cagr">
-                  {growth == null ? ABSENT : metric.unit === "percent" ? `${delta(growth, 1)} 5Y` : `${delta(growth, 1)} CAGR`}
+                  {growth == null ? ABSENT : metric.unit === "percent" ? `${delta(growth, 1)} change` : `${delta(growth, 1)} CAGR`}
                 </span>
               </span>
               <span className="multiple-value" data-empty={latest == null}>
                 {latest == null ? ABSENT : formatUnit(latest, metric.unit as Unit, currency)}
               </span>
-              <span className="plot"><Bars values={values} /></span>
+              <span className="plot">{shape === "area" ? <Line values={values} area /> : <Bars values={values} />}</span>
               <span className="multiple-span">
                 <span className="label">{yearOf(first.end)}</span>
                 <span className="label">{yearOf(last.end)}</span>

@@ -7,6 +7,7 @@ import { PriceSection } from "./PriceSection";
 import { Statements } from "./Statements";
 import { Stats } from "./Stats";
 import type { IoQuote } from "./quote";
+import { fundamentalWindow, type Frequency, type Range } from "./ranges";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "./format";
 
 /**
@@ -47,11 +48,25 @@ export function Company({ ticker }: { ticker: string }) {
   const [loaded, setLoaded] = useState<State>({ kind: "loading", ticker, progress: 6 });
   const [quoted, setQuoted] = useState<IoQuote | null>(null);
   const [selection, setSelection] = useState<{ ticker: string; metric: string | null }>({ ticker, metric: null });
+  const [range, setRange] = useState<Range>("1Y");
+  /*
+   * A frequency the reader asked for, and the range they asked for it on.
+   *
+   * The range already implies one — MAX means the annual series, because MAX
+   * drawn from trailing figures is six years and a reader asking for everything
+   * should get everything. The reader can override that, and moving the range
+   * drops the override rather than carrying it somewhere it was never chosen:
+   * the override simply is not this range's, so the implied frequency answers
+   * again. No effect resets anything.
+   */
+  const [override, setOverride] = useState<{ range: Range; frequency: Frequency } | null>(null);
 
   const state: State = loaded.ticker === ticker ? loaded : { kind: "loading", ticker, progress: 6 };
   const quote = quoted?.ticker === ticker ? quoted : null;
   const selectedMetric = selection.ticker === ticker ? selection.metric : null;
   const selectMetric = (metric: string | null) => setSelection({ ticker, metric });
+  const frequency: Frequency = override?.range === range ? override.frequency : fundamentalWindow(range).frequency;
+  const chooseFrequency = (next: Frequency) => setOverride({ range, frequency: next });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -63,7 +78,7 @@ export function Company({ ticker }: { ticker: string }) {
         // The view shape is edge-cached by URL as well as keyed in KV. Carry
         // its schema in the request so a deployment never pairs a new client
         // with an hour-old response from the previous shape.
-        const response = await fetch(`/api/io/${encodeURIComponent(ticker)}?view=iov2`, { signal: controller.signal });
+        const response = await fetch(`/api/io/${encodeURIComponent(ticker)}?view=iov3`, { signal: controller.signal });
         if (response.status === 202) {
           attempts += 1;
           if (attempts <= POLL_LIMIT) {
@@ -177,9 +192,13 @@ export function Company({ ticker }: { ticker: string }) {
         view={view}
         metricKey={selectedMetric}
         onClearMetric={() => selectMetric(null)}
+        range={range}
+        onRange={setRange}
+        frequency={frequency}
+        onFrequency={chooseFrequency}
       />
       <Stats view={view} quote={quote} />
-      <Multiples view={view} selected={selectedMetric} onSelect={selectMetric} />
+      <Multiples view={view} selected={selectedMetric} onSelect={selectMetric} range={range} frequency={frequency} />
       <Statements view={view} />
 
       <footer className="foot">

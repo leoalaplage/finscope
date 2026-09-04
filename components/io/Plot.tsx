@@ -70,7 +70,7 @@ export function Line({ values, area = false, extent: given }: { values: Array<nu
 }
 
 /**
- * A row of years.
+ * A row of periods, at the size a small multiple has for it.
  *
  * A negative bar is drawn as an outline rather than a filled block. On a site
  * with one ink that is the only honest way to separate the two directions at a
@@ -80,59 +80,63 @@ export function Line({ values, area = false, extent: given }: { values: Array<nu
 export function Bars({ values }: { values: Array<number | null> }) {
   const extent = extentOf(values, true);
   if (!extent) return null;
-  const zero = yOf(0, extent);
-  const slot = W / Math.max(values.length, 1);
-  const width = Math.max(slot * 0.58, 1.5);
   return (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
-      {values.map((value, index) => {
-        if (value == null || !Number.isFinite(value)) return null;
-        const y = yOf(value, extent);
-        const top = Math.min(y, zero);
-        const height = Math.max(Math.abs(y - zero), 1);
-        const x = slot * index + (slot - width) / 2;
-        return value < 0
-          ? <rect key={index} className="plot-bar-neg" x={x} y={top} width={width} height={height} vectorEffect="non-scaling-stroke" />
-          : <rect key={index} className="plot-bar" x={x} y={top} width={width} height={height} />;
-      })}
-      {extent.min < 0 ? <line className="plot-base" x1={0} x2={W} y1={zero} y2={zero} vectorEffect="non-scaling-stroke" /> : null}
+      <BarMarks values={values} extent={extent} active={null} />
     </svg>
   );
 }
 
 export interface PricePoint { date: string; value: number }
 
+export type Shape = "area" | "bars";
+
 /**
- * The price line, with a crosshair and nothing else.
+ * The one big chart, in whichever shape the measure asks for.
  *
- * The reader's pointer names a session and the readout above the chart states
- * it. That is the whole interaction: no tooltip box following the cursor, no
+ * A crosshair and nothing else. The reader's pointer names a period and the
+ * readout above the chart states it: no tooltip box following the cursor, no
  * second axis appearing on hover, no annotation layer.
+ *
+ * The two shapes count their positions differently and the pointer has to agree
+ * with what is drawn. A line's points sit *on* both edges, so the nearest one
+ * is the rounded fraction of the gaps between them; a bar occupies a slot, so
+ * the one under the pointer is the fraction floored across the slots. Getting
+ * that wrong is invisible on a wide chart and obvious on a narrow one.
  */
-export function PriceLine({
+export function Figure({
   points,
+  shape,
   onHover,
 }: {
   points: PricePoint[];
+  shape: Shape;
   onHover: (index: number | null) => void;
 }) {
   const frame = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<number | null>(null);
   const values = useMemo(() => points.map((point) => point.value), [points]);
-  const extent = useMemo(() => extentOf(values, false), [values]);
+  // Bars stand on zero; an area is free to crop to the band the values occupy.
+  const extent = useMemo(() => extentOf(values, shape === "bars"), [values, shape]);
 
   const move = (event: ReactPointerEvent<HTMLDivElement>) => {
     const box = frame.current?.getBoundingClientRect();
     if (!box || box.width === 0 || points.length === 0) return;
     const fraction = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
-    const index = Math.round(fraction * (points.length - 1));
+    const index = shape === "bars"
+      ? Math.min(points.length - 1, Math.floor(fraction * points.length))
+      : Math.round(fraction * (points.length - 1));
     setCursor(index);
     onHover(index);
   };
   const leave = () => { setCursor(null); onHover(null); };
 
   if (!extent) return null;
-  const active = cursor == null ? null : points[cursor];
+  const active = cursor == null ? null : points[cursor] ?? null;
+  const slot = W / Math.max(points.length, 1);
+  const cursorX = shape === "bars"
+    ? slot * (cursor ?? 0) + slot / 2
+    : xOf(cursor ?? 0, points.length);
 
   return (
     <div
@@ -143,41 +147,56 @@ export function PriceLine({
       onPointerDown={move}
     >
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
-        <path
-          className="plot-area"
-          d={`${segments(values, extent)} L${W} ${H} L0 ${H} Z`}
-        />
-        <path className="plot-line" d={segments(values, extent)} vectorEffect="non-scaling-stroke" />
+        {shape === "bars" ? (
+          <BarMarks values={values} extent={extent} active={cursor} />
+        ) : (
+          <>
+            <path className="plot-area" d={`${segments(values, extent)} L${W} ${H} L0 ${H} Z`} />
+            <path className="plot-line" d={segments(values, extent)} vectorEffect="non-scaling-stroke" />
+          </>
+        )}
         {active ? (
-          <line
-            className="plot-cursor"
-            x1={xOf(cursor as number, points.length)}
-            x2={xOf(cursor as number, points.length)}
-            y1={0}
-            y2={H}
-            vectorEffect="non-scaling-stroke"
-          />
+          <line className="plot-cursor" x1={cursorX} x2={cursorX} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
         ) : null}
       </svg>
-      {active ? (
-        <div
-          className="plot-axis"
-          style={{
-            // The dot is HTML rather than an SVG circle, which would be drawn
-            // as an ellipse by the same stretch that keeps the line honest.
-            "--x": `${((cursor as number) / Math.max(points.length - 1, 1)) * 100}%`,
-            "--y": `${((extent.max - active.value) / (extent.max - extent.min)) * 100}%`,
-          } as React.CSSProperties}
-        >
+      {active && shape !== "bars" ? (
+        <div className="plot-axis">
+          {/*
+            * The dot is HTML rather than an SVG circle, which would be drawn as
+            * an ellipse by the same stretch that keeps the line honest.
+            */}
           <span
+            className="plot-dot-mark"
             style={{
-              position: "absolute", left: "var(--x)", top: "var(--y)",
-              width: 7, height: 7, marginLeft: -3.5, marginTop: -3.5,
-              borderRadius: "50%", background: "var(--bg)", border: "1.5px solid var(--ink)",
+              left: `${((cursor as number) / Math.max(points.length - 1, 1)) * 100}%`,
+              top: `${((extent.max - active.value) / (extent.max - extent.min)) * 100}%`,
             }}
           />
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** The bars of the big chart, with the hovered one told apart by weight alone. */
+function BarMarks({ values, extent, active }: { values: Array<number | null>; extent: Extent; active: number | null }) {
+  const zero = yOf(0, extent);
+  const slot = W / Math.max(values.length, 1);
+  const width = Math.max(slot * 0.6, 1.5);
+  return (
+    <>
+      {values.map((value, index) => {
+        if (value == null || !Number.isFinite(value)) return null;
+        const y = yOf(value, extent);
+        const top = Math.min(y, zero);
+        const height = Math.max(Math.abs(y - zero), 1);
+        const x = slot * index + (slot - width) / 2;
+        const className = value < 0 ? "plot-bar-neg" : index === active ? "plot-bar plot-bar-active" : "plot-bar";
+        return value < 0
+          ? <rect key={index} className={className} x={x} y={top} width={width} height={height} vectorEffect="non-scaling-stroke" />
+          : <rect key={index} className={className} x={x} y={top} width={width} height={height} />;
+      })}
+      {extent.min < 0 ? <line className="plot-base" x1={0} x2={W} y1={zero} y2={zero} vectorEffect="non-scaling-stroke" /> : null}
+    </>
   );
 }

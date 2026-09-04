@@ -347,9 +347,14 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .plot-area { fill: var(--plot-soft); stroke: none; }
 .plot-base { stroke: var(--line-strong); stroke-width: 1; }
 .plot-bar { fill: var(--plot); }
+.plot-bar-active { fill: var(--ink); }
 .plot-bar-neg { fill: none; stroke: var(--plot); stroke-width: 1; }
 .plot-cursor { stroke: var(--line-strong); stroke-width: 1; }
 .plot-dot { fill: var(--bg); stroke: var(--ink); stroke-width: 1.5; }
+.plot-dot-mark {
+  position: absolute; width: 7px; height: 7px; margin-left: -3.5px; margin-top: -3.5px;
+  border-radius: 50%; background: var(--bg); border: 1.5px solid var(--ink);
+}
 
 .plot-axis { position: absolute; inset: 0; pointer-events: none; }
 .plot-tag { position: absolute; font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-3); white-space: nowrap; }
@@ -360,8 +365,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .readout .d, .readout-change, .readout-cagr { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
 .readout-cagr { color: var(--ink-2); }
 
-.metric-feature { --metric-tone: color-mix(in srgb, var(--metric) 58%, #000); --plot: var(--metric-tone); --plot-soft: color-mix(in srgb, var(--metric-tone) 10%, transparent); }
-.metric-feature-title { display: flex; align-items: center; gap: calc(var(--u) * 3); margin-bottom: calc(var(--u) * 3); }
+.metric-feature-title { display: flex; align-items: center; gap: calc(var(--u) * 3); margin-bottom: calc(var(--u) * 3); flex-wrap: wrap; }
+.seg-frequency { margin-inline-start: auto; }
 .metric-clear { padding: 4px 7px; border: 1px solid var(--line); border-radius: var(--radius); font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); }
 .metric-clear:hover { border-color: var(--line-strong); color: var(--ink); }
 
@@ -371,16 +376,21 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .metric-toggle { padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--radius); font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); }
 .metric-toggle:hover { border-color: var(--line-strong); color: var(--ink); }
 .multiples { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/*
+ * One ink here too.
+ *
+ * A panel that is selected says so with weight and a rule, not with a hue: the
+ * measure a reader picked is not a different kind of measure, and twenty-two
+ * cards each tinted differently is the dashboard this site exists not to be.
+ */
 .multiple {
-  --metric-tone: color-mix(in srgb, var(--metric) 58%, #000);
-  --plot: var(--metric-tone); --plot-soft: color-mix(in srgb, var(--metric-tone) 11%, transparent);
   display: block; width: 100%; padding: 13px 14px 10px; min-width: 0; text-align: left;
-  background: color-mix(in srgb, var(--metric-tone) 3%, var(--bg));
+  background: var(--bg);
   transition: background .12s ease, box-shadow .12s ease;
 }
-.multiple:hover { background: color-mix(in srgb, var(--metric-tone) 7%, var(--bg)); }
-.multiple[aria-pressed="true"] { background: color-mix(in srgb, var(--metric-tone) 11%, var(--bg)); box-shadow: inset 0 2px 0 var(--metric-tone); }
-.multiple .label:first-child { color: var(--metric-tone); }
+.multiple:hover { background: var(--raise); }
+.multiple[aria-pressed="true"] { background: var(--fill); box-shadow: inset 0 2px 0 var(--ink); }
+.multiple[aria-pressed="true"] .label:first-child { color: var(--ink); }
 .multiple-top { display: flex; align-items: baseline; justify-content: space-between; gap: calc(var(--u) * 2); }
 .multiple-top .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .multiple-cagr { flex: none; white-space: nowrap; }
@@ -389,13 +399,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .multiple-cagr { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); }
 .multiple .plot { display: block; height: 46px; margin-top: 10px; }
 .multiple-span { display: flex; justify-content: space-between; margin-top: 5px; }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .metric-feature,
-  :root:not([data-theme="light"]) .multiple { --metric-tone: color-mix(in srgb, var(--metric) 42%, #fff); }
-}
-:root[data-theme="dark"] .metric-feature,
-:root[data-theme="dark"] .multiple { --metric-tone: color-mix(in srgb, var(--metric) 42%, #fff); }
 
 /* --- Statement table ----------------------------------------------------- */
 
