@@ -8,18 +8,33 @@
  * it draws.
  */
 
-export type Range = "1M" | "6M" | "1Y" | "5Y" | "MAX";
+export type Range = "1M" | "6M" | "1Y" | "3Y" | "5Y" | "10Y" | "MAX";
 
 /** Which filed series a chart is drawn from. */
 export type Frequency = "ttm" | "annual";
 
+/** What a price chart offers: a month is a real window for a traded price. */
 export const RANGES: Range[] = ["1M", "6M", "1Y", "5Y", "MAX"];
+
+/**
+ * What a comparison offers, which is not the same list.
+ *
+ * Nothing below a year belongs here: a company reports four times a year, so a
+ * month of filed figures is one observation and six months is two, and a
+ * comparison drawn across two points is a straight line between two companies'
+ * last quarters. The decade is added at the other end, because the question a
+ * comparison asks — which of these compounded, and how steadily — is a question
+ * about a long time.
+ */
+export const COMPARE_RANGES: Range[] = ["1Y", "3Y", "5Y", "10Y", "MAX"];
 
 const PRICE: Record<Range, { frequency: "daily" | "weekly" | "monthly"; days: number | null }> = {
   "1M": { frequency: "daily", days: 35 },
   "6M": { frequency: "daily", days: 190 },
   "1Y": { frequency: "daily", days: 370 },
+  "3Y": { frequency: "weekly", days: 1100 },
   "5Y": { frequency: "weekly", days: 1830 },
+  "10Y": { frequency: "monthly", days: 3660 },
   MAX: { frequency: "monthly", days: null },
 };
 
@@ -57,7 +72,9 @@ const FUNDAMENTAL: Record<Range, { frequency: Frequency; years: number | null }>
   "1M": { frequency: "ttm", years: 1 },
   "6M": { frequency: "ttm", years: 1 },
   "1Y": { frequency: "ttm", years: 1 },
+  "3Y": { frequency: "ttm", years: 3 },
   "5Y": { frequency: "ttm", years: 5 },
+  "10Y": { frequency: "ttm", years: 10 },
   MAX: { frequency: "annual", years: null },
 };
 
@@ -74,7 +91,7 @@ export function fundamentalWindow(range: Range) {
  * is not a control, it is a trap.
  */
 export function offersFrequency(range: Range): boolean {
-  return range === "5Y" || range === "MAX";
+  return !(["1M", "6M", "1Y"] as Range[]).includes(range);
 }
 
 /**

@@ -5,7 +5,7 @@ import type { IoCompanyView } from "@/lib/io/view";
 import { multipleOf } from "@/lib/market-basis";
 import { MultiLine, type Series } from "./Plot";
 import { Search } from "./Search";
-import { fundamentalWindow, RANGES, withinYears, type Range } from "./ranges";
+import { COMPARE_RANGES, fundamentalWindow, withinYears, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, money, percent, price as writePrice, ratio, shortDate, type Unit } from "./format";
 import type { IoQuote } from "./quote";
 
@@ -148,7 +148,7 @@ export function Compare({ initial }: { initial: string[] }) {
       <header className="head">
         <div className="head-id">
           <h1 className="head-ticker">Compare</h1>
-          <p className="head-name">{tickers.length} of {LIMIT}</p>
+          <p className="head-note">{tickers.length} of {LIMIT}</p>
         </div>
         <div className="compare-controls">
           <div className="chips">
@@ -171,7 +171,7 @@ export function Compare({ initial }: { initial: string[] }) {
           </div>
           {mode === "chart" ? (
             <div className="seg">
-              {RANGES.map((entry) => (
+              {COMPARE_RANGES.map((entry) => (
                 <button key={entry} type="button" aria-pressed={range === entry} onClick={() => setRange(entry)}>{entry}</button>
               ))}
             </div>
@@ -397,6 +397,27 @@ function CompareChart({
             {indexed ? "Indexed to 100 · log" : "Absolute"}
           </button>
         ) : null}
+      </div>
+      {/*
+        * What each line is worth where the pointer is.
+        *
+        * A crosshair on a chart of one company can put the figure in the
+        * readout above it. Six lines cannot: the reader is asking about all of
+        * them at once, which is the whole reason the page exists. Each company
+        * states its own value, in the order and with the stroke it is drawn
+        * with, and falls back to its last figure when nothing is hovered.
+        */}
+      <div className="compare-values">
+        {series.map((entry, index) => {
+          const point = hover == null ? entry.points.at(-1) : entry.points[hover];
+          return (
+            <span className="compare-value" key={entry.label}>
+              <span className={`plot-swatch plot-stroke-${index % 5}`} />
+              <span className="compare-value-name">{entry.label}</span>
+              <span className="num">{point ? write(point.value) : ABSENT}</span>
+            </span>
+          );
+        })}
       </div>
       {series.length ? (
         <div className="price-frame compare-frame">
