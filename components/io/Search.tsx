@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { chooseSymbol } from "./choose-symbol";
 
 /**
  * The only control on the site.
@@ -9,7 +10,8 @@ import { useEffect, useRef, useState } from "react";
  * every filer that publishes XBRL is reachable — about twelve thousand of them
  * — and a company nobody has ever opened here behaves exactly like one that
  * has. A ticker typed in full wins when the form is submitted, because someone
- * who typed four letters and pressed return meant those four letters.
+ * who typed four letters and pressed return meant those four letters; a company
+ * name falls through to what the registry answered. See chooseSymbol.
  */
 
 interface Match { ticker: string; name: string; cik: string }
@@ -23,8 +25,6 @@ interface Match { ticker: string; name: string; cik: string }
  */
 interface Answer { query: string; matches: Match[] }
 
-const SYMBOL = /^[A-Z0-9][A-Z0-9.-]{0,11}$/;
-
 export function Search({ size = "bar", focusOnMount = false }: { size?: "bar" | "hero"; focusOnMount?: boolean }) {
   const field = useRef<HTMLInputElement>(null);
   const submitButton = useRef<HTMLButtonElement>(null);
@@ -33,10 +33,8 @@ export function Search({ size = "bar", focusOnMount = false }: { size?: "bar" | 
 
   const needle = query.trim();
   const matches = answer.query === needle ? answer.matches : [];
-  const typed = needle.toUpperCase();
-  const chosen = matches.find((match) => match.ticker.toUpperCase() === typed)
-    ?? (SYMBOL.test(typed) ? { ticker: typed } : matches[0]);
-  const destination = chosen ? `/s/${encodeURIComponent(chosen.ticker.toUpperCase())}` : undefined;
+  const chosen = chooseSymbol(needle, matches);
+  const destination = chosen ? `/s/${encodeURIComponent(chosen)}` : undefined;
 
   // The keyboard shortcut every application of this kind has, because a reader
   // who wants another company wants it without reaching for the pointer.

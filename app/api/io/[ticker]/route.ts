@@ -41,7 +41,11 @@ const unknownKey = (ticker: string) => `unlisted:${ticker.toUpperCase()}`;
 const UNKNOWN_SECONDS = 86_400;
 
 async function listedWithSec(symbol: string): Promise<boolean> {
-  if (companyByTicker(symbol)) return true;
+  // A registry entry earns this shortcut by carrying a CIK, not by existing.
+  // One that names an instrument we hold no filing feed for cannot be built at
+  // all, and calling it listed would trade a one-second refusal for a minute of
+  // polling a build that never lands.
+  if (companyByTicker(symbol)?.cik) return true;
   try {
     const matches = await searchSecCompanies(symbol);
     return matches.some((match) => match.ticker.toUpperCase() === symbol);
