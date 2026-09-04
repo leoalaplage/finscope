@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import "./globals.css";
 
 /**
  * The canonical origin, as a constant.
@@ -14,21 +13,33 @@ import "./globals.css";
  */
 const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://finscope-financial-research.leoalaplage.workers.dev";
 
+const TITLE = "FinScope.io — Every US filer. Every filed figure.";
+const DESCRIPTION = "Filed financials, market prices and valuation for any US-listed company, read from SEC XBRL.";
+
+/**
+ * No stylesheet is imported here.
+ *
+ * A root layout's CSS is every route's CSS, and the two halves of this
+ * application do not share a design: the research workspace carries eighteen
+ * hundred lines of it and FinScope.io carries a few hundred that contradict
+ * them. Each imports its own, so a reader who opens a company page downloads
+ * and parses none of the workspace's.
+ */
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
-  title: "FinScope — See the business. Verify the numbers.",
-  description: "Traceable financial research from SEC filings, matched market prices and explicit formulas.",
+  title: TITLE,
+  description: DESCRIPTION,
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
   openGraph: {
-    title: "FinScope — See the business. Verify the numbers.",
-    description: "Traceable financial research from SEC filings, matched market prices and explicit formulas.",
+    title: TITLE,
+    description: DESCRIPTION,
     type: "website",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "FinScope — See the business. Verify the numbers." }],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: TITLE }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "FinScope — See the business. Verify the numbers.",
-    description: "Traceable financial research from SEC filings, matched market prices and explicit formulas.",
+    title: TITLE,
+    description: DESCRIPTION,
     images: ["/og.png"],
   },
 };

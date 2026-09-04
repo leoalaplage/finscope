@@ -1,0 +1,67 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useSyncExternalStore } from "react";
+import { Search } from "./Search";
+
+/**
+ * The bar, which holds a wordmark, the search and one switch.
+ *
+ * There is no navigation because there is nowhere else to go: this site is one
+ * search and one company page. A menu here would be a menu of one item
+ * pretending to be a product.
+ */
+
+type Theme = "light" | "dark";
+
+const STORAGE_KEY = "finscope.theme";
+const THEME_EVENT = "finscope:theme";
+
+/**
+ * The document's own attribute is the state, and React subscribes to it.
+ *
+ * The theme is stamped on `<html>` by an inline script before React exists, so
+ * a copy of it held in component state would start out wrong and be corrected
+ * by an effect — a cascading render on every page, and a flash of the other
+ * theme on the first. Reading it as an external store instead means the first
+ * render is already right, and the server's snapshot is the same default the
+ * markup carries.
+ */
+function subscribe(notify: () => void) {
+  window.addEventListener(THEME_EVENT, notify);
+  return () => window.removeEventListener(THEME_EVENT, notify);
+}
+
+const readTheme = (): Theme => (document.documentElement.dataset.theme === "light" ? "light" : "dark");
+
+function ThemeSwitch() {
+  const theme = useSyncExternalStore(subscribe, readTheme, () => "dark" as Theme);
+
+  const flip = useCallback(() => {
+    const next: Theme = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem(STORAGE_KEY, next); } catch { /* A browser refusing storage still gets the change. */ }
+    window.dispatchEvent(new Event(THEME_EVENT));
+  }, []);
+
+  return (
+    <button type="button" className="ghost" onClick={flip} aria-label="Switch between the light and dark setting">
+      {theme === "light" ? "Dark" : "Light"}
+    </button>
+  );
+}
+
+export function Shell({ children, search = true }: { children: React.ReactNode; search?: boolean }) {
+  return (
+    <div className="io">
+      <header className="bar">
+        <div className="wrap bar-inner">
+          <Link href="/" className="mark">FinScope<span className="dim">.io</span></Link>
+          {search ? <Search /> : <span className="bar-spacer" />}
+          <ThemeSwitch />
+        </div>
+      </header>
+      {children}
+    </div>
+  );
+}

@@ -1,27 +1,47 @@
-import { FinanceApp } from "@/components/FinanceApp";
-import { APPLE_DATASET } from "@/lib/demo-data";
+import Link from "next/link";
+import "./io.css";
+import { Shell } from "@/components/io/Shell";
+import { Search } from "@/components/io/Search";
+import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 
 /**
- * Renders from the traceable offline fixture, never from a live SEC fetch.
+ * Prerendered and served straight from the asset store.
  *
- * A normalized company is about 4 MB. Fetching one here meant parsing it and
- * then serializing the whole thing into the RSC payload embedded in the HTML,
- * which exceeded the Worker's resource limits and shipped 4 MB of markup to
- * every visitor. The client replaces the fixture with live data through
- * /api/company/:ticker as soon as the app mounts.
- */
-/**
- * Prerendered at build time and served straight from the asset store.
- *
- * This page takes no input: it renders a constant fixture and the client
- * replaces it moments later. Left dynamic, every single visit paid for a
- * server render of the whole application tree inside the Worker — and when the
- * platform throttles CPU, that is the request that fails, so the site itself
- * returned "Worker exceeded resource limits" rather than merely loading slowly.
- * Static means the document costs no Worker CPU at all and cannot fail that way.
+ * The page takes no input: a search field, a wordmark and a list that changes
+ * when the registry does. Left dynamic it would cost a server render inside the
+ * Worker on every single visit, which is the request that fails first when the
+ * platform throttles CPU — the front page of a site whose promise is that it
+ * opens instantly is the last thing that should be able to fail that way.
  */
 export const dynamic = "force-static";
 
+const COVERED = DEFAULT_WATCHLIST.filter((company) => company.resolutionStatus !== "unresolved");
+
 export default function Home() {
-  return <FinanceApp initialData={APPLE_DATASET} />;
+  return (
+    <Shell search={false}>
+      <main className="wrap home">
+        <h1 className="home-title">
+          Every US filer.<br />
+          Every filed figure.
+        </h1>
+
+        <div className="home-search">
+          <Search size="hero" focusOnMount />
+        </div>
+
+        <section className="quick">
+          <h2 className="label">Built and waiting</h2>
+          <div className="grid-ruled quick-grid">
+            {COVERED.map((company) => (
+              <Link key={company.ticker} href={`/s/${company.ticker}`}>
+                {company.ticker}
+                <span>{company.sector}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </main>
+    </Shell>
+  );
 }
