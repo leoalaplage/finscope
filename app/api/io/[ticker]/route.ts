@@ -36,8 +36,18 @@ const viewKey = (ticker: string) => `view:${VIEW_VERSION}.${KEY_VERSION}:${ticke
  * minute before being told to try again. The registry document is about a
  * megabyte, so the answer is kept for a day rather than fetched on every poll
  * two seconds apart.
+ *
+ * Versioned, because a refusal is a conclusion and not a fact. Berkshire's
+ * class B was refused while the guard still compared `BRK.B` to the SEC's
+ * `BRK-B` as strings; the guard was fixed the same hour, and the company went
+ * on 404-ing anyway because the wrong answer had been written down for a day.
+ * Bumping this drops every memo written under reasoning that has since changed.
+ *
+ * l2: a company carrying a CIK in this application's own registry is never
+ *     refused, and never consults the memo at all.
  */
-const unknownKey = (ticker: string) => `unlisted:${ticker.toUpperCase()}`;
+const LISTING_VERSION = "l2";
+const unknownKey = (ticker: string) => `unlisted:${LISTING_VERSION}:${ticker.toUpperCase()}`;
 const UNKNOWN_SECONDS = 86_400;
 
 async function listedWithSec(symbol: string): Promise<boolean> {
@@ -103,7 +113,12 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
   }
 
   if (!stored) {
-    const unlisted = cache ? await cache.get(unknownKey(symbol), "text").catch(() => null) : null;
+    // A company this application vouches for skips the memo entirely rather
+    // than being cleared by it. A refusal is only ever about a symbol we could
+    // not resolve, so one that predates the registry knowing the symbol must
+    // not be allowed to answer for it.
+    const vouched = companyByTicker(symbol)?.cik != null;
+    const unlisted = vouched || !cache ? null : await cache.get(unknownKey(symbol), "text").catch(() => null);
     if (unlisted) {
       return NextResponse.json({ error: `No SEC filer trades under ${symbol}.` }, { status: 404, headers: { "Cache-Control": "no-store" } });
     }
