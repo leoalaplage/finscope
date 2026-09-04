@@ -1,0 +1,6173 @@
+{
+  "schemaVersion": "1.0.0",
+  "dataVersion": "v23",
+  "ticker": "BKNG",
+  "frequency": "ttm",
+  "currency": "USD",
+  "retrievedAt": "2026-09-04T07:01:08.609Z",
+  "series": [
+    {
+      "metric": "revenue",
+      "label": "Revenue",
+      "unit": "currency",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2009-12-31",
+          "fiscalYear": 2009,
+          "label": "TTM Q4 FY2009",
+          "value": 2338212000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2009, Q2 FY2009, Q3 FY2009, Q4 FY2009."
+        },
+        {
+          "periodEnd": "2010-03-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q1 FY2010",
+          "value": 2460548000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2009, Q3 FY2009, Q4 FY2009, Q1 FY2010."
+        },
+        {
+          "periodEnd": "2010-06-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q2 FY2010",
+          "value": 2624246000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2009, Q4 FY2009, Q1 FY2010, Q2 FY2010."
+        },
+        {
+          "periodEnd": "2010-09-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q3 FY2010",
+          "value": 2895343000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2009, Q1 FY2010, Q2 FY2010, Q3 FY2010."
+        },
+        {
+          "periodEnd": "2010-12-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q4 FY2010",
+          "value": 3084906000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2010, Q2 FY2010, Q3 FY2010, Q4 FY2010."
+        },
+        {
+          "periodEnd": "2011-03-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q1 FY2011",
+          "value": 3309832000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2010, Q3 FY2010, Q4 FY2010, Q1 FY2011."
+        },
+        {
+          "periodEnd": "2011-06-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q2 FY2011",
+          "value": 3645109000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2010, Q4 FY2010, Q1 FY2011, Q2 FY2011."
+        },
+        {
+          "periodEnd": "2011-09-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q3 FY2011",
+          "value": 4096156000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2010, Q1 FY2011, Q2 FY2011, Q3 FY2011."
+        },
+        {
+          "periodEnd": "2011-12-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q4 FY2011",
+          "value": 4355610000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2011, Q2 FY2011, Q3 FY2011, Q4 FY2011."
+        },
+        {
+          "periodEnd": "2012-03-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q1 FY2012",
+          "value": 4583537000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2011, Q3 FY2011, Q4 FY2011, Q1 FY2012."
+        },
+        {
+          "periodEnd": "2012-06-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q2 FY2012",
+          "value": 4807580000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2011, Q4 FY2011, Q1 FY2012, Q2 FY2012."
+        },
+        {
+          "periodEnd": "2012-09-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q3 FY2012",
+          "value": 5061086000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2011, Q1 FY2012, Q2 FY2012, Q3 FY2012."
+        },
+        {
+          "periodEnd": "2012-12-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q4 FY2012",
+          "value": 5260956000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2012, Q2 FY2012, Q3 FY2012, Q4 FY2012."
+        },
+        {
+          "periodEnd": "2013-03-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q1 FY2013",
+          "value": 5525721000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2012, Q3 FY2012, Q4 FY2012, Q1 FY2013."
+        },
+        {
+          "periodEnd": "2013-06-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q2 FY2013",
+          "value": 5879200000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2012, Q4 FY2012, Q1 FY2013, Q2 FY2013."
+        },
+        {
+          "periodEnd": "2013-09-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q3 FY2013",
+          "value": 6442793000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2012, Q1 FY2013, Q2 FY2013, Q3 FY2013."
+        },
+        {
+          "periodEnd": "2013-12-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q4 FY2013",
+          "value": 6793306000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2013, Q2 FY2013, Q3 FY2013, Q4 FY2013."
+        },
+        {
+          "periodEnd": "2014-03-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q1 FY2014",
+          "value": 7133096000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2013, Q3 FY2013, Q4 FY2013, Q1 FY2014."
+        },
+        {
+          "periodEnd": "2014-06-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q2 FY2014",
+          "value": 7576433000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2013, Q4 FY2013, Q1 FY2014, Q2 FY2014."
+        },
+        {
+          "periodEnd": "2014-09-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q3 FY2014",
+          "value": 8143027000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2013, Q1 FY2014, Q2 FY2014, Q3 FY2014."
+        },
+        {
+          "periodEnd": "2014-12-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q4 FY2014",
+          "value": 8441971000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2014, Q2 FY2014, Q3 FY2014, Q4 FY2014."
+        },
+        {
+          "periodEnd": "2015-03-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q1 FY2015",
+          "value": 8640863000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2014, Q3 FY2014, Q4 FY2014, Q1 FY2015."
+        },
+        {
+          "periodEnd": "2015-06-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q2 FY2015",
+          "value": 8797685000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2014, Q4 FY2014, Q1 FY2015, Q2 FY2015."
+        },
+        {
+          "periodEnd": "2015-09-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q3 FY2015",
+          "value": 9064089000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2014, Q1 FY2015, Q2 FY2015, Q3 FY2015."
+        },
+        {
+          "periodEnd": "2015-12-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q4 FY2015",
+          "value": 9223987000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2015, Q2 FY2015, Q3 FY2015, Q4 FY2015."
+        },
+        {
+          "periodEnd": "2016-03-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q1 FY2016",
+          "value": 9531412000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2015, Q3 FY2015, Q4 FY2015, Q1 FY2016."
+        },
+        {
+          "periodEnd": "2016-06-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q2 FY2016",
+          "value": 9806917000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2015, Q4 FY2015, Q1 FY2016, Q2 FY2016."
+        },
+        {
+          "periodEnd": "2016-09-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q3 FY2016",
+          "value": 10394568000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2015, Q1 FY2016, Q2 FY2016, Q3 FY2016."
+        },
+        {
+          "periodEnd": "2016-12-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q4 FY2016",
+          "value": 10743006000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2016, Q2 FY2016, Q3 FY2016, Q4 FY2016."
+        },
+        {
+          "periodEnd": "2017-03-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q1 FY2017",
+          "value": 11014291000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2016, Q3 FY2016, Q4 FY2016, Q1 FY2017."
+        },
+        {
+          "periodEnd": "2017-06-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q2 FY2017",
+          "value": 11482945000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2016, Q4 FY2016, Q1 FY2017, Q2 FY2017."
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q3 FY2017",
+          "value": 12226422000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2016, Q1 FY2017, Q2 FY2017, Q3 FY2017."
+        },
+        {
+          "periodEnd": "2017-12-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q4 FY2017",
+          "value": 12681082000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2017, Q2 FY2017, Q3 FY2017, Q4 FY2017."
+        },
+        {
+          "periodEnd": "2018-03-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q1 FY2018",
+          "value": 13189678000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2017, Q3 FY2017, Q4 FY2017, Q1 FY2018."
+        },
+        {
+          "periodEnd": "2018-06-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q2 FY2018",
+          "value": 13702122000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2017, Q4 FY2017, Q1 FY2018, Q2 FY2018."
+        },
+        {
+          "periodEnd": "2018-09-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q3 FY2018",
+          "value": 14117093000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2017, Q1 FY2018, Q2 FY2018, Q3 FY2018."
+        },
+        {
+          "periodEnd": "2018-12-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q4 FY2018",
+          "value": 14527000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2018, Q2 FY2018, Q3 FY2018, Q4 FY2018."
+        },
+        {
+          "periodEnd": "2019-03-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q1 FY2019",
+          "value": 14436000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2018, Q3 FY2018, Q4 FY2018, Q1 FY2019."
+        },
+        {
+          "periodEnd": "2019-06-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q2 FY2019",
+          "value": 14749000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2018, Q4 FY2018, Q1 FY2019, Q2 FY2019."
+        },
+        {
+          "periodEnd": "2019-09-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q3 FY2019",
+          "value": 14940000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2018, Q1 FY2019, Q2 FY2019, Q3 FY2019."
+        },
+        {
+          "periodEnd": "2019-12-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q4 FY2019",
+          "value": 15066000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2019, Q2 FY2019, Q3 FY2019, Q4 FY2019."
+        },
+        {
+          "periodEnd": "2020-03-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q1 FY2020",
+          "value": 14517000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2019, Q3 FY2019, Q4 FY2019, Q1 FY2020."
+        },
+        {
+          "periodEnd": "2020-06-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q2 FY2020",
+          "value": 11297000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2019, Q4 FY2019, Q1 FY2020, Q2 FY2020."
+        },
+        {
+          "periodEnd": "2020-09-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q3 FY2020",
+          "value": 8897000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2019, Q1 FY2020, Q2 FY2020, Q3 FY2020."
+        },
+        {
+          "periodEnd": "2020-12-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q4 FY2020",
+          "value": 6796000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2020, Q2 FY2020, Q3 FY2020, Q4 FY2020."
+        },
+        {
+          "periodEnd": "2021-03-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q1 FY2021",
+          "value": 5649000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2020, Q3 FY2020, Q4 FY2020, Q1 FY2021."
+        },
+        {
+          "periodEnd": "2021-06-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q2 FY2021",
+          "value": 7179000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2020, Q4 FY2020, Q1 FY2021, Q2 FY2021."
+        },
+        {
+          "periodEnd": "2021-09-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q3 FY2021",
+          "value": 9215000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2020, Q1 FY2021, Q2 FY2021, Q3 FY2021."
+        },
+        {
+          "periodEnd": "2021-12-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q4 FY2021",
+          "value": 10958000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2021, Q2 FY2021, Q3 FY2021, Q4 FY2021."
+        },
+        {
+          "periodEnd": "2022-03-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q1 FY2022",
+          "value": 12512000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2021, Q3 FY2021, Q4 FY2021, Q1 FY2022."
+        },
+        {
+          "periodEnd": "2022-06-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q2 FY2022",
+          "value": 14646000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2021, Q4 FY2021, Q1 FY2022, Q2 FY2022."
+        },
+        {
+          "periodEnd": "2022-09-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q3 FY2022",
+          "value": 16022000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2021, Q1 FY2022, Q2 FY2022, Q3 FY2022."
+        },
+        {
+          "periodEnd": "2022-12-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q4 FY2022",
+          "value": 17090000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2022, Q2 FY2022, Q3 FY2022, Q4 FY2022."
+        },
+        {
+          "periodEnd": "2023-03-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q1 FY2023",
+          "value": 18173000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2022, Q3 FY2022, Q4 FY2022, Q1 FY2023."
+        },
+        {
+          "periodEnd": "2023-06-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q2 FY2023",
+          "value": 19341000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2022, Q4 FY2022, Q1 FY2023, Q2 FY2023."
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q3 FY2023",
+          "value": 20630000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2022, Q1 FY2023, Q2 FY2023, Q3 FY2023."
+        },
+        {
+          "periodEnd": "2023-12-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q4 FY2023",
+          "value": 21365000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2023, Q2 FY2023, Q3 FY2023, Q4 FY2023."
+        },
+        {
+          "periodEnd": "2024-03-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q1 FY2024",
+          "value": 22002000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2023, Q3 FY2023, Q4 FY2023, Q1 FY2024."
+        },
+        {
+          "periodEnd": "2024-06-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q2 FY2024",
+          "value": 22399000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2023, Q4 FY2023, Q1 FY2024, Q2 FY2024."
+        },
+        {
+          "periodEnd": "2024-09-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q3 FY2024",
+          "value": 23052000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2023, Q1 FY2024, Q2 FY2024, Q3 FY2024."
+        },
+        {
+          "periodEnd": "2024-12-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q4 FY2024",
+          "value": 23739000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2024, Q2 FY2024, Q3 FY2024, Q4 FY2024."
+        },
+        {
+          "periodEnd": "2025-03-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q1 FY2025",
+          "value": 24086000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2024, Q3 FY2024, Q4 FY2024, Q1 FY2025."
+        },
+        {
+          "periodEnd": "2025-06-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q2 FY2025",
+          "value": 25025000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2024, Q4 FY2024, Q1 FY2025, Q2 FY2025."
+        },
+        {
+          "periodEnd": "2025-09-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q3 FY2025",
+          "value": 26039000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2024, Q1 FY2025, Q2 FY2025, Q3 FY2025."
+        },
+        {
+          "periodEnd": "2025-12-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q4 FY2025",
+          "value": 26917000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2025, Q2 FY2025, Q3 FY2025, Q4 FY2025."
+        },
+        {
+          "periodEnd": "2026-03-31",
+          "fiscalYear": 2026,
+          "label": "TTM Q1 FY2026",
+          "value": 27687000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2025, Q3 FY2025, Q4 FY2025, Q1 FY2026."
+        },
+        {
+          "periodEnd": "2026-06-30",
+          "fiscalYear": 2026,
+          "label": "TTM Q2 FY2026",
+          "value": 28241000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2025, Q4 FY2025, Q1 FY2026, Q2 FY2026."
+        }
+      ]
+    },
+    {
+      "metric": "netIncome",
+      "label": "Net income",
+      "unit": "currency",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2009-12-31",
+          "fiscalYear": 2009,
+          "label": "TTM Q4 FY2009",
+          "value": 489471000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2009, Q2 FY2009, Q3 FY2009, Q4 FY2009."
+        },
+        {
+          "periodEnd": "2010-03-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q1 FY2010",
+          "value": 518323000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2009, Q3 FY2009, Q4 FY2009, Q1 FY2010."
+        },
+        {
+          "periodEnd": "2010-06-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q2 FY2010",
+          "value": 566269000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2009, Q4 FY2009, Q1 FY2010, Q2 FY2010."
+        },
+        {
+          "periodEnd": "2010-09-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q3 FY2010",
+          "value": 470267000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2009, Q1 FY2010, Q2 FY2010, Q3 FY2010."
+        },
+        {
+          "periodEnd": "2010-12-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q4 FY2010",
+          "value": 527541000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2010, Q2 FY2010, Q3 FY2010, Q4 FY2010."
+        },
+        {
+          "periodEnd": "2011-03-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q1 FY2011",
+          "value": 578456000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2010, Q3 FY2010, Q4 FY2010, Q1 FY2011."
+        },
+        {
+          "periodEnd": "2011-06-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q2 FY2011",
+          "value": 719867000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2010, Q4 FY2010, Q1 FY2011, Q2 FY2011."
+        },
+        {
+          "periodEnd": "2011-09-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q3 FY2011",
+          "value": 966386000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2010, Q1 FY2011, Q2 FY2011, Q3 FY2011."
+        },
+        {
+          "periodEnd": "2011-12-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q4 FY2011",
+          "value": 1056373000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2011, Q2 FY2011, Q3 FY2011, Q4 FY2011."
+        },
+        {
+          "periodEnd": "2012-03-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q1 FY2012",
+          "value": 1133553000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2011, Q3 FY2011, Q4 FY2011, Q1 FY2012."
+        },
+        {
+          "periodEnd": "2012-06-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q2 FY2012",
+          "value": 1229532000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2011, Q4 FY2011, Q1 FY2012, Q2 FY2012."
+        },
+        {
+          "periodEnd": "2012-09-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q3 FY2012",
+          "value": 1356619000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2011, Q1 FY2012, Q2 FY2012, Q3 FY2012."
+        },
+        {
+          "periodEnd": "2012-12-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q4 FY2012",
+          "value": 1419566000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2012, Q2 FY2012, Q3 FY2012, Q4 FY2012."
+        },
+        {
+          "periodEnd": "2013-03-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q1 FY2013",
+          "value": 1481867000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2012, Q3 FY2012, Q4 FY2012, Q1 FY2013."
+        },
+        {
+          "periodEnd": "2013-06-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q2 FY2013",
+          "value": 1566846000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2012, Q4 FY2012, Q1 FY2013, Q2 FY2013."
+        },
+        {
+          "periodEnd": "2013-09-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q3 FY2013",
+          "value": 1803249000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2012, Q1 FY2013, Q2 FY2013, Q3 FY2013."
+        },
+        {
+          "periodEnd": "2013-12-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q4 FY2013",
+          "value": 1892663000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2013, Q2 FY2013, Q3 FY2013, Q4 FY2013."
+        },
+        {
+          "periodEnd": "2014-03-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q1 FY2014",
+          "value": 1979610000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2013, Q3 FY2013, Q4 FY2013, Q1 FY2014."
+        },
+        {
+          "periodEnd": "2014-06-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q2 FY2014",
+          "value": 2118735000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2013, Q4 FY2013, Q1 FY2014, Q2 FY2014."
+        },
+        {
+          "periodEnd": "2014-09-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q3 FY2014",
+          "value": 2347999000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2013, Q1 FY2014, Q2 FY2014, Q3 FY2014."
+        },
+        {
+          "periodEnd": "2014-12-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q4 FY2014",
+          "value": 2421753000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2014, Q2 FY2014, Q3 FY2014, Q4 FY2014."
+        },
+        {
+          "periodEnd": "2015-03-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q1 FY2015",
+          "value": 2423862000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2014, Q3 FY2014, Q4 FY2014, Q1 FY2015."
+        },
+        {
+          "periodEnd": "2015-06-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q2 FY2015",
+          "value": 2364443000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2014, Q4 FY2014, Q1 FY2015, Q2 FY2015."
+        },
+        {
+          "periodEnd": "2015-09-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q3 FY2015",
+          "value": 2498922000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2014, Q1 FY2015, Q2 FY2015, Q3 FY2015."
+        },
+        {
+          "periodEnd": "2015-12-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q4 FY2015",
+          "value": 2551360000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2015, Q2 FY2015, Q3 FY2015, Q4 FY2015."
+        },
+        {
+          "periodEnd": "2016-03-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q1 FY2016",
+          "value": 2592457000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2015, Q3 FY2015, Q4 FY2015, Q1 FY2016."
+        },
+        {
+          "periodEnd": "2016-06-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q2 FY2016",
+          "value": 2656063000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2015, Q4 FY2015, Q1 FY2016, Q2 FY2016."
+        },
+        {
+          "periodEnd": "2016-09-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q3 FY2016",
+          "value": 1965348000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2015, Q1 FY2016, Q2 FY2016, Q3 FY2016."
+        },
+        {
+          "periodEnd": "2016-12-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q4 FY2016",
+          "value": 2134987000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2016, Q2 FY2016, Q3 FY2016, Q4 FY2016."
+        },
+        {
+          "periodEnd": "2017-03-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q1 FY2017",
+          "value": 2216186000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2016, Q3 FY2016, Q4 FY2016, Q1 FY2017."
+        },
+        {
+          "periodEnd": "2017-06-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q2 FY2017",
+          "value": 2355757000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2016, Q4 FY2016, Q1 FY2017, Q2 FY2017."
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q3 FY2017",
+          "value": 3570131000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2016, Q1 FY2017, Q2 FY2017, Q3 FY2017."
+        },
+        {
+          "periodEnd": "2017-12-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q4 FY2017",
+          "value": 2341223000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2017, Q2 FY2017, Q3 FY2017, Q4 FY2017."
+        },
+        {
+          "periodEnd": "2018-03-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q1 FY2018",
+          "value": 2492600000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2017, Q3 FY2017, Q4 FY2017, Q1 FY2018."
+        },
+        {
+          "periodEnd": "2018-06-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q2 FY2018",
+          "value": 2750391000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2017, Q4 FY2017, Q1 FY2018, Q2 FY2018."
+        },
+        {
+          "periodEnd": "2018-09-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q3 FY2018",
+          "value": 2797000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2017, Q1 FY2018, Q2 FY2018, Q3 FY2018."
+        },
+        {
+          "periodEnd": "2018-12-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q4 FY2018",
+          "value": 3998000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2018, Q2 FY2018, Q3 FY2018, Q4 FY2018."
+        },
+        {
+          "periodEnd": "2019-03-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q1 FY2019",
+          "value": 4156000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2018, Q3 FY2018, Q4 FY2018, Q1 FY2019."
+        },
+        {
+          "periodEnd": "2019-06-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q2 FY2019",
+          "value": 4157000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2018, Q4 FY2018, Q1 FY2019, Q2 FY2019."
+        },
+        {
+          "periodEnd": "2019-09-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q3 FY2019",
+          "value": 4340000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2018, Q1 FY2019, Q2 FY2019, Q3 FY2019."
+        },
+        {
+          "periodEnd": "2019-12-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q4 FY2019",
+          "value": 4865000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2019, Q2 FY2019, Q3 FY2019, Q4 FY2019."
+        },
+        {
+          "periodEnd": "2020-03-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q1 FY2020",
+          "value": 3401000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2019, Q3 FY2019, Q4 FY2019, Q1 FY2020."
+        },
+        {
+          "periodEnd": "2020-06-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q2 FY2020",
+          "value": 2544000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2019, Q4 FY2019, Q1 FY2020, Q2 FY2020."
+        },
+        {
+          "periodEnd": "2020-09-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q3 FY2020",
+          "value": 1395000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2019, Q1 FY2020, Q2 FY2020, Q3 FY2020."
+        },
+        {
+          "periodEnd": "2020-12-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q4 FY2020",
+          "value": 59000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2020, Q2 FY2020, Q3 FY2020, Q4 FY2020."
+        },
+        {
+          "periodEnd": "2021-03-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q1 FY2021",
+          "value": 703000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2020, Q3 FY2020, Q4 FY2020, Q1 FY2021."
+        },
+        {
+          "periodEnd": "2021-06-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q2 FY2021",
+          "value": 414000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2020, Q4 FY2020, Q1 FY2021, Q2 FY2021."
+        },
+        {
+          "periodEnd": "2021-09-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q3 FY2021",
+          "value": 382000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2020, Q1 FY2021, Q2 FY2021, Q3 FY2021."
+        },
+        {
+          "periodEnd": "2021-12-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q4 FY2021",
+          "value": 1165000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2021, Q2 FY2021, Q3 FY2021, Q4 FY2021."
+        },
+        {
+          "periodEnd": "2022-03-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q1 FY2022",
+          "value": 520000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2021, Q3 FY2021, Q4 FY2021, Q1 FY2022."
+        },
+        {
+          "periodEnd": "2022-06-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q2 FY2022",
+          "value": 1544000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2021, Q4 FY2021, Q1 FY2022, Q2 FY2022."
+        },
+        {
+          "periodEnd": "2022-09-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q3 FY2022",
+          "value": 2441000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2021, Q1 FY2022, Q2 FY2022, Q3 FY2022."
+        },
+        {
+          "periodEnd": "2022-12-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q4 FY2022",
+          "value": 3058000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2022, Q2 FY2022, Q3 FY2022, Q4 FY2022."
+        },
+        {
+          "periodEnd": "2023-03-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q1 FY2023",
+          "value": 4024000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2022, Q3 FY2022, Q4 FY2022, Q1 FY2023."
+        },
+        {
+          "periodEnd": "2023-06-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q2 FY2023",
+          "value": 4457000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2022, Q4 FY2022, Q1 FY2023, Q2 FY2023."
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q3 FY2023",
+          "value": 5302000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2022, Q1 FY2023, Q2 FY2023, Q3 FY2023."
+        },
+        {
+          "periodEnd": "2023-12-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q4 FY2023",
+          "value": 4289000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2023, Q2 FY2023, Q3 FY2023, Q4 FY2023."
+        },
+        {
+          "periodEnd": "2024-03-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q1 FY2024",
+          "value": 4799000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2023, Q3 FY2023, Q4 FY2023, Q1 FY2024."
+        },
+        {
+          "periodEnd": "2024-06-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q2 FY2024",
+          "value": 5030000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2023, Q4 FY2023, Q1 FY2024, Q2 FY2024."
+        },
+        {
+          "periodEnd": "2024-09-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q3 FY2024",
+          "value": 5036000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2023, Q1 FY2024, Q2 FY2024, Q3 FY2024."
+        },
+        {
+          "periodEnd": "2024-12-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q4 FY2024",
+          "value": 5882000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2024, Q2 FY2024, Q3 FY2024, Q4 FY2024."
+        },
+        {
+          "periodEnd": "2025-03-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q1 FY2025",
+          "value": 5439000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2024, Q3 FY2024, Q4 FY2024, Q1 FY2025."
+        },
+        {
+          "periodEnd": "2025-06-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q2 FY2025",
+          "value": 4813000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2024, Q4 FY2024, Q1 FY2025, Q2 FY2025."
+        },
+        {
+          "periodEnd": "2025-09-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q3 FY2025",
+          "value": 5044000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2024, Q1 FY2025, Q2 FY2025, Q3 FY2025."
+        },
+        {
+          "periodEnd": "2025-12-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q4 FY2025",
+          "value": 5404000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2025, Q2 FY2025, Q3 FY2025, Q4 FY2025."
+        },
+        {
+          "periodEnd": "2026-03-31",
+          "fiscalYear": 2026,
+          "label": "TTM Q1 FY2026",
+          "value": 6154000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2025, Q3 FY2025, Q4 FY2025, Q1 FY2026."
+        },
+        {
+          "periodEnd": "2026-06-30",
+          "fiscalYear": 2026,
+          "label": "TTM Q2 FY2026",
+          "value": 7209000000,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2025, Q4 FY2025, Q1 FY2026, Q2 FY2026."
+        }
+      ]
+    },
+    {
+      "metric": "dilutedEpsReported",
+      "label": "EPS (diluted)",
+      "unit": "perShare",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2009-12-31",
+          "fiscalYear": 2009,
+          "label": "TTM Q4 FY2009",
+          "value": 0.39519999999999994,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2009, Q2 FY2009, Q3 FY2009, Q4 FY2009."
+        },
+        {
+          "periodEnd": "2010-03-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q1 FY2010",
+          "value": 0.41639999999999994,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2009, Q3 FY2009, Q4 FY2009, Q1 FY2010."
+        },
+        {
+          "periodEnd": "2010-06-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q2 FY2010",
+          "value": 0.45159999999999995,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2009, Q4 FY2009, Q1 FY2010, Q2 FY2010."
+        },
+        {
+          "periodEnd": "2010-09-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q3 FY2010",
+          "value": 0.3712,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2009, Q1 FY2010, Q2 FY2010, Q3 FY2010."
+        },
+        {
+          "periodEnd": "2010-12-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q4 FY2010",
+          "value": 0.4156,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2010, Q2 FY2010, Q3 FY2010, Q4 FY2010."
+        },
+        {
+          "periodEnd": "2011-03-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q1 FY2011",
+          "value": 0.45519999999999994,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2010, Q3 FY2010, Q4 FY2010, Q1 FY2011."
+        },
+        {
+          "periodEnd": "2011-06-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q2 FY2011",
+          "value": 0.5656,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2010, Q4 FY2010, Q1 FY2011, Q2 FY2011."
+        },
+        {
+          "periodEnd": "2011-09-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q3 FY2011",
+          "value": 0.756,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2010, Q1 FY2011, Q2 FY2011, Q3 FY2011."
+        },
+        {
+          "periodEnd": "2011-12-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q4 FY2011",
+          "value": 0.826,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2011, Q2 FY2011, Q3 FY2011, Q4 FY2011."
+        },
+        {
+          "periodEnd": "2012-03-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q1 FY2012",
+          "value": 0.8855999999999999,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2011, Q3 FY2011, Q4 FY2011, Q1 FY2012."
+        },
+        {
+          "periodEnd": "2012-06-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q2 FY2012",
+          "value": 0.9600000000000001,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2011, Q4 FY2011, Q1 FY2012, Q2 FY2012."
+        },
+        {
+          "periodEnd": "2012-09-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q3 FY2012",
+          "value": 1.0595999999999999,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2011, Q1 FY2012, Q2 FY2012, Q3 FY2012."
+        },
+        {
+          "periodEnd": "2012-12-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q4 FY2012",
+          "value": 1.1084,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2012, Q2 FY2012, Q3 FY2012, Q4 FY2012."
+        },
+        {
+          "periodEnd": "2013-03-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q1 FY2013",
+          "value": 1.1572,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2012, Q3 FY2012, Q4 FY2012, Q1 FY2013."
+        },
+        {
+          "periodEnd": "2013-06-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q2 FY2013",
+          "value": 1.2176,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2012, Q4 FY2012, Q1 FY2013, Q2 FY2013."
+        },
+        {
+          "periodEnd": "2013-09-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q3 FY2013",
+          "value": 1.38,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2012, Q1 FY2013, Q2 FY2013, Q3 FY2013."
+        },
+        {
+          "periodEnd": "2013-12-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q4 FY2013",
+          "value": 1.4404,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2013, Q2 FY2013, Q3 FY2013, Q4 FY2013."
+        },
+        {
+          "periodEnd": "2014-03-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q1 FY2014",
+          "value": 1.5,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2013, Q3 FY2013, Q4 FY2013, Q1 FY2014."
+        },
+        {
+          "periodEnd": "2014-06-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q2 FY2014",
+          "value": 1.6,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2013, Q4 FY2013, Q1 FY2014, Q2 FY2014."
+        },
+        {
+          "periodEnd": "2014-09-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q3 FY2014",
+          "value": 1.7724000000000002,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2013, Q1 FY2014, Q2 FY2014, Q3 FY2014."
+        },
+        {
+          "periodEnd": "2014-12-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q4 FY2014",
+          "value": 1.8292000000000002,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2014, Q2 FY2014, Q3 FY2014, Q4 FY2014."
+        },
+        {
+          "periodEnd": "2015-03-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q1 FY2015",
+          "value": 1.8336000000000001,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2014, Q3 FY2014, Q4 FY2014, Q1 FY2015."
+        },
+        {
+          "periodEnd": "2015-06-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q2 FY2015",
+          "value": 1.7956,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2014, Q4 FY2014, Q1 FY2015, Q2 FY2015."
+        },
+        {
+          "periodEnd": "2015-09-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q3 FY2015",
+          "value": 1.9308,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2014, Q1 FY2015, Q2 FY2015, Q3 FY2015."
+        },
+        {
+          "periodEnd": "2015-12-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q4 FY2015",
+          "value": 1.9884,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2015, Q2 FY2015, Q3 FY2015, Q4 FY2015."
+        },
+        {
+          "periodEnd": "2016-03-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q1 FY2016",
+          "value": 2.0328,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2015, Q3 FY2015, Q4 FY2015, Q1 FY2016."
+        },
+        {
+          "periodEnd": "2016-06-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q2 FY2016",
+          "value": 2.0991999999999997,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2015, Q4 FY2015, Q1 FY2016, Q2 FY2016."
+        },
+        {
+          "periodEnd": "2016-09-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q3 FY2016",
+          "value": 1.568,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2015, Q1 FY2016, Q2 FY2016, Q3 FY2016."
+        },
+        {
+          "periodEnd": "2016-12-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q4 FY2016",
+          "value": 1.7067999999999999,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2016, Q2 FY2016, Q3 FY2016, Q4 FY2016."
+        },
+        {
+          "periodEnd": "2017-03-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q1 FY2017",
+          "value": 1.7724,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2016, Q3 FY2016, Q4 FY2016, Q1 FY2017."
+        },
+        {
+          "periodEnd": "2017-06-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q2 FY2017",
+          "value": 1.884,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2016, Q4 FY2016, Q1 FY2017, Q2 FY2017."
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q3 FY2017",
+          "value": 2.856,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2016, Q1 FY2017, Q2 FY2017, Q3 FY2017."
+        },
+        {
+          "periodEnd": "2017-12-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q4 FY2017",
+          "value": 1.8607999999999998,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2017, Q2 FY2017, Q3 FY2017, Q4 FY2017."
+        },
+        {
+          "periodEnd": "2018-03-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q1 FY2018",
+          "value": 1.99,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2017, Q3 FY2017, Q4 FY2017, Q1 FY2018."
+        },
+        {
+          "periodEnd": "2018-06-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q2 FY2018",
+          "value": 2.2196,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2017, Q4 FY2017, Q1 FY2018, Q2 FY2018."
+        },
+        {
+          "periodEnd": "2018-09-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q3 FY2018",
+          "value": 2.3232,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2017, Q1 FY2018, Q2 FY2018, Q3 FY2018."
+        },
+        {
+          "periodEnd": "2018-12-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q4 FY2018",
+          "value": 3.3340000000000005,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2018, Q2 FY2018, Q3 FY2018, Q4 FY2018."
+        },
+        {
+          "periodEnd": "2019-03-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q1 FY2019",
+          "value": 3.5143999999999997,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2018, Q3 FY2018, Q4 FY2018, Q1 FY2019."
+        },
+        {
+          "periodEnd": "2019-06-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q2 FY2019",
+          "value": 3.6068000000000002,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2018, Q4 FY2018, Q1 FY2019, Q2 FY2019."
+        },
+        {
+          "periodEnd": "2019-09-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q3 FY2019",
+          "value": 3.9476000000000004,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2018, Q1 FY2019, Q2 FY2019, Q3 FY2019."
+        },
+        {
+          "periodEnd": "2019-12-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q4 FY2019",
+          "value": 4.5032000000000005,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2019, Q2 FY2019, Q3 FY2019, Q4 FY2019."
+        },
+        {
+          "periodEnd": "2020-03-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q1 FY2020",
+          "value": 3.1488,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2019, Q3 FY2019, Q4 FY2019, Q1 FY2020."
+        },
+        {
+          "periodEnd": "2020-06-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q2 FY2020",
+          "value": 2.3699999999999997,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2019, Q4 FY2019, Q1 FY2020, Q2 FY2020."
+        },
+        {
+          "periodEnd": "2020-09-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q3 FY2020",
+          "value": 1.3279999999999998,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2019, Q1 FY2020, Q2 FY2020, Q3 FY2020."
+        },
+        {
+          "periodEnd": "2020-12-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q4 FY2020",
+          "value": 0.05799999999999986,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2020, Q2 FY2020, Q3 FY2020, Q4 FY2020."
+        },
+        {
+          "periodEnd": "2021-03-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q1 FY2021",
+          "value": 0.6848,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2020, Q3 FY2020, Q4 FY2020, Q1 FY2021."
+        },
+        {
+          "periodEnd": "2021-06-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q2 FY2021",
+          "value": 0.40279999999999994,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2020, Q4 FY2020, Q1 FY2021, Q2 FY2021."
+        },
+        {
+          "periodEnd": "2021-09-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q3 FY2021",
+          "value": 0.3672000000000001,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2020, Q1 FY2021, Q2 FY2021, Q3 FY2021."
+        },
+        {
+          "periodEnd": "2021-12-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q4 FY2021",
+          "value": 1.1252000000000002,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2021, Q2 FY2021, Q3 FY2021, Q4 FY2021."
+        },
+        {
+          "periodEnd": "2022-03-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q1 FY2022",
+          "value": 0.49480000000000024,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2021, Q3 FY2021, Q4 FY2021, Q1 FY2022."
+        },
+        {
+          "periodEnd": "2022-06-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q2 FY2022",
+          "value": 1.5008,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2021, Q4 FY2021, Q1 FY2022, Q2 FY2022."
+        },
+        {
+          "periodEnd": "2022-09-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q3 FY2022",
+          "value": 2.436,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2021, Q1 FY2022, Q2 FY2022, Q3 FY2022."
+        },
+        {
+          "periodEnd": "2022-12-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q4 FY2022",
+          "value": 3.0919999999999996,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2022, Q2 FY2022, Q3 FY2022, Q4 FY2022."
+        },
+        {
+          "periodEnd": "2023-03-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q1 FY2023",
+          "value": 4.056,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2022, Q3 FY2022, Q4 FY2022, Q1 FY2023."
+        },
+        {
+          "periodEnd": "2023-06-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q2 FY2023",
+          "value": 4.6088,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2022, Q4 FY2022, Q1 FY2023, Q2 FY2023."
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q3 FY2023",
+          "value": 5.7216,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2022, Q1 FY2023, Q2 FY2023, Q3 FY2023."
+        },
+        {
+          "periodEnd": "2023-12-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q4 FY2023",
+          "value": 4.7628,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2023, Q2 FY2023, Q3 FY2023, Q4 FY2023."
+        },
+        {
+          "periodEnd": "2024-03-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q1 FY2024",
+          "value": 5.3776,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2023, Q3 FY2023, Q4 FY2023, Q1 FY2024."
+        },
+        {
+          "periodEnd": "2024-06-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q2 FY2024",
+          "value": 5.7572,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2023, Q4 FY2023, Q1 FY2024, Q2 FY2024."
+        },
+        {
+          "periodEnd": "2024-09-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q3 FY2024",
+          "value": 5.9388000000000005,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2023, Q1 FY2024, Q2 FY2024, Q3 FY2024."
+        },
+        {
+          "periodEnd": "2024-12-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q4 FY2024",
+          "value": 6.9332,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2024, Q2 FY2024, Q3 FY2024, Q4 FY2024."
+        },
+        {
+          "periodEnd": "2025-03-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q1 FY2025",
+          "value": 6.4412,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2024, Q3 FY2024, Q4 FY2024, Q1 FY2025."
+        },
+        {
+          "periodEnd": "2025-06-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q2 FY2025",
+          "value": 5.766,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2024, Q4 FY2024, Q1 FY2025, Q2 FY2025."
+        },
+        {
+          "periodEnd": "2025-09-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q3 FY2025",
+          "value": 6.168800000000001,
+          "status": "calculated",
+          "note": "TTM quarters: Q4 FY2024, Q1 FY2025, Q2 FY2025, Q3 FY2025."
+        },
+        {
+          "periodEnd": "2025-12-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q4 FY2025",
+          "value": 6.6464,
+          "status": "calculated",
+          "note": "TTM quarters: Q1 FY2025, Q2 FY2025, Q3 FY2025, Q4 FY2025."
+        },
+        {
+          "periodEnd": "2026-03-31",
+          "fiscalYear": 2026,
+          "label": "TTM Q1 FY2026",
+          "value": 7.6036,
+          "status": "calculated",
+          "note": "TTM quarters: Q2 FY2025, Q3 FY2025, Q4 FY2025, Q1 FY2026."
+        },
+        {
+          "periodEnd": "2026-06-30",
+          "fiscalYear": 2026,
+          "label": "TTM Q2 FY2026",
+          "value": 9.0336,
+          "status": "calculated",
+          "note": "TTM quarters: Q3 FY2025, Q4 FY2025, Q1 FY2026, Q2 FY2026."
+        }
+      ]
+    },
+    {
+      "metric": "freeCashFlow",
+      "label": "Free cash flow",
+      "unit": "currency",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2009-12-31",
+          "fiscalYear": 2009,
+          "label": "TTM Q4 FY2009",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-03-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q1 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-06-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q2 FY2010",
+          "value": 616235000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-09-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q3 FY2010",
+          "value": 723970000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-12-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q4 FY2010",
+          "value": 754704000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-03-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q1 FY2011",
+          "value": 922778000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-06-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q2 FY2011",
+          "value": 954346000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-09-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q3 FY2011",
+          "value": 1201996000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-12-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q4 FY2011",
+          "value": 1294979000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-03-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q1 FY2012",
+          "value": 1195722000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-06-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q2 FY2012",
+          "value": 1399117000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-09-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q3 FY2012",
+          "value": 1514759000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-12-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q4 FY2012",
+          "value": 1730592000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-03-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q1 FY2013",
+          "value": 1729975000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-06-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q2 FY2013",
+          "value": 1885047000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-09-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q3 FY2013",
+          "value": 2170616000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-12-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q4 FY2013",
+          "value": 2216991000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-03-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q1 FY2014",
+          "value": 2196198000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-06-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q2 FY2014",
+          "value": 2281972000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-09-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q3 FY2014",
+          "value": 2595378000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-12-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q4 FY2014",
+          "value": 2782893000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-03-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q1 FY2015",
+          "value": 2813340000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-06-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q2 FY2015",
+          "value": 2804902000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q3 FY2015",
+          "value": 2809023000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-12-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q4 FY2015",
+          "value": 3029608000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-03-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q1 FY2016",
+          "value": 3143390000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-06-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q2 FY2016",
+          "value": 3456127000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q3 FY2016",
+          "value": 3654179000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-12-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q4 FY2016",
+          "value": 3763731000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-03-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q1 FY2017",
+          "value": 3782288000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-06-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q2 FY2017",
+          "value": 3964769000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q3 FY2017",
+          "value": 4309371000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-12-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q4 FY2017",
+          "value": 4374036000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-03-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q1 FY2018",
+          "value": 4572977000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-06-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q2 FY2018",
+          "value": 4974471000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-09-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q3 FY2018",
+          "value": 5007303000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-12-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q4 FY2018",
+          "value": 4896000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-03-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q1 FY2019",
+          "value": 4426000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-06-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q2 FY2019",
+          "value": 4579000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-09-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q3 FY2019",
+          "value": 4505000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-12-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q4 FY2019",
+          "value": 4497000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-03-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q1 FY2020",
+          "value": 3998000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-06-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q2 FY2020",
+          "value": 2351000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-09-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q3 FY2020",
+          "value": 1430000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-12-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q4 FY2020",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-03-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q1 FY2021",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-06-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q2 FY2021",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-09-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q3 FY2021",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-12-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q4 FY2021",
+          "value": 2516000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-03-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q1 FY2022",
+          "value": 4374000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-06-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q2 FY2022",
+          "value": 5879000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-09-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q3 FY2022",
+          "value": 4266000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-12-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q4 FY2022",
+          "value": 6186000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-03-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q1 FY2023",
+          "value": 7401000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-06-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q2 FY2023",
+          "value": 6448000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q3 FY2023",
+          "value": 7845000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-12-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q4 FY2023",
+          "value": 6999000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-03-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q1 FY2024",
+          "value": 6772000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-06-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q2 FY2024",
+          "value": 7506000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-09-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q3 FY2024",
+          "value": 8501000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-12-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q4 FY2024",
+          "value": 7894000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-03-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q1 FY2025",
+          "value": 8482000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-06-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q2 FY2025",
+          "value": 9240000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-09-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q3 FY2025",
+          "value": 8315000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-12-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q4 FY2025",
+          "value": 9087000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2026-03-31",
+          "fiscalYear": 2026,
+          "label": "TTM Q1 FY2026",
+          "value": 9033000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2026-06-30",
+          "fiscalYear": 2026,
+          "label": "TTM Q2 FY2026",
+          "value": 9539000000,
+          "status": "calculated"
+        }
+      ]
+    },
+    {
+      "metric": "freeCashFlowPerShare",
+      "label": "FCF / share",
+      "unit": "perShare",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2009-12-31",
+          "fiscalYear": 2009,
+          "label": "TTM Q4 FY2009",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-03-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q1 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-06-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q2 FY2010",
+          "value": 0.4856418487641896,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-09-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q3 FY2010",
+          "value": 0.5680377905023954,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-12-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q4 FY2010",
+          "value": 0.5934752975865387,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-03-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q1 FY2011",
+          "value": 0.724600155304975,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-06-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q2 FY2011",
+          "value": 0.7484434620938806,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-09-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q3 FY2011",
+          "value": 0.9397597695885505,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-12-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q4 FY2011",
+          "value": 1.0121291732670439,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-03-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q1 FY2012",
+          "value": 0.9337001105055124,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-06-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q2 FY2012",
+          "value": 1.0918833307914961,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-09-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q3 FY2012",
+          "value": 1.1821255770879473,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-12-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q4 FY2012",
+          "value": 1.3495440806419678,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-03-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q1 FY2013",
+          "value": 1.3490278345563136,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-06-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q2 FY2013",
+          "value": 1.463656565520119,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-09-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q3 FY2013",
+          "value": 1.670682994809658,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-12-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q4 FY2013",
+          "value": 1.693648329906591,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-03-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q1 FY2014",
+          "value": 1.6647109727195928,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-06-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q2 FY2014",
+          "value": 1.7228575299538218,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-09-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q3 FY2014",
+          "value": 1.959101944081672,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-12-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q4 FY2014",
+          "value": 2.100836989654201,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-03-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q1 FY2015",
+          "value": 2.1298876470680965,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-06-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q2 FY2015",
+          "value": 2.1327279430348582,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q3 FY2015",
+          "value": 2.1554211962013006,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-12-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q4 FY2015",
+          "value": 2.352216774414772,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-03-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q1 FY2016",
+          "value": 2.4675579121729854,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-06-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q2 FY2016",
+          "value": 2.739509935696014,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q3 FY2016",
+          "value": 2.913257121777897,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-12-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q4 FY2016",
+          "value": 3.0069239738202733,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-03-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q1 FY2017",
+          "value": 3.023308215475035,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-06-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q2 FY2017",
+          "value": 3.16921869819313,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q3 FY2017",
+          "value": 3.4447266734980677,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-12-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q4 FY2017",
+          "value": 3.504892706613888,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-03-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q1 FY2018",
+          "value": 3.6792052971811744,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-06-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q2 FY2018",
+          "value": 4.032684044819942,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-09-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q3 FY2018",
+          "value": 4.105884238034341,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-12-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q4 FY2018",
+          "value": 4.080673823594273,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-03-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q1 FY2019",
+          "value": 3.7617876041520097,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-06-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q2 FY2019",
+          "value": 3.996607271195558,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-09-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q3 FY2019",
+          "value": 4.0413770949593655,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-12-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q4 FY2019",
+          "value": 4.134355567726912,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-03-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q1 FY2020",
+          "value": 3.7686721791323854,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-06-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q2 FY2020",
+          "value": 2.2505089345858043,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-09-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q3 FY2020",
+          "value": 1.3834398773412355,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-12-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q4 FY2020",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-03-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q1 FY2021",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-06-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q2 FY2021",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-09-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q3 FY2021",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-12-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q4 FY2021",
+          "value": 2.4435193580872467,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-03-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q1 FY2022",
+          "value": 4.249317175737576,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-06-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q2 FY2022",
+          "value": 5.724901340572982,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-09-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q3 FY2022",
+          "value": 4.197217381459723,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-12-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q4 FY2022",
+          "value": 6.188320620232587,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-03-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q1 FY2023",
+          "value": 7.540391364892302,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-06-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q2 FY2023",
+          "value": 6.727555745551054,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q3 FY2023",
+          "value": 8.388293695520252,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-12-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q4 FY2023",
+          "value": 7.663886798268853,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-03-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q1 FY2024",
+          "value": 7.583646500867695,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-06-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q2 FY2024",
+          "value": 8.566439819285026,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-09-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q3 FY2024",
+          "value": 9.852020178591587,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-12-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q4 FY2024",
+          "value": 9.269714981203201,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-03-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q1 FY2025",
+          "value": 10.079343252128378,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-06-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q2 FY2025",
+          "value": 11.11735591130772,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-09-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q3 FY2025",
+          "value": 10.104468076110079,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-12-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q4 FY2025",
+          "value": 11.139156034933254,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2026-03-31",
+          "fiscalYear": 2026,
+          "label": "TTM Q1 FY2026",
+          "value": 11.18452208107294,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2026-06-30",
+          "fiscalYear": 2026,
+          "label": "TTM Q2 FY2026",
+          "value": 11.977426920782657,
+          "status": "calculated"
+        }
+      ]
+    },
+    {
+      "metric": "grossMargin",
+      "label": "Gross margin",
+      "unit": "fraction",
+      "style": "line",
+      "currency": null,
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2009-12-31",
+          "fiscalYear": 2009,
+          "label": "TTM Q4 FY2009",
+          "value": 0.539199610642662,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-03-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q1 FY2010",
+          "value": 0.5574160715417866,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-06-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q2 FY2010",
+          "value": 0.5760001158427983,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-09-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q3 FY2010",
+          "value": 0.6022595595754976,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-12-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q4 FY2010",
+          "value": 0.6188104272869255,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-03-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q1 FY2011",
+          "value": 0.6331632542074643,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-06-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q2 FY2011",
+          "value": 0.658316664878883,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-09-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q3 FY2011",
+          "value": 0.6917695517455879,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-12-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q4 FY2011",
+          "value": 0.7071064672916079,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-03-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q1 FY2012",
+          "value": 0.723755475302152,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-06-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q2 FY2012",
+          "value": 0.743050557661027,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-09-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q3 FY2012",
+          "value": 0.764386931974679,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-12-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q4 FY2012",
+          "value": 0.7762241311274986,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-03-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q1 FY2013",
+          "value": 0.7872380816910589,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-06-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q2 FY2013",
+          "value": 0.8044922778609335,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-09-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q3 FY2013",
+          "value": 0.8260912619728742,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-12-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q4 FY2013",
+          "value": 0.8413997544052925,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-03-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q1 FY2014",
+          "value": 0.8569479507916338,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-06-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q2 FY2014",
+          "value": 0.8726841509718359,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-09-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q3 FY2014",
+          "value": 0.8894414816504967,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-12-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q4 FY2014",
+          "value": 0.89838380160273,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-03-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q1 FY2015",
+          "value": 0.9084619209909937,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-06-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q2 FY2015",
+          "value": 0.9161279359285994,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q3 FY2015",
+          "value": 0.925311854285632,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-12-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q4 FY2015",
+          "value": 0.9314634766939719,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-03-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q1 FY2016",
+          "value": 0.9378485580100828,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-06-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q2 FY2016",
+          "value": 0.9458561747794949,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q3 FY2016",
+          "value": 0.954124692820327,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-12-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q4 FY2016",
+          "value": 0.9601308981862245,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-03-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q1 FY2017",
+          "value": 0.9654951916560041,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-06-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q2 FY2017",
+          "value": 0.9720117966253431,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q3 FY2017",
+          "value": 0.9775830574145077,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-12-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q4 FY2017",
+          "value": 0.9809085691583731,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-03-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q1 FY2018",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2018-06-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q2 FY2018",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2018-09-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q3 FY2018",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2018-12-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q4 FY2018",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2019-03-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q1 FY2019",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2019-06-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q2 FY2019",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2019-09-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q3 FY2019",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2019-12-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q4 FY2019",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2020-03-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q1 FY2020",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2020-06-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q2 FY2020",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2020-09-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q3 FY2020",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2020-12-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q4 FY2020",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-03-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q1 FY2021",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-06-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q2 FY2021",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-09-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q3 FY2021",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-12-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q4 FY2021",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2022-03-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q1 FY2022",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2022-06-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q2 FY2022",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2022-09-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q3 FY2022",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2022-12-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q4 FY2022",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2023-03-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q1 FY2023",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2023-06-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q2 FY2023",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q3 FY2023",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2023-12-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q4 FY2023",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2024-03-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q1 FY2024",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2024-06-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q2 FY2024",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2024-09-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q3 FY2024",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2024-12-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q4 FY2024",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2025-03-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q1 FY2025",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2025-06-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q2 FY2025",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2025-09-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q3 FY2025",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2025-12-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q4 FY2025",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2026-03-31",
+          "fiscalYear": 2026,
+          "label": "TTM Q1 FY2026",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2026-06-30",
+          "fiscalYear": 2026,
+          "label": "TTM Q2 FY2026",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        }
+      ]
+    },
+    {
+      "metric": "operatingMargin",
+      "label": "Operating margin",
+      "unit": "fraction",
+      "style": "line",
+      "currency": null,
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2009-12-31",
+          "fiscalYear": 2009,
+          "label": "TTM Q4 FY2009",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-03-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q1 FY2010",
+          "value": 0.209669146872973,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-06-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q2 FY2010",
+          "value": 0.2208958306500229,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-09-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q3 FY2010",
+          "value": 0.24718971120174707,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-12-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q4 FY2010",
+          "value": 0.2550473174871455,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-03-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q1 FY2011",
+          "value": 0.2577009950958236,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-06-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q2 FY2011",
+          "value": 0.27557365225566643,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-09-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q3 FY2011",
+          "value": 0.31349025769526356,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-12-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q4 FY2011",
+          "value": 0.32117728630432935,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-03-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q1 FY2012",
+          "value": 0.32428995337007205,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-06-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q2 FY2012",
+          "value": 0.3369766077735576,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-09-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q3 FY2012",
+          "value": 0.34760444695071374,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-12-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q4 FY2012",
+          "value": 0.3478061781927087,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-03-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q1 FY2013",
+          "value": 0.34350286596084023,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-06-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q2 FY2013",
+          "value": 0.3392599333242618,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-09-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q3 FY2013",
+          "value": 0.35479674731129807,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-12-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q4 FY2013",
+          "value": 0.3551163454141474,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-03-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q1 FY2014",
+          "value": 0.3562690029686969,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-06-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q2 FY2014",
+          "value": 0.35893988635549207,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-09-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q3 FY2014",
+          "value": 0.3678352042796862,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-12-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q4 FY2014",
+          "value": 0.3640514756565736,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-03-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q1 FY2015",
+          "value": 0.3551213576699457,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-06-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q2 FY2015",
+          "value": 0.34257557527917853,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q3 FY2015",
+          "value": 0.3508211360237085,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-12-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q4 FY2015",
+          "value": 0.3533078483306622,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-03-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q1 FY2016",
+          "value": 0.354119200806764,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-06-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q2 FY2016",
+          "value": 0.34968502333608004,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q3 FY2016",
+          "value": 0.26685591936095854,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-12-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q4 FY2016",
+          "value": 0.27050157097557237,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-03-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q1 FY2017",
+          "value": 0.2643968640378214,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-06-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q2 FY2017",
+          "value": 0.2676139265667475,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q3 FY2017",
+          "value": 0.3550973457320547,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-12-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q4 FY2017",
+          "value": 0.35785589904710025,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-03-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q1 FY2018",
+          "value": 0.35721402751454584,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-06-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q2 FY2018",
+          "value": 0.3677736192977993,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-09-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q3 FY2018",
+          "value": 0.36724827129778065,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-12-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q4 FY2018",
+          "value": 0.3676602189027328,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-03-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q1 FY2019",
+          "value": 0.3579246328622887,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-06-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q2 FY2019",
+          "value": 0.35209166723167673,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-09-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q3 FY2019",
+          "value": 0.35582329317269074,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-12-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q4 FY2019",
+          "value": 0.3547723350590734,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-03-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q1 FY2020",
+          "value": 0.30860370599986225,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-06-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q2 FY2020",
+          "value": 0.24333893954147118,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-09-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q3 FY2020",
+          "value": 0.07800382151286951,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-12-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q4 FY2020",
+          "value": -0.09284873454973513,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-03-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q1 FY2021",
+          "value": -0.11205523101433883,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-06-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q2 FY2021",
+          "value": -0.0285555091238334,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-09-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q3 FY2021",
+          "value": 0.16223548562126966,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-12-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q4 FY2021",
+          "value": 0.2277787917503194,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-03-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q1 FY2022",
+          "value": 0.2382512787723785,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-06-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q2 FY2022",
+          "value": 0.2756383995630206,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-09-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q3 FY2022",
+          "value": 0.2874173012108351,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-12-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q4 FY2022",
+          "value": 0.29853715623171445,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-03-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q1 FY2023",
+          "value": 0.29593352776096404,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-06-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q2 FY2023",
+          "value": 0.3128586939661858,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q3 FY2023",
+          "value": 0.3185167232186137,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-12-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q4 FY2023",
+          "value": 0.2731102270067868,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-03-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q1 FY2024",
+          "value": 0.2807017543859649,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-06-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q2 FY2024",
+          "value": 0.2838966025268985,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-09-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q3 FY2024",
+          "value": 0.2791514836022905,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-12-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q4 FY2024",
+          "value": 0.3182526643919289,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-03-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q1 FY2025",
+          "value": 0.3249190401062858,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-06-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q2 FY2025",
+          "value": 0.3284715284715285,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-09-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q3 FY2025",
+          "value": 0.32735512116440724,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-12-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q4 FY2025",
+          "value": 0.3278597169075306,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2026-03-31",
+          "fiscalYear": 2026,
+          "label": "TTM Q1 FY2026",
+          "value": 0.32629031675515585,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2026-06-30",
+          "fiscalYear": 2026,
+          "label": "TTM Q2 FY2026",
+          "value": 0.32874190007436,
+          "status": "calculated"
+        }
+      ]
+    },
+    {
+      "metric": "freeCashFlowMargin",
+      "label": "FCF margin",
+      "unit": "fraction",
+      "style": "line",
+      "currency": null,
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2009-12-31",
+          "fiscalYear": 2009,
+          "label": "TTM Q4 FY2009",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-03-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q1 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-06-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q2 FY2010",
+          "value": 0.23482364077148254,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-09-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q3 FY2010",
+          "value": 0.2500463675633595,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-12-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q4 FY2010",
+          "value": 0.24464408315844957,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-03-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q1 FY2011",
+          "value": 0.27879904478535467,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-06-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q2 FY2011",
+          "value": 0.26181549029123685,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-09-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q3 FY2011",
+          "value": 0.2934448785641953,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-12-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q4 FY2011",
+          "value": 0.297312890731723,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-03-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q1 FY2012",
+          "value": 0.2608732077432777,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-06-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q2 FY2012",
+          "value": 0.29102313430041726,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-09-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q3 FY2012",
+          "value": 0.2992952500708346,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-12-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q4 FY2012",
+          "value": 0.32895009956365345,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-03-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q1 FY2013",
+          "value": 0.3130767912458845,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-06-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q2 FY2013",
+          "value": 0.3206298475983127,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-09-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q3 FY2013",
+          "value": 0.33690605921996875,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-12-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q4 FY2013",
+          "value": 0.32634935037520757,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-03-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q1 FY2014",
+          "value": 0.3078884680649188,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-06-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q2 FY2014",
+          "value": 0.3011934507967008,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-09-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q3 FY2014",
+          "value": 0.3187239831084927,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-12-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q4 FY2014",
+          "value": 0.32964967541347867,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-03-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q1 FY2015",
+          "value": 0.325585534685598,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-06-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q2 FY2015",
+          "value": 0.3188227357537807,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q3 FY2015",
+          "value": 0.3099068202000223,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-12-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q4 FY2015",
+          "value": 0.32844885839496524,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-03-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q1 FY2016",
+          "value": 0.32979268968753,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-06-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q2 FY2016",
+          "value": 0.3524172785392188,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q3 FY2016",
+          "value": 0.35154698107703947,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-12-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q4 FY2016",
+          "value": 0.3503424460528087,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-03-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q1 FY2017",
+          "value": 0.34339822690357463,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-06-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q2 FY2017",
+          "value": 0.345274578951654,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q3 FY2017",
+          "value": 0.3524637870343425,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-12-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q4 FY2017",
+          "value": 0.3449260875373253,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-03-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q1 FY2018",
+          "value": 0.34670876726482636,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-06-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q2 FY2018",
+          "value": 0.36304384094667963,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-09-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q3 FY2018",
+          "value": 0.3546978829139965,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-12-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q4 FY2018",
+          "value": 0.3370276037722861,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-03-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q1 FY2019",
+          "value": 0.3065946245497368,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-06-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q2 FY2019",
+          "value": 0.3104617262187267,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-09-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q3 FY2019",
+          "value": 0.3015394912985274,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-12-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q4 FY2019",
+          "value": 0.2984866587017125,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-03-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q1 FY2020",
+          "value": 0.27540125370255564,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-06-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q2 FY2020",
+          "value": 0.20810834734885367,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-09-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q3 FY2020",
+          "value": 0.160728335393953,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-12-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q4 FY2020",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-03-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q1 FY2021",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-06-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q2 FY2021",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-09-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q3 FY2021",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2021-12-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q4 FY2021",
+          "value": 0.22960394232524184,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-03-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q1 FY2022",
+          "value": 0.3495843989769821,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-06-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q2 FY2022",
+          "value": 0.4014065273794893,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-09-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q3 FY2022",
+          "value": 0.2662588940207215,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-12-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q4 FY2022",
+          "value": 0.36196606202457576,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-03-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q1 FY2023",
+          "value": 0.4072525174709734,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-06-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q2 FY2023",
+          "value": 0.33338503696809885,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q3 FY2023",
+          "value": 0.3802714493456132,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-12-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q4 FY2023",
+          "value": 0.327591855838989,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-03-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q1 FY2024",
+          "value": 0.3077902008908281,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-06-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q2 FY2024",
+          "value": 0.3351042457252556,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-09-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q3 FY2024",
+          "value": 0.3687749436057609,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-12-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q4 FY2024",
+          "value": 0.33253296263532583,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-03-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q1 FY2025",
+          "value": 0.35215477870962386,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-06-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q2 FY2025",
+          "value": 0.36923076923076925,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-09-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q3 FY2025",
+          "value": 0.3193286992588041,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-12-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q4 FY2025",
+          "value": 0.33759334249730655,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2026-03-31",
+          "fiscalYear": 2026,
+          "label": "TTM Q1 FY2026",
+          "value": 0.3262541987214216,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2026-06-30",
+          "fiscalYear": 2026,
+          "label": "TTM Q2 FY2026",
+          "value": 0.33777132537799653,
+          "status": "calculated"
+        }
+      ]
+    },
+    {
+      "metric": "roic",
+      "label": "ROIC",
+      "unit": "fraction",
+      "style": "line",
+      "currency": null,
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2009-12-31",
+          "fiscalYear": 2009,
+          "label": "TTM Q4 FY2009",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-03-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q1 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-06-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q2 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-09-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q3 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-12-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q4 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2011-03-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q1 FY2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2011-06-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q2 FY2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2011-09-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q3 FY2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2011-12-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q4 FY2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2012-03-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q1 FY2012",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2012-06-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q2 FY2012",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2012-09-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q3 FY2012",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2012-12-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q4 FY2012",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2013-03-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q1 FY2013",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2013-06-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q2 FY2013",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2013-09-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q3 FY2013",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2013-12-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q4 FY2013",
+          "value": 0.25887849708127736,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-03-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q1 FY2014",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2014-06-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q2 FY2014",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2014-09-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q3 FY2014",
+          "value": 0.3123130837852713,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-12-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q4 FY2014",
+          "value": 0.2694159073969015,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-03-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q1 FY2015",
+          "value": 0.23368218798441331,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-06-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q2 FY2015",
+          "value": 0.2026773689772669,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q3 FY2015",
+          "value": 0.21423047196535666,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-12-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q4 FY2015",
+          "value": 0.1972374989839264,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-03-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q1 FY2016",
+          "value": 0.20198279064479288,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-06-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q2 FY2016",
+          "value": 0.20409279024129773,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q3 FY2016",
+          "value": 0.15470862349050393,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-12-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q4 FY2016",
+          "value": 0.16442305521723777,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-03-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q1 FY2017",
+          "value": 0.14821989819635648,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-06-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q2 FY2017",
+          "value": 0.14852170298636866,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q3 FY2017",
+          "value": 0.19583249612720494,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-12-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q4 FY2017",
+          "value": 0.13793529413994904,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-03-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q1 FY2018",
+          "value": 0.15889369661612035,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-06-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q2 FY2018",
+          "value": 0.18548686902288367,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-09-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q3 FY2018",
+          "value": 0.17996220576091862,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-12-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q4 FY2018",
+          "value": 0.2986276938133467,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-03-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q1 FY2019",
+          "value": 0.3491204864328798,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-06-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q2 FY2019",
+          "value": 0.554263834687641,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-09-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q3 FY2019",
+          "value": 0.6395186197238849,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-12-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q4 FY2019",
+          "value": 0.6027420734906347,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-03-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q1 FY2020",
+          "value": 0.7138441102782255,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-06-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q2 FY2020",
+          "value": 0.5081186884374026,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-09-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q3 FY2020",
+          "value": 0.12281939220176212,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-12-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q4 FY2020",
+          "value": -0.07881264822134387,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-03-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q1 FY2021",
+          "value": -0.06848564960785336,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-06-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q2 FY2021",
+          "value": -0.0195211465286654,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-09-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q3 FY2021",
+          "value": 0.12994368022600722,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-12-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q4 FY2021",
+          "value": 0.3334801277111087,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-03-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q1 FY2022",
+          "value": 0.48664467830881775,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-06-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q2 FY2022",
+          "value": 1.864513411777093,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-09-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q3 FY2022",
+          "value": 0.8980505230689781,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-12-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q4 FY2022",
+          "value": 1.3186462073968996,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-03-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q1 FY2023",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2023-06-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q2 FY2023",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q3 FY2023",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2023-12-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q4 FY2023",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2024-03-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q1 FY2024",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2024-06-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q2 FY2024",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2024-09-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q3 FY2024",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2024-12-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q4 FY2024",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2025-03-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q1 FY2025",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2025-06-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q2 FY2025",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2025-09-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q3 FY2025",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2025-12-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q4 FY2025",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2026-03-31",
+          "fiscalYear": 2026,
+          "label": "TTM Q1 FY2026",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2026-06-30",
+          "fiscalYear": 2026,
+          "label": "TTM Q2 FY2026",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        }
+      ]
+    },
+    {
+      "metric": "dilutedShares",
+      "label": "Shares outstanding (diluted)",
+      "unit": "shares",
+      "style": "line",
+      "currency": null,
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2009-12-31",
+          "fiscalYear": 2009,
+          "label": "TTM Q4 FY2009",
+          "value": 1231656347.8935125,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2010-03-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q1 FY2010",
+          "value": 1254148904.109589,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2010-06-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q2 FY2010",
+          "value": 1268908356.1643836,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2010-09-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q3 FY2010",
+          "value": 1274510273.9726028,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2010-12-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q4 FY2010",
+          "value": 1271668767.1232877,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2011-03-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q1 FY2011",
+          "value": 1273499589.041096,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2011-06-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q2 FY2011",
+          "value": 1275107671.2328768,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2011-09-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q3 FY2011",
+          "value": 1279046027.3972602,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2011-12-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q4 FY2011",
+          "value": 1279460205.4794521,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2012-03-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q1 FY2012",
+          "value": 1280627459.0163934,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2012-06-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q2 FY2012",
+          "value": 1281379576.5027323,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2012-09-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q3 FY2012",
+          "value": 1281385860.6557376,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2012-12-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q4 FY2012",
+          "value": 1282353073.7704918,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2013-03-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q1 FY2013",
+          "value": 1282386438.3561645,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2013-06-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q2 FY2013",
+          "value": 1287902534.2465754,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2013-09-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q3 FY2013",
+          "value": 1299238698.630137,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2013-12-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q4 FY2013",
+          "value": 1309003150.6849315,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2014-03-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q1 FY2014",
+          "value": 1319266849.3150685,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2014-06-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q2 FY2014",
+          "value": 1324527397.260274,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2014-09-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q3 FY2014",
+          "value": 1324779452.0547945,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2014-12-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q4 FY2014",
+          "value": 1324659178.0821917,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2015-03-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q1 FY2015",
+          "value": 1320886575.3424656,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2015-06-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q2 FY2015",
+          "value": 1315171027.3972602,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2015-09-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q3 FY2015",
+          "value": 1303236232.8767123,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2015-12-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q4 FY2015",
+          "value": 1287979931.5068493,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2016-03-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q1 FY2016",
+          "value": 1273887021.8579235,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2016-06-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q2 FY2016",
+          "value": 1261585860.6557376,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2016-09-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q3 FY2016",
+          "value": 1254327663.9344263,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2016-12-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q4 FY2016",
+          "value": 1251688114.7540984,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2017-03-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q1 FY2017",
+          "value": 1251042808.2191782,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2017-06-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q2 FY2017",
+          "value": 1251024109.589041,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q3 FY2017",
+          "value": 1251005205.4794521,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2017-12-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q4 FY2017",
+          "value": 1247980000,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2018-03-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q1 FY2018",
+          "value": 1242925205.4794521,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2018-06-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q2 FY2018",
+          "value": 1233538493.1506848,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2018-09-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q3 FY2018",
+          "value": 1219543150.6849315,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2018-12-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q4 FY2018",
+          "value": 1199801849.3150685,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2019-03-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q1 FY2019",
+          "value": 1176568287.671233,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2019-06-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q2 FY2019",
+          "value": 1145721780.8219178,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2019-09-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q3 FY2019",
+          "value": 1114719041.0958905,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2019-12-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q4 FY2019",
+          "value": 1087714863.0136986,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2020-03-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q1 FY2020",
+          "value": 1060851092.8961749,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2020-06-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q2 FY2020",
+          "value": 1044652595.6284153,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2020-09-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q3 FY2020",
+          "value": 1033655327.8688525,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2020-12-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q4 FY2020",
+          "value": 1027398360.6557378,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2021-03-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q1 FY2021",
+          "value": 1026658835.6164384,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2021-06-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q2 FY2021",
+          "value": 1027026575.3424658,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2021-09-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q3 FY2021",
+          "value": 1028671232.8767123,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2021-12-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q4 FY2021",
+          "value": 1029662397.2602739,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2022-03-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q1 FY2022",
+          "value": 1029341849.3150685,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2022-06-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q2 FY2022",
+          "value": 1026917260.2739726,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2022-09-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q3 FY2022",
+          "value": 1016387671.2328767,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2022-12-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q4 FY2022",
+          "value": 999625000,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2023-03-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q1 FY2023",
+          "value": 981514041.0958904,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2023-06-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q2 FY2023",
+          "value": 958446164.3835616,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q3 FY2023",
+          "value": 935231917.8082192,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2023-12-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q4 FY2023",
+          "value": 913244178.0821918,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2024-03-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q1 FY2024",
+          "value": 892974112.021858,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2024-06-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q2 FY2024",
+          "value": 876209972.6775956,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2024-09-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q3 FY2024",
+          "value": 862868715.8469945,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2024-12-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q4 FY2024",
+          "value": 851590368.8524591,
+          "status": "calculated",
+          "note": "Weighted across 366 days."
+        },
+        {
+          "periodEnd": "2025-03-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q1 FY2025",
+          "value": 841523082.1917808,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2025-06-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q2 FY2025",
+          "value": 831132876.7123288,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2025-09-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q3 FY2025",
+          "value": 822903287.6712328,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2025-12-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q4 FY2025",
+          "value": 815770958.9041096,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2026-03-31",
+          "fiscalYear": 2026,
+          "label": "TTM Q1 FY2026",
+          "value": 807633972.6027397,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        },
+        {
+          "periodEnd": "2026-06-30",
+          "fiscalYear": 2026,
+          "label": "TTM Q2 FY2026",
+          "value": 796414794.520548,
+          "status": "calculated",
+          "note": "Weighted across 365 days."
+        }
+      ]
+    },
+    {
+      "metric": "totalDebt",
+      "label": "Total debt",
+      "unit": "currency",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2009-12-31",
+          "fiscalYear": 2009,
+          "label": "TTM Q4 FY2009",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2010-03-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q1 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2010-06-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q2 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2010-09-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q3 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2010-12-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q4 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2011-03-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q1 FY2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2011-06-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q2 FY2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2011-09-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q3 FY2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2011-12-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q4 FY2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2012-03-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q1 FY2012",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2012-06-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q2 FY2012",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2012-09-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q3 FY2012",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2012-12-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q4 FY2012",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2013-03-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q1 FY2013",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2013-06-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q2 FY2013",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2013-09-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q3 FY2013",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2013-12-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q4 FY2013",
+          "value": 1742047000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2014-03-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q1 FY2014",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2014-06-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q2 FY2014",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2014-09-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q3 FY2014",
+          "value": 3887243000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2014-12-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q4 FY2014",
+          "value": 3823870000,
+          "status": "restated",
+          "note": "Long-term debt as filed, including current maturities. The filer tags no separate short-term borrowing at this date, so any is not included."
+        },
+        {
+          "periodEnd": "2015-03-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q1 FY2015",
+          "value": 5304108000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2015-06-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q2 FY2015",
+          "value": 5399966000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2015-09-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q3 FY2015",
+          "value": 5421328000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2015-12-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q4 FY2015",
+          "value": 6158443000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2016-03-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q1 FY2016",
+          "value": 6421202000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2016-06-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q2 FY2016",
+          "value": 7255205000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2016-09-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q3 FY2016",
+          "value": 6347207000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2016-12-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q4 FY2016",
+          "value": 6170522000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2017-03-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q1 FY2017",
+          "value": 7286102000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2017-06-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q2 FY2017",
+          "value": 7564636000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q3 FY2017",
+          "value": 8726679000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2017-12-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q4 FY2017",
+          "value": 8810000000,
+          "status": "restated",
+          "note": "Long-term debt as filed, including current maturities. The filer tags no separate short-term borrowing at this date, so any is not included."
+        },
+        {
+          "periodEnd": "2018-03-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q1 FY2018",
+          "value": 7990418000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2018-06-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q2 FY2018",
+          "value": 7764580000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2018-09-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q3 FY2018",
+          "value": 8703901000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2018-12-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q4 FY2018",
+          "value": 8649000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2019-03-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q1 FY2019",
+          "value": 7619000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2019-06-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q2 FY2019",
+          "value": 7686000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2019-09-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q3 FY2019",
+          "value": 7512000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2019-12-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q4 FY2019",
+          "value": 7640000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2020-03-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q1 FY2020",
+          "value": 7553000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2020-06-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q2 FY2020",
+          "value": 10633000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2020-09-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q3 FY2020",
+          "value": 10829000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2020-12-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q4 FY2020",
+          "value": 12014000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2021-03-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q1 FY2021",
+          "value": 13835000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2021-06-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q2 FY2021",
+          "value": 12166000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2021-09-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q3 FY2021",
+          "value": 11034000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2021-12-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q4 FY2021",
+          "value": 10926000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2022-03-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q1 FY2022",
+          "value": 9768000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2022-06-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q2 FY2022",
+          "value": 9473000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2022-09-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q3 FY2022",
+          "value": 9184000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2022-12-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q4 FY2022",
+          "value": 12485000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2023-03-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q1 FY2023",
+          "value": 12126000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2023-06-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q2 FY2023",
+          "value": 14053000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q3 FY2023",
+          "value": 13769000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2023-12-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q4 FY2023",
+          "value": 14184000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2024-03-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q1 FY2024",
+          "value": 16900000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2024-06-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q2 FY2024",
+          "value": 16808000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2024-09-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q3 FY2024",
+          "value": 16212000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2024-12-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q4 FY2024",
+          "value": 16598000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2025-03-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q1 FY2025",
+          "value": 16024000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2025-06-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q2 FY2025",
+          "value": 18472000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2025-09-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q3 FY2025",
+          "value": 16996000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2025-12-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q4 FY2025",
+          "value": 18736000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2026-03-31",
+          "fiscalYear": 2026,
+          "label": "TTM Q1 FY2026",
+          "value": 18413000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2026-06-30",
+          "fiscalYear": 2026,
+          "label": "TTM Q2 FY2026",
+          "value": 20180000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        }
+      ]
+    },
+    {
+      "metric": "netDebt",
+      "label": "Net debt",
+      "unit": "currency",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2009-12-31",
+          "fiscalYear": 2009,
+          "label": "TTM Q4 FY2009",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-03-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q1 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-06-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q2 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-09-30",
+          "fiscalYear": 2010,
+          "label": "TTM Q3 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-12-31",
+          "fiscalYear": 2010,
+          "label": "TTM Q4 FY2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2011-03-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q1 FY2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2011-06-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q2 FY2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2011-09-30",
+          "fiscalYear": 2011,
+          "label": "TTM Q3 FY2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2011-12-31",
+          "fiscalYear": 2011,
+          "label": "TTM Q4 FY2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2012-03-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q1 FY2012",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2012-06-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q2 FY2012",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2012-09-30",
+          "fiscalYear": 2012,
+          "label": "TTM Q3 FY2012",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2012-12-31",
+          "fiscalYear": 2012,
+          "label": "TTM Q4 FY2012",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2013-03-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q1 FY2013",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2013-06-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q2 FY2013",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2013-09-30",
+          "fiscalYear": 2013,
+          "label": "TTM Q3 FY2013",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2013-12-31",
+          "fiscalYear": 2013,
+          "label": "TTM Q4 FY2013",
+          "value": 452053000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-03-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q1 FY2014",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2014-06-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q2 FY2014",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2014-09-30",
+          "fiscalYear": 2014,
+          "label": "TTM Q3 FY2014",
+          "value": -1156481000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-12-31",
+          "fiscalYear": 2014,
+          "label": "TTM Q4 FY2014",
+          "value": 674376000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-03-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q1 FY2015",
+          "value": 2048294000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-06-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q2 FY2015",
+          "value": 3511017000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-30",
+          "fiscalYear": 2015,
+          "label": "TTM Q3 FY2015",
+          "value": 3579670000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-12-31",
+          "fiscalYear": 2015,
+          "label": "TTM Q4 FY2015",
+          "value": 4680443000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-03-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q1 FY2016",
+          "value": 4564037000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-06-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q2 FY2016",
+          "value": 4560664000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-30",
+          "fiscalYear": 2016,
+          "label": "TTM Q3 FY2016",
+          "value": 3924081000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-12-31",
+          "fiscalYear": 2016,
+          "label": "TTM Q4 FY2016",
+          "value": 4088522000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-03-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q1 FY2017",
+          "value": 4851154000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-06-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q2 FY2017",
+          "value": 4929263000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "TTM Q3 FY2017",
+          "value": 5878808000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-12-31",
+          "fiscalYear": 2017,
+          "label": "TTM Q4 FY2017",
+          "value": 6247000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-03-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q1 FY2018",
+          "value": 5345418000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-06-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q2 FY2018",
+          "value": 4556580000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-09-30",
+          "fiscalYear": 2018,
+          "label": "TTM Q3 FY2018",
+          "value": 5709901000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-12-31",
+          "fiscalYear": 2018,
+          "label": "TTM Q4 FY2018",
+          "value": 6004000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-03-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q1 FY2019",
+          "value": 5265000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-06-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q2 FY2019",
+          "value": 2410000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-09-30",
+          "fiscalYear": 2019,
+          "label": "TTM Q3 FY2019",
+          "value": 1027000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-12-31",
+          "fiscalYear": 2019,
+          "label": "TTM Q4 FY2019",
+          "value": 1308000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-03-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q1 FY2020",
+          "value": 1170000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-06-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q2 FY2020",
+          "value": 210000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-09-30",
+          "fiscalYear": 2020,
+          "label": "TTM Q3 FY2020",
+          "value": -388000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-12-31",
+          "fiscalYear": 2020,
+          "label": "TTM Q4 FY2020",
+          "value": 1432000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-03-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q1 FY2021",
+          "value": 1663000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-06-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q2 FY2021",
+          "value": 914000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-09-30",
+          "fiscalYear": 2021,
+          "label": "TTM Q3 FY2021",
+          "value": -629000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-12-31",
+          "fiscalYear": 2021,
+          "label": "TTM Q4 FY2021",
+          "value": -226000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-03-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q1 FY2022",
+          "value": -810000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-06-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q2 FY2022",
+          "value": -2394000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-09-30",
+          "fiscalYear": 2022,
+          "label": "TTM Q3 FY2022",
+          "value": 138000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-12-31",
+          "fiscalYear": 2022,
+          "label": "TTM Q4 FY2022",
+          "value": 234000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-03-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q1 FY2023",
+          "value": -2046000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-06-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q2 FY2023",
+          "value": -577000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "TTM Q3 FY2023",
+          "value": 443000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-12-31",
+          "fiscalYear": 2023,
+          "label": "TTM Q4 FY2023",
+          "value": 2049000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-03-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q1 FY2024",
+          "value": 1236000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-06-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q2 FY2024",
+          "value": 479000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-09-30",
+          "fiscalYear": 2024,
+          "label": "TTM Q3 FY2024",
+          "value": 404000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-12-31",
+          "fiscalYear": 2024,
+          "label": "TTM Q4 FY2024",
+          "value": 405000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-03-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q1 FY2025",
+          "value": 411000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-06-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q2 FY2025",
+          "value": 835000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-09-30",
+          "fiscalYear": 2025,
+          "label": "TTM Q3 FY2025",
+          "value": 487000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-12-31",
+          "fiscalYear": 2025,
+          "label": "TTM Q4 FY2025",
+          "value": 1533000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2026-03-31",
+          "fiscalYear": 2026,
+          "label": "TTM Q1 FY2026",
+          "value": 2389000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2026-06-30",
+          "fiscalYear": 2026,
+          "label": "TTM Q2 FY2026",
+          "value": 2966000000,
+          "status": "calculated"
+        }
+      ]
+    }
+  ]
+}

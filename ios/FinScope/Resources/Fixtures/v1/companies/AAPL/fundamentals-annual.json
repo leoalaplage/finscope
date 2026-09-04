@@ -1,0 +1,1783 @@
+{
+  "schemaVersion": "1.0.0",
+  "dataVersion": "v23",
+  "ticker": "AAPL",
+  "frequency": "annual",
+  "currency": "USD",
+  "retrievedAt": "2026-09-03T19:00:51.172Z",
+  "series": [
+    {
+      "metric": "revenue",
+      "label": "Revenue",
+      "unit": "currency",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2007-09-29",
+          "fiscalYear": 2007,
+          "label": "FY 2007",
+          "value": 24006000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2008-09-27",
+          "fiscalYear": 2008,
+          "label": "FY 2008",
+          "value": 37491000000,
+          "status": "restated",
+          "note": "Latest filing selected for a duplicated SEC context with a changed value."
+        },
+        {
+          "periodEnd": "2009-09-26",
+          "fiscalYear": 2009,
+          "label": "FY 2009",
+          "value": 42905000000,
+          "status": "restated",
+          "note": "Latest filing selected for a duplicated SEC context with a changed value."
+        },
+        {
+          "periodEnd": "2010-09-25",
+          "fiscalYear": 2010,
+          "label": "FY 2010",
+          "value": 65225000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2011-09-24",
+          "fiscalYear": 2011,
+          "label": "FY 2011",
+          "value": 108249000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2012-09-29",
+          "fiscalYear": 2012,
+          "label": "FY 2012",
+          "value": 156508000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2013-09-28",
+          "fiscalYear": 2013,
+          "label": "FY 2013",
+          "value": 170910000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2014-09-27",
+          "fiscalYear": 2014,
+          "label": "FY 2014",
+          "value": 182795000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2015-09-26",
+          "fiscalYear": 2015,
+          "label": "FY 2015",
+          "value": 233715000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2016-09-24",
+          "fiscalYear": 2016,
+          "label": "FY 2016",
+          "value": 215639000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "FY 2017",
+          "value": 229234000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2018-09-29",
+          "fiscalYear": 2018,
+          "label": "FY 2018",
+          "value": 265595000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2019-09-28",
+          "fiscalYear": 2019,
+          "label": "FY 2019",
+          "value": 260174000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2020-09-26",
+          "fiscalYear": 2020,
+          "label": "FY 2020",
+          "value": 274515000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2021-09-25",
+          "fiscalYear": 2021,
+          "label": "FY 2021",
+          "value": 365817000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2022-09-24",
+          "fiscalYear": 2022,
+          "label": "FY 2022",
+          "value": 394328000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "FY 2023",
+          "value": 383285000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2024-09-28",
+          "fiscalYear": 2024,
+          "label": "FY 2024",
+          "value": 391035000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2025-09-27",
+          "fiscalYear": 2025,
+          "label": "FY 2025",
+          "value": 416161000000,
+          "status": "reported"
+        }
+      ]
+    },
+    {
+      "metric": "netIncome",
+      "label": "Net income",
+      "unit": "currency",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2007-09-29",
+          "fiscalYear": 2007,
+          "label": "FY 2007",
+          "value": 3496000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2008-09-27",
+          "fiscalYear": 2008,
+          "label": "FY 2008",
+          "value": 6119000000,
+          "status": "restated",
+          "note": "Latest filing selected for a duplicated SEC context with a changed value."
+        },
+        {
+          "periodEnd": "2009-09-26",
+          "fiscalYear": 2009,
+          "label": "FY 2009",
+          "value": 8235000000,
+          "status": "restated",
+          "note": "Latest filing selected for a duplicated SEC context with a changed value."
+        },
+        {
+          "periodEnd": "2010-09-25",
+          "fiscalYear": 2010,
+          "label": "FY 2010",
+          "value": 14013000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2011-09-24",
+          "fiscalYear": 2011,
+          "label": "FY 2011",
+          "value": 25922000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2012-09-29",
+          "fiscalYear": 2012,
+          "label": "FY 2012",
+          "value": 41733000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2013-09-28",
+          "fiscalYear": 2013,
+          "label": "FY 2013",
+          "value": 37037000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2014-09-27",
+          "fiscalYear": 2014,
+          "label": "FY 2014",
+          "value": 39510000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2015-09-26",
+          "fiscalYear": 2015,
+          "label": "FY 2015",
+          "value": 53394000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2016-09-24",
+          "fiscalYear": 2016,
+          "label": "FY 2016",
+          "value": 45687000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "FY 2017",
+          "value": 48351000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2018-09-29",
+          "fiscalYear": 2018,
+          "label": "FY 2018",
+          "value": 59531000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2019-09-28",
+          "fiscalYear": 2019,
+          "label": "FY 2019",
+          "value": 55256000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2020-09-26",
+          "fiscalYear": 2020,
+          "label": "FY 2020",
+          "value": 57411000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2021-09-25",
+          "fiscalYear": 2021,
+          "label": "FY 2021",
+          "value": 94680000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2022-09-24",
+          "fiscalYear": 2022,
+          "label": "FY 2022",
+          "value": 99803000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "FY 2023",
+          "value": 96995000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2024-09-28",
+          "fiscalYear": 2024,
+          "label": "FY 2024",
+          "value": 93736000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2025-09-27",
+          "fiscalYear": 2025,
+          "label": "FY 2025",
+          "value": 112010000000,
+          "status": "reported"
+        }
+      ]
+    },
+    {
+      "metric": "dilutedEpsReported",
+      "label": "EPS (diluted)",
+      "unit": "perShare",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2007-09-29",
+          "fiscalYear": 2007,
+          "label": "FY 2007",
+          "value": 0.14035714285714287,
+          "status": "calculated",
+          "note": "Split-adjusted for 7:1 on 2014-06-09, 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2008-09-27",
+          "fiscalYear": 2008,
+          "label": "FY 2008",
+          "value": 0.24214285714285716,
+          "status": "calculated",
+          "note": "Split-adjusted for 7:1 on 2014-06-09, 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2009-09-26",
+          "fiscalYear": 2009,
+          "label": "FY 2009",
+          "value": 0.3242857142857143,
+          "status": "calculated",
+          "note": "Split-adjusted for 7:1 on 2014-06-09, 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2010-09-25",
+          "fiscalYear": 2010,
+          "label": "FY 2010",
+          "value": 0.5410714285714285,
+          "status": "calculated",
+          "note": "Split-adjusted for 7:1 on 2014-06-09, 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2011-09-24",
+          "fiscalYear": 2011,
+          "label": "FY 2011",
+          "value": 0.9885714285714285,
+          "status": "calculated",
+          "note": "Split-adjusted for 7:1 on 2014-06-09, 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2012-09-29",
+          "fiscalYear": 2012,
+          "label": "FY 2012",
+          "value": 1.5775,
+          "status": "calculated",
+          "note": "Split-adjusted for 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2013-09-28",
+          "fiscalYear": 2013,
+          "label": "FY 2013",
+          "value": 1.42,
+          "status": "calculated",
+          "note": "Split-adjusted for 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2014-09-27",
+          "fiscalYear": 2014,
+          "label": "FY 2014",
+          "value": 1.6125,
+          "status": "calculated",
+          "note": "Split-adjusted for 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2015-09-26",
+          "fiscalYear": 2015,
+          "label": "FY 2015",
+          "value": 2.305,
+          "status": "calculated",
+          "note": "Split-adjusted for 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2016-09-24",
+          "fiscalYear": 2016,
+          "label": "FY 2016",
+          "value": 2.0775,
+          "status": "calculated",
+          "note": "Split-adjusted for 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "FY 2017",
+          "value": 2.3025,
+          "status": "calculated",
+          "note": "Split-adjusted for 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2018-09-29",
+          "fiscalYear": 2018,
+          "label": "FY 2018",
+          "value": 2.98,
+          "status": "restated",
+          "note": "Latest filing selected for a duplicated SEC context with a changed value."
+        },
+        {
+          "periodEnd": "2019-09-28",
+          "fiscalYear": 2019,
+          "label": "FY 2019",
+          "value": 2.97,
+          "status": "restated",
+          "note": "Latest filing selected for a duplicated SEC context with a changed value."
+        },
+        {
+          "periodEnd": "2020-09-26",
+          "fiscalYear": 2020,
+          "label": "FY 2020",
+          "value": 3.28,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2021-09-25",
+          "fiscalYear": 2021,
+          "label": "FY 2021",
+          "value": 5.61,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2022-09-24",
+          "fiscalYear": 2022,
+          "label": "FY 2022",
+          "value": 6.11,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "FY 2023",
+          "value": 6.13,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2024-09-28",
+          "fiscalYear": 2024,
+          "label": "FY 2024",
+          "value": 6.08,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2025-09-27",
+          "fiscalYear": 2025,
+          "label": "FY 2025",
+          "value": 7.46,
+          "status": "reported"
+        }
+      ]
+    },
+    {
+      "metric": "freeCashFlow",
+      "label": "Free cash flow",
+      "unit": "currency",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2007-09-29",
+          "fiscalYear": 2007,
+          "label": "FY 2007",
+          "value": 4735000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2008-09-27",
+          "fiscalYear": 2008,
+          "label": "FY 2008",
+          "value": 8505000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2009-09-26",
+          "fiscalYear": 2009,
+          "label": "FY 2009",
+          "value": 9015000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-09-25",
+          "fiscalYear": 2010,
+          "label": "FY 2010",
+          "value": 16590000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-09-24",
+          "fiscalYear": 2011,
+          "label": "FY 2011",
+          "value": 33269000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-09-29",
+          "fiscalYear": 2012,
+          "label": "FY 2012",
+          "value": 42561000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-09-28",
+          "fiscalYear": 2013,
+          "label": "FY 2013",
+          "value": 45501000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-09-27",
+          "fiscalYear": 2014,
+          "label": "FY 2014",
+          "value": 50142000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-26",
+          "fiscalYear": 2015,
+          "label": "FY 2015",
+          "value": 70019000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-24",
+          "fiscalYear": 2016,
+          "label": "FY 2016",
+          "value": 53497000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "FY 2017",
+          "value": 51774000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-09-29",
+          "fiscalYear": 2018,
+          "label": "FY 2018",
+          "value": 64121000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-09-28",
+          "fiscalYear": 2019,
+          "label": "FY 2019",
+          "value": 58896000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-09-26",
+          "fiscalYear": 2020,
+          "label": "FY 2020",
+          "value": 73365000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-09-25",
+          "fiscalYear": 2021,
+          "label": "FY 2021",
+          "value": 92953000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-09-24",
+          "fiscalYear": 2022,
+          "label": "FY 2022",
+          "value": 111443000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "FY 2023",
+          "value": 99584000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-09-28",
+          "fiscalYear": 2024,
+          "label": "FY 2024",
+          "value": 108807000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-09-27",
+          "fiscalYear": 2025,
+          "label": "FY 2025",
+          "value": 98767000000,
+          "status": "calculated"
+        }
+      ]
+    },
+    {
+      "metric": "freeCashFlowPerShare",
+      "label": "FCF / share",
+      "unit": "perShare",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2007-09-29",
+          "fiscalYear": 2007,
+          "label": "FY 2007",
+          "value": 0.19015929847242846,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2008-09-27",
+          "fiscalYear": 2008,
+          "label": "FY 2008",
+          "value": 0.33669977686365404,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2009-09-26",
+          "fiscalYear": 2009,
+          "label": "FY 2009",
+          "value": 0.35497520489334206,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-09-25",
+          "fiscalYear": 2010,
+          "label": "FY 2010",
+          "value": 0.6407400358165569,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-09-24",
+          "fiscalYear": 2011,
+          "label": "FY 2011",
+          "value": 1.2685473914114433,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-09-29",
+          "fiscalYear": 2012,
+          "label": "FY 2012",
+          "value": 1.6078998616241251,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-09-28",
+          "fiscalYear": 2013,
+          "label": "FY 2013",
+          "value": 1.7442331170378467,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-09-27",
+          "fiscalYear": 2014,
+          "label": "FY 2014",
+          "value": 2.0473934299503336,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-26",
+          "fiscalYear": 2015,
+          "label": "FY 2015",
+          "value": 3.0216712419617306,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-24",
+          "fiscalYear": 2016,
+          "label": "FY 2016",
+          "value": 2.431557587694156,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "FY 2017",
+          "value": 2.46463425501724,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-09-29",
+          "fiscalYear": 2018,
+          "label": "FY 2018",
+          "value": 3.205980269929129,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-09-28",
+          "fiscalYear": 2019,
+          "label": "FY 2019",
+          "value": 3.167192156918841,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-09-26",
+          "fiscalYear": 2020,
+          "label": "FY 2020",
+          "value": 4.185537670865954,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-09-25",
+          "fiscalYear": 2021,
+          "label": "FY 2021",
+          "value": 5.511618526006559,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-09-24",
+          "fiscalYear": 2022,
+          "label": "FY 2022",
+          "value": 6.8261812776437125,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "FY 2023",
+          "value": 6.2977836524375235,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-09-28",
+          "fiscalYear": 2024,
+          "label": "FY 2024",
+          "value": 7.061677644121483,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-09-27",
+          "fiscalYear": 2025,
+          "label": "FY 2025",
+          "value": 6.582405496092323,
+          "status": "calculated"
+        }
+      ]
+    },
+    {
+      "metric": "grossMargin",
+      "label": "Gross margin",
+      "unit": "fraction",
+      "style": "line",
+      "currency": null,
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2007-09-29",
+          "fiscalYear": 2007,
+          "label": "FY 2007",
+          "value": 0.33966508372906773,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2008-09-27",
+          "fiscalYear": 2008,
+          "label": "FY 2008",
+          "value": 0.3520044810754581,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2009-09-26",
+          "fiscalYear": 2009,
+          "label": "FY 2009",
+          "value": 0.40139843841044165,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-09-25",
+          "fiscalYear": 2010,
+          "label": "FY 2010",
+          "value": 0.39377539287083174,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-09-24",
+          "fiscalYear": 2011,
+          "label": "FY 2011",
+          "value": 0.40478895878945764,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-09-29",
+          "fiscalYear": 2012,
+          "label": "FY 2012",
+          "value": 0.4387123980882766,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-09-28",
+          "fiscalYear": 2013,
+          "label": "FY 2013",
+          "value": 0.3762448072084723,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-09-27",
+          "fiscalYear": 2014,
+          "label": "FY 2014",
+          "value": 0.3858803577778386,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-26",
+          "fiscalYear": 2015,
+          "label": "FY 2015",
+          "value": 0.4005990201741437,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-24",
+          "fiscalYear": 2016,
+          "label": "FY 2016",
+          "value": 0.3907595564809705,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "FY 2017",
+          "value": 0.38469860491899105,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-09-29",
+          "fiscalYear": 2018,
+          "label": "FY 2018",
+          "value": 0.38343718820007905,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-09-28",
+          "fiscalYear": 2019,
+          "label": "FY 2019",
+          "value": 0.3781776810903472,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-09-26",
+          "fiscalYear": 2020,
+          "label": "FY 2020",
+          "value": 0.38233247727810865,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-09-25",
+          "fiscalYear": 2021,
+          "label": "FY 2021",
+          "value": 0.4177935962516778,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-09-24",
+          "fiscalYear": 2022,
+          "label": "FY 2022",
+          "value": 0.43309630561360085,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "FY 2023",
+          "value": 0.4413112957720756,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-09-28",
+          "fiscalYear": 2024,
+          "label": "FY 2024",
+          "value": 0.4620634981523393,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-09-27",
+          "fiscalYear": 2025,
+          "label": "FY 2025",
+          "value": 0.4690516410716045,
+          "status": "calculated"
+        }
+      ]
+    },
+    {
+      "metric": "operatingMargin",
+      "label": "Operating margin",
+      "unit": "fraction",
+      "style": "line",
+      "currency": null,
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2007-09-29",
+          "fiscalYear": 2007,
+          "label": "FY 2007",
+          "value": 0.1836624177289011,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2008-09-27",
+          "fiscalYear": 2008,
+          "label": "FY 2008",
+          "value": 0.22210663892667573,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2009-09-26",
+          "fiscalYear": 2009,
+          "label": "FY 2009",
+          "value": 0.2736277823097541,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-09-25",
+          "fiscalYear": 2010,
+          "label": "FY 2010",
+          "value": 0.2818704484476811,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-09-24",
+          "fiscalYear": 2011,
+          "label": "FY 2011",
+          "value": 0.31215068961376086,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-09-29",
+          "fiscalYear": 2012,
+          "label": "FY 2012",
+          "value": 0.35295959311984054,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-09-28",
+          "fiscalYear": 2013,
+          "label": "FY 2013",
+          "value": 0.2866947516236616,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-09-27",
+          "fiscalYear": 2014,
+          "label": "FY 2014",
+          "value": 0.28722339232473537,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-26",
+          "fiscalYear": 2015,
+          "label": "FY 2015",
+          "value": 0.3047729071732666,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-24",
+          "fiscalYear": 2016,
+          "label": "FY 2016",
+          "value": 0.27835410106706115,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "FY 2017",
+          "value": 0.2676042820872994,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-09-29",
+          "fiscalYear": 2018,
+          "label": "FY 2018",
+          "value": 0.26694026619477024,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-09-28",
+          "fiscalYear": 2019,
+          "label": "FY 2019",
+          "value": 0.24572017188496928,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-09-26",
+          "fiscalYear": 2020,
+          "label": "FY 2020",
+          "value": 0.24147314354406862,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-09-25",
+          "fiscalYear": 2021,
+          "label": "FY 2021",
+          "value": 0.29782377527561593,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-09-24",
+          "fiscalYear": 2022,
+          "label": "FY 2022",
+          "value": 0.30288744395528594,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "FY 2023",
+          "value": 0.2982141226502472,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-09-28",
+          "fiscalYear": 2024,
+          "label": "FY 2024",
+          "value": 0.31510222870075566,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-09-27",
+          "fiscalYear": 2025,
+          "label": "FY 2025",
+          "value": 0.31970799762591884,
+          "status": "calculated"
+        }
+      ]
+    },
+    {
+      "metric": "freeCashFlowMargin",
+      "label": "FCF margin",
+      "unit": "fraction",
+      "style": "line",
+      "currency": null,
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2007-09-29",
+          "fiscalYear": 2007,
+          "label": "FY 2007",
+          "value": 0.19724235607764726,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2008-09-27",
+          "fiscalYear": 2008,
+          "label": "FY 2008",
+          "value": 0.22685444506681604,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2009-09-26",
+          "fiscalYear": 2009,
+          "label": "FY 2009",
+          "value": 0.21011537116886145,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2010-09-25",
+          "fiscalYear": 2010,
+          "label": "FY 2010",
+          "value": 0.2543503257953239,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2011-09-24",
+          "fiscalYear": 2011,
+          "label": "FY 2011",
+          "value": 0.30733771212667094,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2012-09-29",
+          "fiscalYear": 2012,
+          "label": "FY 2012",
+          "value": 0.27194137040918037,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-09-28",
+          "fiscalYear": 2013,
+          "label": "FY 2013",
+          "value": 0.2662278392136212,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-09-27",
+          "fiscalYear": 2014,
+          "label": "FY 2014",
+          "value": 0.27430728411608635,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-26",
+          "fiscalYear": 2015,
+          "label": "FY 2015",
+          "value": 0.29959138266692337,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-24",
+          "fiscalYear": 2016,
+          "label": "FY 2016",
+          "value": 0.24808592137785837,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "FY 2017",
+          "value": 0.22585654833052687,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-09-29",
+          "fiscalYear": 2018,
+          "label": "FY 2018",
+          "value": 0.24142397258984544,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-09-28",
+          "fiscalYear": 2019,
+          "label": "FY 2019",
+          "value": 0.22637158209505945,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-09-26",
+          "fiscalYear": 2020,
+          "label": "FY 2020",
+          "value": 0.2672531555652697,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-09-25",
+          "fiscalYear": 2021,
+          "label": "FY 2021",
+          "value": 0.2540969938521173,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-09-24",
+          "fiscalYear": 2022,
+          "label": "FY 2022",
+          "value": 0.2826149804223895,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "FY 2023",
+          "value": 0.25981710737440805,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-09-28",
+          "fiscalYear": 2024,
+          "label": "FY 2024",
+          "value": 0.27825386474356517,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-09-27",
+          "fiscalYear": 2025,
+          "label": "FY 2025",
+          "value": 0.23732882225869315,
+          "status": "calculated"
+        }
+      ]
+    },
+    {
+      "metric": "roic",
+      "label": "ROIC",
+      "unit": "fraction",
+      "style": "line",
+      "currency": null,
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2007-09-29",
+          "fiscalYear": 2007,
+          "label": "FY 2007",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2008-09-27",
+          "fiscalYear": 2008,
+          "label": "FY 2008",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2009-09-26",
+          "fiscalYear": 2009,
+          "label": "FY 2009",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-09-25",
+          "fiscalYear": 2010,
+          "label": "FY 2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2011-09-24",
+          "fiscalYear": 2011,
+          "label": "FY 2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2012-09-29",
+          "fiscalYear": 2012,
+          "label": "FY 2012",
+          "value": 0.3847086975484119,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-09-28",
+          "fiscalYear": 2013,
+          "label": "FY 2013",
+          "value": 0.2866007989884822,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-09-27",
+          "fiscalYear": 2014,
+          "label": "FY 2014",
+          "value": 0.30614914654453285,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-26",
+          "fiscalYear": 2015,
+          "label": "FY 2015",
+          "value": 0.3404288681195572,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-24",
+          "fiscalYear": 2016,
+          "label": "FY 2016",
+          "value": 0.239343473900857,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "FY 2017",
+          "value": 0.2128201161142789,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-09-29",
+          "fiscalYear": 2018,
+          "label": "FY 2018",
+          "value": 0.3150629416834157,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-09-28",
+          "fiscalYear": 2019,
+          "label": "FY 2019",
+          "value": 0.3623271714913427,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-09-26",
+          "fiscalYear": 2020,
+          "label": "FY 2020",
+          "value": 0.426527243873929,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-09-25",
+          "fiscalYear": 2021,
+          "label": "FY 2021",
+          "value": 0.647493281004783,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-09-24",
+          "fiscalYear": 2022,
+          "label": "FY 2022",
+          "value": 0.7370850119896158,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "FY 2023",
+          "value": 0.7140532456165875,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-09-28",
+          "fiscalYear": 2024,
+          "label": "FY 2024",
+          "value": 0.7563076056901218,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-09-27",
+          "fiscalYear": 2025,
+          "label": "FY 2025",
+          "value": 0.8739376845077544,
+          "status": "calculated"
+        }
+      ]
+    },
+    {
+      "metric": "dilutedShares",
+      "label": "Shares outstanding (diluted)",
+      "unit": "shares",
+      "style": "line",
+      "currency": null,
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2007-09-29",
+          "fiscalYear": 2007,
+          "label": "FY 2007",
+          "value": 24900176000,
+          "status": "calculated",
+          "note": "Split-adjusted for 7:1 on 2014-06-09, 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2008-09-27",
+          "fiscalYear": 2008,
+          "label": "FY 2008",
+          "value": 25259892000,
+          "status": "calculated",
+          "note": "Split-adjusted for 7:1 on 2014-06-09, 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2009-09-26",
+          "fiscalYear": 2009,
+          "label": "FY 2009",
+          "value": 25396140000,
+          "status": "calculated",
+          "note": "Split-adjusted for 7:1 on 2014-06-09, 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2010-09-25",
+          "fiscalYear": 2010,
+          "label": "FY 2010",
+          "value": 25891936000,
+          "status": "calculated",
+          "note": "Split-adjusted for 7:1 on 2014-06-09, 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2011-09-24",
+          "fiscalYear": 2011,
+          "label": "FY 2011",
+          "value": 26226060000,
+          "status": "calculated",
+          "note": "Split-adjusted for 7:1 on 2014-06-09, 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2012-09-29",
+          "fiscalYear": 2012,
+          "label": "FY 2012",
+          "value": 26469932000,
+          "status": "calculated",
+          "note": "Split-adjusted for 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2013-09-28",
+          "fiscalYear": 2013,
+          "label": "FY 2013",
+          "value": 26086536000,
+          "status": "calculated",
+          "note": "Split-adjusted for 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2014-09-27",
+          "fiscalYear": 2014,
+          "label": "FY 2014",
+          "value": 24490652000,
+          "status": "calculated",
+          "note": "Split-adjusted for 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2015-09-26",
+          "fiscalYear": 2015,
+          "label": "FY 2015",
+          "value": 23172276000,
+          "status": "calculated",
+          "note": "Split-adjusted for 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2016-09-24",
+          "fiscalYear": 2016,
+          "label": "FY 2016",
+          "value": 22001124000,
+          "status": "calculated",
+          "note": "Split-adjusted for 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "FY 2017",
+          "value": 21006768000,
+          "status": "calculated",
+          "note": "Split-adjusted for 4:1 on 2020-08-31. Original SEC source remains linked."
+        },
+        {
+          "periodEnd": "2018-09-29",
+          "fiscalYear": 2018,
+          "label": "FY 2018",
+          "value": 20000435000,
+          "status": "restated",
+          "note": "Latest filing selected for a duplicated SEC context with a changed value."
+        },
+        {
+          "periodEnd": "2019-09-28",
+          "fiscalYear": 2019,
+          "label": "FY 2019",
+          "value": 18595651000,
+          "status": "restated",
+          "note": "Latest filing selected for a duplicated SEC context with a changed value."
+        },
+        {
+          "periodEnd": "2020-09-26",
+          "fiscalYear": 2020,
+          "label": "FY 2020",
+          "value": 17528214000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2021-09-25",
+          "fiscalYear": 2021,
+          "label": "FY 2021",
+          "value": 16864919000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2022-09-24",
+          "fiscalYear": 2022,
+          "label": "FY 2022",
+          "value": 16325819000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "FY 2023",
+          "value": 15812547000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2024-09-28",
+          "fiscalYear": 2024,
+          "label": "FY 2024",
+          "value": 15408095000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2025-09-27",
+          "fiscalYear": 2025,
+          "label": "FY 2025",
+          "value": 15004697000,
+          "status": "reported"
+        }
+      ]
+    },
+    {
+      "metric": "totalDebt",
+      "label": "Total debt",
+      "unit": "currency",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2007-09-29",
+          "fiscalYear": 2007,
+          "label": "FY 2007",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2008-09-27",
+          "fiscalYear": 2008,
+          "label": "FY 2008",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2009-09-26",
+          "fiscalYear": 2009,
+          "label": "FY 2009",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2010-09-25",
+          "fiscalYear": 2010,
+          "label": "FY 2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2011-09-24",
+          "fiscalYear": 2011,
+          "label": "FY 2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "The filer publishes no total debt for this period."
+        },
+        {
+          "periodEnd": "2012-09-29",
+          "fiscalYear": 2012,
+          "label": "FY 2012",
+          "value": 0,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2013-09-28",
+          "fiscalYear": 2013,
+          "label": "FY 2013",
+          "value": 16960000000,
+          "status": "reported"
+        },
+        {
+          "periodEnd": "2014-09-27",
+          "fiscalYear": 2014,
+          "label": "FY 2014",
+          "value": 28987000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2015-09-26",
+          "fiscalYear": 2015,
+          "label": "FY 2015",
+          "value": 55829000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2016-09-24",
+          "fiscalYear": 2016,
+          "label": "FY 2016",
+          "value": 78927000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "FY 2017",
+          "value": 103703000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2018-09-29",
+          "fiscalYear": 2018,
+          "label": "FY 2018",
+          "value": 102519000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2019-09-28",
+          "fiscalYear": 2019,
+          "label": "FY 2019",
+          "value": 108047000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2020-09-26",
+          "fiscalYear": 2020,
+          "label": "FY 2020",
+          "value": 107440000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2021-09-25",
+          "fiscalYear": 2021,
+          "label": "FY 2021",
+          "value": 118719000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2022-09-24",
+          "fiscalYear": 2022,
+          "label": "FY 2022",
+          "value": 110087000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "FY 2023",
+          "value": 105103000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2024-09-28",
+          "fiscalYear": 2024,
+          "label": "FY 2024",
+          "value": 96662000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        },
+        {
+          "periodEnd": "2025-09-27",
+          "fiscalYear": 2025,
+          "label": "FY 2025",
+          "value": 90678000000,
+          "status": "calculated",
+          "note": "Only simultaneously reported, non-overlapping borrowing components are summed; an absent component is never treated as zero."
+        }
+      ]
+    },
+    {
+      "metric": "netDebt",
+      "label": "Net debt",
+      "unit": "currency",
+      "style": "bar",
+      "currency": "USD",
+      "available": true,
+      "points": [
+        {
+          "periodEnd": "2007-09-29",
+          "fiscalYear": 2007,
+          "label": "FY 2007",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2008-09-27",
+          "fiscalYear": 2008,
+          "label": "FY 2008",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2009-09-26",
+          "fiscalYear": 2009,
+          "label": "FY 2009",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2010-09-25",
+          "fiscalYear": 2010,
+          "label": "FY 2010",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2011-09-24",
+          "fiscalYear": 2011,
+          "label": "FY 2011",
+          "value": null,
+          "status": "unavailable",
+          "reason": "Built from figures this period does not carry."
+        },
+        {
+          "periodEnd": "2012-09-29",
+          "fiscalYear": 2012,
+          "label": "FY 2012",
+          "value": -10746000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2013-09-28",
+          "fiscalYear": 2013,
+          "label": "FY 2013",
+          "value": 2701000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2014-09-27",
+          "fiscalYear": 2014,
+          "label": "FY 2014",
+          "value": 15143000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2015-09-26",
+          "fiscalYear": 2015,
+          "label": "FY 2015",
+          "value": 34709000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2016-09-24",
+          "fiscalYear": 2016,
+          "label": "FY 2016",
+          "value": 58443000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2017-09-30",
+          "fiscalYear": 2017,
+          "label": "FY 2017",
+          "value": 83414000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2018-09-29",
+          "fiscalYear": 2018,
+          "label": "FY 2018",
+          "value": 76606000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2019-09-28",
+          "fiscalYear": 2019,
+          "label": "FY 2019",
+          "value": 57823000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2020-09-26",
+          "fiscalYear": 2020,
+          "label": "FY 2020",
+          "value": 67651000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2021-09-25",
+          "fiscalYear": 2021,
+          "label": "FY 2021",
+          "value": 82790000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2022-09-24",
+          "fiscalYear": 2022,
+          "label": "FY 2022",
+          "value": 85110000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2023-09-30",
+          "fiscalYear": 2023,
+          "label": "FY 2023",
+          "value": 74366000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2024-09-28",
+          "fiscalYear": 2024,
+          "label": "FY 2024",
+          "value": 66719000000,
+          "status": "calculated"
+        },
+        {
+          "periodEnd": "2025-09-27",
+          "fiscalYear": 2025,
+          "label": "FY 2025",
+          "value": 54744000000,
+          "status": "calculated"
+        }
+      ]
+    }
+  ]
+}

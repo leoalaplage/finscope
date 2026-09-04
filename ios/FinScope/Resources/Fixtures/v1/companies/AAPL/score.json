@@ -1,0 +1,299 @@
+{
+  "schemaVersion": "1.0.0",
+  "scoreVersion": "qs-1.23",
+  "universeVersion": "v23-2026-09-03",
+  "universeSize": 21,
+  "universeLabel": "Covered US SEC filers",
+  "ticker": "AAPL",
+  "sector": "Technology",
+  "total": 53.40312506915342,
+  "grade": "B+",
+  "coverage": 0.85,
+  "coverageFloor": 0.75,
+  "pillars": {
+    "quality": 64.70756154761904,
+    "health": 72.35143079039983,
+    "growth": 31.396823864828338,
+    "value": 25.524563174603173
+  },
+  "rank": 11,
+  "sectorRank": 1,
+  "sectorSize": 2,
+  "alerts": [],
+  "strengths": [
+    {
+      "key": "Low dilution",
+      "label": "Low dilution",
+      "score": 96.5
+    },
+    {
+      "key": "ROIC",
+      "label": "ROIC",
+      "score": 94.16666666666666
+    },
+    {
+      "key": "ROIC 5y",
+      "label": "ROIC 5y",
+      "score": 94.16666666666666
+    }
+  ],
+  "weaknesses": [
+    {
+      "key": "Gross margin",
+      "label": "Gross margin",
+      "score": 12.233149999999997
+    },
+    {
+      "key": "FCF growth 5y",
+      "label": "FCF growth 5y",
+      "score": 12.348799999999997
+    },
+    {
+      "key": "Current ratio",
+      "label": "Current ratio",
+      "score": 18.324489164086685
+    }
+  ],
+  "valuation": {
+    "label": "Expensive",
+    "level": 2,
+    "sweetSpot": false
+  },
+  "metrics": [
+    {
+      "key": "ROIC",
+      "label": "ROIC",
+      "note": "Return on invested capital: after-tax profit per $ of capital deployed. Core quality marker.",
+      "pillar": "quality",
+      "weight": 10,
+      "direction": "higherIsBetter",
+      "raw": 85.1927,
+      "score": 94.16666666666666
+    },
+    {
+      "key": "ROIC5",
+      "label": "ROIC 5y",
+      "note": "5-year average ROIC: shows whether high returns are durable, not a one-off.",
+      "pillar": "quality",
+      "weight": 20,
+      "direction": "higherIsBetter",
+      "raw": 74.5775,
+      "score": 94.16666666666666
+    },
+    {
+      "key": "OpM",
+      "label": "Operating margin",
+      "note": "Operating margin: operating profit / revenue. Pricing power and cost discipline.",
+      "pillar": "quality",
+      "weight": 15,
+      "direction": "higherIsBetter",
+      "raw": 33.173,
+      "score": 47.48161904761905
+    },
+    {
+      "key": "FCFM5",
+      "label": "FCF margin 5y",
+      "note": "5-year average free-cash-flow margin: FCF / revenue. How much cash the model throws off.",
+      "pillar": "quality",
+      "weight": 20,
+      "direction": "higherIsBetter",
+      "raw": 26.2422,
+      "score": 35.618314285714284
+    },
+    {
+      "key": "FCF_NI",
+      "label": "FCF/Net income conv.",
+      "note": "Cash conversion: free cash flow / net income. >100% = earnings are backed by real cash.",
+      "pillar": "quality",
+      "weight": 10,
+      "direction": "higherIsBetter",
+      "raw": 106.0133,
+      "score": 65.33998333333334
+    },
+    {
+      "key": "GM5",
+      "label": "Gross margin",
+      "note": "5-year average gross margin (low weight: strongly sector-biased, 100% is often an artefact).",
+      "pillar": "quality",
+      "weight": 5,
+      "direction": "higherIsBetter",
+      "raw": 44.4663,
+      "score": 12.233149999999997
+    },
+    {
+      "key": "ShOut5",
+      "label": "Low dilution",
+      "note": "Share count 5y CAGR. Lower/negative = buybacks, no dilution (scored inverted).",
+      "pillar": "quality",
+      "weight": 10,
+      "direction": "lowerIsBetter",
+      "raw": -3.0598,
+      "score": 96.5
+    },
+    {
+      "key": "SBC",
+      "label": "Low SBC/Revenue",
+      "note": "Stock-based comp / revenue. Hidden cost of equity pay; lower is better (scored inverted).",
+      "pillar": "quality",
+      "weight": 10,
+      "direction": "lowerIsBetter",
+      "raw": 2.936,
+      "score": 54.16
+    },
+    {
+      "key": "NetDebtEBITDA",
+      "label": "Low leverage",
+      "note": "Net debt / EBITDA. Balance-sheet leverage; lower is safer (scored inverted).",
+      "pillar": "health",
+      "weight": 35,
+      "direction": "lowerIsBetter",
+      "raw": 0.2548,
+      "score": 82.53344444444446
+    },
+    {
+      "key": "EBITInt",
+      "label": "Interest coverage",
+      "note": "Interest coverage: EBIT / interest expense. How easily debt interest is paid.",
+      "pillar": "health",
+      "weight": 35,
+      "direction": "higherIsBetter",
+      "raw": null,
+      "score": null,
+      "unavailableReason": "Not published for this company, so its weight is spread over the metrics that are."
+    },
+    {
+      "key": "CurrentRatio",
+      "label": "Current ratio",
+      "note": "Current ratio: current assets / current liabilities. Short-term solvency.",
+      "pillar": "health",
+      "weight": 5,
+      "direction": "higherIsBetter",
+      "raw": 1.0033,
+      "score": 18.324489164086685
+    },
+    {
+      "key": "LTDebtAssets",
+      "label": "Low LT debt",
+      "note": "Long-term debt / assets. Structural indebtedness; lower is better (scored inverted).",
+      "pillar": "health",
+      "weight": 10,
+      "direction": "lowerIsBetter",
+      "raw": 0.2149,
+      "score": 64.255
+    },
+    {
+      "key": "OCF_Capex",
+      "label": "Capex coverage",
+      "note": "Capex coverage: operating cash flow / capex. >1 = self-funding of investments.",
+      "pillar": "health",
+      "weight": 15,
+      "direction": "higherIsBetter",
+      "raw": 14.6125,
+      "score": 72
+    },
+    {
+      "key": "Rev5",
+      "label": "Revenue growth 5y",
+      "note": "Revenue 5-year CAGR. Historical top-line growth.",
+      "pillar": "growth",
+      "weight": 15,
+      "direction": "higherIsBetter",
+      "raw": 8.6735,
+      "score": 24.4082
+    },
+    {
+      "key": "RevFwd3",
+      "label": "Fwd revenue growth",
+      "note": "Expected revenue 3-year forward CAGR (analyst estimates).",
+      "pillar": "growth",
+      "weight": 20,
+      "direction": "higherIsBetter",
+      "raw": null,
+      "score": null,
+      "unavailableReason": "Not published for this company, so its weight is spread over the metrics that are."
+    },
+    {
+      "key": "LevFCF5",
+      "label": "FCF growth 5y",
+      "note": "Levered free cash flow 5-year CAGR. Growth of the cash that actually reaches shareholders.",
+      "pillar": "growth",
+      "weight": 15,
+      "direction": "higherIsBetter",
+      "raw": 6.124,
+      "score": 12.348799999999997
+    },
+    {
+      "key": "NI5",
+      "label": "Net income growth 5y",
+      "note": "Net income 5-year CAGR. Bottom-line growth.",
+      "pillar": "growth",
+      "weight": 10,
+      "direction": "higherIsBetter",
+      "raw": 14.295,
+      "score": 39.259263157894736
+    },
+    {
+      "key": "RevPS5",
+      "label": "Revenue/share growth 5y",
+      "note": "Revenue growth adjusted for changes in share count. How much top-line growth accrues per share.",
+      "pillar": "growth",
+      "weight": 15,
+      "direction": "higherIsBetter",
+      "raw": 12.103647403244477,
+      "score": 49.65547110486671
+    },
+    {
+      "key": "FCFPS5",
+      "label": "FCF/share growth 5y",
+      "note": "FCF growth adjusted for changes in share count. The cash growth that actually accrues per share.",
+      "pillar": "growth",
+      "weight": 25,
+      "direction": "higherIsBetter",
+      "raw": 9.473675523673354,
+      "score": 32.91864844137275
+    },
+    {
+      "key": "EV_EBIT",
+      "label": "Attractive EV/EBIT",
+      "note": "EV / EBIT. Enterprise value vs operating profit; lower is cheaper (scored inverted).",
+      "pillar": "value",
+      "weight": 35,
+      "direction": "lowerIsBetter",
+      "raw": 31.2388,
+      "score": 20.156230769230767
+    },
+    {
+      "key": "EV_FCF",
+      "label": "Attractive EV/FCF",
+      "note": "EV / free cash flow. Cheapness on a cash basis; lower is better (scored inverted).",
+      "pillar": "value",
+      "weight": 15,
+      "direction": "lowerIsBetter",
+      "raw": 35.3929,
+      "score": 34.05883296703297
+    },
+    {
+      "key": "FwdP_FCF",
+      "label": "Attractive P/FCF fwd",
+      "note": "Forward price / free cash flow. Forward-looking cheapness; lower is better (scored inverted).",
+      "pillar": "value",
+      "weight": 25,
+      "direction": "lowerIsBetter",
+      "raw": null,
+      "score": null,
+      "unavailableReason": "Not published for this company, so its weight is spread over the metrics that are."
+    },
+    {
+      "key": "FCFYield",
+      "label": "FCF yield",
+      "note": "FCF yield: free cash flow / market cap. Higher = more cash return for the price paid.",
+      "pillar": "value",
+      "weight": 25,
+      "direction": "higherIsBetter",
+      "raw": 2.8506,
+      "score": 27.919666666666668
+    }
+  ],
+  "asOf": "2026-09-04",
+  "retrievedAt": "2026-09-04T09:37:26.031Z"
+}

@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "1.0.0",
+  "dataVersion": "v23",
+  "company": {
+    "ticker": "CME",
+    "name": "CME Group Inc.",
+    "cik": "0001156375",
+    "exchange": "NASDAQ",
+    "sector": "Exchanges",
+    "currency": "USD",
+    "businessType": "exchange",
+    "businessTypeLabel": "exchange",
+    "isFinancial": true,
+    "regulatoryId": "CIK 0001156375",
+    "description": "Derivatives exchanges and clearing services."
+  },
+  "price": {
+    "value": 282.04998779296875,
+    "previousClose": 277.7699890136719,
+    "changePercent": 1.5408427650858325,
+    "currency": "USD",
+    "asOf": "2026-09-03",
+    "type": "split-adjusted close",
+    "sourceUrl": "https://finance.yahoo.com/quote/CME/history"
+  },
+  "period": {
+    "label": "TTM Q2 FY2026",
+    "end": "2026-06-30",
+    "frequency": "ttm",
+    "currency": "USD"
+  },
+  "score": {
+    "total": 50.45094367355438,
+    "grade": "NR",
+    "coverage": 0.2275,
+    "scoreVersion": "qs-1.23",
+    "universeVersion": "v23-2026-09-03",
+    "universeSize": 21,
+    "pillars": {
+      "quality": 74.85619047619046,
+      "health": 22.275170278637766,
+      "growth": 14.802901125534902,
+      "value": null
+    }
+  },
+  "keyMetrics": [
+    {
+      "key": "revenueGrowth",
+      "label": "Revenue growth",
+      "detail": "Trailing twelve months against the twelve before",
+      "value": 6.370206032528025,
+      "status": "calculated",
+      "unit": "percent",
+      "currency": null,
+      "basis": null
+    },
+    {
+      "key": "roic",
+      "label": "Return on invested capital",
+      "detail": "Operating profit after tax over the capital funding it",
+      "value": null,
+      "status": "unavailable",
+      "reason": "Not comparable for an exchange: borrowing is an input to this business, not a burden on it.",
+      "unit": "percent",
+      "currency": null
+    },
+    {
+      "key": "freeCashFlowMargin",
+      "label": "Free cash flow margin",
+      "detail": "Cash left after the spending that keeps the business running",
+      "value": null,
+      "status": "unavailable",
+      "reason": "Not comparable for an exchange: capital expenditure is not what its cash goes to.",
+      "unit": "percent",
+      "currency": null
+    },
+    {
+      "key": "netDebt",
+      "label": "Net debt",
+      "detail": "Borrowings less the cash held against them",
+      "value": null,
+      "status": "unavailable",
+      "reason": "Not comparable for an exchange: borrowing is an input to this business, not a burden on it.",
+      "unit": "currency",
+      "currency": "USD"
+    }
+  ],
+  "asOf": "2026-06-30",
+  "retrievedAt": "2026-09-04T07:01:26.506Z",
+  "warnings": [
+    "Quarterly cash-flow facts may be isolated from year-to-date disclosures; every derived quarter is marked calculated with its source accessions.",
+    "TTM is available through 2026-06-30 from four consecutive fiscal quarters.",
+    "Standardized concepts only: company extensions and non-GAAP values remain separate and are not imputed."
+  ]
+}
