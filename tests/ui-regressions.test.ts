@@ -268,8 +268,10 @@ describe("the redesign", () => {
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     expect(page).toContain('<a key={company.ticker} href={`/s/${company.ticker}`}>');
     expect(page).not.toContain('from "next/link"');
-    expect(search).toContain("window.location.assign");
-    expect(search).toContain('size === "bar" && open');
+    expect(search).toContain("action={destination}");
+    expect(search).not.toContain('role="listbox"');
+    expect(search).not.toContain('className="results"');
+    expect(search).toContain('type="search"');
     expect(company).toContain('role="progressbar"');
     expect(company).toContain("about {state.progress}%");
   });
