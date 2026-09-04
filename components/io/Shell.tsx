@@ -46,9 +46,23 @@ function ThemeSwitch() {
     window.dispatchEvent(new Event(THEME_EVENT));
   }, []);
 
+  /*
+   * The symbol is what the switch gives you, not what you are on.
+   *
+   * A sun on a dark page means "make it day", which is the only reading that
+   * survives without a word beside it — and the word is what had to go, because
+   * the bar now carries destinations and the switch is not one of them. The
+   * label stays for anyone who cannot see the glyph.
+   */
   return (
-    <button type="button" className="ghost" onClick={flip} aria-label="Switch between the light and dark setting">
-      {theme === "light" ? "Dark" : "Light"}
+    <button
+      type="button"
+      className="theme-switch"
+      onClick={flip}
+      aria-label={theme === "light" ? "Switch to the dark setting" : "Switch to the light setting"}
+      title={theme === "light" ? "Dark" : "Light"}
+    >
+      <span aria-hidden="true">{theme === "light" ? "☾" : "☀"}</span>
     </button>
   );
 }

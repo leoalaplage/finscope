@@ -104,6 +104,25 @@ export const IO_SECTIONS: Array<{ id: string; label: string; metrics: string[] }
     ],
   },
   {
+    /*
+     * Per share, on its own, because it is the half of the story a total hides.
+     *
+     * A business whose free cash flow grew by half over five years while its
+     * share count grew by more has not made its owners better off, and the
+     * cash-flow statement above will never say so. The figure after
+     * stock-based compensation is the one FinScope is built around: options
+     * are a cost paid in ownership, and free cash flow that does not carry
+     * them is free cash flow somebody else was paid out of.
+     */
+    id: "pershare",
+    label: "Per share",
+    metrics: [
+      "revenuePerShare", "grossProfitPerShare", "operatingIncomePerShare",
+      "netIncomePerShare", "operatingCashFlowPerShare", "freeCashFlowPerShare",
+      "freeCashFlowAfterSbcPerShare", "dividendsPerShare",
+    ],
+  },
+  {
     id: "balance",
     label: "Balance sheet",
     metrics: [
@@ -129,7 +148,7 @@ export const IO_SECTIONS: Array<{ id: string; label: string; metrics: string[] }
     label: "Margins and returns",
     metrics: [
       "grossMargin", "operatingMargin", "ebitdaMargin", "netMargin",
-      "operatingCashFlowMargin", "freeCashFlowMargin", "cashConversion",
+      "operatingCashFlowMargin", "freeCashFlowMargin", "freeCashFlowAfterSbcMargin", "cashConversion",
       "roic", "cashReturnOnCapital", "returnOnEquity", "returnOnAssets",
       "returnOnCapitalEmployed", "capitalIntensity", "effectiveTaxRate",
       "dividendPayout", "debtToEquity", "interestCoverage",

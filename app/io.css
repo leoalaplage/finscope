@@ -173,6 +173,22 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 .bar-spacer { flex: 1; }
 
+/*
+ * Pinned to the far right, past whatever the bar grows to hold.
+ *
+ * `margin-inline-start: auto` rather than a place in the order, so adding a
+ * destination beside the wordmark never pushes the switch off the edge on a
+ * narrow screen.
+ */
+.theme-switch {
+  flex: none; margin-inline-start: auto;
+  width: 28px; height: 28px; border-radius: var(--radius);
+  display: grid; place-items: center;
+  font-size: var(--fs-md); line-height: 1; color: var(--ink-2);
+  transition: color .12s ease, background .12s ease;
+}
+.theme-switch:hover { color: var(--ink); background: var(--fill); }
+
 .ghost {
   flex: none;
   font-family: var(--mono); font-size: var(--fs-xs);

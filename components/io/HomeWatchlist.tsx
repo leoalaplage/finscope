@@ -58,7 +58,7 @@ export function HomeWatchlist() {
   return (
     <section className="quick" aria-labelledby="watchlist-title">
       <div className="quick-head">
-        <h2 className="label" id="watchlist-title">Built and waiting</h2>
+        <h2 className="label" id="watchlist-title">Watchlist</h2>
         <button className="watchlist-edit" type="button" onClick={openEditor} aria-label="Edit watchlist" title="Edit watchlist"><Pencil size={11} /></button>
       </div>
       <div className="grid-ruled quick-grid">
