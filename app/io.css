@@ -116,7 +116,18 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 .io *, .io *::before, .io *::after { box-sizing: border-box; }
 .io h1, .io h2, .io h3, .io p, .io figure { margin: 0; }
-.io button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+/*
+ * The button reset, wrapped so it cannot outrank the components that use it.
+ *
+ * `.io button` is a class and a type, which outranks a plain component class —
+ * so every rule written as `.multiple { padding: 13px }` lost to `padding: 0`
+ * here and was silently discarded. The small multiples shipped with no padding
+ * and no background, their captions touching the next panel's, and two other
+ * components had already been forced through with `!important` rather than the
+ * collision being noticed. `:where()` contributes nothing to specificity, so
+ * this stays the default and any component class simply wins.
+ */
+.io :where(button) { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .io a { color: inherit; text-decoration: none; }
 .io :focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; border-radius: 2px; }
 .io ::selection { background: var(--ink); color: var(--inverse); }
@@ -280,7 +291,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .watchlist-editor-foot > div { display: flex; gap: calc(var(--u) * 2); }
 .watchlist-reset, .watchlist-save { min-height: 30px; padding: 0 11px; border: 1px solid var(--line); border-radius: var(--radius); font-family: var(--mono); font-size: var(--fs-xs); }
 .watchlist-reset:hover { background: var(--fill); }
-.watchlist-save { border-color: var(--ink); background: var(--ink) !important; color: var(--inverse) !important; }
+.watchlist-save { border-color: var(--ink); background: var(--ink); color: var(--inverse); }
 .watchlist-save:disabled { opacity: .35; cursor: default; }
 
 /* --- Company head -------------------------------------------------------- */
@@ -351,14 +362,14 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 .metric-feature { --metric-tone: color-mix(in srgb, var(--metric) 58%, #000); --plot: var(--metric-tone); --plot-soft: color-mix(in srgb, var(--metric-tone) 10%, transparent); }
 .metric-feature-title { display: flex; align-items: center; gap: calc(var(--u) * 3); margin-bottom: calc(var(--u) * 3); }
-.metric-clear { padding: 4px 7px !important; border: 1px solid var(--line) !important; border-radius: var(--radius); font-family: var(--mono) !important; font-size: var(--fs-xs) !important; color: var(--ink-2) !important; }
-.metric-clear:hover { border-color: var(--line-strong) !important; color: var(--ink) !important; }
+.metric-clear { padding: 4px 7px; border: 1px solid var(--line); border-radius: var(--radius); font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); }
+.metric-clear:hover { border-color: var(--line-strong); color: var(--ink); }
 
 /* --- Small multiples ----------------------------------------------------- */
 
 .metrics-head > div { display: flex; align-items: baseline; gap: calc(var(--u) * 3); flex-wrap: wrap; }
-.metric-toggle { padding: 5px 8px !important; border: 1px solid var(--line) !important; border-radius: var(--radius); font-family: var(--mono) !important; font-size: var(--fs-xs) !important; color: var(--ink-2) !important; }
-.metric-toggle:hover { border-color: var(--line-strong) !important; color: var(--ink) !important; }
+.metric-toggle { padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--radius); font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); }
+.metric-toggle:hover { border-color: var(--line-strong); color: var(--ink); }
 .multiples { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .multiple {
   --metric-tone: color-mix(in srgb, var(--metric) 58%, #000);
