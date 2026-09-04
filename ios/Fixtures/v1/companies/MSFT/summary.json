@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "1.0.0",
+  "dataVersion": "v23",
+  "company": {
+    "ticker": "MSFT",
+    "name": "Microsoft Corporation",
+    "cik": "0000789019",
+    "exchange": "NASDAQ",
+    "sector": "Technology",
+    "currency": "USD",
+    "businessType": "operating",
+    "businessTypeLabel": "operating company",
+    "isFinancial": false,
+    "regulatoryId": "CIK 0000789019",
+    "description": "Cloud software, productivity and computing."
+  },
+  "price": {
+    "value": 501.7005920410156,
+    "previousClose": 510.1199951171875,
+    "changePercent": -1.6504750170080522,
+    "currency": "USD",
+    "asOf": "2026-09-04",
+    "type": "split-adjusted close",
+    "sourceUrl": "https://finance.yahoo.com/quote/MSFT/history"
+  },
+  "period": {
+    "label": "TTM Q4 FY2026",
+    "end": "2026-06-30",
+    "frequency": "ttm",
+    "currency": "USD"
+  },
+  "score": {
+    "total": 48.7827522784221,
+    "grade": "B",
+    "coverage": 0.92,
+    "scoreVersion": "qs-1.23",
+    "universeVersion": "v23-2026-09-03",
+    "universeSize": 21,
+    "pillars": {
+      "quality": 52.100052329670326,
+      "health": 72.30401981854143,
+      "growth": 29.84495257346861,
+      "value": 32.0009094017094
+    }
+  },
+  "keyMetrics": [
+    {
+      "key": "revenueGrowth",
+      "label": "Revenue growth",
+      "detail": "Trailing twelve months against the twelve before",
+      "value": 17.788686799846666,
+      "status": "calculated",
+      "unit": "percent",
+      "currency": null,
+      "basis": null
+    },
+    {
+      "key": "roic",
+      "label": "Return on invested capital",
+      "detail": "Operating profit after tax over the capital funding it",
+      "value": 14.507326538833038,
+      "status": "calculated",
+      "unit": "percent",
+      "currency": null,
+      "basis": null
+    },
+    {
+      "key": "freeCashFlowMargin",
+      "label": "Free cash flow margin",
+      "detail": "Cash left after the spending that keeps the business running",
+      "value": 20.18659651216403,
+      "status": "calculated",
+      "unit": "percent",
+      "currency": null,
+      "basis": null
+    },
+    {
+      "key": "netDebt",
+      "label": "Net debt",
+      "detail": "Borrowings less the cash held against them",
+      "value": 19359000000,
+      "status": "calculated",
+      "unit": "currency",
+      "currency": "USD",
+      "basis": null
+    }
+  ],
+  "asOf": "2026-06-30",
+  "retrievedAt": "2026-09-04T01:00:25.515Z",
+  "warnings": [
+    "Quarterly cash-flow facts may be isolated from year-to-date disclosures; every derived quarter is marked calculated with its source accessions.",
+    "TTM is available through 2026-06-30 from four consecutive fiscal quarters.",
+    "Standardized concepts only: company extensions and non-GAAP values remain separate and are not imputed."
+  ]
+}

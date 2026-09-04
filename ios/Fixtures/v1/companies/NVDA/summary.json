@@ -1,0 +1,96 @@
+{
+  "schemaVersion": "1.0.0",
+  "dataVersion": "v23",
+  "company": {
+    "ticker": "NVDA",
+    "name": "NVIDIA Corporation",
+    "cik": "0001045810",
+    "exchange": "NASDAQ",
+    "sector": "Semiconductors",
+    "currency": "USD",
+    "businessType": "operating",
+    "businessTypeLabel": "operating company",
+    "isFinancial": false,
+    "regulatoryId": "CIK 0001045810",
+    "description": "Accelerated computing platforms and software."
+  },
+  "price": {
+    "value": 232.2100067138672,
+    "previousClose": 228.4499969482422,
+    "changePercent": 1.645878667477886,
+    "currency": "USD",
+    "asOf": "2026-09-04",
+    "type": "split-adjusted close",
+    "sourceUrl": "https://finance.yahoo.com/quote/NVDA/history"
+  },
+  "period": {
+    "label": "TTM Q2 FY2027",
+    "end": "2026-07-26",
+    "frequency": "ttm",
+    "currency": "USD"
+  },
+  "score": {
+    "total": 69.9671063683327,
+    "grade": "A",
+    "coverage": 0.86,
+    "scoreVersion": "qs-1.23",
+    "universeVersion": "v23-2026-09-03",
+    "universeSize": 21,
+    "pillars": {
+      "quality": 74.58061634615385,
+      "health": 86.30137478070174,
+      "growth": 99.07894736842105,
+      "value": 21.418559755799755
+    }
+  },
+  "keyMetrics": [
+    {
+      "key": "revenueGrowth",
+      "label": "Revenue growth",
+      "detail": "Trailing twelve months against the twelve before",
+      "value": 65.47353579009479,
+      "status": "calculated",
+      "unit": "percent",
+      "currency": null,
+      "basis": null
+    },
+    {
+      "key": "roic",
+      "label": "Return on invested capital",
+      "detail": "Operating profit after tax over the capital funding it",
+      "value": 52.939680792973945,
+      "status": "calculated",
+      "unit": "percent",
+      "currency": null,
+      "basis": null
+    },
+    {
+      "key": "freeCashFlowMargin",
+      "label": "Free cash flow margin",
+      "detail": "Cash left after the spending that keeps the business running",
+      "value": 41.920460509161,
+      "status": "calculated",
+      "unit": "percent",
+      "currency": null,
+      "basis": null
+    },
+    {
+      "key": "netDebt",
+      "label": "Net debt",
+      "detail": "Borrowings less the cash held against them",
+      "value": 10923000000,
+      "status": "calculated",
+      "unit": "currency",
+      "currency": "USD",
+      "basis": null
+    }
+  ],
+  "asOf": "2026-07-26",
+  "retrievedAt": "2026-09-03T19:00:45.850Z",
+  "warnings": [
+    "SEC identity mismatch: the ticker registry identifies NVIDIA Corporation, while Company Facts labels the payload NVIDIA CORP. FinScope retains the ticker-to-CIK registry identity.",
+    "Quarterly cash-flow facts may be isolated from year-to-date disclosures; every derived quarter is marked calculated with its source accessions.",
+    "TTM is available through 2026-07-26 from four consecutive fiscal quarters.",
+    "Standardized concepts only: company extensions and non-GAAP values remain separate and are not imputed."
+  ]
+}

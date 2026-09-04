@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "1.0.0",
+  "dataVersion": "v23",
+  "company": {
+    "ticker": "AAPL",
+    "name": "Apple Inc.",
+    "cik": "0000320193",
+    "exchange": "NASDAQ",
+    "sector": "Technology",
+    "currency": "USD",
+    "businessType": "operating",
+    "businessTypeLabel": "operating company",
+    "isFinancial": false,
+    "regulatoryId": "CIK 0000320193",
+    "description": "Consumer technology, devices and services."
+  },
+  "price": {
+    "value": 318.8869934082031,
+    "previousClose": 328.2099914550781,
+    "changePercent": -2.8405588768162264,
+    "currency": "USD",
+    "asOf": "2026-09-04",
+    "type": "split-adjusted close",
+    "sourceUrl": "https://finance.yahoo.com/quote/AAPL/history"
+  },
+  "period": {
+    "label": "TTM Q3 FY2026",
+    "end": "2026-06-27",
+    "frequency": "ttm",
+    "currency": "USD"
+  },
+  "score": {
+    "total": 54.07953308136342,
+    "grade": "B+",
+    "coverage": 0.85,
+    "scoreVersion": "qs-1.23",
+    "universeVersion": "v23-2026-09-03",
+    "universeSize": 21,
+    "pillars": {
+      "quality": 64.70756154761904,
+      "health": 72.35143079039983,
+      "growth": 31.396823864828338,
+      "value": 28.906603235653236
+    }
+  },
+  "keyMetrics": [
+    {
+      "key": "revenueGrowth",
+      "label": "Revenue growth",
+      "detail": "Trailing twelve months against the twelve before",
+      "value": 6.425511782832749,
+      "status": "calculated",
+      "unit": "percent",
+      "currency": null,
+      "basis": null
+    },
+    {
+      "key": "roic",
+      "label": "Return on invested capital",
+      "detail": "Operating profit after tax over the capital funding it",
+      "value": 90.92620557067116,
+      "status": "calculated",
+      "unit": "percent",
+      "currency": null,
+      "basis": null
+    },
+    {
+      "key": "freeCashFlowMargin",
+      "label": "Free cash flow margin",
+      "detail": "Cash left after the spending that keeps the business running",
+      "value": 29.279405684809873,
+      "status": "calculated",
+      "unit": "percent",
+      "currency": null,
+      "basis": null
+    },
+    {
+      "key": "netDebt",
+      "label": "Net debt",
+      "detail": "Borrowings less the cash held against them",
+      "value": 42803000000,
+      "status": "calculated",
+      "unit": "currency",
+      "currency": "USD",
+      "basis": null
+    }
+  ],
+  "asOf": "2026-06-27",
+  "retrievedAt": "2026-09-03T19:00:51.172Z",
+  "warnings": [
+    "Quarterly cash-flow facts may be isolated from year-to-date disclosures; every derived quarter is marked calculated with its source accessions.",
+    "TTM is available through 2026-06-27 from four consecutive fiscal quarters.",
+    "Standardized concepts only: company extensions and non-GAAP values remain separate and are not imputed."
+  ]
+}

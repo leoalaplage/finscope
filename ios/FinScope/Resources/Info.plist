@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Deep links: finscope://stock/AAPL, finscope://screener, finscope://watchlist -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>app.finscope.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>finscope</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

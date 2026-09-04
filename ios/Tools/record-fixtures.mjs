@@ -16,7 +16,7 @@
  *   node --import tsx ios/Tools/record-fixtures.mjs [--host URL] [--tickers A,B]
  *
  * Read-only with respect to the backend: it calls public GET routes and writes
- * only under ios/FinScope/Resources/Fixtures/.
+ * only under ios/Fixtures/.
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -29,7 +29,7 @@ import { qsRow, qsTable, qsValuationColumns } from "../../lib/qs-export.ts";
 import { screen, QS_METRICS, QS_METRIC_NAMES, QS_METRIC_NOTES, QS_COVERAGE_FLOOR } from "../../lib/qs/screener.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const OUT = resolve(HERE, "../FinScope/Resources/Fixtures/v1");
+const OUT = resolve(HERE, "../Fixtures/v1");
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -332,6 +332,7 @@ async function main() {
     retrievedAt: universe.retrievedAt,
     warnings: result.warnings,
     /** Metrics no company in this universe carried, so no filter can use them. */
+    /// Metrics no company in this universe carried, in the engine's own keys.
     unavailableMetrics: result.missing,
     cursor: null,
     rows: result.all
@@ -350,15 +351,19 @@ async function main() {
         alerts: company.alertes ?? 0,
         // Billions, as the engine's own column states it.
         marketCapBillions: company.Cap,
+        // Keyed by the engine's own metric keys (`QS_METRICS[].cle`), not by
+        // the CSV column headings. Reading `brut["Revenue 5Y CAGR"]` instead
+        // of `brut.Rev5` returned undefined for seven of these eight, and the
+        // screener drew a dash for every company on figures it had.
         metrics: {
-          roic: company.brut?.["ROIC"] ?? null,
-          revenueGrowth: company.brut?.["Revenue 5Y CAGR"] ?? null,
-          fcfGrowth: company.brut?.["FCF 5Y CAGR"] ?? null,
-          operatingMargin: company.brut?.["Operating Margin"] ?? null,
-          fcfMargin: company.brut?.["FCF Margin 5Yr Avg"] ?? null,
-          netDebtToEbitda: company.brut?.["Net Debt / EBITDA"] ?? null,
-          evToFcf: company.brut?.["EV/FCF"] ?? null,
-          fcfYield: company.brut?.["FCF Yield"] ?? null,
+          roic: company.brut?.ROIC ?? null,
+          revenueGrowth: company.brut?.Rev5 ?? null,
+          fcfGrowth: company.brut?.LevFCF5 ?? null,
+          operatingMargin: company.brut?.OpM ?? null,
+          fcfMargin: company.brut?.FCFM5 ?? null,
+          netDebtToEbitda: company.brut?.NetDebtEBITDA ?? null,
+          evToFcf: company.brut?.EV_FCF ?? null,
+          fcfYield: company.brut?.FCFYield ?? null,
         },
       })),
   });
@@ -382,11 +387,17 @@ async function main() {
   });
 
   // --- Data status --------------------------------------------------------
+  //
+  // Two different counts, kept apart: the universe is every company FinScope
+  // covers and scores, while `companies` below is only those whose read state
+  // the freshness endpoint reports. Collapsing them made Home claim six
+  // covered companies on the same screen as a score computed against 21.
   write("data-status.json", {
     schemaVersion: SCHEMA_VERSION,
     dataVersion: DATA_VERSION,
     scoreVersion: SCORE_VERSION,
     universeVersion: universe.version,
+    universeSize: universe.size,
     retrievedAt: universe.retrievedAt,
     companies: (freshness.rows ?? []).map((row) => ({
       ticker: row.ticker,

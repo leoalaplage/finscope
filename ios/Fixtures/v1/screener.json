@@ -1,0 +1,563 @@
+{
+  "schemaVersion": "1.0.0",
+  "scoreVersion": "qs-1.23",
+  "universeVersion": "v23-2026-09-03",
+  "universeLabel": "Covered US SEC filers",
+  "universeSize": 21,
+  "asOf": "2026-09-04",
+  "retrievedAt": "2026-09-04T14:57:48.642Z",
+  "warnings": [],
+  "unavailableMetrics": [
+    "RevFwd3",
+    "FwdP_FCF"
+  ],
+  "cursor": null,
+  "rows": [
+    {
+      "ticker": "ANET",
+      "name": "Arista Networks, Inc.",
+      "sector": "Networking",
+      "total": 73.22284786816802,
+      "grade": "NR",
+      "coverage": 0.4,
+      "pillars": {
+        "quality": 60.281407905982896,
+        "health": 85.26315789473684,
+        "growth": 95.99342105263159,
+        "value": null
+      },
+      "alerts": 1,
+      "marketCapBillions": 244.3827,
+      "metrics": {
+        "roic": null,
+        "revenueGrowth": 31.1937,
+        "fcfGrowth": 42.6628,
+        "operatingMargin": 43.1362,
+        "fcfMargin": 35.2653,
+        "netDebtToEbitda": null,
+        "evToFcf": null,
+        "fcfYield": null
+      }
+    },
+    {
+      "ticker": "BKNG",
+      "name": "Booking Holdings Inc.",
+      "sector": "Travel",
+      "total": 72.11601040484317,
+      "grade": "NR",
+      "coverage": 0.7025,
+      "pillars": {
+        "quality": 67.67196666666666,
+        "health": 44.959530552909406,
+        "growth": 97.375,
+        "value": 90.32734647130647
+      },
+      "alerts": 0,
+      "marketCapBillions": 154.0187,
+      "metrics": {
+        "roic": null,
+        "revenueGrowth": 31.6948,
+        "fcfGrowth": null,
+        "operatingMargin": 32.8742,
+        "fcfMargin": 31.7858,
+        "netDebtToEbitda": 0.301,
+        "evToFcf": 16.4571,
+        "fcfYield": 6.1934
+      }
+    },
+    {
+      "ticker": "NVDA",
+      "name": "NVIDIA Corporation",
+      "sector": "Semiconductors",
+      "total": 69.9671063683327,
+      "grade": "A",
+      "coverage": 0.86,
+      "pillars": {
+        "quality": 74.58061634615385,
+        "health": 86.30137478070174,
+        "growth": 99.07894736842105,
+        "value": 21.418559755799755
+      },
+      "alerts": 1,
+      "marketCapBillions": 5665.2856,
+      "metrics": {
+        "roic": 69.1415,
+        "revenueGrowth": 67.1906,
+        "fcfGrowth": null,
+        "operatingMargin": 65.2143,
+        "fcfMargin": 36.0175,
+        "netDebtToEbitda": 0.0543,
+        "evToFcf": 44.6924,
+        "fcfYield": 2.2418
+      }
+    },
+    {
+      "ticker": "MA",
+      "name": "Mastercard Incorporated",
+      "sector": "Payments",
+      "total": 67.19328815832199,
+      "grade": "A",
+      "coverage": 0.7575,
+      "pillars": {
+        "quality": 87.0015596491228,
+        "health": 50.664308565531464,
+        "growth": 56.29313077694294,
+        "value": 47.32877493284494
+      },
+      "alerts": 0,
+      "marketCapBillions": 518.409,
+      "metrics": {
+        "roic": 86.971,
+        "revenueGrowth": 6.7857,
+        "fcfGrowth": 20.0402,
+        "operatingMargin": 58.3331,
+        "fcfMargin": 45.6146,
+        "netDebtToEbitda": null,
+        "evToFcf": 31.8382,
+        "fcfYield": 3.2218
+      }
+    },
+    {
+      "ticker": "V",
+      "name": "Visa Inc.",
+      "sector": "Payments",
+      "total": 65.80653887636716,
+      "grade": "A",
+      "coverage": 0.8275,
+      "pillars": {
+        "quality": 81.04402105263159,
+        "health": 66.4856307057236,
+        "growth": 60.35392022140668,
+        "value": 34.93257614163615
+      },
+      "alerts": 0,
+      "marketCapBillions": 724.1322,
+      "metrics": {
+        "roic": 46.7925,
+        "revenueGrowth": 12.861,
+        "fcfGrowth": 17.3319,
+        "operatingMargin": 61.1151,
+        "fcfMargin": 57.5076,
+        "netDebtToEbitda": null,
+        "evToFcf": 34.7276,
+        "fcfYield": 2.9256
+      }
+    },
+    {
+      "ticker": "PAYX",
+      "name": "Paychex, Inc.",
+      "sector": "Business services",
+      "total": 61.85382146626654,
+      "grade": "A-",
+      "coverage": 0.92,
+      "pillars": {
+        "quality": 70.1423302087912,
+        "health": 42.67585941725543,
+        "growth": 41.74719555454505,
+        "value": 77.46260827838829
+      },
+      "alerts": 0,
+      "marketCapBillions": 43.6677,
+      "metrics": {
+        "roic": 26.5462,
+        "revenueGrowth": 9.9287,
+        "fcfGrowth": 15.2515,
+        "operatingMargin": 38.5519,
+        "fcfMargin": 32.4027,
+        "netDebtToEbitda": 1.1743,
+        "evToFcf": 20.3013,
+        "fcfYield": 5.317
+      }
+    },
+    {
+      "ticker": "VEEV",
+      "name": "Veeva Systems Inc.",
+      "sector": "Life-sciences software",
+      "total": 61.36325893935366,
+      "grade": "NR",
+      "coverage": 0.525,
+      "pillars": {
+        "quality": 53.52546507064364,
+        "health": 81.57894736842104,
+        "growth": 72.27962344808766,
+        "value": 50.595333333333336
+      },
+      "alerts": 2,
+      "marketCapBillions": 44.8687,
+      "metrics": {
+        "roic": null,
+        "revenueGrowth": 16.8796,
+        "fcfGrowth": 20.6363,
+        "operatingMargin": 29.9257,
+        "fcfMargin": 39.1785,
+        "netDebtToEbitda": null,
+        "evToFcf": null,
+        "fcfYield": 3.6524
+      }
+    },
+    {
+      "ticker": "MSCI",
+      "name": "MSCI Inc.",
+      "sector": "Financial data",
+      "total": 57.43154808145317,
+      "grade": "A-",
+      "coverage": 0.8975,
+      "pillars": {
+        "quality": 77.054649122807,
+        "health": 18.439237235055963,
+        "growth": 53.03643004800534,
+        "value": 55.56822010989011
+      },
+      "alerts": 1,
+      "marketCapBillions": 40.9792,
+      "metrics": {
+        "roic": 47.4784,
+        "revenueGrowth": 13.0797,
+        "fcfGrowth": 14.44,
+        "operatingMargin": 55.6643,
+        "fcfMargin": 48.409,
+        "netDebtToEbitda": 3.2024,
+        "evToFcf": 30.2792,
+        "fcfYield": 3.7881
+      }
+    },
+    {
+      "ticker": "CPRT",
+      "name": "Copart, Inc.",
+      "sector": "Business services",
+      "total": 56.40538835735557,
+      "grade": "NR",
+      "coverage": 0.5925,
+      "pillars": {
+        "quality": 48.9020218487395,
+        "health": 45.171,
+        "growth": 78.42941239170756,
+        "value": 68.00433333333334
+      },
+      "alerts": 1,
+      "marketCapBillions": 30.899,
+      "metrics": {
+        "roic": null,
+        "revenueGrowth": 16.0744,
+        "fcfGrowth": 30.4451,
+        "operatingMargin": 36.5666,
+        "fcfMargin": 22.9325,
+        "netDebtToEbitda": null,
+        "evToFcf": null,
+        "fcfYield": 4.3342
+      }
+    },
+    {
+      "ticker": "CBOE",
+      "name": "Cboe Global Markets, Inc.",
+      "sector": "Exchanges",
+      "total": 55.814400066836626,
+      "grade": "NR",
+      "coverage": 0.32,
+      "pillars": {
+        "quality": 59.98321293498168,
+        "health": 67.49203474372204,
+        "growth": 27.737781893220898,
+        "value": null
+      },
+      "alerts": 0,
+      "marketCapBillions": 31.1061,
+      "metrics": {
+        "roic": null,
+        "revenueGrowth": 6.5858,
+        "fcfGrowth": null,
+        "operatingMargin": 34.6887,
+        "fcfMargin": null,
+        "netDebtToEbitda": null,
+        "evToFcf": null,
+        "fcfYield": null
+      }
+    },
+    {
+      "ticker": "AAPL",
+      "name": "Apple Inc.",
+      "sector": "Technology",
+      "total": 54.07953308136342,
+      "grade": "B+",
+      "coverage": 0.85,
+      "pillars": {
+        "quality": 64.70756154761904,
+        "health": 72.35143079039983,
+        "growth": 31.396823864828338,
+        "value": 28.906603235653236
+      },
+      "alerts": 0,
+      "marketCapBillions": 4658.6083,
+      "metrics": {
+        "roic": 85.1927,
+        "revenueGrowth": 8.6735,
+        "fcfGrowth": 6.124,
+        "operatingMargin": 33.173,
+        "fcfMargin": 26.2422,
+        "netDebtToEbitda": 0.2548,
+        "evToFcf": 34.3965,
+        "fcfYield": 2.934
+      }
+    },
+    {
+      "ticker": "ZTS",
+      "name": "Zoetis Inc.",
+      "sector": "Animal health",
+      "total": 52.27606145615375,
+      "grade": "NR",
+      "coverage": 0.5075,
+      "pillars": {
+        "quality": 50.056809457209454,
+        "health": 34.85756140350877,
+        "growth": 21.953916680835462,
+        "value": 97.4294870879121
+      },
+      "alerts": 0,
+      "marketCapBillions": 31.1402,
+      "metrics": {
+        "roic": null,
+        "revenueGrowth": 7.2397,
+        "fcfGrowth": 6.4156,
+        "operatingMargin": null,
+        "fcfMargin": 21.3302,
+        "netDebtToEbitda": null,
+        "evToFcf": 16.7151,
+        "fcfYield": 7.4373
+      }
+    },
+    {
+      "ticker": "META",
+      "name": "Meta Platforms, Inc.",
+      "sector": "Communication services",
+      "total": 52.16112788697696,
+      "grade": "B+",
+      "coverage": 0.85,
+      "pillars": {
+        "quality": 50.35105394505496,
+        "health": 48.3055893599005,
+        "growth": 64.77994478496072,
+        "value": 50.62522010989011
+      },
+      "alerts": 1,
+      "marketCapBillions": 1561.4634,
+      "metrics": {
+        "roic": 20.5307,
+        "revenueGrowth": 18.5138,
+        "fcfGrowth": 14.3511,
+        "operatingMargin": 38.0846,
+        "fcfMargin": 27.6174,
+        "netDebtToEbitda": 0.6258,
+        "evToFcf": 39.7712,
+        "fcfYield": 2.6242
+      }
+    },
+    {
+      "ticker": "SPGI",
+      "name": "S&P Global Inc.",
+      "sector": "Financial data",
+      "total": 51.86671370027288,
+      "grade": "B+",
+      "coverage": 0.85,
+      "pillars": {
+        "quality": 48.415110003663,
+        "health": 59.68213675213675,
+        "growth": 31.427797075079333,
+        "value": 67.14658643467642
+      },
+      "alerts": 1,
+      "marketCapBillions": 130.8054,
+      "metrics": {
+        "roic": 12.5516,
+        "revenueGrowth": 15.5611,
+        "fcfGrowth": 9.3426,
+        "operatingMargin": 43.8779,
+        "fcfMargin": 33.743,
+        "netDebtToEbitda": null,
+        "evToFcf": 25.6144,
+        "fcfYield": 4.2475
+      }
+    },
+    {
+      "ticker": "CME",
+      "name": "CME Group Inc.",
+      "sector": "Exchanges",
+      "total": 50.45094367355438,
+      "grade": "NR",
+      "coverage": 0.2275,
+      "pillars": {
+        "quality": 74.85619047619046,
+        "health": 22.275170278637766,
+        "growth": 14.802901125534902,
+        "value": null
+      },
+      "alerts": 1,
+      "marketCapBillions": 101.4421,
+      "metrics": {
+        "roic": null,
+        "revenueGrowth": 5.9528,
+        "fcfGrowth": null,
+        "operatingMargin": 65.1006,
+        "fcfMargin": null,
+        "netDebtToEbitda": null,
+        "evToFcf": null,
+        "fcfYield": null
+      }
+    },
+    {
+      "ticker": "FDS",
+      "name": "FactSet Research Systems Inc.",
+      "sector": "Financial data",
+      "total": 50.305029244191466,
+      "grade": "B+",
+      "coverage": 0.92,
+      "pillars": {
+        "quality": 44.868368228937726,
+        "health": 39.86448317588843,
+        "growth": 23.696519430258686,
+        "value": 92.93444495726496
+      },
+      "alerts": 0,
+      "marketCapBillions": 10.8275,
+      "metrics": {
+        "roic": 18.7454,
+        "revenueGrowth": 9.2172,
+        "fcfGrowth": 7.5959,
+        "operatingMargin": 29.5537,
+        "fcfMargin": 27.9976,
+        "netDebtToEbitda": 1.228,
+        "evToFcf": 16.8417,
+        "fcfYield": 6.5417
+      }
+    },
+    {
+      "ticker": "MSFT",
+      "name": "Microsoft Corporation",
+      "sector": "Technology",
+      "total": 48.7827522784221,
+      "grade": "B",
+      "coverage": 0.92,
+      "pillars": {
+        "quality": 52.100052329670326,
+        "health": 72.30401981854143,
+        "growth": 29.84495257346861,
+        "value": 32.0009094017094
+      },
+      "alerts": 1,
+      "marketCapBillions": 3726.1303,
+      "metrics": {
+        "roic": 27.0986,
+        "revenueGrowth": 14.5737,
+        "fcfGrowth": 3.6047,
+        "operatingMargin": 46.7808,
+        "fcfMargin": 27.3495,
+        "netDebtToEbitda": 0.1021,
+        "evToFcf": 55.9137,
+        "fcfYield": 1.7978
+      }
+    },
+    {
+      "ticker": "ABNB",
+      "name": "Airbnb, Inc.",
+      "sector": "Travel",
+      "total": 41.738416838114354,
+      "grade": "NR",
+      "coverage": 0.37,
+      "pillars": {
+        "quality": 33.13134952380952,
+        "health": 77.55034055727553,
+        "growth": 66.67083671252684,
+        "value": 6.593079670329667
+      },
+      "alerts": 2,
+      "marketCapBillions": 110.7767,
+      "metrics": {
+        "roic": 63.4305,
+        "revenueGrowth": 29.3732,
+        "fcfGrowth": null,
+        "operatingMargin": 20.8071,
+        "fcfMargin": null,
+        "netDebtToEbitda": null,
+        "evToFcf": null,
+        "fcfYield": null
+      }
+    },
+    {
+      "ticker": "GOOGL",
+      "name": "Alphabet Inc.",
+      "sector": "Communication services",
+      "total": 41.682021170904505,
+      "grade": "B-",
+      "coverage": 0.92,
+      "pillars": {
+        "quality": 36.453732069597066,
+        "health": 65.2318140350877,
+        "growth": 59.68977237096809,
+        "value": 16.390065384615383
+      },
+      "alerts": 1,
+      "marketCapBillions": 4131.7219,
+      "metrics": {
+        "roic": 17.593,
+        "revenueGrowth": 17.157,
+        "fcfGrowth": 11.3294,
+        "operatingMargin": 33.1103,
+        "fcfMargin": 21.7623,
+        "netDebtToEbitda": 0.256,
+        "evToFcf": 78.3882,
+        "fcfYield": 1.2894
+      }
+    },
+    {
+      "ticker": "NOW",
+      "name": "ServiceNow, Inc.",
+      "sector": "Software",
+      "total": 37.99053875329509,
+      "grade": "C",
+      "coverage": 0.85,
+      "pillars": {
+        "quality": 30.5792281996337,
+        "health": 31.90752811515969,
+        "growth": 89.27351736842105,
+        "value": 22.286764175824175
+      },
+      "alerts": 2,
+      "marketCapBillions": 145.8469,
+      "metrics": {
+        "roic": 6.8221,
+        "revenueGrowth": 24.0592,
+        "fcfGrowth": 27.3373,
+        "operatingMargin": 11.4037,
+        "fcfMargin": 31.2401,
+        "netDebtToEbitda": 2.0988,
+        "evToFcf": 32.9391,
+        "fcfYield": 3.1403
+      }
+    },
+    {
+      "ticker": "IBKR",
+      "name": "Interactive Brokers Group, Inc.",
+      "sector": "Brokerage",
+      "total": 34.35987171008477,
+      "grade": "NR",
+      "coverage": 0.15,
+      "pillars": {
+        "quality": 31.044249999999998,
+        "health": null,
+        "growth": 44.306736840339084,
+        "value": null
+      },
+      "alerts": 1,
+      "marketCapBillions": 41.2508,
+      "metrics": {
+        "roic": null,
+        "revenueGrowth": 13.6498,
+        "fcfGrowth": null,
+        "operatingMargin": null,
+        "fcfMargin": null,
+        "netDebtToEbitda": null,
+        "evToFcf": null,
+        "fcfYield": null
+      }
+    }
+  ]
+}

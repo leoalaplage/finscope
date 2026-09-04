@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "1.0.0",
+  "dataVersion": "v23",
+  "scoreVersion": "qs-1.23",
+  "universeVersion": "v23-2026-09-03",
+  "universeSize": 21,
+  "retrievedAt": "2026-09-04T14:57:48.642Z",
+  "companies": [
+    {
+      "ticker": "NVDA",
+      "periodEnd": "2026-07-26",
+      "readAt": "2026-09-03T19:00:45.850Z",
+      "status": "current",
+      "filing": {
+        "form": "10-Q",
+        "filingDate": "2026-08-26",
+        "reportDate": "2026-07-26",
+        "accession": "0001045810-26-000075"
+      }
+    },
+    {
+      "ticker": "AAPL",
+      "periodEnd": "2026-06-27",
+      "readAt": "2026-09-03T19:00:51.172Z",
+      "status": "current",
+      "filing": {
+        "form": "10-Q",
+        "filingDate": "2026-07-31",
+        "reportDate": "2026-06-27",
+        "accession": "0000320193-26-000020"
+      }
+    },
+    {
+      "ticker": "GOOGL",
+      "periodEnd": "2026-06-30",
+      "readAt": "2026-09-03T19:00:56.424Z",
+      "status": "current",
+      "filing": {
+        "form": "10-Q",
+        "filingDate": "2026-07-23",
+        "reportDate": "2026-06-30",
+        "accession": "0001652044-26-000071"
+      }
+    },
+    {
+      "ticker": "MSFT",
+      "periodEnd": "2026-06-30",
+      "readAt": "2026-09-04T01:00:25.515Z",
+      "status": "current",
+      "filing": {
+        "form": "10-K",
+        "filingDate": "2026-07-29",
+        "reportDate": "2026-06-30",
+        "accession": "0001193125-26-323660"
+      }
+    },
+    {
+      "ticker": "META",
+      "periodEnd": "2026-06-30",
+      "readAt": "2026-09-04T01:00:29.784Z",
+      "status": "current",
+      "filing": {
+        "form": "10-Q",
+        "filingDate": "2026-07-30",
+        "reportDate": "2026-06-30",
+        "accession": "0001628280-26-050705"
+      }
+    },
+    {
+      "ticker": "V",
+      "periodEnd": "2026-03-31",
+      "readAt": "2026-09-04T01:00:34.351Z",
+      "status": "behind",
+      "filing": {
+        "form": "10-Q",
+        "filingDate": "2026-07-29",
+        "reportDate": "2026-06-30",
+        "accession": "0001403161-26-000104"
+      }
+    }
+  ]
+}
