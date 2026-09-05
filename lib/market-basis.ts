@@ -19,7 +19,10 @@ import type { FinancialPeriod, PricePoint } from "./types";
  * to a filed figure is exactly the quiet estimate this application exists not
  * to make — so the answer is to withhold the figure and say why.
  */
-export type SharesBasis = "outstanding" | "diluted";
+export type SharesBasis = "outstanding" | "cover-date" | "diluted";
+
+/** The cover-page count: outstanding, on the day the report was signed. */
+const COVER_PAGE_SHARES = "dei:EntityCommonStockSharesOutstanding";
 
 export interface MarketBasis {
   /** The matched session close, in `currency`. */
@@ -52,7 +55,25 @@ export type MarketBasisResult = { basis: MarketBasis; reason: undefined } | { ba
  */
 export function shareCount(period: FinancialPeriod): { shares: number; basis: SharesBasis; note?: string } | null {
   const outstanding = valueOf(period, "sharesOutstanding");
-  if (outstanding != null && outstanding > 0) return { shares: outstanding, basis: "outstanding" };
+  if (outstanding != null && outstanding > 0) {
+    /*
+     * Three answers, in the order of how well each one answers the question.
+     *
+     * The parenthetical is the count on the day the books closed, which is the
+     * count a market capitalisation wants. The cover-page count is the same
+     * measure a few weeks later — a real count of real shares, moved only by
+     * whatever was issued or bought back since — and for a filer with several
+     * share classes it is the only one that reaches this endpoint at all. Both
+     * beat an average over a year by a distance, and neither is passed off as
+     * the other: the basis travels with the number and every caller states it.
+     */
+    return period.facts.sharesOutstanding?.provenance.concept === COVER_PAGE_SHARES
+      ? {
+        shares: outstanding, basis: "cover-date",
+        note: "The filer publishes no period-end share count this feed can read, so the count on the cover of the report stands in. It is a real count of shares outstanding, taken a few weeks after the period closed.",
+      }
+      : { shares: outstanding, basis: "outstanding" };
+  }
   const diluted = valueOf(period, "dilutedShares");
   if (diluted != null && diluted > 0) {
     return {

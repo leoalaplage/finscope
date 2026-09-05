@@ -223,7 +223,54 @@ function extractFacts(
       }
     }
   }
-  return output;
+  return anchorCoverPageShares(output);
+}
+
+/** The cover-page count, which is dated the day the report was filed. */
+const COVER_PAGE_SHARES = "dei:EntityCommonStockSharesOutstanding";
+
+/**
+ * The count on a report's cover, read into the period that report is about.
+ *
+ * A filer states its shares outstanding twice: once in the balance-sheet
+ * parenthetical, dated the day the books closed, and once on the cover of the
+ * report, dated the day it was signed — Booking's 10-Q for the June quarter
+ * says 751,380,500 shares as of 27 July. The normalizer joins point-in-time
+ * facts to a period by exact date, so the cover-page count matched no period at
+ * all and was extracted and then dropped.
+ *
+ * That is the count for eighteen per cent of American filers, because a company
+ * with several share classes tags the parenthetical per class and nothing
+ * undimensioned reaches this endpoint. All of them fell through to the diluted
+ * weighted average — an average over the whole year, of a count that a buyback
+ * moves every quarter. Booking's is six per cent above the shares it actually
+ * has, and every multiple struck on it was six per cent wrong.
+ *
+ * So it is anchored to the end of the period its own filing reports on, which
+ * is what the cover of that filing is a cover of. The date it is *stated* at is
+ * kept in the note, and the concept travels with the fact, so the market basis
+ * can say "outstanding at the filing cover date" rather than passing it off as
+ * a period-end count. It never displaces the parenthetical, which is filed
+ * under a different concept and preferred wherever a filer publishes one.
+ */
+function anchorCoverPageShares(facts: RawFinancialFact[]): RawFinancialFact[] {
+  const reportingEnd = new Map<string, string>();
+  for (const fact of facts) {
+    if (!fact.start) continue;
+    const known = reportingEnd.get(fact.accession);
+    if (!known || fact.end > known) reportingEnd.set(fact.accession, fact.end);
+  }
+  return facts.map((fact) => {
+    if (fact.concept !== COVER_PAGE_SHARES || fact.start) return fact;
+    const end = reportingEnd.get(fact.accession);
+    // A cover is signed after the books close, never before. Anything else is
+    // not the shape this rule is about and is left exactly as filed.
+    if (!end || end >= fact.end) return fact;
+    return {
+      ...fact, end,
+      normalizationNote: `Cover-page share count stated as of ${fact.end}, the date the report was signed; read into the ${end} period that report covers.`,
+    };
+  });
 }
 
 /**

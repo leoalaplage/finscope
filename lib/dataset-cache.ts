@@ -99,6 +99,14 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v27: the count on the cover of a report is read into the period that report
+ * covers. It is dated the day the report was signed, so it matched no period
+ * and was dropped — and for the filers with several share classes, which tag
+ * their balance-sheet count per class, it is the only count that reaches this
+ * endpoint at all. An average over the whole year stood in for all of them:
+ * six per cent above the shares Booking actually has, and every multiple struck
+ * on it wrong by the same six per cent. The stored datasets carry the average.
+ *
  * v26: a split the filer declared nowhere is read from the filer restating its
  * own history. Booking split twenty-five for one and tagged no ratio, so its
  * share counts sat on two bases at once — 33 million diluted shares against a
@@ -127,7 +135,7 @@ import type { WatchlistSummary } from "./watchlist-summary";
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v26";
+export const KEY_VERSION = "v27";
 
 /**
  * Versions whose stored data may still be served while this one is being built.
