@@ -114,12 +114,31 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   // NVIDIA files 999m under both concepts for the same date, and treating the
   // second as separate short-term borrowing reported 9,467m of debt against the
   // 8,468m its own long-term-debt tag states.
-  longTermDebtCurrent: { namespace: "us-gaap", tags: ["LongTermDebtCurrent", "DebtCurrent"], unit: "currency" },
+  longTermDebtCurrent: { namespace: "us-gaap", tags: ["LongTermDebtCurrent", "DebtCurrent", "ConvertibleDebtCurrent"], unit: "currency" },
   // `LongTermDebtAndCapitalLeaseObligations` is the same balance with finance
   // leases folded in, and for many filers it is the only non-current figure in
   // the quarterly statements — Home Depot and AbbVie tag nothing else at their
   // latest balance-sheet date.
-  longTermDebtNoncurrent: { namespace: "us-gaap", tags: ["LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations"], unit: "currency" },
+  /*
+   * A convertible note is borrowing, and for a whole generation of filers it is
+   * the only borrowing there is.
+   *
+   * Cloudflare, Snowflake and Shopify fund themselves with converts and tag
+   * them under their own concepts — `ConvertibleDebtCurrent` and
+   * `ConvertibleDebtNoncurrent` — which this adapter did not read. So three
+   * companies carrying billions of notes came out with no debt balance at all,
+   * and with it no net debt, no enterprise value and no EV/EBITDA: Cloudflare
+   * has $3.27bn of them against $1.66bn of cash and the page said nothing.
+   * Every future company financed the same way arrived the same way.
+   *
+   * Last in each list, so a filer that publishes a conventional balance-sheet
+   * total keeps it: the conventional line is the whole of the debt where it
+   * exists, and the convertible concepts are read where nothing else is filed.
+   * Their current and non-current halves are separate balance-sheet lines and
+   * do not overlap, so the existing pair rule sums them exactly as it sums any
+   * other filer's two portions.
+   */
+  longTermDebtNoncurrent: { namespace: "us-gaap", tags: ["LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations", "ConvertibleDebtNoncurrent"], unit: "currency" },
   longTermDebtAndLeases: { namespace: "us-gaap", tags: ["LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent", "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"], unit: "currency" },
   otherLongTermDebt: { namespace: "us-gaap", tags: ["LongTermDebt", "ConvertibleLongTermNotesPayable", "UnsecuredLongTermDebt", "NotesPayable"], unit: "currency" },
   // A validation anchor, not a total-debt fallback. Its gross amount can prove
@@ -577,6 +596,33 @@ function combineDebtComponents(periods: FinancialPeriod[], businessType: Busines
       parts = [noncurrent];
       formula = "Non-current long-term debt as filed";
       excludes = "Current maturities and short-term borrowing are not separately tagged at this date and are not included.";
+    }
+    /*
+     * A balance sheet that says nothing is owed.
+     *
+     * Shopify repaid its convertible notes and its next annual report files the
+     * line at nought — which is a statement, not an absence. Without reading it
+     * the company had no debt balance at all from that day on, and the rule that
+     * carries the last filed borrowing forward then reached past the repayment
+     * to the year before it and reported nine hundred million of notes that no
+     * longer exist. Silently reverting a repayment is a far worse failure than
+     * withholding a figure.
+     *
+     * Narrow on purpose, and it has to be. This fires only where every
+     * borrowing concept the filer tags at this date is filed as zero: one
+     * non-zero balance anywhere sends the reading to a branch above, and a
+     * filer that tags no borrowing line at all still gets nothing, because an
+     * absent balance is not a zero one. That is the whole distinction this
+     * application is built on, and reading a filed nought is the other half of
+     * it rather than an exception to it.
+     */
+    if (!parts.length) {
+      const filed = [current, noncurrent, longTermCombined, otherLongTerm, shortTerm, financeLease]
+        .filter((fact): fact is NormalizedFact => fact?.value != null);
+      if (filed.length && filed.every((fact) => fact.value === 0)) {
+        parts = [filed[0]];
+        formula = "Every borrowing balance this filer tags at this date is filed as nought";
+      }
     }
     if (!parts.length && financeLease?.value != null) {
       // A finance lease is borrowing. Copart's latest annual balance sheet has

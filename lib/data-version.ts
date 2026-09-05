@@ -105,6 +105,15 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v28: a convertible note is read as the borrowing it is. Cloudflare,
+ * Snowflake and Shopify tag their notes under `ConvertibleDebtCurrent` and
+ * `ConvertibleDebtNoncurrent`, which this adapter did not read, so three
+ * companies carrying billions of them had no debt balance, no net debt, no
+ * enterprise value and no EV/EBITDA — Cloudflare has $3.27bn of notes against
+ * $1.66bn of cash. And a balance sheet where every borrowing line the filer
+ * tags is filed at nought is read as nought: Shopify repaid its notes and
+ * files the line at zero, which is a statement rather than an absence.
+ *
  * v27: the count on the cover of a report is read into the period that report
  * covers. It is dated the day the report was signed, so it matched no period
  * and was dropped — and for the filers with several share classes, which tag
@@ -141,4 +150,4 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v27";
+export const KEY_VERSION = "v28";
