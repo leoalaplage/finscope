@@ -2,7 +2,7 @@ import { z } from "zod";
 import { COMPANIES } from "../company-registry";
 import { adjustPeriodsForSplits, buildTtmPeriods, isAnnualForm, normalizeAnnualPeriods, normalizeQuarterlyPeriods } from "../periods";
 import { validateCompanyDataset } from "../data-quality";
-import { businessTypeFromSic, classifyBusiness, verifiedBusinessType } from "../business-type";
+import { businessTypeFromSic, classifyBusiness, isFinancialBusiness, verifiedBusinessType } from "../business-type";
 import type { BusinessType, CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "../types";
 
 const SecUnitSchema = z.object({
@@ -316,6 +316,59 @@ function ambiguousLongTermRole(periods: FinancialPeriod[]): AmbiguousLongTermRol
   }
   if (!votes.length) return null;
   return votes.every((vote) => vote === votes[0]) ? votes[0] : null;
+}
+
+/**
+ * Earnings before interest and taxes, where the filer publishes no subtotal.
+ *
+ * Exxon and Johnson & Johnson tag no operating income at all. Six measures rest
+ * on it — the operating margin, EBITDA, return on invested capital and its
+ * five-year average, net debt to EBITDA, and interest cover — so both came out
+ * of the screener unrated with barely half the data, while the two figures the
+ * subtotal is made of sat in the same filing.
+ *
+ * EBIT *is* pre-tax income plus interest expense: that is the definition, not
+ * an approximation, and it is addition on two published facts in one period.
+ * The result is marked calculated, carries the formula, and is never written
+ * where the filer published a subtotal of its own — a company that reports
+ * operating income keeps the one it reported, including when the two disagree,
+ * because the difference between them is other income and that is the filer's
+ * to state.
+ *
+ * A financial business gets none of this. A bank's interest expense is its cost
+ * of goods, so adding it back is not a measure of anything.
+ */
+function deriveOperatingIncome(periods: FinancialPeriod[], businessType: BusinessType | undefined): FinancialPeriod[] {
+  if (isFinancialBusiness(businessType)) return periods;
+  return periods.map((period) => {
+    if (period.facts.operatingIncome?.value != null) return period;
+    const pretax = period.facts.incomeBeforeTax;
+    const interest = period.facts.interestExpense;
+    if (pretax?.value == null || interest?.value == null) return period;
+    // Both halves have to describe the same window in the same money, or the
+    // sum is two different periods added together.
+    if (pretax.currency !== interest.currency || pretax.periodEnd !== interest.periodEnd) return period;
+    return {
+      ...period,
+      facts: {
+        ...period.facts,
+        operatingIncome: {
+          ...pretax,
+          metric: "operatingIncome",
+          value: pretax.value + Math.abs(interest.value),
+          provenance: {
+            ...pretax.provenance,
+            provider: "Calculated",
+            status: "calculated",
+            concept: `${pretax.provenance.concept} + ${interest.provenance.concept}`,
+            formula: "Income before tax + interest expense",
+            sourceAccessions: [...new Set([pretax.provenance.accession, interest.provenance.accession].filter((item): item is string => Boolean(item)))],
+            note: "The filer publishes no operating income subtotal for this period. Earnings before interest and taxes are struck from the two figures it does publish; nothing is estimated, and any other income the filer reports is inside this figure rather than outside it.",
+          },
+        },
+      },
+    };
+  });
 }
 
 function combineDebtComponents(periods: FinancialPeriod[], businessType: BusinessType | undefined): FinancialPeriod[] {
@@ -688,8 +741,8 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
   // count it produces is on the as-filed basis every other share fact starts
   // from and gets adjusted exactly once.
   const reconciled = reconcileDividendsPerShare(
-    combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.businessType),
-    combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.businessType),
+    deriveOperatingIncome(combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.businessType), company.businessType),
+    deriveOperatingIncome(combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.businessType), company.businessType),
   );
   // The hand-verified splits first; then any the filer declared that still
   // explain a break in what is left, which is what covers a company nobody

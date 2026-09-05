@@ -99,6 +99,11 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v24: where a filer publishes no operating income subtotal, earnings before
+ * interest and taxes are struck from the pre-tax income and the interest
+ * expense it does publish. Exxon and Johnson & Johnson tag no operating income
+ * at all, and six measures rest on it, so both scored on barely half their data.
+ *
  * v23: a quarter whose operating cash flow was genuinely negative is kept.
  *
  * It was being discarded as failed arithmetic, and a trailing figure needs all
@@ -109,7 +114,7 @@ import type { WatchlistSummary } from "./watchlist-summary";
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v23";
+export const KEY_VERSION = "v24";
 
 /**
  * Versions whose stored data may still be served while this one is being built.
