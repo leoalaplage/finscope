@@ -130,7 +130,7 @@ export function Compare({ initial }: { initial: string[] }) {
           setLoaded((current) => ({ ...current, [ticker]: { ticker, ...value } }));
         try {
           const [viewResponse, quoteResponse] = await Promise.all([
-            fetch(`/api/io/${encodeURIComponent(ticker)}?view=iov5`, { signal: controller.signal }),
+            fetch(`/api/io/${encodeURIComponent(ticker)}?view=iov6`, { signal: controller.signal }),
             fetch(`/api/io/${encodeURIComponent(ticker)}/quote`, { signal: controller.signal }),
           ]);
           if (viewResponse.status === 202) {

@@ -1,3 +1,4 @@
+import { balanceSheetIsTheBusiness } from "../business-type";
 import { validatedDerivedValue } from "../data-quality";
 import { currentDatasetPeriod } from "../current-period";
 import { netDebt as netDebtOf } from "../finance";
@@ -81,10 +82,34 @@ export interface IoCompanyView {
   ttm: IoPeriod | null;
   basis: IoValuationBasis | null;
   basisReason: string | null;
+  /** Why some measures are absent for this filer, when they are. */
+  withheldReason: string | null;
   warnings: string[];
 }
 
 const IO_METRIC_KEYS = Object.keys(METRICS);
+
+/**
+ * Measures a bank, a broker or an insurer is not given.
+ *
+ * Every one of them is struck on a boundary that does not exist at such a
+ * filer. Free cash flow subtracts capital expenditure from an operating cash
+ * flow that is mostly the movement of loans and deposits — JPMorgan's is
+ * *minus* a hundred and sixty billion, against two hundred billion of revenue.
+ * Net debt treats borrowings as leverage when they are the raw material. A
+ * return on invested capital divides by other people's money.
+ *
+ * The engine can compute all of them, and where a filer happens to tag a
+ * capital expenditure it did: Bank of America carried a free-cash-flow margin
+ * of 107% for 2009. A number that arrives only when an unrelated concept
+ * happens to be tagged is not a measure, it is an accident.
+ */
+const NOT_FOR_FINANCIALS = new Set([
+  "freeCashFlow", "freeCashFlowAfterSbc", "freeCashFlowPerShare", "freeCashFlowAfterSbcPerShare",
+  "freeCashFlowMargin", "freeCashFlowAfterSbcMargin", "operatingCashFlowMargin", "cashConversion",
+  "netDebt", "roic", "cashReturnOnCapital", "returnOnCapitalEmployed",
+  "investedCapital", "nopat", "capitalIntensity",
+]);
 
 /**
  * How far back the page goes.
@@ -130,9 +155,9 @@ function metricCatalogue(periods: IoPeriod[]): IoMetric[] {
     });
 }
 
-function projectPeriod(period: FinancialPeriod): IoPeriod {
+function projectPeriod(period: FinancialPeriod, withheld: ReadonlySet<string>): IoPeriod {
   const values: Record<string, number | null> = {};
-  for (const key of IO_METRIC_KEYS) values[key] = validatedDerivedValue(period, key, "validated");
+  for (const key of IO_METRIC_KEYS) values[key] = withheld.has(key) ? null : validatedDerivedValue(period, key, "validated");
   return {
     label: period.label,
     end: period.periodEnd,
@@ -154,7 +179,7 @@ function ordered(periods: FinancialPeriod[], periodicity: FinancialPeriod["perio
     .slice(-limit);
 }
 
-function valuationBasis(dataset: CompanyDataset): { basis: IoValuationBasis | null; reason: string | null } {
+function valuationBasis(dataset: CompanyDataset, withheld: ReadonlySet<string>): { basis: IoValuationBasis | null; reason: string | null } {
   const period = currentDatasetPeriod(dataset)
     ?? ordered(dataset.periods, "annual", 1).at(-1);
   if (!period) return { basis: null, reason: "No filed period carries a share count." };
@@ -167,7 +192,7 @@ function valuationBasis(dataset: CompanyDataset): { basis: IoValuationBasis | nu
       shares: count.shares,
       sharesBasis: count.basis,
       sharesNote: count.note ?? null,
-      netDebt: netDebtOf(period),
+      netDebt: withheld.has("netDebt") ? null : netDebtOf(period),
       periodEnd: period.periodEnd,
       periodLabel: period.label,
     },
@@ -176,11 +201,13 @@ function valuationBasis(dataset: CompanyDataset): { basis: IoValuationBasis | nu
 
 export function companyView(dataset: CompanyDataset): IoCompanyView {
   const current = currentDatasetPeriod(dataset);
-  const trailing = ordered(dataset.periods, "ttm", TTM_LIMIT).map(projectPeriod);
-  const annual = ordered(dataset.periods, "annual", ANNUAL_LIMIT).map(projectPeriod);
-  const quarterly = ordered(dataset.periods, "quarterly", QUARTERLY_LIMIT).map(projectPeriod);
+  const withheld = balanceSheetIsTheBusiness(dataset.company.businessType) ? NOT_FOR_FINANCIALS : new Set<string>();
+  const project = (period: FinancialPeriod) => projectPeriod(period, withheld);
+  const trailing = ordered(dataset.periods, "ttm", TTM_LIMIT).map(project);
+  const annual = ordered(dataset.periods, "annual", ANNUAL_LIMIT).map(project);
+  const quarterly = ordered(dataset.periods, "quarterly", QUARTERLY_LIMIT).map(project);
   const ttm = trailing.at(-1) ?? null;
-  const { basis, reason } = valuationBasis(dataset);
+  const { basis, reason } = valuationBasis(dataset, withheld);
   return {
     company: {
       ticker: dataset.company.ticker,
@@ -204,6 +231,9 @@ export function companyView(dataset: CompanyDataset): IoCompanyView {
     ttm,
     basis,
     basisReason: reason,
+    withheldReason: withheld.size
+      ? "Free cash flow, net debt and returns on invested capital are not stated for this filer: its operating cash flow is the movement of its own loans and deposits, and its borrowings are its raw material rather than its leverage."
+      : null,
     warnings: dataset.warnings.slice(0, 4),
   };
 }

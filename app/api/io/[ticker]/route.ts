@@ -27,8 +27,9 @@ import type { CompanyDataset } from "@/lib/types";
 // them, and lists only the measures a company actually has. iov5 stops
 // shipping the statement layout with every company — it is the shape of the
 // page, not a fact about a filer, and a new section stayed invisible for a day
-// behind the cache. Never serve an older shape to a client that asked for one.
-const VIEW_VERSION = "iov5";
+// behind the cache. iov6 withholds the measures a bank, broker or insurer has
+// no boundary for. Never serve an older shape to a client that asked for one.
+const VIEW_VERSION = "iov6";
 const VIEW_SECONDS = 86_400;
 
 const viewKey = (ticker: string) => `view:${VIEW_VERSION}.${KEY_VERSION}:${ticker.toUpperCase()}`;

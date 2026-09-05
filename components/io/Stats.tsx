@@ -97,9 +97,10 @@ export function Stats({ view, quote }: { view: IoCompanyView; quote: IoQuote | n
       ? `On ${period?.label ?? basis.periodLabel} · ${basis.shares.toLocaleString("en-US")} shares ${basis.sharesBasis === "outstanding" ? "outstanding" : basis.sharesBasis === "cover-date" ? "outstanding at the filing cover date" : "diluted weighted average"}`
       : null,
     !mismatch && !basis ? view.basisReason : null,
-    debtless && period?.values.totalDebt == null
+    view.withheldReason,
+    debtless && !view.withheldReason && period?.values.totalDebt == null
       ? "No enterprise value: the filer tags no borrowing balance at this date, and an absent balance is not a zero one."
-      : debtless
+      : debtless && !view.withheldReason
         ? "No enterprise value: the filer tags no cash balance at this date, so net debt cannot be struck."
         : null,
     ...[

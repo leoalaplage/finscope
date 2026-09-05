@@ -53,6 +53,29 @@ export function isFinancialBusiness(type: BusinessType | undefined): boolean {
   return type === "financial" || type === "bank" || type === "broker" || type === "exchange" || type === "insurer" || type === "holding";
 }
 
+/**
+ * Whether the balance sheet *is* the business.
+ *
+ * A narrower question than `isFinancialBusiness`, and a different one. A bank's
+ * operating cash flow is the movement of its loans and deposits, its borrowings
+ * are its raw material rather than its leverage, and its invested capital is
+ * other people's money — so free cash flow, net debt and every return struck on
+ * invested capital are not conservative estimates of anything, they are
+ * category errors. The same holds for a broker, whose customer balances swamp
+ * the statement, and for an insurer's float.
+ *
+ * An exchange is deliberately not on this list even though it is a financial
+ * business. Cboe earns fees, pays ordinary costs and buys ordinary equipment:
+ * its free cash flow is a real figure that happens to be noisy, because
+ * clearing margin moves through the same line. Noisy is a thing to read
+ * carefully; meaningless is a thing to withhold. A holding company is left off
+ * for the same reason — Berkshire's capital expenditure is railways and
+ * utilities, and it is exactly what it looks like.
+ */
+export function balanceSheetIsTheBusiness(type: BusinessType | undefined): boolean {
+  return type === "bank" || type === "broker" || type === "insurer" || type === "financial";
+}
+
 export function businessTypeLabel(type: BusinessType | undefined): string {
   switch (type) {
     case "bank": return "bank";

@@ -312,7 +312,7 @@ describe("the redesign", () => {
     // Up to three measures at once now, on at most two scales.
     expect(company).toContain("metricKeys={selectedMetrics}");
     expect(company).toContain("onSelect={selectMetric}");
-    expect(company).toContain("?view=iov5");
+    expect(company).toContain("?view=iov6");
     expect(multiples).toContain("view.trailing");
     expect(multiples).toContain("Show first 8");
     expect(multiples).toContain("Show all ${panels.length}");
