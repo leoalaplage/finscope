@@ -71,9 +71,6 @@ export function Score({ ticker }: { ticker: string }) {
         <div className="stat score-headline">
           <div className="label">Grade</div>
           <div className="stat-value score-grade" data-empty={!rated}>{score.grade}</div>
-          <div className="stat-note">
-            {rated ? `${write(score.total)} / 100` : `${percent(score.coverage, 0)} of the measures`}
-          </div>
         </div>
         {PILLARS.map((pillar) => (
           <div className="stat" key={pillar}>
