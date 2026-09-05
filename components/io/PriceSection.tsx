@@ -368,10 +368,21 @@ function MetricSection({
             Share price
           </button>
         ) : null}
+        {/*
+          * Two readings of the same lines, and one of them is always in force.
+          *
+          * "Start from 0" was a switch that named its own mechanism rather than
+          * what it gives you, and a switch that looks the same on and off is
+          * not a switch — the reader could not tell which of the two pictures
+          * they were looking at. A pair, with the one in force filled, says
+          * both things at once: what you are reading, and what the other option
+          * would be.
+          */}
         {drawn.length > 1 ? (
-          <button className="metric-toggle" type="button" aria-pressed={rebased} onClick={() => { onRebased(!rebased); setHover(null); }}>
-            Start from 0
-          </button>
+          <div className="seg">
+            <button type="button" aria-pressed={!rebased} onClick={() => { onRebased(false); setHover(null); }}>Values</button>
+            <button type="button" aria-pressed={rebased} onClick={() => { onRebased(true); setHover(null); }}>% change</button>
+          </div>
         ) : null}
         {offersFrequency(shown) ? (
           <div className="seg seg-frequency">
@@ -449,7 +460,7 @@ function MetricSection({
             <p className="stat-note" style={{ marginTop: 10 }}>
               Two scales: {scaleName(scales[0])} on the left, {scaleName(scales[1])} on the right. Where the lines cross
               means nothing — two independent axes can be slid past each other until any two series touch anywhere. Read
-              each line&rsquo;s own shape, or start them both from nought.
+              each line&rsquo;s own shape, or read them as % change instead.
             </p>
           ) : null}
         </>

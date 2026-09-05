@@ -375,6 +375,47 @@ describe("the redesign", () => {
     expect(css).toContain(".allocation-bar span { display: block; height: 100%; background: var(--plot); }");
   });
 
+  it("marks the leading figure in the rows where leading means something", () => {
+    const compare = readFileSync(new URL("../components/io/Compare.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    for (const metric of [
+      "revenue", "grossProfit", "operatingIncome", "ebitda", "incomeBeforeTax", "netIncome",
+      "grossMargin", "operatingMargin", "netMargin", "freeCashFlowMargin", "freeCashFlowAfterSbcMargin",
+      "roic", "cashReturnOnCapital",
+    ]) expect(compare, metric).toContain(`"${metric}"`);
+    // The two compared by how fast they compounded rather than by their level.
+    expect(compare).toContain('const LEADS_ON_GROWTH = new Set(["freeCashFlowPerShare", "freeCashFlowAfterSbcPerShare"]);');
+    // One company is not a comparison, and figures in two currencies are not
+    // larger or smaller than each other.
+    expect(compare).toContain("if (known.length < 2) return null;");
+    expect(compare).toContain("if (comparable && new Set(known.map((cell) => cell.currency)).size > 1) return null;");
+    expect(css).toContain('.sheet td[data-best="true"] { background: var(--ink); color: var(--inverse); }');
+  });
+
+  it("says which of the two readings of a chart is in force", () => {
+    const section = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    // The old switch named its own mechanism and looked identical on and off.
+    expect(section).not.toContain(">\n            Start from 0\n          </button>");
+    expect(section).toContain("aria-pressed={!rebased}");
+    expect(section).toContain(">Values</button>");
+    expect(section).toContain(">% change</button>");
+    // And a switch that is on is filled, not tinted by one step.
+    expect(css).toContain('.metric-toggle[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--inverse); }');
+  });
+
+  it("measures a book against the index it is always measured against", () => {
+    const portfolio = readFileSync(new URL("../components/io/Portfolio.tsx", import.meta.url), "utf8");
+    expect(portfolio).toContain('const BENCHMARK = { symbol: "^GSPC", label: "S&P 500" };');
+    // Both rebased from the same week, on the shares held today: the page says
+    // as much rather than passing it off as a record of what was traded.
+    expect(portfolio).toContain("rebasePair(withinWindow(whole, years), history.index)");
+    expect(portfolio).toContain("not a record of what was bought and");
+    // The history is fetched once and the window slices it.
+    expect(portfolio).toContain("}, [followed]);");
+    expect(portfolio).toContain("}, [history, followed, positions, span]);");
+  });
+
   it("wears a favicon drawn in the site's one ink", () => {
     const icon = readFileSync(new URL("../public/favicon.svg", import.meta.url), "utf8");
     expect(icon).not.toContain("#68C4FF");

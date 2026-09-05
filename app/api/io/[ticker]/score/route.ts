@@ -3,6 +3,7 @@ import { fetchQuotes } from "@/lib/adapters/quotes";
 import { fallbackSummaryKeys, summaryKey } from "@/lib/dataset-cache";
 import { qsTable, qsValuationColumns, type QsRow } from "@/lib/qs-export";
 import { screen } from "@/lib/qs/screener";
+import { asStrength, asWeakness } from "@/lib/qs/standing";
 import { TICKER_PATTERN } from "@/lib/market-profile";
 import { datasetCache } from "@/lib/runtime-env";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
@@ -66,8 +67,12 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       coverage: scored.couverture,
       alerts: scored.alertes_detail,
       pillars: scored.piliers,
-      strengths: scored.forces.map(([name]) => name),
-      weaknesses: scored.faiblesses.map(([name]) => name),
+      // Read as a statement about this company rather than as the virtue the
+      // criterion is named after: a company scored badly on long-term debt has
+      // a great deal of it, and saying its weakness is "low LT debt" says the
+      // opposite of the finding.
+      strengths: scored.forces.map(([name]) => asStrength(name)),
+      weaknesses: scored.faiblesses.map(([name]) => asWeakness(name)),
       valuation: scored.valuation,
     }, { headers: { "Cache-Control": `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=3600` } });
   } catch (error) {

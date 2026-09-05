@@ -2,14 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { KEY_VERSION } from "@/lib/data-version";
-import { concentration, valuePortfolio, weightBy, type Position, type ValuedPosition } from "@/lib/portfolio";
+import {
+  concentration, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, WINDOWS, withinWindow,
+  type Position, type SeriesPoint, type ValuedPosition, type WindowId,
+} from "@/lib/portfolio";
 import { qsTable, qsValuationColumns, type QsRow } from "@/lib/qs-export";
 import { screen, type ScoredCompany } from "@/lib/qs/screener";
 import { stated } from "@/lib/sector";
 import { summarySector, type WatchlistSummary } from "@/lib/watchlist-summary";
 import { parseHoldings, saveHoldings, useStoredHoldings, writeHoldings } from "./holdings";
+import { MultiLine } from "./Plot";
 import type { IoQuote } from "./quote";
-import { ABSENT, delta, direction, money, percent, price as writePrice, ratio } from "./format";
+import { ABSENT, delta, direction, money, percent, price as writePrice, ratio, shortDate } from "./format";
 
 /**
  * What you own, read through to the businesses underneath it.
@@ -28,6 +32,17 @@ import { ABSENT, delta, direction, money, percent, price as writePrice, ratio } 
 
 /** The one currency this page adds up in; a filer quoted in another is named. */
 const BASE_CURRENCY = "USD";
+
+/**
+ * The index a book is measured against, and how far back the prices are asked.
+ *
+ * One benchmark, and it is the one everybody means. Ten years of weekly closes
+ * is enough for every window offered and small enough to ask for in one go, so
+ * changing the window costs nothing: the whole history is already here and the
+ * page slices it.
+ */
+const BENCHMARK = { symbol: "^GSPC", label: "S&P 500" };
+const HISTORY_YEARS = 10;
 
 /**
  * What was fetched, and which book it was fetched for.
@@ -54,6 +69,9 @@ export function Portfolio() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [sort, setSort] = useState<"value" | "ticker">("value");
+  const [span, setSpan] = useState<WindowId>("5Y");
+  const [hover, setHover] = useState<number | null>(null);
+  const [history, setHistory] = useState<{ book: string; holdings: Record<string, SeriesPoint[]>; index: SeriesPoint[] } | null>(null);
 
   const followed = positions.map((position) => position.ticker).join(",");
   const feed = fetched.book === followed ? fetched : EMPTY_FEED;
@@ -91,6 +109,42 @@ export function Portfolio() {
       } catch {
         if (!controller.signal.aborted) setFetched({ book: followed, summaries: {}, quotes: {}, pending: tickers });
       }
+    })();
+    return () => controller.abort();
+  }, [followed]);
+
+  /*
+   * Ten years of weekly closes, for the book and for the index.
+   *
+   * Asked once and sliced locally, so moving the window is instant and costs
+   * the network nothing. Every one of these is a cache key the market endpoint
+   * already keeps warm — the same weekly series the company pages draw.
+   */
+  useEffect(() => {
+    if (!followed) return;
+    const controller = new AbortController();
+    const tickers = followed.split(",");
+    const today = new Date();
+    const from = new Date(today.getTime() - HISTORY_YEARS * 365.25 * 86_400_000);
+    const window = `frequency=weekly&start=${from.toISOString().slice(0, 10)}&end=${today.toISOString().slice(0, 10)}`;
+    const read = async (symbol: string): Promise<SeriesPoint[]> => {
+      try {
+        const response = await fetch(`/api/market/${encodeURIComponent(symbol)}?${window}`, { signal: controller.signal });
+        if (!response.ok) return [];
+        const body = await response.json() as { bars: Array<{ date: string; close: number | null }> };
+        // The split-adjusted close, which is what the shares held today were
+        // worth then. Neither line carries dividends, and the note says so.
+        return body.bars.flatMap((bar) => (bar.close != null && Number.isFinite(bar.close) ? [{ date: bar.date, value: bar.close }] : []));
+      } catch {
+        return [];
+      }
+    };
+    (async () => {
+      const [index, ...series] = await Promise.all([read(BENCHMARK.symbol), ...tickers.map(read)]);
+      if (controller.signal.aborted) return;
+      const holdings: Record<string, SeriesPoint[]> = {};
+      tickers.forEach((ticker, at) => { holdings[ticker] = series[at]; });
+      setHistory({ book: followed, holdings, index });
     })();
     return () => controller.abort();
   }, [followed]);
@@ -201,6 +255,42 @@ export function Portfolio() {
     return weight > 0 ? { value: total / weight, coverage: weight } : null;
   }, [valued, graded]);
 
+  /*
+   * The book against the index, both from a hundred at the same week.
+   *
+   * This is the book as it stands today, priced back through time — the shares
+   * held now, at the closes of every week since. It is not a record of what was
+   * bought and sold, and it does not pretend to be one: a return that depends
+   * on when each lot was bought is a different question, and answering it from
+   * a list of holdings would mean inventing the dates.
+   *
+   * Only weeks every holding traded on are used, because a portfolio line drawn
+   * while part of the portfolio did not exist is not a portfolio line. A
+   * company that listed two years ago therefore starts the picture, and the
+   * note under it says which one and when.
+   */
+  const against = useMemo(() => {
+    if (!history || history.book !== followed || !history.index.length) return null;
+    const years = WINDOWS.find((entry) => entry.id === span)?.years ?? 5;
+    const whole = portfolioSeries(positions, history.holdings);
+    const paired = rebasePair(withinWindow(whole, years), history.index);
+    if (paired.length < 2) return null;
+    const book = paired.map((point) => ({ date: point.date, value: point.portfolio }));
+    const index = paired.map((point) => ({ date: point.date, value: point.benchmark }));
+    return {
+      points: paired,
+      series: [{ label: "Portfolio", points: book }, { label: BENCHMARK.label, points: index }],
+      book: seriesStats(book),
+      index: seriesStats(index),
+      // What the window asked for against what the holdings can support.
+      short: Number.isFinite(years) && whole.length > 0 && paired[0].date > withinWindow(whole, years)[0].date,
+      youngest: [...positions]
+        .map((position) => ({ ticker: position.ticker, from: history.holdings[position.ticker]?.[0]?.date ?? null }))
+        .filter((entry): entry is { ticker: string; from: string } => entry.from != null)
+        .sort((left, right) => right.from.localeCompare(left.from))[0] ?? null,
+    };
+  }, [history, followed, positions, span]);
+
   const sectors = useMemo(
     () => weightBy(valued.positions, (position) => stated(position.sector) ?? "Not classified"),
     [valued],
@@ -297,6 +387,51 @@ export function Portfolio() {
 
           <section className="section">
             <div className="section-head">
+              <div className="readout">
+                {against ? (
+                  <>
+                    <span className="v">{delta(reading(against, hover).book)}</span>
+                    <span className="d">{hover != null && against.points[hover] ? shortDate(against.points[hover].date) : "Portfolio"}</span>
+                    <span className="readout-change">{delta(reading(against, hover).index)} {BENCHMARK.label}</span>
+                    {against.book.cagr != null ? <span className="readout-cagr">{delta(against.book.cagr)} a year</span> : null}
+                  </>
+                ) : (
+                  <span className="d">Against the {BENCHMARK.label}</span>
+                )}
+              </div>
+              <div className="seg">
+                {WINDOWS.map((entry) => (
+                  <button key={entry.id} type="button" aria-pressed={span === entry.id} onClick={() => { setSpan(entry.id); setHover(null); }}>
+                    {entry.id}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {against ? (
+              <>
+                <div className="price-frame">
+                  <MultiLine series={against.series} onHover={setHover} />
+                </div>
+                <p className="stat-note" style={{ marginTop: 10 }}>
+                  The book you hold today, priced back through every week since — not a record of what was bought and
+                  sold. Both lines start together at 100 and neither carries dividends.
+                  {against.short && against.youngest
+                    ? ` It starts on ${shortDate(against.points[0].date)}: ${against.youngest.ticker} has no price before ${shortDate(against.youngest.from)}, and a portfolio line drawn while part of the portfolio did not exist is not one.`
+                    : ""}
+                  {against.book.drawdown != null && against.book.drawdownDate != null
+                    ? ` Deepest fall from a peak inside the window: ${percent(Math.abs(against.book.drawdown), 1)}, to ${shortDate(against.book.drawdownDate)}.`
+                    : ""}
+                </p>
+              </>
+            ) : (
+              <p className="price-chart plot-empty num faint">
+                {history ? "Not enough shared price history to draw the book against the index." : "Reading prices"}
+              </p>
+            )}
+          </section>
+
+          <section className="section">
+            <div className="section-head">
               <h2 className="label">Holdings</h2>
               <div className="seg">
                 <button type="button" aria-pressed={sort === "value"} onClick={() => setSort("value")}>By value</button>
@@ -351,6 +486,18 @@ export function Portfolio() {
       ) : null}
     </main>
   );
+}
+
+/**
+ * Both lines at the cursor, as the change from the start of the window.
+ *
+ * Rebased to a hundred, so the reading is the level minus that hundred — the
+ * same arithmetic for the book and for the index, which is the whole point of
+ * rebasing them together.
+ */
+function reading(against: { points: Array<{ portfolio: number; benchmark: number }> }, hover: number | null) {
+  const point = (hover != null ? against.points[hover] : undefined) ?? against.points[against.points.length - 1];
+  return { book: point.portfolio / 100 - 1, index: point.benchmark / 100 - 1 };
 }
 
 function Stat({ label, value }: { label: string; value: string | null }) {
