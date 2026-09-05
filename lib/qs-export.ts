@@ -37,6 +37,7 @@ export const QS_COLUMNS = [
   "Gross Margin 5Yr Avg", "Shares Outstanding 5Y CAGR", "SBC to Revenue",
   "Net Debt / EBITDA", "EBIT / Interest Expense", "Current Ratio", "Long-term Debt to Assets", "OCF/Capex",
   "Revenue 5Y CAGR", "FCF 5Y CAGR", "Net Income 5Y CAGR",
+  "Revenue Per Share 5Y CAGR", "FCF Per Share 5Y CAGR",
   "EV/EBIT", "EV/FCF", "FCF Yield",
   "OCF", "Capex",
 ] as const;
@@ -149,6 +150,15 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
       "Revenue 5Y CAGR": percent(growth("revenue")),
       "FCF 5Y CAGR": percent(industrial(growth("freeCashFlow"))),
       "Net Income 5Y CAGR": percent(growth("netIncome")),
+      /*
+       * Per share, which is the half of growth a total hides.
+       *
+       * Both are scored — forty of the Growth pillar's hundred points — and
+       * neither had a column title, so no table could ever supply them and no
+       * company could ever earn them. FinScope has computed both all along.
+       */
+      "Revenue Per Share 5Y CAGR": percent(growth("revenuePerShare")),
+      "FCF Per Share 5Y CAGR": percent(industrial(growth("freeCashFlowPerShare"))),
 
       "OCF": billions(industrial(operatingCashFlow)),
       "Capex": billions(industrial(capex == null ? null : Math.abs(capex))),

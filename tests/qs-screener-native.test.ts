@@ -62,15 +62,25 @@ describe("scoring a table natively", () => {
     }
   });
 
-  it("reports the forward-looking metrics as missing rather than scoring them", () => {
-    // The application holds no analyst estimates and must not invent any. The
-    // engine drops the column and renormalises; the reader has to be told,
-    // because it makes the run incomparable with one where they were present.
+  it("reports the forward-looking metrics as missing without counting them against anyone", () => {
+    /*
+     * The application holds no analyst estimates and must not invent any. The
+     * reader still has to be told the column is absent, because it makes the
+     * run incomparable with one where it was present — so it stays in
+     * `missing`.
+     *
+     * What changed is that it no longer counts as a hole. A column no company
+     * in the universe carries is not missing data, it is a column this source
+     * does not produce, and charging every company for the same absence is how
+     * complete filers came out unrated: the two forward metrics alone are eight
+     * per cent of the weight, which put native coverage under the floor before
+     * any company-specific gap.
+     */
     const result = screen(TABLE);
     expect(result.missing).toContain("RevFwd3");
     expect(result.missing).toContain("FwdP_FCF");
-    expect(result.rows[0].couverture).toBeGreaterThan(0.75);
-    expect(result.rows[0].couverture).toBeLessThan(1);
+    expect(result.rows[0].couverture).toBe(1);
+    expect(result.rows[0].note).not.toBe("NR");
   });
 
   it("penalises alerts in the risk-adjusted score only", () => {

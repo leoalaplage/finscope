@@ -201,8 +201,12 @@ export function datasetKey(ticker: string) {
  * s7: the current period is the later of TTM and annual. A stale historical TTM
  *     no longer wins merely because one exists, so cached cards and QS rows use
  *     the same genuinely current period as the company page.
+ * s8: the screener row carries the five-year growth of revenue per share and of
+ *     free cash flow per share. Both are scored — forty of the Growth pillar's
+ *     hundred points — and neither had a column title, so no table could supply
+ *     them and no company could earn them. FinScope had computed both all along.
  */
-const SUMMARY_SHAPE = "s7";
+const SUMMARY_SHAPE = "s8";
 
 /**
  * The card-sized digest stored beside each dataset.

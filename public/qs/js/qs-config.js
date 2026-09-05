@@ -71,8 +71,15 @@ export const METRIQUES = [
   { cle: "NI5", pilier: "Growth", poids: 10, sens: "H",
     entetes: ["Res.net CAGR 5a (%)", "Net Income 5Y CAGR", "Net Income 5Y"] },
   // derivees : CAGR de la metrique corrige du CAGR du nombre d'actions
-  { cle: "RevPS5", pilier: "Growth", poids: 15, sens: "H", entetes: [] },
-  { cle: "FCFPS5", pilier: "Growth", poids: 25, sens: "H", entetes: [] },
+  { cle: "RevPS5", pilier: "Growth", poids: 15, sens: "H",
+    // Sans en-tete, cette metrique ne pouvait etre fournie par aucune source :
+    // ni une exportation collee, ni la table que FinScope genere. Elle pesait
+    // 15 points du pilier Growth qu'aucun titre ne pouvait jamais gagner.
+    entetes: ["CA/action CAGR 5a (%)", "Revenue Per Share 5Y CAGR", "Revenue per Share 5Y CAGR", "Revenue/Share 5Y CAGR"] },
+  { cle: "FCFPS5", pilier: "Growth", poids: 25, sens: "H",
+    // Idem, et c'est la metrique la plus lourde du pilier : la croissance du
+    // free cash flow par action est ce que la dilution rend visible ou non.
+    entetes: ["FCF/action CAGR 5a (%)", "FCF Per Share 5Y CAGR", "Free Cash Flow Per Share 5Y CAGR", "FCF/Share 5Y CAGR"] },
 
   // ---- VALUE ----
   { cle: "EV_EBIT", pilier: "Value", poids: 35, sens: "L",
