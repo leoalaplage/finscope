@@ -177,7 +177,7 @@ function ScoreDetail({ ticker, score }: { ticker: string; score: Scored }) {
       <div className="score-detail-head">
         <div>
           <div className="label">Score audit</div>
-          <p className="stat-note">{score.source} · {score.period.label} ending {score.period.end}</p>
+          <p className="stat-note">{score.period.label} ending {score.period.end}</p>
         </div>
         <span className="label">Model {score.modelVersion}</span>
       </div>
