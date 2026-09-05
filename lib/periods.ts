@@ -176,8 +176,37 @@ function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", 
  * The arithmetic then produces negative revenue or a negative share count. This
  * application shows a hole where it has no trustworthy value, so the hole is
  * what the reader gets.
+ *
+ * "Impossible" has to mean impossible, and it did not. Operating cash flow was
+ * on this list, and operating cash flow is negative all the time: a company
+ * burning cash has a negative quarter by definition, and an exchange has one
+ * whenever clearing members take margin back. Cboe files its cash flow
+ * cumulatively from January, so three of its four quarters are subtractions —
+ * and being negative, three of four were thrown away. A trailing figure needs
+ * all four, so the free cash flow of a profitable business disappeared from
+ * 2010 to 2026 with nothing on the page to say why. It was not the only one.
+ *
+ * What belongs here is a quantity that cannot be negative in any world: a
+ * revenue, a cost, a share count, a capital expenditure whose sign has already
+ * been normalized. Not a net flow, and not a balance that buybacks can push
+ * through zero.
  */
-const NEVER_NEGATIVE = new Set<MetricKey>(["revenue", "costOfRevenue", "basicShares", "dilutedShares", "sharesOutstanding", "totalEquity", "capitalExpenditures", "operatingCashFlow", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt", "debtInstrumentCarryingAmount", "shortTermBorrowings", "financeLeaseLiability", "totalLiabilities", "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable", "shortTermInvestments", "longTermInvestments", "researchAndDevelopment", "sellingGeneralAndAdministrative", "operatingExpenses"]);
+const NEVER_NEGATIVE = new Set<MetricKey>([
+  // Quantities, not net flows: none of these can be below nought in any world.
+  "revenue", "costOfRevenue", "researchAndDevelopment", "sellingGeneralAndAdministrative", "operatingExpenses",
+  "basicShares", "dilutedShares", "sharesOutstanding",
+  // Already normalized to a positive outflow magnitude, so a negative one is
+  // arithmetic that went wrong rather than a company that was paid to invest.
+  "capitalExpenditures",
+  // Balances that cannot go through zero. Total equity is deliberately absent:
+  // a company that has bought back more stock than it has retained earnings has
+  // negative book equity, and several large ones do.
+  "totalAssets", "goodwill", "intangibleAssets", "totalLiabilities",
+  "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt",
+  "debtInstrumentCarryingAmount", "shortTermBorrowings", "financeLeaseLiability",
+  "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable",
+  "shortTermInvestments", "longTermInvestments",
+]);
 function implausible(metric: MetricKey, value: number) {
   if (!Number.isFinite(value)) return true;
   if (WEIGHTED_SHARE_METRICS.includes(metric) || metric === "sharesOutstanding") return value <= 0;

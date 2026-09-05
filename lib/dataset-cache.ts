@@ -98,7 +98,18 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     $1.15, and Broadcom, Walmart, Lam Research, Alibaba, Canadian Pacific
  *     and Flowserve are restated onto one basis with it.
  */
-export const KEY_VERSION = "v22";
+/*
+ * v23: a quarter whose operating cash flow was genuinely negative is kept.
+ *
+ * It was being discarded as failed arithmetic, and a trailing figure needs all
+ * four quarters — so every company that burns cash in a quarter, and every
+ * exchange whose clearing balances swing through zero, lost years of free cash
+ * flow from the trailing series with nothing on the page saying why. Cboe lost
+ * sixteen of them. The stored datasets carry those holes, so they have to be
+ * built again; nothing may stand in for them, because standing in would serve
+ * the very figures this corrects.
+ */
+export const KEY_VERSION = "v23";
 
 /**
  * Versions whose stored data may still be served while this one is being built.

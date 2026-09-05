@@ -6,7 +6,7 @@ import { IO_SECTIONS } from "@/lib/io/sections";
 import { multipleOf } from "@/lib/market-basis";
 import { MultiLine, type Series } from "./Plot";
 import { Search } from "./Search";
-import { COMPARE_RANGES, fundamentalWindow, withinYears, type Range } from "./ranges";
+import { COMPARE_RANGES, fundamentalWindow, offersFrequency, withinYears, type Frequency, type Range } from "./ranges";
 import { growthOver } from "./Growth";
 import { ABSENT, delta, formatUnit, money, percent, price as writePrice, ratio, shortDate, type Unit } from "./format";
 import type { IoQuote } from "./quote";
@@ -95,6 +95,16 @@ export function Compare({ initial }: { initial: string[] }) {
   const [mode, setMode] = useState<"table" | "chart">("table");
   const [metricKey, setMetricKey] = useState("revenue");
   const [range, setRange] = useState<Range>("5Y");
+  /*
+   * Trailing figures unless the reader asks otherwise.
+   *
+   * A company page opens MAX on the annual series because a reader who chose
+   * MAX is asking for the record. A comparison is asking something else — which
+   * of these compounded, and how steadily — and the trailing series answers
+   * that with four observations a year instead of one. The switch is there for
+   * anyone who wants the filed years.
+   */
+  const [frequency, setFrequency] = useState<Frequency>("ttm");
   const [absolute, setAbsolute] = useState(false);
   const [hover, setHover] = useState<number | null>(null);
 
@@ -189,10 +199,18 @@ export function Compare({ initial }: { initial: string[] }) {
           </div>
           {/* One range for the page: it draws the chart and it is the window
               the table's growth block compounds over. */}
-          <div className="seg">
-            {COMPARE_RANGES.map((entry) => (
-              <button key={entry} type="button" aria-pressed={range === entry} onClick={() => setRange(entry)}>{entry}</button>
-            ))}
+          <div className="compare-windows">
+            {mode === "chart" && offersFrequency(range) ? (
+              <div className="seg">
+                <button type="button" aria-pressed={frequency === "ttm"} onClick={() => setFrequency("ttm")}>TTM</button>
+                <button type="button" aria-pressed={frequency === "annual"} onClick={() => setFrequency("annual")}>Yearly</button>
+              </div>
+            ) : null}
+            <div className="seg">
+              {COMPARE_RANGES.map((entry) => (
+                <button key={entry} type="button" aria-pressed={range === entry} onClick={() => setRange(entry)}>{entry}</button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -206,6 +224,7 @@ export function Compare({ initial }: { initial: string[] }) {
             metricKey={metricKey}
             onMetric={setMetricKey}
             range={range}
+            frequency={frequency}
             absolute={absolute}
             onAbsolute={setAbsolute}
             hover={hover}
@@ -329,6 +348,7 @@ function CompareChart({
   metricKey,
   onMetric,
   range,
+  frequency,
   absolute,
   onAbsolute,
   hover,
@@ -338,6 +358,7 @@ function CompareChart({
   metricKey: string;
   onMetric: (key: string) => void;
   range: Range;
+  frequency: Frequency;
   absolute: boolean;
   onAbsolute: (absolute: boolean) => void;
   hover: number | null;
@@ -361,7 +382,7 @@ function CompareChart({
   }, [offered]);
 
   const metric = offered.find((row) => row.key === metricKey) ?? offered[0] ?? null;
-  const window = fundamentalWindow(range);
+  const window = { ...fundamentalWindow(range), frequency };
   /*
    * A level is indexed; a rate is not.
    *

@@ -621,6 +621,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .compare-chart-head .seg-wrap { flex: 1; }
 /* The scale is a property of the chart, so it sits against the chart's edge. */
 .compare-scale { display: flex; justify-content: flex-end; margin-bottom: var(--u); }
+.compare-windows { display: flex; gap: calc(var(--u) * 2); flex-wrap: wrap; justify-content: flex-end; }
 
 /* Every line's figure at the cursor, because the reader is asking about all
    of them at once — which is the whole reason this page exists. */
