@@ -444,6 +444,21 @@ describe("the redesign", () => {
     expect(panel).toContain("valuePath(");
     expect(panel).toContain('{ label: "Value", points: path, area: true }');
     expect(panel).toContain("worth today's price in");
+    /*
+     * The one panel that explains itself, folded away.
+     *
+     * Everywhere else a label that needs a paragraph is a label that failed.
+     * This is a model rather than a filed fact, its inputs are the reader's,
+     * and a model nobody can follow is worse than no model — so the five lines
+     * exist, and they are behind a switch rather than in the way.
+     */
+    expect(panel).toContain('aria-expanded={guide}');
+    expect(panel).toContain('className="implied-guide"');
+    expect(panel).toContain("How to read this");
+    // And the control that needed naming is named: four bare percentages
+    // beside a heading are four percentages of nothing.
+    expect(panel).toContain("<span className=\"label\">Return you require</span>");
+    expect(css).toContain(".implied-guide {");
     expect(panel).not.toContain("That is the rate at which");
     expect(panel).not.toContain("Nothing on this page is a forecast");
   });

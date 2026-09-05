@@ -110,6 +110,7 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
    * claims.
    */
   const [view3, setView3] = useState<"cash" | "value">("cash");
+  const [guide, setGuide] = useState(false);
 
   const basis = view.basis;
   const freeCashFlow = latest(view, "freeCashFlow");
@@ -250,16 +251,56 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
 
   return (
     <section className="section implied" id="implied">
-      <div className="section-head">
+      <div className="section-head implied-head">
         <h2 className="label">What the price implies</h2>
-        <div className="seg">
-          {RATES.map((rate) => (
-            <button key={rate} type="button" aria-pressed={discountRate === rate} onClick={() => setDiscountRate(rate)}>
-              {percent(rate, 0)}
-            </button>
-          ))}
+        {/*
+          * The switch says what it switches.
+          *
+          * Four bare percentages beside a heading are four percentages of
+          * nothing: a reader cannot know they are being asked what return they
+          * want. Everywhere else on this site a control needs no label because
+          * its options name themselves — 1Y, TTM, Compare — and this is the one
+          * that does not.
+          */}
+        <div className="implied-rate-picker">
+          <span className="label">Return you require</span>
+          <div className="seg">
+            {RATES.map((rate) => (
+              <button key={rate} type="button" aria-pressed={discountRate === rate} onClick={() => setDiscountRate(rate)}>
+                {percent(rate, 0)}
+              </button>
+            ))}
+          </div>
         </div>
+        <button className="metric-toggle" type="button" aria-expanded={guide} onClick={() => setGuide(!guide)}>
+          {guide ? "Hide" : "How to read this"}
+        </button>
       </div>
+
+      {/*
+        * The one panel on this site that explains itself, and it has to.
+        *
+        * Everywhere else a figure is a filed fact under a label, and a label
+        * that needs a paragraph is a label that failed. This is not that: it is
+        * a model, its inputs are the reader's, and a model nobody can follow is
+        * worse than no model. So the explanation exists — five lines, one for
+        * each thing on screen — and it is folded away, because a reader who has
+        * understood it once should not be made to scroll past it for ever.
+        */}
+      {guide ? (
+        <dl className="implied-guide">
+          <dt className="label">Return you require</dt>
+          <dd>What you want to earn a year for owning this. The only figure here nobody filed — move it and every number below moves with it.</dd>
+          <dt className="label">Price asks</dt>
+          <dd>The growth in free cash flow that would make today&rsquo;s price exactly right, if you earn what you require. Read backwards from the price, never forecast.</dd>
+          <dt className="label">Delivered</dt>
+          <dd>What this company&rsquo;s free cash flow has actually compounded at, from its own filings, over the years they cover.</dd>
+          <dt className="label">Cash flow</dt>
+          <dd>Filed years are filled, the ten projected years are outlined. Choosing a row above draws that rate.</dd>
+          <dt className="label">Value</dt>
+          <dd>What the business is worth at each year end on that rate, against the flat line of what it costs today. Where they meet is the year it is worth what you would pay now.</dd>
+        </dl>
+      ) : null}
 
       {/* The comparison is also the control: choosing a row projects it. One
           vocabulary for both jobs, and every rate on offer is either the

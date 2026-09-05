@@ -796,6 +796,27 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * which of the three the chart is drawing. The one in force is told by weight:
  * its name goes to full ink and its bar to the ink the filed bars are drawn in.
  */
+.implied-head { flex-wrap: wrap; gap: calc(var(--u) * 3); }
+.implied-rate-picker { display: flex; align-items: center; gap: calc(var(--u) * 2); margin-inline-start: auto; }
+/*
+ * The explanation, when it is asked for.
+ *
+ * A definition list because that is what it is: the term as it appears on
+ * screen, and the one sentence that says what it means. Two columns where there
+ * is room, so the terms line up and the eye can find the one it came for.
+ */
+.implied-guide {
+  display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
+  gap: 7px calc(var(--u) * 4); margin: calc(var(--u) * 2) 0 calc(var(--u) * 4);
+  padding-block: calc(var(--u) * 3); border-block: 1px solid var(--line);
+}
+.implied-guide dt { color: var(--ink-2); }
+.implied-guide dd { margin: 0; font-size: var(--fs-sm); line-height: 1.5; color: var(--ink-2); }
+@media (max-width: 640px) {
+  .implied-guide { grid-template-columns: minmax(0, 1fr); gap: 2px calc(var(--u) * 4); }
+  .implied-guide dd { margin-bottom: 7px; }
+}
+
 .implied-row { width: 100%; text-align: left; border-radius: 0; }
 .implied-row:hover .allocation-name { color: var(--ink); }
 .implied-row[aria-pressed="true"] .allocation-name { color: var(--ink); }
