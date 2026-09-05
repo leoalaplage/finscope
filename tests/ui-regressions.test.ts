@@ -352,8 +352,8 @@ describe("the redesign", () => {
     // One voice for the table: the row labels are set in the same face as the
     // figures they key, not in the interface face.
     expect(io).toContain("text-align: left; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2);");
-    expect(io).toContain("min-height: 160px");
-    expect(io).toContain("height: 67px; margin-top: 10px");
+    expect(io).toContain("min-height: 190px");
+    expect(io).toContain("height: 97px; margin-top: 10px");
   });
 
   it("puts every destination in the bar, where a reader can find it", () => {

@@ -477,7 +477,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * cards each tinted differently is the dashboard this site exists not to be.
  */
 .multiple {
-  display: block; width: 100%; min-height: 160px; padding: 13px 14px 10px; min-width: 0; text-align: left;
+  display: block; width: 100%; min-height: 190px; padding: 13px 14px 10px; min-width: 0; text-align: left;
   background: var(--bg);
   transition: background .12s ease, box-shadow .12s ease;
 }
@@ -490,7 +490,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .multiple-value { display: block; font-family: var(--mono); font-size: var(--fs-lg); margin-top: 4px; white-space: nowrap; }
 .multiple-value[data-empty="true"] { color: var(--ink-3); }
 .multiple-cagr { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); }
-.multiple .plot { display: block; height: 67px; margin-top: 10px; }
+.multiple .plot { display: block; height: 97px; margin-top: 10px; }
 .multiple-span { display: flex; justify-content: space-between; margin-top: 5px; }
 
 /* --- Statement table ----------------------------------------------------- */
