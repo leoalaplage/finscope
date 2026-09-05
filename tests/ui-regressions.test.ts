@@ -387,12 +387,30 @@ describe("the redesign", () => {
     expect(portfolio).not.toContain("riskScore");
   });
 
+  it("carries the company you are reading to the screens that are about one", () => {
+    const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
+    const compare = readFileSync(new URL("../components/io/Compare.tsx", import.meta.url), "utf8");
+    const remembered = readFileSync(new URL("../components/io/remembered.ts", import.meta.url), "utf8");
+    const memory = readFileSync(new URL("../lib/io/last-company.ts", import.meta.url), "utf8");
+    // Compare and the DCF are about one company at a time, and the reader is
+    // usually already reading one: the bar takes it with them.
+    expect(shell).toContain('<a href={onCompany("/compare", held)}>Compare</a>');
+    expect(shell).toContain('<a href={onCompany("/dcf", held)}>DCF</a>');
+    // Read as a store, so the first client render matches the prerendered
+    // markup and the link fills in on the render after.
+    expect(remembered).toContain('useSyncExternalStore(subscribe, read, () => "")');
+    // A write in this tab is not a storage event, so the memory says so itself.
+    expect(memory).toContain('window.dispatchEvent(new Event("finscope:last-company"))');
+    // And a comparison of one says what it is waiting for.
+    expect(compare).toContain("Name a second company to read {tickers[0]} against.");
+  });
+
   it("gives the discounted cash flow a page that answers in one screen", () => {
     const page = readFileSync(new URL("../app/dcf/page.tsx", import.meta.url), "utf8");
     const dcf = readFileSync(new URL("../components/io/Dcf.tsx", import.meta.url), "utf8");
     const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
-    expect(shell).toContain('<a href="/dcf">DCF</a>');
+    expect(shell).toContain('>DCF</a>');
     // The company being valued is in the address, so a valuation can be sent.
     expect(page).toContain('export const dynamic = "force-static"');
     expect(dcf).toContain('url.searchParams.set("s", next)');
@@ -763,7 +781,7 @@ describe("the redesign", () => {
      * anybody who already knew they existed.
      */
     const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
-    expect(shell).toContain('href="/compare"');
+    expect(shell).toContain(">Compare</a>");
     expect(shell).toContain('href="/screener"');
     // Document navigation, like every other link here: it works with or
     // without hydration and every destination is prerendered.

@@ -6,7 +6,8 @@ import { IO_VIEW } from "@/lib/io/view-version";
 import { impliedGrowth, impliedReturn, presentValue } from "@/lib/io/implied-growth";
 import { ImpliedExpectations, type GrowthChoice } from "./ImpliedExpectations";
 import { Search } from "./Search";
-import { LAST_COMPANY_KEY, rememberCompany } from "@/lib/io/last-company";
+import { rememberCompany } from "@/lib/io/last-company";
+import { useRememberedCompany } from "./remembered";
 import { withinYears } from "./ranges";
 import type { IoQuote } from "./quote";
 import { ABSENT, datedCagrOf, delta, percent, price as writePrice } from "./format";
@@ -48,23 +49,6 @@ function subscribe(notify: () => void) {
   };
 }
 
-/*
- * The device's own memory, read as a store rather than copied into state.
- *
- * The same pattern the watchlist and the theme use: the value is somewhere
- * outside React, so React subscribes to it instead of holding a second copy
- * that an effect has to keep in step. The server's snapshot is empty, which is
- * what a prerendered document knows about this device.
- */
-function rememberedSubscribe(notify: () => void) {
-  window.addEventListener("storage", notify);
-  return () => window.removeEventListener("storage", notify);
-}
-
-function readRemembered() {
-  try { return localStorage.getItem(LAST_COMPANY_KEY)?.toUpperCase() ?? ""; } catch { return ""; }
-}
-
 /** The most recent period that reports a measure, and which one it was. */
 function latest(view: IoCompanyView, key: string): { value: number | null; period: IoPeriod | null } {
   const series = [...view.annual, ...view.trailing].sort((left, right) => left.end.localeCompare(right.end));
@@ -99,7 +83,7 @@ export function Dcf({ initial }: { initial: string }) {
    * first. Read once, after mount, because the document is a prerendered
    * constant and this is a fact about the device rather than about the page.
    */
-  const remembered = useSyncExternalStore(rememberedSubscribe, readRemembered, () => "");
+  const remembered = useRememberedCompany();
   const ticker = asked || remembered || initial;
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);

@@ -4,6 +4,7 @@
    required here while vinext's production RSC link bridge fails to hydrate. */
 
 import { useCallback, useSyncExternalStore } from "react";
+import { onCompany, useRememberedCompany } from "./remembered";
 import { Search } from "./Search";
 
 /**
@@ -68,6 +69,13 @@ function ThemeSwitch() {
 }
 
 export function Shell({ children, search = true }: { children: React.ReactNode; search?: boolean }) {
+  /*
+   * Two of these destinations are about a company, and the reader is usually
+   * already reading one. Carrying it means Compare opens holding that filer
+   * with a field to name the second, and the DCF opens on its valuation —
+   * rather than on three companies from a list and a first name in a registry.
+   */
+  const held = useRememberedCompany();
   return (
     <div className="io">
       <header className="bar">
@@ -86,9 +94,9 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
           <nav className="bar-nav">
             <a href="/market">Market</a>
             <a href="/company">Company</a>
-            <a href="/compare">Compare</a>
+            <a href={onCompany("/compare", held)}>Compare</a>
             <a href="/screener">Screener</a>
-            <a href="/dcf">DCF</a>
+            <a href={onCompany("/dcf", held)}>DCF</a>
             <a href="/portfolio">Portfolio</a>
           </nav>
           <ThemeSwitch />

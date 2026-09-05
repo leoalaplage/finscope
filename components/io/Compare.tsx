@@ -203,6 +203,16 @@ export function Compare({ initial }: { initial: string[] }) {
           {tickers.length < LIMIT ? <Search size="bar" onPick={add} /> : null}
         </div>
       </header>
+      {/*
+        * A comparison of one is a company page with fewer figures on it.
+        *
+        * The bar now opens this screen holding the filer the reader was just
+        * reading, which is the right thing to arrive with and only half of
+        * what they came for. One line, gone the moment a second name lands.
+        */}
+      {tickers.length === 1 ? (
+        <p className="stat-note compare-invite">Name a second company to read {tickers[0]} against.</p>
+      ) : null}
 
       <section className="section" style={{ borderTop: 0 }}>
         <div className="section-head">

@@ -796,6 +796,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * which of the three the chart is drawing. The one in force is told by weight:
  * its name goes to full ink and its bar to the ink the filed bars are drawn in.
  */
+.compare-invite { margin-top: calc(var(--u) * -2); }
+
 /* --- The DCF page -------------------------------------------------------- */
 
 .dcf-search { min-width: min(320px, 100%); }
