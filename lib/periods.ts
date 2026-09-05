@@ -1,11 +1,11 @@
 import type { FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "./types";
 
 export const FLOW_METRICS: MetricKey[] = [
-  "revenue", "grossProfit", "costOfRevenue", "operatingIncome", "netIncome", "operatingCashFlow",
+  "revenue", "grossProfit", "costOfRevenue", "directOperatingCosts", "directMaterialCosts", "costsAndExpenses", "operatingIncome", "netIncome", "operatingCashFlow",
   "capitalExpenditures", "stockBasedCompensation", "shareRepurchases", "shareIssuance",
   "acquisitions", "dividendsPaid",
   "incomeBeforeTax", "incomeTaxExpense", "depreciationAndAmortization",
-  "interestExpense", "dividendsPerShare",
+  "interestExpense", "interestPaid", "dividendsPerShare",
   "researchAndDevelopment", "sellingGeneralAndAdministrative", "operatingExpenses", "otherIncomeExpense",
   // Carried only so a share count can be recovered from it when the filer
   // publishes none; see recoverDilutedShares in the SEC adapter.
@@ -148,7 +148,7 @@ export function adjustPeriodsForSplits(periods: FinancialPeriod[], splits: Array
   });
 }
 
-const POSITIVE_OUTFLOW_METRICS = new Set<MetricKey>(["capitalExpenditures","acquisitions","shareRepurchases","dividendsPaid","interestExpense"]);
+const POSITIVE_OUTFLOW_METRICS = new Set<MetricKey>(["capitalExpenditures","acquisitions","shareRepurchases","dividendsPaid","interestExpense","interestPaid"]);
 export function normalizeFinancialSign(metric: MetricKey, value: number) { return POSITIVE_OUTFLOW_METRICS.has(metric) ? Math.abs(value) : value; }
 
 function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", fiscalQuarter?: "Q1" | "Q2" | "Q3" | "Q4"): NormalizedFact {
@@ -193,7 +193,7 @@ function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", 
  */
 const NEVER_NEGATIVE = new Set<MetricKey>([
   // Quantities, not net flows: none of these can be below nought in any world.
-  "revenue", "costOfRevenue", "researchAndDevelopment", "sellingGeneralAndAdministrative", "operatingExpenses",
+  "revenue", "costOfRevenue", "directOperatingCosts", "directMaterialCosts", "costsAndExpenses", "researchAndDevelopment", "sellingGeneralAndAdministrative", "operatingExpenses",
   "basicShares", "dilutedShares", "sharesOutstanding",
   // Already normalized to a positive outflow magnitude, so a negative one is
   // arithmetic that went wrong rather than a company that was paid to invest.

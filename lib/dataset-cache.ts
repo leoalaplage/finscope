@@ -99,6 +99,11 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v25: separately reported direct cost lines are reconciled into cost of
+ * revenue, a lone finance lease is accepted as the only filed debt balance,
+ * and clustered stock splits are recognized together. Copart needs all three
+ * corrections, so its cached statements must be rebuilt.
+ *
  * v24: where a filer publishes no operating income subtotal, earnings before
  * interest and taxes are struck from the pre-tax income and the interest
  * expense it does publish. Exxon and Johnson & Johnson tag no operating income
@@ -114,7 +119,7 @@ import type { WatchlistSummary } from "./watchlist-summary";
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v24";
+export const KEY_VERSION = "v25";
 
 /**
  * Versions whose stored data may still be served while this one is being built.

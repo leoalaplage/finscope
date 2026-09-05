@@ -66,6 +66,24 @@ describe("the watchlist as the screener's table", () => {
     expect(cheap["EV/EBIT"]).toBeCloseTo(1_200 / 300, 8);
   });
 
+  it("uses the latest filed annual debt when a TTM balance omits an immaterial lease", () => {
+    const annual = period("annual", "2025-12-31", { ...business, totalDebt: 3 });
+    const current = period("ttm", "2026-06-30", { ...business });
+    delete current.facts.totalDebt;
+    current.facts.interestPaid = {
+      ...current.facts.interestExpense!, metric: "interestPaid", value: 2,
+    };
+    delete current.facts.interestExpense;
+    const row = qsRow(dataset([annual, current]), 50).values;
+
+    expect(row["ROIC"]).not.toBeNull();
+    expect(row["Net Debt / EBITDA"]).toBeCloseTo((3 - 200) / 350, 8);
+    expect(row["Long-term Debt to Assets"]).toBeCloseTo(3 / 1_500, 8);
+    expect(row["EBIT / Interest Expense"]).toBe(150);
+    expect(row["EV/EBIT"]).not.toBeNull();
+    expect(row["EV/FCF"]).not.toBeNull();
+  });
+
   it("leaves the valuation columns empty without a price rather than guessing one", () => {
     const row = qsRow(company, null).values;
     for (const column of ["Market Cap", "EV/EBIT", "EV/FCF", "FCF Yield"]) expect(row[column]).toBeNull();

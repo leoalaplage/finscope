@@ -67,6 +67,19 @@ describe("splits declared by the filer", () => {
     expect(shares).toEqual([10_000, 10_080, 10_198, 10_296]);
   });
 
+  it("confirms two splits whose product explains one filing-to-filing break", () => {
+    const copartYears = [
+      year("2019-12-31", "2022-09-27", 240),
+      year("2020-12-31", "2023-09-28", 960),
+      year("2021-12-31", "2024-09-30", 970),
+    ];
+    const shares = sharesByYear("CPRT", copartYears, [
+      { date: "2022-10-03", value: 2 },
+      { date: "2023-08-04", value: 2 },
+    ]);
+    expect(shares).toEqual([960, 960, 970]);
+  });
+
   it("ignores a ratio repeated against every context that follows it", () => {
     // Tesla tags its ratio against each quarter end since the event. Only the
     // one with a break behind it is an event; the rest explain nothing.

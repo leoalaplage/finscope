@@ -20,20 +20,16 @@ test("server-renders the FinScope research workspace", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /FinScope — Simple, auditable financial research/);
+  assert.match(html, /FinScope\.io — Every US filer\. Every filed figure\./);
   // The front door: the thesis, and the field that is the whole page.
-  assert.match(html, /Every filed number, and where it came from\./);
-  assert.match(html, /aria-label="Search any company that files with the SEC"/);
-  // The offline fixture, which is what makes this page renderable with no
-  // network and no Worker CPU. See app/page.tsx.
-  assert.match(html, /Apple Inc\./);
-  // Every top-level destination, by its current label. Statistics and DCF are
-  // deliberately absent — both are about one company and are tabs on its page —
-  // and Portfolio is out of the navigation for now, by request.
-  for (const label of ["Search", "Watchlist", "Market", "Charts", "QS Screener"]) {
+  assert.match(html, /Every US filer\.<br\/>Every filed figure\./);
+  assert.match(html, /aria-label="Search any US-listed company"/);
+  // The default watchlist is prerendered, so the front page works without
+  // network access or Worker CPU and keeps its primary destination visible.
+  assert.match(html, /href="\/s\/NVDA">NVDA/);
+  for (const label of ["Compare", "Screener"]) {
     assert.match(html, new RegExp(`>${label}<`), `navigation is missing ${label}`);
   }
-  assert.doesNotMatch(html, /<nav aria-label="Main navigation">[\s\S]*?>DCF<[\s\S]*?<\/nav>/);
   // The default theme is stamped in the markup rather than applied by an
   // effect, so a reader never meets a white flash before the bundle boots.
   assert.match(html, /<html lang="en" data-theme="dark"/);

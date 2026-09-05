@@ -91,6 +91,45 @@ describe("verified economic classification", () => {
     expect(annual.facts.totalDebt?.value).toBeCloseTo(3_468.6, 10);
   });
 
+  it("uses a lone finance-lease liability as the only filed debt balance", () => {
+    const dataset = normalizeSecPayload(payload({
+      FinanceLeaseLiability: point(2_705, "Finance lease liability"),
+    }), "CPRT", "2026-08-31T00:00:00.000Z", profile("CPRT", "0000900075"));
+    const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
+
+    expect(annual.facts.totalDebt?.value).toBe(2_705);
+    expect(annual.facts.totalDebt?.provenance.concept).toBe("us-gaap:FinanceLeaseLiability");
+    expect(annual.facts.totalDebt?.provenance.note).toContain("no conventional borrowing");
+  });
+
+  it("reconciles two separately filed direct-cost lines before deriving cost of revenue", () => {
+    const dataset = normalizeSecPayload(payload({
+      OperatingIncomeLoss: flow(380, "Operating income"),
+      DirectOperatingCosts: flow(450, "Facility operations"),
+      CostDirectMaterial: flow(100, "Cost of vehicle sales"),
+      GeneralAndAdministrativeExpense: flow(70, "General and administrative"),
+      CostsAndExpenses: flow(620, "Costs and expenses"),
+    }), "CPRT", "2026-08-31T00:00:00.000Z", profile("CPRT", "0000900075"));
+    const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
+
+    expect(annual.facts.costOfRevenue?.value).toBe(550);
+    expect(annual.facts.costOfRevenue?.provenance.formula).toBe("Direct operating costs + Direct material costs");
+    expect(derivedValue(annual, "grossMargin")).toBeCloseTo(.45, 8);
+  });
+
+  it("does not combine similarly named direct costs when the statement does not reconcile", () => {
+    const dataset = normalizeSecPayload(payload({
+      OperatingIncomeLoss: flow(300, "Operating income"),
+      DirectOperatingCosts: flow(450, "Direct operating costs"),
+      CostDirectMaterial: flow(100, "Direct material costs"),
+      GeneralAndAdministrativeExpense: flow(70, "General and administrative"),
+      CostsAndExpenses: flow(700, "Costs and expenses"),
+    }), "TEST", "2026-08-31T00:00:00.000Z", profile("TEST", "0000000001"));
+    const annual = dataset.periods.find((period) => period.periodicity === "annual")!;
+
+    expect(annual.facts.costOfRevenue).toBeUndefined();
+  });
+
   it("reads a lone long-term line as the debt total, and names what it leaves out", () => {
     /*
      * This used to be refused. A sweep of 110 US filers found 27% with no debt

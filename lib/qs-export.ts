@@ -57,6 +57,42 @@ const ratio = (value: number | null) => value == null || !Number.isFinite(value)
 const over = (numerator: number | null, denominator: number | null) =>
   numerator == null || denominator == null || denominator <= 0 ? null : numerator / denominator;
 
+/**
+ * The most recent debt balance the filer actually stated.
+ *
+ * TTM periods end on a quarterly balance sheet. An immaterial borrowing can
+ * disappear into a combined line there even though the annual lease note
+ * states it exactly. For scoring only, use the latest annual debt balance when
+ * the newer period has none; this is preferable to both inventing a zero and
+ * withholding every measure that depends on debt. All other current balances
+ * and TTM flows remain current.
+ */
+function reportedDebt(dataset: CompanyDataset, current: FinancialPeriod | null): number | null {
+  const currentDebt = current ? valueOf(current, "totalDebt") : null;
+  if (currentDebt != null) return currentDebt;
+  return ordered(dataset, "annual")
+    .filter((period) => !current || period.periodEnd <= current.periodEnd)
+    .reverse()
+    .map((period) => valueOf(period, "totalDebt"))
+    .find((value): value is number => value != null) ?? null;
+}
+
+function scoreNetDebt(dataset: CompanyDataset, current: FinancialPeriod | null): number | null {
+  const debt = reportedDebt(dataset, current);
+  const cash = current ? valueOf(current, "cashAndEquivalents") : null;
+  return debt == null || cash == null ? null : debt - cash;
+}
+
+function scoreRoic(dataset: CompanyDataset, current: FinancialPeriod | null): number | null {
+  if (!current) return null;
+  const debt = reportedDebt(dataset, current);
+  const equity = valueOf(current, "totalEquity");
+  const cash = valueOf(current, "cashAndEquivalents");
+  const nopat = derivedValue(current, "nopat");
+  const invested = debt == null || equity == null || cash == null ? null : debt + equity - cash;
+  return over(nopat, invested);
+}
+
 export interface QsRow { ticker: string; values: Record<string, number | string | null> }
 
 /**
@@ -79,7 +115,7 @@ export function qsPriceInputs(dataset: CompanyDataset): QsPriceInputs {
     // Carried so the client can refuse to divide a price quoted in one
     // currency into a statement kept in another.
     currency: current?.currency ?? null,
-    netDebt: financial ? null : current ? derivedValue(current, "netDebt") : null,
+    netDebt: financial ? null : scoreNetDebt(dataset, current),
     operatingIncome: current ? derivedValue(current, "operatingIncome") : null,
     freeCashFlow: financial ? null : current ? derivedValue(current, "freeCashFlow") : null,
   };
@@ -116,6 +152,10 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
 
   const operatingCashFlow = now("operatingCashFlow");
   const capex = now("capitalExpenditures");
+  const debt = reportedDebt(dataset, current);
+  const netDebt = scoreNetDebt(dataset, current);
+  const ebitda = now("ebitda");
+  const interest = now("interestExpense") ?? now("interestPaid");
   const growth = (metric: string) => cagrForPeriods(annual, metric, 5).value;
   // The current ratio is not a derived metric but a balance-sheet health
   // question, so it comes from the panel that answers it rather than from a
@@ -128,7 +168,7 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
       "Ticker": dataset.company.ticker,
       "Sector": dataset.company.sector,
 
-      "ROIC": percent(industrial(now("roic"))),
+      "ROIC": percent(industrial(scoreRoic(dataset, current))),
       "ROIC 5Yr Avg": percent(industrial(fiveYearAverage(annual, "roic"))),
       "Operating Margin": percent(now("operatingMargin")),
       "FCF Margin 5Yr Avg": percent(industrial(fiveYearAverage(annual, "freeCashFlowMargin"))),
@@ -137,14 +177,14 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
       "Shares Outstanding 5Y CAGR": percent(growth("dilutedShares")),
       "SBC to Revenue": percent(now("stockBasedCompensationToRevenue")),
 
-      "Net Debt / EBITDA": ratio(industrial(health("netDebtToEbitda"))),
-      "EBIT / Interest Expense": ratio(now("interestCoverage")),
+      "Net Debt / EBITDA": ratio(industrial(over(netDebt, ebitda))),
+      "EBIT / Interest Expense": ratio(over(now("operatingIncome"), interest)),
       "Current Ratio": ratio(health("currentRatio")),
       // The registry carries one total borrowing, not a maturity split, so this
       // is total debt over total assets and is labelled as the column the
       // screener knows. Overstating the long-term share would flatter no one:
       // the metric scores lower the higher it is.
-      "Long-term Debt to Assets": ratio(industrial(over(valueOf(current ?? annual.at(-1) ?? ({} as FinancialPeriod), "totalDebt"), now("totalAssets")))),
+      "Long-term Debt to Assets": ratio(industrial(over(debt, now("totalAssets")))),
       "OCF/Capex": ratio(industrial(over(operatingCashFlow, capex == null ? null : Math.abs(capex)))),
 
       "Revenue 5Y CAGR": percent(growth("revenue")),

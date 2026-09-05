@@ -30,6 +30,12 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   revenue: { namespace: "us-gaap", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "Revenues", "SalesRevenueNet", "RevenuesNetOfInterestExpense"], unit: "currency" },
   grossProfit: { namespace: "us-gaap", tags: ["GrossProfit"], unit: "currency" },
   costOfRevenue: { namespace: "us-gaap", tags: ["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSold"], unit: "currency" },
+  // Some service businesses split their direct cost base across two lines.
+  // They are kept separate here and combined only after the sum reconciles to
+  // the filer's own total costs and operating income; see deriveCostOfRevenue.
+  directOperatingCosts: { namespace: "us-gaap", tags: ["DirectOperatingCosts"], unit: "currency" },
+  directMaterialCosts: { namespace: "us-gaap", tags: ["CostDirectMaterial"], unit: "currency" },
+  costsAndExpenses: { namespace: "us-gaap", tags: ["CostsAndExpenses", "OperatingCostsAndExpenses"], unit: "currency" },
   operatingIncome: { namespace: "us-gaap", tags: ["OperatingIncomeLoss"], unit: "currency" },
   // Preference order matters here. NetIncomeLoss is income attributable to the
   // parent; ProfitLoss is consolidated and includes noncontrolling interests.
@@ -142,6 +148,10 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   // Deliberately not InterestIncomeExpenseNet: a net figure nets interest
   // earned against interest paid, and coverage asks what the debt costs.
   interestExpense: { namespace: "us-gaap", tags: ["InterestExpense", "InterestExpenseDebt", "InterestExpenseNonoperating"], unit: "currency" },
+  // Kept distinct from accrued interest expense. It is nevertheless an exact
+  // fallback for the Quality Score's burden ratio when a debt-free filer puts
+  // only the cash payment in its statement of cash flows.
+  interestPaid: { namespace: "us-gaap", tags: ["InterestPaidNet", "InterestPaid"], unit: "currency" },
   dividendsPerShare: { namespace: "us-gaap", tags: ["CommonStockDividendsPerShareDeclared", "CommonStockDividendsPerShareCashPaid"], unit: "perShare" },
   // Balance-sheet detail, carried so a statement can be drawn as a flow rather
   // than only totalled. Every one of these is optional: a filer that omits a
@@ -371,6 +381,54 @@ function deriveOperatingIncome(periods: FinancialPeriod[], businessType: Busines
   });
 }
 
+/**
+ * Rebuilds a cost-of-revenue subtotal from separately filed direct costs.
+ *
+ * Copart stopped tagging one generic cost-of-revenue line in 2020. It still
+ * publishes both constituents — facility operations and vehicle costs — plus
+ * total costs, G&A and operating income. The two direct lines are summed only
+ * when both independent income-statement identities reconcile within filing
+ * rounding. This prevents similarly named concepts from being combined for a
+ * filer whose presentation gives them a different scope.
+ */
+function deriveCostOfRevenue(periods: FinancialPeriod[]): FinancialPeriod[] {
+  const agrees = (left: number, right: number) => Math.abs(left - right) <= Math.max(Math.abs(right) * .005, 1);
+  return periods.map((period) => {
+    if (period.facts.costOfRevenue?.value != null) return period;
+    const direct = period.facts.directOperatingCosts;
+    const materials = period.facts.directMaterialCosts;
+    const total = period.facts.costsAndExpenses;
+    const sga = period.facts.sellingGeneralAndAdministrative;
+    const revenue = period.facts.revenue;
+    const operating = period.facts.operatingIncome;
+    const facts = [direct, materials, total, sga, revenue, operating];
+    if (facts.some((fact) => fact?.value == null)) return period;
+    if (facts.some((fact) => fact!.currency !== period.currency || fact!.periodEnd !== period.periodEnd)) return period;
+
+    const value = Math.abs(direct!.value!) + Math.abs(materials!.value!);
+    const totalValue = Math.abs(total!.value!);
+    if (!agrees(value + Math.abs(sga!.value!), totalValue) || !agrees(revenue!.value! - operating!.value!, totalValue)) return period;
+
+    return {
+      ...period,
+      facts: {
+        ...period.facts,
+        costOfRevenue: {
+          ...direct!, metric: "costOfRevenue", value,
+          provenance: {
+            ...direct!.provenance,
+            provider: "Calculated", status: "calculated",
+            concept: `${direct!.provenance.concept} + ${materials!.provenance.concept}`,
+            formula: "Direct operating costs + Direct material costs",
+            sourceAccessions: [...new Set(facts.flatMap((fact) => fact!.provenance.sourceAccessions ?? [fact!.provenance.accession ?? ""]).filter(Boolean))],
+            note: "The filer publishes its cost base in two direct-cost lines. Their sum is used only because it reconciles both to total costs less G&A and to revenue less operating income.",
+          },
+        },
+      },
+    };
+  });
+}
+
 function combineDebtComponents(periods: FinancialPeriod[], businessType: BusinessType | undefined): FinancialPeriod[] {
   const longTermRole = ambiguousLongTermRole(periods);
   return periods.map((period) => {
@@ -471,6 +529,15 @@ function combineDebtComponents(periods: FinancialPeriod[], businessType: Busines
       parts = [noncurrent];
       formula = "Non-current long-term debt as filed";
       excludes = "Current maturities and short-term borrowing are not separately tagged at this date and are not included.";
+    }
+    if (!parts.length && financeLease?.value != null) {
+      // A finance lease is borrowing. Copart's latest annual balance sheet has
+      // no conventional debt line and files this exact liability on its own;
+      // refusing the only borrowing it reports made every debt-based measure
+      // disappear even though the balance itself was present.
+      parts = [financeLease];
+      formula = "Finance lease liability as filed";
+      excludes = "The filer tags no conventional borrowing balance at this date.";
     }
     if (!parts.length) return period;
     // A single filed balance is not a calculation, so it keeps its own
@@ -713,18 +780,35 @@ export function confirmedStockSplits(candidates: Array<{ date: string; ratio: nu
     .filter((item): item is { filed: string; shares: number } => item.shares != null && item.shares > 0 && Boolean(item.filed))
     .sort((left, right) => left.filed.localeCompare(right.filed));
   const confirmed: Array<{ date: string; ratio: number }> = [];
+  // More than one split can occur between two annual filings. Copart had two
+  // 2-for-1 events before its next comparable share count, so neither event
+  // individually explained the observed fourfold step. Confirm the cluster
+  // when the product of the filed ratios explains one adjacent break.
+  for (let index = 1; index < series.length; index++) {
+    const before = series[index - 1]; const after = series[index];
+    if (before.filed === after.filed) continue;
+    const between = candidates.filter((candidate) => candidate.date > before.filed && candidate.date <= after.filed);
+    if (between.length < 2) continue;
+    const filedRatio = between.reduce((product, event) => product * event.ratio, 1);
+    if (Math.abs((after.shares / before.shares) / filedRatio - 1) <= .08) {
+      for (const event of between) if (!confirmed.some((item) => item.date === event.date)) confirmed.push(event);
+    }
+  }
   for (const candidate of [...candidates].sort((left, right) => left.date.localeCompare(right.date))) {
+    if (confirmed.some((event) => event.date === candidate.date)) continue;
     const before = series.filter((item) => item.filed < candidate.date).at(-1);
     const after = series.find((item) => item.filed >= candidate.date);
     if (!before || !after) continue;
     const observed = after.shares / before.shares;
     // Everything already confirmed has been applied to the earlier side, so a
     // second candidate for the same event no longer has a break to explain.
-    const outstanding = confirmed.reduce((product, event) => product * event.ratio, 1);
+    const outstanding = confirmed
+      .filter((event) => event.date > before.filed && event.date <= after.filed)
+      .reduce((product, event) => product * event.ratio, 1);
     if (Math.abs(observed / (candidate.ratio * outstanding) - 1) > .08) continue;
     confirmed.push(candidate);
   }
-  return confirmed;
+  return confirmed.sort((left, right) => left.date.localeCompare(right.date));
 }
 
 export function normalizeSecPayload(payload: unknown, ticker: string, retrievedAt = new Date().toISOString(), resolvedCompany?: CompanyDataset["company"]): CompanyDataset {
@@ -741,8 +825,8 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
   // count it produces is on the as-filed basis every other share fact starts
   // from and gets adjusted exactly once.
   const reconciled = reconcileDividendsPerShare(
-    deriveOperatingIncome(combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.businessType), company.businessType),
-    deriveOperatingIncome(combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.businessType), company.businessType),
+    deriveCostOfRevenue(deriveOperatingIncome(combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.businessType), company.businessType)),
+    deriveCostOfRevenue(deriveOperatingIncome(combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.businessType), company.businessType)),
   );
   // The hand-verified splits first; then any the filer declared that still
   // explain a break in what is left, which is what covers a company nobody

@@ -111,7 +111,7 @@ describe("gross profit where the filer publishes no subtotal", () => {
 
   it("stays unavailable where the filer reports no cost of revenue at all", () => {
     // Visa, Mastercard, Booking, S&P Global, CME, Interactive Brokers, MSCI
-    // and Copart present operating expenses by function with no cost-of-sales
+    // and MSCI present operating expenses by function with no cost-of-sales
     // line. There is nothing to subtract, and inventing a zero would state a
     // 100% gross margin as though it had been filed.
     const noCost = period({ revenue: fact("revenue", 1_000) });
