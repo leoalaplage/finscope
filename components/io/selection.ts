@@ -44,3 +44,23 @@ export function axesFor(metrics: string[], unitOf: (key: string) => string | nul
     axisOf: (key) => (units.indexOf(unitOf(key) ?? units[0] ?? "") === 1 ? 1 : 0),
   };
 }
+
+
+/**
+ * Two measures read from the same starting point.
+ *
+ * Absolute levels on two axes show each line's own shape but say nothing about
+ * which one moved further: the answer depends entirely on where the two scales
+ * were placed. Rebasing every series to nought at the start of the window
+ * answers that question instead — both lines begin together, the axis is one
+ * axis, and what is being compared is the change rather than the size.
+ *
+ * A base at or below zero has no percentage change to state — a measure that
+ * began at a loss cannot be said to have grown by a proportion of it — so that
+ * series is dropped rather than drawn from an arbitrary floor.
+ */
+export function fromBase(points: Array<{ date: string; value: number }>): Array<{ date: string; value: number }> {
+  const base = points[0]?.value;
+  if (base == null || base <= 0) return [];
+  return points.map((point) => ({ date: point.date, value: point.value / base - 1 }));
+}

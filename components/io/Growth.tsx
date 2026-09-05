@@ -53,7 +53,15 @@ export function growthOver(
     : datedCagrOf(points);
 }
 
-export function Growth({ view }: { view: IoCompanyView }) {
+export function Growth({
+  view,
+  selected,
+  onSelect,
+}: {
+  view: IoCompanyView;
+  selected: string[];
+  onSelect: (metric: string) => void;
+}) {
   const metrics = useMemo(() => new Map(view.metrics.map((metric) => [metric.key, metric])), [view.metrics]);
   const rows = MEASURES.map((key) => metrics.get(key)).filter((metric): metric is NonNullable<typeof metric> => metric != null);
 
@@ -75,8 +83,15 @@ export function Growth({ view }: { view: IoCompanyView }) {
           </thead>
           <tbody>
             {rows.map((metric) => (
-              <tr key={metric.key}>
-                <th className="key" scope="row">{metric.label}</th>
+              <tr key={metric.key} data-selected={selected.includes(metric.key)}>
+                <th className="key" scope="row">
+                  {/* The label is the control here too: a reader who has found
+                      the rate they care about wants to see the line it came
+                      from, not to hunt for the same measure twice. */}
+                  <button type="button" className="key-open" onClick={() => onSelect(metric.key)} aria-pressed={selected.includes(metric.key)}>
+                    {metric.label}
+                  </button>
+                </th>
                 {HORIZONS.map((horizon) => {
                   const rate = growthOver(view.annual, metric.key, metric.unit as Unit, horizon.years);
                   return (

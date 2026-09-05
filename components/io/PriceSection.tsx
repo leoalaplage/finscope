@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { axisExtents, Figure, MultiAxis, type AxisSeries, type PricePoint } from "./Plot";
-import { axesFor } from "./selection";
+import { axesFor, fromBase } from "./selection";
 import { fundamentalWindow, METRIC_RANGES, metricRange, offersFrequency, priceWindow, RANGES, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate, type Unit } from "./format";
 
@@ -32,6 +32,8 @@ export function PriceSection({
   onRange,
   frequency,
   onFrequency,
+  rebased,
+  onRebased,
 }: {
   ticker: string;
   currency: string;
@@ -42,6 +44,8 @@ export function PriceSection({
   onRange: (range: Range) => void;
   frequency: Frequency;
   onFrequency: (frequency: Frequency) => void;
+  rebased: boolean;
+  onRebased: (rebased: boolean) => void;
 }) {
   /*
    * The anchor sits on a wrapper that outlives the swap.
@@ -64,6 +68,8 @@ export function PriceSection({
             onRange={onRange}
             frequency={frequency}
             onFrequency={onFrequency}
+            rebased={rebased}
+            onRebased={onRebased}
           />
         )
         : <MarketPriceSection ticker={ticker} currency={currency} range={range} onRange={onRange} />}
@@ -164,6 +170,8 @@ function MetricSection({
   onRange,
   frequency,
   onFrequency,
+  rebased,
+  onRebased,
 }: {
   view: IoCompanyView;
   metricKeys: string[];
@@ -172,6 +180,8 @@ function MetricSection({
   onRange: (range: Range) => void;
   frequency: Frequency;
   onFrequency: (frequency: Frequency) => void;
+  rebased: boolean;
+  onRebased: (rebased: boolean) => void;
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const chosen = useMemo(
@@ -195,11 +205,21 @@ function MetricSection({
   const writeWith = (unit: string) => (value: number) => formatUnit(value, unit as Unit, currency);
 
   const { units, axisOf } = axesFor(metricKeys, (key) => chosen.find((item) => item.key === key)?.unit ?? null);
-  // Three measures over at most eighty periods: cheaper to walk than to
-  // remember, and remembering it correctly would need a key made of both.
+  /*
+   * Three measures over at most eighty periods: cheaper to walk than to
+   * remember, and remembering it correctly would need a key made of both.
+   *
+   * Rebased, every series starts at nought and shares one axis — which is the
+   * only way a chart can answer "which of these moved further", because with
+   * two scales that answer is a property of where the scales were put.
+   */
   const series: AxisSeries[] = chosen
-    .map((item) => ({ label: item.short, points: pointsFor(item.key), axis: axisOf(item.key) }))
+    .map((item) => {
+      const points = pointsFor(item.key);
+      return { label: item.short, points: rebased ? fromBase(points) : points, axis: rebased ? 0 : axisOf(item.key) };
+    })
     .filter((entry) => entry.points.length > 1);
+  const scales = rebased ? [] : units;
 
   const single = chosen.length === 1 && metric != null;
   const points = single ? pointsFor(metric.key) : [];
@@ -220,6 +240,11 @@ function MetricSection({
       <div className="metric-feature-title">
         <button className="metric-clear" type="button" onClick={onClear}>× Back to price</button>
         <span className="label">{chosen.map((item) => item.label).join(" · ")}</span>
+        {chosen.length > 1 ? (
+          <button className="metric-toggle" type="button" aria-pressed={rebased} onClick={() => { onRebased(!rebased); setHover(null); }}>
+            Start from 0
+          </button>
+        ) : null}
         {offersFrequency(shown) ? (
           <div className="seg seg-frequency">
             {FREQUENCIES.map((entry) => (
@@ -260,7 +285,7 @@ function MetricSection({
                 <span className="compare-value" key={entry.label}>
                   <span className={`plot-swatch plot-stroke-${index % 5}`} />
                   <span className="compare-value-name">{entry.label}</span>
-                  <span className="num">{point && item ? writeWith(item.unit)(point.value) : ABSENT}</span>
+                  <span className="num">{point && item ? (rebased ? delta(point.value, 1) : writeWith(item.unit)(point.value)) : ABSENT}</span>
                 </span>
               );
             })}
@@ -271,14 +296,14 @@ function MetricSection({
               <div className="plot-axis">
                 {extents[0] ? (
                   <>
-                    <span className="plot-tag plot-tag-left" style={{ top: 0 }}>{writeWith(units[0] ?? "currency")(extents[0].max)}</span>
-                    <span className="plot-tag plot-tag-left" style={{ bottom: 0 }}>{writeWith(units[0] ?? "currency")(extents[0].min)}</span>
+                    <span className="plot-tag plot-tag-left" style={{ top: 0 }}>{rebased ? delta(extents[0].max, 0) : writeWith(scales[0] ?? "currency")(extents[0].max)}</span>
+                    <span className="plot-tag plot-tag-left" style={{ bottom: 0 }}>{rebased ? delta(extents[0].min, 0) : writeWith(scales[0] ?? "currency")(extents[0].min)}</span>
                   </>
                 ) : null}
-                {extents[1] && units[1] ? (
+                {extents[1] && scales[1] ? (
                   <>
-                    <span className="plot-tag" style={{ right: 0, top: 0 }}>{writeWith(units[1])(extents[1].max)}</span>
-                    <span className="plot-tag" style={{ right: 0, bottom: 0 }}>{writeWith(units[1])(extents[1].min)}</span>
+                    <span className="plot-tag" style={{ right: 0, top: 0 }}>{writeWith(scales[1])(extents[1].max)}</span>
+                    <span className="plot-tag" style={{ right: 0, bottom: 0 }}>{writeWith(scales[1])(extents[1].min)}</span>
                   </>
                 ) : null}
                 <span className="plot-tag plot-tag-under" style={{ left: 0 }}>{shortDate(series[0]?.points[0]?.date)}</span>
@@ -288,10 +313,16 @@ function MetricSection({
           ) : (
             <p className="price-chart plot-empty num faint">Not enough history for these measures.</p>
           )}
-          {units.length > 1 ? (
+          {rebased ? (
             <p className="stat-note" style={{ marginTop: 10 }}>
-              Two scales: {units[0]} on the left, {units[1]} on the right. Where the lines cross means nothing — two
-              independent axes can be slid past each other until any two series touch anywhere. Read each line&rsquo;s own shape.
+              Change from the start of the window, so both measures begin together on one axis. A measure that began at
+              or below nought has no proportion to grow by and is left out rather than drawn from an arbitrary floor.
+            </p>
+          ) : scales.length > 1 ? (
+            <p className="stat-note" style={{ marginTop: 10 }}>
+              Two scales: {scales[0]} on the left, {scales[1]} on the right. Where the lines cross means nothing — two
+              independent axes can be slid past each other until any two series touch anywhere. Read each line&rsquo;s own
+              shape, or start them both from nought.
             </p>
           ) : null}
         </>

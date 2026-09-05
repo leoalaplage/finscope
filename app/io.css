@@ -521,6 +521,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 }
 .key-open:hover { color: var(--ink); }
 .sheet tr[data-selected="true"] td, .sheet tr[data-selected="true"] th.key { background: var(--fill); }
+.sheet tr[data-selected="true"] th.key { box-shadow: inset 2px 0 0 var(--ink); }
 .sheet tr[data-selected="true"] .key-open { color: var(--ink); }
 .sheet thead th.key { z-index: 3; }
 .sheet tbody tr:hover td { background: var(--raise); }
@@ -616,7 +617,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .chip button { width: 14px; height: 14px; border-radius: 2px; color: var(--ink-3); line-height: 1; }
 .chip button:hover { color: var(--ink); background: var(--fill); }
 
-.compare-chart-head { margin-bottom: calc(var(--u) * 3); }
+.compare-chart-head { display: flex; align-items: flex-start; gap: calc(var(--u) * 3); margin-bottom: calc(var(--u) * 3); }
+.compare-chart-head .seg-wrap { flex: 1; }
 /* The scale is a property of the chart, so it sits against the chart's edge. */
 .compare-scale { display: flex; justify-content: flex-end; margin-bottom: var(--u); }
 

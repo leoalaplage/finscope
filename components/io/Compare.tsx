@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
+import { IO_SECTIONS } from "@/lib/io/sections";
 import { multipleOf } from "@/lib/market-basis";
 import { MultiLine, type Series } from "./Plot";
 import { Search } from "./Search";
@@ -21,23 +22,39 @@ import type { IoQuote } from "./quote";
 
 const LIMIT = 6;
 
-/** The quality-business set: what it earns, what it keeps, and what it costs. */
-const ROWS: Array<{ key: string; label: string; unit: Unit; cagr?: boolean }> = [
-  { key: "revenue", label: "Revenue", unit: "currency", cagr: true },
-  { key: "grossMargin", label: "Gross margin", unit: "percent" },
-  { key: "operatingMargin", label: "Operating margin", unit: "percent" },
-  { key: "netMargin", label: "Net margin", unit: "percent" },
-  { key: "freeCashFlow", label: "Free cash flow", unit: "currency", cagr: true },
-  { key: "freeCashFlowMargin", label: "FCF margin", unit: "percent" },
-  { key: "freeCashFlowAfterSbcMargin", label: "FCF margin after SBC", unit: "percent" },
-  { key: "freeCashFlowPerShare", label: "FCF per share", unit: "perShare", cagr: true },
-  { key: "freeCashFlowAfterSbcPerShare", label: "FCF per share after SBC", unit: "perShare", cagr: true },
-  { key: "netIncomePerShare", label: "EPS · diluted", unit: "perShare", cagr: true },
-  { key: "roic", label: "Return on invested capital", unit: "percent" },
-  { key: "cashReturnOnCapital", label: "Cash return on capital", unit: "percent" },
-  { key: "dilutedShares", label: "Diluted shares", unit: "shares", cagr: true },
-  { key: "netDebt", label: "Net debt", unit: "currency" },
-  { key: "totalEquity", label: "Total equity", unit: "currency" },
+/**
+ * Which measures a comparison shows: all of them, in statement order.
+ *
+ * It used to be a curated fifteen, which is a fine answer to "what should I
+ * look at" and the wrong answer to "compare these companies" — the reader has
+ * already decided what they care about, and half the time it was not on the
+ * list. Every measure at least one of the companies carries is offered, grouped
+ * the way the statements group them, so a table of eighty rows is still
+ * something you can find your way down.
+ */
+interface Row { key: string; label: string; unit: Unit }
+
+function rowsFor(columns: Array<{ view: IoCompanyView | null }>): Array<{ id: string; label: string; rows: Row[] }> {
+  const carried = new Map<string, Row>();
+  for (const column of columns) {
+    for (const metric of column.view?.metrics ?? []) {
+      if (!carried.has(metric.key)) carried.set(metric.key, { key: metric.key, label: metric.label, unit: metric.unit as Unit });
+    }
+  }
+  return IO_SECTIONS
+    .map((section) => ({
+      id: section.id,
+      label: section.label,
+      rows: section.metrics.flatMap((key) => { const row = carried.get(key); return row ? [row] : []; }),
+    }))
+    .filter((section) => section.rows.length > 0);
+}
+
+/** What the chart offers before a reader asks for the rest. */
+const FEATURED = [
+  "revenue", "grossMargin", "operatingMargin", "netMargin", "freeCashFlow",
+  "freeCashFlowMargin", "freeCashFlowAfterSbcMargin", "freeCashFlowPerShare",
+  "netIncomePerShare", "roic", "dilutedShares", "netDebt",
 ];
 
 interface Loaded { ticker: string; view: IoCompanyView | null; quote: IoQuote | null; error: string | null }
@@ -203,6 +220,7 @@ export function Compare({ initial }: { initial: string[] }) {
 /** The latest trailing figure at each company, one measure per row. */
 function CompareTable({ columns, range }: { columns: Loaded[]; range: Range }) {
   const years = fundamentalWindow(range).years;
+  const sections = useMemo(() => rowsFor(columns), [columns]);
   return (
     <div className="sheet">
       <table>
@@ -217,29 +235,33 @@ function CompareTable({ columns, range }: { columns: Loaded[]; range: Range }) {
             <th className="key" scope="colgroup" colSpan={columns.length + 1}><span className="label">Market</span></th>
           </tr>
           <MarketRows columns={columns} />
-          <tr className="group rule">
-            <th className="key" scope="colgroup" colSpan={columns.length + 1}><span className="label">Business</span></th>
-          </tr>
-          {ROWS.map((row) => (
-            <tr key={row.key}>
-              <th className="key" scope="row">{row.label}</th>
-              {columns.map((column) => {
-                const period = column.view?.ttm ?? column.view?.annual.at(-1) ?? null;
-                const value = period?.values[row.key] ?? null;
-                return (
-                  <td key={column.ticker} data-empty={value == null}>
-                    {value == null ? ABSENT : formatUnit(value, row.unit, period?.currency ?? null)}
-                  </td>
-                );
-              })}
-            </tr>
+          {sections.map((section) => (
+            <Fragment key={section.id}>
+              <tr className="group rule">
+                <th className="key" scope="colgroup" colSpan={columns.length + 1}><span className="label">{section.label}</span></th>
+              </tr>
+              {section.rows.map((row) => (
+                <tr key={row.key}>
+                  <th className="key" scope="row">{row.label}</th>
+                  {columns.map((column) => {
+                    const period = column.view?.ttm ?? column.view?.annual.at(-1) ?? null;
+                    const value = period?.values[row.key] ?? null;
+                    return (
+                      <td key={column.ticker} data-empty={value == null}>
+                        {value == null ? ABSENT : formatUnit(value, row.unit, period?.currency ?? null)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </Fragment>
           ))}
           <tr className="group rule">
             <th className="key" scope="colgroup" colSpan={columns.length + 1}>
               <span className="label">Growth · {range} · compound, or points moved for a rate</span>
             </th>
           </tr>
-          {ROWS.map((row) => (
+          {sections.flatMap((section) => section.rows).map((row) => (
             <tr key={`growth-${row.key}`}>
               <th className="key" scope="row">{row.label}</th>
               {columns.map((column) => {
@@ -330,10 +352,13 @@ function CompareChart({
    * A company that does not report a measure is drawn as no line at all, which
    * is the same absence the table states as an em dash.
    */
-  const offered = useMemo(() => {
-    const carried = new Set(columns.flatMap((column) => column.view.metrics.map((metric) => metric.key)));
-    return ROWS.filter((row) => carried.has(row.key));
-  }, [columns]);
+  const [expanded, setExpanded] = useState(false);
+  const offered = useMemo(() => rowsFor(columns).flatMap((section) => section.rows), [columns]);
+  const featured = useMemo(() => {
+    const byKey = new Map(offered.map((row) => [row.key, row]));
+    const first = FEATURED.flatMap((key) => { const row = byKey.get(key); return row ? [row] : []; });
+    return [...first, ...offered.filter((row) => !FEATURED.includes(row.key))];
+  }, [offered]);
 
   const metric = offered.find((row) => row.key === metricKey) ?? offered[0] ?? null;
   const window = fundamentalWindow(range);
@@ -388,12 +413,17 @@ function CompareChart({
     <>
       <div className="compare-chart-head">
         <div className="seg seg-wrap">
-          {offered.map((row) => (
+          {(expanded ? featured : featured.slice(0, FEATURED.length)).map((row) => (
             <button key={row.key} type="button" aria-pressed={metric.key === row.key} onClick={() => onMetric(row.key)}>
               {row.label}
             </button>
           ))}
         </div>
+        {featured.length > FEATURED.length ? (
+          <button className="metric-toggle" type="button" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
+            {expanded ? `Show first ${FEATURED.length}` : `Show all ${featured.length}`}
+          </button>
+        ) : null}
       </div>
       <div className="readout">
         <span className="v">{metric.label}</span>

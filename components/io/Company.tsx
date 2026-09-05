@@ -62,6 +62,7 @@ export function Company({ ticker }: { ticker: string }) {
    * again. No effect resets anything.
    */
   const [override, setOverride] = useState<{ range: Range; frequency: Frequency } | null>(null);
+  const [rebased, setRebased] = useState(false);
 
   const state: State = loaded.ticker === ticker ? loaded : { kind: "loading", ticker, progress: 6 };
   const quote = quoted?.ticker === ticker ? quoted : null;
@@ -255,10 +256,12 @@ export function Company({ ticker }: { ticker: string }) {
         onRange={setRange}
         frequency={frequency}
         onFrequency={chooseFrequency}
+        rebased={rebased}
+        onRebased={setRebased}
       />
       <Stats view={view} quote={quote} />
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
-      <Growth view={view} />
+      <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
       <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
 
       <footer className="foot">
