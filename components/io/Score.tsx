@@ -10,11 +10,11 @@ import { ABSENT, percent } from "./format";
  * showed it — the one judgement FinScope makes was missing from the one screen
  * built around a company.
  *
- * A score here is a rank rather than a measurement: every metric is a
- * percentile among the companies it was scored with, so the same filer is a
- * different number in a different crowd. The universe is therefore stated
- * beside the grade rather than assumed, and it is fixed, so a grade on one page
- * means what a grade on another does.
+ * The score is a measurement, not a rank. Each metric is read against a fixed
+ * scale — anchors set from analysis convention, not from any table — so this
+ * grade says something about the company rather than about the company it
+ * happened to be scored beside. Nothing about the crowd needs stating, because
+ * there is no crowd.
  */
 
 interface Pillars { Quality: number | null; Health: number | null; Growth: number | null; Value: number | null }
@@ -22,14 +22,12 @@ interface Pillars { Quality: number | null; Health: number | null; Growth: numbe
 interface Scored {
   grade: string;
   total: number | null;
-  rank: number;
   coverage: number;
   pillars: Pillars;
   alerts: string[];
   strengths: string[];
   weaknesses: string[];
   valuation: string;
-  universe: { label: string; size: number };
 }
 
 type State = { kind: "loading" } | { kind: "absent" } | { kind: "ready"; score: Scored };
@@ -66,7 +64,7 @@ export function Score({ ticker }: { ticker: string }) {
     <section className="section score" id="score">
       <div className="section-head">
         <h2 className="label">Quality Score</h2>
-        <span className="label">Against {score.universe.label}</span>
+        <span className="label">On a fixed scale</span>
       </div>
 
       <div className="grid-ruled score-grid">
@@ -74,7 +72,7 @@ export function Score({ ticker }: { ticker: string }) {
           <div className="label">Grade</div>
           <div className="stat-value score-grade" data-empty={!rated}>{score.grade}</div>
           <div className="stat-note">
-            {rated ? `${write(score.total)} / 100 · rank ${score.rank} of ${score.universe.size}` : `${percent(score.coverage, 0)} of the measures`}
+            {rated ? `${write(score.total)} / 100` : `${percent(score.coverage, 0)} of the measures`}
           </div>
         </div>
         {PILLARS.map((pillar) => (

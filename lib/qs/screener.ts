@@ -137,8 +137,8 @@ export const QS_SORTS = Object.entries(CRITERES_TRI as Record<string, { libelle:
  * more use to a reader than anything this layer could invent.
  */
 export function screen(text: string, filters: ScreenerFilters = {}): ScreenerResult {
-  const { titres, manquantes, avertissements } = chargerTableau(text) as {
-    titres: ScoredCompany[]; manquantes: string[]; avertissements: string[];
+  const { titres, manquantes, horsPortee, avertissements } = chargerTableau(text) as {
+    titres: ScoredCompany[]; manquantes: string[]; horsPortee: string[]; avertissements: string[];
   };
 
   const divisor = detectCapDivisor(titres.map((company) => company.Cap));
@@ -147,7 +147,7 @@ export function screen(text: string, filters: ScreenerFilters = {}): ScreenerRes
     avertissements.push(`Market cap was read in ${divisor === 1e9 ? "units" : divisor === 1e6 ? "thousands" : "millions"} and converted to billions.`);
   }
 
-  const { titres: all, retenus, poids } = analyser(titres, filters) as {
+  const { titres: all, retenus, poids } = analyser(titres, { ...filters, horsPortee }) as {
     titres: ScoredCompany[]; retenus: ScoredCompany[]; poids: Record<PillarName, number>;
   };
   return { all, rows: retenus, weights: poids, missing: manquantes, warnings: avertissements };
