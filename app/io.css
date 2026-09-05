@@ -535,17 +535,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .sheet tbody tr:hover td { background: var(--raise); }
 .sheet tbody tr:hover td.key { background: var(--raise); }
 .sheet td[data-empty="true"] { color: var(--ink-3); }
-/*
- * The leading figure in a row, filled rather than tinted.
- *
- * One ink means the mark cannot be a colour, and it should not be a bold weight
- * either — every figure here is monospaced and a heavier one shifts nothing but
- * reads as noise. Inverting the cell is the same idiom the segmented controls
- * use for the option in force, and it survives a screenshot, a printout and a
- * reader who sees no colour at all.
- */
-.sheet td[data-best="true"] { background: var(--ink); color: var(--inverse); }
-.sheet tbody tr:hover td[data-best="true"] { background: var(--ink); color: var(--inverse); }
 .sheet tr.group td { padding-top: 16px; }
 .sheet tr.group th { padding-top: 16px; }
 .sheet .rule td, .sheet .rule th { border-top: 1px solid var(--line); }

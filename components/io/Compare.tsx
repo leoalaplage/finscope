@@ -51,43 +51,6 @@ function rowsFor(columns: Array<{ view: IoCompanyView | null }>): Array<{ id: st
     .filter((section) => section.rows.length > 0);
 }
 
-/**
- * The rows where one company can be said to lead, and nothing else.
- *
- * A margin, a return and a growth rate are comparable between any two
- * companies, and a filed level — revenue, profit, cash — is comparable because
- * comparing size is the question a reader put six companies on one screen to
- * ask. Everything else is deliberately left unmarked: a share count, a debt
- * balance, a tax charge and a multiple all have a *lower is better* reading
- * that depends on what the reader is doing, and a mark that means "biggest"
- * where the reader means "cheapest" is worse than no mark at all.
- */
-const LEADS_ON = new Set([
-  "revenue", "grossProfit", "operatingIncome", "ebitda", "incomeBeforeTax", "netIncome",
-  "grossMargin", "operatingMargin", "netMargin", "freeCashFlowMargin", "freeCashFlowAfterSbcMargin",
-  "roic", "cashReturnOnCapital",
-]);
-
-/** And the two the same reader compares by how fast they compounded. */
-const LEADS_ON_GROWTH = new Set(["freeCashFlowPerShare", "freeCashFlowAfterSbcPerShare"]);
-
-/**
- * The highest figure in a row, where the row admits one.
- *
- * Two conditions, both of them refusals. One company is not a comparison, so a
- * row where only one filer states the measure has no leader. And a figure filed
- * in euros is not larger or smaller than one filed in dollars — this
- * application converts nothing, anywhere — so a row whose companies do not
- * share a currency is left unmarked rather than ranked across a rate nobody
- * applied.
- */
-function leaderOf(cells: Array<{ value: number | null; currency: string | null }>, comparable: boolean): number | null {
-  const known = cells.filter((cell): cell is { value: number; currency: string | null } => cell.value != null && Number.isFinite(cell.value));
-  if (known.length < 2) return null;
-  if (comparable && new Set(known.map((cell) => cell.currency)).size > 1) return null;
-  return Math.max(...known.map((cell) => cell.value));
-}
-
 /** What the chart offers before a reader asks for the rest. */
 const FEATURED = [
   "revenue", "grossMargin", "operatingMargin", "netMargin", "freeCashFlow",
@@ -297,30 +260,20 @@ function CompareTable({ columns, range }: { columns: Loaded[]; range: Range }) {
               <tr className="group rule">
                 <th className="key" scope="colgroup" colSpan={columns.length + 1}><span className="label">{section.label}</span></th>
               </tr>
-              {section.rows.map((row) => {
-                const cells = columns.map((column) => {
-                  const period = column.view?.ttm ?? column.view?.annual.at(-1) ?? null;
-                  return { value: period?.values[row.key] ?? null, currency: period?.currency ?? null };
-                });
-                // A level is only comparable inside one currency; a rate is a
-                // proportion and is comparable everywhere.
-                const best = LEADS_ON.has(row.key) ? leaderOf(cells, row.unit !== "percent" && row.unit !== "ratio") : null;
-                return (
-                  <tr key={row.key}>
-                    <th className="key" scope="row">{row.label}</th>
-                    {cells.map((cell, index) => (
-                      <td
-                        key={columns[index].ticker}
-                        data-empty={cell.value == null}
-                        data-best={best != null && cell.value === best}
-                        title={best != null && cell.value === best ? "Highest of the companies compared" : undefined}
-                      >
-                        {cell.value == null ? ABSENT : formatUnit(cell.value, row.unit, cell.currency)}
+              {section.rows.map((row) => (
+                <tr key={row.key}>
+                  <th className="key" scope="row">{row.label}</th>
+                  {columns.map((column) => {
+                    const period = column.view?.ttm ?? column.view?.annual.at(-1) ?? null;
+                    const value = period?.values[row.key] ?? null;
+                    return (
+                      <td key={column.ticker} data-empty={value == null}>
+                        {value == null ? ABSENT : formatUnit(value, row.unit, period?.currency ?? null)}
                       </td>
-                    ))}
-                  </tr>
-                );
-              })}
+                    );
+                  })}
+                </tr>
+              ))}
             </Fragment>
           ))}
           <tr className="group rule">
@@ -328,30 +281,15 @@ function CompareTable({ columns, range }: { columns: Loaded[]; range: Range }) {
               <span className="label">Growth · {range} · compound, or points moved for a rate</span>
             </th>
           </tr>
-          {sections.flatMap((section) => section.rows).map((row) => {
-            const rates = columns.map((column) => ({
-              value: column.view ? growthOver(column.view.annual, row.key, row.unit, years) : null,
-              currency: null,
-            }));
-            // A compound rate carries no currency, so nothing stops the
-            // comparison but the number of companies that state one.
-            const best = LEADS_ON_GROWTH.has(row.key) ? leaderOf(rates, false) : null;
-            return (
-              <tr key={`growth-${row.key}`}>
-                <th className="key" scope="row">{row.label}</th>
-                {rates.map((rate, index) => (
-                  <td
-                    key={columns[index].ticker}
-                    data-empty={rate.value == null}
-                    data-best={best != null && rate.value === best}
-                    title={best != null && rate.value === best ? "Fastest of the companies compared" : undefined}
-                  >
-                    {rate.value == null ? ABSENT : delta(rate.value, 1)}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
+          {sections.flatMap((section) => section.rows).map((row) => (
+            <tr key={`growth-${row.key}`}>
+              <th className="key" scope="row">{row.label}</th>
+              {columns.map((column) => {
+                const rate = column.view ? growthOver(column.view.annual, row.key, row.unit, years) : null;
+                return <td key={column.ticker} data-empty={rate == null}>{rate == null ? ABSENT : delta(rate, 1)}</td>;
+              })}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

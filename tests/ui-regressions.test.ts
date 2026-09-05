@@ -375,23 +375,6 @@ describe("the redesign", () => {
     expect(css).toContain(".allocation-bar span { display: block; height: 100%; background: var(--plot); }");
   });
 
-  it("marks the leading figure in the rows where leading means something", () => {
-    const compare = readFileSync(new URL("../components/io/Compare.tsx", import.meta.url), "utf8");
-    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
-    for (const metric of [
-      "revenue", "grossProfit", "operatingIncome", "ebitda", "incomeBeforeTax", "netIncome",
-      "grossMargin", "operatingMargin", "netMargin", "freeCashFlowMargin", "freeCashFlowAfterSbcMargin",
-      "roic", "cashReturnOnCapital",
-    ]) expect(compare, metric).toContain(`"${metric}"`);
-    // The two compared by how fast they compounded rather than by their level.
-    expect(compare).toContain('const LEADS_ON_GROWTH = new Set(["freeCashFlowPerShare", "freeCashFlowAfterSbcPerShare"]);');
-    // One company is not a comparison, and figures in two currencies are not
-    // larger or smaller than each other.
-    expect(compare).toContain("if (known.length < 2) return null;");
-    expect(compare).toContain("if (comparable && new Set(known.map((cell) => cell.currency)).size > 1) return null;");
-    expect(css).toContain('.sheet td[data-best="true"] { background: var(--ink); color: var(--inverse); }');
-  });
-
   it("says which of the two readings of a chart is in force", () => {
     const section = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
