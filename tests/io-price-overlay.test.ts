@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { closesAsOf, overlayWindow } from "../components/io/overlay";
-import { sectorFromSic } from "../lib/adapters/sec";
 
 /**
  * The share price beside a filed measure.
@@ -50,28 +49,5 @@ describe("the share price overlay", () => {
 
   it("asks for nothing when there is no period to cover", () => {
     expect(overlayWindow([])).toBeNull();
-  });
-});
-
-/**
- * A filer known only by its CIK still says what it does.
- *
- * The SEC publishes the classification beside the SIC code this application
- * already reads to decide the economic model, so "Unclassified" was a fact we
- * had and were not using.
- */
-describe("a dynamically resolved company's sector", () => {
-  it("keeps the SEC's own wording", () => {
-    expect(sectorFromSic("Services-Prepackaged Software")).toBe("Services-Prepackaged Software");
-    expect(sectorFromSic("Semiconductors & Related Devices")).toBe("Semiconductors & Related Devices");
-  });
-
-  it("softens a block-capital entry rather than shouting it back", () => {
-    expect(sectorFromSic("PHARMACEUTICAL PREPARATIONS")).toBe("Pharmaceutical Preparations");
-  });
-
-  it("is an absence when the filing carries none", () => {
-    expect(sectorFromSic(undefined)).toBeNull();
-    expect(sectorFromSic("   ")).toBeNull();
   });
 });

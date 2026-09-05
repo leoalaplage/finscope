@@ -2,6 +2,7 @@ import { cagrForPeriods, derivedValue } from "./finance";
 import { qsPriceInputs, qsRow, type QsPriceInputs } from "./qs-export";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod } from "./types";
 import { shareCount } from "./market-basis";
+import { stated } from "./sector";
 import { isFinancialBusiness } from "./business-type";
 import { currentDatasetPeriod } from "./current-period";
 
@@ -95,10 +96,8 @@ export interface WatchlistSummary {
  * which described the list the reader was looking at rather than the business.
  */
 export function summarySector(summary: Pick<WatchlistSummary, "qs">): string | null {
-  const stated = summary.qs?.["Sector"];
-  if (typeof stated !== "string") return null;
-  const written = stated.trim();
-  return written && written !== "Unclassified" ? written : null;
+  const written = summary.qs?.["Sector"];
+  return typeof written === "string" ? stated(written) : null;
 }
 
 const sorted = (dataset: CompanyDataset, periodicity: FinancialPeriod["periodicity"]) =>

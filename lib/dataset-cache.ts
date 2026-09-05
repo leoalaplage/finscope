@@ -99,6 +99,14 @@ import type { WatchlistSummary } from "./watchlist-summary";
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v26: a split the filer declared nowhere is read from the filer restating its
+ * own history. Booking split twenty-five for one and tagged no ratio, so its
+ * share counts sat on two bases at once — 33 million diluted shares against a
+ * company that has 800 million, free cash flow per share falling from $278 to
+ * $21 across one point of the chart. The same quarter filed twice, at two
+ * counts a clean ratio apart, is the event; every stored dataset built before
+ * this carries the split it missed, so nothing may stand in for them.
+ *
  * v25: separately reported direct cost lines are reconciled into cost of
  * revenue, a lone finance lease is accepted as the only filed debt balance,
  * and clustered stock splits are recognized together. Copart needs all three
@@ -119,7 +127,7 @@ import type { WatchlistSummary } from "./watchlist-summary";
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v25";
+export const KEY_VERSION = "v26";
 
 /**
  * Versions whose stored data may still be served while this one is being built.

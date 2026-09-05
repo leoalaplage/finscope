@@ -327,7 +327,9 @@ describe("the redesign", () => {
 
   it("drops the resolver's placeholders from a company header", () => {
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
-    expect(company).toContain('const PLACEHOLDER = new Set(["US listing", "Unclassified"]);');
+    // One definition of what a placeholder is, in lib/sector.ts, read by the
+    // page that shows a profile and by the digest the home page reads.
+    expect(company).toContain("[company.exchange, company.sector].map(stated)");
     expect(company).not.toContain("{company.sector}");
     expect(company).not.toContain("{company.exchange}");
   });

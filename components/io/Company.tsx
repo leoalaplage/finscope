@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
+import { stated } from "@/lib/sector";
 import { Growth } from "./Growth";
 import { Score } from "./Score";
 import { Multiples } from "./Multiples";
@@ -72,15 +73,6 @@ function writeAddress(state: Address) {
 
 const POLL_MS = 2_000;
 const POLL_LIMIT = 30;
-
-/**
- * What a company profile says when it has nothing to say.
- *
- * Set here rather than filtered by eye: these are the two strings the SEC
- * resolver writes when a filer is known only by its CIK, and a reader must not
- * be shown either of them as though it were a fact about the business.
- */
-const PLACEHOLDER = new Set(["US listing", "Unclassified"]);
 
 /**
  * Every state names the company it is about.
@@ -295,7 +287,7 @@ export function Company({ ticker }: { ticker: string }) {
   const moved = quote?.change == null
     ? null
     : `${quote.change < 0 ? "\u2212" : "+"}${writePrice(Math.abs(quote.change), quote.currency)}`;
-  const identity = [company.exchange, company.sector].filter((part) => part && !PLACEHOLDER.has(part));
+  const identity = [company.exchange, company.sector].map(stated).filter((part): part is string => part != null);
 
   return (
     <main className="wrap">

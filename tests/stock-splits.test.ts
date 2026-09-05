@@ -116,3 +116,121 @@ describe("splits declared by the filer", () => {
     expect(dataset.quality?.stockSplits).toEqual([{ date: "2022-05-27", ratio: 20 }]);
   });
 });
+
+/**
+ * Splits nobody declared, proved by the filer restating its own history.
+ *
+ * Booking tags no ratio anywhere in Company Facts, so the declared path had
+ * nothing to confirm and its history sat on two bases at once: 33 million
+ * diluted shares against a company that had 800 million, and free cash flow per
+ * share falling from $278 to $21 across one point of the chart. What Booking
+ * did publish is the same quarter twice — 33,093,000 diluted shares in its own
+ * report, 827,000,000 in the report a year later. That is the split, in facts.
+ */
+describe("splits proved by a restatement", () => {
+  /** One period, filed once and then filed again on a new basis. */
+  const restated = (context: { start: string; end: string }, filings: Array<{ filed: string; val: number }>) =>
+    filings.map((filing) => ({ ...context, val: filing.val, accn: `a-${filing.filed}`, fy: Number(context.end.slice(0, 4)), fp: "FY", form: "10-K", filed: filing.filed }));
+
+  const facts = (shares: Array<Record<string, unknown>>, basic = shares) => ({
+    entityName: "Test filer",
+    facts: {
+      "us-gaap": {
+        Revenues: { units: { USD: [
+          { start: "2024-01-01", end: "2024-12-31", val: 1_000, accn: "a-2025-02-01", fy: 2024, fp: "FY", form: "10-K", filed: "2025-02-01" },
+          { start: "2025-01-01", end: "2025-12-31", val: 1_100, accn: "a-2026-02-01", fy: 2025, fp: "FY", form: "10-K", filed: "2026-02-01" },
+        ] } },
+        WeightedAverageNumberOfDilutedSharesOutstanding: { units: { shares } },
+        WeightedAverageNumberOfSharesOutstandingBasic: { units: { shares: basic } },
+      },
+    },
+  });
+
+  const sharesOf = (payload: unknown, splits?: Array<{ date: string; ratio: number }>) => {
+    const dataset = normalizeSecPayload(payload, "TEST", "2026-09-01T00:00:00.000Z", profile("TEST", splits));
+    return {
+      splits: dataset.company.stockSplits,
+      shares: dataset.periods
+        .filter((period) => period.periodicity === "annual")
+        .sort((left, right) => left.periodEnd.localeCompare(right.periodEnd))
+        .map((period) => valueOf(period, "dilutedShares")),
+    };
+  };
+
+  const booking = facts([
+    ...restated({ start: "2024-01-01", end: "2024-12-31" }, [{ filed: "2025-02-01", val: 34_064 }]),
+    ...restated({ start: "2025-01-01", end: "2025-12-31" }, [{ filed: "2026-02-01", val: 32_639 }, { filed: "2026-04-28", val: 816_000 }]),
+  ]);
+
+  it("restates a history the filer never declared a ratio for", () => {
+    const { splits, shares } = sharesOf(booking);
+    expect(splits).toEqual([{ date: "2026-04-28", ratio: 25 }]);
+    // 34,064 thousand becomes 851,600 thousand; the series is continuous.
+    expect(shares).toEqual([851_600, 816_000]);
+  });
+
+  it("reads a ratio through the rounding of two filings", () => {
+    // The restated figure is rounded to the million and the original to the
+    // thousand, so the division reads 24.9902 and the split is 25.
+    const rounded = facts([
+      ...restated({ start: "2024-01-01", end: "2024-12-31" }, [{ filed: "2025-02-01", val: 34_064_000 }]),
+      ...restated({ start: "2025-01-01", end: "2025-12-31" }, [{ filed: "2026-02-01", val: 33_093_000 }, { filed: "2026-04-28", val: 827_000_000 }]),
+    ]);
+    expect(sharesOf(rounded).splits).toEqual([{ date: "2026-04-28", ratio: 25 }]);
+  });
+
+  it("applies one event once, however many reports restate for it", () => {
+    // The next report restates the periods *it* shows, which the first one did
+    // not carry. Same split, proved twice; applying both would multiply the
+    // history by six hundred and twenty-five.
+    const twice = facts([
+      ...restated({ start: "2024-01-01", end: "2024-12-31" }, [{ filed: "2025-02-01", val: 34_064 }, { filed: "2026-08-04", val: 851_600 }]),
+      ...restated({ start: "2025-01-01", end: "2025-12-31" }, [{ filed: "2026-02-01", val: 32_639 }, { filed: "2026-04-28", val: 816_000 }]),
+    ]);
+    const { splits, shares } = sharesOf(twice);
+    expect(splits).toEqual([{ date: "2026-04-28", ratio: 25 }]);
+    expect(shares).toEqual([851_600, 816_000]);
+  });
+
+  it("does not apply again what the verified registry already applied", () => {
+    const { splits, shares } = sharesOf(booking, [{ date: "2026-03-10", ratio: 25 }]);
+    expect(splits).toEqual([{ date: "2026-03-10", ratio: 25 }]);
+    expect(shares).toEqual([851_600, 816_000]);
+  });
+
+  it("needs more than one restated figure to agree", () => {
+    // One corrected number is a correction. A split restates everything the
+    // report shows — basic and diluted, the quarter and the year.
+    const alone = facts(
+      [
+        ...restated({ start: "2024-01-01", end: "2024-12-31" }, [{ filed: "2025-02-01", val: 34_064 }]),
+        ...restated({ start: "2025-01-01", end: "2025-12-31" }, [{ filed: "2026-02-01", val: 32_639 }, { filed: "2026-04-28", val: 816_000 }]),
+      ],
+      [
+        ...restated({ start: "2024-01-01", end: "2024-12-31" }, [{ filed: "2025-02-01", val: 33_622 }]),
+        ...restated({ start: "2025-01-01", end: "2025-12-31" }, [{ filed: "2026-02-01", val: 32_452 }]),
+      ],
+    );
+    expect(sharesOf(alone).splits).toEqual([]);
+  });
+
+  it("leaves a restatement that is not a split alone", () => {
+    // A share count corrected by four percent is a correction, not an event
+    // any company could declare a ratio for.
+    const corrected = facts([
+      ...restated({ start: "2024-01-01", end: "2024-12-31" }, [{ filed: "2025-02-01", val: 34_064 }]),
+      ...restated({ start: "2025-01-01", end: "2025-12-31" }, [{ filed: "2026-02-01", val: 32_639 }, { filed: "2026-04-28", val: 33_945 }]),
+    ]);
+    expect(sharesOf(corrected).splits).toEqual([]);
+  });
+
+  it("reads a reverse split, which a declared ratio cannot be trusted for", () => {
+    const reverse = facts([
+      ...restated({ start: "2024-01-01", end: "2024-12-31" }, [{ filed: "2025-02-01", val: 100_000 }]),
+      ...restated({ start: "2025-01-01", end: "2025-12-31" }, [{ filed: "2026-02-01", val: 96_000 }, { filed: "2026-04-28", val: 9_600 }]),
+    ]);
+    const { splits, shares } = sharesOf(reverse);
+    expect(splits).toEqual([{ date: "2026-04-28", ratio: 0.1 }]);
+    expect(shares).toEqual([10_000, 9_600]);
+  });
+});

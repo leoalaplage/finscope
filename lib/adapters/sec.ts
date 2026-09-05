@@ -3,6 +3,7 @@ import { COMPANIES } from "../company-registry";
 import { adjustPeriodsForSplits, buildTtmPeriods, isAnnualForm, normalizeAnnualPeriods, normalizeQuarterlyPeriods } from "../periods";
 import { validateCompanyDataset } from "../data-quality";
 import { businessTypeFromSic, classifyBusiness, isFinancialBusiness, verifiedBusinessType } from "../business-type";
+import { companySector } from "../sector";
 import type { BusinessType, CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "../types";
 
 const SecUnitSchema = z.object({
@@ -811,6 +812,147 @@ export function confirmedStockSplits(candidates: Array<{ date: string; ratio: nu
   return confirmed.sort((left, right) => left.date.localeCompare(right.date));
 }
 
+/**
+ * The share counts a split restates, in the only unit they are filed in.
+ *
+ * Weighted averages and issued counts, basic and diluted, under every spelling
+ * this endpoint carries. Treasury shares move by a split too, but a filer's
+ * treasury line is repurchased between filings as well, so it is not evidence
+ * of anything on its own and is left out of the detection.
+ */
+const RESTATED_SHARE_CONCEPTS = [
+  "WeightedAverageNumberOfDilutedSharesOutstanding",
+  "WeightedAverageNumberOfSharesOutstandingBasic",
+  "WeightedAverageNumberOfSharesOutstanding",
+  "WeightedAverageNumberOfShareOutstandingBasicAndDiluted",
+  "CommonStockSharesIssued",
+  "CommonStockSharesOutstanding",
+];
+
+/**
+ * The split ratio an observed restatement is, or nothing at all.
+ *
+ * A split ratio is a small rational number — twenty-five for one, three for
+ * two, one for ten — and a division of two filed counts is not: Booking's
+ * restatement reads 24.9902 because the new figure is rounded to the million
+ * and the old one to the thousand. Snapping to the nearest half within two
+ * percent turns that back into the twenty-five it is, and refuses anything that
+ * is not close to a ratio a company would ever declare.
+ *
+ * Both directions are read here, which the declared-ratio path deliberately
+ * does not do. A declared ratio is ambiguous — some filers tag a reverse split
+ * as the ratio and some as its reciprocal, and applying one upside down is far
+ * worse than leaving it alone — but a restatement is not: the filer has
+ * published the same period twice and the direction is the direction the number
+ * moved.
+ */
+export function restatementRatio(observed: number): number | null {
+  if (!Number.isFinite(observed) || observed <= 0) return null;
+  const forward = observed >= 1;
+  const magnitude = forward ? observed : 1 / observed;
+  if (magnitude > 100) return null;
+  const snapped = Math.round(magnitude * 2) / 2;
+  if (snapped < 1.5) return null;
+  if (Math.abs(magnitude / snapped - 1) > .02) return null;
+  return forward ? snapped : 1 / snapped;
+}
+
+/**
+ * The splits a filer proved by restating its own history.
+ *
+ * A filer that splits its stock republishes every earlier share count on the
+ * new basis in its next report — the same period, the same concept, a different
+ * number. Booking's first quarter of 2025 is filed twice: 33,093,000 diluted
+ * shares in the report for that quarter, and 827,000,000 in the report a year
+ * later. That is a twenty-five-for-one split stated by the company, in facts,
+ * and it is far stronger evidence than any ratio tagged in a note.
+ *
+ * It has to be, because Booking tags no ratio at all. It declares
+ * `StockholdersEquityNoteStockSplitConversionRatio1` nowhere in Company Facts,
+ * so the declared-ratio path — which is what covers every company outside the
+ * hand-verified registry — found nothing to confirm and the history stayed on
+ * two bases at once: free cash flow per share read $278 for 2025 and $21 for
+ * the trailing year that followed it, a thirteen-fold cliff in the middle of a
+ * chart, with a diluted count of 33 million against a company that has 800.
+ *
+ * Three things keep this from firing on anything that is not a split:
+ *
+ *  - the ratio must snap to a ratio a company would declare, in either
+ *    direction (see `restatementRatio`);
+ *  - at least two restated contexts must agree on it, which a split always
+ *    produces — basic and diluted, the quarter and the year to date — and a
+ *    one-off correction to a single figure does not;
+ *  - and it must still be unexplained. Everything already applied — the
+ *    verified registry, then whatever the filer declared — is divided out
+ *    first, so a split reaching this from both directions is applied once.
+ *
+ * The date is the filing that first states the new basis. The effective date
+ * lies between that filing and the last one filed on the old basis, and the
+ * filings do not say where; what this date has to be right about is which facts
+ * are on which basis, and being the boundary itself it is exactly right about
+ * that. It is stated as a filed date and never as an announcement.
+ */
+export function restatedStockSplits(
+  namespaces: z.infer<typeof SecResponseSchema>["facts"],
+  known: Array<{ date: string; ratio: number }> = [],
+): Array<{ date: string; ratio: number }> {
+  /** By the filing that restated, the ratios it restated by and from when. */
+  const boundaries = new Map<string, Array<{ ratio: number; since: string }>>();
+  for (const tag of RESTATED_SHARE_CONCEPTS) {
+    const contexts = new Map<string, SecUnit[]>();
+    for (const fact of namespaces["us-gaap"]?.[tag]?.units?.shares ?? []) {
+      if (!(fact.val > 0) || !fact.filed) continue;
+      const context = `${fact.start ?? ""}|${fact.end}`;
+      const filings = contexts.get(context);
+      if (filings) filings.push(fact); else contexts.set(context, [fact]);
+    }
+    for (const filings of contexts.values()) {
+      const ordered = [...filings].sort((left, right) => left.filed.localeCompare(right.filed));
+      for (let index = 1; index < ordered.length; index++) {
+        const before = ordered[index - 1]; const after = ordered[index];
+        if (before.filed === after.filed) continue;
+        const ratio = restatementRatio(after.val / before.val);
+        if (ratio == null) continue;
+        const seen = boundaries.get(after.filed) ?? [];
+        seen.push({ ratio, since: before.filed });
+        boundaries.set(after.filed, seen);
+      }
+    }
+  }
+
+  /*
+   * One event, not one per report.
+   *
+   * The report after a split restates the periods it shows, and the report
+   * after that restates the ones *it* shows — periods the first one did not
+   * carry, still on the old basis. Booking therefore proves the same
+   * twenty-five twice, three months apart, and applying both would multiply its
+   * history by six hundred and twenty-five. So each candidate is measured
+   * against what is already applied over the window it could have happened in:
+   * after the last filing that still showed the old basis, up to the filing
+   * that showed the new one. A candidate a known split already explains has no
+   * ratio left and is dropped.
+   */
+  const applied = [...known];
+  const found: Array<{ date: string; ratio: number }> = [];
+  for (const date of [...boundaries.keys()].sort()) {
+    const seen = boundaries.get(date)!;
+    const agreement = new Map<number, number>();
+    for (const entry of seen) agreement.set(entry.ratio, (agreement.get(entry.ratio) ?? 0) + 1);
+    const [ratio, agreeing] = [...agreement].sort((left, right) => right[1] - left[1] || right[0] - left[0])[0];
+    if (agreeing < 2) continue;
+    const since = seen.filter((entry) => entry.ratio === ratio).map((entry) => entry.since).sort().at(-1)!;
+    const explained = applied
+      .filter((split) => split.date > since && split.date <= date)
+      .reduce((product, split) => product * split.ratio, 1);
+    const residual = restatementRatio(ratio / explained);
+    if (residual == null) continue;
+    found.push({ date, ratio: residual });
+    applied.push({ date, ratio: residual });
+  }
+  return found;
+}
+
 export function normalizeSecPayload(payload: unknown, ticker: string, retrievedAt = new Date().toISOString(), resolvedCompany?: CompanyDataset["company"]): CompanyDataset {
   const resolved = resolvedCompany ?? COMPANIES.find((item) => item.ticker === ticker.toUpperCase());
   if (!resolved) throw new Error("Ticker not supported by the SEC adapter registry.");
@@ -834,9 +976,13 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
   const verifiedAnnual = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.annual, reconciled.ratesSeen), company.stockSplits);
   const verifiedQuarterly = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.quarterly, reconciled.ratesSeen), company.stockSplits);
   const detected = confirmedStockSplits(filedStockSplits(parsed.facts), verifiedAnnual);
-  const stockSplits = [...(company.stockSplits ?? []), ...detected].sort((left, right) => left.date.localeCompare(right.date));
-  const annual = adjustPeriodsForSplits(verifiedAnnual, detected);
-  const quarterly = adjustPeriodsForSplits(verifiedQuarterly, detected);
+  // Then the splits nobody declared, proved by the filer restating its own
+  // history — which is the only evidence a company like Booking leaves.
+  const restated = restatedStockSplits(parsed.facts, [...(company.stockSplits ?? []), ...detected]);
+  const unverified = [...detected, ...restated].sort((left, right) => left.date.localeCompare(right.date));
+  const stockSplits = [...(company.stockSplits ?? []), ...unverified].sort((left, right) => left.date.localeCompare(right.date));
+  const annual = adjustPeriodsForSplits(verifiedAnnual, unverified);
+  const quarterly = adjustPeriodsForSplits(verifiedQuarterly, unverified);
   const ttm = buildTtmPeriods(quarterly, company.currency);
   const identityKey = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const payloadIdentityMismatch = identityKey(parsed.entityName) !== identityKey(company.name);
@@ -921,28 +1067,6 @@ const SecBusinessMetadataSchema = z.object({
 });
 
 /**
- * The filer's own industry, written the way the SEC publishes it.
- *
- * A company nobody has hand-listed used to carry the word "Unclassified" for
- * ever, because the registry document the search reads holds four fields and an
- * industry is not one of them. The submissions document — already fetched here,
- * for the SIC code that decides the economic model — carries the description
- * beside it, so the classification the page shows is the classification the
- * business itself filed under.
- *
- * Nothing is invented: a filer with no description keeps none. The text is left
- * as the SEC writes it — "Services-Prepackaged Software" is their sentence, not
- * ours — beyond collapsing whitespace and softening a block-capital entry,
- * because a sector is a fact about the filing and not a phrase to improve.
- */
-export function sectorFromSic(description: string | null | undefined): string | null {
-  const written = (description ?? "").replace(/\s+/g, " ").trim();
-  if (!written) return null;
-  if (written !== written.toUpperCase()) return written;
-  return written.toLowerCase().replace(/(^|[\s\-&/])([a-z])/g, (_, before: string, letter: string) => `${before}${letter.toUpperCase()}`);
-}
-
-/**
  * Which listing to name when the filer names several.
  *
  * A cover page may state two — a common listing and a warrant's — and the first
@@ -980,7 +1104,7 @@ async function resolveSecCompany(ticker: string) {
     // company does and where it trades, so a dynamically resolved filer is
     // named as precisely as a hand-listed one instead of reading
     // "US listing · Unclassified" on its own page for ever.
-    sector: sectorFromSic(metadata.sicDescription) ?? exact.sector,
+    sector: companySector(metadata) ?? exact.sector,
     exchange: exchangeFromSubmissions(metadata.exchanges) ?? exact.exchange,
     resolutionNote: `${exact.resolutionNote} Economic model classified from SEC SIC ${metadata.sic}${metadata.sicDescription ? ` (${metadata.sicDescription})` : ""}.`,
   };
