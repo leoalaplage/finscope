@@ -36,6 +36,17 @@ const LIMIT = 6;
  */
 interface Row { key: string; label: string; unit: Unit }
 
+const DEFAULT_MARGIN_KEYS = [
+  "grossMargin", "operatingMargin", "netMargin", "operatingCashFlowMargin",
+  "freeCashFlowMargin", "freeCashFlowAfterSbcMargin", "cashConversion", "roic",
+  "cashReturnOnCapital", "debtToEquity", "interestCoverage",
+];
+
+const DEFAULT_GROWTH_KEYS = [
+  "revenue", "grossProfit", "operatingIncome", "netIncome", "dilutedShares",
+  "netIncomePerShare", "freeCashFlowPerShare", "freeCashFlowAfterSbcPerShare",
+];
+
 function rowsFor(columns: Array<{ view: IoCompanyView | null }>): Array<{ id: string; label: string; rows: Row[] }> {
   const carried = new Map<string, Row>();
   for (const column of columns) {
@@ -240,11 +251,30 @@ export function Compare({ initial }: { initial: string[] }) {
 
 /** The latest trailing figure at each company, one measure per row. */
 function CompareTable({ columns, range }: { columns: Loaded[]; range: Range }) {
+  const [expanded, setExpanded] = useState(false);
   const years = fundamentalWindow(range).years;
   const sections = useMemo(() => rowsFor(columns), [columns]);
+  const everyRow = sections.flatMap((section) => section.rows);
+  const byKey = new Map(everyRow.map((row) => [row.key, row]));
+  const shownSections = expanded
+    ? sections
+    : [{
+      id: "ratios",
+      label: "Margins and returns",
+      rows: DEFAULT_MARGIN_KEYS.flatMap((key) => { const row = byKey.get(key); return row ? [row] : []; }),
+    }];
+  const growthRows = expanded
+    ? everyRow
+    : DEFAULT_GROWTH_KEYS.flatMap((key) => { const row = byKey.get(key); return row ? [row] : []; });
   return (
     <>
       <FcfShareComparison columns={columns} />
+      <div className="section-head compare-table-head">
+        <h2 className="label">Company comparison</h2>
+        <button className="metric-toggle" type="button" aria-expanded={expanded} onClick={() => setExpanded((open) => !open)}>
+          {expanded ? "Show essentials" : "Show all"}
+        </button>
+      </div>
       <div className="sheet">
         <table>
           <thead>
@@ -258,7 +288,7 @@ function CompareTable({ columns, range }: { columns: Loaded[]; range: Range }) {
               <th className="key" scope="colgroup" colSpan={columns.length + 1}><span className="label">Market</span></th>
             </tr>
             <MarketRows columns={columns} />
-            {sections.map((section) => (
+            {shownSections.map((section) => (
               <Fragment key={section.id}>
                 <tr className="group rule">
                   <th className="key" scope="colgroup" colSpan={columns.length + 1}><span className="label">{section.label}</span></th>
@@ -284,7 +314,7 @@ function CompareTable({ columns, range }: { columns: Loaded[]; range: Range }) {
                 <span className="label">Growth · {range} · compound, or points moved for a rate</span>
               </th>
             </tr>
-            {sections.flatMap((section) => section.rows).map((row) => (
+            {growthRows.map((row) => (
               <tr key={`growth-${row.key}`}>
                 <th className="key" scope="row">{row.label}</th>
                 {columns.map((column) => {
@@ -327,7 +357,7 @@ function FcfShareComparison({ columns }: { columns: Loaded[] }) {
     <div className="compare-fcf-share">
       <div className="section-head">
         <h2 className="label">FCF / share</h2>
-        <span className="label">Annual · R² steadier near 1.00</span>
+        <span className="label">Annual · filed figures</span>
       </div>
       <div className="sheet">
         <table>

@@ -403,6 +403,7 @@ describe("the redesign", () => {
     expect(growth).toContain("10Y CAGR");
     expect(growth).toContain("R² · 5Y");
     expect(growth).toContain("R² · 10Y");
+    expect(growth).not.toContain("Steadier near 1.00");
   });
 
   it("keeps the FCF per-share comparison in its own table", () => {
@@ -411,6 +412,21 @@ describe("the redesign", () => {
     expect(compare).toContain("Growth &amp; consistency");
     expect(compare).toContain('label: "R² · 5Y"');
     expect(compare).toContain('label: "R² · 10Y"');
+    expect(compare).not.toContain("R² steadier near 1.00");
+  });
+
+  it("opens Compare on the requested essentials and keeps every other row behind Show all", () => {
+    const compare = readFileSync(new URL("../components/io/Compare.tsx", import.meta.url), "utf8");
+    for (const key of [
+      "grossMargin", "operatingMargin", "netMargin", "operatingCashFlowMargin",
+      "freeCashFlowMargin", "freeCashFlowAfterSbcMargin", "cashConversion", "roic",
+      "cashReturnOnCapital", "debtToEquity", "interestCoverage",
+    ]) expect(compare).toContain(`"${key}"`);
+    for (const key of [
+      "revenue", "grossProfit", "operatingIncome", "netIncome", "dilutedShares",
+      "netIncomePerShare", "freeCashFlowPerShare", "freeCashFlowAfterSbcPerShare",
+    ]) expect(compare).toContain(`"${key}"`);
+    expect(compare).toContain('{expanded ? "Show essentials" : "Show all"}');
   });
 
   it("says which of the two readings of a chart is in force", () => {

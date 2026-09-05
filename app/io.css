@@ -724,6 +724,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 .fcf-share-growth { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .compare-fcf-share { margin-bottom: calc(var(--u) * 7); }
+.compare-table-head { margin-bottom: calc(var(--u) * 3); }
 .valuation-history-sheet table { min-width: 920px; }
 
 @media (max-width: 560px) {
