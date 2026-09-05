@@ -380,8 +380,27 @@ describe("the redesign", () => {
     expect(portfolio).toContain("portfolioQuality(valued.positions");
     expect(portfolio).toContain("Quality contribution");
     expect(portfolio).toContain("Day contribution");
-    expect(portfolio).toContain("Exposures overlap");
     expect(portfolio).toContain("Sector concentration");
+    // The caption that said the exposures overlap has gone; what it was
+    // guarding against is guarded by the shape of the panel itself, which
+    // states weights and never adds them into a score.
+    expect(portfolio).not.toContain("riskScore");
+  });
+
+  it("reads the wire under the indices, as text nobody can click", () => {
+    const page = readFileSync(new URL("../app/market/page.tsx", import.meta.url), "utf8");
+    const news = readFileSync(new URL("../components/io/MarketNews.tsx", import.meta.url), "utf8");
+    const parser = readFileSync(new URL("../lib/news.ts", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    // Under the charts, and on this page only: the workspace shares the
+    // component above it.
+    expect(page.indexOf("<MarketNews />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
+    // Somebody else's document is data. Nothing from it is rendered as markup
+    // and nothing in it is a door out of the page.
+    expect(news).not.toContain("dangerouslySetInnerHTML");
+    expect(news).not.toContain("<a ");
+    expect(parser).toContain('replace(/<[^>]*>/g, " ")');
+    expect(css).toContain(".news-headline {");
   });
 
   it("places portfolio analysis below sector concentration and omits the FCF-owned summary cell", () => {
@@ -397,6 +416,12 @@ describe("the redesign", () => {
     // The figure left the strip; the sentence under it no longer defines a
     // label that is not there.
     expect(portfolio).not.toContain("Owned is your fraction");
+    // Three captions the reader asked to be rid of: a subtitle that repeated
+    // the headings under it, and two paragraphs explaining arithmetic the
+    // figures already carry.
+    expect(portfolio).not.toContain("Concentration, score contribution");
+    expect(portfolio).not.toContain("Exposures overlap");
+    expect(portfolio).not.toContain("Contributions add to the weighted score");
   });
 
   it("puts current valuation beside observed five- and ten-year ranges", () => {

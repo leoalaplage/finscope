@@ -765,6 +765,36 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .source-differences { margin-top: calc(var(--u) * 4); }
 .source-caveat { max-width: 880px; margin-top: 12px; }
 
+/* --- The wire ------------------------------------------------------------ */
+
+/*
+ * Headlines in the same ink as the figures.
+ *
+ * Somebody else's news, set the way this site sets everything: a rule between
+ * items and nothing else. No card, no thumbnail, no source badge, no chevron
+ * promising a page elsewhere — the item is a time, a section, a headline and
+ * the sentence under it, and none of it is a link because none of it goes
+ * anywhere. Two columns where the screen has room for two, because eighteen
+ * headlines in one column is a scroll rather than a page.
+ */
+.news { border-top: 1px solid var(--line); }
+.news-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 calc(var(--u) * 10); }
+.news-item { padding-block: calc(var(--u) * 3); border-top: 1px solid var(--line); }
+.news-list > .news-item:first-child, .news-list > .news-item:nth-child(2) { border-top: 0; padding-top: 0; }
+.news-meta {
+  display: flex; align-items: baseline; gap: calc(var(--u) * 2);
+  font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-3);
+  text-transform: uppercase; letter-spacing: var(--track-label);
+}
+.news-meta time { font-variant-numeric: tabular-nums; }
+.news-headline { margin-top: 5px; font-size: var(--fs-md); font-weight: 600; line-height: 1.35; color: var(--ink); }
+.news-summary { margin-top: 4px; font-size: var(--fs-sm); line-height: 1.5; color: var(--ink-2); }
+
+@media (max-width: 900px) {
+  .news-list { grid-template-columns: minmax(0, 1fr); }
+  .news-list > .news-item:nth-child(2) { border-top: 1px solid var(--line); padding-top: calc(var(--u) * 3); }
+}
+
 /* --- Portfolio ----------------------------------------------------------- */
 
 /*

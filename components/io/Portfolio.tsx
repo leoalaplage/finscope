@@ -650,7 +650,6 @@ function PortfolioAnalysis({
       <div className="section-head">
         <div>
           <h2 className="label">Portfolio analysis</h2>
-          <p className="stat-note">Concentration, score contribution and stated score alerts</p>
         </div>
         <span className="label">{score ? `${score.grade} · ${score.value.toFixed(1)} weighted quality` : "Quality pending"}</span>
       </div>
@@ -669,7 +668,6 @@ function PortfolioAnalysis({
               </div>
             ))}
           </div>
-          <p className="stat-note portfolio-analysis-note">Exposures overlap. They are value weights, not a risk score, and are not meant to add to 100%.</p>
         </div>
         <div className="portfolio-analysis-block">
           <h3 className="label">Quality contribution</h3>
@@ -691,9 +689,6 @@ function PortfolioAnalysis({
               </tbody>
             </table>
           </div>
-          <p className="stat-note portfolio-analysis-note">
-            Contributions add to the weighted score over {score ? percent(score.coverage, 0) : ABSENT} of portfolio value.
-          </p>
         </div>
       </div>
     </section>
