@@ -5,6 +5,7 @@ import type { IoCompanyView } from "@/lib/io/view";
 import { Growth } from "./Growth";
 import { Multiples } from "./Multiples";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
+import { toggleMetric } from "./selection";
 import { Statements } from "./Statements";
 import { Stats } from "./Stats";
 import type { IoQuote } from "./quote";
@@ -48,7 +49,7 @@ type State =
 export function Company({ ticker }: { ticker: string }) {
   const [loaded, setLoaded] = useState<State>({ kind: "loading", ticker, progress: 6 });
   const [quoted, setQuoted] = useState<IoQuote | null>(null);
-  const [selection, setSelection] = useState<{ ticker: string; metric: string | null }>({ ticker, metric: null });
+  const [selection, setSelection] = useState<{ ticker: string; metrics: string[] }>({ ticker, metrics: [] });
   const [range, setRange] = useState<Range>("1Y");
   /*
    * A frequency the reader asked for, and the range they asked for it on.
@@ -64,7 +65,7 @@ export function Company({ ticker }: { ticker: string }) {
 
   const state: State = loaded.ticker === ticker ? loaded : { kind: "loading", ticker, progress: 6 };
   const quote = quoted?.ticker === ticker ? quoted : null;
-  const selectedMetric = selection.ticker === ticker ? selection.metric : null;
+  const selectedMetrics = selection.ticker === ticker ? selection.metrics : [];
   /*
    * A measure opens on its whole history, in trailing figures.
    *
@@ -76,12 +77,30 @@ export function Company({ ticker }: { ticker: string }) {
    * annual series, which is the right default for a reader who chose MAX and
    * the wrong one for a reader who chose a measure.
    */
+  const unitOf = (key: string) =>
+    (state.kind === "ready" ? state.view.metrics.find((metric) => metric.key === key)?.unit ?? null : null);
+
+  /*
+   * A measure opens on its whole history, in trailing figures.
+   *
+   * The range is shared with the price chart above, and the window a reader was
+   * looking at a share price over is not the window they want a business
+   * measure over: a month of revenue does not exist, and five years of it is a
+   * cycle rather than a record. Picking the first measure therefore asks for
+   * all of it, as trailing figures — MAX would otherwise fall to the annual
+   * series, which is right for a reader who chose MAX and wrong for one who
+   * chose a measure. Adding a second measure leaves the window alone: they
+   * chose it.
+   */
   const selectMetric = (metric: string | null) => {
-    setSelection({ ticker, metric });
-    if (!metric) return;
+    if (metric == null) { setSelection({ ticker, metrics: [] }); return; }
+    const next = toggleMetric(selectedMetrics, metric, unitOf);
+    setSelection({ ticker, metrics: next });
+    if (selectedMetrics.length || !next.length) return;
     setRange("MAX");
     setOverride({ range: "MAX", frequency: "ttm" });
   };
+
   const frequency: Frequency = override?.range === range ? override.frequency : fundamentalWindow(range).frequency;
   const chooseFrequency = (next: Frequency) => setOverride({ range, frequency: next });
 
@@ -102,11 +121,11 @@ export function Company({ ticker }: { ticker: string }) {
    * wondering what their click did.
    */
   useEffect(() => {
-    if (!selectedMetric) return;
+    if (!selectedMetrics.length) return;
     const chart = document.getElementById(CHART_ANCHOR);
     if (!chart || chart.getBoundingClientRect().top >= 0) return;
     chart.scrollIntoView({ behavior: "auto", block: "start" });
-  }, [selectedMetric]);
+  }, [selectedMetrics.length]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -230,7 +249,7 @@ export function Company({ ticker }: { ticker: string }) {
         ticker={company.ticker}
         currency={quote?.currency ?? company.currency}
         view={view}
-        metricKey={selectedMetric}
+        metricKeys={selectedMetrics}
         onClearMetric={() => selectMetric(null)}
         range={range}
         onRange={setRange}
@@ -238,9 +257,9 @@ export function Company({ ticker }: { ticker: string }) {
         onFrequency={chooseFrequency}
       />
       <Stats view={view} quote={quote} />
-      <Multiples view={view} selected={selectedMetric} onSelect={selectMetric} range={range} frequency={frequency} />
+      <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
       <Growth view={view} />
-      <Statements view={view} selected={selectedMetric} onSelect={selectMetric} />
+      <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
 
       <footer className="foot">
         <span className="label">Source</span>

@@ -294,3 +294,82 @@ export function MultiLine({
     </div>
   );
 }
+
+
+export interface AxisSeries { label: string; points: PricePoint[]; axis: 0 | 1 }
+
+/**
+ * Two or three measures on one frame, read against two scales.
+ *
+ * This is the one place on the site where a second value axis is overlaid, and
+ * it is worth naming what that costs: where two lines cross means nothing at
+ * all. Two independent scales can be slid past each other until any two series
+ * touch anywhere, so the crossing point is a property of the axes rather than
+ * of the business. What survives is each line's own shape — where it turned,
+ * how steadily it moved — and both axes are written out so a reader can see
+ * what they are reading against.
+ *
+ * Series sharing a unit share an axis and are therefore genuinely comparable
+ * with each other; that comparison is real.
+ */
+export function MultiAxis({
+  series,
+  onHover,
+}: {
+  series: AxisSeries[];
+  onHover: (index: number | null) => void;
+}) {
+  const frame = useRef<HTMLDivElement>(null);
+  const [cursor, setCursor] = useState<number | null>(null);
+
+  const extents = useMemo(() => ([0, 1] as const).map((axis) =>
+    extentOf(series.filter((entry) => entry.axis === axis).flatMap((entry) => entry.points.map((point) => point.value)), false)),
+    [series]);
+  const length = Math.max(...series.map((entry) => entry.points.length), 0);
+
+  const move = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const box = frame.current?.getBoundingClientRect();
+    if (!box || box.width === 0 || length === 0) return;
+    const fraction = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
+    const index = Math.round(fraction * (length - 1));
+    setCursor(index);
+    onHover(index);
+  };
+
+  if (!extents[0] || length < 2) return null;
+  const cursorX = xOf(cursor ?? 0, length);
+
+  return (
+    <div
+      className="plot price-chart"
+      ref={frame}
+      onPointerMove={move}
+      onPointerLeave={() => { setCursor(null); onHover(null); }}
+      onPointerDown={move}
+    >
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+        {series.map((entry, index) => {
+          const extent = extents[entry.axis] ?? extents[0];
+          if (!extent) return null;
+          return (
+            <path
+              key={entry.label}
+              className={`plot-line plot-stroke-${index % 5}`}
+              d={segments(entry.points.map((point) => point.value), extent)}
+              vectorEffect="non-scaling-stroke"
+            />
+          );
+        })}
+        {cursor != null ? (
+          <line className="plot-cursor" x1={cursorX} x2={cursorX} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
+        ) : null}
+      </svg>
+    </div>
+  );
+}
+
+/** The band each axis covers, so a reader can see what they are reading against. */
+export function axisExtents(series: AxisSeries[]): Array<{ min: number; max: number } | null> {
+  return ([0, 1] as const).map((axis) =>
+    extentOf(series.filter((entry) => entry.axis === axis).flatMap((entry) => entry.points.map((point) => point.value)), false));
+}

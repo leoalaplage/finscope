@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
-import { Figure, type PricePoint } from "./Plot";
+import { axisExtents, Figure, MultiAxis, type AxisSeries, type PricePoint } from "./Plot";
+import { axesFor } from "./selection";
 import { fundamentalWindow, METRIC_RANGES, metricRange, offersFrequency, priceWindow, RANGES, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate, type Unit } from "./format";
 
@@ -25,7 +26,7 @@ export function PriceSection({
   ticker,
   currency,
   view,
-  metricKey,
+  metricKeys,
   onClearMetric,
   range,
   onRange,
@@ -35,7 +36,7 @@ export function PriceSection({
   ticker: string;
   currency: string;
   view: IoCompanyView;
-  metricKey: string | null;
+  metricKeys: string[];
   onClearMetric: () => void;
   range: Range;
   onRange: (range: Range) => void;
@@ -52,12 +53,12 @@ export function PriceSection({
    */
   return (
     <div id={CHART_ANCHOR}>
-      {metricKey
+      {metricKeys.length
         ? (
           <MetricSection
-            key={metricKey}
+            key={metricKeys.join("|")}
             view={view}
-            metricKey={metricKey}
+            metricKeys={metricKeys}
             onClear={onClearMetric}
             range={range}
             onRange={onRange}
@@ -157,7 +158,7 @@ const FREQUENCIES: Array<{ id: Frequency; label: string }> = [
 
 function MetricSection({
   view,
-  metricKey,
+  metricKeys,
   onClear,
   range,
   onRange,
@@ -165,7 +166,7 @@ function MetricSection({
   onFrequency,
 }: {
   view: IoCompanyView;
-  metricKey: string;
+  metricKeys: string[];
   onClear: () => void;
   range: Range;
   onRange: (range: Range) => void;
@@ -173,7 +174,11 @@ function MetricSection({
   onFrequency: (frequency: Frequency) => void;
 }) {
   const [hover, setHover] = useState<number | null>(null);
-  const metric = view.metrics.find((item) => item.key === metricKey) ?? null;
+  const chosen = useMemo(
+    () => metricKeys.map((key) => view.metrics.find((item) => item.key === key)).filter((item): item is NonNullable<typeof item> => item != null),
+    [metricKeys, view.metrics],
+  );
+  const metric = chosen[0] ?? null;
 
   const shown = metricRange(range);
   const periods = useMemo<IoPeriod[]>(() => {
@@ -181,24 +186,32 @@ function MetricSection({
     return withinYears(series, fundamentalWindow(shown).years);
   }, [view.annual, view.trailing, frequency, shown]);
 
-  const points = useMemo<PricePoint[]>(() => metric
-    ? periods.flatMap((period) => {
-        const value = period.values[metric.key];
-        return value == null || !Number.isFinite(value) ? [] : [{ date: period.end, value }];
-      })
-    : [], [periods, metric]);
+  const pointsFor = (key: string): PricePoint[] => periods.flatMap((period) => {
+    const value = period.values[key];
+    return value == null || !Number.isFinite(value) ? [] : [{ date: period.end, value }];
+  });
 
-  const active = hover == null ? points.at(-1) ?? null : points[hover] ?? null;
-  const growth = metric?.unit === "percent"
-    ? points.length > 1 ? points.at(-1)!.value - points[0].value : null
-    : datedCagrOf(points);
-  const bounds = useMemo(() => {
-    if (!points.length) return null;
-    const values = points.map((point) => point.value);
-    return { high: Math.max(...values), low: Math.min(...values) };
-  }, [points]);
   const currency = periods.at(-1)?.currency ?? view.company.currency;
-  const write = (value: number) => metric ? formatUnit(value, metric.unit as Unit, currency) : ABSENT;
+  const writeWith = (unit: string) => (value: number) => formatUnit(value, unit as Unit, currency);
+
+  const { units, axisOf } = axesFor(metricKeys, (key) => chosen.find((item) => item.key === key)?.unit ?? null);
+  // Three measures over at most eighty periods: cheaper to walk than to
+  // remember, and remembering it correctly would need a key made of both.
+  const series: AxisSeries[] = chosen
+    .map((item) => ({ label: item.short, points: pointsFor(item.key), axis: axisOf(item.key) }))
+    .filter((entry) => entry.points.length > 1);
+
+  const single = chosen.length === 1 && metric != null;
+  const points = single ? pointsFor(metric.key) : [];
+  const active = hover == null ? points.at(-1) ?? null : points[hover] ?? null;
+  const growth = single && metric.unit === "percent"
+    ? points.length > 1 ? points.at(-1)!.value - points[0].value : null
+    : single ? datedCagrOf(points) : null;
+  const bounds = points.length
+    ? { high: Math.max(...points.map((point) => point.value)), low: Math.min(...points.map((point) => point.value)) }
+    : null;
+  const write = (value: number) => (metric ? formatUnit(value, metric.unit as Unit, currency) : ABSENT);
+  const extents = axisExtents(series);
 
   if (!metric) return null;
 
@@ -206,7 +219,7 @@ function MetricSection({
     <section className="section metric-feature" style={{ borderTop: 0 }}>
       <div className="metric-feature-title">
         <button className="metric-clear" type="button" onClick={onClear}>× Back to price</button>
-        <span className="label">{metric.label}</span>
+        <span className="label">{chosen.map((item) => item.label).join(" · ")}</span>
         {offersFrequency(shown) ? (
           <div className="seg seg-frequency">
             {FREQUENCIES.map((entry) => (
@@ -219,13 +232,70 @@ function MetricSection({
       </div>
       <div className="section-head">
         <div className="readout">
-          <span className="v">{active ? write(active.value) : ABSENT}</span>
-          <span className="d">{active ? shortDate(active.date) : shown}</span>
-          {growth != null ? <span className="readout-cagr">{delta(growth)} {metric.unit === "percent" ? "change" : "CAGR"}</span> : null}
+          {single ? (
+            <>
+              <span className="v">{active ? write(active.value) : ABSENT}</span>
+              <span className="d">{active ? shortDate(active.date) : shown}</span>
+              {growth != null ? <span className="readout-cagr">{delta(growth)} {metric.unit === "percent" ? "change" : "CAGR"}</span> : null}
+            </>
+          ) : (
+            <span className="d">
+              {hover != null && series[0]?.points[hover] ? shortDate(series[0].points[hover].date) : `${shown} · ${frequency === "annual" ? "Yearly" : "TTM"}`}
+            </span>
+          )}
         </div>
         <RangePicker range={shown} onRange={onRange} offered={METRIC_RANGES} />
       </div>
-      {points.length > 1 ? (
+      {!single ? (
+        <>
+          {/*
+            * Each line's own figure, because two scales mean the reader cannot
+            * read one line off the other's axis.
+            */}
+          <div className="compare-values">
+            {series.map((entry, index) => {
+              const item = chosen[index];
+              const point = hover == null ? entry.points.at(-1) : entry.points[hover];
+              return (
+                <span className="compare-value" key={entry.label}>
+                  <span className={`plot-swatch plot-stroke-${index % 5}`} />
+                  <span className="compare-value-name">{entry.label}</span>
+                  <span className="num">{point && item ? writeWith(item.unit)(point.value) : ABSENT}</span>
+                </span>
+              );
+            })}
+          </div>
+          {series.length ? (
+            <div className="price-frame">
+              <MultiAxis series={series} onHover={setHover} />
+              <div className="plot-axis">
+                {extents[0] ? (
+                  <>
+                    <span className="plot-tag plot-tag-left" style={{ top: 0 }}>{writeWith(units[0] ?? "currency")(extents[0].max)}</span>
+                    <span className="plot-tag plot-tag-left" style={{ bottom: 0 }}>{writeWith(units[0] ?? "currency")(extents[0].min)}</span>
+                  </>
+                ) : null}
+                {extents[1] && units[1] ? (
+                  <>
+                    <span className="plot-tag" style={{ right: 0, top: 0 }}>{writeWith(units[1])(extents[1].max)}</span>
+                    <span className="plot-tag" style={{ right: 0, bottom: 0 }}>{writeWith(units[1])(extents[1].min)}</span>
+                  </>
+                ) : null}
+                <span className="plot-tag plot-tag-under" style={{ left: 0 }}>{shortDate(series[0]?.points[0]?.date)}</span>
+                <span className="plot-tag plot-tag-under" style={{ right: 0 }}>{shortDate(series[0]?.points.at(-1)?.date)}</span>
+              </div>
+            </div>
+          ) : (
+            <p className="price-chart plot-empty num faint">Not enough history for these measures.</p>
+          )}
+          {units.length > 1 ? (
+            <p className="stat-note" style={{ marginTop: 10 }}>
+              Two scales: {units[0]} on the left, {units[1]} on the right. Where the lines cross means nothing — two
+              independent axes can be slid past each other until any two series touch anywhere. Read each line&rsquo;s own shape.
+            </p>
+          ) : null}
+        </>
+      ) : points.length > 1 ? (
         <ChartFrame points={points} shape={shapeFor(metric.unit)} bounds={bounds} onHover={setHover} write={write} />
       ) : (
         <p className="price-chart plot-empty num faint">

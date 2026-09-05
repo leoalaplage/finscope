@@ -309,7 +309,8 @@ describe("the redesign", () => {
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     const multiples = readFileSync(new URL("../components/io/Multiples.tsx", import.meta.url), "utf8");
     const price = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
-    expect(company).toContain("metricKey={selectedMetric}");
+    // Up to three measures at once now, on at most two scales.
+    expect(company).toContain("metricKeys={selectedMetrics}");
     expect(company).toContain("onSelect={selectMetric}");
     expect(company).toContain("?view=iov5");
     expect(multiples).toContain("view.trailing");

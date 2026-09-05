@@ -25,7 +25,7 @@ export function Multiples({
   frequency,
 }: {
   view: IoCompanyView;
-  selected: string | null;
+  selected: string[];
   onSelect: (metric: string | null) => void;
   range: Range;
   frequency: Frequency;
@@ -80,7 +80,7 @@ export function Multiples({
           const growth = metric.unit === "percent"
             ? known.length > 1 ? (known.at(-1)!.value as number) - (known[0].value as number) : null
             : datedCagrOf(known);
-          const isSelected = selected === key;
+          const isSelected = selected.includes(key);
           const shape = shapeFor(metric.unit);
           return (
             <button

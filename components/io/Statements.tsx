@@ -27,7 +27,7 @@ export function Statements({
   onSelect,
 }: {
   view: IoCompanyView;
-  selected: string | null;
+  selected: string[];
   onSelect: (metric: string) => void;
 }) {
   const [frequency, setFrequency] = useState<"annual" | "quarterly">("annual");
@@ -96,7 +96,7 @@ function SectionRows({
   keys: string[];
   columns: IoPeriod[];
   metrics: Map<string, IoCompanyView["metrics"][number]>;
-  selected: string | null;
+  selected: string[];
   onSelect: (metric: string) => void;
 }) {
   // A metric no period in view carries is left out rather than drawn as a row
@@ -116,7 +116,7 @@ function SectionRows({
         const metric = metrics.get(key);
         if (!metric) return null;
         return (
-          <tr key={key} data-selected={selected === key}>
+          <tr key={key} data-selected={selected.includes(key)}>
             <th className="key" scope="row">
               {/*
                 * The label is the control. A reader who has found the line they
@@ -124,7 +124,7 @@ function SectionRows({
                 * see its shape, and making them scroll back up to hunt for the
                 * same measure among the panels is asking them to find it twice.
                 */}
-              <button type="button" className="key-open" onClick={() => onSelect(key)} aria-pressed={selected === key}>
+              <button type="button" className="key-open" onClick={() => onSelect(key)} aria-pressed={selected.includes(key)}>
                 {metric.label}
               </button>
             </th>
