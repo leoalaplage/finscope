@@ -105,10 +105,7 @@ export function ValuationHistory({ view, quote }: { view: IoCompanyView; quote: 
   return (
     <section className="section valuation-history" id="valuation-history">
       <div className="section-head">
-        <div>
-          <h2 className="label">Valuation history</h2>
-          <p className="stat-note">Current valuation against observed 5Y and 10Y ranges</p>
-        </div>
+        <h2 className="label">Valuation history</h2>
         <span className="label">{usesTrailing ? "TTM" : "Annual"} · filing-date prices</span>
       </div>
 
@@ -153,9 +150,6 @@ export function ValuationHistory({ view, quote }: { view: IoCompanyView; quote: 
           </table>
         </div>
       )}
-      <p className="stat-note valuation-history-note">
-        One observation per published {usesTrailing ? "TTM" : "annual"} period, priced on the first market session on or after its filing. Ranges are observed minima and maxima; no estimate is used.
-      </p>
     </section>
   );
 }

@@ -391,7 +391,17 @@ describe("the redesign", () => {
     expect(history).toContain("5Y range");
     expect(history).toContain("10Y range");
     expect(history).toContain("published=1");
-    expect(history).toContain("no estimate is used");
+    expect(history).not.toContain("Current valuation against observed 5Y and 10Y ranges");
+    expect(history).not.toContain("One observation per published");
+  });
+
+  it("shows FCF per-share growth and consistency beside valuation history", () => {
+    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const growth = readFileSync(new URL("../components/io/FcfShareGrowth.tsx", import.meta.url), "utf8");
+    expect(company).toContain("<FcfShareGrowth view={view} />");
+    expect(growth).toContain("5Y CAGR");
+    expect(growth).toContain("10Y CAGR");
+    expect(growth).toContain("R² · 10Y");
   });
 
   it("says which of the two readings of a chart is in force", () => {

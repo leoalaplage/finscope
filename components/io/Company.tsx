@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
 import { IO_VIEW } from "@/lib/io/view-version";
 import { stated } from "@/lib/sector";
+import { FcfShareGrowth } from "./FcfShareGrowth";
 import { Growth } from "./Growth";
 import { Score } from "./Score";
 import { Multiples } from "./Multiples";
@@ -344,6 +345,7 @@ export function Company({ ticker }: { ticker: string }) {
       />
       <Stats view={view} quote={quote} />
       <Score key={company.ticker} ticker={company.ticker} />
+      <FcfShareGrowth view={view} />
       <ValuationHistory view={view} quote={quote} />
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
       <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
