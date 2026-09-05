@@ -101,8 +101,11 @@ export function datasetKey(ticker: string) {
  *     free cash flow per share. Both are scored — forty of the Growth pillar's
  *     hundred points — and neither had a column title, so no table could supply
  *     them and no company could earn them. FinScope had computed both all along.
+ * s9: native ROIC uses average opening/closing invested capital when both are
+ *     filed, and long-term debt/assets prefers the dedicated long-term and
+ *     lease balances before the conservative total-debt fallback.
  */
-const SUMMARY_SHAPE = "s8";
+const SUMMARY_SHAPE = "s9";
 
 /**
  * The card-sized digest stored beside each dataset.

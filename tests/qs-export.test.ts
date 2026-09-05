@@ -84,6 +84,23 @@ describe("the watchlist as the screener's table", () => {
     expect(row["EV/FCF"]).not.toBeNull();
   });
 
+  it("uses average invested capital for native ROIC when an opening balance is filed", () => {
+    const opening = period("annual", "2024-12-31", { ...business, totalDebt: 100, totalEquity: 500, cashAndEquivalents: 100 });
+    const closing = period("annual", "2025-12-31", { ...business, totalDebt: 300, totalEquity: 700, cashAndEquivalents: 200 });
+    const row = qsRow(dataset([opening, closing]), null).values;
+    // NOPAT is 300 × (1 − 21%) = 237. Invested capital averages 500 and 800.
+    expect(row["ROIC"]).toBeCloseTo(237 / 650 * 100, 8);
+  });
+
+  it("prefers filed long-term debt components over total debt for debt-to-assets", () => {
+    const current = period("ttm", "2026-06-30", {
+      ...business, totalDebt: 500, totalAssets: 1_000,
+      longTermDebtCurrent: 20, longTermDebtNoncurrent: 200,
+    });
+    const row = qsRow(dataset([current]), null).values;
+    expect(row["Long-term Debt to Assets"]).toBeCloseTo(0.22, 8);
+  });
+
   it("leaves the valuation columns empty without a price rather than guessing one", () => {
     const row = qsRow(company, null).values;
     for (const column of ["Market Cap", "EV/EBIT", "EV/FCF", "FCF Yield"]) expect(row[column]).toBeNull();

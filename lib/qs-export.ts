@@ -51,6 +51,10 @@ function fiveYearAverage(annual: FinancialPeriod[], metric: string): number | nu
   return values.length < 3 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+/** Years between two balance-sheet dates, including leap years accurately enough for matching. */
+const yearsBetween = (earlier: string, later: string) =>
+  (Date.parse(later) - Date.parse(earlier)) / (365.2425 * 86_400_000);
+
 const percent = (value: number | null) => value == null || !Number.isFinite(value) ? null : value * 100;
 const billions = (value: number | null) => value == null || !Number.isFinite(value) ? null : value / 1e9;
 const ratio = (value: number | null) => value == null || !Number.isFinite(value) ? null : value;
@@ -76,12 +80,67 @@ function scoreNetDebt(dataset: CompanyDataset, current: FinancialPeriod | null):
 
 function scoreRoic(dataset: CompanyDataset, current: FinancialPeriod | null): number | null {
   if (!current) return null;
-  const debt = debtFor(dataset, current);
-  const equity = valueOf(current, "totalEquity");
-  const cash = valueOf(current, "cashAndEquivalents");
   const nopat = derivedValue(current, "nopat");
-  const invested = debt == null || equity == null || cash == null ? null : debt + equity - cash;
-  return over(nopat, invested);
+  const capital = (period: FinancialPeriod) => {
+    const debt = debtFor(dataset, period);
+    const equity = valueOf(period, "totalEquity");
+    const cash = valueOf(period, "cashAndEquivalents");
+    const invested = debt == null || equity == null || cash == null ? null : debt + equity - cash;
+    return invested != null && invested > 0 ? invested : null;
+  };
+  const ending = capital(current);
+  if (nopat == null || ending == null) return null;
+
+  /*
+   * A return earned through a year belongs over the capital employed through
+   * that year, not only the balance left on its final day. Prefer a balance
+   * close to twelve months earlier, regardless of whether it arrived in a
+   * quarter or an annual filing. When no comparable opening balance exists we
+   * keep the auditable period-end convention instead of fabricating one.
+   */
+  const opening = dataset.periods
+    .filter((period) => period.periodEnd < current.periodEnd)
+    .map((period) => ({ period, distance: Math.abs(yearsBetween(period.periodEnd, current.periodEnd) - 1) }))
+    .filter(({ period, distance }) => distance <= 0.25 && capital(period) != null)
+    .sort((left, right) => left.distance - right.distance)[0]?.period;
+  const openingCapital = opening ? capital(opening) : null;
+  return over(nopat, openingCapital == null ? ending : (openingCapital + ending) / 2);
+}
+
+/** Five annual ROIC readings, each using average capital where an opening balance exists. */
+function fiveYearRoicAverage(dataset: CompanyDataset, annual: FinancialPeriod[]): number | null {
+  const values = annual.slice(-5)
+    .map((period) => scoreRoic(dataset, period))
+    .filter((value): value is number => value != null && Number.isFinite(value));
+  return values.length < 3 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+/**
+ * Long-term borrowing and leases, before falling back to total debt.
+ *
+ * The detailed SEC concepts are preferred because the metric explicitly asks
+ * about structural debt. Some filers only publish a validated total, though;
+ * using that total as a conservative ceiling preserves coverage without ever
+ * making leverage look lower than the filing supports.
+ */
+function longTermDebtFor(dataset: CompanyDataset, current: FinancialPeriod | null): number | null {
+  const read = (period: FinancialPeriod): number | null => {
+    const combined = valueOf(period, "longTermDebtAndLeases");
+    if (combined != null) return combined;
+    const due = valueOf(period, "longTermDebtCurrent");
+    const noncurrent = valueOf(period, "longTermDebtNoncurrent");
+    if (due != null && noncurrent != null) return due + noncurrent;
+    return noncurrent ?? valueOf(period, "otherLongTermDebt") ?? valueOf(period, "financeLeaseLiability");
+  };
+  if (current) {
+    const own = read(current);
+    if (own != null) return own;
+  }
+  const annual = dataset.periods
+    .filter((period) => period.periodicity === "annual" && (!current || period.periodEnd <= current.periodEnd))
+    .sort((left, right) => right.periodEnd.localeCompare(left.periodEnd))
+    .find((period) => read(period) != null);
+  return annual ? read(annual) : debtFor(dataset, current);
 }
 
 export interface QsRow { ticker: string; values: Record<string, number | string | null> }
@@ -143,7 +202,6 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
 
   const operatingCashFlow = now("operatingCashFlow");
   const capex = now("capitalExpenditures");
-  const debt = debtFor(dataset, current);
   const netDebt = scoreNetDebt(dataset, current);
   const ebitda = now("ebitda");
   const interest = now("interestExpense") ?? now("interestPaid");
@@ -160,7 +218,7 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
       "Sector": dataset.company.sector,
 
       "ROIC": percent(industrial(scoreRoic(dataset, current))),
-      "ROIC 5Yr Avg": percent(industrial(fiveYearAverage(annual, "roic"))),
+      "ROIC 5Yr Avg": percent(industrial(fiveYearRoicAverage(dataset, annual))),
       "Operating Margin": percent(now("operatingMargin")),
       "FCF Margin 5Yr Avg": percent(industrial(fiveYearAverage(annual, "freeCashFlowMargin"))),
       "FCF / Net Income": percent(industrial(now("cashConversion"))),
@@ -171,11 +229,7 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
       "Net Debt / EBITDA": ratio(industrial(over(netDebt, ebitda))),
       "EBIT / Interest Expense": ratio(over(now("operatingIncome"), interest)),
       "Current Ratio": ratio(health("currentRatio")),
-      // The registry carries one total borrowing, not a maturity split, so this
-      // is total debt over total assets and is labelled as the column the
-      // screener knows. Overstating the long-term share would flatter no one:
-      // the metric scores lower the higher it is.
-      "Long-term Debt to Assets": ratio(industrial(over(debt, now("totalAssets")))),
+      "Long-term Debt to Assets": ratio(industrial(over(longTermDebtFor(dataset, current), now("totalAssets")))),
       "OCF/Capex": ratio(industrial(over(operatingCashFlow, capex == null ? null : Math.abs(capex)))),
 
       "Revenue 5Y CAGR": percent(growth("revenue")),

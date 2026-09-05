@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { QS_COLUMNS, qsTable, qsValuationColumns, type QsRow } from "@/lib/qs-export";
 import {
-  naturalDirection, QS_PRESETS, screen, sortRowsBy,
+  naturalDirection, QS_METRIC_NAMES, QS_METRICS, QS_PRESETS, screen, sortRowsBy,
   type PresetName, type ScoredCompany, type SortDirection,
 } from "@/lib/qs/screener";
 import type { PricePoint } from "@/lib/types";
@@ -27,7 +27,7 @@ import { ABSENT, money, percent } from "./format";
  * leaves the page at all.
  */
 
-interface Feed { rows: ScoredCompany[]; missing: string[]; asked: number; answered: number; source: "watchlist" | "pasted" }
+interface Feed { rows: ScoredCompany[]; missing: string[]; warnings: string[]; asked: number; answered: number; source: "watchlist" | "pasted" }
 
 /**
  * The watchlist written as the engine's table, plus what it took to build it.
@@ -111,11 +111,13 @@ export function Screener() {
     if (!pasted.trim()) return null;
     try {
       const result = screen(pasted, { preset });
-      return { kind: "ready", feed: { rows: result.all, missing: result.missing, asked: result.all.length, answered: result.all.length, source: "pasted" } };
+      return { kind: "ready", feed: { rows: result.all, missing: result.missing, warnings: result.warnings, asked: result.all.length, answered: result.all.length, source: "pasted" } };
     } catch (error) {
       return { kind: "failed", message: error instanceof Error ? error.message : "That table could not be read." };
     }
   }, [pasted, preset]);
+
+  const scoringPasted = pasted.trim().length > 0;
 
   /*
    * The list is fetched once, and scored wherever the weights are.
@@ -128,10 +130,7 @@ export function Screener() {
    * runs over it in a memo below, so a weight change is instant and costs the
    * network nothing.
    */
-  const scoringPasted = pasted.trim().length > 0;
-
   useEffect(() => {
-    if (scoringPasted) return;
     const controller = new AbortController();
     const asked = followed ? followed.split(",") : [];
     let attempts = 0;
@@ -199,7 +198,7 @@ export function Screener() {
     if (!built || built.followed !== followed) return null;
     try {
       const result = screen(built.table, { preset });
-      return { kind: "ready", feed: { rows: result.all, missing: result.missing, asked: built.asked, answered: built.answered, source: "watchlist" } };
+      return { kind: "ready", feed: { rows: result.all, missing: result.missing, warnings: result.warnings, asked: built.asked, answered: built.answered, source: "watchlist" } };
     } catch (error) {
       return { kind: "failed", message: error instanceof Error ? error.message : "The screener could not be built." };
     }
@@ -211,6 +210,7 @@ export function Screener() {
     [progress, followed, tickers.length],
   );
   const state = pastedState ?? watchlistState ?? waiting;
+  const nativeAuditState = watchlistState ?? waiting;
 
   const ordered = useMemo(
     () => (state.kind === "ready" ? sortRowsBy(state.feed.rows, sortKey, direction) : []),
@@ -256,10 +256,112 @@ export function Screener() {
         ) : (
           <ScoreTable feed={state.feed} rows={ordered} sortKey={sortKey} direction={direction} onSort={chooseSort} />
         )}
+        {state.kind === "ready" && state.feed.source === "pasted" ? (
+          <SourceAudit imported={state.feed} native={nativeAuditState} pasted={pasted} />
+        ) : null}
       </section>
 
       <Paste value={pasted} onChange={setPasted} />
     </main>
+  );
+}
+
+const AUDIT_PERCENT = new Set(["ROIC", "ROIC5", "OpM", "FCFM5", "FCF_NI", "GM5", "ShOut5", "SBC", "Rev5", "RevFwd3", "LevFCF5", "NI5", "RevPS5", "FCFPS5", "FCFYield"]);
+
+const auditValue = (key: string, value: number | null | undefined) => {
+  if (value == null || !Number.isFinite(value)) return ABSENT;
+  return AUDIT_PERCENT.has(key) ? `${value.toFixed(1)}%` : `${value.toFixed(2)}×`;
+};
+
+const materiallyDifferent = (left: number | null | undefined, right: number | null | undefined) => {
+  if (left == null || right == null) return left !== right;
+  return Math.abs(left - right) > Math.max(0.01, Math.abs(left) * 0.01);
+};
+
+/**
+ * A pasted score is deliberately not merged into FinScope's SEC facts.
+ * This audit holds the two completed answers beside each other, for companies
+ * present in both lists, and lets the reader see which inputs explain a gap.
+ */
+function SourceAudit({ imported, native, pasted }: { imported: Feed; native: State; pasted: string }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const fiscalCompatible = /forward\s*p\s*\/\s*fcf|revenue\s*forward\s*3y|levered\s*(free\s*cash\s*flow|fcf)/i.test(pasted);
+  const sourceName = fiscalCompatible ? "Fiscal.ai-compatible import" : "Imported table";
+  const nativeRows = native.kind === "ready" ? new Map(native.feed.rows.map((row) => [row.Ticker.toUpperCase(), row])) : new Map<string, ScoredCompany>();
+  const pairs = imported.rows.flatMap((external) => {
+    const core = nativeRows.get(external.Ticker.toUpperCase());
+    return core ? [{ ticker: external.Ticker, core, external }] : [];
+  });
+  const chosen = pairs.find((pair) => pair.ticker === selected) ?? null;
+  const differences = chosen ? QS_METRICS.filter((metric) => materiallyDifferent(chosen.core.brut[metric.cle], chosen.external.brut[metric.cle])) : [];
+
+  return (
+    <section className="source-audit" aria-labelledby="source-audit-title">
+      <div className="section-head">
+        <div>
+          <h2 className="label" id="source-audit-title">Source comparison</h2>
+          <p className="stat-note">The imported values stay untouched. FinScope remains a separate SEC-based score; neither source fills the other’s gaps.</p>
+        </div>
+        <span className="label">{sourceName}</span>
+      </div>
+
+      {native.kind === "building" ? (
+        <p className="stat-note">Preparing the native comparison · {native.ready} of {native.asked} companies</p>
+      ) : native.kind === "failed" ? (
+        <p className="stat-note">Native comparison unavailable: {native.message}</p>
+      ) : !pairs.length ? (
+        <p className="stat-note">No imported ticker is also present in your current FinScope watchlist.</p>
+      ) : (
+        <>
+          <div className="sheet source-audit-sheet">
+            <table>
+              <thead><tr><th>Company</th><th>FinScope · SEC</th><th>{sourceName}</th><th>Difference</th><th>Inputs that differ</th></tr></thead>
+              <tbody>
+                {pairs.map(({ ticker, core, external }) => {
+                  const changed = QS_METRICS.filter((metric) => materiallyDifferent(core.brut[metric.cle], external.brut[metric.cle])).length;
+                  const delta = core.total == null || external.total == null ? null : external.total - core.total;
+                  return (
+                    <tr key={ticker} data-selected={selected === ticker}>
+                      <th scope="row"><button type="button" className="source-audit-open" onClick={() => setSelected((current) => current === ticker ? null : ticker)}>{ticker}</button></th>
+                      <td>{core.note}{core.total == null ? "" : ` · ${core.total.toFixed(1)}`}</td>
+                      <td>{external.note}{external.total == null ? "" : ` · ${external.total.toFixed(1)}`}</td>
+                      <td data-dir={delta == null ? undefined : delta >= 0 ? "up" : "down"}>{delta == null ? ABSENT : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`}</td>
+                      <td>{changed}<span className="dim"> · inspect</span></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {chosen ? (
+            <div className="source-differences">
+              <div className="section-head">
+                <h3 className="label">{chosen.ticker} · differing inputs</h3>
+                <span className="label">{differences.length} measures</span>
+              </div>
+              <div className="sheet">
+                <table>
+                  <thead><tr><th>Measure</th><th>FinScope · SEC</th><th>{sourceName}</th><th>FinScope metric score</th><th>Imported metric score</th></tr></thead>
+                  <tbody>
+                    {differences.map((metric) => (
+                      <tr key={metric.cle}>
+                        <th scope="row">{QS_METRIC_NAMES[metric.cle] ?? metric.cle}</th>
+                        <td>{auditValue(metric.cle, chosen.core.brut[metric.cle])}</td>
+                        <td>{auditValue(metric.cle, chosen.external.brut[metric.cle])}</td>
+                        <td>{chosen.core.score_metrique[metric.cle] == null ? ABSENT : chosen.core.score_metrique[metric.cle]!.toFixed(0)}</td>
+                        <td>{chosen.external.score_metrique[metric.cle] == null ? ABSENT : chosen.external.score_metrique[metric.cle]!.toFixed(0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {fiscalCompatible ? <p className="stat-note source-caveat">Fiscal.ai exports may define Levered FCF differently from FinScope’s historical FCF (operating cash flow − capex). Both values are preserved and shown; they are never silently substituted.</p> : null}
+            </div>
+          ) : null}
+        </>
+      )}
+      {imported.warnings.length ? <p className="stat-note">Import notes: {imported.warnings.join(" ")}</p> : null}
+    </section>
   );
 }
 
@@ -406,6 +508,7 @@ function Paste({ value, onChange }: { value: string; onChange: (value: string) =
           <div className="paste-foot">
             <p className="stat-note">
               Recognised titles: {QS_COLUMNS.join(", ")}. Nothing is uploaded — the table is read in this page.
+              Fiscal.ai forward revenue, Forward P/FCF and Levered FCF columns remain supported when present.
             </p>
             {value ? <button className="metric-toggle" type="button" onClick={() => onChange("")}>Back to my watchlist</button> : null}
           </div>

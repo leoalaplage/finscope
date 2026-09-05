@@ -342,7 +342,7 @@ export function Company({ ticker }: { ticker: string }) {
         onWithPrice={setWithPrice}
       />
       <Stats view={view} quote={quote} />
-      <Score ticker={company.ticker} />
+      <Score key={company.ticker} ticker={company.ticker} />
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
       <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
       <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
