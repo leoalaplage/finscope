@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
 import { IO_SECTIONS } from "@/lib/io/sections";
+import { IO_VIEW } from "@/lib/io/view-version";
 import { multipleOf } from "@/lib/market-basis";
 import { MultiLine, type Series } from "./Plot";
 import { Search } from "./Search";
@@ -130,7 +131,7 @@ export function Compare({ initial }: { initial: string[] }) {
           setLoaded((current) => ({ ...current, [ticker]: { ticker, ...value } }));
         try {
           const [viewResponse, quoteResponse] = await Promise.all([
-            fetch(`/api/io/${encodeURIComponent(ticker)}?view=iov6`, { signal: controller.signal }),
+            fetch(`/api/io/${encodeURIComponent(ticker)}?view=${IO_VIEW}`, { signal: controller.signal }),
             fetch(`/api/io/${encodeURIComponent(ticker)}/quote`, { signal: controller.signal }),
           ]);
           if (viewResponse.status === 202) {

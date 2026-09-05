@@ -666,6 +666,37 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 .screener-rank { display: inline-block; min-width: 22px; color: var(--ink-3); }
 .screener-sector { color: var(--ink-3); margin-inline-start: 8px; }
+
+/* --- Portfolio ----------------------------------------------------------- */
+
+/*
+ * A weight is a length, which is the one thing a bar is better at than a
+ * number. It is drawn in the same ink as everything else and carries no label
+ * of its own: the sector is written to its left and the proportion to its
+ * right, and the bar is there so a book can be read down in one glance.
+ */
+.allocation { display: grid; gap: 1px; }
+.allocation-row {
+  display: grid; grid-template-columns: minmax(120px, 210px) 1fr minmax(52px, auto);
+  align-items: center; gap: calc(var(--u) * 3); padding-block: 7px;
+  border-bottom: 1px solid var(--line);
+}
+.allocation-row:last-child { border-bottom: 0; }
+.allocation-name {
+  font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2);
+  text-transform: uppercase; letter-spacing: var(--track-label);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.allocation-bar { display: block; height: 4px; background: var(--plot-soft); border-radius: 1px; overflow: hidden; }
+.allocation-bar span { display: block; height: 100%; background: var(--plot); }
+.allocation-weight { font-family: var(--mono); font-size: var(--fs-xs); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Direction is the sign, here as everywhere; the cell only leans on weight. */
+.sheet td[data-dir="up"], .sheet td[data-dir="down"] { color: var(--ink); }
+
+@media (max-width: 720px) {
+  .allocation-row { grid-template-columns: minmax(90px, 1fr) 1fr minmax(46px, auto); }
+}
 .sheet .key-open { display: flex; gap: 4px; align-items: baseline; }
 
 /* --- Quality Score -------------------------------------------------------- */

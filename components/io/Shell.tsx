@@ -86,6 +86,7 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
           <nav className="bar-nav">
             <a href="/compare">Compare</a>
             <a href="/screener">Screener</a>
+            <a href="/portfolio">Portfolio</a>
           </nav>
           <ThemeSwitch />
         </div>

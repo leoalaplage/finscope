@@ -358,6 +358,23 @@ describe("the redesign", () => {
     expect(css).toContain('.metric-toggle[aria-pressed="true"]');
   });
 
+  it("reads a portfolio through to the businesses under it", () => {
+    const portfolio = readFileSync(new URL("../components/io/Portfolio.tsx", import.meta.url), "utf8");
+    const page = readFileSync(new URL("../app/portfolio/page.tsx", import.meta.url), "utf8");
+    const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    // A third destination in the bar, beside the two that were already there.
+    expect(shell).toContain('<a href="/portfolio">Portfolio</a>');
+    // The book is this device's, so the page is a constant and the valuation
+    // happens in the browser: nothing about what somebody owns is sent anywhere.
+    expect(page).toContain('export const dynamic = "force-static"');
+    expect(portfolio).toContain("useStoredHoldings()");
+    expect(portfolio).toContain("valuePortfolio(positions, feed.summaries, prices, names)");
+    // Ownership is shares over shares in issue, applied to a filed figure.
+    expect(portfolio).toContain("position.shares / summary.shares");
+    expect(css).toContain(".allocation-bar span { display: block; height: 100%; background: var(--plot); }");
+  });
+
   it("wears a favicon drawn in the site's one ink", () => {
     const icon = readFileSync(new URL("../public/favicon.svg", import.meta.url), "utf8");
     expect(icon).not.toContain("#68C4FF");
