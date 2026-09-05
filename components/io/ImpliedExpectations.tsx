@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { impliedGrowth } from "@/lib/io/implied-growth";
 import { withinYears } from "./ranges";
-import { ABSENT, datedCagrOf, delta, money, percent, shortDate } from "./format";
+import { datedCagrOf, delta, money, percent } from "./format";
 import type { IoQuote } from "./quote";
 
 /**
@@ -116,6 +116,29 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
     ? delta(implied.rate)
     : `${implied.direction === "above" ? "over " : "under "}${delta(implied.bound, 0)}`;
 
+  /*
+   * Three rates on one scale, because the comparison is the point.
+   *
+   * Four figures in a row of cells is a table of numbers a reader has to hold
+   * in their head to compare; the same three drawn against one axis answers the
+   * question in a glance — is the price asking for more than this company has
+   * ever done, or less. The ask is filled and the record is not, so which line
+   * is the claim and which is the history needs no legend.
+   *
+   * The scale takes in nought, so a shrinking cash flow reads as the shrinkage
+   * it is rather than as a short bar of growth.
+   */
+  const rows = [
+    { label: `Price asks · ${HORIZON} years`, rate: implied.kind === "solved" ? implied.rate : implied.bound, written: asked, ask: true },
+    ...(record.near ? [{ label: `Delivered · ${span(record.near)}`, rate: record.near.rate, written: delta(record.near.rate), ask: false }] : []),
+    ...(longer && record.far ? [{ label: `Delivered · ${span(record.far)}`, rate: record.far.rate, written: delta(record.far.rate), ask: false }] : []),
+  ];
+  const rates = [0, ...rows.map((row) => row.rate)];
+  const floor = Math.min(...rates);
+  const ceiling = Math.max(...rates);
+  const width = ceiling - floor || 1;
+  const at = (value: number) => ((value - floor) / width) * 100;
+
   return (
     <section className="section implied" id="implied">
       <div className="section-head">
@@ -129,50 +152,33 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
         </div>
       </div>
 
-      <div className="grid-ruled stats stats-four">
-        <div className="stat">
-          <div className="label">Asked · {HORIZON} years</div>
-          <div className="stat-value">{asked}</div>
-        </div>
-        <div className="stat">
-          <div className="label">Delivered · {span(record.near)}</div>
-          <div className="stat-value" data-empty={record.near == null}>{record.near == null ? ABSENT : delta(record.near.rate)}</div>
-        </div>
-        {/* A second window only where the filings actually reach further back
-            than the first one: two cells stating the same four years under two
-            different headings would be a comparison that is not there. */}
-        {longer ? (
-          <div className="stat">
-            <div className="label">Delivered · {span(record.far)}</div>
-            <div className="stat-value">{delta(record.far!.rate)}</div>
+      <div className="allocation implied-rates">
+        {rows.map((row) => (
+          <div className="allocation-row" key={row.label}>
+            <span className="allocation-name">{row.label}</span>
+            <span className="allocation-bar">
+              {floor < 0 ? <span className="implied-zero" style={{ left: `${at(0)}%` }} /> : null}
+              <span
+                data-ask={row.ask}
+                style={{ marginInlineStart: `${at(Math.min(0, row.rate))}%`, width: `${Math.max(Math.abs(row.rate) / width * 100, .6)}%` }}
+              />
+            </span>
+            <span className="allocation-weight num">{row.written}</span>
           </div>
-        ) : (
-          <div className="stat">
-            <div className="label">Market cap</div>
-            <div className="stat-value">{money(marketCap, currency)}</div>
-          </div>
-        )}
-        <div className="stat">
-          <div className="label">Free cash flow</div>
-          <div className="stat-value">{money(freeCashFlow.value, currency)}</div>
-        </div>
+        ))}
       </div>
 
-      <p className="stat-note" style={{ marginTop: 10 }}>
-        {money(marketCap, currency)} of market capitalisation against {money(freeCashFlow.value, currency)} of free cash
-        flow filed for {freeCashFlow.period?.label ?? "the latest period"}, discounted at {percent(discountRate, 0)} a
-        year with {percent(TERMINAL, 1)} for ever after {HORIZON}. That is the rate at which this company&rsquo;s cash
-        would have to compound for today&rsquo;s price to be exactly right — read against what the filings say it has
-        compounded at, on the left.
-        {record.near
-          ? ` The record beside it is measured from the filings themselves, ${shortDate(record.near.from)} to ${shortDate(record.near.to)}${longer ? ` and ${shortDate(record.far!.from)} to ${shortDate(record.far!.to)}` : ""}, over the years they actually cover rather than the years asked for.`
-          : ""}
-      </p>
-      <p className="stat-note" style={{ marginTop: 6 }}>
-        The discount rate is the only figure here nobody filed, which is why it is a control rather than a decision made
-        for you. Nothing on this page is a forecast: the price is the market&rsquo;s, the cash flow is the
-        company&rsquo;s, and the rate between them is arithmetic. Free cash flow is struck after interest, so it is held
-        against the market capitalisation rather than the enterprise value.
+      {/*
+        * The terms, on one line, in the order they are used: what is paid, for
+        * what cash, over how long. A reader who wants to check the arithmetic
+        * has everything it was struck from; a reader who does not is not made
+        * to read a paragraph to reach the figures above.
+        */}
+      <p className="stat-note implied-terms">
+        {money(marketCap, currency)} for {money(freeCashFlow.value, currency)} of free cash flow
+        {freeCashFlow.period ? ` · ${freeCashFlow.period.label}` : ""}
+        {" · "}{percent(discountRate, 0)} discount, {percent(TERMINAL, 1)} after year {HORIZON}
+        {" · "}the discount rate is the only figure here nobody filed
       </p>
     </section>
   );

@@ -407,7 +407,17 @@ describe("the redesign", () => {
     // The span of the record is measured from the filings rather than assumed
     // from the window that was asked for.
     expect(panel).toContain("const span = (Date.parse(to) - Date.parse(from))");
-    expect(css).toContain(".stats-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }");
+    // Three rates on one scale rather than four cells and two paragraphs: the
+    // comparison is the point, and a scale that takes in nought draws a
+    // shrinking cash flow as the shrinkage it is.
+    expect(panel).toContain('className="allocation implied-rates"');
+    expect(panel).toContain("const rates = [0, ...rows.map((row) => row.rate)];");
+    expect(css).toContain(".implied-zero {");
+    // The terms are one line, not an essay: everything the arithmetic was
+    // struck from, in the order it is used.
+    expect(panel).toContain('className="stat-note implied-terms"');
+    expect(panel).not.toContain("That is the rate at which");
+    expect(panel).not.toContain("Nothing on this page is a forecast");
   });
 
   it("reads the wire under the indices, as text nobody can click", () => {

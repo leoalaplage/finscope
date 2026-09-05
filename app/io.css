@@ -408,8 +408,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * Seven columns also gives each label the width it needs to be read whole.
  */
 .stats-seven { grid-template-columns: repeat(7, minmax(0, 1fr)); }
-/* And four, for a strip that is one figure against three facts. */
-.stats-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .stat { padding: 11px 12px 12px; min-width: 0; }
 .stat .label, .stat-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-value { font-family: var(--mono); font-size: var(--fs-lg); margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -591,7 +589,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
    */
   .stats-seven { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .stats-seven > :last-child { grid-column: span 2; }
-  .stats-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 @media (max-width: 900px) {
@@ -602,7 +599,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 @media (max-width: 560px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stats-seven { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .stats-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* Restated rather than inherited: the rule above is what makes this work. */
   .multiples { grid-template-columns: minmax(0, 1fr); }
 }
@@ -768,6 +764,27 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .source-audit-open { appearance: none; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; cursor: pointer; }
 .source-differences { margin-top: calc(var(--u) * 4); }
 .source-caveat { max-width: 880px; margin-top: 12px; }
+
+/* --- What the price implies ---------------------------------------------- */
+
+/*
+ * The ask against the record, on one scale.
+ *
+ * The rows borrow the allocation list — a name, a length and a figure — because
+ * that is already how this site says "these three things, compared". What is
+ * added is a nought: a rate can be negative, and a bar that started at the left
+ * edge would draw a shrinking cash flow as a small amount of growth. The ask is
+ * filled and the record is outlined, which is the one-ink way of saying which
+ * of the three is a claim about the future and which two are history.
+ */
+.implied-rates { margin-top: calc(var(--u) * 2); }
+.implied-rates .allocation-bar { position: relative; height: 8px; }
+.implied-rates .allocation-bar > span { border-radius: 1px; }
+.implied-rates .allocation-bar > span[data-ask="false"] {
+  background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.implied-zero { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--line-strong); }
+.implied-terms { margin-top: calc(var(--u) * 3); }
 
 /* --- The wire ------------------------------------------------------------ */
 
