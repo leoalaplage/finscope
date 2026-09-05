@@ -460,6 +460,11 @@ function MetricSection({
           {frequency === "annual" ? "Not enough annual history for this measure." : "Not enough TTM history for this measure."}
         </p>
       )}
+      {/* A switch that appears to do nothing is worse than one that is not
+          offered: say why the quote is not on the picture. */}
+      {overlay.state === "failed" ? (
+        <p className="stat-note" style={{ marginTop: 10 }}>No quoted history for this symbol, so the share price cannot be drawn beside it.</p>
+      ) : null}
     </section>
   );
 }
