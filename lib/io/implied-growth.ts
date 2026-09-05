@@ -78,6 +78,42 @@ export function presentValue(terms: ImpliedGrowthTerms, rate: number): number {
 }
 
 /**
+ * The return today's price earns, if the cash grows at a stated rate.
+ *
+ * The same equation as `impliedGrowth`, inverted the other way round. There
+ * the reader fixes what they require and the arithmetic says what the company
+ * must do; here the company's own record is fixed and the arithmetic says what
+ * the reader would earn. It is the more useful of the two for a decision,
+ * because it takes nothing from the reader at all: the growth comes out of the
+ * filings, the price comes from the market, and what falls out is the return
+ * on buying at that price if the record simply continues.
+ *
+ * Present value falls as the required return rises, so the same bisection
+ * works with the comparison turned around. The floor is a hair above the
+ * terminal rate, below which a perpetuity is worth infinity and the question
+ * stops meaning anything.
+ */
+export function impliedReturn(terms: Omit<ImpliedGrowthTerms, "discountRate">, growth: number): ImpliedGrowth {
+  const { marketCap, freeCashFlow, terminalGrowth } = terms;
+  if (!(freeCashFlow > 0)) {
+    return { kind: "unavailable", reason: "This company's free cash flow is not positive, so there is no cash flow to earn a return on." };
+  }
+  if (!(marketCap > 0)) return { kind: "unavailable", reason: "No market capitalisation can be struck for this company." };
+  const floor = terminalGrowth + .005;
+  const at = (rate: number) => presentValue({ ...terms, discountRate: rate }, growth);
+  if (at(floor) < marketCap) return { kind: "beyond", bound: floor, direction: "below" };
+  if (at(CEILING) > marketCap) return { kind: "beyond", bound: CEILING, direction: "above" };
+
+  let low = floor;
+  let high = CEILING;
+  for (let step = 0; step < STEPS; step++) {
+    const middle = (low + high) / 2;
+    if (at(middle) > marketCap) low = middle; else high = middle;
+  }
+  return { kind: "solved", rate: (low + high) / 2 };
+}
+
+/**
  * The cash flows a rate implies, year by year.
  *
  * The same compounding the present value discounts, handed back rather than

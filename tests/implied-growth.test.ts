@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { impliedGrowth, presentValue, projectCashFlows, valuePath, type ImpliedGrowthTerms } from "../lib/io/implied-growth";
+import { impliedGrowth, impliedReturn, presentValue, projectCashFlows, valuePath, type ImpliedGrowthTerms } from "../lib/io/implied-growth";
 
 /**
  * A discounted cash flow run backwards.
@@ -112,6 +112,39 @@ describe("what a price implies", () => {
     const path = valuePath(terms(), rate);
     const last = projectCashFlows(50, rate, 10)[9];
     expect(path[10]).toBeCloseTo((last * 1.025) / (.1 - .025), 6);
+  });
+
+  it("answers the same question from the other side", () => {
+    // Fix what the reader requires and the arithmetic says what the company
+    // must do; fix what the company does and it says what the reader earns.
+    // The two inversions have to meet: at the growth the price implies for a
+    // 10% requirement, the return on that price is 10%.
+    const asked = impliedGrowth(terms());
+    expect(asked.kind).toBe("solved");
+    if (asked.kind !== "solved") return;
+    const earned = impliedReturn({ marketCap: 1_000, freeCashFlow: 50, years: 10, terminalGrowth: .025 }, asked.rate);
+    expect(earned.kind).toBe("solved");
+    if (earned.kind !== "solved") return;
+    expect(earned.rate).toBeCloseTo(.1, 5);
+  });
+
+  it("earns less on a dearer price for the same record", () => {
+    const record = { marketCap: 1_000, freeCashFlow: 50, years: 10, terminalGrowth: .025 };
+    const cheap = impliedReturn({ ...record, marketCap: 600 }, .05);
+    const dear = impliedReturn({ ...record, marketCap: 2_000 }, .05);
+    expect(cheap.kind === "solved" && dear.kind === "solved").toBe(true);
+    if (cheap.kind !== "solved" || dear.kind !== "solved") return;
+    expect(cheap.rate).toBeGreaterThan(dear.rate);
+  });
+
+  it("says a price no return can justify is beyond the band", () => {
+    const priced = impliedReturn({ marketCap: 10_000_000, freeCashFlow: 50, years: 10, terminalGrowth: .025 }, 0);
+    expect(priced.kind).toBe("beyond");
+    if (priced.kind !== "beyond") return;
+    // Below the floor: even a return barely above the terminal rate — the
+    // lowest the arithmetic can express — does not reach that price.
+    expect(priced.direction).toBe("below");
+    expect(priced.bound).toBeCloseTo(.03, 10);
   });
 
   it("values a flat cash flow the way the perpetuity says it should", () => {

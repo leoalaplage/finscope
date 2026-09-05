@@ -387,6 +387,36 @@ describe("the redesign", () => {
     expect(portfolio).not.toContain("riskScore");
   });
 
+  it("gives the discounted cash flow a page that answers in one screen", () => {
+    const page = readFileSync(new URL("../app/dcf/page.tsx", import.meta.url), "utf8");
+    const dcf = readFileSync(new URL("../components/io/Dcf.tsx", import.meta.url), "utf8");
+    const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    expect(shell).toContain('<a href="/dcf">DCF</a>');
+    // The company being valued is in the address, so a valuation can be sent.
+    expect(page).toContain('export const dynamic = "force-static"');
+    expect(dcf).toContain('url.searchParams.set("s", next)');
+    /*
+     * The verdict in the order the question is asked: what it earns if the
+     * company merely repeats itself — which takes nothing from the reader at
+     * all — then what it is worth to them, how far that is from the price, and
+     * the price.
+     */
+    expect(dcf).toContain('<div className="label">Earns at its record</div>');
+    expect(dcf).toContain("impliedReturn(terms, record.rate)");
+    expect(dcf).toContain('<div className="label">Margin</div>');
+    // Every answer at once, because the setting is the argument: a growth the
+    // filings support down the side, a return somebody might require across.
+    expect(dcf).toContain('{RATES.map((rate) => <th key={rate} scope="col">{percent(rate, 0)} required</th>)}');
+    expect(dcf).toContain('data-under={margin > 0}');
+    expect(css).toContain('.sheet td[data-under="true"] { background: var(--ink); color: var(--inverse); }');
+    // A company nobody has opened is waited for rather than refused.
+    expect(dcf).toContain("timer = setTimeout(load, POLL_MS)");
+    // And the model itself is the panel the company page carries: two
+    // implementations of one arithmetic is one too many.
+    expect(dcf).toContain("<ImpliedExpectations view={view!} quote={quote} />");
+  });
+
   it("inverts the discounted cash flow instead of forecasting one", () => {
     const panel = readFileSync(new URL("../components/io/ImpliedExpectations.tsx", import.meta.url), "utf8");
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
@@ -459,6 +489,9 @@ describe("the redesign", () => {
     // beside a heading are four percentages of nothing.
     expect(panel).toContain("<span className=\"label\">Return you require</span>");
     expect(css).toContain(".implied-guide {");
+    // Set like every other note here — monospaced and small — rather than as a
+    // paragraph of body text from a different product.
+    expect(css).toContain(".implied-guide dd {\n  margin: 0; font-family: var(--mono); font-size: var(--fs-xs);");
     expect(panel).not.toContain("That is the rate at which");
     expect(panel).not.toContain("Nothing on this page is a forecast");
   });
