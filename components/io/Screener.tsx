@@ -7,6 +7,8 @@ import {
   type PresetName, type ScoredCompany, type SortDirection,
 } from "@/lib/qs/screener";
 import type { PricePoint } from "@/lib/types";
+import { KEY_VERSION } from "@/lib/data-version";
+import { stated } from "@/lib/sector";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import { useStoredWatchlist } from "./watchlist";
 import { ABSENT, money, percent } from "./format";
@@ -137,7 +139,10 @@ export function Screener() {
 
     const build = async () => {
       try {
-        const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(followed)}`, { signal: controller.signal });
+        // The version travels in the URL as well as in the key: a digest built
+        // under corrected semantics must not sit behind a copy the reader's own
+        // browser was told it could keep for a day.
+        const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(followed)}&v=${KEY_VERSION}`, { signal: controller.signal });
         if (!response.ok) throw new Error("The watchlist could not be read.");
         const payload = await response.json() as { summaries?: WatchlistSummary[]; pending?: string[] };
         const summaries = (payload.summaries ?? []).filter((item) => item.qs);
@@ -341,7 +346,10 @@ function ScoreTable({
                   <a className="key-open" href={`/s/${encodeURIComponent(row.Ticker)}`}>
                     <span className="screener-rank">{index + 1}</span>
                     {row.Ticker}
-                    <span className="screener-sector">{row.Secteur}</span>
+                    {/* A sector we do not know is not a sector called
+                        "Unclassified": the filer's own classification is
+                        missing, and a blank says that better than a word. */}
+                    <span className="screener-sector">{stated(row.Secteur)}</span>
                   </a>
                 </th>
                 {COLUMNS.map((column) => (

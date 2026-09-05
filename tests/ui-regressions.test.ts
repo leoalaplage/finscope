@@ -380,7 +380,13 @@ describe("the redesign", () => {
     // Up to three measures at once now, on at most two scales.
     expect(company).toContain("metricKeys={selectedMetrics}");
     expect(company).toContain("onSelect={selectMetric}");
-    expect(company).toContain("?view=iov6");
+    // The request carries the shape *and* the version the figures were built
+    // under, so a reader's own cache cannot answer a corrected deployment with
+    // the company it was shown yesterday.
+    expect(company).toContain("?view=${IO_VIEW}");
+    const version = readFileSync(new URL("../lib/io/view-version.ts", import.meta.url), "utf8");
+    expect(version).toContain('const VIEW_SHAPE = "iov6"');
+    expect(version).toContain("${VIEW_SHAPE}.${KEY_VERSION}");
     expect(multiples).toContain("view.trailing");
     expect(multiples).toContain("Show first 8");
     expect(multiples).toContain("Show all ${panels.length}");

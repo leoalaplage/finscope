@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
+import { IO_VIEW } from "@/lib/io/view-version";
 import { stated } from "@/lib/sector";
 import { Growth } from "./Growth";
 import { Score } from "./Score";
@@ -202,10 +203,11 @@ export function Company({ ticker }: { ticker: string }) {
 
     const load = async () => {
       try {
-        // The view shape is edge-cached by URL as well as keyed in KV. Carry
-        // its schema in the request so a deployment never pairs a new client
-        // with an hour-old response from the previous shape.
-        const response = await fetch(`/api/io/${encodeURIComponent(ticker)}?view=iov6`, { signal: controller.signal });
+        // The answer is cached by URL — at the edge and in the reader's own
+        // browser — as well as keyed in KV. The token carries both the shape
+        // the page draws and the version the figures were built under, so a
+        // deployment can never pair a new client with an older answer.
+        const response = await fetch(`/api/io/${encodeURIComponent(ticker)}?view=${IO_VIEW}`, { signal: controller.signal });
         if (response.status === 202) {
           attempts += 1;
           if (attempts <= POLL_LIMIT) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { searchSecCompanies } from "@/lib/adapters/sec";
 import { companyByTicker } from "@/lib/company-registry";
 import { companyView } from "@/lib/io/view";
+import { VIEW_SHAPE } from "@/lib/io/view-version";
 import { CACHE_SECONDS, KEY_VERSION, claimKey, datasetKey, fallbackDatasetKeys, requestCompany } from "@/lib/dataset-cache";
 import { TICKER_PATTERN } from "@/lib/market-profile";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
@@ -21,18 +22,12 @@ import type { CompanyDataset } from "@/lib/types";
  * dataset good for a week means the view re-derives itself the morning after
  * the filings are refreshed, without anyone having to remember to evict it.
  */
-// iov2 added the historical TTM series. iov3 dropped the per-metric colour it
-// also carried: no chart on this site is drawn in anything but one ink. iov4
-// carries every trailing period the filings support rather than six years of
-// them, and lists only the measures a company actually has. iov5 stops
-// shipping the statement layout with every company — it is the shape of the
-// page, not a fact about a filer, and a new section stayed invisible for a day
-// behind the cache. iov6 withholds the measures a bank, broker or insurer has
-// no boundary for. Never serve an older shape to a client that asked for one.
-const VIEW_VERSION = "iov6";
+// The shape and its changelog live beside the token the page asks with, so the
+// two can never drift apart. Never serve an older shape to a client that asked
+// for this one.
 const VIEW_SECONDS = 86_400;
 
-const viewKey = (ticker: string) => `view:${VIEW_VERSION}.${KEY_VERSION}:${ticker.toUpperCase()}`;
+const viewKey = (ticker: string) => `view:${VIEW_SHAPE}.${KEY_VERSION}:${ticker.toUpperCase()}`;
 
 /**
  * A symbol the SEC registry does not list, remembered so it is looked up once.
