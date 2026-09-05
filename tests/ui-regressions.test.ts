@@ -375,6 +375,25 @@ describe("the redesign", () => {
     expect(css).toContain(".allocation-bar span { display: block; height: 100%; background: var(--plot); }");
   });
 
+  it("shows value-weighted portfolio risk and contribution without inventing a composite risk score", () => {
+    const portfolio = readFileSync(new URL("../components/io/Portfolio.tsx", import.meta.url), "utf8");
+    expect(portfolio).toContain("portfolioQuality(valued.positions");
+    expect(portfolio).toContain("Quality contribution");
+    expect(portfolio).toContain("Day contribution");
+    expect(portfolio).toContain("Exposures overlap");
+    expect(portfolio).toContain("Sector concentration");
+  });
+
+  it("puts current valuation beside observed five- and ten-year ranges", () => {
+    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const history = readFileSync(new URL("../components/io/ValuationHistory.tsx", import.meta.url), "utf8");
+    expect(company).toContain("<ValuationHistory view={view} quote={quote} />");
+    expect(history).toContain("5Y range");
+    expect(history).toContain("10Y range");
+    expect(history).toContain("published=1");
+    expect(history).toContain("no estimate is used");
+  });
+
   it("says which of the two readings of a chart is in force", () => {
     const section = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");

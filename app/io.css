@@ -700,13 +700,32 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .allocation-bar span { display: block; height: 100%; background: var(--plot); }
 .allocation-weight { font-family: var(--mono); font-size: var(--fs-xs); text-align: right; font-variant-numeric: tabular-nums; }
 
+.portfolio-analysis-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: calc(var(--u) * 7); }
+.portfolio-analysis-block { min-width: 0; }
+.portfolio-analysis-block > .label { display: block; margin-bottom: calc(var(--u) * 2); }
+.portfolio-risk-list .allocation-name { white-space: normal; }
+.portfolio-risk-list .allocation-name small {
+  display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--ink-3); font-size: var(--fs-micro); letter-spacing: 0; text-transform: none;
+}
+.portfolio-analysis-note { margin-top: calc(var(--u) * 3); line-height: 1.5; }
+.portfolio-contribution-sheet table { min-width: 440px; }
+
 /* Direction is the sign, here as everywhere; the cell only leans on weight. */
 .sheet td[data-dir="up"], .sheet td[data-dir="down"] { color: var(--ink); }
 
 @media (max-width: 720px) {
   .allocation-row { grid-template-columns: minmax(90px, 1fr) 1fr minmax(46px, auto); }
+  .portfolio-analysis-grid { grid-template-columns: 1fr; }
 }
 .sheet .key-open { display: flex; gap: 4px; align-items: baseline; }
+
+/* --- Historical valuation ---------------------------------------------- */
+
+.valuation-history .section-head > div:first-child { min-width: 0; }
+.valuation-history .section-head p { margin-top: 4px; }
+.valuation-history-sheet table { min-width: 920px; }
+.valuation-history-note { margin-top: calc(var(--u) * 3); max-width: 92ch; line-height: 1.5; }
 
 /* --- Quality Score -------------------------------------------------------- */
 

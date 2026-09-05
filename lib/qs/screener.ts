@@ -119,7 +119,13 @@ export function detectCapDivisor(values: Array<number | null>): number {
 export const QS_PILLARS = PILIERS as PillarName[];
 export const QS_PRESETS = cfg.PRESETS as Record<string, Record<PillarName, number>>;
 export const QS_DEFAULT_WEIGHTS = cfg.POIDS_PILIERS as Record<PillarName, number>;
-export const QS_GRADES = (cfg.GRILLE_NOTES as Array<[string, number]>).map(([grade]) => grade);
+const QS_GRADE_SCALE = cfg.GRILLE_NOTES as Array<[string, number]>;
+export const QS_GRADES = QS_GRADE_SCALE.map(([grade]) => grade);
+/** The engine's fixed score bands, reusable where several holdings become one score. */
+export function gradeForScore(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "NR";
+  return QS_GRADE_SCALE.find(([, floor]) => value >= floor)?.[0] ?? "NR";
+}
 export const QS_METRIC_NAMES = cfg.NOMS_METRIQUES as Record<string, string>;
 export const QS_METRIC_NOTES = cfg.DESCRIPTIONS_METRIQUES as Record<string, string>;
 export const QS_COVERAGE_FLOOR = cfg.SEUIL_COUVERTURE as number;

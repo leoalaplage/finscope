@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { concentration, overWindow, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, weightedMetric, withinWindow } from "../lib/portfolio";
+import { concentration, overWindow, portfolioExposure, portfolioQuality, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, weightedMetric, withinWindow } from "../lib/portfolio";
 import type { WatchlistSummary } from "../lib/watchlist-summary";
 
 const summary = (ticker: string, over: Partial<WatchlistSummary> = {}): WatchlistSummary => ({
@@ -65,6 +65,29 @@ describe("a portfolio-level figure", () => {
     const metric = weightedMetric(book().positions, () => null);
     expect(metric.value).toBeNull();
     expect(metric.coverage).toBe(0);
+  });
+});
+
+describe("portfolio Quality Score", () => {
+  it("renormalises covered weights and exposes contributions that add to the score", () => {
+    const valued = valuePortfolio(
+      [{ ticker: "A", shares: 1 }, { ticker: "B", shares: 1 }, { ticker: "C", shares: 1 }],
+      {}, { A: 50, B: 30, C: 20 },
+    );
+    const scores: Record<string, number | null> = { A: 80, B: 40, C: null };
+    const result = portfolioQuality(valued.positions, (position) => scores[position.ticker]);
+    expect(result.coverage).toBeCloseTo(.8, 10);
+    expect(result.value).toBeCloseTo(65, 10);
+    expect(result.contributions.reduce((sum, entry) => sum + entry.contribution, 0)).toBeCloseTo(65, 10);
+    expect(result.missing).toEqual(["C"]);
+  });
+
+  it("measures an exposure as portfolio value rather than number of names", () => {
+    const valued = valuePortfolio(
+      [{ ticker: "A", shares: 1 }, { ticker: "B", shares: 1 }],
+      {}, { A: 90, B: 10 },
+    );
+    expect(portfolioExposure(valued.positions, (position) => position.ticker === "B")).toBeCloseTo(.1, 10);
   });
 });
 

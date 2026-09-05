@@ -11,6 +11,7 @@ import { CHART_ANCHOR, PriceSection } from "./PriceSection";
 import { toggleMetric } from "./selection";
 import { Statements } from "./Statements";
 import { Stats } from "./Stats";
+import { ValuationHistory } from "./ValuationHistory";
 import type { IoQuote } from "./quote";
 import { fundamentalWindow, RANGES, type Frequency, type Range } from "./ranges";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "./format";
@@ -343,6 +344,7 @@ export function Company({ ticker }: { ticker: string }) {
       />
       <Stats view={view} quote={quote} />
       <Score key={company.ticker} ticker={company.ticker} />
+      <ValuationHistory view={view} quote={quote} />
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
       <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
       <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />

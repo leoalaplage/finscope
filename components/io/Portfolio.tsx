@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { KEY_VERSION } from "@/lib/data-version";
 import {
-  concentration, DAILY_WINDOWS, overWindow, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, WINDOWS,
+  concentration, DAILY_WINDOWS, overWindow, portfolioExposure, portfolioQuality, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, WINDOWS,
   type Position, type SeriesPoint, type ValuedPosition, type WindowId,
 } from "@/lib/portfolio";
 import { qsTable, qsValuationColumns, type QsRow } from "@/lib/qs-export";
-import { screen, type ScoredCompany } from "@/lib/qs/screener";
+import { gradeForScore, QS_COVERAGE_FLOOR, screen, type ScoredCompany } from "@/lib/qs/screener";
 import { stated } from "@/lib/sector";
 import { summarySector, type WatchlistSummary } from "@/lib/watchlist-summary";
 import { parseHoldings, saveHoldings, useStoredHoldings, writeHoldings } from "./holdings";
@@ -220,14 +220,21 @@ export function Portfolio() {
   /** The day, in money and in proportion, over the holdings that have a price. */
   const day = useMemo(() => {
     let moved = 0; let opened = 0;
+    const parts: Array<{ ticker: string; moved: number }> = [];
     for (const position of valued.positions) {
       const quote = feed.quotes[position.ticker];
       if (position.value == null || quote?.previousClose == null || quote.changePercent == null) continue;
       const yesterday = quote.previousClose * position.shares;
-      moved += position.value - yesterday;
+      const change = position.value - yesterday;
+      moved += change;
       opened += yesterday;
+      parts.push({ ticker: position.ticker, moved: change });
     }
-    return opened > 0 ? { moved, percent: moved / opened } : null;
+    return opened > 0 ? {
+      moved,
+      percent: moved / opened,
+      contributions: Object.fromEntries(parts.map((part) => [part.ticker, part.moved / opened])),
+    } : null;
   }, [valued, feed]);
 
   /*
@@ -260,14 +267,16 @@ export function Portfolio() {
 
   /** The book's score: each holding's, weighted by what it is worth. */
   const score = useMemo(() => {
-    let total = 0; let weight = 0;
-    for (const position of valued.positions) {
+    const quality = portfolioQuality(valued.positions, (position) => {
       const row = graded[position.ticker];
-      if (position.weight == null || row?.total == null) continue;
-      total += position.weight * row.total;
-      weight += position.weight;
-    }
-    return weight > 0 ? { value: total / weight, coverage: weight } : null;
+      return row?.note === "NR" ? null : row?.total;
+    });
+    const value = quality.value;
+    return value == null ? null : {
+      ...quality,
+      value,
+      grade: quality.coverage >= QS_COVERAGE_FLOOR ? gradeForScore(value) : "NR",
+    };
   }, [valued, graded]);
 
   /*
@@ -318,6 +327,37 @@ export function Portfolio() {
     [valued],
   );
   const spread = useMemo(() => concentration(valued.positions), [valued]);
+  const riskExposures = useMemo(() => {
+    const exposures: Array<{ label: string; weight: number; tickers: string[] }> = [];
+    const priced = valued.positions.filter((position) => position.weight != null && position.weight > 0);
+    const add = (label: string, selected: ValuedPosition[]) => {
+      const weight = selected.reduce((sum, position) => sum + (position.weight ?? 0), 0);
+      if (weight > 0) exposures.push({ label, weight, tickers: selected.map((position) => position.ticker) });
+    };
+    const largest = [...priced].sort((left, right) => (right.weight ?? 0) - (left.weight ?? 0))[0];
+    if (largest) exposures.push({ label: "Largest holding", weight: largest.weight!, tickers: [largest.ticker] });
+    if (sectors[0]) {
+      exposures.push({
+        label: "Largest sector",
+        weight: sectors[0].weight,
+        tickers: priced
+          .filter((position) => (stated(position.sector) ?? "Not classified") === sectors[0].label)
+          .map((position) => position.ticker),
+      });
+    }
+    add("Quality below B", priced.filter((position) => ["B-", "C", "D"].includes(graded[position.ticker]?.note ?? "")));
+    const unscored = portfolioExposure(priced, (position) => graded[position.ticker]?.note === "NR" || graded[position.ticker]?.total == null);
+    if (unscored > 0) exposures.push({
+      label: "Quality not rated",
+      weight: unscored,
+      tickers: priced.filter((position) => graded[position.ticker]?.note === "NR" || graded[position.ticker]?.total == null).map((position) => position.ticker),
+    });
+    const alerts = new Set(priced.flatMap((position) => graded[position.ticker]?.alertes_detail ?? []));
+    for (const alert of alerts) {
+      add(alert, priced.filter((position) => graded[position.ticker]?.alertes_detail.includes(alert)));
+    }
+    return exposures;
+  }, [valued, graded, sectors]);
 
   const rows = useMemo(() => {
     const ordered = [...valued.positions];
@@ -386,8 +426,8 @@ export function Portfolio() {
                   the sentence under the strip says what "owned" means. */}
               <Stat label="FCF owned" value={lookThrough.freeCashFlow > 0 ? money(lookThrough.freeCashFlow, BASE_CURRENCY) : null} />
               <Stat label="FCF yield" value={lookThrough.yield == null ? null : percent(lookThrough.yield, 2)} />
-              <Stat label="P / FCF" value={lookThrough.multiple == null ? null : ratio(lookThrough.multiple, 1)} />
-              <Stat label="Quality" value={score == null ? null : score.value.toFixed(1)} />
+              <Stat label="Portfolio P / FCF" value={lookThrough.multiple == null ? null : ratio(lookThrough.multiple, 1)} />
+              <Stat label="Weighted quality" value={score == null ? null : `${score.grade} · ${score.value.toFixed(1)}`} />
               <Stat label="Largest" value={spread.largest == null ? null : percent(spread.largest, 1)} />
             </div>
             {lookThrough.freeCashFlow > 0 ? (
@@ -406,6 +446,12 @@ export function Portfolio() {
               score={score}
             />
           </section>
+
+          <PortfolioAnalysis
+            positions={valued.positions}
+            score={score}
+            risks={riskExposures}
+          />
 
           <section className="section">
             <div className="section-head">
@@ -466,13 +512,19 @@ export function Portfolio() {
                 <button type="button" aria-pressed={sort === "ticker"} onClick={() => setSort("ticker")}>A–Z</button>
               </div>
             </div>
-            <Holdings rows={rows} quotes={feed.quotes} graded={graded} />
+            <Holdings
+              rows={rows}
+              quotes={feed.quotes}
+              graded={graded}
+              qualityContributions={Object.fromEntries((score?.contributions ?? []).map((entry) => [entry.ticker, entry.contribution]))}
+              dayContributions={day?.contributions ?? {}}
+            />
           </section>
 
           {sectors.length ? (
             <section className="section">
               <div className="section-head">
-                <h2 className="label">Where the money is</h2>
+                <h2 className="label">Sector concentration</h2>
                 <span className="label">{sectors.length} {sectors.length === 1 ? "sector" : "sectors"}</span>
               </div>
               <div className="allocation">
@@ -578,12 +630,87 @@ function Notes({
   return <>{notes.map((note) => <p className="stat-note" key={note} style={{ marginTop: 10 }}>{note}</p>)}</>;
 }
 
+interface PortfolioAnalysisScore {
+  value: number;
+  coverage: number;
+  grade: string;
+  contributions: Array<{ ticker: string; scoredWeight: number; score: number; contribution: number }>;
+}
+
+function PortfolioAnalysis({
+  positions, score, risks,
+}: {
+  positions: ValuedPosition[];
+  score: PortfolioAnalysisScore | null;
+  risks: Array<{ label: string; weight: number; tickers: string[] }>;
+}) {
+  const contributions = new Map((score?.contributions ?? []).map((entry) => [entry.ticker, entry]));
+  const ordered = [...positions]
+    .filter((position) => position.weight != null)
+    .sort((left, right) => (right.weight ?? 0) - (left.weight ?? 0));
+  return (
+    <section className="section portfolio-analysis">
+      <div className="section-head">
+        <div>
+          <h2 className="label">Portfolio analysis</h2>
+          <p className="stat-note">Concentration, score contribution and stated score alerts</p>
+        </div>
+        <span className="label">{score ? `${score.grade} · ${score.value.toFixed(1)} weighted quality` : "Quality pending"}</span>
+      </div>
+      <div className="portfolio-analysis-grid">
+        <div className="portfolio-analysis-block">
+          <h3 className="label">Risk exposure</h3>
+          <div className="allocation portfolio-risk-list">
+            {risks.map((risk) => (
+              <div className="allocation-row" key={risk.label}>
+                <span className="allocation-name">
+                  {risk.label}
+                  <small>{risk.tickers.join(" · ")}</small>
+                </span>
+                <span className="allocation-bar"><span style={{ width: `${Math.max(risk.weight * 100, .4)}%` }} /></span>
+                <span className="allocation-weight num">{percent(risk.weight, 1)}</span>
+              </div>
+            ))}
+          </div>
+          <p className="stat-note portfolio-analysis-note">Exposures overlap. They are value weights, not a risk score, and are not meant to add to 100%.</p>
+        </div>
+        <div className="portfolio-analysis-block">
+          <h3 className="label">Quality contribution</h3>
+          <div className="sheet portfolio-contribution-sheet">
+            <table>
+              <thead><tr><th className="key" scope="col">Company</th><th scope="col">Weight</th><th scope="col">Score</th><th scope="col">Contribution</th></tr></thead>
+              <tbody>
+                {ordered.map((position) => {
+                  const entry = contributions.get(position.ticker);
+                  return (
+                    <tr key={position.ticker}>
+                      <th className="key" scope="row"><a className="key-open" href={`/s/${encodeURIComponent(position.ticker)}`}>{position.ticker}</a></th>
+                      <td>{percent(position.weight, 1)}</td>
+                      <td data-empty={!entry}>{entry ? entry.score.toFixed(1) : ABSENT}</td>
+                      <td data-empty={!entry}>{entry ? `${entry.contribution.toFixed(1)} pts` : ABSENT}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="stat-note portfolio-analysis-note">
+            Contributions add to the weighted score over {score ? percent(score.coverage, 0) : ABSENT} of portfolio value.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Holdings({
-  rows, quotes, graded,
+  rows, quotes, graded, qualityContributions, dayContributions,
 }: {
   rows: ValuedPosition[];
   quotes: Record<string, IoQuote | undefined>;
   graded: Record<string, ScoredCompany | undefined>;
+  qualityContributions: Record<string, number | undefined>;
+  dayContributions: Record<string, number | undefined>;
 }) {
   return (
     <div className="sheet">
@@ -599,6 +726,8 @@ function Holdings({
             <th scope="col">Cost</th>
             <th scope="col">Gain</th>
             <th scope="col">Grade</th>
+            <th scope="col">QS contribution</th>
+            <th scope="col">Day contribution</th>
             <th scope="col">FCF yield</th>
           </tr>
         </thead>
@@ -630,6 +759,8 @@ function Holdings({
                 <td data-empty={row.costBasis == null}>{row.costBasis == null ? ABSENT : money(row.costBasis, BASE_CURRENCY)}</td>
                 <td data-empty={row.profitPercent == null}>{row.profitPercent == null ? ABSENT : delta(row.profitPercent)}</td>
                 <td data-empty={grade == null || grade.note === "NR"}>{grade?.note ?? ABSENT}</td>
+                <td data-empty={qualityContributions[row.ticker] == null}>{qualityContributions[row.ticker] == null ? ABSENT : `${qualityContributions[row.ticker]!.toFixed(1)} pts`}</td>
+                <td data-empty={dayContributions[row.ticker] == null}>{dayContributions[row.ticker] == null ? ABSENT : delta(dayContributions[row.ticker])}</td>
                 <td data-empty={owned == null}>{owned == null ? ABSENT : percent(owned, 2)}</td>
               </tr>
             );

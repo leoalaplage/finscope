@@ -136,6 +136,61 @@ export function weightedMetric(positions: ValuedPosition[], read: (position: Val
   return { value, coverage, missing };
 }
 
+export interface PortfolioQualityContribution {
+  ticker: string;
+  /** Value weight renormalised over the holdings carrying a score. */
+  scoredWeight: number;
+  score: number;
+  /** Points this holding adds to the portfolio's weighted score. */
+  contribution: number;
+}
+
+export interface PortfolioQuality {
+  value: number | null;
+  /** Share of priced portfolio value carrying a Quality Score. */
+  coverage: number;
+  contributions: PortfolioQualityContribution[];
+  missing: string[];
+}
+
+/**
+ * A weighted Quality Score whose pieces add back to the number on screen.
+ *
+ * Missing companies are excluded and the known weights are renormalised, just
+ * as a missing metric is inside the score itself. The coverage travels beside
+ * the answer so 80 over half a portfolio never masquerades as 80 over all of
+ * it.
+ */
+export function portfolioQuality(
+  positions: ValuedPosition[],
+  read: (position: ValuedPosition) => number | null | undefined,
+): PortfolioQuality {
+  const readings = positions.map((position) => ({ position, score: read(position) }));
+  const usable = readings.filter((entry): entry is { position: ValuedPosition & { weight: number }; score: number } =>
+    entry.position.weight != null && entry.position.weight > 0
+    && entry.score != null && Number.isFinite(entry.score));
+  const coverage = usable.reduce((sum, entry) => sum + entry.position.weight, 0);
+  const missing = readings
+    .filter((entry) => entry.position.weight != null && (entry.score == null || !Number.isFinite(entry.score)))
+    .map((entry) => entry.position.ticker);
+  if (!usable.length || coverage <= 0) return { value: null, coverage: 0, contributions: [], missing };
+  const contributions = usable.map(({ position, score }) => {
+    const scoredWeight = position.weight / coverage;
+    return { ticker: position.ticker, scoredWeight, score, contribution: scoredWeight * score };
+  });
+  return {
+    value: contributions.reduce((sum, entry) => sum + entry.contribution, 0),
+    coverage,
+    contributions,
+    missing,
+  };
+}
+
+/** Share of priced value for which a stated condition is true. */
+export function portfolioExposure(positions: ValuedPosition[], exposed: (position: ValuedPosition) => boolean): number {
+  return positions.reduce((sum, position) => sum + (position.weight != null && exposed(position) ? position.weight : 0), 0);
+}
+
 /** Weight grouped by a property of the holding, largest first. */
 export function weightBy(positions: ValuedPosition[], key: (position: ValuedPosition) => string) {
   const groups = new Map<string, number>();

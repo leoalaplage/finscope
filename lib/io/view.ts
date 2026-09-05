@@ -40,6 +40,14 @@ export interface IoPeriod {
   accession: string;
   currency: string;
   values: Record<string, number | null>;
+  /** The filed basis needed to price this period after it became public. */
+  valuationBasis: {
+    shares: number;
+    sharesBasis: "outstanding" | "cover-date" | "diluted";
+    sharesNote: string | null;
+    netDebt: number | null;
+    debtFrom: { label: string; periodEnd: string } | null;
+  } | null;
 }
 
 /**
@@ -167,9 +175,13 @@ function metricCatalogue(periods: IoPeriod[]): IoMetric[] {
     });
 }
 
-function projectPeriod(period: FinancialPeriod, withheld: ReadonlySet<string>): IoPeriod {
+function projectPeriod(dataset: CompanyDataset, period: FinancialPeriod, withheld: ReadonlySet<string>): IoPeriod {
   const values: Record<string, number | null> = {};
   for (const key of IO_METRIC_KEYS) values[key] = withheld.has(key) ? null : validatedDerivedValue(period, key, "validated");
+  const counted = shareCount(period);
+  const borrowed = withheld.has("netDebt") ? null : reportedDebt(dataset.periods, period);
+  const cash = valueOf(period, "cashAndEquivalents");
+  const netDebt = borrowed == null || cash == null ? null : borrowed.value - cash;
   return {
     label: period.label,
     end: period.periodEnd,
@@ -180,6 +192,13 @@ function projectPeriod(period: FinancialPeriod, withheld: ReadonlySet<string>): 
     accession: period.accession,
     currency: period.currency,
     values,
+    valuationBasis: counted ? {
+      shares: counted.shares,
+      sharesBasis: counted.basis,
+      sharesNote: counted.note ?? null,
+      netDebt,
+      debtFrom: netDebt != null && borrowed?.carried ? { label: borrowed.label, periodEnd: borrowed.periodEnd } : null,
+    } : null,
   };
 }
 
@@ -225,7 +244,7 @@ function valuationBasis(dataset: CompanyDataset, withheld: ReadonlySet<string>):
 export function companyView(dataset: CompanyDataset): IoCompanyView {
   const current = currentDatasetPeriod(dataset);
   const withheld = balanceSheetIsTheBusiness(dataset.company.businessType) ? NOT_FOR_FINANCIALS : new Set<string>();
-  const project = (period: FinancialPeriod) => projectPeriod(period, withheld);
+  const project = (period: FinancialPeriod) => projectPeriod(dataset, period, withheld);
   const trailing = ordered(dataset.periods, "ttm", TTM_LIMIT).map(project);
   const annual = ordered(dataset.periods, "annual", ANNUAL_LIMIT).map(project);
   const quarterly = ordered(dataset.periods, "quarterly", QUARTERLY_LIMIT).map(project);

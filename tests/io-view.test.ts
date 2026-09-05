@@ -101,6 +101,7 @@ describe("the .io company projection", () => {
   it("states the share count a price may be multiplied by, and how it was obtained", () => {
     const view = companyView(dataset([period("2025-09-27", full)]));
     expect(view.basis).toMatchObject({ currency: "USD", shares: 98, sharesBasis: "outstanding", netDebt: 380 });
+    expect(view.annual.at(-1)?.valuationBasis).toMatchObject({ shares: 98, sharesBasis: "outstanding", netDebt: 380 });
     expect(view.basisReason).toBeNull();
   });
 
