@@ -97,6 +97,38 @@ export function projectCashFlows(freeCashFlow: number, rate: number, years: numb
 }
 
 /**
+ * What the remaining cash is worth at the end of each year, today included.
+ *
+ * The same model struck again at each date: at year `t` the flows already
+ * received are gone and what is left is discounted back to `t` rather than to
+ * now. It falls out of one identity — a year's value is the next year's value
+ * plus the cash that year pays, discounted once — so the path is exact rather
+ * than a second approximation of the first.
+ *
+ * This is the projection of *value*, not of price. Nobody can project a price:
+ * it is what somebody else will pay. What can be said is what the business is
+ * worth on a stated assumption, and the year that figure passes what the market
+ * charges today — which is the discount, in the only unit a reader can act on.
+ *
+ * The cash paid out along the way is deliberately not added in. A holder
+ * receives it; a company that keeps it holds it as cash the next filing will
+ * show. Adding it here would be counting a distribution as though it were still
+ * inside the business.
+ */
+export function valuePath(terms: ImpliedGrowthTerms, rate: number): number[] {
+  const { freeCashFlow, discountRate, years, terminalGrowth } = terms;
+  const flows = projectCashFlows(freeCashFlow, rate, years);
+  const path = new Array<number>(years + 1);
+  // The last year holds the perpetuity and nothing else: every projected flow
+  // has been received by then.
+  path[years] = (flows[years - 1] * (1 + terminalGrowth)) / (discountRate - terminalGrowth);
+  for (let year = years; year > 0; year--) {
+    path[year - 1] = (path[year] + flows[year - 1]) / (1 + discountRate);
+  }
+  return path;
+}
+
+/**
  * The rate that makes the price exactly right, by bisection.
  *
  * Present value rises monotonically with the growth rate, so halving the

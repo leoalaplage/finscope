@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
-import { impliedGrowth, presentValue, projectCashFlows } from "@/lib/io/implied-growth";
-import { Figure } from "./Plot";
+import { impliedGrowth, presentValue, projectCashFlows, valuePath } from "@/lib/io/implied-growth";
+import { Figure, MultiLine } from "./Plot";
 import { withinYears } from "./ranges";
 import { datedCagrOf, delta, money, percent, price as writePrice, yearOf } from "./format";
 import type { IoQuote } from "./quote";
@@ -26,7 +26,19 @@ import type { IoQuote } from "./quote";
  * answer, because it is the only number on this page nobody filed.
  */
 
-const RATES = [.08, .10, .12];
+/*
+ * The returns a reader might actually demand, and why six is on the list.
+ *
+ * A discount rate is a hurdle, and the hurdle decides the answer: at ten
+ * percent a company growing at nothing is worth eleven times its cash, which is
+ * a standard almost no large American company clears on its record — so a list
+ * that started at eight said "expensive" about everything and taught the reader
+ * nothing. Six is what somebody who would accept a bond-like return from a
+ * durable business is asking, and at six the same company is worth twenty-four
+ * times. The spread between the four is the point: it shows how much of a
+ * valuation is the reader's own requirement rather than the company's cash.
+ */
+const RATES = [.06, .08, .10, .12];
 const HORIZON = 10;
 /*
  * The terminal rate, held rather than chosen.
@@ -76,7 +88,7 @@ function latest(view: IoCompanyView, key: string): { value: number | null; perio
 const span = (record: { years: number } | null) => (record == null ? "5 years" : `${Math.round(record.years)} years`);
 
 export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quote: IoQuote | null }) {
-  const [discountRate, setDiscountRate] = useState(RATES[1]);
+  const [discountRate, setDiscountRate] = useState(.10);
   /*
    * Which rate the projection is drawn at.
    *
@@ -88,6 +100,16 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
    */
   const [chosen, setChosen] = useState<"price" | "near" | "far">("price");
   const [hover, setHover] = useState<number | null>(null);
+  /*
+   * Which half of the model is on screen.
+   *
+   * The cash is what the assumption *is*; the value is what it is worth, and
+   * the second is the one that answers whether today's price is a discount.
+   * Both are the same arithmetic — the value path is the same flows discounted
+   * from each later date — so switching between them cannot show two different
+   * claims.
+   */
+  const [view3, setView3] = useState<"cash" | "value">("cash");
 
   const basis = view.basis;
   const freeCashFlow = latest(view, "freeCashFlow");
@@ -166,9 +188,10 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
   const history = base && filed.at(-1)?.date !== base.end
     ? [...filed, { date: base.end, label: base.label, value: cash }]
     : filed;
+  const startYear = Number(base?.end.slice(0, 4) ?? new Date().getFullYear());
   const projection = projectCashFlows(cash, drawn.rate, HORIZON)
     .map((value, index) => ({
-      date: `${Number(base?.end.slice(0, 4) ?? new Date().getFullYear()) + index + 1}`,
+      date: `${startYear + index + 1}`,
       label: `Year +${index + 1}`,
       value,
     }));
@@ -189,6 +212,33 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
   const gap = worth / marketCap - 1;
   const perShare = basis ? worth / basis.shares : null;
   const active = hover == null ? null : bars[hover] ?? null;
+
+  /*
+   * What the business is worth at each year end, against what it costs today.
+   *
+   * A price cannot be projected — it is what somebody else will pay — so what
+   * is drawn is the value, and the year it passes the flat line of today's
+   * price is the discount stated as a date: this is the year the business is
+   * worth what you are being asked to pay for it now.
+   */
+  const shares = basis?.shares ?? null;
+  const path = shares == null ? [] : valuePath(
+    { marketCap, freeCashFlow: cash, discountRate, years: HORIZON, terminalGrowth: TERMINAL },
+    drawn.rate,
+  ).map((value, index) => ({ date: `${startYear + index}`, value: value / shares }));
+  const paid = quote?.price ?? (shares == null ? null : marketCap / shares);
+  const priceLine = paid == null ? [] : path.map((point) => ({ date: point.date, value: paid }));
+  /*
+   * The first year the value reaches what the price asks today.
+   *
+   * Nought means the discount is available now; nothing at all means the value
+   * never reaches it inside the window. Half a percent of tolerance, because at
+   * the rate the price itself implies the two are the same number to the last
+   * decimal — and "worth today's price next year" would be a rounding error
+   * dressed up as a finding.
+   */
+  const catchesUp = paid == null ? null : path.findIndex((point) => point.value >= paid * .995);
+  const valueHover = hover != null && view3 === "value" ? path[hover] ?? null : null;
   const source = chosen === "near" ? record.near : chosen === "far" ? record.far : null;
   const shortRecord = source != null && source.years < HORIZON - .5 ? source : null;
 
@@ -238,24 +288,68 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
 
       <div className="section-head implied-readout">
         <div className="readout">
-          <span className="v">{active ? money(active.value, currency) : money(bars.at(-1)!.value, currency)}</span>
-          <span className="d">{active ? active.label : `${drawn.label.toLowerCase()} · year +${HORIZON}`}</span>
+          {view3 === "cash" ? (
+            <>
+              <span className="v">{active ? money(active.value, currency) : money(bars.at(-1)!.value, currency)}</span>
+              <span className="d">{active ? active.label : `${drawn.label.toLowerCase()} · year +${HORIZON}`}</span>
+            </>
+          ) : (
+            <>
+              <span className="v">{writePrice((valueHover ?? path[0])?.value ?? 0, currency)}</span>
+              <span className="d">{valueHover ? `worth in ${valueHover.date}` : "worth today"}</span>
+            </>
+          )}
           <span className="readout-cagr">
             {perShare == null
               ? `${money(worth, currency)} of equity`
               : `${writePrice(perShare, currency)} a share`}
             {/* Two decimals on a gap of six thousand percent is noise pretending
                 to be precision. */}
-            {quote?.price != null ? ` · ${delta(gap, Math.abs(gap) > 1 ? 0 : 2)} against ${writePrice(quote.price, quote.currency)}` : ""}
+            {paid != null ? ` · ${delta(gap, Math.abs(gap) > 1 ? 0 : 2)} against ${writePrice(paid, currency)}` : ""}
           </span>
+          {/* The discount as a date, which is the form a reader can act on. */}
+          {catchesUp != null && paid != null ? (
+            <span className="readout-change">
+              {catchesUp === 0
+                ? "worth it today"
+                : catchesUp > 0
+                  ? `worth today's price in ${path[catchesUp].date}`
+                  : `not by ${path.at(-1)?.date}`}
+            </span>
+          ) : null}
+        </div>
+        <div className="seg">
+          <button type="button" aria-pressed={view3 === "cash"} onClick={() => { setView3("cash"); setHover(null); }}>Cash flow</button>
+          <button type="button" aria-pressed={view3 === "value"} onClick={() => { setView3("value"); setHover(null); }}>Value</button>
         </div>
       </div>
 
-      <Figure points={bars} shape="bars" onHover={setHover} projectedFrom={history.length} />
-      <div className="plot-axis implied-axis">
-        <span className="plot-tag plot-tag-under" style={{ left: 0 }}>{yearOf(history[0]?.date ?? "")}</span>
-        <span className="plot-tag plot-tag-under" style={{ right: 0 }}>{projection.at(-1)?.date}</span>
-      </div>
+      {view3 === "cash" ? (
+        <>
+          <Figure points={bars} shape="bars" onHover={setHover} projectedFrom={history.length} />
+          <div className="plot-axis implied-axis">
+            <span className="plot-tag plot-tag-under" style={{ left: 0 }}>{yearOf(history[0]?.date ?? "")}</span>
+            <span className="plot-tag plot-tag-under" style={{ right: 0 }}>{projection.at(-1)?.date}</span>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* The value is the subject and the price is what it is held against,
+              so one is filled and the other is the line beside it — the same
+              way the portfolio is drawn against its index. */}
+          <MultiLine
+            series={[
+              { label: "Value", points: path, area: true },
+              ...(priceLine.length ? [{ label: "Price", points: priceLine }] : []),
+            ]}
+            onHover={setHover}
+          />
+          <div className="plot-axis implied-axis">
+            <span className="plot-tag plot-tag-under" style={{ left: 0 }}>{path[0]?.date}</span>
+            <span className="plot-tag plot-tag-under" style={{ right: 0 }}>{path.at(-1)?.date}</span>
+          </div>
+        </>
+      )}
       {/*
         * The weak link, where there is one, said as a fact rather than a
         * warning. NVIDIA's filings carry four years of free cash flow; drawing

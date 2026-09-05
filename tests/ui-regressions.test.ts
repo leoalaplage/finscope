@@ -398,7 +398,7 @@ describe("the redesign", () => {
     // The reader moves the discount rate; nothing else is theirs to move, and
     // the terminal rate is a constant rather than a control — a terminal rate
     // tuned per company is where this becomes a forecast again.
-    expect(panel).toContain("const RATES = [.08, .10, .12];");
+    expect(panel).toContain("const RATES = [.06, .08, .10, .12];");
     expect(panel).toContain("const TERMINAL = .025;");
     expect(panel).not.toContain("setTerminal");
     // Free cash flow is struck after interest, so it is held against the market
@@ -434,6 +434,16 @@ describe("the redesign", () => {
     expect(css).toContain(".plot-bar-projected {");
     // How far the projection reaches past the record it was taken from.
     expect(panel).toContain("years projected from a record of");
+    /*
+     * And what it is worth, year by year, against what it costs today.
+     *
+     * A price cannot be projected — it is what somebody else will pay — so the
+     * second view draws the value and the flat line of today's price, and the
+     * year they meet is the discount stated as a date.
+     */
+    expect(panel).toContain("valuePath(");
+    expect(panel).toContain('{ label: "Value", points: path, area: true }');
+    expect(panel).toContain("worth today's price in");
     expect(panel).not.toContain("That is the rate at which");
     expect(panel).not.toContain("Nothing on this page is a forecast");
   });

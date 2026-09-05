@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { impliedGrowth, presentValue, projectCashFlows, type ImpliedGrowthTerms } from "../lib/io/implied-growth";
+import { impliedGrowth, presentValue, projectCashFlows, valuePath, type ImpliedGrowthTerms } from "../lib/io/implied-growth";
 
 /**
  * A discounted cash flow run backwards.
@@ -85,6 +85,33 @@ describe("what a price implies", () => {
   it("projects a decline as a decline", () => {
     const shrinking = projectCashFlows(100, -.1, 3);
     expect(shrinking.map((flow) => Math.round(flow))).toEqual([90, 81, 73]);
+  });
+
+  it("starts the value path at the value itself", () => {
+    // The path's first point is today's valuation: one model, struck at
+    // eleven dates rather than two models that could disagree.
+    const path = valuePath(terms(), .07);
+    expect(path).toHaveLength(11);
+    expect(path[0]).toBeCloseTo(presentValue(terms(), .07), 6);
+  });
+
+  it("grows the value at the discount rate less the cash paid out", () => {
+    // The identity the path is built on, checked forwards: a year's value is
+    // the previous year's compounded at the discount rate, less that year's
+    // cash, which the holder has received rather than the company kept.
+    const rate = .07;
+    const path = valuePath(terms(), rate);
+    const flows = projectCashFlows(50, rate, 10);
+    for (let year = 1; year <= 10; year++) {
+      expect(path[year]).toBeCloseTo(path[year - 1] * 1.1 - flows[year - 1], 6);
+    }
+  });
+
+  it("ends on the perpetuity, which is all that is left by then", () => {
+    const rate = .07;
+    const path = valuePath(terms(), rate);
+    const last = projectCashFlows(50, rate, 10)[9];
+    expect(path[10]).toBeCloseTo((last * 1.025) / (.1 - .025), 6);
   });
 
   it("values a flat cash flow the way the perpetuity says it should", () => {
