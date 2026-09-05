@@ -384,6 +384,21 @@ describe("the redesign", () => {
     expect(portfolio).toContain("Sector concentration");
   });
 
+  it("places portfolio analysis below sector concentration and omits the FCF-owned summary cell", () => {
+    const portfolio = readFileSync(new URL("../components/io/Portfolio.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    expect(portfolio.lastIndexOf("<PortfolioAnalysis")).toBeGreaterThan(portfolio.indexOf("Sector concentration"));
+    expect(portfolio).not.toContain('<Stat label="FCF owned"');
+    // Seven figures in a row of eight leaves a ruled box nobody filled in, so
+    // the strip states its own count and the short last row spans the rest.
+    expect(portfolio).toContain('className="grid-ruled stats stats-seven"');
+    expect(css).toContain(".stats-seven { grid-template-columns: repeat(7, minmax(0, 1fr)); }");
+    expect(css).toContain(".stats-seven > :last-child { grid-column: span 2; }");
+    // The figure left the strip; the sentence under it no longer defines a
+    // label that is not there.
+    expect(portfolio).not.toContain("Owned is your fraction");
+  });
+
   it("puts current valuation beside observed five- and ten-year ranges", () => {
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     const history = readFileSync(new URL("../components/io/ValuationHistory.tsx", import.meta.url), "utf8");

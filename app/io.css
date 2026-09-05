@@ -399,6 +399,15 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * missing figures rather than as the end of the list.
  */
 .stats { grid-template-columns: repeat(8, minmax(0, 1fr)); border-inline: 0; border-radius: 0; }
+/*
+ * The book's strip is seven, and the count has to be said.
+ *
+ * A ruled grid rules the slot as well as the cell, so seven figures in a row of
+ * eight leave an empty box at the end that reads as a figure nobody filled in —
+ * which is the very thing `grid-ruled` was written to avoid on its last row.
+ * Seven columns also gives each label the width it needs to be read whole.
+ */
+.stats-seven { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .stat { padding: 11px 12px 12px; min-width: 0; }
 .stat .label, .stat-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-value { font-family: var(--mono); font-size: var(--fs-lg); margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -572,6 +581,14 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 @media (max-width: 1080px) {
   .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /*
+   * Seven divides by neither four nor two, so the last row is short and the
+   * ruled grid draws the slot nobody filled. The last figure takes the room
+   * instead: four and three at this width, and at the narrowest a last row of
+   * one that spans the pair. Nothing empty is ever ruled.
+   */
+  .stats-seven { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .stats-seven > :last-child { grid-column: span 2; }
 }
 
 @media (max-width: 900px) {
@@ -581,6 +598,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 @media (max-width: 560px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-seven { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Restated rather than inherited: the rule above is what makes this work. */
   .multiples { grid-template-columns: minmax(0, 1fr); }
 }
 

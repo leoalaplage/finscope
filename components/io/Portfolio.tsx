@@ -417,14 +417,10 @@ export function Portfolio() {
       ) : (
         <>
           <section className="section" style={{ borderTop: 0, paddingTop: 0 }}>
-            <div className="grid-ruled stats">
+            <div className="grid-ruled stats stats-seven">
               <Stat label="Value" value={valued.value > 0 ? money(valued.value, BASE_CURRENCY) : null} />
               <Stat label="Cost" value={valued.cost > 0 ? money(valued.cost, BASE_CURRENCY) : null} />
               <Stat label="Gain" value={valued.profitPercent == null ? null : delta(valued.profitPercent)} />
-              {/* Your share of what these companies earned last year, and what
-                  the book paid for it. The label is short because the cell is;
-                  the sentence under the strip says what "owned" means. */}
-              <Stat label="FCF owned" value={lookThrough.freeCashFlow > 0 ? money(lookThrough.freeCashFlow, BASE_CURRENCY) : null} />
               <Stat label="FCF yield" value={lookThrough.yield == null ? null : percent(lookThrough.yield, 2)} />
               <Stat label="Portfolio P / FCF" value={lookThrough.multiple == null ? null : ratio(lookThrough.multiple, 1)} />
               <Stat label="Weighted quality" value={score == null ? null : `${score.grade} · ${score.value.toFixed(1)}`} />
@@ -432,8 +428,9 @@ export function Portfolio() {
             </div>
             {lookThrough.freeCashFlow > 0 ? (
               <p className="stat-note" style={{ marginTop: 10 }}>
-                Owned is your fraction of each company — your shares over the shares in issue — applied to what that
-                company reported. This book has a claim on {money(lookThrough.revenue, BASE_CURRENCY)} of revenue and{" "}
+                Every look-through figure here is your fraction of each company — your shares over the shares in issue
+                — applied to what that company reported. This book has a claim on{" "}
+                {money(lookThrough.revenue, BASE_CURRENCY)} of revenue and{" "}
                 {money(lookThrough.freeCashFlow, BASE_CURRENCY)} of free cash flow a year.
               </p>
             ) : null}
@@ -446,12 +443,6 @@ export function Portfolio() {
               score={score}
             />
           </section>
-
-          <PortfolioAnalysis
-            positions={valued.positions}
-            score={score}
-            risks={riskExposures}
-          />
 
           <section className="section">
             <div className="section-head">
@@ -553,6 +544,12 @@ export function Portfolio() {
               ) : null}
             </section>
           ) : null}
+
+          <PortfolioAnalysis
+            positions={valued.positions}
+            score={score}
+            risks={riskExposures}
+          />
         </>
       )}
 
