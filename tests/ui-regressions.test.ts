@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { IO_SECTIONS } from "../lib/io/sections";
 
 describe("UI regressions", () => {
   it("keeps the primary navigation intentionally limited", () => {
@@ -262,6 +263,18 @@ describe("the front page must not cost Worker CPU", () => {
 });
 
 describe("the redesign", () => {
+  it("lists each financial measure in only one statement section", () => {
+    const metrics = IO_SECTIONS.flatMap((section) => section.metrics);
+    expect(new Set(metrics).size).toBe(metrics.length);
+  });
+
+  it("keeps the company Quality Score on one desktop row", () => {
+    const score = readFileSync(new URL("../components/io/Score.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    expect(score).not.toContain('<div className="label">Coverage</div>');
+    expect(css).toContain(".score-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }");
+  });
+
   it("keeps landing-page company choices usable without the RSC link bridge", () => {
     const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
     const watchlist = readFileSync(new URL("../components/io/HomeWatchlist.tsx", import.meta.url), "utf8");

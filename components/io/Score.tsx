@@ -85,10 +85,6 @@ export function Score({ ticker }: { ticker: string }) {
           <div className="label">Valuation</div>
           <div className="stat-value score-word" data-empty={!score.valuation || score.valuation === "n/a"}>{score.valuation || ABSENT}</div>
         </div>
-        <div className="stat">
-          <div className="label">Coverage</div>
-          <div className="stat-value">{percent(score.coverage, 0)}</div>
-        </div>
       </div>
 
       {!rated ? (

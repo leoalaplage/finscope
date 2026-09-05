@@ -19,7 +19,7 @@ export const IO_SECTIONS: Array<{ id: string; label: string; metrics: string[] }
       "revenue", "costOfRevenue", "grossProfit", "researchAndDevelopment",
       "sellingGeneralAndAdministrative", "operatingExpenses", "operatingIncome",
       "ebitda", "interestExpense", "otherIncomeExpense", "incomeBeforeTax",
-      "incomeTaxExpense", "netIncome", "netIncomePerShare", "dilutedShares", "basicShares",
+      "incomeTaxExpense", "netIncome", "dilutedShares", "basicShares",
     ],
   },
   {
