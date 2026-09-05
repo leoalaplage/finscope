@@ -74,10 +74,10 @@ function latest(view: IoCompanyView, key: string): { value: number | null; perio
 /** "4 years", "10 years" — the span a record was actually earned over. */
 const span = (record: { years: number } | null) => (record == null ? "5 years" : `${Math.round(record.years)} years`);
 
-export type GrowthChoice = "price" | "near" | "far" | "flat";
+export type GrowthChoice = "price" | "near" | "far" | "own";
 
 export function ImpliedExpectations({
-  view, quote, rate, growth, onGrowth,
+  view, quote, rate, growth, onGrowth, custom,
 }: {
   view: IoCompanyView;
   quote: IoQuote | null;
@@ -93,6 +93,15 @@ export function ImpliedExpectations({
   /** Likewise the growth: the grid's cells set it, and the rows still do too. */
   growth: GrowthChoice;
   onGrowth: (growth: GrowthChoice) => void;
+  /**
+   * The rate the reader has assumed for themselves.
+   *
+   * The filings anchor the question — this is what it did — but they cannot
+   * answer it, because the reader is buying the next ten years and not the last
+   * ten. So the records are offered as rows and this is offered beside them,
+   * named as what it is: an assumption, not a filing.
+   */
+  custom: number;
 }) {
   const discountRate = rate;
   /*
@@ -176,6 +185,7 @@ export function ImpliedExpectations({
     { id: "price" as const, label: `Price asks · ${HORIZON} years`, rate: implied.kind === "solved" ? implied.rate : implied.bound, written: asked, ask: true },
     ...(record.near ? [{ id: "near" as const, label: `Delivered · ${span(record.near)}`, rate: record.near.rate, written: delta(record.near.rate), ask: false }] : []),
     ...(longer && record.far ? [{ id: "far" as const, label: `Delivered · ${span(record.far)}`, rate: record.far.rate, written: delta(record.far.rate), ask: false }] : []),
+    { id: "own" as const, label: "You assume", rate: custom, written: delta(custom), ask: false },
   ];
   const drawn = rows.find((row) => row.id === chosen) ?? rows[0];
   /*

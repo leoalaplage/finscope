@@ -97,6 +97,16 @@ export function Dcf({ initial }: { initial: string }) {
    * something else.
    */
   const [picked, setPicked] = useState<GrowthChoice | null>(null);
+  /*
+   * The growth the reader assumes, which starts on what the company did.
+   *
+   * The filings anchor the question and cannot answer it: the reader is buying
+   * the next ten years, not the last ten. So the records are rows and this is a
+   * figure they can set — opened on the longest record so it starts somewhere
+   * real, and named "you assume" everywhere it appears so it is never mistaken
+   * for something filed.
+   */
+  const [assumed, setAssumed] = useState<number | null>(null);
   const current = loaded?.ticker === ticker ? loaded : null;
 
   /*
@@ -171,6 +181,13 @@ export function Dcf({ initial }: { initial: string }) {
   const near = useMemo(() => (view ? delivered(view.annual, 5) : null), [view]);
   const growth: GrowthChoice = picked
     ?? (record != null && near != null && record.years > near.years + .5 ? "far" : "near");
+  // Opened on the longest record the filings support, rounded to the half point
+  // the control steps in, and the reader's from the first edit onwards.
+  const custom = assumed ?? Math.round((record?.rate ?? near?.rate ?? 0) * 200) / 200;
+  const assume = (next: number) => {
+    setAssumed(Math.min(1, Math.max(-.5, next)));
+    setPicked("own");
+  };
   const setGrowth = setPicked;
 
   /*
@@ -197,7 +214,8 @@ export function Dcf({ initial }: { initial: string }) {
      * the headline moves when a cell is chosen rather than staying on a record
      * the reader has just looked away from.
      */
-    const drawn = growth === "near" ? near?.rate ?? record?.rate ?? 0
+    const drawn = growth === "own" ? custom
+      : growth === "near" ? near?.rate ?? record?.rate ?? 0
       : growth === "far" ? record?.rate ?? 0
       : impliedGrowth({ ...terms, discountRate: required }).kind === "solved"
         ? (impliedGrowth({ ...terms, discountRate: required }) as { rate: number }).rate
@@ -205,13 +223,20 @@ export function Dcf({ initial }: { initial: string }) {
     return {
       basis, cash, marketCap, record, terms, worth, drawn,
       price: quote?.price ?? marketCap / basis.shares,
-      // What the price earns you if the record simply continues. Nothing in it
-      // is the reader's: the growth is filed and the price is the market's.
-      earns: record ? impliedReturn(terms, record.rate) : null,
+      /*
+       * What the price earns at the growth on screen.
+       *
+       * It followed the record alone while the growth was a record, and stayed
+       * there once the reader could set their own — so the strip answered for
+       * one assumption while the grid and the chart answered for another. Every
+       * figure on this page is now the same pair: this growth, this
+       * requirement.
+       */
+      earns: impliedReturn(terms, drawn),
       // And what it must do for the return the reader wants.
       asks: impliedGrowth({ ...terms, discountRate: required }),
     };
-  }, [view, quote, required, growth, record, near]);
+  }, [view, quote, required, growth, record, near, custom]);
 
   /*
    * The rows the grid answers for, in the panel's own vocabulary.
@@ -229,8 +254,9 @@ export function Dcf({ initial }: { initial: string }) {
     return [
       ...(near ? [{ id: "near" as const, label: `Delivered · ${Math.round(near.years)} years`, rate: near.rate }] : []),
       ...(longer && far ? [{ id: "far" as const, label: `Delivered · ${Math.round(far.years)} years`, rate: far.rate }] : []),
+      { id: "own" as const, label: "You assume", rate: custom },
     ];
-  }, [view]);
+  }, [view, custom]);
 
   return (
     <main className="wrap">
@@ -299,8 +325,11 @@ export function Dcf({ initial }: { initial: string }) {
             </div>
             <p className="stat-note" style={{ marginTop: 10 }}>
               {model.record
-                ? `Its free cash flow has compounded at ${delta(model.record.rate)} a year over ${Math.round(model.record.years)} years of filings. Buying at ${writePrice(model.price, model.basis.currency)} earns that record, not a forecast of it.`
-                : "The filings do not carry enough free cash flow history to state a record."}
+                ? `Its free cash flow has compounded at ${delta(model.record.rate)} a year over ${Math.round(model.record.years)} years of filings. `
+                : "The filings do not carry enough free cash flow history to state a record. "}
+              {growth === "own"
+                ? `At the ${delta(custom)} a year you assume, buying at ${writePrice(model.price, model.basis.currency)} earns what the first figure says — and the assumption is yours, not a filing.`
+                : `At that record, buying at ${writePrice(model.price, model.basis.currency)} earns what the first figure says, which is the record and not a forecast of it.`}
             </p>
           </section>
 
@@ -320,6 +349,25 @@ export function Dcf({ initial }: { initial: string }) {
               {/* The one control on the page: the strip above, the column
                   marked below and the chart under it all answer for it. */}
               <div className="implied-rate-picker">
+                {/* The two assumptions, side by side and named as assumptions:
+                    what the reader wants out, and what they suppose goes in. */}
+                <label className="dcf-assume">
+                  <span className="label">Growth you assume</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step=".5"
+                    min={-50}
+                    max={100}
+                    value={Number((custom * 100).toFixed(2))}
+                    onChange={(event) => {
+                      const typed = Number(event.target.value);
+                      if (Number.isFinite(typed)) assume(typed / 100);
+                    }}
+                    aria-label="Growth in free cash flow you assume, in percent a year"
+                  />
+                  <span className="label">%</span>
+                </label>
                 <span className="label">Return you require</span>
                 <div className="seg">
                   {RATES.map((rate) => (
@@ -394,6 +442,7 @@ export function Dcf({ initial }: { initial: string }) {
             rate={required}
             growth={growth}
             onGrowth={setGrowth}
+            custom={custom}
           />
         </>
       )}

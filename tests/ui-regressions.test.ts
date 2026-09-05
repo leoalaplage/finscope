@@ -421,12 +421,27 @@ describe("the redesign", () => {
      * the price.
      */
     expect(dcf).toContain('<div className="label">Earns a year</div>');
-    expect(dcf).toContain("impliedReturn(terms, record.rate)");
+    expect(dcf).toContain("impliedReturn(terms, drawn)");
     expect(dcf).toContain('<div className="label">Margin</div>');
     // Every answer at once, because the setting is the argument: a growth the
     // filings support down the side, a return somebody might require across.
     expect(dcf).toContain('{RATES.map((rate) => <th key={rate} scope="col">{percent(rate, 0)} required</th>)}');
     expect(dcf).toContain('data-under={margin > 0}');
+    /*
+     * And the growth is the reader's too, beside the return they require.
+     *
+     * The filings anchor the question — this is what it did — and cannot answer
+     * it, because what is being bought is the next ten years. So the records
+     * are rows and the assumption is a figure, opened on the longest record so
+     * it starts somewhere real and named "you assume" wherever it appears.
+     */
+    expect(dcf).toContain('<span className="label">Growth you assume</span>');
+    expect(dcf).toContain("const custom = assumed ?? Math.round");
+    expect(dcf).toContain('{ id: "own" as const, label: "You assume", rate: custom }');
+    // Editing it is choosing it, and every figure on the page follows the one
+    // pair: this growth, this requirement.
+    expect(dcf).toContain('setPicked("own")');
+    expect(dcf).toContain("earns: impliedReturn(terms, drawn)");
     // The grid and the chart are one instrument: a cell sets the pair it stands
     // for, and the panel below draws it. One growth and one required return for
     // the whole page, so a reader is never comparing a table with a chart of

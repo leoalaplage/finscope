@@ -803,6 +803,25 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .dcf-search { min-width: min(320px, 100%); }
 .dcf-picker { display: flex; align-items: center; gap: calc(var(--u) * 2); margin-top: calc(var(--u) * 7); }
 /*
+ * A figure the reader sets, dressed as a figure.
+ *
+ * Everything on this site that states a number is monospaced and right-aligned;
+ * an input is the one place a reader writes one, and it has no business looking
+ * like a form control from somewhere else. The spinners go, because the step is
+ * on the keyboard and a pair of grey arrows is furniture.
+ */
+.dcf-assume { display: flex; align-items: baseline; gap: calc(var(--u) * 2); }
+.dcf-assume input {
+  width: 62px; padding: 4px 6px; text-align: right;
+  font-family: var(--mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums;
+  color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+.dcf-assume input:hover { border-color: var(--line-strong); }
+.dcf-assume input:focus-visible { outline: none; border-color: var(--ink); }
+.dcf-assume input::-webkit-outer-spin-button, .dcf-assume input::-webkit-inner-spin-button { appearance: none; margin: 0; }
+.dcf-assume input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+/*
  * Room to buy, marked the way a leader used to be: filled.
  *
  * The grid is read for one thing — where the value is above the price — and a
