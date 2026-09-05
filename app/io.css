@@ -810,11 +810,28 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  */
 .sheet td[data-under="true"] { background: var(--ink); color: var(--inverse); }
 .sheet tbody tr:hover td[data-under="true"] { background: var(--ink); color: var(--inverse); }
-/* A cell is the pair it stands for, so the whole cell is the target. */
+/* A cell is the pair it stands for, so the whole cell is the target, and so is
+   the name of the row: choosing a growth is choosing a row. */
 .dcf-cell { display: block; width: 100%; text-align: right; font: inherit; color: inherit; border-radius: 0; }
+.dcf-row { display: flex; gap: 6px; align-items: baseline; font: inherit; color: var(--ink-2); border-radius: 0; }
+.dcf-row:hover, .sheet tr[data-selected="true"] .dcf-row { color: var(--ink); }
 .sheet td[data-here="true"] { box-shadow: inset 0 0 0 1px var(--ink); }
 .sheet td[data-here="true"][data-under="true"] { box-shadow: inset 0 0 0 1px var(--inverse); }
 .sheet tr[data-selected="true"] th.key { color: var(--ink); }
+/*
+ * A filled cell stays filled inside the chosen row.
+ *
+ * The row highlight is a background and the fill is a background, and the row's
+ * rule is the more specific of the two — so a positive figure in the selected
+ * row kept the inverse ink it is drawn in and lost the ink it is drawn on:
+ * white text on light grey, black text on dark grey, unreadable in both
+ * themes. The pair that matters most on the page was the one pair nobody could
+ * read.
+ */
+.sheet tr[data-selected="true"] td[data-under="true"],
+.sheet tbody tr[data-selected="true"]:hover td[data-under="true"] {
+  background: var(--ink); color: var(--inverse);
+}
 
 .implied-head { flex-wrap: wrap; gap: calc(var(--u) * 3); }
 .implied-rate-picker { display: flex; align-items: center; gap: calc(var(--u) * 2); margin-inline-start: auto; }

@@ -329,8 +329,17 @@ export function Dcf({ initial }: { initial: string }) {
                   {growths.map((row) => (
                     <tr key={row.label} data-selected={row.id === growth}>
                       <th className="key" scope="row">
-                        {row.label}
-                        <span className="screener-sector">{delta(row.rate)}</span>
+                        {/* The name of the row chooses the row, which is what a
+                            reader tries first. The cells choose the pair. */}
+                        <button
+                          type="button"
+                          className="dcf-row"
+                          aria-pressed={row.id === growth}
+                          onClick={() => setGrowth(row.id)}
+                        >
+                          {row.label}
+                          <span className="screener-sector">{delta(row.rate)}</span>
+                        </button>
                       </th>
                       {RATES.map((rate) => {
                         const value = model.worth(rate, row.rate);

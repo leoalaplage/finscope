@@ -414,6 +414,17 @@ describe("the redesign", () => {
     // the whole page, so a reader is never comparing a table with a chart of
     // something else.
     expect(dcf).toContain("onClick={() => { setGrowth(row.id); setRequired(rate); }}");
+    // The name of the row chooses the row, which is what a reader tries first.
+    expect(dcf).toContain('className="dcf-row"');
+    expect(dcf).toContain("onClick={() => setGrowth(row.id)}");
+    /*
+     * And a filled cell stays filled inside the chosen row.
+     *
+     * The row highlight is a background and the fill is a background, and the
+     * row's rule is the more specific — so the figure that matters most on the
+     * page was drawn in inverse ink on the wrong ground, in both themes.
+     */
+    expect(css).toContain('.sheet tr[data-selected="true"] td[data-under="true"],');
     expect(dcf).toContain("rate={required}");
     expect(dcf).toContain("growth={growth}");
     const panel2 = readFileSync(new URL("../components/io/ImpliedExpectations.tsx", import.meta.url), "utf8");
