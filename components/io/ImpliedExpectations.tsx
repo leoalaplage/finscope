@@ -87,8 +87,30 @@ function latest(view: IoCompanyView, key: string): { value: number | null; perio
 /** "4 years", "10 years" — the span a record was actually earned over. */
 const span = (record: { years: number } | null) => (record == null ? "5 years" : `${Math.round(record.years)} years`);
 
-export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quote: IoQuote | null }) {
-  const [discountRate, setDiscountRate] = useState(.10);
+export type GrowthChoice = "price" | "near" | "far" | "flat";
+
+export function ImpliedExpectations({
+  view, quote, rate, onRate, growth, onGrowth,
+}: {
+  view: IoCompanyView;
+  quote: IoQuote | null;
+  /**
+   * The return required, where a page owns it.
+   *
+   * The company page carries this panel alone and holds its own rate; the DCF
+   * page has a grid whose columns are that same rate, and two controls for one
+   * number is a page arguing with itself. Given a rate, the panel uses it and
+   * draws no picker of its own.
+   */
+  rate?: number;
+  onRate?: (rate: number) => void;
+  /** Likewise the growth: the grid's cells set it, and the rows still do too. */
+  growth?: GrowthChoice;
+  onGrowth?: (growth: GrowthChoice) => void;
+}) {
+  const [ownRate, setOwnRate] = useState(.10);
+  const discountRate = rate ?? ownRate;
+  const setDiscountRate = onRate ?? setOwnRate;
   /*
    * Which rate the projection is drawn at.
    *
@@ -98,7 +120,9 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
    * the filings; there is nowhere to type a number nobody has earned, which is
    * the difference between this and a spreadsheet.
    */
-  const [chosen, setChosen] = useState<"price" | "near" | "far">("price");
+  const [ownChoice, setOwnChoice] = useState<GrowthChoice>("price");
+  const chosen = growth ?? ownChoice;
+  const setChosen = onGrowth ?? setOwnChoice;
   const [hover, setHover] = useState<number | null>(null);
   /*
    * Which half of the model is on screen.
@@ -169,6 +193,9 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
     { id: "price" as const, label: `Price asks · ${HORIZON} years`, rate: implied.kind === "solved" ? implied.rate : implied.bound, written: asked, ask: true },
     ...(record.near ? [{ id: "near" as const, label: `Delivered · ${span(record.near)}`, rate: record.near.rate, written: delta(record.near.rate), ask: false }] : []),
     ...(longer && record.far ? [{ id: "far" as const, label: `Delivered · ${span(record.far)}`, rate: record.far.rate, written: delta(record.far.rate), ask: false }] : []),
+    // A company that never grows again is the floor every valuation stands on,
+    // and it is the one assumption nobody has to defend.
+    { id: "flat" as const, label: "No growth", rate: 0, written: delta(0), ask: false },
   ];
   const drawn = rows.find((row) => row.id === chosen) ?? rows[0];
   /*
@@ -262,16 +289,18 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
           * its options name themselves — 1Y, TTM, Compare — and this is the one
           * that does not.
           */}
-        <div className="implied-rate-picker">
-          <span className="label">Return you require</span>
-          <div className="seg">
-            {RATES.map((rate) => (
-              <button key={rate} type="button" aria-pressed={discountRate === rate} onClick={() => setDiscountRate(rate)}>
-                {percent(rate, 0)}
-              </button>
-            ))}
+        {rate == null ? (
+          <div className="implied-rate-picker">
+            <span className="label">Return you require</span>
+            <div className="seg">
+              {RATES.map((option) => (
+                <button key={option} type="button" aria-pressed={discountRate === option} onClick={() => setDiscountRate(option)}>
+                  {percent(option, 0)}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : null}
         <button className="metric-toggle" type="button" aria-expanded={guide} onClick={() => setGuide(!guide)}>
           {guide ? "Hide" : "How to read this"}
         </button>
@@ -337,7 +366,10 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
           ) : (
             <>
               <span className="v">{writePrice((valueHover ?? path[0])?.value ?? 0, currency)}</span>
-              <span className="d">{valueHover ? `worth in ${valueHover.date}` : "worth today"}</span>
+              <span className="d">
+                {valueHover ? `worth at the end of ${valueHover.date}` : "worth today"}
+                {paid != null ? ` · ${writePrice(paid, currency)} to buy it` : ""}
+              </span>
             </>
           )}
           <span className="readout-cagr">
@@ -365,16 +397,27 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
         </div>
       </div>
 
+      {/*
+        * Both frames carry what they are measured in.
+        *
+        * A chart on this site states the band it covers at the two ends of its
+        * own axis, because a shape with no figures on it is a decoration. The
+        * cash frame is money a year; the value frame is money a share, and the
+        * price line sitting inside that band is what the whole picture is for.
+        */}
       {view3 === "cash" ? (
-        <>
+        <div className="price-frame">
           <Figure points={bars} shape="bars" onHover={setHover} projectedFrom={history.length} />
-          <div className="plot-axis implied-axis">
+          <div className="plot-axis">
+            <span className="plot-tag" style={{ right: 0, top: 0 }}>{money(Math.max(...bars.map((bar) => bar.value)), currency)}</span>
+            <span className="plot-tag" style={{ right: 0, bottom: 0 }}>{money(Math.min(0, ...bars.map((bar) => bar.value)), currency)}</span>
             <span className="plot-tag plot-tag-under" style={{ left: 0 }}>{yearOf(history[0]?.date ?? "")}</span>
+            <span className="plot-tag plot-tag-under" style={{ left: `${(history.length / bars.length) * 100}%` }}>filed · implied</span>
             <span className="plot-tag plot-tag-under" style={{ right: 0 }}>{projection.at(-1)?.date}</span>
           </div>
-        </>
+        </div>
       ) : (
-        <>
+        <div className="price-frame">
           {/* The value is the subject and the price is what it is held against,
               so one is filled and the other is the line beside it — the same
               way the portfolio is drawn against its index. */}
@@ -385,11 +428,13 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
             ]}
             onHover={setHover}
           />
-          <div className="plot-axis implied-axis">
+          <div className="plot-axis">
+            <span className="plot-tag plot-tag-left" style={{ top: 0 }}>{writePrice(Math.max(...path.map((point) => point.value), paid ?? 0), currency)}</span>
+            <span className="plot-tag plot-tag-left" style={{ bottom: 0 }}>{writePrice(Math.min(...path.map((point) => point.value), paid ?? Infinity), currency)}</span>
             <span className="plot-tag plot-tag-under" style={{ left: 0 }}>{path[0]?.date}</span>
             <span className="plot-tag plot-tag-under" style={{ right: 0 }}>{path.at(-1)?.date}</span>
           </div>
-        </>
+        </div>
       )}
       {/*
         * The weak link, where there is one, said as a fact rather than a

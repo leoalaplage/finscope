@@ -173,6 +173,21 @@ export function Search({
               aria-selected={index === active}
               data-active={index === active}
               onMouseEnter={() => setActive(index)}
+              /*
+               * The panel must not close under the pointer on its way down.
+               *
+               * A press inside the panel blurs the field, and the form's blur
+               * handler closes the panel unless the focus is moving to
+               * something inside it. WebKit does not focus a button on
+               * mousedown at all — the related target is nothing — so the list
+               * unmounted between press and release and the click never landed
+               * on anything. Every search on this site was affected, and only
+               * in Safari, which is why it looked like nothing happening.
+               *
+               * Preventing the default on mousedown keeps the focus in the
+               * field, so the panel is still there when the click arrives.
+               */
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => take(match.ticker.toUpperCase())}
             >
               <span className="sym">{match.ticker}</span>

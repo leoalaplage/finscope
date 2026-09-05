@@ -402,19 +402,28 @@ describe("the redesign", () => {
      * all — then what it is worth to them, how far that is from the price, and
      * the price.
      */
-    expect(dcf).toContain('<div className="label">Earns at its record</div>');
+    expect(dcf).toContain('<div className="label">Earns a year</div>');
     expect(dcf).toContain("impliedReturn(terms, record.rate)");
     expect(dcf).toContain('<div className="label">Margin</div>');
     // Every answer at once, because the setting is the argument: a growth the
     // filings support down the side, a return somebody might require across.
     expect(dcf).toContain('{RATES.map((rate) => <th key={rate} scope="col">{percent(rate, 0)} required</th>)}');
     expect(dcf).toContain('data-under={margin > 0}');
+    // The grid and the chart are one instrument: a cell sets the pair it stands
+    // for, and the panel below draws it. One growth and one required return for
+    // the whole page, so a reader is never comparing a table with a chart of
+    // something else.
+    expect(dcf).toContain("onClick={() => { setGrowth(row.id); setRequired(rate); }}");
+    expect(dcf).toContain("rate={required}");
+    expect(dcf).toContain("growth={growth}");
+    const panel2 = readFileSync(new URL("../components/io/ImpliedExpectations.tsx", import.meta.url), "utf8");
+    expect(panel2).toContain("{rate == null ? (");
     expect(css).toContain('.sheet td[data-under="true"] { background: var(--ink); color: var(--inverse); }');
     // A company nobody has opened is waited for rather than refused.
     expect(dcf).toContain("timer = setTimeout(load, POLL_MS)");
     // And the model itself is the panel the company page carries: two
     // implementations of one arithmetic is one too many.
-    expect(dcf).toContain("<ImpliedExpectations view={view!} quote={quote} />");
+    expect(dcf).toContain("<ImpliedExpectations");
   });
 
   it("inverts the discounted cash flow instead of forecasting one", () => {

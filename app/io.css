@@ -810,6 +810,11 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  */
 .sheet td[data-under="true"] { background: var(--ink); color: var(--inverse); }
 .sheet tbody tr:hover td[data-under="true"] { background: var(--ink); color: var(--inverse); }
+/* A cell is the pair it stands for, so the whole cell is the target. */
+.dcf-cell { display: block; width: 100%; text-align: right; font: inherit; color: inherit; border-radius: 0; }
+.sheet td[data-here="true"] { box-shadow: inset 0 0 0 1px var(--ink); }
+.sheet td[data-here="true"][data-under="true"] { box-shadow: inset 0 0 0 1px var(--inverse); }
+.sheet tr[data-selected="true"] th.key { color: var(--ink); }
 
 .implied-head { flex-wrap: wrap; gap: calc(var(--u) * 3); }
 .implied-rate-picker { display: flex; align-items: center; gap: calc(var(--u) * 2); margin-inline-start: auto; }
@@ -849,8 +854,9 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .implied-row[aria-pressed="true"] .allocation-bar > span[data-ask] { box-shadow: inset 0 0 0 1px var(--ink); }
 .implied-row[aria-pressed="true"] .allocation-bar > span[data-ask="true"] { background: var(--ink); }
 .implied-readout { margin-top: calc(var(--u) * 5); margin-bottom: calc(var(--u) * 2); min-height: 0; }
-/* The chart's own axis strip, under a figure that is not inside a frame. */
-.implied-axis { position: relative; height: 14px; }
+/* The mark where filed years end and implied ones begin, centred on the join. */
+.implied .plot-tag-under { transform: none; }
+.implied .plot-axis > .plot-tag-under:nth-child(4) { transform: translateX(-50%); }
 
 /* --- The wire ------------------------------------------------------------ */
 

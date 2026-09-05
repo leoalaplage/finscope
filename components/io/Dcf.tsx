@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { IO_VIEW } from "@/lib/io/view-version";
 import { impliedGrowth, impliedReturn, presentValue } from "@/lib/io/implied-growth";
-import { ImpliedExpectations } from "./ImpliedExpectations";
+import { ImpliedExpectations, type GrowthChoice } from "./ImpliedExpectations";
 import { Search } from "./Search";
 import { withinYears } from "./ranges";
 import type { IoQuote } from "./quote";
@@ -76,6 +76,15 @@ export function Dcf({ initial }: { initial: string }) {
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [required, setRequired] = useState(.10);
+  /*
+   * One growth for the whole page.
+   *
+   * The grid says where the room is and the chart says what that assumption
+   * looks like, so a cell chosen in one has to be the picture drawn in the
+   * other — otherwise the reader is comparing a table against a chart of
+   * something else.
+   */
+  const [picked, setPicked] = useState<GrowthChoice | null>(null);
   const current = loaded?.ticker === ticker ? loaded : null;
 
   /*
@@ -135,6 +144,21 @@ export function Dcf({ initial }: { initial: string }) {
   const quote = current?.quote ?? null;
 
   /*
+   * The record, until the reader says otherwise.
+   *
+   * The company page opens this model on what the price asks, because there the
+   * question is what is being claimed. Here the question is whether there is
+   * room to buy, and the price's own rate answers it with a nought by
+   * construction — so the page opens on the longest record the filings support,
+   * which is the one assumption the reader did not have to make.
+   */
+  const record = useMemo(() => (view ? delivered(view.annual, HORIZON) : null), [view]);
+  const near = useMemo(() => (view ? delivered(view.annual, 5) : null), [view]);
+  const growth: GrowthChoice = picked
+    ?? (record != null && near != null && record.years > near.years + .5 ? "far" : near != null ? "near" : "flat");
+  const setGrowth = setPicked;
+
+  /*
    * The three things the verdict is struck from, and nothing else.
    *
    * The cash the company filed, the price the market is asking, and the record
@@ -149,11 +173,23 @@ export function Dcf({ initial }: { initial: string }) {
     const marketCap = basis && !mismatch && quote?.price != null && quote.price > 0 ? quote.price * basis.shares : null;
     if (!basis || marketCap == null || cash.value == null || cash.value <= 0) return null;
 
-    const record = delivered(view.annual, HORIZON) ?? delivered(view.annual, 5);
     const terms = { marketCap, freeCashFlow: cash.value, years: HORIZON, terminalGrowth: TERMINAL };
     const worth = (rate: number, growth: number) => presentValue({ ...terms, discountRate: rate }, growth) / basis.shares;
+    /*
+     * The rate the strip is struck at: whichever the reader has chosen.
+     *
+     * The strip and the grid and the chart all answer for the same pair, so
+     * the headline moves when a cell is chosen rather than staying on a record
+     * the reader has just looked away from.
+     */
+    const drawn = growth === "flat" ? 0
+      : growth === "near" ? near?.rate ?? record?.rate ?? 0
+      : growth === "far" ? record?.rate ?? 0
+      : impliedGrowth({ ...terms, discountRate: required }).kind === "solved"
+        ? (impliedGrowth({ ...terms, discountRate: required }) as { rate: number }).rate
+        : record?.rate ?? 0;
     return {
-      basis, cash, marketCap, record, terms, worth,
+      basis, cash, marketCap, record, terms, worth, drawn,
       price: quote?.price ?? marketCap / basis.shares,
       // What the price earns you if the record simply continues. Nothing in it
       // is the reader's: the growth is filed and the price is the market's.
@@ -161,16 +197,27 @@ export function Dcf({ initial }: { initial: string }) {
       // And what it must do for the return the reader wants.
       asks: impliedGrowth({ ...terms, discountRate: required }),
     };
-  }, [view, quote, required]);
+  }, [view, quote, required, growth, record, near]);
 
+  /*
+   * The rows the grid answers for, in the panel's own vocabulary.
+   *
+   * The price's own rate is deliberately not one of them: by construction it
+   * values the company at exactly its price, so a row of noughts across every
+   * column would say nothing. What is left is what the filings support and the
+   * floor nobody has to defend.
+   */
   const growths = useMemo(() => {
-    if (!model) return [];
+    if (!view) return [];
+    const near = delivered(view.annual, 5);
+    const far = delivered(view.annual, 10);
+    const longer = far != null && near != null && far.years > near.years + .5;
     return [
-      ...(model.record ? [{ label: `Its record · ${Math.round(model.record.years)} years`, rate: model.record.rate }] : []),
-      ...(delivered(view!.annual, 5) ? [{ label: "Its five years", rate: delivered(view!.annual, 5)!.rate }] : []),
-      { label: "No growth", rate: 0 },
-    ].filter((row, index, all) => all.findIndex((other) => Math.abs(other.rate - row.rate) < .0005) === index);
-  }, [model, view]);
+      ...(near ? [{ id: "near" as const, label: `Delivered · ${Math.round(near.years)} years`, rate: near.rate }] : []),
+      ...(longer && far ? [{ id: "far" as const, label: `Delivered · ${Math.round(far.years)} years`, rate: far.rate }] : []),
+      { id: "flat" as const, label: "No growth", rate: 0 },
+    ];
+  }, [view]);
 
   return (
     <main className="wrap">
@@ -212,29 +259,25 @@ export function Dcf({ initial }: { initial: string }) {
             */}
           <section className="section" style={{ borderTop: 0, paddingTop: 0 }}>
             <div className="grid-ruled stats stats-four">
+              {/* "a year" belongs in the label, not in the figure: a cell that
+                  crops its own number is worse than one that says less. */}
               <div className="stat">
-                <div className="label">Earns at its record</div>
+                <div className="label">Earns a year</div>
                 <div className="stat-value" data-empty={model.earns == null || model.earns.kind === "unavailable"}>
                   {model.earns == null || model.earns.kind === "unavailable"
                     ? ABSENT
                     : model.earns.kind === "solved"
-                      ? `${delta(model.earns.rate)} a year`
-                      : `${model.earns.direction === "above" ? "over " : "under "}${delta(model.earns.bound, 0)} a year`}
+                      ? delta(model.earns.rate)
+                      : `${model.earns.direction === "above" ? "> " : "< "}${delta(model.earns.bound, 0)}`}
                 </div>
               </div>
               <div className="stat">
                 <div className="label">Worth at {percent(required, 0)}</div>
-                <div className="stat-value">
-                  {model.record ? writePrice(model.worth(required, model.record.rate), model.basis.currency) : ABSENT}
-                </div>
+                <div className="stat-value">{writePrice(model.worth(required, model.drawn), model.basis.currency)}</div>
               </div>
               <div className="stat">
                 <div className="label">Margin</div>
-                <div className="stat-value">
-                  {model.record
-                    ? delta(model.worth(required, model.record.rate) / model.price - 1, 0)
-                    : ABSENT}
-                </div>
+                <div className="stat-value">{delta(model.worth(required, model.drawn) / model.price - 1, 0)}</div>
               </div>
               <div className="stat">
                 <div className="label">Price</div>
@@ -261,7 +304,18 @@ export function Dcf({ initial }: { initial: string }) {
           <section className="section">
             <div className="section-head">
               <h2 className="label">Margin against the price</h2>
-              <span className="label">Value less price, by what you require</span>
+              {/* The one control on the page: the strip above, the column
+                  marked below and the chart under it all answer for it. */}
+              <div className="implied-rate-picker">
+                <span className="label">Return you require</span>
+                <div className="seg">
+                  {RATES.map((rate) => (
+                    <button key={rate} type="button" aria-pressed={required === rate} onClick={() => setRequired(rate)}>
+                      {percent(rate, 0)}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="sheet">
               <table>
@@ -272,18 +326,29 @@ export function Dcf({ initial }: { initial: string }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {growths.map((growth) => (
-                    <tr key={growth.label}>
+                  {growths.map((row) => (
+                    <tr key={row.label} data-selected={row.id === growth}>
                       <th className="key" scope="row">
-                        {growth.label}
-                        <span className="screener-sector">{delta(growth.rate)}</span>
+                        {row.label}
+                        <span className="screener-sector">{delta(row.rate)}</span>
                       </th>
                       {RATES.map((rate) => {
-                        const value = model.worth(rate, growth.rate);
+                        const value = model.worth(rate, row.rate);
                         const margin = value / model.price - 1;
+                        const here = row.id === growth && rate === required;
                         return (
-                          <td key={rate} data-under={margin > 0} title={`${writePrice(value, model.basis.currency)} a share`}>
-                            {delta(margin, 0)}
+                          <td key={rate} data-under={margin > 0} data-here={here}>
+                            {/* A cell is the pair it stands for: choosing it
+                                sets both, and the chart below draws it. */}
+                            <button
+                              type="button"
+                              className="dcf-cell"
+                              aria-pressed={here}
+                              onClick={() => { setGrowth(row.id); setRequired(rate); }}
+                              title={`${writePrice(value, model.basis.currency)} a share`}
+                            >
+                              {delta(margin, 0)}
+                            </button>
                           </td>
                         );
                       })}
@@ -293,25 +358,22 @@ export function Dcf({ initial }: { initial: string }) {
               </table>
             </div>
             <p className="stat-note" style={{ marginTop: 10 }}>
-              A positive figure is room: the value at that growth and that requirement is above what the market charges.
-              Hover a cell for the value a share it comes from.
+              A filled figure is room: the value at that growth and that requirement is above what the market charges.
+              Choosing a cell draws it below; hover one for the value a share it comes from.
             </p>
           </section>
 
-          <div className="dcf-picker">
-            <span className="label">Return you require</span>
-            <div className="seg">
-              {RATES.map((rate) => (
-                <button key={rate} type="button" aria-pressed={required === rate} onClick={() => setRequired(rate)}>
-                  {percent(rate, 0)}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* The model itself, drawn — the same panel the company page carries,
-              because two implementations of one arithmetic is one too many. */}
-          <ImpliedExpectations view={view!} quote={quote} />
+              because two implementations of one arithmetic is one too many. The
+              page owns the two settings, so there is one of each on screen. */}
+          <ImpliedExpectations
+            view={view!}
+            quote={quote}
+            rate={required}
+            onRate={setRequired}
+            growth={growth}
+            onGrowth={setGrowth}
+          />
         </>
       )}
     </main>
