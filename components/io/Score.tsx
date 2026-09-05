@@ -127,7 +127,6 @@ export function Score({ ticker }: { ticker: string }) {
             <span className="stat-value score-grade" data-empty={!rated}>{score.grade}</span>
             <span className="score-open-mark" aria-hidden="true">{open ? "−" : "+"}</span>
           </div>
-          <span className="stat-note">{open ? "Hide score detail" : "See how it is built"}</span>
         </button>
         {PILLARS.map((pillar) => (
           <div className="stat" key={pillar}>
