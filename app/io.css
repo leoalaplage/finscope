@@ -365,7 +365,9 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * face, because a name is the one piece of real prose on these pages.
  */
 .head-note { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); letter-spacing: 0; }
-.head-meta { margin-top: var(--u); display: flex; gap: calc(var(--u) * 3); flex-wrap: wrap; }
+.head-meta { margin-top: var(--u); display: flex; align-items: center; gap: calc(var(--u) * 3); flex-wrap: wrap; }
+.head-compare { color: var(--ink-2); transition: color .12s ease; }
+.head-compare:hover { color: var(--ink); }
 
 .price-block { text-align: right; }
 .price { font-family: var(--mono); font-size: 28px; font-weight: 600; letter-spacing: -.025em; line-height: 1.1; }
@@ -661,3 +663,18 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .screener-rank { display: inline-block; min-width: 22px; color: var(--ink-3); }
 .screener-sector { color: var(--ink-3); margin-inline-start: 8px; }
 .sheet .key-open { display: flex; gap: 4px; align-items: baseline; }
+
+/* --- Quality Score -------------------------------------------------------- */
+
+.score-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.score-grid .stat { padding: 11px 12px 12px; min-width: 0; }
+/* The grade is the one figure this block exists to state, so it is the one
+   figure set larger than its neighbours. */
+.score-headline { grid-column: span 2; }
+.score-grade { font-size: var(--fs-xl); font-weight: 600; }
+.score-word { font-size: var(--fs-md); }
+.score-lists { margin-top: calc(var(--u) * 3); display: grid; gap: var(--u); }
+.score-lists .label { margin-inline-end: 6px; }
+
+@media (max-width: 1080px) { .score-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } .score-headline { grid-column: span 4; } }
+@media (max-width: 560px) { .score-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .score-headline { grid-column: span 2; } }

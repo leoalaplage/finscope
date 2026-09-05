@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
 import { Growth } from "./Growth";
+import { Score } from "./Score";
 import { Multiples } from "./Multiples";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
 import { toggleMetric } from "./selection";
 import { Statements } from "./Statements";
 import { Stats } from "./Stats";
 import type { IoQuote } from "./quote";
-import { fundamentalWindow, type Frequency, type Range } from "./ranges";
+import { fundamentalWindow, RANGES, type Frequency, type Range } from "./ranges";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "./format";
 
 /**
@@ -26,6 +27,44 @@ import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } fr
  * endpoint answers "being prepared" and hands the work to a second invocation.
  * This polls for it rather than pretending the wait is not happening.
  */
+
+interface Address { metrics: string[]; range: Range; frequency: Frequency | null; rebased: boolean }
+
+/** What the query string says the page should be showing, if it says anything. */
+function readAddress(): Address {
+  const empty: Address = { metrics: [], range: "1Y", frequency: null, rebased: false };
+  if (typeof window === "undefined") return empty;
+  const asked = new URLSearchParams(window.location.search);
+  const range = asked.get("r") as Range | null;
+  const frequency = asked.get("f");
+  return {
+    metrics: (asked.get("m") ?? "").split(",").filter(Boolean).slice(0, 3),
+    range: range && RANGES.concat(["3Y", "10Y"]).includes(range) ? range : "1Y",
+    frequency: frequency === "ttm" || frequency === "annual" ? frequency : null,
+    rebased: asked.get("b") === "1",
+  };
+}
+
+/**
+ * The address follows the page, and says nothing it does not have to.
+ *
+ * A share price on its default window is the plain company URL — the one worth
+ * sharing when there is nothing to say beyond "this company" — so every default
+ * is left out rather than written down.
+ */
+function writeAddress(state: Address) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  const set = (key: string, value: string | null) => {
+    if (value == null) url.searchParams.delete(key);
+    else url.searchParams.set(key, value);
+  };
+  set("m", state.metrics.length ? state.metrics.join(",") : null);
+  set("r", state.metrics.length || state.range !== "1Y" ? state.range : null);
+  set("f", state.metrics.length && state.frequency !== fundamentalWindow(state.range).frequency ? state.frequency : null);
+  set("b", state.rebased ? "1" : null);
+  if (url.toString() !== window.location.href) window.history.replaceState(null, "", url);
+}
 
 const POLL_MS = 2_000;
 const POLL_LIMIT = 30;
@@ -49,8 +88,19 @@ type State =
 export function Company({ ticker }: { ticker: string }) {
   const [loaded, setLoaded] = useState<State>({ kind: "loading", ticker, progress: 6 });
   const [quoted, setQuoted] = useState<IoQuote | null>(null);
-  const [selection, setSelection] = useState<{ ticker: string; metrics: string[] }>({ ticker, metrics: [] });
-  const [range, setRange] = useState<Range>("1Y");
+  /*
+   * The page is an address, the way a comparison already is.
+   *
+   * A reader who has put free cash flow per share on the chart over its whole
+   * history has made a thing worth sending, and until now the link they sent
+   * opened the share price over one year. The measures, the window and the
+   * series are read from the query string on arrival and written back to it as
+   * they change — with `replaceState`, so the back button still leaves the
+   * company rather than walking through every click made on it.
+   */
+  const opening = readAddress();
+  const [selection, setSelection] = useState<{ ticker: string; metrics: string[] }>({ ticker, metrics: opening.metrics });
+  const [range, setRange] = useState<Range>(opening.range);
   /*
    * A frequency the reader asked for, and the range they asked for it on.
    *
@@ -61,12 +111,19 @@ export function Company({ ticker }: { ticker: string }) {
    * the override simply is not this range's, so the implied frequency answers
    * again. No effect resets anything.
    */
-  const [override, setOverride] = useState<{ range: Range; frequency: Frequency } | null>(null);
-  const [rebased, setRebased] = useState(false);
+  const [override, setOverride] = useState<{ range: Range; frequency: Frequency } | null>(
+    opening.frequency ? { range: opening.range, frequency: opening.frequency } : null,
+  );
+  const [rebased, setRebased] = useState(opening.rebased);
 
   const state: State = loaded.ticker === ticker ? loaded : { kind: "loading", ticker, progress: 6 };
   const quote = quoted?.ticker === ticker ? quoted : null;
-  const selectedMetrics = selection.ticker === ticker ? selection.metrics : [];
+  // Memoised because the empty case is a fresh array otherwise, and an effect
+  // that writes the address would then run on every render.
+  const selectedMetrics = useMemo(
+    () => (selection.ticker === ticker ? selection.metrics : []),
+    [selection, ticker],
+  );
   /*
    * A measure opens on its whole history, in trailing figures.
    *
@@ -121,6 +178,10 @@ export function Company({ ticker }: { ticker: string }) {
    * has animations turned off, which would leave the reader where they were
    * wondering what their click did.
    */
+  useEffect(() => {
+    writeAddress({ metrics: selectedMetrics, range, frequency, rebased });
+  }, [selectedMetrics, range, frequency, rebased]);
+
   useEffect(() => {
     if (!selectedMetrics.length) return;
     const chart = document.getElementById(CHART_ANCHOR);
@@ -234,6 +295,9 @@ export function Company({ ticker }: { ticker: string }) {
               <span className="label">{company.exchange}</span>
               <span className="label">{company.sector}</span>
               {company.cik ? <span className="label">CIK {Number(company.cik)}</span> : null}
+              {/* The natural next move after reading one company is to hold it
+                  against another, and the two pages did not know each other. */}
+              <a className="label head-compare" href={`/compare?s=${encodeURIComponent(company.ticker)}`}>Compare →</a>
             </div>
           </div>
 
@@ -260,6 +324,7 @@ export function Company({ ticker }: { ticker: string }) {
         onRebased={setRebased}
       />
       <Stats view={view} quote={quote} />
+      <Score ticker={company.ticker} />
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
       <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
       <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
