@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
-import { impliedGrowth } from "@/lib/io/implied-growth";
+import { impliedGrowth, presentValue, projectCashFlows } from "@/lib/io/implied-growth";
+import { Figure } from "./Plot";
 import { withinYears } from "./ranges";
-import { datedCagrOf, delta, money, percent } from "./format";
+import { datedCagrOf, delta, money, percent, price as writePrice, yearOf } from "./format";
 import type { IoQuote } from "./quote";
 
 /**
@@ -76,6 +77,17 @@ const span = (record: { years: number } | null) => (record == null ? "5 years" :
 
 export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quote: IoQuote | null }) {
   const [discountRate, setDiscountRate] = useState(RATES[1]);
+  /*
+   * Which rate the projection is drawn at.
+   *
+   * "price" is the inversion — the rate that makes today's price exactly right
+   * — and the other two are this company's own record. Every rate the reader
+   * can choose is therefore either arithmetic on the price or a figure out of
+   * the filings; there is nowhere to type a number nobody has earned, which is
+   * the difference between this and a spreadsheet.
+   */
+  const [chosen, setChosen] = useState<"price" | "near" | "far">("price");
+  const [hover, setHover] = useState<number | null>(null);
 
   const basis = view.basis;
   const freeCashFlow = latest(view, "freeCashFlow");
@@ -108,7 +120,9 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
 
   // A company with no price, no share count or no positive cash flow has no
   // question of this kind to answer, and an empty panel would say nothing.
-  if (implied == null || implied.kind === "unavailable") return null;
+  // Past this line the three the arithmetic needs are all present.
+  if (implied == null || implied.kind === "unavailable" || marketCap == null || freeCashFlow.value == null) return null;
+  const cash = freeCashFlow.value;
 
   const currency = basis?.currency ?? view.company.currency;
   const longer = record.far != null && record.near != null && record.far.years > record.near.years + .5;
@@ -129,10 +143,55 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
    * it is rather than as a short bar of growth.
    */
   const rows = [
-    { label: `Price asks · ${HORIZON} years`, rate: implied.kind === "solved" ? implied.rate : implied.bound, written: asked, ask: true },
-    ...(record.near ? [{ label: `Delivered · ${span(record.near)}`, rate: record.near.rate, written: delta(record.near.rate), ask: false }] : []),
-    ...(longer && record.far ? [{ label: `Delivered · ${span(record.far)}`, rate: record.far.rate, written: delta(record.far.rate), ask: false }] : []),
+    { id: "price" as const, label: `Price asks · ${HORIZON} years`, rate: implied.kind === "solved" ? implied.rate : implied.bound, written: asked, ask: true },
+    ...(record.near ? [{ id: "near" as const, label: `Delivered · ${span(record.near)}`, rate: record.near.rate, written: delta(record.near.rate), ask: false }] : []),
+    ...(longer && record.far ? [{ id: "far" as const, label: `Delivered · ${span(record.far)}`, rate: record.far.rate, written: delta(record.far.rate), ask: false }] : []),
   ];
+  const drawn = rows.find((row) => row.id === chosen) ?? rows[0];
+  /*
+   * The picture: what was filed, then what the chosen rate implies.
+   *
+   * The filed years are the company's own annual free cash flow, and the last
+   * bar is the base the projection compounds from — the trailing year where the
+   * filings have one, which is the same figure the multiple above is struck on.
+   * Ten years of implication follow it, drawn as outlines.
+   */
+  const filed = view.annual
+    .flatMap((period) => {
+      const value = period.values.freeCashFlow;
+      return value == null || !Number.isFinite(value) ? [] : [{ date: period.end, label: period.label, value }];
+    })
+    .slice(-HORIZON);
+  const base = freeCashFlow.period;
+  const history = base && filed.at(-1)?.date !== base.end
+    ? [...filed, { date: base.end, label: base.label, value: cash }]
+    : filed;
+  const projection = projectCashFlows(cash, drawn.rate, HORIZON)
+    .map((value, index) => ({
+      date: `${Number(base?.end.slice(0, 4) ?? new Date().getFullYear()) + index + 1}`,
+      label: `Year +${index + 1}`,
+      value,
+    }));
+  const bars = [...history, ...projection];
+
+  /*
+   * What the arithmetic is worth at the chosen rate, against what it costs.
+   *
+   * On the price's own rate this is nought by construction, and that is worth
+   * seeing: it is the inversion stating itself. On the company's record it is
+   * the question the panel exists for — what would this be worth if it simply
+   * carried on doing what it has done.
+   */
+  const worth = presentValue(
+    { marketCap, freeCashFlow: cash, discountRate, years: HORIZON, terminalGrowth: TERMINAL },
+    drawn.rate,
+  );
+  const gap = worth / marketCap - 1;
+  const perShare = basis ? worth / basis.shares : null;
+  const active = hover == null ? null : bars[hover] ?? null;
+  const source = chosen === "near" ? record.near : chosen === "far" ? record.far : null;
+  const shortRecord = source != null && source.years < HORIZON - .5 ? source : null;
+
   const rates = [0, ...rows.map((row) => row.rate)];
   const floor = Math.min(...rates);
   const ceiling = Math.max(...rates);
@@ -152,9 +211,18 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
         </div>
       </div>
 
-      <div className="allocation implied-rates">
+      {/* The comparison is also the control: choosing a row projects it. One
+          vocabulary for both jobs, and every rate on offer is either the
+          price's own arithmetic or a figure out of the filings. */}
+      <div className="allocation implied-rates" role="group" aria-label="Growth the projection is drawn at">
         {rows.map((row) => (
-          <div className="allocation-row" key={row.label}>
+          <button
+            className="allocation-row implied-row"
+            type="button"
+            key={row.label}
+            aria-pressed={row.id === chosen}
+            onClick={() => { setChosen(row.id); setHover(null); }}
+          >
             <span className="allocation-name">{row.label}</span>
             <span className="allocation-bar">
               {floor < 0 ? <span className="implied-zero" style={{ left: `${at(0)}%` }} /> : null}
@@ -164,9 +232,42 @@ export function ImpliedExpectations({ view, quote }: { view: IoCompanyView; quot
               />
             </span>
             <span className="allocation-weight num">{row.written}</span>
-          </div>
+          </button>
         ))}
       </div>
+
+      <div className="section-head implied-readout">
+        <div className="readout">
+          <span className="v">{active ? money(active.value, currency) : money(bars.at(-1)!.value, currency)}</span>
+          <span className="d">{active ? active.label : `${drawn.label.toLowerCase()} · year +${HORIZON}`}</span>
+          <span className="readout-cagr">
+            {perShare == null
+              ? `${money(worth, currency)} of equity`
+              : `${writePrice(perShare, currency)} a share`}
+            {/* Two decimals on a gap of six thousand percent is noise pretending
+                to be precision. */}
+            {quote?.price != null ? ` · ${delta(gap, Math.abs(gap) > 1 ? 0 : 2)} against ${writePrice(quote.price, quote.currency)}` : ""}
+          </span>
+        </div>
+      </div>
+
+      <Figure points={bars} shape="bars" onHover={setHover} projectedFrom={history.length} />
+      <div className="plot-axis implied-axis">
+        <span className="plot-tag plot-tag-under" style={{ left: 0 }}>{yearOf(history[0]?.date ?? "")}</span>
+        <span className="plot-tag plot-tag-under" style={{ right: 0 }}>{projection.at(-1)?.date}</span>
+      </div>
+      {/*
+        * The weak link, where there is one, said as a fact rather than a
+        * warning. NVIDIA's filings carry four years of free cash flow; drawing
+        * ten years of them at that rate is arithmetic the reader asked for, and
+        * how far it reaches beyond the record is the thing they need to know
+        * about it.
+        */}
+      {shortRecord ? (
+        <p className="stat-note implied-reach">
+          {HORIZON} years projected from a record of {span(shortRecord)}.
+        </p>
+      ) : null}
 
       {/*
         * The terms, on one line, in the order they are used: what is paid, for

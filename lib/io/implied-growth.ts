@@ -78,6 +78,25 @@ export function presentValue(terms: ImpliedGrowthTerms, rate: number): number {
 }
 
 /**
+ * The cash flows a rate implies, year by year.
+ *
+ * The same compounding the present value discounts, handed back rather than
+ * summed, so the page can draw what it is claiming instead of only stating the
+ * rate that produced it. Nothing here is a forecast: it is one number
+ * compounded, and the picture is honest only because the bars it becomes are
+ * drawn as outlines beside the filed ones.
+ */
+export function projectCashFlows(freeCashFlow: number, rate: number, years: number): number[] {
+  const flows: number[] = [];
+  let flow = freeCashFlow;
+  for (let year = 1; year <= years; year++) {
+    flow *= 1 + rate;
+    flows.push(flow);
+  }
+  return flows;
+}
+
+/**
  * The rate that makes the price exactly right, by bisection.
  *
  * Present value rises monotonically with the growth rate, so halving the

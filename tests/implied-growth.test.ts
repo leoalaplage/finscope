@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { impliedGrowth, presentValue, type ImpliedGrowthTerms } from "../lib/io/implied-growth";
+import { impliedGrowth, presentValue, projectCashFlows, type ImpliedGrowthTerms } from "../lib/io/implied-growth";
 
 /**
  * A discounted cash flow run backwards.
@@ -67,6 +67,24 @@ describe("what a price implies", () => {
     expect(patient.kind === "solved" && demanding.kind === "solved").toBe(true);
     if (patient.kind !== "solved" || demanding.kind !== "solved") return;
     expect(patient.rate).toBeLessThan(demanding.rate);
+  });
+
+  it("draws the same cash flows it discounts", () => {
+    // The picture and the sum have to be the same claim: discounting the
+    // projected flows by hand must reproduce the present value, or the chart
+    // would be drawing one thing while the figure states another.
+    const rate = .07;
+    const flows = projectCashFlows(50, rate, 10);
+    expect(flows[0]).toBeCloseTo(53.5, 10);
+    expect(flows).toHaveLength(10);
+    const discounted = flows.reduce((sum, flow, index) => sum + flow / 1.1 ** (index + 1), 0);
+    const terminal = (flows[9] * 1.025) / (.1 - .025) / 1.1 ** 10;
+    expect(discounted + terminal).toBeCloseTo(presentValue(terms(), rate), 6);
+  });
+
+  it("projects a decline as a decline", () => {
+    const shrinking = projectCashFlows(100, -.1, 3);
+    expect(shrinking.map((flow) => Math.round(flow))).toEqual([90, 81, 73]);
   });
 
   it("values a flat cash flow the way the perpetuity says it should", () => {

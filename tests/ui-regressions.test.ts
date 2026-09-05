@@ -390,6 +390,7 @@ describe("the redesign", () => {
   it("inverts the discounted cash flow instead of forecasting one", () => {
     const panel = readFileSync(new URL("../components/io/ImpliedExpectations.tsx", import.meta.url), "utf8");
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const plot = readFileSync(new URL("../components/io/Plot.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
     // After the ranges the price sits in: what would have to happen for this
     // price to be right is the question that follows seeing where it is.
@@ -416,6 +417,23 @@ describe("the redesign", () => {
     // The terms are one line, not an essay: everything the arithmetic was
     // struck from, in the order it is used.
     expect(panel).toContain('className="stat-note implied-terms"');
+    /*
+     * The projection is drawn, and drawn as what it is.
+     *
+     * Filed years are filled and implied years are outlines, so a year that has
+     * not happened is never drawn as though it had; the row that is chosen is
+     * the row the chart is drawing; and there is nowhere to type a rate nobody
+     * earned — every option is either the price's own arithmetic or a figure
+     * out of the filings.
+     */
+    expect(panel).toContain("projectedFrom={history.length}");
+    expect(panel).toContain("projectCashFlows(cash, drawn.rate, HORIZON)");
+    expect(panel).toContain('aria-pressed={row.id === chosen}');
+    expect(panel).not.toContain("<input");
+    expect(plot).toContain("plot-bar-projected");
+    expect(css).toContain(".plot-bar-projected {");
+    // How far the projection reaches past the record it was taken from.
+    expect(panel).toContain("years projected from a record of");
     expect(panel).not.toContain("That is the rate at which");
     expect(panel).not.toContain("Nothing on this page is a forecast");
   });

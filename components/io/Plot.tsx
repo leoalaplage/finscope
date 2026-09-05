@@ -108,10 +108,21 @@ export function Figure({
   points,
   shape,
   onHover,
+  projectedFrom,
 }: {
   points: PricePoint[];
   shape: Shape;
   onHover: (index: number | null) => void;
+  /**
+   * The index from which the bars stop being filed and start being implied.
+   *
+   * Everything before it happened and is drawn solid; everything from it on is
+   * arithmetic on an assumption and is drawn as an outline. One row of bars,
+   * two kinds of claim, told apart the way this site tells a negative bar from
+   * a positive one — by whether it is filled — so it survives one ink, a
+   * screenshot and a reader who sees no colour.
+   */
+  projectedFrom?: number;
 }) {
   const frame = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<number | null>(null);
@@ -148,7 +159,7 @@ export function Figure({
     >
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
         {shape === "bars" ? (
-          <BarMarks values={values} extent={extent} active={cursor} />
+          <BarMarks values={values} extent={extent} active={cursor} projectedFrom={projectedFrom} />
         ) : (
           <>
             <path className="plot-area" d={`${segments(values, extent)} L${W} ${H} L0 ${H} Z`} />
@@ -179,7 +190,14 @@ export function Figure({
 }
 
 /** The bars of the big chart, with the hovered one told apart by weight alone. */
-function BarMarks({ values, extent, active }: { values: Array<number | null>; extent: Extent; active: number | null }) {
+function BarMarks({
+  values, extent, active, projectedFrom,
+}: {
+  values: Array<number | null>;
+  extent: Extent;
+  active: number | null;
+  projectedFrom?: number;
+}) {
   const zero = yOf(0, extent);
   const slot = W / Math.max(values.length, 1);
   const width = Math.max(slot * 0.6, 1.5);
@@ -191,8 +209,14 @@ function BarMarks({ values, extent, active }: { values: Array<number | null>; ex
         const top = Math.min(y, zero);
         const height = Math.max(Math.abs(y - zero), 1);
         const x = slot * index + (slot - width) / 2;
-        const className = value < 0 ? "plot-bar-neg" : index === active ? "plot-bar plot-bar-active" : "plot-bar";
-        return value < 0
+        const projected = projectedFrom != null && index >= projectedFrom;
+        const outlined = value < 0 || projected;
+        const className = value < 0
+          ? "plot-bar-neg"
+          : projected
+            ? `plot-bar-projected${index === active ? " plot-bar-active-outline" : ""}`
+            : index === active ? "plot-bar plot-bar-active" : "plot-bar";
+        return outlined
           ? <rect key={index} className={className} x={x} y={top} width={width} height={height} vectorEffect="non-scaling-stroke" />
           : <rect key={index} className={className} x={x} y={top} width={width} height={height} />;
       })}
