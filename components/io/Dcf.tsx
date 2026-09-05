@@ -6,6 +6,7 @@ import { IO_VIEW } from "@/lib/io/view-version";
 import { impliedGrowth, impliedReturn, presentValue } from "@/lib/io/implied-growth";
 import { ImpliedExpectations, type GrowthChoice } from "./ImpliedExpectations";
 import { Search } from "./Search";
+import { LAST_COMPANY_KEY, rememberCompany } from "@/lib/io/last-company";
 import { withinYears } from "./ranges";
 import type { IoQuote } from "./quote";
 import { ABSENT, datedCagrOf, delta, percent, price as writePrice } from "./format";
@@ -47,6 +48,23 @@ function subscribe(notify: () => void) {
   };
 }
 
+/*
+ * The device's own memory, read as a store rather than copied into state.
+ *
+ * The same pattern the watchlist and the theme use: the value is somewhere
+ * outside React, so React subscribes to it instead of holding a second copy
+ * that an effect has to keep in step. The server's snapshot is empty, which is
+ * what a prerendered document knows about this device.
+ */
+function rememberedSubscribe(notify: () => void) {
+  window.addEventListener("storage", notify);
+  return () => window.removeEventListener("storage", notify);
+}
+
+function readRemembered() {
+  try { return localStorage.getItem(LAST_COMPANY_KEY)?.toUpperCase() ?? ""; } catch { return ""; }
+}
+
 /** The most recent period that reports a measure, and which one it was. */
 function latest(view: IoCompanyView, key: string): { value: number | null; period: IoPeriod | null } {
   const series = [...view.annual, ...view.trailing].sort((left, right) => left.end.localeCompare(right.end));
@@ -72,7 +90,17 @@ function delivered(periods: IoPeriod[], years: number) {
 export function Dcf({ initial }: { initial: string }) {
   const search = useSyncExternalStore(subscribe, () => window.location.search, () => "");
   const asked = new URLSearchParams(search).get("s")?.toUpperCase().replace(/[^A-Z0-9.-]/g, "") ?? "";
-  const ticker = asked || initial;
+  /*
+   * The company you were last reading, when the address does not name one.
+   *
+   * The two pages are one reading: a company page links to this one for the
+   * company it shows, and arriving here from the bar — which names no company —
+   * should not throw the reader back to whatever the registry happens to list
+   * first. Read once, after mount, because the document is a prerendered
+   * constant and this is a fact about the device rather than about the page.
+   */
+  const remembered = useSyncExternalStore(rememberedSubscribe, readRemembered, () => "");
+  const ticker = asked || remembered || initial;
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [required, setRequired] = useState(.10);
@@ -118,6 +146,9 @@ export function Dcf({ initial }: { initial: string }) {
           setLoaded({ ticker, view: null, quote: null, error: body.error ?? "Unavailable." });
           return;
         }
+        // The company page and this one share a memory, so the bar's "Company"
+        // returns to the filer whose valuation is on screen.
+        rememberCompany(ticker);
         setLoaded({
           ticker,
           view: await viewResponse.json() as IoCompanyView,
@@ -155,7 +186,7 @@ export function Dcf({ initial }: { initial: string }) {
   const record = useMemo(() => (view ? delivered(view.annual, HORIZON) : null), [view]);
   const near = useMemo(() => (view ? delivered(view.annual, 5) : null), [view]);
   const growth: GrowthChoice = picked
-    ?? (record != null && near != null && record.years > near.years + .5 ? "far" : near != null ? "near" : "flat");
+    ?? (record != null && near != null && record.years > near.years + .5 ? "far" : "near");
   const setGrowth = setPicked;
 
   /*
@@ -182,8 +213,7 @@ export function Dcf({ initial }: { initial: string }) {
      * the headline moves when a cell is chosen rather than staying on a record
      * the reader has just looked away from.
      */
-    const drawn = growth === "flat" ? 0
-      : growth === "near" ? near?.rate ?? record?.rate ?? 0
+    const drawn = growth === "near" ? near?.rate ?? record?.rate ?? 0
       : growth === "far" ? record?.rate ?? 0
       : impliedGrowth({ ...terms, discountRate: required }).kind === "solved"
         ? (impliedGrowth({ ...terms, discountRate: required }) as { rate: number }).rate
@@ -215,7 +245,6 @@ export function Dcf({ initial }: { initial: string }) {
     return [
       ...(near ? [{ id: "near" as const, label: `Delivered · ${Math.round(near.years)} years`, rate: near.rate }] : []),
       ...(longer && far ? [{ id: "far" as const, label: `Delivered · ${Math.round(far.years)} years`, rate: far.rate }] : []),
-      { id: "flat" as const, label: "No growth", rate: 0 },
     ];
   }, [view]);
 
@@ -379,7 +408,6 @@ export function Dcf({ initial }: { initial: string }) {
             view={view!}
             quote={quote}
             rate={required}
-            onRate={setRequired}
             growth={growth}
             onGrowth={setGrowth}
           />

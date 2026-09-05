@@ -26,19 +26,6 @@ import type { IoQuote } from "./quote";
  * answer, because it is the only number on this page nobody filed.
  */
 
-/*
- * The returns a reader might actually demand, and why six is on the list.
- *
- * A discount rate is a hurdle, and the hurdle decides the answer: at ten
- * percent a company growing at nothing is worth eleven times its cash, which is
- * a standard almost no large American company clears on its record — so a list
- * that started at eight said "expensive" about everything and taught the reader
- * nothing. Six is what somebody who would accept a bond-like return from a
- * durable business is asking, and at six the same company is worth twenty-four
- * times. The spread between the four is the point: it shows how much of a
- * valuation is the reader's own requirement rather than the company's cash.
- */
-const RATES = [.06, .08, .10, .12];
 const HORIZON = 10;
 /*
  * The terminal rate, held rather than chosen.
@@ -90,27 +77,24 @@ const span = (record: { years: number } | null) => (record == null ? "5 years" :
 export type GrowthChoice = "price" | "near" | "far" | "flat";
 
 export function ImpliedExpectations({
-  view, quote, rate, onRate, growth, onGrowth,
+  view, quote, rate, growth, onGrowth,
 }: {
   view: IoCompanyView;
   quote: IoQuote | null;
   /**
    * The return required, where a page owns it.
    *
-   * The company page carries this panel alone and holds its own rate; the DCF
-   * page has a grid whose columns are that same rate, and two controls for one
-   * number is a page arguing with itself. Given a rate, the panel uses it and
-   * draws no picker of its own.
+   * The page that carries this panel owns both settings. It used to hold them
+   * itself as well, for the company page — which no longer carries it, because
+   * the model earned a page of its own and a reader deep in a company's
+   * statements is not the reader asking what its price implies.
    */
-  rate?: number;
-  onRate?: (rate: number) => void;
+  rate: number;
   /** Likewise the growth: the grid's cells set it, and the rows still do too. */
-  growth?: GrowthChoice;
-  onGrowth?: (growth: GrowthChoice) => void;
+  growth: GrowthChoice;
+  onGrowth: (growth: GrowthChoice) => void;
 }) {
-  const [ownRate, setOwnRate] = useState(.10);
-  const discountRate = rate ?? ownRate;
-  const setDiscountRate = onRate ?? setOwnRate;
+  const discountRate = rate;
   /*
    * Which rate the projection is drawn at.
    *
@@ -120,9 +104,8 @@ export function ImpliedExpectations({
    * the filings; there is nowhere to type a number nobody has earned, which is
    * the difference between this and a spreadsheet.
    */
-  const [ownChoice, setOwnChoice] = useState<GrowthChoice>("price");
-  const chosen = growth ?? ownChoice;
-  const setChosen = onGrowth ?? setOwnChoice;
+  const chosen = growth;
+  const setChosen = onGrowth;
   const [hover, setHover] = useState<number | null>(null);
   /*
    * Which half of the model is on screen.
@@ -193,9 +176,6 @@ export function ImpliedExpectations({
     { id: "price" as const, label: `Price asks · ${HORIZON} years`, rate: implied.kind === "solved" ? implied.rate : implied.bound, written: asked, ask: true },
     ...(record.near ? [{ id: "near" as const, label: `Delivered · ${span(record.near)}`, rate: record.near.rate, written: delta(record.near.rate), ask: false }] : []),
     ...(longer && record.far ? [{ id: "far" as const, label: `Delivered · ${span(record.far)}`, rate: record.far.rate, written: delta(record.far.rate), ask: false }] : []),
-    // A company that never grows again is the floor every valuation stands on,
-    // and it is the one assumption nobody has to defend.
-    { id: "flat" as const, label: "No growth", rate: 0, written: delta(0), ask: false },
   ];
   const drawn = rows.find((row) => row.id === chosen) ?? rows[0];
   /*
@@ -289,18 +269,6 @@ export function ImpliedExpectations({
           * its options name themselves — 1Y, TTM, Compare — and this is the one
           * that does not.
           */}
-        {rate == null ? (
-          <div className="implied-rate-picker">
-            <span className="label">Return you require</span>
-            <div className="seg">
-              {RATES.map((option) => (
-                <button key={option} type="button" aria-pressed={discountRate === option} onClick={() => setDiscountRate(option)}>
-                  {percent(option, 0)}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
         <button className="metric-toggle" type="button" aria-expanded={guide} onClick={() => setGuide(!guide)}>
           {guide ? "Hide" : "How to read this"}
         </button>

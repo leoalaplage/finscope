@@ -12,7 +12,6 @@ import { CHART_ANCHOR, PriceSection } from "./PriceSection";
 import { toggleMetric } from "./selection";
 import { Statements } from "./Statements";
 import { Stats } from "./Stats";
-import { ImpliedExpectations } from "./ImpliedExpectations";
 import { ValuationHistory } from "./ValuationHistory";
 import type { IoQuote } from "./quote";
 import { fundamentalWindow, RANGES, type Frequency, type Range } from "./ranges";
@@ -320,6 +319,9 @@ export function Company({ ticker }: { ticker: string }) {
               {/* The natural next move after reading one company is to hold it
                   against another, and the two pages did not know each other. */}
               <a className="label head-compare" href={`/compare?s=${encodeURIComponent(company.ticker)}`}>Compare →</a>
+              {/* The model has a page of its own now, and it opens on this
+                  company: the two screens are one reading, not two. */}
+              <a className="label head-compare" href={`/dcf?s=${encodeURIComponent(company.ticker)}`}>DCF →</a>
             </div>
           </div>
 
@@ -351,10 +353,6 @@ export function Company({ ticker }: { ticker: string }) {
       <Score key={company.ticker} ticker={company.ticker} />
       <FcfShareGrowth view={view} />
       <ValuationHistory view={view} quote={quote} />
-      {/* After the ranges the price sits in, because the question it answers —
-          what would have to happen for this price to be right — is the one a
-          reader asks once they have seen where the price is. */}
-      <ImpliedExpectations view={view} quote={quote} />
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
       <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
       <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />

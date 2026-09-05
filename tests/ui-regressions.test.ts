@@ -427,8 +427,14 @@ describe("the redesign", () => {
     expect(css).toContain('.sheet tr[data-selected="true"] td[data-under="true"],');
     expect(dcf).toContain("rate={required}");
     expect(dcf).toContain("growth={growth}");
+    // The panel no longer holds either setting: the page that carries it does.
     const panel2 = readFileSync(new URL("../components/io/ImpliedExpectations.tsx", import.meta.url), "utf8");
-    expect(panel2).toContain("{rate == null ? (");
+    expect(panel2).not.toContain("implied-rate-picker");
+    expect(panel2).toContain("rate: number;");
+    // And the two screens are one reading: each links to the other's company.
+    expect(dcf).toContain("rememberCompany(ticker)");
+    const company2 = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    expect(company2).toContain('href={`/dcf?s=${encodeURIComponent(company.ticker)}`}');
     expect(css).toContain('.sheet td[data-under="true"] { background: var(--ink); color: var(--inverse); }');
     // A company nobody has opened is waited for rather than refused.
     expect(dcf).toContain("timer = setTimeout(load, POLL_MS)");
@@ -439,16 +445,20 @@ describe("the redesign", () => {
 
   it("inverts the discounted cash flow instead of forecasting one", () => {
     const panel = readFileSync(new URL("../components/io/ImpliedExpectations.tsx", import.meta.url), "utf8");
+    const dcfSource = readFileSync(new URL("../components/io/Dcf.tsx", import.meta.url), "utf8");
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     const plot = readFileSync(new URL("../components/io/Plot.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
-    // After the ranges the price sits in: what would have to happen for this
-    // price to be right is the question that follows seeing where it is.
-    expect(company.indexOf("<ImpliedExpectations")).toBeGreaterThan(company.indexOf("<ValuationHistory"));
+    // The model lives on its own page now. A reader deep in a company's
+    // statements is not the reader asking what its price implies, and the
+    // company page links there for the company it is showing.
+    expect(company).not.toContain("<ImpliedExpectations");
+    expect(company).toContain(">DCF →</a>");
     // The reader moves the discount rate; nothing else is theirs to move, and
     // the terminal rate is a constant rather than a control — a terminal rate
     // tuned per company is where this becomes a forecast again.
-    expect(panel).toContain("const RATES = [.06, .08, .10, .12];");
+    // The rates the reader may require live on the page that owns the control.
+    expect(dcfSource).toContain("const RATES = [.06, .08, .10, .12];");
     expect(panel).toContain("const TERMINAL = .025;");
     expect(panel).not.toContain("setTerminal");
     // Free cash flow is struck after interest, so it is held against the market
@@ -507,7 +517,7 @@ describe("the redesign", () => {
     expect(panel).toContain("How to read this");
     // And the control that needed naming is named: four bare percentages
     // beside a heading are four percentages of nothing.
-    expect(panel).toContain("<span className=\"label\">Return you require</span>");
+    expect(dcfSource).toContain("<span className=\"label\">Return you require</span>");
     expect(css).toContain(".implied-guide {");
     // Set like every other note here — monospaced and small — rather than as a
     // paragraph of body text from a different product.
@@ -529,7 +539,9 @@ describe("the redesign", () => {
     expect(news).not.toContain("dangerouslySetInnerHTML");
     expect(news).not.toContain("<a ");
     expect(parser).toContain('replace(/<[^>]*>/g, " ")');
-    expect(css).toContain(".news-headline {");
+    // Set like every other line of text here: a headline in the proportional
+    // face reads as though it came from somewhere else.
+    expect(css).toContain(".news-headline { font-family: var(--mono);");
     // Headlines, and only headlines: the summaries the parser reads are not
     // sent, and the feed's own name is not a badge on the section.
     expect(news).not.toContain("news-summary");

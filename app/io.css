@@ -904,7 +904,10 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-3);
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.news-headline { font-size: var(--fs-sm); font-weight: 500; line-height: 1.4; color: var(--ink); }
+/* Monospaced, like every other line of text on this site. A headline set in
+   the proportional face reads as though it came from somewhere else, whatever
+   ink it is drawn in. */
+.news-headline { font-family: var(--mono); font-size: var(--fs-xs); font-weight: 500; line-height: 1.45; color: var(--ink); }
 .news-section { color: var(--ink-3); font-weight: 400; white-space: nowrap; }
 .news-item.skeleton { display: block; border-radius: 2px; }
 
