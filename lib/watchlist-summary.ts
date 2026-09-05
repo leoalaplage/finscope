@@ -81,6 +81,26 @@ export interface WatchlistSummary {
   qsPrice: QsPriceInputs;
 }
 
+/**
+ * What this company does, when the digest can say.
+ *
+ * The sector is not a field of its own: it already travels inside the screener
+ * row, under the column title the screener's parser reads it by, and adding a
+ * second copy beside it would mean two answers to one question and a rebuild of
+ * every digest to introduce the disagreement. Read from there instead.
+ *
+ * The placeholder a dynamically resolved filer carries is not a sector and is
+ * answered as an absence, so a card shows nothing rather than the word
+ * "Unclassified" — or, as the home page did until now, the word "Watchlist",
+ * which described the list the reader was looking at rather than the business.
+ */
+export function summarySector(summary: Pick<WatchlistSummary, "qs">): string | null {
+  const stated = summary.qs?.["Sector"];
+  if (typeof stated !== "string") return null;
+  const written = stated.trim();
+  return written && written !== "Unclassified" ? written : null;
+}
+
 const sorted = (dataset: CompanyDataset, periodicity: FinancialPeriod["periodicity"]) =>
   dataset.periods.filter((period) => period.periodicity === periodicity).sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
 

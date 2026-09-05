@@ -468,6 +468,10 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .metrics-head > div { display: flex; align-items: baseline; gap: calc(var(--u) * 3); flex-wrap: wrap; }
 .metric-toggle { padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--radius); font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); }
 .metric-toggle:hover { border-color: var(--line-strong); color: var(--ink); }
+/* A switch that is on says so. Both of these toggles changed the chart and
+   nothing about themselves, so the only way to know whether the share price was
+   already on the picture was to read the picture. */
+.metric-toggle[aria-pressed="true"] { background: var(--fill); border-color: var(--line-strong); color: var(--ink); }
 .multiples { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 /*
  * One ink here too.

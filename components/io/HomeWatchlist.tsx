@@ -1,19 +1,54 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pencil } from "lucide-react";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
+import { summarySector, type WatchlistSummary } from "@/lib/watchlist-summary";
 import { DEFAULT_TICKERS, parseTickers, useStoredWatchlist, writeWatchlist } from "./watchlist";
 
 /** A reader's list lives on their device; the default remains instant HTML. */
 export function HomeWatchlist() {
   const stored = useStoredWatchlist();
+  const [resolved, setResolved] = useState<Record<string, string>>({});
   const [sessionTickers, setSessionTickers] = useState<string[] | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(DEFAULT_TICKERS.join("\n"));
   const profiles = useMemo(() => new Map(DEFAULT_WATCHLIST.map((company) => [company.ticker, company])), []);
   const parsed = useMemo(() => parseTickers(draft), [draft]);
   const tickers = sessionTickers ?? stored;
+
+  /*
+   * A company the reader added themselves is named by its own filings.
+   *
+   * The card used to print the word "Watchlist" under any ticker this file has
+   * never heard of — the name of the list the reader was already looking at,
+   * under every company they had chosen for themselves. The digests this site
+   * stores carry each filer's sector, so the ones the registry cannot name are
+   * asked for; the twenty-seven it can name cost no request at all, which is
+   * what keeps the front page a static document for almost every reader.
+   */
+  const unknown = useMemo(() => tickers.filter((ticker) => !profiles.has(ticker)).join(","), [tickers, profiles]);
+
+  useEffect(() => {
+    if (!unknown) return;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(unknown)}`, { signal: controller.signal });
+        if (!response.ok) return;
+        const payload = await response.json() as { summaries?: WatchlistSummary[] };
+        const named: Record<string, string> = {};
+        for (const summary of payload.summaries ?? []) {
+          const sector = summarySector(summary);
+          if (sector) named[summary.ticker.toUpperCase()] = sector;
+        }
+        if (Object.keys(named).length) setResolved((current) => ({ ...current, ...named }));
+      } catch {
+        // A card with no sector still opens the company, which is its job.
+      }
+    })();
+    return () => controller.abort();
+  }, [unknown]);
 
   const openEditor = () => { setDraft(tickers.join("\n")); setEditing(true); };
   const save = () => {
@@ -31,12 +66,15 @@ export function HomeWatchlist() {
         <button className="watchlist-edit" type="button" onClick={openEditor} aria-label="Edit watchlist" title="Edit watchlist"><Pencil size={11} /></button>
       </div>
       <div className="grid-ruled quick-grid">
-        {tickers.map((ticker) => (
-          <a key={ticker} href={`/s/${encodeURIComponent(ticker)}`}>
-            {ticker}
-            <span>{profiles.get(ticker)?.sector ?? "Watchlist"}</span>
-          </a>
-        ))}
+        {tickers.map((ticker) => {
+          const sector = profiles.get(ticker)?.sector ?? resolved[ticker] ?? null;
+          return (
+            <a key={ticker} href={`/s/${encodeURIComponent(ticker)}`}>
+              {ticker}
+              {sector ? <span>{sector}</span> : null}
+            </a>
+          );
+        })}
       </div>
 
       {editing ? (

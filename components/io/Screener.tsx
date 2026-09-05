@@ -27,10 +27,37 @@ import { ABSENT, money, percent } from "./format";
 
 interface Feed { rows: ScoredCompany[]; missing: string[]; asked: number; answered: number; source: "watchlist" | "pasted" }
 
+/**
+ * The watchlist written as the engine's table, plus what it took to build it.
+ *
+ * It names the list it was built from, the way every state on the company page
+ * names its company: a reader who edits their watchlist has a table in hand
+ * that is not this list's, and a table that says which list it is cannot be
+ * scored under another one while the new one is fetched.
+ */
+interface Built { followed: string; table: string; asked: number; answered: number }
+
 type State =
-  | { kind: "working" }
+  | { kind: "building"; ready: number; asked: number }
   | { kind: "failed"; message: string }
   | { kind: "ready"; feed: Feed };
+
+/** The same two, while the list is still arriving, and for which list. */
+type Progress = ({ kind: "building"; ready: number; asked: number } | { kind: "failed"; message: string }) & { followed: string };
+
+/**
+ * How long the page waits for the rest of the list, and how often it asks.
+ *
+ * A company is normalized from its own filings the first time anybody scores
+ * it, and the endpoint builds three of them per read — so asking again is what
+ * makes progress, and the reader was previously the one doing the asking
+ * without knowing it: the table opened with whatever happened to be cached and
+ * grew every time they touched a control, because each of those touches
+ * refetched. A minute of waiting covers a cold list of sixty; past that the
+ * page shows what it has rather than waiting for a filer that may never parse.
+ */
+const POLL_MS = 3_000;
+const POLL_LIMIT = 20;
 
 /**
  * The columns, each naming the criterion the engine already ranks it by.
@@ -56,7 +83,8 @@ const write = (value: number | null) => (value == null ? ABSENT : value.toFixed(
 export function Screener() {
   const tickers = useStoredWatchlist();
   const followed = tickers.join(",");
-  const [fetched, setFetched] = useState<State>({ kind: "working" });
+  const [built, setBuilt] = useState<Built | null>(null);
+  const [progress, setProgress] = useState<Progress>(() => ({ kind: "building", followed, ready: 0, asked: tickers.length }));
   const [preset, setPreset] = useState<PresetName>("defaut");
   const [pasted, setPasted] = useState("");
   const [sortKey, setSortKey] = useState("total");
@@ -87,15 +115,50 @@ export function Screener() {
     }
   }, [pasted, preset]);
 
+  /*
+   * The list is fetched once, and scored wherever the weights are.
+   *
+   * The preset used to be a dependency of this effect, so choosing Value
+   * refetched every digest and every price to run a pure function over a table
+   * the page already had. That is what made the screener appear to fill up as
+   * the reader clicked: each click was another read of an endpoint that builds
+   * three more companies behind it. The table is now built once and the engine
+   * runs over it in a memo below, so a weight change is instant and costs the
+   * network nothing.
+   */
+  const scoringPasted = pasted.trim().length > 0;
+
   useEffect(() => {
-    if (pasted.trim()) return;
+    if (scoringPasted) return;
     const controller = new AbortController();
-    (async () => {
+    const asked = followed ? followed.split(",") : [];
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const build = async () => {
       try {
         const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(followed)}`, { signal: controller.signal });
         if (!response.ok) throw new Error("The watchlist could not be read.");
-        const payload = await response.json() as { summaries?: WatchlistSummary[] };
+        const payload = await response.json() as { summaries?: WatchlistSummary[]; pending?: string[] };
         const summaries = (payload.summaries ?? []).filter((item) => item.qs);
+
+        /*
+         * A partial list is a loading state, not a result.
+         *
+         * The endpoint names the companies it has no digest for, and the read
+         * itself sets three of them building. Showing the ones that happened to
+         * be ready would rank a reader's watchlist against a fraction of itself
+         * — a grade of B is a different statement when eleven of twenty-seven
+         * companies are in the table — so the page waits, says how far along it
+         * is, and asks again.
+         */
+        attempts += 1;
+        const waiting = (payload.pending ?? []).length;
+        if (waiting > 0 && attempts <= POLL_LIMIT) {
+          setProgress({ kind: "building", followed, ready: summaries.length, asked: asked.length });
+          timer = setTimeout(build, POLL_MS);
+          return;
+        }
         if (!summaries.length) throw new Error("None of these companies has been built yet. Open one, or paste a table below.");
 
         const today = new Date().toISOString().slice(0, 10);
@@ -114,20 +177,35 @@ export function Screener() {
           ticker: item.ticker,
           values: { ...item.qs, ...qsValuationColumns(item.qsPrice, prices[index]?.value ?? null, prices[index]?.currency) },
         }));
-        const result = screen(qsTable(rows), { preset });
-        setFetched({
-          kind: "ready",
-          feed: { rows: result.all, missing: result.missing, asked: tickers.length, answered: summaries.length, source: "watchlist" },
-        });
+        if (controller.signal.aborted) return;
+        setBuilt({ followed, table: qsTable(rows), asked: asked.length, answered: summaries.length });
       } catch (error) {
         if (controller.signal.aborted) return;
-        setFetched({ kind: "failed", message: error instanceof Error ? error.message : "The screener could not be built." });
+        setProgress({ kind: "failed", followed, message: error instanceof Error ? error.message : "The screener could not be built." });
       }
-    })();
-    return () => controller.abort();
-  }, [followed, preset, pasted, tickers.length]);
+    };
 
-  const state = pastedState ?? fetched;
+    build();
+    return () => { controller.abort(); if (timer) clearTimeout(timer); };
+  }, [followed, scoringPasted]);
+
+  /** The same engine, over the table already in hand — if it is this list's. */
+  const watchlistState = useMemo<State | null>(() => {
+    if (!built || built.followed !== followed) return null;
+    try {
+      const result = screen(built.table, { preset });
+      return { kind: "ready", feed: { rows: result.all, missing: result.missing, asked: built.asked, answered: built.answered, source: "watchlist" } };
+    } catch (error) {
+      return { kind: "failed", message: error instanceof Error ? error.message : "The screener could not be built." };
+    }
+  }, [built, followed, preset]);
+
+  // A list the reader has just edited has no progress of its own yet either.
+  const waiting = useMemo<State>(
+    () => (progress.followed === followed ? progress : { kind: "building", ready: 0, asked: tickers.length }),
+    [progress, followed, tickers.length],
+  );
+  const state = pastedState ?? watchlistState ?? waiting;
 
   const ordered = useMemo(
     () => (state.kind === "ready" ? sortRowsBy(state.feed.rows, sortKey, direction) : []),
@@ -147,7 +225,9 @@ export function Screener() {
               ? state.feed.source === "pasted"
                 ? `${state.feed.answered} pasted`
                 : `${state.feed.answered} of ${state.feed.asked} scored`
-              : `${tickers.length} companies`}
+              : state.kind === "building"
+                ? `${state.ready} of ${state.asked || tickers.length} ready`
+                : `${tickers.length} companies`}
           </span>
           <span className="label">Scored in your browser</span>
         </div>
@@ -164,8 +244,8 @@ export function Screener() {
           </div>
         </div>
 
-        {state.kind === "working" ? (
-          <p className="state"><span className="pulse" />Scoring</p>
+        {state.kind === "building" ? (
+          <Building ready={state.ready} asked={state.asked} />
         ) : state.kind === "failed" ? (
           <div className="state"><p>{state.message}</p></div>
         ) : (
@@ -175,6 +255,39 @@ export function Screener() {
 
       <Paste value={pasted} onChange={setPasted} />
     </main>
+  );
+}
+
+/**
+ * The wait, stated rather than hidden.
+ *
+ * A company is normalized from its own filings the first time it is scored, and
+ * a watchlist nobody has opened today is therefore a minute of work the reader
+ * cannot see happening. What they saw instead was a table missing half its rows
+ * that grew whenever they clicked something. This says how many companies are
+ * in, moves as they arrive, and hands over a complete list.
+ */
+function Building({ ready, asked }: { ready: number; asked: number }) {
+  const done = asked > 0 ? Math.round((ready / asked) * 100) : 0;
+  return (
+    <div className="state">
+      <p className="load-copy" aria-live="polite">Reading the filings · {ready} of {asked} companies</p>
+      <div
+        className="load-track"
+        role="progressbar"
+        aria-label="Watchlist scoring progress"
+        aria-valuemin={0}
+        aria-valuemax={asked}
+        aria-valuenow={ready}
+        aria-valuetext={`${ready} of ${asked} companies`}
+      >
+        <span style={{ width: `${done}%` }} />
+      </div>
+      <p className="stat-note" style={{ marginTop: 14 }}>
+        Each company is read from its own SEC filings once and kept for a day. The table opens on the whole list, so a
+        grade is never struck against a fraction of it.
+      </p>
+    </div>
   );
 }
 

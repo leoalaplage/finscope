@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { axisExtents, Figure, MultiAxis, type AxisSeries, type PricePoint } from "./Plot";
 import { axesFor, fromBase } from "./selection";
+import { closesAsOf, overlayWindow, type Bar } from "./overlay";
 import { fundamentalWindow, METRIC_RANGES, metricRange, offersFrequency, priceWindow, RANGES, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate, type Unit } from "./format";
 
@@ -19,7 +20,6 @@ import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate,
 /** Where a measure chosen from the table below sends the reader. */
 export const CHART_ANCHOR = "chart";
 
-interface Bar { date: string; close: number }
 interface Answer { key: string; bars: Bar[] | null }
 
 export function PriceSection({
@@ -34,6 +34,8 @@ export function PriceSection({
   onFrequency,
   rebased,
   onRebased,
+  withPrice,
+  onWithPrice,
 }: {
   ticker: string;
   currency: string;
@@ -46,6 +48,8 @@ export function PriceSection({
   onFrequency: (frequency: Frequency) => void;
   rebased: boolean;
   onRebased: (rebased: boolean) => void;
+  withPrice: boolean;
+  onWithPrice: (withPrice: boolean) => void;
 }) {
   /*
    * The anchor sits on a wrapper that outlives the swap.
@@ -61,6 +65,8 @@ export function PriceSection({
         ? (
           <MetricSection
             key={metricKeys.join("|")}
+            ticker={ticker}
+            currency={currency}
             view={view}
             metricKeys={metricKeys}
             onClear={onClearMetric}
@@ -70,6 +76,8 @@ export function PriceSection({
             onFrequency={onFrequency}
             rebased={rebased}
             onRebased={onRebased}
+            withPrice={withPrice}
+            onWithPrice={onWithPrice}
           />
         )
         : <MarketPriceSection ticker={ticker} currency={currency} range={range} onRange={onRange} />}
@@ -162,7 +170,80 @@ const FREQUENCIES: Array<{ id: Frequency; label: string }> = [
   { id: "annual", label: "Yearly" },
 ];
 
+/**
+ * What each axis is called in a sentence.
+ *
+ * The caution under a two-scale chart used to print the unit key itself —
+ * "perShare on the left" — which is the code's word for it, not the reader's.
+ */
+const SCALE_NAMES: Record<string, string> = {
+  currency: "amounts",
+  perShare: "per-share amounts",
+  percent: "rates",
+  ratio: "multiples",
+  shares: "share counts",
+  price: "the share price",
+};
+
+const scaleName = (unit: string) => SCALE_NAMES[unit] ?? unit;
+
+type OverlayState = "idle" | "loading" | "ready" | "failed";
+
+/**
+ * The share price, read at the dates the filings were read at.
+ *
+ * The chart draws one point per period and places it by its position in the
+ * series, so a price series has to be exactly those periods to line up with
+ * them. Sampling the quotes at each period end — rather than drawing the daily
+ * line beside them — is what makes the crosshair name one date for both, and
+ * what lets a reader put free cash flow per share against the price paid for it
+ * and see the two shapes on the same seventeen years.
+ */
+function useOverlayPrice(ticker: string, periods: IoPeriod[], enabled: boolean): { state: OverlayState; points: PricePoint[] } {
+  const [answer, setAnswer] = useState<Answer | null>(null);
+  const asked = enabled ? overlayWindow(periods) : null;
+  const key = asked ? `${ticker}|${asked.frequency}|${asked.start}|${periods.length}|${periods.at(-1)?.end ?? ""}` : "";
+  const current = answer?.key === key ? answer : null;
+
+  useEffect(() => {
+    if (!key || !asked) return;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const response = await fetch(
+          `/api/market/${encodeURIComponent(ticker)}?frequency=${asked.frequency}&start=${asked.start}&end=${asked.end}`,
+          { signal: controller.signal },
+        );
+        if (!response.ok) throw new Error(String(response.status));
+        const body = await response.json() as { bars: Array<{ date: string; close: number | null }> };
+        setAnswer({ key, bars: body.bars.filter((bar): bar is Bar => bar.close != null && Number.isFinite(bar.close)) });
+      } catch {
+        if (!controller.signal.aborted) setAnswer({ key, bars: null });
+      }
+    })();
+    return () => controller.abort();
+    // The key carries the symbol and the window, which is everything the
+    // request is made of; `asked` is derived from the same periods.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, ticker]);
+
+  const points = useMemo<PricePoint[]>(() => {
+    if (!current?.bars?.length) return [];
+    const closes = closesAsOf(current.bars, periods.map((period) => period.end));
+    return periods.flatMap((period, index) => {
+      const close = closes[index];
+      return close == null ? [] : [{ date: period.end, value: close }];
+    });
+  }, [current, periods]);
+
+  if (!enabled) return { state: "idle", points: [] };
+  if (!current) return { state: "loading", points: [] };
+  return { state: current.bars == null ? "failed" : "ready", points };
+}
+
 function MetricSection({
+  ticker,
+  currency: quoted,
   view,
   metricKeys,
   onClear,
@@ -172,7 +253,11 @@ function MetricSection({
   onFrequency,
   rebased,
   onRebased,
+  withPrice,
+  onWithPrice,
 }: {
+  ticker: string;
+  currency: string;
   view: IoCompanyView;
   metricKeys: string[];
   onClear: () => void;
@@ -182,6 +267,8 @@ function MetricSection({
   onFrequency: (frequency: Frequency) => void;
   rebased: boolean;
   onRebased: (rebased: boolean) => void;
+  withPrice: boolean;
+  onWithPrice: (withPrice: boolean) => void;
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const chosen = useMemo(
@@ -202,9 +289,32 @@ function MetricSection({
   });
 
   const currency = periods.at(-1)?.currency ?? view.company.currency;
-  const writeWith = (unit: string) => (value: number) => formatUnit(value, unit as Unit, currency);
+  /*
+   * A figure is written in the unit of the series it belongs to.
+   *
+   * "price" is the overlay's own, and it is not a filed unit: a quote is in the
+   * currency of the listing, which for a filer reporting in another currency is
+   * not the currency the statements are kept in. Written with the price
+   * formatter and the quoted currency, so the two are never conflated.
+   */
+  const writeWith = (unit: string) => (value: number) =>
+    (unit === "price" ? writePrice(value, quoted) : formatUnit(value, unit as Unit, currency));
 
   const { units, axisOf } = axesFor(metricKeys, (key) => chosen.find((item) => item.key === key)?.unit ?? null);
+  /*
+   * The price is offered while there is an axis left to draw it against.
+   *
+   * A chart here carries two scales and no more, and the measures on screen
+   * claim one for each unit they use. So the overlay is offered whenever the
+   * measures share a single unit — which is the case a reader asks for it in:
+   * free cash flow per share against what the market charged for it. Choosing a
+   * second unit takes the axis back, and the price steps aside rather than
+   * being drawn against a scale that is not its own.
+   */
+  const offersPrice = units.length <= 1;
+  const overlay = useOverlayPrice(ticker, periods, withPrice && offersPrice);
+  const priced = overlay.state === "ready" && overlay.points.length > 1;
+
   /*
    * Three measures over at most eighty periods: cheaper to walk than to
    * remember, and remembering it correctly would need a key made of both.
@@ -213,15 +323,20 @@ function MetricSection({
    * only way a chart can answer "which of these moved further", because with
    * two scales that answer is a property of where the scales were put.
    */
-  const series: AxisSeries[] = chosen
-    .map((item) => {
+  const drawn = [
+    ...chosen.map((item) => {
       const points = pointsFor(item.key);
-      return { label: item.short, points: rebased ? fromBase(points) : points, axis: rebased ? 0 : axisOf(item.key) };
-    })
-    .filter((entry) => entry.points.length > 1);
-  const scales = rebased ? [] : units;
+      return { label: item.short, unit: item.unit as string, points: rebased ? fromBase(points) : points, axis: (rebased ? 0 : axisOf(item.key)) as 0 | 1 };
+    }),
+    // The quote is a currency of its own — the one the shares trade in, which
+    // for a filer reporting in another currency is not the accounts' — so it is
+    // written with the price formatter and never shares the measures' axis.
+    ...(priced ? [{ label: "Share price", unit: "price", points: rebased ? fromBase(overlay.points) : overlay.points, axis: (rebased ? 0 : 1) as 0 | 1 }] : []),
+  ].filter((entry) => entry.points.length > 1);
+  const series: AxisSeries[] = drawn.map(({ label, points, axis }) => ({ label, points, axis }));
+  const scales = rebased ? [] : priced ? [units[0] ?? "currency", "price"] : units;
 
-  const single = chosen.length === 1 && metric != null;
+  const single = chosen.length === 1 && metric != null && !priced;
   const points = single ? pointsFor(metric.key) : [];
   const active = hover == null ? points.at(-1) ?? null : points[hover] ?? null;
   const growth = single && metric.unit === "percent"
@@ -240,7 +355,20 @@ function MetricSection({
       <div className="metric-feature-title">
         <button className="metric-clear" type="button" onClick={onClear}>× Back to price</button>
         <span className="label">{chosen.map((item) => item.label).join(" · ")}</span>
-        {chosen.length > 1 ? (
+        {/*
+          * What the market paid, beside what the company earned.
+          *
+          * The chart used to swap one for the other: choosing free cash flow
+          * per share put the share price away, which is precisely the moment a
+          * reader wants both. The quote is read at each period end, so the two
+          * lines carry the same dates and the crosshair names one of them.
+          */}
+        {offersPrice ? (
+          <button className="metric-toggle" type="button" aria-pressed={withPrice} onClick={() => { onWithPrice(!withPrice); setHover(null); }}>
+            Share price
+          </button>
+        ) : null}
+        {drawn.length > 1 ? (
           <button className="metric-toggle" type="button" aria-pressed={rebased} onClick={() => { onRebased(!rebased); setHover(null); }}>
             Start from 0
           </button>
@@ -278,14 +406,13 @@ function MetricSection({
             * read one line off the other's axis.
             */}
           <div className="compare-values">
-            {series.map((entry, index) => {
-              const item = chosen[index];
+            {drawn.map((entry, index) => {
               const point = hover == null ? entry.points.at(-1) : entry.points[hover];
               return (
                 <span className="compare-value" key={entry.label}>
                   <span className={`plot-swatch plot-stroke-${index % 5}`} />
                   <span className="compare-value-name">{entry.label}</span>
-                  <span className="num">{point && item ? (rebased ? delta(point.value, 1) : writeWith(item.unit)(point.value)) : ABSENT}</span>
+                  <span className="num">{point ? (rebased ? delta(point.value, 1) : writeWith(entry.unit)(point.value)) : ABSENT}</span>
                 </span>
               );
             })}
@@ -320,9 +447,9 @@ function MetricSection({
             </p>
           ) : scales.length > 1 ? (
             <p className="stat-note" style={{ marginTop: 10 }}>
-              Two scales: {scales[0]} on the left, {scales[1]} on the right. Where the lines cross means nothing — two
-              independent axes can be slid past each other until any two series touch anywhere. Read each line&rsquo;s own
-              shape, or start them both from nought.
+              Two scales: {scaleName(scales[0])} on the left, {scaleName(scales[1])} on the right. Where the lines cross
+              means nothing — two independent axes can be slid past each other until any two series touch anywhere. Read
+              each line&rsquo;s own shape, or start them both from nought.
             </p>
           ) : null}
         </>

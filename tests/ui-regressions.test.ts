@@ -278,6 +278,7 @@ describe("the redesign", () => {
     const score = readFileSync(new URL("../components/io/Score.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
     expect(score).not.toContain('<div className="label">Coverage</div>');
+    expect(score).not.toContain("/ 100");
     expect(css).toContain(".score-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }");
   });
 
@@ -314,6 +315,52 @@ describe("the redesign", () => {
     expect(css).toContain(".io .search input:focus-visible { outline: none; box-shadow: none; }");
     expect(company).toContain('role="progressbar"');
     expect(company).toContain("about {state.progress}%");
+  });
+
+  it("names a company's own sector on its card, never the name of the list", () => {
+    const watchlist = readFileSync(new URL("../components/io/HomeWatchlist.tsx", import.meta.url), "utf8");
+    expect(watchlist).not.toContain('?? "Watchlist"');
+    expect(watchlist).toContain("summarySector(summary)");
+    // A card with no sector yet states the ticker alone rather than a placeholder.
+    expect(watchlist).toContain("{sector ? <span>{sector}</span> : null}");
+  });
+
+  it("drops the resolver's placeholders from a company header", () => {
+    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    expect(company).toContain('const PLACEHOLDER = new Set(["US listing", "Unclassified"]);');
+    expect(company).not.toContain("{company.sector}");
+    expect(company).not.toContain("{company.exchange}");
+  });
+
+  it("waits for the whole watchlist before grading any of it", () => {
+    const screener = readFileSync(new URL("../components/io/Screener.tsx", import.meta.url), "utf8");
+    // The endpoint names what it is still building, and the page says so with a
+    // progress bar instead of opening on whichever rows happened to be cached.
+    expect(screener).toContain("pending?: string[]");
+    expect(screener).toContain('role="progressbar"');
+    expect(screener).toContain("timer = setTimeout(build, POLL_MS)");
+    // The weights are a pure function of a table already in hand: choosing a
+    // preset must not refetch the list, which is what made it fill up on click.
+    expect(screener).toContain("}, [followed, scoringPasted]);");
+  });
+
+  it("offers the share price beside a filed measure on the one big chart", () => {
+    const section = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
+    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    expect(section).toContain("useOverlayPrice(ticker, periods, withPrice && offersPrice)");
+    expect(section).toContain(">\n            Share price\n          </button>");
+    // Shareable, like every other choice made on this page.
+    expect(company).toContain('withPrice: asked.get("p") === "1"');
+    // Both chart switches now show whether they are on.
+    expect(css).toContain('.metric-toggle[aria-pressed="true"]');
+  });
+
+  it("wears a favicon drawn in the site's one ink", () => {
+    const icon = readFileSync(new URL("../public/favicon.svg", import.meta.url), "utf8");
+    expect(icon).not.toContain("#68C4FF");
+    expect(icon).toContain("@media (prefers-color-scheme: dark)");
+    expect(icon).toContain("#08080a");
   });
 
   it("shows exactly nine default watchlist stocks per desktop row", () => {

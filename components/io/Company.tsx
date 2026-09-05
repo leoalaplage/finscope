@@ -28,11 +28,11 @@ import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } fr
  * This polls for it rather than pretending the wait is not happening.
  */
 
-interface Address { metrics: string[]; range: Range; frequency: Frequency | null; rebased: boolean }
+interface Address { metrics: string[]; range: Range; frequency: Frequency | null; rebased: boolean; withPrice: boolean }
 
 /** What the query string says the page should be showing, if it says anything. */
 function readAddress(): Address {
-  const empty: Address = { metrics: [], range: "5Y", frequency: null, rebased: false };
+  const empty: Address = { metrics: [], range: "5Y", frequency: null, rebased: false, withPrice: false };
   if (typeof window === "undefined") return empty;
   const asked = new URLSearchParams(window.location.search);
   const range = asked.get("r") as Range | null;
@@ -42,6 +42,7 @@ function readAddress(): Address {
     range: range && RANGES.concat(["3Y", "10Y"]).includes(range) ? range : "5Y",
     frequency: frequency === "ttm" || frequency === "annual" ? frequency : null,
     rebased: asked.get("b") === "1",
+    withPrice: asked.get("p") === "1",
   };
 }
 
@@ -63,11 +64,23 @@ function writeAddress(state: Address) {
   set("r", state.metrics.length || state.range !== "5Y" ? state.range : null);
   set("f", state.metrics.length && state.frequency !== fundamentalWindow(state.range).frequency ? state.frequency : null);
   set("b", state.rebased ? "1" : null);
+  // The overlay is part of the picture, so a link to a measure held against the
+  // share price opens on the measure held against the share price.
+  set("p", state.metrics.length && state.withPrice ? "1" : null);
   if (url.toString() !== window.location.href) window.history.replaceState(null, "", url);
 }
 
 const POLL_MS = 2_000;
 const POLL_LIMIT = 30;
+
+/**
+ * What a company profile says when it has nothing to say.
+ *
+ * Set here rather than filtered by eye: these are the two strings the SEC
+ * resolver writes when a filer is known only by its CIK, and a reader must not
+ * be shown either of them as though it were a fact about the business.
+ */
+const PLACEHOLDER = new Set(["US listing", "Unclassified"]);
 
 /**
  * Every state names the company it is about.
@@ -115,6 +128,7 @@ export function Company({ ticker }: { ticker: string }) {
     opening.frequency ? { range: opening.range, frequency: opening.frequency } : null,
   );
   const [rebased, setRebased] = useState(opening.rebased);
+  const [withPrice, setWithPrice] = useState(opening.withPrice);
 
   const state: State = loaded.ticker === ticker ? loaded : { kind: "loading", ticker, progress: 6 };
   const quote = quoted?.ticker === ticker ? quoted : null;
@@ -179,8 +193,8 @@ export function Company({ ticker }: { ticker: string }) {
    * wondering what their click did.
    */
   useEffect(() => {
-    writeAddress({ metrics: selectedMetrics, range, frequency, rebased });
-  }, [selectedMetrics, range, frequency, rebased]);
+    writeAddress({ metrics: selectedMetrics, range, frequency, rebased, withPrice });
+  }, [selectedMetrics, range, frequency, rebased, withPrice]);
 
   useEffect(() => {
     if (!selectedMetrics.length) return;
@@ -281,6 +295,7 @@ export function Company({ ticker }: { ticker: string }) {
   const moved = quote?.change == null
     ? null
     : `${quote.change < 0 ? "\u2212" : "+"}${writePrice(Math.abs(quote.change), quote.currency)}`;
+  const identity = [company.exchange, company.sector].filter((part) => part && !PLACEHOLDER.has(part));
 
   return (
     <main className="wrap">
@@ -292,8 +307,15 @@ export function Company({ ticker }: { ticker: string }) {
               <p className="head-name">{company.name}</p>
             </div>
             <div className="head-meta">
-              <span className="label">{company.exchange}</span>
-              <span className="label">{company.sector}</span>
+              {/*
+                * A venue we do not know is not a venue called "US listing", and
+                * a sector we do not know is not a sector called "Unclassified".
+                * Both are the placeholders a dynamically resolved filer carries
+                * until the SEC's own classification is read for it, and the
+                * research workspace has always dropped them. This page printed
+                * them in capitals across the top of the company instead.
+                */}
+              {identity.map((part) => <span className="label" key={part}>{part}</span>)}
               {company.cik ? <span className="label">CIK {Number(company.cik)}</span> : null}
               {/* The natural next move after reading one company is to hold it
                   against another, and the two pages did not know each other. */}
@@ -322,6 +344,8 @@ export function Company({ ticker }: { ticker: string }) {
         onFrequency={chooseFrequency}
         rebased={rebased}
         onRebased={setRebased}
+        withPrice={withPrice}
+        onWithPrice={setWithPrice}
       />
       <Stats view={view} quote={quote} />
       <Score ticker={company.ticker} />

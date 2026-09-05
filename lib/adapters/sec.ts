@@ -916,7 +916,43 @@ export async function searchSecCompanies(query: string) {
 const SecBusinessMetadataSchema = z.object({
   sic: z.union([z.string(), z.number()]),
   sicDescription: z.string().optional(),
+  /** Where the shares actually trade, as the filer states it on its cover. */
+  exchanges: z.array(z.string()).optional(),
 });
+
+/**
+ * The filer's own industry, written the way the SEC publishes it.
+ *
+ * A company nobody has hand-listed used to carry the word "Unclassified" for
+ * ever, because the registry document the search reads holds four fields and an
+ * industry is not one of them. The submissions document — already fetched here,
+ * for the SIC code that decides the economic model — carries the description
+ * beside it, so the classification the page shows is the classification the
+ * business itself filed under.
+ *
+ * Nothing is invented: a filer with no description keeps none. The text is left
+ * as the SEC writes it — "Services-Prepackaged Software" is their sentence, not
+ * ours — beyond collapsing whitespace and softening a block-capital entry,
+ * because a sector is a fact about the filing and not a phrase to improve.
+ */
+export function sectorFromSic(description: string | null | undefined): string | null {
+  const written = (description ?? "").replace(/\s+/g, " ").trim();
+  if (!written) return null;
+  if (written !== written.toUpperCase()) return written;
+  return written.toLowerCase().replace(/(^|[\s\-&/])([a-z])/g, (_, before: string, letter: string) => `${before}${letter.toUpperCase()}`);
+}
+
+/**
+ * Which listing to name when the filer names several.
+ *
+ * A cover page may state two — a common listing and a warrant's — and the first
+ * is the one the ticker being opened trades on. An empty array is an unlisted
+ * filer, which keeps the honest generic rather than borrowing a venue.
+ */
+function exchangeFromSubmissions(exchanges: string[] | undefined): string | null {
+  const stated = (exchanges ?? []).map((entry) => entry.trim()).filter(Boolean);
+  return stated[0] ?? null;
+}
 
 async function resolveSecBusinessMetadata(cik: string) {
   const response = await fetch(`https://data.sec.gov/submissions/CIK${cik.padStart(10, "0")}.json`, {
@@ -927,7 +963,7 @@ async function resolveSecBusinessMetadata(cik: string) {
   const parsed = SecBusinessMetadataSchema.parse(await response.json());
   const sic = typeof parsed.sic === "string" ? Number.parseInt(parsed.sic, 10) : parsed.sic;
   if (!Number.isInteger(sic)) throw new Error("The SEC company classification did not contain a valid SIC code.");
-  return { sic, sicDescription: parsed.sicDescription };
+  return { sic, sicDescription: parsed.sicDescription, exchanges: parsed.exchanges };
 }
 
 async function resolveSecCompany(ticker: string) {
@@ -940,6 +976,12 @@ async function resolveSecCompany(ticker: string) {
   const businessType = verifiedBusinessType(exact.cik) ?? businessTypeFromSic(metadata.sic) ?? "operating";
   return {
     ...exact, ...metadata, businessType,
+    // The same document that classifies the economics also says what the
+    // company does and where it trades, so a dynamically resolved filer is
+    // named as precisely as a hand-listed one instead of reading
+    // "US listing · Unclassified" on its own page for ever.
+    sector: sectorFromSic(metadata.sicDescription) ?? exact.sector,
+    exchange: exchangeFromSubmissions(metadata.exchanges) ?? exact.exchange,
     resolutionNote: `${exact.resolutionNote} Economic model classified from SEC SIC ${metadata.sic}${metadata.sicDescription ? ` (${metadata.sicDescription})` : ""}.`,
   };
 }
