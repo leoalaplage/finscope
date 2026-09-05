@@ -1,7 +1,7 @@
 import { balanceSheetIsTheBusiness } from "../business-type";
 import { validatedDerivedValue } from "../data-quality";
 import { currentDatasetPeriod } from "../current-period";
-import { netDebt as netDebtOf } from "../finance";
+import { reportedDebt, valueOf } from "../finance";
 import { shareCount } from "../market-basis";
 import { METRICS, type MetricKind } from "../metrics";
 import type { CompanyDataset, FinancialPeriod } from "../types";
@@ -57,6 +57,18 @@ export interface IoValuationBasis {
   sharesBasis: "outstanding" | "cover-date" | "diluted";
   sharesNote: string | null;
   netDebt: number | null;
+  /**
+   * Where the borrowings behind that net debt were filed, when they were not
+   * filed with this period.
+   *
+   * A quarterly balance sheet omits an immaterial borrowing that the annual
+   * note states exactly, and the enterprise value of a company with $3.3bn of
+   * cash should not disappear over $2.7m of finance leases nobody tagged this
+   * quarter. The balance is read back to the filing that states one and the
+   * page says which — a figure with a date on it, never an absence read as a
+   * zero.
+   */
+  debtFrom: { label: string; periodEnd: string } | null;
   periodEnd: string;
   periodLabel: string;
 }
@@ -185,6 +197,16 @@ function valuationBasis(dataset: CompanyDataset, withheld: ReadonlySet<string>):
   if (!period) return { basis: null, reason: "No filed period carries a share count." };
   const count = shareCount(period);
   if (!count) return { basis: null, reason: "The latest filing carries no share count, so no multiple can be struck." };
+  /*
+   * Net debt on this period's cash and the last borrowings anybody filed.
+   *
+   * The cash is always this period's — it is the balance that moves, and every
+   * filing states it. The borrowings are read back only where this period tags
+   * none at all, and the date they came from travels with them.
+   */
+  const borrowed = withheld.has("netDebt") ? null : reportedDebt(dataset.periods, period);
+  const cash = valueOf(period, "cashAndEquivalents");
+  const netDebt = withheld.has("netDebt") || borrowed == null || cash == null ? null : borrowed.value - cash;
   return {
     reason: null,
     basis: {
@@ -192,7 +214,8 @@ function valuationBasis(dataset: CompanyDataset, withheld: ReadonlySet<string>):
       shares: count.shares,
       sharesBasis: count.basis,
       sharesNote: count.note ?? null,
-      netDebt: withheld.has("netDebt") ? null : netDebtOf(period),
+      netDebt,
+      debtFrom: netDebt != null && borrowed?.carried ? { label: borrowed.label, periodEnd: borrowed.periodEnd } : null,
       periodEnd: period.periodEnd,
       periodLabel: period.label,
     },

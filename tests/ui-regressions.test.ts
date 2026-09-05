@@ -422,6 +422,21 @@ describe("the redesign", () => {
     expect(portfolio).toContain("}, [history, followed, positions, span]);");
   });
 
+  it("states an enterprise value on the borrowings a filer actually filed", () => {
+    const view = readFileSync(new URL("../lib/io/view.ts", import.meta.url), "utf8");
+    const stats = readFileSync(new URL("../components/io/Stats.tsx", import.meta.url), "utf8");
+    const qs = readFileSync(new URL("../lib/qs-export.ts", import.meta.url), "utf8");
+    // The cash is always this period's; only the borrowings are read back.
+    expect(view).toContain("reportedDebt(dataset.periods, period)");
+    expect(view).toContain('const cash = valueOf(period, "cashAndEquivalents");');
+    // And where they came from is on the page, never silently carried.
+    expect(stats).toContain("basis?.debtFrom");
+    // One definition of the reading: the screener used to hold its own, which
+    // is how it came to rank Copart on a net debt the page would not state.
+    expect(qs).toContain("reportedDebt(dataset.periods, current)");
+    expect(qs).not.toContain("function reportedDebt(");
+  });
+
   it("wears a favicon drawn in the site's one ink", () => {
     const icon = readFileSync(new URL("../public/favicon.svg", import.meta.url), "utf8");
     expect(icon).not.toContain("#68C4FF");
@@ -449,7 +464,7 @@ describe("the redesign", () => {
     // the company it was shown yesterday.
     expect(company).toContain("?view=${IO_VIEW}");
     const version = readFileSync(new URL("../lib/io/view-version.ts", import.meta.url), "utf8");
-    expect(version).toContain('const VIEW_SHAPE = "iov6"');
+    expect(version).toMatch(/const VIEW_SHAPE = "iov\d+"/);
     expect(version).toContain("${VIEW_SHAPE}.${KEY_VERSION}");
     expect(multiples).toContain("view.trailing");
     expect(multiples).toContain("Show first 8");

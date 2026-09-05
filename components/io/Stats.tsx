@@ -96,6 +96,11 @@ export function Stats({ view, quote }: { view: IoCompanyView; quote: IoQuote | n
     !mismatch && basis
       ? `On ${period?.label ?? basis.periodLabel} · ${basis.shares.toLocaleString("en-US")} shares ${basis.sharesBasis === "outstanding" ? "outstanding" : basis.sharesBasis === "cover-date" ? "outstanding at the filing cover date" : "diluted weighted average"}`
       : null,
+    // A borrowing balance read back to the filing that states one. Said out
+    // loud, because a figure carried from another date is not this date's.
+    !mismatch && basis?.debtFrom
+      ? `Net debt is this period's cash against the borrowings filed at ${basis.debtFrom.label}: the balance sheet behind ${period?.label ?? basis.periodLabel} tags none.`
+      : null,
     !mismatch && !basis ? view.basisReason : null,
     view.withheldReason,
     debtless && !view.withheldReason && period?.values.totalDebt == null

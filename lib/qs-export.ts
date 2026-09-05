@@ -1,4 +1,4 @@
-import { cagrForPeriods, derivedValue, valueOf } from "./finance";
+import { cagrForPeriods, derivedValue, reportedDebt, valueOf } from "./finance";
 import { shareCount, type SharesBasis } from "./market-basis";
 import { balanceSheetHealth } from "./statement-flows";
 import type { CompanyDataset, FinancialPeriod } from "./types";
@@ -60,32 +60,23 @@ const over = (numerator: number | null, denominator: number | null) =>
 /**
  * The most recent debt balance the filer actually stated.
  *
- * TTM periods end on a quarterly balance sheet. An immaterial borrowing can
- * disappear into a combined line there even though the annual lease note
- * states it exactly. For scoring only, use the latest annual debt balance when
- * the newer period has none; this is preferable to both inventing a zero and
- * withholding every measure that depends on debt. All other current balances
- * and TTM flows remain current.
+ * This used to be scoring's own rule, and having it here alone is what let the
+ * screener rank Copart on a net debt the company page refused to state. It is
+ * `reportedDebt` in finance.ts now — same reading, one definition — and every
+ * screen that shows the figure says which filing it came from.
  */
-function reportedDebt(dataset: CompanyDataset, current: FinancialPeriod | null): number | null {
-  const currentDebt = current ? valueOf(current, "totalDebt") : null;
-  if (currentDebt != null) return currentDebt;
-  return ordered(dataset, "annual")
-    .filter((period) => !current || period.periodEnd <= current.periodEnd)
-    .reverse()
-    .map((period) => valueOf(period, "totalDebt"))
-    .find((value): value is number => value != null) ?? null;
-}
+const debtFor = (dataset: CompanyDataset, current: FinancialPeriod | null): number | null =>
+  reportedDebt(dataset.periods, current)?.value ?? null;
 
 function scoreNetDebt(dataset: CompanyDataset, current: FinancialPeriod | null): number | null {
-  const debt = reportedDebt(dataset, current);
+  const debt = debtFor(dataset, current);
   const cash = current ? valueOf(current, "cashAndEquivalents") : null;
   return debt == null || cash == null ? null : debt - cash;
 }
 
 function scoreRoic(dataset: CompanyDataset, current: FinancialPeriod | null): number | null {
   if (!current) return null;
-  const debt = reportedDebt(dataset, current);
+  const debt = debtFor(dataset, current);
   const equity = valueOf(current, "totalEquity");
   const cash = valueOf(current, "cashAndEquivalents");
   const nopat = derivedValue(current, "nopat");
@@ -152,7 +143,7 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
 
   const operatingCashFlow = now("operatingCashFlow");
   const capex = now("capitalExpenditures");
-  const debt = reportedDebt(dataset, current);
+  const debt = debtFor(dataset, current);
   const netDebt = scoreNetDebt(dataset, current);
   const ebitda = now("ebitda");
   const interest = now("interestExpense") ?? now("interestPaid");

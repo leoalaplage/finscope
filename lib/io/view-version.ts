@@ -18,9 +18,11 @@ import { KEY_VERSION } from "../data-version";
  * shipping the statement layout with every company — it is the shape of the
  * page, not a fact about a filer, and a new section stayed invisible for a day
  * behind the cache. iov6 withholds the measures a bank, broker or insurer has
- * no boundary for.
+ * no boundary for. iov7 carries where the borrowings behind an enterprise value
+ * were filed, so a balance the latest quarter does not tag is read back to the
+ * filing that states one rather than taking the enterprise value with it.
  */
-export const VIEW_SHAPE = "iov6";
+export const VIEW_SHAPE = "iov7";
 
 /** The token a reader's request carries: the shape, then the figures. */
 export const IO_VIEW = `${VIEW_SHAPE}.${KEY_VERSION}`;

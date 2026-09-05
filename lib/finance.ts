@@ -100,6 +100,50 @@ export function netDebt(period: FinancialPeriod): number | null {
   return debt - cash;
 }
 
+/** A borrowing balance, and which filing actually stated it. */
+export interface DebtReading {
+  value: number;
+  label: string;
+  periodEnd: string;
+  /** True where it was read from an earlier filing than the period being valued. */
+  carried: boolean;
+}
+
+/**
+ * The most recent borrowing balance the filer actually stated.
+ *
+ * A trailing period ends on a quarterly balance sheet, and a quarterly balance
+ * sheet is shorter than an annual one: an immaterial borrowing disappears into
+ * a combined line there while the annual lease note states it to the dollar.
+ * Copart is the case — $2.7m of finance leases at 31 July 2025, nothing tagged
+ * at 30 April 2026 — and the consequence was that a company with $3.3bn of cash
+ * and no borrowings to speak of had no enterprise value at all on its own page,
+ * while the Quality Score on the same page ranked it on a net debt it had
+ * worked out for itself.
+ *
+ * One rule now, in one place. The balance is read from the last annual filing
+ * that states one, and it travels with the period it came from so every screen
+ * showing it can say where it is from. That is the difference between this and
+ * inventing a zero: a figure a filer published, dated, rather than an absence
+ * read as nothing.
+ *
+ * Annual only, deliberately. A quarter that omits the line is usually one of
+ * several that omit it, and the annual report is the filing that carries the
+ * note the balance is stated in.
+ */
+export function reportedDebt(periods: FinancialPeriod[], current: FinancialPeriod | null): DebtReading | null {
+  const own = current ? valueOf(current, "totalDebt") : null;
+  if (current && own != null) return { value: own, label: current.label, periodEnd: current.periodEnd, carried: false };
+  const earlier = periods
+    .filter((period) => period.periodicity === "annual" && (!current || period.periodEnd <= current.periodEnd))
+    .sort((left, right) => right.periodEnd.localeCompare(left.periodEnd))
+    .find((period) => valueOf(period, "totalDebt") != null);
+  const value = earlier ? valueOf(earlier, "totalDebt") : null;
+  return earlier && value != null
+    ? { value, label: earlier.label, periodEnd: earlier.periodEnd, carried: true }
+    : null;
+}
+
 export function freeCashFlow(operatingCashFlow: number | null, capex: number | null) {
   if (operatingCashFlow == null || capex == null) return null;
   // Normalized data stores cash outflows as positive magnitudes. Math.abs keeps
