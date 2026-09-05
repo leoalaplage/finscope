@@ -3,6 +3,19 @@ import { cachedJson, type Completeness } from "@/lib/market-cache";
 import { parseNewsFeed, type NewsItem } from "@/lib/news";
 
 /**
+ * What the page draws, which is less than the feed carries.
+ *
+ * The panel shows headlines. Sending the summaries too would be four kilobytes
+ * a reader of text nothing renders, and this application does not ship the
+ * shape of a page with its data. The parser still reads them — a feed reader
+ * that ignored half of every item would be a different, worse thing to keep —
+ * and this is where the page's own shape is applied.
+ */
+type Headline = Omit<NewsItem, "summary">;
+
+const headline = ({ title, category, publishedAt }: NewsItem): Headline => ({ title, category, publishedAt });
+
+/**
  * The wire, fetched here because a browser cannot fetch it at all.
  *
  * A feed on somebody else's origin is refused by the browser before it is sent;
@@ -21,15 +34,15 @@ const ITEMS = 18;
 
 export async function GET() {
   try {
-    const { body, hit } = await cachedJson<{ items: NewsItem[]; source: string }>(
-      "news:breakingthenews",
+    const { body, hit } = await cachedJson<{ items: Headline[] }>(
+      "news:headlines",
       NEWS_SECONDS,
       async () => {
         const response = await fetch(FEED, {
           headers: { Accept: "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8" },
         });
         if (!response.ok) throw new Error(`The news feed returned ${response.status}.`);
-        return { items: parseNewsFeed(await response.text(), ITEMS), source: "Breaking The News" };
+        return { items: parseNewsFeed(await response.text(), ITEMS).map(headline) };
       },
       // A feed that answers with no items is a feed that failed politely, and
       // storing that for ten minutes would empty the panel for ten minutes.

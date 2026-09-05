@@ -401,6 +401,13 @@ describe("the redesign", () => {
     expect(news).not.toContain("<a ");
     expect(parser).toContain('replace(/<[^>]*>/g, " ")');
     expect(css).toContain(".news-headline {");
+    // Headlines, and only headlines: the summaries the parser reads are not
+    // sent, and the feed's own name is not a badge on the section.
+    expect(news).not.toContain("news-summary");
+    expect(news).not.toContain("item.summary");
+    expect(news).not.toContain("Breaking The News");
+    const route = readFileSync(new URL("../app/api/news/route.ts", import.meta.url), "utf8");
+    expect(route).toContain('type Headline = Omit<NewsItem, "summary">;');
   });
 
   it("places portfolio analysis below sector concentration and omits the FCF-owned summary cell", () => {

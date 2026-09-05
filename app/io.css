@@ -772,23 +772,31 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  *
  * Somebody else's news, set the way this site sets everything: a rule between
  * items and nothing else. No card, no thumbnail, no source badge, no chevron
- * promising a page elsewhere — the item is a time, a section, a headline and
- * the sentence under it, and none of it is a link because none of it goes
+ * promising a page elsewhere — the item is when it was filed, what it is about
+ * and the line itself, and none of it is a link because none of it goes
  * anywhere. Two columns where the screen has room for two, because eighteen
  * headlines in one column is a scroll rather than a page.
+ *
+ * The hour is the column, because that is what a wire is read by. It is
+ * monospaced and tabular so eighteen of them make a straight edge, and the
+ * headline hangs off it rather than under it: with the summaries gone, a
+ * caption line above every line of news would be more furniture than news.
  */
 .news { border-top: 1px solid var(--line); }
 .news-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 calc(var(--u) * 10); }
-.news-item { padding-block: calc(var(--u) * 3); border-top: 1px solid var(--line); }
+.news-item {
+  display: grid; grid-template-columns: minmax(0, 46px) minmax(0, 1fr);
+  align-items: baseline; gap: calc(var(--u) * 3);
+  padding-block: 9px; border-top: 1px solid var(--line);
+}
 .news-list > .news-item:first-child, .news-list > .news-item:nth-child(2) { border-top: 0; padding-top: 0; }
 .news-meta {
-  display: flex; align-items: baseline; gap: calc(var(--u) * 2);
   font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-3);
-  text-transform: uppercase; letter-spacing: var(--track-label);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.news-meta time { font-variant-numeric: tabular-nums; }
-.news-headline { margin-top: 5px; font-size: var(--fs-md); font-weight: 600; line-height: 1.35; color: var(--ink); }
-.news-summary { margin-top: 4px; font-size: var(--fs-sm); line-height: 1.5; color: var(--ink-2); }
+.news-headline { font-size: var(--fs-sm); font-weight: 500; line-height: 1.4; color: var(--ink); }
+.news-section { color: var(--ink-3); font-weight: 400; white-space: nowrap; }
+.news-item.skeleton { display: block; border-radius: 2px; }
 
 @media (max-width: 900px) {
   .news-list { grid-template-columns: minmax(0, 1fr); }
