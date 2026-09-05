@@ -664,7 +664,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   gap: calc(var(--u) * 6); padding-block: calc(var(--u) * 8) calc(var(--u) * 6);
 }
 .market-page .page-heading h1 { font-family: var(--mono); font-size: var(--fs-xl); font-weight: 700; letter-spacing: -.02em; }
-.market-page .page-heading p { margin-top: var(--u); color: var(--ink-2); font-size: var(--fs-sm); }
+.market-page .page-heading p { margin-top: var(--u); color: var(--ink); font-family: var(--mono); font-size: var(--fs-sm); }
 .market-status { display: inline-flex; align-items: center; gap: calc(var(--u) * 2); flex: none; font-family: var(--mono); color: var(--ink-3); }
 .market-dot { width: 7px; height: 7px; border: 1px solid var(--ink-3); border-radius: 50%; }
 .market-dot.open { background: var(--ink); border-color: var(--ink); }

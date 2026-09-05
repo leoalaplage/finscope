@@ -452,6 +452,23 @@ describe("the redesign", () => {
     expect(indices).toContain('label: "Dow Jones"');
   });
 
+  it("returns to the last valid company, or to the watchlist without one", () => {
+    const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
+    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const shortcut = readFileSync(new URL("../components/io/CompanyReturn.tsx", import.meta.url), "utf8");
+    const page = readFileSync(new URL("../app/company/page.tsx", import.meta.url), "utf8");
+    expect(shell).toContain('<a href="/company">Company</a>');
+    expect(company).toContain("rememberCompany(view.company.ticker)");
+    expect(shortcut).toContain("window.location.replace(lastCompanyPath())");
+    expect(shortcut).toContain('href="/">Back to watchlist');
+    expect(page).toContain('export const dynamic = "force-static"');
+  });
+
+  it("sets the Market introduction in the same mono ink as the page", () => {
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    expect(css).toContain(".market-page .page-heading p { margin-top: var(--u); color: var(--ink); font-family: var(--mono);");
+  });
+
   it("says which of the two readings of a chart is in force", () => {
     const section = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");

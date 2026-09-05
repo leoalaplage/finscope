@@ -16,6 +16,7 @@ import { ValuationHistory } from "./ValuationHistory";
 import type { IoQuote } from "./quote";
 import { fundamentalWindow, RANGES, type Frequency, type Range } from "./ranges";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "./format";
+import { rememberCompany } from "@/lib/io/last-company";
 
 /**
  * One company, one screen.
@@ -231,7 +232,9 @@ export function Company({ ticker }: { ticker: string }) {
           setLoaded({ kind: "failed", ticker, message: typeof stated === "string" ? stated : `${ticker} could not be loaded.` });
           return;
         }
-        setLoaded({ kind: "ready", ticker, view: body as unknown as IoCompanyView });
+        const view = body as unknown as IoCompanyView;
+        rememberCompany(view.company.ticker);
+        setLoaded({ kind: "ready", ticker, view });
       } catch (error) {
         if (controller.signal.aborted) return;
         setLoaded({ kind: "failed", ticker, message: error instanceof Error ? error.message : "Unreachable." });
