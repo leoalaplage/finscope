@@ -207,12 +207,40 @@ export function rebasePair(portfolio: SeriesPoint[], benchmark: SeriesPoint[]) {
   }));
 }
 
-/** The windows a portfolio's own history is read over. */
-export const WINDOWS = [
-  { id: "1Y", years: 1 }, { id: "3Y", years: 3 }, { id: "5Y", years: 5 },
-  { id: "10Y", years: 10 }, { id: "Max", years: Infinity },
-] as const;
-export type WindowId = typeof WINDOWS[number]["id"];
+/**
+ * The windows a portfolio's own history is read over, in the order offered.
+ *
+ * A month and the year to date are the two a reader checks between quarters,
+ * and neither is a number of years: one is a month back from the last close,
+ * the other is the first of January whatever month it happens to be.
+ */
+export const WINDOWS = ["1M", "YTD", "1Y", "3Y", "5Y", "10Y", "Max"] as const;
+export type WindowId = typeof WINDOWS[number];
+
+/**
+ * The windows that want a session a day rather than a session a week.
+ *
+ * A month of weekly closes is four points, which is a shape nobody can read;
+ * ten years of daily ones is twenty times the payload to draw the same line at
+ * the same width. Each window asks for the granularity it can actually show,
+ * the same rule the company price chart follows.
+ */
+export const DAILY_WINDOWS: ReadonlySet<WindowId> = new Set<WindowId>(["1M", "YTD"]);
+
+/** The tail of a series covering one window, measured from its own last date. */
+export function overWindow(series: SeriesPoint[], id: WindowId): SeriesPoint[] {
+  const end = series.at(-1)?.date;
+  if (!end || id === "Max") return series;
+  if (id === "YTD") return series.filter((point) => point.date >= `${end.slice(0, 4)}-01-01`);
+  if (id === "1M") {
+    const from = new Date(`${end}T00:00:00Z`);
+    if (Number.isNaN(from.getTime())) return series;
+    from.setUTCMonth(from.getUTCMonth() - 1);
+    const cutoff = from.toISOString().slice(0, 10);
+    return series.filter((point) => point.date >= cutoff);
+  }
+  return withinWindow(series, Number(id.slice(0, -1)));
+}
 
 /** The tail of a series covering the last `years`, by date rather than by count. */
 export function withinWindow(series: SeriesPoint[], years: number): SeriesPoint[] {

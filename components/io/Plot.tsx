@@ -201,7 +201,16 @@ function BarMarks({ values, extent, active }: { values: Array<number | null>; ex
   );
 }
 
-export interface Series { label: string; points: PricePoint[] }
+/**
+ * A line on a shared frame, and whether it is the one being drawn *of*.
+ *
+ * `area` fills the band under a series, which is what the share price chart
+ * does with the one line it draws. On a frame carrying two, filling one of them
+ * says which is the subject and which is the thing it is being held against
+ * without a legend, a colour or a word: a portfolio is the picture, the index
+ * beside it is a reference.
+ */
+export interface Series { label: string; points: PricePoint[]; area?: boolean }
 
 /**
  * Several companies on one axis, told apart without a second colour.
@@ -263,6 +272,23 @@ export function MultiLine({
   return (
     <div className="plot price-chart" ref={frame} onPointerMove={move} onPointerLeave={leave} onPointerDown={move}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+        {/* Every fill first, so a stroke is never drawn under another series'
+            band — with two of them that is the difference between a dashed line
+            you can follow and one that disappears for half the chart. */}
+        {series.map((entry, index) => {
+          const path = entry.area ? segments(placed[index], extent) : "";
+          if (!path) return null;
+          const length = placed[index].length;
+          const first = placed[index].findIndex((value) => value != null);
+          const last = length - 1 - [...placed[index]].reverse().findIndex((value) => value != null);
+          return (
+            <path
+              key={`${entry.label}-area`}
+              className="plot-area"
+              d={`${path} L${xOf(last, length).toFixed(2)} ${H} L${xOf(first, length).toFixed(2)} ${H} Z`}
+            />
+          );
+        })}
         {series.map((entry, index) => (
           <path
             key={entry.label}

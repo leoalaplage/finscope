@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { KEY_VERSION } from "@/lib/data-version";
 import {
-  concentration, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, WINDOWS, withinWindow,
+  concentration, DAILY_WINDOWS, overWindow, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, WINDOWS,
   type Position, type SeriesPoint, type ValuedPosition, type WindowId,
 } from "@/lib/portfolio";
 import { qsTable, qsValuationColumns, type QsRow } from "@/lib/qs-export";
@@ -34,15 +34,17 @@ import { ABSENT, delta, direction, money, percent, price as writePrice, ratio, s
 const BASE_CURRENCY = "USD";
 
 /**
- * The index a book is measured against, and how far back the prices are asked.
+ * The index a book is measured against, and the two series it is drawn from.
  *
- * One benchmark, and it is the one everybody means. Ten years of weekly closes
- * is enough for every window offered and small enough to ask for in one go, so
- * changing the window costs nothing: the whole history is already here and the
- * page slices it.
+ * One benchmark, and it is the one everybody means. Two granularities, because
+ * one cannot serve both ends of the range: ten years of weekly closes is the
+ * long picture, and thirteen months of daily ones is what a month or a year to
+ * date has to be drawn from — four weekly points is not a shape anybody can
+ * read. Both are asked for once, so moving between windows costs nothing.
  */
 const BENCHMARK = { symbol: "^GSPC", label: "S&P 500" };
 const HISTORY_YEARS = 10;
+const DAILY_DAYS = 400;
 
 /**
  * What was fetched, and which book it was fetched for.
@@ -61,6 +63,12 @@ interface Feed {
 
 const EMPTY_FEED: Feed = { book: "", summaries: {}, quotes: {}, pending: [] };
 
+/** One granularity of closes: every holding's, and the index's. */
+interface Closes { holdings: Record<string, SeriesPoint[]>; index: SeriesPoint[] }
+
+/** Both granularities, and the book they were fetched for. */
+interface Prices { book: string; weekly: Closes; daily: Closes }
+
 export function Portfolio() {
   const held = useStoredHoldings();
   const [session, setSession] = useState<Position[] | null>(null);
@@ -71,7 +79,7 @@ export function Portfolio() {
   const [sort, setSort] = useState<"value" | "ticker">("value");
   const [span, setSpan] = useState<WindowId>("5Y");
   const [hover, setHover] = useState<number | null>(null);
-  const [history, setHistory] = useState<{ book: string; holdings: Record<string, SeriesPoint[]>; index: SeriesPoint[] } | null>(null);
+  const [history, setHistory] = useState<Prices | null>(null);
 
   const followed = positions.map((position) => position.ticker).join(",");
   const feed = fetched.book === followed ? fetched : EMPTY_FEED;
@@ -114,20 +122,24 @@ export function Portfolio() {
   }, [followed]);
 
   /*
-   * Ten years of weekly closes, for the book and for the index.
+   * The closes behind the picture, both granularities, asked once.
    *
-   * Asked once and sliced locally, so moving the window is instant and costs
+   * Sliced locally afterwards, so moving between windows is instant and costs
    * the network nothing. Every one of these is a cache key the market endpoint
-   * already keeps warm — the same weekly series the company pages draw.
+   * already keeps warm — the same series the company pages draw.
    */
   useEffect(() => {
     if (!followed) return;
     const controller = new AbortController();
     const tickers = followed.split(",");
     const today = new Date();
-    const from = new Date(today.getTime() - HISTORY_YEARS * 365.25 * 86_400_000);
-    const window = `frequency=weekly&start=${from.toISOString().slice(0, 10)}&end=${today.toISOString().slice(0, 10)}`;
-    const read = async (symbol: string): Promise<SeriesPoint[]> => {
+    const day = (millis: number) => new Date(today.getTime() - millis).toISOString().slice(0, 10);
+    const end = today.toISOString().slice(0, 10);
+    const windows = {
+      weekly: `frequency=weekly&start=${day(HISTORY_YEARS * 365.25 * 86_400_000)}&end=${end}`,
+      daily: `frequency=daily&start=${day(DAILY_DAYS * 86_400_000)}&end=${end}`,
+    };
+    const read = async (symbol: string, window: string): Promise<SeriesPoint[]> => {
       try {
         const response = await fetch(`/api/market/${encodeURIComponent(symbol)}?${window}`, { signal: controller.signal });
         if (!response.ok) return [];
@@ -140,11 +152,14 @@ export function Portfolio() {
       }
     };
     (async () => {
-      const [index, ...series] = await Promise.all([read(BENCHMARK.symbol), ...tickers.map(read)]);
+      const [weekly, daily] = await Promise.all(([windows.weekly, windows.daily] as const).map(async (window) => {
+        const [index, ...series] = await Promise.all([read(BENCHMARK.symbol, window), ...tickers.map((ticker) => read(ticker, window))]);
+        const holdings: Record<string, SeriesPoint[]> = {};
+        tickers.forEach((ticker, at) => { holdings[ticker] = series[at]; });
+        return { holdings, index };
+      }));
       if (controller.signal.aborted) return;
-      const holdings: Record<string, SeriesPoint[]> = {};
-      tickers.forEach((ticker, at) => { holdings[ticker] = series[at]; });
-      setHistory({ book: followed, holdings, index });
+      setHistory({ book: followed, weekly, daily });
     })();
     return () => controller.abort();
   }, [followed]);
@@ -270,22 +285,29 @@ export function Portfolio() {
    * note under it says which one and when.
    */
   const against = useMemo(() => {
-    if (!history || history.book !== followed || !history.index.length) return null;
-    const years = WINDOWS.find((entry) => entry.id === span)?.years ?? 5;
-    const whole = portfolioSeries(positions, history.holdings);
-    const paired = rebasePair(withinWindow(whole, years), history.index);
+    if (!history || history.book !== followed) return null;
+    // The daily series where the window is short enough to need one, and the
+    // weekly wherever the daily one came back empty.
+    const fine = DAILY_WINDOWS.has(span) && history.daily.index.length > 0;
+    const closes = fine ? history.daily : history.weekly;
+    if (!closes.index.length) return null;
+    const whole = portfolioSeries(positions, closes.holdings);
+    const asked = overWindow(whole, span);
+    const paired = rebasePair(asked, closes.index);
     if (paired.length < 2) return null;
     const book = paired.map((point) => ({ date: point.date, value: point.portfolio }));
     const index = paired.map((point) => ({ date: point.date, value: point.benchmark }));
     return {
       points: paired,
-      series: [{ label: "Portfolio", points: book }, { label: BENCHMARK.label, points: index }],
+      // The book is the subject and the index is what it is held against, so
+      // one is filled and the other is a line beside it.
+      series: [{ label: "Portfolio", points: book, area: true }, { label: BENCHMARK.label, points: index }],
       book: seriesStats(book),
       index: seriesStats(index),
       // What the window asked for against what the holdings can support.
-      short: Number.isFinite(years) && whole.length > 0 && paired[0].date > withinWindow(whole, years)[0].date,
+      short: asked.length > 0 && paired[0].date > asked[0].date,
       youngest: [...positions]
-        .map((position) => ({ ticker: position.ticker, from: history.holdings[position.ticker]?.[0]?.date ?? null }))
+        .map((position) => ({ ticker: position.ticker, from: closes.holdings[position.ticker]?.[0]?.date ?? null }))
         .filter((entry): entry is { ticker: string; from: string } => entry.from != null)
         .sort((left, right) => right.from.localeCompare(left.from))[0] ?? null,
     };
@@ -393,7 +415,13 @@ export function Portfolio() {
                     <span className="v">{delta(reading(against, hover).book)}</span>
                     <span className="d">{hover != null && against.points[hover] ? shortDate(against.points[hover].date) : "Portfolio"}</span>
                     <span className="readout-change">{delta(reading(against, hover).index)} {BENCHMARK.label}</span>
-                    {against.book.cagr != null ? <span className="readout-cagr">{delta(against.book.cagr)} a year</span> : null}
+                    {/* A month compounded into a year is a sentence about a
+                        month pretending to be one about a year: 2% in August
+                        becomes "+27.6% a year". Only a window of a year or more
+                        gets one. */}
+                    {against.book.cagr != null && (against.book.years ?? 0) >= 1
+                      ? <span className="readout-cagr">{delta(against.book.cagr)} a year</span>
+                      : null}
                   </>
                 ) : (
                   <span className="d">Against the {BENCHMARK.label}</span>
@@ -401,8 +429,8 @@ export function Portfolio() {
               </div>
               <div className="seg">
                 {WINDOWS.map((entry) => (
-                  <button key={entry.id} type="button" aria-pressed={span === entry.id} onClick={() => { setSpan(entry.id); setHover(null); }}>
-                    {entry.id}
+                  <button key={entry} type="button" aria-pressed={span === entry} onClick={() => { setSpan(entry); setHover(null); }}>
+                    {entry}
                   </button>
                 ))}
               </div>
@@ -413,8 +441,8 @@ export function Portfolio() {
                   <MultiLine series={against.series} onHover={setHover} />
                 </div>
                 <p className="stat-note" style={{ marginTop: 10 }}>
-                  The book you hold today, priced back through every week since — not a record of what was bought and
-                  sold. Both lines start together at 100 and neither carries dividends.
+                  The book you hold today, priced back through every close in the window — not a record of what was
+                  bought and sold. Both lines start together at 100 and neither carries dividends.
                   {against.short && against.youngest
                     ? ` It starts on ${shortDate(against.points[0].date)}: ${against.youngest.ticker} has no price before ${shortDate(against.youngest.from)}, and a portfolio line drawn while part of the portfolio did not exist is not one.`
                     : ""}

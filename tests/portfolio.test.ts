@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { concentration, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, weightedMetric, withinWindow } from "../lib/portfolio";
+import { concentration, overWindow, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, weightedMetric, withinWindow } from "../lib/portfolio";
 import type { WatchlistSummary } from "../lib/watchlist-summary";
 
 const summary = (ticker: string, over: Partial<WatchlistSummary> = {}): WatchlistSummary => ({
@@ -170,6 +170,20 @@ describe("reading a window of the portfolio's own history", () => {
     const long = [{ date: "2016-01-01", value: 50 }, { date: "2025-01-01", value: 80 }, { date: "2026-01-01", value: 100 }];
     expect(withinWindow(long, 5).map((point) => point.date)).toEqual(["2025-01-01", "2026-01-01"]);
     expect(withinWindow(long, Infinity)).toHaveLength(3);
+  });
+
+  it("reads a month and a year to date from the last close, not from today", () => {
+    const days = [
+      { date: "2025-12-30", value: 90 }, { date: "2026-01-02", value: 100 },
+      { date: "2026-08-14", value: 120 }, { date: "2026-09-02", value: 130 },
+    ];
+    // The year to date is the first of January of the year the series ends in.
+    expect(overWindow(days, "YTD").map((point) => point.date)).toEqual(["2026-01-02", "2026-08-14", "2026-09-02"]);
+    // A month back from 2 September is 2 August.
+    expect(overWindow(days, "1M").map((point) => point.date)).toEqual(["2026-08-14", "2026-09-02"]);
+    expect(overWindow(days, "1Y")).toHaveLength(4);
+    expect(overWindow(days, "Max")).toHaveLength(4);
+    expect(overWindow([], "1M")).toEqual([]);
   });
 
   it("measures the fall from the running peak, not from where the window began", () => {

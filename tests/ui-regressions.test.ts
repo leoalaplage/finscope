@@ -409,8 +409,14 @@ describe("the redesign", () => {
     expect(portfolio).toContain('const BENCHMARK = { symbol: "^GSPC", label: "S&P 500" };');
     // Both rebased from the same week, on the shares held today: the page says
     // as much rather than passing it off as a record of what was traded.
-    expect(portfolio).toContain("rebasePair(withinWindow(whole, years), history.index)");
-    expect(portfolio).toContain("not a record of what was bought and");
+    expect(portfolio).toContain("rebasePair(asked, closes.index)");
+    expect(portfolio).toContain("not a record of what was");
+    // A month of weekly closes is four points; the short windows are drawn from
+    // the daily series, and both are fetched once.
+    expect(portfolio).toContain("DAILY_WINDOWS.has(span) && history.daily.index.length > 0");
+    expect(portfolio).toContain('frequency=daily&start=');
+    // The book is the subject on that frame, so it is the one that is filled.
+    expect(portfolio).toContain('{ label: "Portfolio", points: book, area: true }');
     // The history is fetched once and the window slices it.
     expect(portfolio).toContain("}, [followed]);");
     expect(portfolio).toContain("}, [history, followed, positions, span]);");
