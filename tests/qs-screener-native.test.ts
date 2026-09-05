@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { QS_METRICS, QS_PILLARS, detectCapDivisor, naturalDirection, resultsToCsv, scoreColour, scoreInk, screen, sectorsOf, sortRowsBy } from "../lib/qs/screener";
+import { QS_METRIC_NAMES, QS_METRICS, QS_PILLARS, detectCapDivisor, naturalDirection, resultsToCsv, scoreColour, scoreInk, screen, sectorsOf, sortRowsBy } from "../lib/qs/screener";
 
 /**
  * The engine lives in two places and must never differ between them.
@@ -87,10 +87,13 @@ describe("scoring a table natively", () => {
     const result = screen(TABLE);
     const weak = result.all.find((row) => row.Ticker === "WEAK")!;
     expect(weak.alertes).toBeGreaterThan(0);
+    expect(weak.alertes_detail).toContain("High share dilution");
     expect(weak.conviction).toBeLessThan(weak.total!);
     const good = result.all.find((row) => row.Ticker === "GOOD")!;
     expect(good.alertes).toBe(0);
     expect(good.conviction).toBe(good.total);
+    expect(QS_METRIC_NAMES.EBITInt).toBe("High interest coverage");
+    expect(QS_METRIC_NAMES.CurrentRatio).toBe("Strong current ratio");
   });
 
   it("applies a preset and a filter without touching the engine's arithmetic", () => {

@@ -32,14 +32,14 @@ interface Address { metrics: string[]; range: Range; frequency: Frequency | null
 
 /** What the query string says the page should be showing, if it says anything. */
 function readAddress(): Address {
-  const empty: Address = { metrics: [], range: "1Y", frequency: null, rebased: false };
+  const empty: Address = { metrics: [], range: "5Y", frequency: null, rebased: false };
   if (typeof window === "undefined") return empty;
   const asked = new URLSearchParams(window.location.search);
   const range = asked.get("r") as Range | null;
   const frequency = asked.get("f");
   return {
     metrics: (asked.get("m") ?? "").split(",").filter(Boolean).slice(0, 3),
-    range: range && RANGES.concat(["3Y", "10Y"]).includes(range) ? range : "1Y",
+    range: range && RANGES.concat(["3Y", "10Y"]).includes(range) ? range : "5Y",
     frequency: frequency === "ttm" || frequency === "annual" ? frequency : null,
     rebased: asked.get("b") === "1",
   };
@@ -60,7 +60,7 @@ function writeAddress(state: Address) {
     else url.searchParams.set(key, value);
   };
   set("m", state.metrics.length ? state.metrics.join(",") : null);
-  set("r", state.metrics.length || state.range !== "1Y" ? state.range : null);
+  set("r", state.metrics.length || state.range !== "5Y" ? state.range : null);
   set("f", state.metrics.length && state.frequency !== fundamentalWindow(state.range).frequency ? state.frequency : null);
   set("b", state.rebased ? "1" : null);
   if (url.toString() !== window.location.href) window.history.replaceState(null, "", url);

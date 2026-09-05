@@ -263,6 +263,12 @@ describe("the front page must not cost Worker CPU", () => {
 });
 
 describe("the redesign", () => {
+  it("opens a plain company page on five years while preserving explicit ranges", () => {
+    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    expect(company).toContain('const empty: Address = { metrics: [], range: "5Y"');
+    expect(company).toContain('state.range !== "5Y"');
+  });
+
   it("lists each financial measure in only one statement section", () => {
     const metrics = IO_SECTIONS.flatMap((section) => section.metrics);
     expect(new Set(metrics).size).toBe(metrics.length);
