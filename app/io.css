@@ -408,6 +408,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * Seven columns also gives each label the width it needs to be read whole.
  */
 .stats-seven { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+/* And four, for a strip that is one figure against three facts. */
+.stats-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .stat { padding: 11px 12px 12px; min-width: 0; }
 .stat .label, .stat-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-value { font-family: var(--mono); font-size: var(--fs-lg); margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -589,6 +591,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
    */
   .stats-seven { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .stats-seven > :last-child { grid-column: span 2; }
+  .stats-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 @media (max-width: 900px) {
@@ -599,6 +602,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 @media (max-width: 560px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stats-seven { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* Restated rather than inherited: the rule above is what makes this work. */
   .multiples { grid-template-columns: minmax(0, 1fr); }
 }

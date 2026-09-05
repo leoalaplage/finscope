@@ -12,6 +12,7 @@ import { CHART_ANCHOR, PriceSection } from "./PriceSection";
 import { toggleMetric } from "./selection";
 import { Statements } from "./Statements";
 import { Stats } from "./Stats";
+import { ImpliedExpectations } from "./ImpliedExpectations";
 import { ValuationHistory } from "./ValuationHistory";
 import type { IoQuote } from "./quote";
 import { fundamentalWindow, RANGES, type Frequency, type Range } from "./ranges";
@@ -350,6 +351,10 @@ export function Company({ ticker }: { ticker: string }) {
       <Score key={company.ticker} ticker={company.ticker} />
       <FcfShareGrowth view={view} />
       <ValuationHistory view={view} quote={quote} />
+      {/* After the ranges the price sits in, because the question it answers —
+          what would have to happen for this price to be right — is the one a
+          reader asks once they have seen where the price is. */}
+      <ImpliedExpectations view={view} quote={quote} />
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
       <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
       <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />

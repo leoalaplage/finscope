@@ -387,6 +387,29 @@ describe("the redesign", () => {
     expect(portfolio).not.toContain("riskScore");
   });
 
+  it("inverts the discounted cash flow instead of forecasting one", () => {
+    const panel = readFileSync(new URL("../components/io/ImpliedExpectations.tsx", import.meta.url), "utf8");
+    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    // After the ranges the price sits in: what would have to happen for this
+    // price to be right is the question that follows seeing where it is.
+    expect(company.indexOf("<ImpliedExpectations")).toBeGreaterThan(company.indexOf("<ValuationHistory"));
+    // The reader moves the discount rate; nothing else is theirs to move, and
+    // the terminal rate is a constant rather than a control — a terminal rate
+    // tuned per company is where this becomes a forecast again.
+    expect(panel).toContain("const RATES = [.08, .10, .12];");
+    expect(panel).toContain("const TERMINAL = .025;");
+    expect(panel).not.toContain("setTerminal");
+    // Free cash flow is struck after interest, so it is held against the market
+    // capitalisation and never against the enterprise value.
+    expect(panel).toContain("quote.price * basis.shares");
+    expect(panel).not.toContain("netDebt");
+    // The span of the record is measured from the filings rather than assumed
+    // from the window that was asked for.
+    expect(panel).toContain("const span = (Date.parse(to) - Date.parse(from))");
+    expect(css).toContain(".stats-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }");
+  });
+
   it("reads the wire under the indices, as text nobody can click", () => {
     const page = readFileSync(new URL("../app/market/page.tsx", import.meta.url), "utf8");
     const news = readFileSync(new URL("../components/io/MarketNews.tsx", import.meta.url), "utf8");
