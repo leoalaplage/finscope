@@ -23,7 +23,7 @@ export interface IndexDefinition {
 export const INDICES: IndexDefinition[] = [
   { id: "SPX", symbol: "^GSPC", label: "S&P 500", description: "Five hundred large US companies, weighted by market value." },
   { id: "NASDAQ", symbol: "^IXIC", label: "NASDAQ", description: "Every common stock listed on Nasdaq, weighted by market value." },
-  { id: "DOW", symbol: "^DJI", label: "DOW", description: "Thirty large US companies, weighted by share price." },
+  { id: "DOW", symbol: "^DJI", label: "Dow Jones", description: "Thirty large US companies, weighted by share price." },
 ];
 
 export function indexById(id: string) {

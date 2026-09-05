@@ -468,12 +468,17 @@ function CompareChart({
    * is the same absence the table states as an em dash.
    */
   const [expanded, setExpanded] = useState(false);
+  const [metricQuery, setMetricQuery] = useState("");
   const offered = useMemo(() => rowsFor(columns).flatMap((section) => section.rows), [columns]);
   const featured = useMemo(() => {
     const byKey = new Map(offered.map((row) => [row.key, row]));
     const first = FEATURED.flatMap((key) => { const row = byKey.get(key); return row ? [row] : []; });
     return [...first, ...offered.filter((row) => !FEATURED.includes(row.key))];
   }, [offered]);
+  const needle = metricQuery.trim().toLocaleLowerCase("en-US");
+  const visibleMetrics = needle
+    ? featured.filter((row) => `${row.label} ${row.key}`.toLocaleLowerCase("en-US").includes(needle))
+    : expanded ? featured : featured.slice(0, FEATURED.length);
 
   const metric = offered.find((row) => row.key === metricKey) ?? offered[0] ?? null;
   const window = { ...fundamentalWindow(range), frequency };
@@ -526,15 +531,30 @@ function CompareChart({
 
   return (
     <>
+      <div className="compare-metric-search">
+        <label htmlFor="compare-metric-query" className="label">Metric</label>
+        <input
+          id="compare-metric-query"
+          type="search"
+          value={metricQuery}
+          onChange={(event) => setMetricQuery(event.target.value)}
+          placeholder="Search metrics"
+          aria-label="Search metrics"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {needle ? <span className="label">{visibleMetrics.length} found</span> : null}
+      </div>
       <div className="compare-chart-head">
         <div className="seg seg-wrap">
-          {(expanded ? featured : featured.slice(0, FEATURED.length)).map((row) => (
+          {visibleMetrics.map((row) => (
             <button key={row.key} type="button" aria-pressed={metric.key === row.key} onClick={() => onMetric(row.key)}>
               {row.label}
             </button>
           ))}
+          {needle && visibleMetrics.length === 0 ? <span className="compare-metric-empty">No metric found</span> : null}
         </div>
-        {featured.length > FEATURED.length ? (
+        {!needle && featured.length > FEATURED.length ? (
           <button className="metric-toggle" type="button" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
             {expanded ? `Show first ${FEATURED.length}` : `Show all ${featured.length}`}
           </button>

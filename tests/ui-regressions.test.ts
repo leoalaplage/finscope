@@ -429,6 +429,29 @@ describe("the redesign", () => {
     expect(compare).toContain('{expanded ? "Show essentials" : "Show all"}');
   });
 
+  it("searches every chart metric while keeping twelve visible by default", () => {
+    const compare = readFileSync(new URL("../components/io/Compare.tsx", import.meta.url), "utf8");
+    expect(compare).toContain('const [metricQuery, setMetricQuery] = useState("")');
+    expect(compare).toContain('aria-label="Search metrics"');
+    expect(compare).toContain("featured.slice(0, FEATURED.length)");
+    expect(compare).toContain("featured.filter((row) =>");
+    expect(compare).toContain("No metric found");
+  });
+
+  it("exposes the three headline indices on a dedicated public Market page", () => {
+    const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
+    const page = readFileSync(new URL("../app/market/page.tsx", import.meta.url), "utf8");
+    const market = readFileSync(new URL("../components/MarketPage.tsx", import.meta.url), "utf8");
+    const indices = readFileSync(new URL("../lib/indices.ts", import.meta.url), "utf8");
+    expect(shell).toContain('<a href="/market">Market</a>');
+    expect(page).toContain('export const dynamic = "force-static"');
+    expect(page).toContain("<MarketPage indicesOnly />");
+    expect(market).toContain('/api/indices?range=');
+    expect(indices).toContain('label: "S&P 500"');
+    expect(indices).toContain('label: "NASDAQ"');
+    expect(indices).toContain('label: "Dow Jones"');
+  });
+
   it("says which of the two readings of a chart is in force", () => {
     const section = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");

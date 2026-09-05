@@ -292,12 +292,9 @@ function IndexChart({ entry, range }: { entry: Panel; range: MarketRange }) {
  * answers "what is the market doing" rather than "what is this business worth",
  * and mixing the two would make both harder to read.
  */
-export function MarketPage({ watchlist = [] }: { watchlist?: string[] }) {
-  const [range, setRange] = useState<MarketRange>(() => {
-    if (typeof window === "undefined") return "1D";
-    const saved = localStorage.getItem("finscope.marketRange");
-    return MARKET_RANGES.includes(saved as MarketRange) ? saved as MarketRange : "1D";
-  });
+export function MarketPage({ watchlist = [], indicesOnly = false }: { watchlist?: string[]; indicesOnly?: boolean }) {
+  const [range, setRange] = useState<MarketRange>("1D");
+  const firstRangeWrite = useRef(true);
   /**
    * The answer, carrying the window it answers for.
    *
@@ -314,7 +311,24 @@ export function MarketPage({ watchlist = [] }: { watchlist?: string[] }) {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const alive = useRef(true);
 
-  useEffect(() => { localStorage.setItem("finscope.marketRange", range); }, [range]);
+  useEffect(() => {
+    let active = true;
+    try {
+      const saved = localStorage.getItem("finscope.marketRange");
+      if (MARKET_RANGES.includes(saved as MarketRange)) {
+        queueMicrotask(() => { if (active) setRange(saved as MarketRange); });
+      }
+    } catch { /* Storage is optional; the market still opens on the day. */ }
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    // Do not overwrite a saved range with the server's hydration-safe 1D
+    // default before the restoration effect above has had a chance to run.
+    if (firstRangeWrite.current) { firstRangeWrite.current = false; return; }
+    try { localStorage.setItem("finscope.marketRange", range); }
+    catch { /* A browser refusing storage still gets the selected range. */ }
+  }, [range]);
 
   const load = useCallback(async (window: MarketRange) => {
     try {
@@ -412,10 +426,12 @@ export function MarketPage({ watchlist = [] }: { watchlist?: string[] }) {
       {(entries ?? []).map((entry) => <IndexPanel key={entry.id} entry={entry} range={range}/>)}
     </div>
 
-    {/* Loaded apart from the indices: fifty tiles are a second request and a
-        second answer, and the lines above should not wait for them. */}
-    <Suspense fallback={<SkeletonCards label="today’s moves" count={2} height={280}/>}><MarketHeatmap watchlist={watchlist}/></Suspense>
-    <Suspense fallback={<SkeletonCards label="watchlist performance" count={1} height={260}/>}><PerformanceTable tickers={watchlist}/></Suspense>
+    {!indicesOnly ? <>
+      {/* Loaded apart from the indices: fifty tiles are a second request and a
+          second answer, and the lines above should not wait for them. */}
+      <Suspense fallback={<SkeletonCards label="today’s moves" count={2} height={280}/>}><MarketHeatmap watchlist={watchlist}/></Suspense>
+      <Suspense fallback={<SkeletonCards label="watchlist performance" count={1} height={260}/>}><PerformanceTable tickers={watchlist}/></Suspense>
+    </> : null}
 
     {entries?.some((entry) => !failed(entry)) &&
       <p className="market-foot">Prices are delayed as the exchange requires.</p>}
