@@ -21,20 +21,25 @@ describe("FCF per-share growth profile", () => {
     const result = fcfShareGrowthProfile(periods);
     expect(result.fiveYearCagr.value).toBeCloseTo(.1, 3);
     expect(result.tenYearCagr.value).toBeCloseTo(.1, 3);
+    expect(result.fiveYearRSquared.value).toBeCloseTo(1, 6);
     expect(result.tenYearRSquared.value).toBeCloseTo(1, 6);
+    expect(result.fiveYearRSquared.observations).toBe(6);
     expect(result.tenYearRSquared.observations).toBe(11);
   });
 
   it("shows a lower R² when the same long-term path is lumpy", () => {
     const smooth = Array.from({ length: 11 }, (_, index) => year(2 * 1.1 ** index, 2015 + index));
     const lumpy = smooth.map((period, index) => year((period.values.freeCashFlowPerShare ?? 0) * (index % 2 ? 1.7 : .65), period.fiscalYear));
-    expect(fcfShareGrowthProfile(lumpy).tenYearRSquared.value).toBeLessThan(.5);
+    const result = fcfShareGrowthProfile(lumpy);
+    expect(result.fiveYearRSquared.value).toBeLessThan(.5);
+    expect(result.tenYearRSquared.value).toBeLessThan(.5);
   });
 
   it("refuses CAGR and R² when a required value is non-positive", () => {
     const periods = Array.from({ length: 11 }, (_, index) => year(index === 5 ? -1 : index + 1, 2015 + index));
     const result = fcfShareGrowthProfile(periods);
     expect(result.fiveYearCagr.value).toBeNull();
+    expect(result.fiveYearRSquared.value).toBeNull();
     expect(result.tenYearRSquared.value).toBeNull();
   });
 });

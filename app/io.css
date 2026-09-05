@@ -722,11 +722,12 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 /* --- Historical valuation ---------------------------------------------- */
 
-.fcf-share-growth { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.fcf-share-growth { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.compare-fcf-share { margin-bottom: calc(var(--u) * 7); }
 .valuation-history-sheet table { min-width: 920px; }
 
 @media (max-width: 560px) {
-  .fcf-share-growth { grid-template-columns: minmax(0, 1fr); }
+  .fcf-share-growth { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* --- Quality Score -------------------------------------------------------- */

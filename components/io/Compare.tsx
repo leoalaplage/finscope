@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { fcfShareGrowthProfile, type FcfShareGrowthProfile, type FcfShareReading } from "@/lib/io/fcf-share-growth";
 import type { IoCompanyView } from "@/lib/io/view";
 import { IO_SECTIONS } from "@/lib/io/sections";
 import { IO_VIEW } from "@/lib/io/view-version";
@@ -242,56 +243,118 @@ function CompareTable({ columns, range }: { columns: Loaded[]; range: Range }) {
   const years = fundamentalWindow(range).years;
   const sections = useMemo(() => rowsFor(columns), [columns]);
   return (
-    <div className="sheet">
-      <table>
-        <thead>
-          <tr>
-            <th className="key" scope="col">Latest TTM</th>
-            {columns.map((column) => <th key={column.ticker} scope="col">{column.ticker}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="group rule">
-            <th className="key" scope="colgroup" colSpan={columns.length + 1}><span className="label">Market</span></th>
-          </tr>
-          <MarketRows columns={columns} />
-          {sections.map((section) => (
-            <Fragment key={section.id}>
-              <tr className="group rule">
-                <th className="key" scope="colgroup" colSpan={columns.length + 1}><span className="label">{section.label}</span></th>
-              </tr>
-              {section.rows.map((row) => (
-                <tr key={row.key}>
-                  <th className="key" scope="row">{row.label}</th>
-                  {columns.map((column) => {
-                    const period = column.view?.ttm ?? column.view?.annual.at(-1) ?? null;
-                    const value = period?.values[row.key] ?? null;
-                    return (
-                      <td key={column.ticker} data-empty={value == null}>
-                        {value == null ? ABSENT : formatUnit(value, row.unit, period?.currency ?? null)}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </Fragment>
-          ))}
-          <tr className="group rule">
-            <th className="key" scope="colgroup" colSpan={columns.length + 1}>
-              <span className="label">Growth · {range} · compound, or points moved for a rate</span>
-            </th>
-          </tr>
-          {sections.flatMap((section) => section.rows).map((row) => (
-            <tr key={`growth-${row.key}`}>
-              <th className="key" scope="row">{row.label}</th>
-              {columns.map((column) => {
-                const rate = column.view ? growthOver(column.view.annual, row.key, row.unit, years) : null;
-                return <td key={column.ticker} data-empty={rate == null}>{rate == null ? ABSENT : delta(rate, 1)}</td>;
-              })}
+    <>
+      <FcfShareComparison columns={columns} />
+      <div className="sheet">
+        <table>
+          <thead>
+            <tr>
+              <th className="key" scope="col">Latest TTM</th>
+              {columns.map((column) => <th key={column.ticker} scope="col">{column.ticker}</th>)}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            <tr className="group rule">
+              <th className="key" scope="colgroup" colSpan={columns.length + 1}><span className="label">Market</span></th>
+            </tr>
+            <MarketRows columns={columns} />
+            {sections.map((section) => (
+              <Fragment key={section.id}>
+                <tr className="group rule">
+                  <th className="key" scope="colgroup" colSpan={columns.length + 1}><span className="label">{section.label}</span></th>
+                </tr>
+                {section.rows.map((row) => (
+                  <tr key={row.key}>
+                    <th className="key" scope="row">{row.label}</th>
+                    {columns.map((column) => {
+                      const period = column.view?.ttm ?? column.view?.annual.at(-1) ?? null;
+                      const value = period?.values[row.key] ?? null;
+                      return (
+                        <td key={column.ticker} data-empty={value == null}>
+                          {value == null ? ABSENT : formatUnit(value, row.unit, period?.currency ?? null)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+            <tr className="group rule">
+              <th className="key" scope="colgroup" colSpan={columns.length + 1}>
+                <span className="label">Growth · {range} · compound, or points moved for a rate</span>
+              </th>
+            </tr>
+            {sections.flatMap((section) => section.rows).map((row) => (
+              <tr key={`growth-${row.key}`}>
+                <th className="key" scope="row">{row.label}</th>
+                {columns.map((column) => {
+                  const rate = column.view ? growthOver(column.view.annual, row.key, row.unit, years) : null;
+                  return <td key={column.ticker} data-empty={rate == null}>{rate == null ? ABSENT : delta(rate, 1)}</td>;
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+const FCF_SHARE_COMPARISON_ROWS: Array<{
+  key: keyof FcfShareGrowthProfile;
+  label: string;
+  format: (value: number) => string;
+}> = [
+  { key: "fiveYearCagr", label: "5Y CAGR", format: (value) => percent(value, 1) },
+  { key: "tenYearCagr", label: "10Y CAGR", format: (value) => percent(value, 1) },
+  { key: "fiveYearRSquared", label: "R² · 5Y", format: (value) => value.toFixed(2) },
+  { key: "tenYearRSquared", label: "R² · 10Y", format: (value) => value.toFixed(2) },
+];
+
+function readingTitle(reading: FcfShareReading | null) {
+  if (!reading) return "Company data is not ready";
+  return reading.reason
+    ?? `${reading.observations} annual observations · ${reading.startDate} to ${reading.endDate}`;
+}
+
+/** A deliberately separate comparison of FCF/share growth and regularity. */
+function FcfShareComparison({ columns }: { columns: Loaded[] }) {
+  const profiles = Object.fromEntries(columns.map((column) => [
+    column.ticker,
+    column.view ? fcfShareGrowthProfile(column.view.annual) : null,
+  ])) as Record<string, FcfShareGrowthProfile | null>;
+  return (
+    <div className="compare-fcf-share">
+      <div className="section-head">
+        <h2 className="label">FCF / share</h2>
+        <span className="label">Annual · R² steadier near 1.00</span>
+      </div>
+      <div className="sheet">
+        <table>
+          <thead>
+            <tr>
+              <th className="key" scope="col">Growth &amp; consistency</th>
+              {columns.map((column) => <th key={column.ticker} scope="col">{column.ticker}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {FCF_SHARE_COMPARISON_ROWS.map((row) => (
+              <tr key={row.key}>
+                <th className="key" scope="row">{row.label}</th>
+                {columns.map((column) => {
+                  const reading = profiles[column.ticker]?.[row.key] ?? null;
+                  const value = reading?.value ?? null;
+                  return (
+                    <td key={column.ticker} data-empty={value == null} title={readingTitle(reading)}>
+                      {value == null ? ABSENT : row.format(value)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -11,6 +11,7 @@ export interface FcfShareReading {
 export interface FcfShareGrowthProfile {
   fiveYearCagr: FcfShareReading;
   tenYearCagr: FcfShareReading;
+  fiveYearRSquared: FcfShareReading;
   tenYearRSquared: FcfShareReading;
 }
 
@@ -66,7 +67,7 @@ function cagr(history: Point[], targetYears: 5 | 10): FcfShareReading {
   };
 }
 
-function consistency(history: Point[], targetYears: 10): FcfShareReading {
+function consistency(history: Point[], targetYears: 5 | 10): FcfShareReading {
   const end = history.at(-1);
   if (!end) return { value: null, observations: 0, startDate: null, endDate: null, reason: "No annual FCF / share history" };
   const window = history.filter((point) => {
@@ -128,6 +129,7 @@ export function fcfShareGrowthProfile(periods: IoPeriod[]): FcfShareGrowthProfil
   return {
     fiveYearCagr: cagr(history, 5),
     tenYearCagr: cagr(history, 10),
+    fiveYearRSquared: consistency(history, 5),
     tenYearRSquared: consistency(history, 10),
   };
 }

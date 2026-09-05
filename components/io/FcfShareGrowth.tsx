@@ -34,6 +34,7 @@ export function FcfShareGrowth({ view }: { view: IoCompanyView }) {
       <div className="grid-ruled fcf-share-growth">
         <Reading label="5Y CAGR" reading={profile.fiveYearCagr} format={(value) => percent(value, 1)} />
         <Reading label="10Y CAGR" reading={profile.tenYearCagr} format={(value) => percent(value, 1)} />
+        <Reading label="R² · 5Y" reading={profile.fiveYearRSquared} format={(value) => value.toFixed(2)} note="Steadier near 1.00" />
         <Reading label="R² · 10Y" reading={profile.tenYearRSquared} format={(value) => value.toFixed(2)} note="Steadier near 1.00" />
       </div>
     </section>

@@ -401,7 +401,16 @@ describe("the redesign", () => {
     expect(company).toContain("<FcfShareGrowth view={view} />");
     expect(growth).toContain("5Y CAGR");
     expect(growth).toContain("10Y CAGR");
+    expect(growth).toContain("R² · 5Y");
     expect(growth).toContain("R² · 10Y");
+  });
+
+  it("keeps the FCF per-share comparison in its own table", () => {
+    const compare = readFileSync(new URL("../components/io/Compare.tsx", import.meta.url), "utf8");
+    expect(compare).toContain("<FcfShareComparison columns={columns} />");
+    expect(compare).toContain("Growth &amp; consistency");
+    expect(compare).toContain('label: "R² · 5Y"');
+    expect(compare).toContain('label: "R² · 10Y"');
   });
 
   it("says which of the two readings of a chart is in force", () => {
