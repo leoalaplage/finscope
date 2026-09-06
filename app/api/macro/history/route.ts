@@ -41,7 +41,6 @@ const SOURCE = {
 } as const;
 
 const WORLD_BANK: Record<string, string> = {
-  "cpi-index": "FP.CPI.TOTL",
   inflation: "FP.CPI.TOTL.ZG",
   "gdp-growth": "NY.GDP.MKTP.KD.ZG",
   unemployment: "SL.UEM.TOTL.ZS",
@@ -130,10 +129,9 @@ async function blsHistory(definition: MacroSeriesDefinition, range: HistoryRange
   for (let start = queryStart; start <= current; start += 10) chunks.push({ start, end: Math.min(start + 9, current) });
   const observations: MacroObservation[] = [];
   for (const chunk of chunks) {
-    const response = await fetch("https://api.bls.gov/publicAPI/v2/timeseries/data/", {
-      method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": "FinScope/1.0 macro history" },
-      body: JSON.stringify({ seriesid: [series], startyear: String(chunk.start), endyear: String(chunk.end) }),
+    const url = `https://api.bls.gov/publicAPI/v2/timeseries/data/${series}?startyear=${chunk.start}&endyear=${chunk.end}`;
+    const response = await fetch(url, {
+      headers: { Accept: "application/json", "User-Agent": "FinScope/1.0 macro history" },
       signal: AbortSignal.timeout(12_000),
     });
     if (!response.ok) throw new Error(`BLS returned ${response.status}.`);
@@ -328,7 +326,7 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unknown macro history request." }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
   const range = requestedRange as HistoryRange;
-  const cacheVersion = definition.id === CPI_INDEX_SERIES.id ? "v4" : "v3";
+  const cacheVersion = definition.id === CPI_INDEX_SERIES.id ? "v5" : "v3";
   const { body, hit } = await cachedJson(
     `macro-history:${country.code}:${definition.id}:${range}:${cacheVersion}`,
     21_600,
