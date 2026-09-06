@@ -106,7 +106,9 @@ async function text(url: string, accept: string) {
     });
     if (response.ok) return response.text();
     const retryable = response.status === 429 || response.status >= 500;
-    if (!retryable || attempt === 2) throw new Error(`Official source returned ${response.status}.`);
+    const status = response.status;
+    await response.body?.cancel();
+    if (!retryable || attempt === 2) throw new Error(`Official source returned ${status}.`);
     const retryAfter = Number(response.headers.get("Retry-After"));
     const delay = Number.isFinite(retryAfter) && retryAfter > 0
       ? Math.min(retryAfter * 1_000, 2_000)
@@ -201,13 +203,18 @@ async function oecdEconomicHistory(country: MacroCountry, definition: MacroSerie
   if (!country.oecd || !config) return null;
   const start = startPeriod(range, definition.frequency, 1990);
   let observations: MacroObservation[] = [];
+  let lastFailure = "";
   for (const dataflow of config.dataflows) {
     try {
       const url = `https://sdmx.oecd.org/public/rest/data/${dataflow}/${config.key(country.oecd)}?startPeriod=${start}&dimensionAtObservation=AllDimensions&format=csvfile`;
       observations = parseSdmxCsvObservations(await text(url, "text/csv"));
       if (observations.length) break;
-    } catch { /* The other OECD classification may still carry this country. */ }
+    } catch (cause) {
+      lastFailure = cause instanceof Error ? cause.message : "OECD is temporarily unavailable.";
+      // The other OECD classification may still carry this country.
+    }
   }
+  if (!observations.length && lastFailure) throw new Error(lastFailure);
   return {
     definition,
     source: SOURCE.oecd.name,
@@ -284,8 +291,12 @@ async function treasuryHistory(definition: MacroSeriesDefinition, range: History
 
 async function buildHistory(country: MacroCountry, definition: MacroSeriesDefinition, range: HistoryRange): Promise<MacroHistory> {
   try {
+    let lastFailure = "";
     const attempt = async <T,>(read: () => Promise<T>): Promise<T | null> => {
-      try { return await read(); } catch { return null; }
+      try { return await read(); } catch (cause) {
+        lastFailure = cause instanceof Error ? cause.message : "Official source is temporarily unavailable.";
+        return null;
+      }
     };
     let result = null;
     if (definition.id === "ecb-rate") result = await ecbHistory(range);
@@ -301,7 +312,7 @@ async function buildHistory(country: MacroCountry, definition: MacroSeriesDefini
       if (!result?.observations.length) result = await attempt(() => oecdEconomicHistory(country, definition, range));
       if (!result?.observations.length) result = await attempt(() => worldBankHistory(country, definition, range));
     }
-    if (!result?.observations.length) throw new Error("No historical observation is available from the official source.");
+    if (!result?.observations.length) throw new Error(lastFailure || "No historical observation is available from the official source.");
     const observations = unique(result.observations);
     return {
       country: { code: country.code, name: country.name },
@@ -335,7 +346,7 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unknown macro history request." }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
   const range = requestedRange as HistoryRange;
-  const cacheVersion = definition.id === CPI_INDEX_SERIES.id ? "v6" : "v3";
+  const cacheVersion = definition.id === CPI_INDEX_SERIES.id ? "v7" : "v3";
   const { body, hit } = await cachedJson(
     `macro-history:${country.code}:${definition.id}:${range}:${cacheVersion}`,
     21_600,
