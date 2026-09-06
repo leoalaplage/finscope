@@ -686,6 +686,11 @@ describe("the redesign", () => {
     expect(macro).toContain('aria-label={`Open ${indicator.label} history`}');
     expect(macro).toContain('const HISTORY_RANGES: HistoryRange[] = ["1Y", "5Y", "10Y", "MAX"]');
     expect(macro).toContain('history.indicator.id === "inflation"');
+    expect(macro).toContain("Compare countries");
+    expect(macro).toContain("MAX_COMPARED_COUNTRIES = 5");
+    expect(macro).toContain("comparisonCountries");
+    expect(macro).toContain("MacroHistoryChart histories={chartHistories}");
+    expect(macro).toContain("Different publication frequency, not overlaid");
     expect(macro).toContain("readEurostatDirect");
     expect(route).toContain("api.worldbank.org");
     expect(route).toContain("api.bls.gov/publicAPI/v2/timeseries/data/");
