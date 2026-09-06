@@ -673,6 +673,20 @@ describe("the redesign", () => {
     expect(indices).toContain('label: "Dow Jones"');
   });
 
+  it("puts an official, date-explicit macro snapshot below the market indices", () => {
+    const page = readFileSync(new URL("../app/market/page.tsx", import.meta.url), "utf8");
+    const macro = readFileSync(new URL("../components/io/MacroSnapshot.tsx", import.meta.url), "utf8");
+    const route = readFileSync(new URL("../app/api/macro/route.ts", import.meta.url), "utf8");
+    expect(page.indexOf("<MacroSnapshot />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
+    expect(page.indexOf("<MarketNews />")).toBeGreaterThan(page.indexOf("<MacroSnapshot />"));
+    expect(macro).toContain("Latest published observation");
+    expect(macro).toContain("Daily and monthly figures keep their own observation date");
+    expect(route).toContain("https://api.bls.gov/publicAPI/v2/timeseries/data/");
+    expect(route).toContain("https://markets.newyorkfed.org/api/rates/unsecured/effr/last/1.json");
+    expect(route).toContain("daily_treasury_yield_curve");
+    expect(route).toContain('s-maxage=21600');
+  });
+
   it("returns to the last valid company, or to the watchlist without one", () => {
     const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");

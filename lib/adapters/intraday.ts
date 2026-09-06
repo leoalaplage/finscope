@@ -301,7 +301,10 @@ export async function fetchMarketWindow(symbol: string, name: string, range: Mar
     const offset = result.meta.gmtoffset;
     const quote = result.indicators.quote[0] ?? {};
     const stamps = result.timestamp ?? [];
-    const intraday = range === "1D" || range === "5D";
+    // Only a single session wants clock labels. A five-session chart used to
+    // stamp every point as 09:30, 09:45… again and again, so its date axis had
+    // no dates to print even though all five sessions were present.
+    const intraday = range === "1D";
 
     const all: MarketPoint[] = [];
     for (let index = 0; index < stamps.length; index++) {
@@ -329,6 +332,11 @@ export async function fetchMarketWindow(symbol: string, name: string, range: Mar
     if (range === "1D") {
       const previous = all.filter((point) => localDate(point.time, offset) < sessionDate).at(-1)?.close;
       baseline = result.meta.previousClose ?? previous ?? null;
+    } else if (range === "5D") {
+      // Across Yahoo's five-day response, chartPreviousClose is the official
+      // close immediately before the entire window. The first point is a
+      // fifteen-minute close inside session one, not "five sessions ago".
+      baseline = result.meta.chartPreviousClose ?? points[0]?.close ?? null;
     } else {
       baseline = points[0]?.close ?? null;
     }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@/app/io.css";
 import { MarketPage } from "@/components/MarketPage";
+import { MacroSnapshot } from "@/components/io/MacroSnapshot";
 import { MarketNews } from "@/components/io/MarketNews";
 import { Shell } from "@/components/io/Shell";
 
@@ -16,6 +17,7 @@ export default function MarketRoute() {
     <Shell>
       <main className="wrap market-route">
         <MarketPage indicesOnly />
+        <MacroSnapshot />
         {/* Under the indices, and only here: the research workspace shares the
             component above and has its own front page to put a wire on. */}
         <MarketNews />
