@@ -32,6 +32,7 @@ const responseHeaders = {
 };
 
 const MACRO_SOURCE_URL = "https://finscope-macro-source.leoalaplage.workers.dev";
+const IMF_AREA: Record<string, string> = { US: "US", GB: "GB", JP: "JP", CN: "CN", CA: "CA" };
 
 const SOURCE = {
   bls: { name: "U.S. Bureau of Labor Statistics", url: "https://data.bls.gov/timeseries" },
@@ -235,6 +236,29 @@ async function oecdEconomicHistory(country: MacroCountry, definition: MacroSerie
   };
 }
 
+async function imfCpiHistory(country: MacroCountry, range: HistoryRange) {
+  const area = IMF_AREA[country.code];
+  if (!area) return null;
+  const series = `M.${area}.PCPI_IX`;
+  const url = `https://api.db.nomics.world/v22/series/IMF/IFS/${series}?observations=1`;
+  const payload = await json(url) as {
+    series?: { docs?: Array<{ period?: string[]; value?: Array<number | null> }> };
+  };
+  const document = payload.series?.docs?.[0];
+  const start = startPeriod(range, "Monthly", 1990);
+  const observations = (document?.period ?? []).flatMap((date, index) => {
+    const raw = document?.value?.[index];
+    const value = Number(raw);
+    return date >= start && raw != null && Number.isFinite(value) ? [{ date, value }] : [];
+  });
+  return {
+    definition: CPI_INDEX_SERIES,
+    source: "IMF IFS via DBnomics",
+    sourceUrl: `https://db.nomics.world/IMF/IFS/${series}`,
+    observations,
+  };
+}
+
 async function oecdCliHistory(country: MacroCountry, range: HistoryRange) {
   if (!country.oecd) return null;
   const start = startPeriod(range, OECD_SERIES.frequency, 1990);
@@ -322,6 +346,7 @@ async function buildHistory(country: MacroCountry, definition: MacroSeriesDefini
       }
       if (!result?.observations.length) result = await attempt(() => eurostatHistory(country, definition, range));
       if (!result?.observations.length) result = await attempt(() => oecdEconomicHistory(country, definition, range));
+      if (!result?.observations.length && definition.id === CPI_INDEX_SERIES.id) result = await attempt(() => imfCpiHistory(country, range));
       if (!result?.observations.length) result = await attempt(() => worldBankHistory(country, definition, range));
     }
     if (!result?.observations.length) throw new Error(lastFailure || "No historical observation is available from the official source.");
@@ -341,6 +366,42 @@ async function buildHistory(country: MacroCountry, definition: MacroSeriesDefini
   }
 }
 
+function parseCachedHistory(body: string | null) {
+  if (!body) return null;
+  try {
+    const history = JSON.parse(body) as MacroHistory;
+    return history.observations.length ? history : null;
+  } catch {
+    return null;
+  }
+}
+
+function sliceHistory(history: MacroHistory, range: HistoryRange) {
+  const start = startPeriod(range, "Monthly", 1990);
+  const observations = rebaseObservations(history.observations.filter((point) => point.date >= start));
+  return observations.length ? { ...history, observations } : null;
+}
+
+function joinCpiHistories(historical: MacroHistory, recent: MacroHistory) {
+  const historicalValues = new Map(historical.observations.map((point) => [point.date, point.value]));
+  const overlap = recent.observations.find((point) => historicalValues.has(point.date) && point.value !== 0);
+  if (!overlap) return historical;
+  const scale = (historicalValues.get(overlap.date) as number) / overlap.value;
+  const observations = unique([
+    ...historical.observations.filter((point) => point.date < overlap.date),
+    ...recent.observations.filter((point) => point.date >= overlap.date).map((point) => ({ ...point, value: point.value * scale })),
+  ]);
+  return {
+    ...historical,
+    indicator: {
+      ...historical.indicator,
+      source: `${historical.indicator.source} · ${recent.indicator.source}`,
+      note: CPI_INDEX_SERIES.note,
+    },
+    observations,
+  };
+}
+
 async function cachedHistory(
   country: MacroCountry,
   definition: MacroSeriesDefinition,
@@ -358,7 +419,17 @@ async function cachedHistory(
   const fresh = await read(freshKey);
   if (fresh) return { body: fresh, cache: "hit" };
   const snapshot = await read(snapshotKey) ?? (definition.id === CPI_INDEX_SERIES.id ? await read(legacyKey) : null);
-  const answer = await buildHistory(country, definition, range);
+  const recentSnapshot = definition.id === CPI_INDEX_SERIES.id && range !== "5Y"
+    ? await read(marketKey(`macro-history-snapshot:${country.code}:${definition.id}:5Y:v1`))
+      ?? await read(marketKey(`macro-history:${country.code}:${definition.id}:5Y:${legacyVersion}`))
+    : null;
+  let answer = await buildHistory(country, definition, range);
+  const recent = parseCachedHistory(recentSnapshot);
+  if (recent && answer.observations.length && answer.indicator.source.includes("DBnomics")) {
+    answer = joinCpiHistories(answer, recent);
+  } else if (recent && !answer.observations.length) {
+    answer = sliceHistory(recent, range) ?? answer;
+  }
   if (answer.observations.length) {
     const body = JSON.stringify(answer);
     try { await cache?.put(freshKey, body, { expirationTtl: 21_600 }); } catch { /* Cache writes are best-effort. */ }

@@ -235,9 +235,9 @@ export function MacroSnapshot() {
   useEffect(() => {
     if (!effectiveSeries) return;
     const key = `${countryCode}:${effectiveSeries}:${historyRange}`;
+    setHistoryError("");
     if (histories[key]) return;
     const controller = new AbortController();
-    setHistoryError("");
     const load = async () => {
       try {
         const response = await fetch(`/api/macro/history?country=${encodeURIComponent(countryCode)}&series=${encodeURIComponent(effectiveSeries)}&range=${historyRange}`, { signal: controller.signal });
