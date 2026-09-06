@@ -30,6 +30,7 @@ test("server-renders the FinScope research workspace", async () => {
   for (const label of ["Market", "Company", "Compare", "Screener"]) {
     assert.match(html, new RegExp(`>${label}<`), `navigation is missing ${label}`);
   }
+  assert.match(html, /href="\/settings" aria-label="Open settings"/);
   // The default theme is stamped in the markup rather than applied by an
   // effect, so a reader never meets a white flash before the bundle boots.
   assert.match(html, /<html lang="en" data-theme="dark"/);

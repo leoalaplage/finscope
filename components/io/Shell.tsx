@@ -3,9 +3,11 @@
 /* eslint-disable @next/next/no-html-link-for-pages -- Native navigation is
    required here while vinext's production RSC link bridge fails to hydrate. */
 
+import { Settings as SettingsIcon } from "lucide-react";
 import { useCallback, useSyncExternalStore } from "react";
 import { onCompany, useRememberedCompany } from "./remembered";
 import { Search } from "./Search";
+import { readTheme, setTheme, subscribeTheme, type Theme } from "./theme";
 
 /**
  * The bar, which holds a wordmark, the search and one switch.
@@ -14,11 +16,6 @@ import { Search } from "./Search";
  * search and one company page. A menu here would be a menu of one item
  * pretending to be a product.
  */
-
-type Theme = "light" | "dark";
-
-const STORAGE_KEY = "finscope.theme";
-const THEME_EVENT = "finscope:theme";
 
 /**
  * The document's own attribute is the state, and React subscribes to it.
@@ -30,21 +27,12 @@ const THEME_EVENT = "finscope:theme";
  * render is already right, and the server's snapshot is the same default the
  * markup carries.
  */
-function subscribe(notify: () => void) {
-  window.addEventListener(THEME_EVENT, notify);
-  return () => window.removeEventListener(THEME_EVENT, notify);
-}
-
-const readTheme = (): Theme => (document.documentElement.dataset.theme === "light" ? "light" : "dark");
-
 function ThemeSwitch() {
-  const theme = useSyncExternalStore(subscribe, readTheme, () => "dark" as Theme);
+  const theme = useSyncExternalStore(subscribeTheme, readTheme, () => "dark" as Theme);
 
   const flip = useCallback(() => {
     const next: Theme = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem(STORAGE_KEY, next); } catch { /* A browser refusing storage still gets the change. */ }
-    window.dispatchEvent(new Event(THEME_EVENT));
+    setTheme(next);
   }, []);
 
   /*
@@ -100,6 +88,9 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
             <a href="/portfolio">Portfolio</a>
           </nav>
           <ThemeSwitch />
+          <a className="settings-link" href="/settings" aria-label="Open settings" title="Settings">
+            <SettingsIcon aria-hidden="true" size={14} strokeWidth={1.5} />
+          </a>
         </div>
       </header>
       {children}

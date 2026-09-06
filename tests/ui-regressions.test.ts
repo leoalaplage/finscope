@@ -685,6 +685,22 @@ describe("the redesign", () => {
     expect(page).toContain('export const dynamic = "force-static"');
   });
 
+  it("separates navigation destinations and opens a complete settings foundation", () => {
+    const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
+    const settings = readFileSync(new URL("../components/io/Settings.tsx", import.meta.url), "utf8");
+    const page = readFileSync(new URL("../app/settings/page.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    expect(shell).toContain('href="/settings" aria-label="Open settings"');
+    expect(shell).toContain("SettingsIcon");
+    expect(css).toContain(".bar-nav a + a { border-inline-start: 1px solid var(--line-strong); }");
+    expect(page).toContain('export const dynamic = "force-static"');
+    expect(settings).toContain("Account");
+    expect(settings).toContain("Appearance");
+    expect(settings).toContain("Data &amp; privacy");
+    expect(settings).toContain("Account service not connected yet · nothing is collected");
+    expect(settings).toContain("onClick={() => setTheme(option.value)}");
+  });
+
   it("sets the Market introduction in the same mono ink as the page", () => {
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
     expect(css).toContain(".market-page .page-heading p { margin-top: var(--u); color: var(--ink); font-family: var(--mono);");
