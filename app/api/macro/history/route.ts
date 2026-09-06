@@ -1,4 +1,5 @@
 import {
+  CPI_INDEX_SERIES,
   ECB_RATE_SERIES,
   EUROSTAT_SERIES,
   MACRO_COUNTRIES,
@@ -11,6 +12,7 @@ import {
   parseSdmxCsvObservations,
   parseTreasuryHistory,
   parseWorldBankObservations,
+  rebaseObservations,
   yearOverYearObservations,
   type MacroCountry,
   type MacroHistory,
@@ -39,6 +41,7 @@ const SOURCE = {
 } as const;
 
 const WORLD_BANK: Record<string, string> = {
+  "cpi-index": "FP.CPI.TOTL",
   inflation: "FP.CPI.TOTL.ZG",
   "gdp-growth": "NY.GDP.MKTP.KD.ZG",
   unemployment: "SL.UEM.TOTL.ZS",
@@ -46,6 +49,14 @@ const WORLD_BANK: Record<string, string> = {
 };
 
 const OECD_ECONOMIC: Record<string, { dataflows: string[]; key: (country: string) => string; sourceUrl: string }> = {
+  "cpi-index": {
+    dataflows: [
+      "OECD.SDD.TPS,DSD_PRICES_COICOP2018@DF_PRICES_C2018_ALL,1.0",
+      "OECD.SDD.TPS,DSD_PRICES@DF_PRICES_ALL,1.0",
+    ],
+    key: (country) => `${country}.M.N.CPI.IX._T.N._Z`,
+    sourceUrl: "https://data-explorer.oecd.org/vis?df%5Bag%5D=OECD.SDD.TPS&df%5Bid%5D=DSD_PRICES%40DF_PRICES_ALL",
+  },
   inflation: {
     dataflows: [
       "OECD.SDD.TPS,DSD_PRICES_COICOP2018@DF_PRICES_C2018_ALL,1.0",
@@ -108,11 +119,12 @@ async function json(url: string) {
 
 async function blsHistory(definition: MacroSeriesDefinition, range: HistoryRange) {
   const inflation = definition.id === "inflation";
-  const series = inflation ? "CUUR0000SA0" : "LNS14000000";
+  const consumerPrices = inflation || definition.id === "cpi-index";
+  const series = consumerPrices ? "CUUR0000SA0" : "LNS14000000";
   const current = new Date().getUTCFullYear();
-  const displayedStart = range === "MAX"
-    ? (inflation ? 1913 : 1948)
-    : Number(startPeriod(range, "Annual", 1948));
+  const firstYear = consumerPrices ? 1913 : 1948;
+  const displayedStartPeriod = range === "MAX" ? `${firstYear}-01` : startPeriod(range, "Monthly", firstYear);
+  const displayedStart = Number(displayedStartPeriod.slice(0, 4));
   const queryStart = inflation ? displayedStart - 1 : displayedStart;
   const chunks: Array<{ start: number; end: number }> = [];
   for (let start = queryStart; start <= current; start += 10) chunks.push({ start, end: Math.min(start + 9, current) });
@@ -137,7 +149,7 @@ async function blsHistory(definition: MacroSeriesDefinition, range: HistoryRange
     definition,
     source: SOURCE.bls.name,
     sourceUrl: `${SOURCE.bls.url}/${series}`,
-    observations: calculated.filter((point) => Number(point.date.slice(0, 4)) >= displayedStart),
+    observations: calculated.filter((point) => point.date >= displayedStartPeriod),
   };
 }
 
@@ -152,6 +164,7 @@ async function worldBankHistory(country: MacroCountry, definition: MacroSeriesDe
       ...definition,
       frequency: "Annual" as const,
       ...(definition.id === "gdp-growth" ? { note: "Real output · year over year" } : {}),
+      ...(definition.id === "cpi-index" ? { note: CPI_INDEX_SERIES.note } : {}),
     },
     source: SOURCE.worldBank.name,
     sourceUrl: `${SOURCE.worldBank.url}/${series}`,
@@ -161,9 +174,12 @@ async function worldBankHistory(country: MacroCountry, definition: MacroSeriesDe
 
 async function eurostatHistory(country: MacroCountry, definition: MacroSeriesDefinition, range: HistoryRange) {
   if (!country.eurostat) return null;
-  const config = EUROSTAT_SERIES.find((candidate) => candidate.definition.id === definition.id);
+  const config = definition.id === "cpi-index"
+    ? { definition: CPI_INDEX_SERIES, dataset: "prc_hicp_midx", parameters: "coicop=CP00&unit=I15" }
+    : EUROSTAT_SERIES.find((candidate) => candidate.definition.id === definition.id);
   if (!config) return null;
-  const urls = eurostatUrls(config.dataset, country.eurostat, config.parameters, config.definition.frequency);
+  const geo = definition.id === "cpi-index" && country.code === "EA" ? "EA" : country.eurostat;
+  const urls = eurostatUrls(config.dataset, geo, config.parameters, config.definition.frequency);
   const api = new URL(urls.api);
   api.searchParams.set("sinceTimePeriod", startPeriod(range, config.definition.frequency, 1990));
   return {
@@ -272,7 +288,7 @@ async function buildHistory(country: MacroCountry, definition: MacroSeriesDefini
     else if (definition.id.startsWith("treasury-") || definition.id === "curve") result = await treasuryHistory(definition, range);
     else if (definition.id === "current-account") result = await worldBankHistory(country, definition, range);
     else {
-      if (country.code === "US" && (definition.id === "inflation" || definition.id === "unemployment")) {
+      if (country.code === "US" && (definition.id === "cpi-index" || definition.id === "inflation" || definition.id === "unemployment")) {
         result = await attempt(() => blsHistory(definition, range));
       }
       if (!result?.observations.length) result = await attempt(() => eurostatHistory(country, definition, range));
@@ -280,10 +296,11 @@ async function buildHistory(country: MacroCountry, definition: MacroSeriesDefini
       if (!result?.observations.length) result = await attempt(() => worldBankHistory(country, definition, range));
     }
     if (!result?.observations.length) throw new Error("No historical observation is available from the official source.");
+    const observations = unique(result.observations);
     return {
       country: { code: country.code, name: country.name },
       indicator: { ...result.definition, source: result.source, sourceUrl: result.sourceUrl },
-      observations: unique(result.observations),
+      observations: definition.id === "cpi-index" ? rebaseObservations(observations) : observations,
     };
   } catch (cause) {
     return {
@@ -305,7 +322,9 @@ export async function GET(request: Request) {
   const seriesId = parameters.get("series") ?? "inflation";
   const requestedRange = parameters.get("range")?.toUpperCase() ?? "10Y";
   const country = MACRO_COUNTRIES.find((candidate) => candidate.code === countryCode);
-  const definition = macroDefinitionsFor(countryCode).find((candidate) => candidate.id === seriesId);
+  const definition = seriesId === CPI_INDEX_SERIES.id
+    ? CPI_INDEX_SERIES
+    : macroDefinitionsFor(countryCode).find((candidate) => candidate.id === seriesId);
   if (!country || !definition || !(["1Y", "5Y", "10Y", "MAX"] as string[]).includes(requestedRange)) {
     return Response.json({ error: "Unknown macro history request." }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }

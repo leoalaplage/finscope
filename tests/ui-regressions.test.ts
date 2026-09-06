@@ -691,6 +691,8 @@ describe("the redesign", () => {
     expect(macro).toContain("comparisonCountries");
     expect(macro).toContain("MacroHistoryChart histories={chartHistories}");
     expect(macro).toContain("Different publication frequency, not overlaid");
+    expect(macro).toContain("CPI · base 100");
+    expect(macro).toContain('effectiveSeries === CPI_INDEX_SERIES.id');
     expect(macro).toContain("readEurostatDirect");
     expect(route).toContain("api.worldbank.org");
     expect(route).toContain("api.bls.gov/publicAPI/v2/timeseries/data/");
@@ -704,6 +706,9 @@ describe("the redesign", () => {
     expect(history).toContain("OECD.SDD.TPS,DSD_PRICES@DF_PRICES_ALL");
     expect(history).toContain("DF_IALFS_UNE_M");
     expect(history).toContain("DF_QNA_EXPENDITURE_GROWTH_G20");
+    expect(history).toContain("prc_hicp_midx");
+    expect(history).toContain(".M.N.CPI.IX._T.N._Z");
+    expect(history).toContain("rebaseObservations");
     expect(history).toContain("macro-history:");
   });
 

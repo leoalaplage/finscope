@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { readParsed } from "@/lib/fetch-json";
 import {
+  CPI_INDEX_SERIES,
   EUROSTAT_SERIES,
   MACRO_COUNTRIES,
   eurostatUrls,
@@ -21,6 +22,7 @@ interface MacroAnswer {
 }
 
 type HistoryRange = "1Y" | "5Y" | "10Y" | "MAX";
+type InflationView = "level" | "rate";
 const HISTORY_RANGES: HistoryRange[] = ["1Y", "5Y", "10Y", "MAX"];
 const COMPARABLE_SERIES = new Set(["inflation", "gdp-growth", "unemployment", "current-account", "oecd-cli"]);
 const MAX_COMPARED_COUNTRIES = 5;
@@ -194,6 +196,7 @@ export function MacroSnapshot() {
   const [countryCode, setCountryCode] = useState("US");
   const [answers, setAnswers] = useState<Record<string, MacroAnswer>>({});
   const [selected, setSelected] = useState<string | null>(null);
+  const [inflationView, setInflationView] = useState<InflationView>("level");
   const [historyRange, setHistoryRange] = useState<HistoryRange>("10Y");
   const [histories, setHistories] = useState<Record<string, MacroHistory>>({});
   const [historyError, setHistoryError] = useState("");
@@ -201,6 +204,7 @@ export function MacroSnapshot() {
   const [comparisonErrors, setComparisonErrors] = useState<Record<string, string>>({});
   const answer = answers[countryCode];
   const country = MACRO_COUNTRIES.find((candidate) => candidate.code === countryCode) ?? MACRO_COUNTRIES[0];
+  const effectiveSeries = selected === "inflation" && inflationView === "level" ? CPI_INDEX_SERIES.id : selected;
 
   useEffect(() => {
     if (answers[countryCode]) return;
@@ -229,14 +233,14 @@ export function MacroSnapshot() {
   }, [answers, country, countryCode]);
 
   useEffect(() => {
-    if (!selected) return;
-    const key = `${countryCode}:${selected}:${historyRange}`;
+    if (!effectiveSeries) return;
+    const key = `${countryCode}:${effectiveSeries}:${historyRange}`;
     if (histories[key]) return;
     const controller = new AbortController();
     setHistoryError("");
     const load = async () => {
       try {
-        const response = await fetch(`/api/macro/history?country=${encodeURIComponent(countryCode)}&series=${encodeURIComponent(selected)}&range=${historyRange}`, { signal: controller.signal });
+        const response = await fetch(`/api/macro/history?country=${encodeURIComponent(countryCode)}&series=${encodeURIComponent(effectiveSeries)}&range=${historyRange}`, { signal: controller.signal });
         const parsed = await readParsed<MacroHistory>(response, { what: `${country.name}'s historical macro data` });
         if (parsed.error) throw new Error(parsed.error);
         if (!parsed.data) throw new Error("Historical macro data is unavailable.");
@@ -247,12 +251,12 @@ export function MacroSnapshot() {
     };
     void load();
     return () => controller.abort();
-  }, [country.name, countryCode, histories, historyRange, selected]);
+  }, [country.name, countryCode, effectiveSeries, histories, historyRange]);
 
   useEffect(() => {
-    if (!selected || comparisonCountries.length === 0) return;
+    if (!effectiveSeries || comparisonCountries.length === 0) return;
     const missing = comparisonCountries.filter((code) => {
-      const key = `${code}:${selected}:${historyRange}`;
+      const key = `${code}:${effectiveSeries}:${historyRange}`;
       return !histories[key] && !comparisonErrors[key];
     });
     if (!missing.length) return;
@@ -260,9 +264,9 @@ export function MacroSnapshot() {
     const load = async () => {
       const results = await Promise.all(missing.map(async (code) => {
         const option = MACRO_COUNTRIES.find((candidate) => candidate.code === code);
-        const key = `${code}:${selected}:${historyRange}`;
+        const key = `${code}:${effectiveSeries}:${historyRange}`;
         try {
-          const response = await fetch(`/api/macro/history?country=${encodeURIComponent(code)}&series=${encodeURIComponent(selected)}&range=${historyRange}`, { signal: controller.signal });
+          const response = await fetch(`/api/macro/history?country=${encodeURIComponent(code)}&series=${encodeURIComponent(effectiveSeries)}&range=${historyRange}`, { signal: controller.signal });
           const parsed = await readParsed<MacroHistory>(response, { what: `${option?.name ?? code}'s historical macro data` });
           if (parsed.error) throw new Error(parsed.error);
           if (!parsed.data) throw new Error("Historical macro data is unavailable.");
@@ -283,7 +287,7 @@ export function MacroSnapshot() {
     };
     void load();
     return () => controller.abort();
-  }, [comparisonCountries, comparisonErrors, histories, historyRange, selected]);
+  }, [comparisonCountries, comparisonErrors, effectiveSeries, histories, historyRange]);
 
   useEffect(() => {
     const close = (event: KeyboardEvent) => { if (event.key === "Escape") setSelected(null); };
@@ -298,15 +302,16 @@ export function MacroSnapshot() {
     source: "",
     sourceUrl: "",
   }));
-  const historyKey = selected ? `${countryCode}:${selected}:${historyRange}` : "";
+  const historyKey = effectiveSeries ? `${countryCode}:${effectiveSeries}:${historyRange}` : "";
   const history = histories[historyKey];
   const selectedIndicator = indicators.find((indicator) => indicator.id === selected);
+  const panelIndicator = effectiveSeries === CPI_INDEX_SERIES.id ? CPI_INDEX_SERIES : selectedIndicator;
   const historyLatest = history?.observations.at(-1);
   const comparisonOptions = selected && COMPARABLE_SERIES.has(selected)
     ? MACRO_COUNTRIES.filter((option) => option.code !== countryCode && macroDefinitionsFor(option.code).some((definition) => definition.id === selected))
     : [];
-  const requestedComparisonHistories = selected ? comparisonCountries.flatMap((code) => {
-    const candidate = histories[`${code}:${selected}:${historyRange}`];
+  const requestedComparisonHistories = effectiveSeries ? comparisonCountries.flatMap((code) => {
+    const candidate = histories[`${code}:${effectiveSeries}:${historyRange}`];
     return candidate ? [candidate] : [];
   }) : [];
   const chartHistories = history
@@ -315,12 +320,12 @@ export function MacroSnapshot() {
   const incompatibleCountries = history
     ? requestedComparisonHistories.filter((candidate) => candidate.indicator.frequency !== history.indicator.frequency).map((candidate) => candidate.country.name)
     : [];
-  const comparisonLoading = selected && comparisonCountries.some((code) => {
-    const key = `${code}:${selected}:${historyRange}`;
+  const comparisonLoading = effectiveSeries && comparisonCountries.some((code) => {
+    const key = `${code}:${effectiveSeries}:${historyRange}`;
     return !histories[key] && !comparisonErrors[key];
   });
-  const comparisonFailures = selected ? comparisonCountries.flatMap((code) => {
-    const key = `${code}:${selected}:${historyRange}`;
+  const comparisonFailures = effectiveSeries ? comparisonCountries.flatMap((code) => {
+    const key = `${code}:${effectiveSeries}:${historyRange}`;
     return comparisonErrors[key] ? [MACRO_COUNTRIES.find((option) => option.code === code)?.name ?? code] : [];
   }) : [];
 
@@ -353,31 +358,42 @@ export function MacroSnapshot() {
       {selectedIndicator && <article className="macro-history-panel">
         <header className="macro-history-head">
           <div>
-            <span className="label">{country.name} · {history?.indicator.frequency ?? selectedIndicator.frequency}</span>
-            <h3>{selectedIndicator.label}</h3>
-            <p>{history?.indicator.note ?? selectedIndicator.note}</p>
+            <span className="label">{country.name} · {history?.indicator.frequency ?? panelIndicator?.frequency ?? selectedIndicator.frequency}</span>
+            <h3>{panelIndicator?.label ?? selectedIndicator.label}</h3>
+            <p>{history?.indicator.note ?? panelIndicator?.note ?? selectedIndicator.note}</p>
           </div>
           <button className="macro-history-close" type="button" aria-label="Close historical chart" onClick={() => setSelected(null)}>×</button>
         </header>
         <div className="macro-history-summary">
-          <div><span className="label">Latest</span><strong>{historyLatest ? valueOf({ ...selectedIndicator, value: historyLatest.value, unit: history?.indicator.unit ?? selectedIndicator.unit, decimals: history?.indicator.decimals ?? selectedIndicator.decimals }) : valueOf(selectedIndicator)}</strong><small>{periodOf(historyLatest?.date ?? selectedIndicator.date, history?.indicator.frequency ?? selectedIndicator.frequency)}</small></div>
-          <div><span className="label">Previous</span><strong>{history?.observations.at(-2) ? valueOf({ ...selectedIndicator, value: history.observations.at(-2)?.value ?? null }) : "—"}</strong></div>
+          <div><span className="label">Latest</span><strong>{historyLatest && history
+            ? valueOf({ ...history.indicator, value: historyLatest.value })
+            : effectiveSeries === CPI_INDEX_SERIES.id ? "—" : valueOf(selectedIndicator)}</strong><small>{periodOf(historyLatest?.date ?? selectedIndicator.date, history?.indicator.frequency ?? selectedIndicator.frequency)}</small></div>
+          <div><span className="label">Previous</span><strong>{history?.observations.at(-2)
+            ? valueOf({ ...history.indicator, value: history.observations.at(-2)?.value ?? null }) : "—"}</strong></div>
           <div><span className="label">Change</span><strong>{history ? changeOf(history.observations, history.indicator) : "—"}</strong></div>
           <div><span className="label">Observations</span><strong>{history?.observations.length.toLocaleString("en-US") ?? "—"}</strong></div>
         </div>
         <div className="macro-history-tools">
-          <div className="segmented" role="group" aria-label="Historical range">
-            {HISTORY_RANGES.map((range) => <button className={range === historyRange ? "active" : ""} type="button"
-              aria-pressed={range === historyRange} key={range} onClick={() => setHistoryRange(range)}>{range === "MAX" ? "Max" : range}</button>)}
+          <div className="macro-history-controls">
+            {selected === "inflation" && <div className="segmented" role="group" aria-label="Consumer price view">
+              <button className={inflationView === "level" ? "active" : ""} type="button" aria-pressed={inflationView === "level"}
+                onClick={() => { setInflationView("level"); setHistoryError(""); }}>CPI · base 100</button>
+              <button className={inflationView === "rate" ? "active" : ""} type="button" aria-pressed={inflationView === "rate"}
+                onClick={() => { setInflationView("rate"); setHistoryError(""); }}>Inflation YoY</button>
+            </div>}
+            <div className="segmented" role="group" aria-label="Historical range">
+              {HISTORY_RANGES.map((range) => <button className={range === historyRange ? "active" : ""} type="button"
+                aria-pressed={range === historyRange} key={range} onClick={() => setHistoryRange(range)}>{range === "MAX" ? "Max" : range}</button>)}
+            </div>
           </div>
-          <span className="label">{history?.indicator.source ?? selectedIndicator.source} · {history?.indicator.frequency ?? selectedIndicator.frequency}</span>
+          <span className="label">{history?.indicator.source || selectedIndicator.source || "Official release"} · {history?.indicator.frequency ?? panelIndicator?.frequency ?? selectedIndicator.frequency}</span>
         </div>
         {comparisonOptions.length > 0 && <div className="macro-country-compare">
           <div className="macro-country-compare-head">
             <span className="label">Compare countries</span>
             <small>{comparisonCountries.length + 1} / {MAX_COMPARED_COUNTRIES}</small>
           </div>
-          <div role="group" aria-label={`Compare countries for ${selectedIndicator.label}`}>
+          <div role="group" aria-label={`Compare countries for ${panelIndicator?.label ?? selectedIndicator.label}`}>
             <button className="active locked" type="button" aria-pressed="true" disabled>{country.name}</button>
             {comparisonOptions.map((option) => {
               const active = comparisonCountries.includes(option.code);
@@ -394,7 +410,9 @@ export function MacroSnapshot() {
         {incompatibleCountries.length > 0 && <p className="macro-comparison-status">Different publication frequency, not overlaid: {incompatibleCountries.join(", ")}.</p>}
         {chartHistories.length > 0 && <MacroHistoryChart histories={chartHistories}/>}
         <footer className="macro-history-foot">
-          <span>Published observations only · no interpolation</span>
+          <span>{effectiveSeries === CPI_INDEX_SERIES.id
+            ? "Rebased to 100 at the first visible observation · published price levels only"
+            : "Published observations only · no interpolation"}</span>
           {(history?.indicator.sourceUrl || selectedIndicator.sourceUrl) && <a href={history?.indicator.sourceUrl || selectedIndicator.sourceUrl} target="_blank" rel="noreferrer">Open official source ↗</a>}
         </footer>
       </article>}
@@ -402,7 +420,7 @@ export function MacroSnapshot() {
         {indicators.map((indicator) => (
           <article className={`macro-card${selected === indicator.id ? " active" : ""}`} key={indicator.id}>
             <button className="macro-card-open" type="button" aria-expanded={selected === indicator.id}
-              aria-label={`Open ${indicator.label} history`} onClick={() => { setSelected(indicator.id); setComparisonCountries([]); setHistoryError(""); }}>
+              aria-label={`Open ${indicator.label} history`} onClick={() => { setSelected(indicator.id); if (indicator.id === "inflation") setInflationView("level"); setComparisonCountries([]); setHistoryError(""); }}>
               <span className="label">{indicator.label}</span>
               <strong data-empty={indicator.value == null}>{answer == null ? "···" : valueOf(indicator)}</strong>
               <small>{indicator.note}</small>

@@ -45,6 +45,13 @@ export function yearOverYearObservations(observations: MacroObservation[]): Macr
   });
 }
 
+/** Rebase published index levels so the first visible observation equals 100. */
+export function rebaseObservations(observations: MacroObservation[]): MacroObservation[] {
+  const base = observations[0]?.value;
+  if (base == null || !Number.isFinite(base) || base === 0) return [];
+  return observations.map((point) => ({ ...point, value: point.value / base * 100 }));
+}
+
 export interface MacroIndicator extends MacroSeriesDefinition {
   value: number | null;
   date: string | null;
@@ -79,6 +86,15 @@ export const COMMON_MACRO_SERIES: MacroSeriesDefinition[] = [
   { id: "unemployment", label: "Unemployment", note: "Share of labour force", frequency: "Monthly", unit: "percent", decimals: 1 },
   { id: "current-account", label: "Current account", note: "Balance as a share of GDP", frequency: "Annual", unit: "percent", decimals: 1 },
 ];
+
+export const CPI_INDEX_SERIES: MacroSeriesDefinition = {
+  id: "cpi-index",
+  label: "Consumer price index",
+  note: "Price level · first visible observation = 100",
+  frequency: "Monthly",
+  unit: "index",
+  decimals: 1,
+};
 
 export const US_RATE_SERIES: MacroSeriesDefinition[] = [
   { id: "fed-funds", label: "Fed funds", note: "Effective rate", frequency: "Daily", unit: "percent", decimals: 2 },

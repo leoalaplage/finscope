@@ -11,6 +11,7 @@ import {
   parseTreasuryHistory,
   parseTreasuryRates,
   parseWorldBankObservation,
+  rebaseObservations,
   yearOverYearObservations,
 } from "../lib/macro";
 
@@ -49,6 +50,19 @@ describe("official macro observations", () => {
     const inflation = yearOverYearObservations(levels);
     expect(inflation[0].date).toBe("2026-01");
     expect(inflation[0].value).toBeCloseTo(3);
+  });
+
+  it("rebases published CPI levels to 100 without changing their relative evolution", () => {
+    expect(rebaseObservations([
+      { date: "2025-01", value: 125 },
+      { date: "2025-02", value: 127.5 },
+      { date: "2025-03", value: 131.25 },
+    ])).toEqual([
+      { date: "2025-01", value: 100 },
+      { date: "2025-02", value: 102 },
+      { date: "2025-03", value: 105 },
+    ]);
+    expect(rebaseObservations([{ date: "2025-01", value: 0 }])).toEqual([]);
   });
 
   it("reads the latest populated Eurostat period", () => {
