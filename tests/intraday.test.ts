@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { relativeVolume } from "../lib/adapters/intraday";
-import { dateMarks, hourMarks, priceTicks } from "../components/MarketPage";
+import { dateMarks, hourMarks, priceTicks, sharedPercentScale } from "../components/MarketPage";
 import { MARKET_RANGES } from "../lib/adapters/intraday";
 
 describe("relative volume", () => {
@@ -56,6 +56,45 @@ describe("price axis", () => {
     expect(priceTicks(100, 100)).toEqual([100]);
     expect(priceTicks(10, 1)).toEqual([]);
     expect(priceTicks(Number.NaN, 5)).toEqual([]);
+  });
+});
+
+describe("one scale across the three indices", () => {
+  const panel = (baseline: number | null, ...percents: number[]) => ({
+    baseline,
+    points: percents.map((percent) => ({ close: baseline == null ? percent : baseline * (1 + percent / 100) })),
+  });
+
+  it("takes its bounds from the deepest fall and the highest rise on the row", () => {
+    // An S&P at −0.5%, a Nasdaq at −2% and a Dow at +2% are read against one
+    // another, so all three are drawn between −2% and +2% — with the padding
+    // that keeps a line off the edge of its panel.
+    const scale = sharedPercentScale([panel(7_745, 0, -0.5), panel(26_500, 0, -2), panel(53_400, 0, 2)])!;
+    expect(scale.low).toBeCloseTo(-2.48, 6);
+    expect(scale.high).toBeCloseTo(2.48, 6);
+  });
+
+  it("keeps the baseline inside the scale on a window that never traded back to it", () => {
+    const scale = sharedPercentScale([panel(100, 1, 3)])!;
+    expect(scale.low).toBeLessThan(0);
+    expect(scale.high).toBeGreaterThan(3);
+  });
+
+  it("says nothing rather than inventing a reference", () => {
+    expect(sharedPercentScale([])).toBeNull();
+    expect(sharedPercentScale([panel(null, 100, 101)])).toBeNull();
+    expect(sharedPercentScale([{ baseline: 0, points: [{ close: 10 }] }])).toBeNull();
+  });
+
+  it("ignores an index with no baseline and scales on the ones that have one", () => {
+    const scale = sharedPercentScale([panel(null, 100, 200), panel(100, 0, -1)])!;
+    expect(scale.low).toBeCloseTo(-1.12, 6);
+    expect(scale.high).toBeCloseTo(0.12, 6);
+  });
+
+  it("still has a width when every index sat exactly on its baseline", () => {
+    const scale = sharedPercentScale([panel(100, 0), panel(200, 0)])!;
+    expect(scale.high - scale.low).toBeGreaterThan(0);
   });
 });
 

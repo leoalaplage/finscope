@@ -6,6 +6,7 @@ import { readParsed } from "@/lib/fetch-json";
 import { MARKET_RANGES, type MarketRange, type MarketWindow } from "@/lib/adapters/intraday";
 
 type Panel = MarketWindow & { id: string; description: string };
+type PercentScale = { low: number; high: number };
 type Failed = { id: string; symbol: string; name: string; description: string; error: string };
 type Entry = Panel | Failed;
 
@@ -73,10 +74,43 @@ export function priceTicks(low: number, high: number, count = 6): number[] {
   const raw = (high - low) / Math.max(1, count);
   const magnitude = 10 ** Math.floor(Math.log10(raw));
   const normalized = raw / magnitude;
-  const step = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
+  // 2.5 sits in the ladder because the row shares one scale now: five years of
+  // three indices span about 135 points of percentage, where a step of 2 is too
+  // fine and one of 5 leaves two gridlines on the whole chart. Steps of 25%
+  // read as naturally as steps of 20%, and no narrower range is affected.
+  const step = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10) * magnitude;
   const ticks: number[] = [];
   for (let value = Math.ceil(low / step) * step; value <= high + step * 0.001; value += step) ticks.push(Number(value.toFixed(10)));
   return ticks;
+}
+
+/**
+ * One vertical scale for the whole row, measured in percent from each baseline.
+ *
+ * Three panels side by side are an invitation to compare them, and three
+ * private scales are what defeats the comparison: a Dow down 2.0% and an S&P
+ * down 0.4% each drew a line from the top of its panel to the bottom of it,
+ * and the dashed baseline sat at a different height in each. Measured once
+ * across every index, zero is at one height on the row, and a fall twice as
+ * deep is drawn twice as deep.
+ *
+ * The result is in percent rather than in price because that is the only
+ * language the three share — 7,718 and 53,414 have no common axis, but −0.4%
+ * and −0.5% do. Each panel converts it back through its own baseline.
+ *
+ * An index that has no baseline to be a percentage of contributes nothing and
+ * keeps its own scale; if none of them has one, there is no shared scale.
+ */
+export function sharedPercentScale(panels: Array<{ points: Array<{ close: number }>; baseline: number | null }>): { low: number; high: number } | null {
+  const percents = panels.flatMap((panel) => panel.baseline != null && panel.baseline > 0
+    // Zero is in the scale even on a window that never traded back to it: the
+    // whole chart is a statement about distance from the baseline.
+    ? [0, ...panel.points.map((point) => (point.close / panel.baseline! - 1) * 100)]
+    : []);
+  if (!percents.length) return null;
+  const low = Math.min(...percents), high = Math.max(...percents);
+  const pad = (high - low) * 0.12 || 1;
+  return { low: low - pad, high: high + pad };
 }
 
 /** The hour marks along the bottom, one per whole hour the session covers. */
@@ -160,7 +194,7 @@ function useMeasuredWidth<T extends HTMLElement>() {
  * comes to this page for is the shape of the line and the number at the end
  * of it.
  */
-function IndexPanel({ entry, range }: { entry: Entry; range: MarketRange }) {
+function IndexPanel({ entry, range, scale }: { entry: Entry; range: MarketRange; scale: PercentScale | null }) {
   // The two cases are separate components rather than two returns from one,
   // because the chart measures itself with a hook and a hook cannot live
   // behind a conditional return.
@@ -169,20 +203,29 @@ function IndexPanel({ entry, range }: { entry: Entry; range: MarketRange }) {
         <header className="index-head"><h2>{entry.name}</h2></header>
         <p className="simple-state">{entry.error}</p>
       </article>
-    : <IndexChart entry={entry} range={range}/>;
+    : <IndexChart entry={entry} range={range} scale={scale}/>;
 }
 
-function IndexChart({ entry, range }: { entry: Panel; range: MarketRange }) {
+function IndexChart({ entry, range, scale }: { entry: Panel; range: MarketRange; scale: PercentScale | null }) {
   const [chartRef, measured] = useMeasuredWidth<HTMLDivElement>();
   const points = entry.points;
   const rising = (entry.change ?? 0) >= 0;
+  const base = entry.baseline;
+  const asPercent = base != null && base > 0;
+  const toPercent = (value: number) => (value / base! - 1) * 100;
+  const fromPercent = (value: number) => base! * (1 + value / 100);
   // The baseline belongs inside the scale even on a window that never traded
   // back to it, because the whole chart is a statement about distance from it.
   const values = [...points.map((point) => point.close), ...(entry.baseline != null ? [entry.baseline] : [])];
   const low = values.length ? Math.min(...values) : 0;
   const high = values.length ? Math.max(...values) : 1;
   const pad = (high - low) * 0.12 || 1;
-  const top = high + pad, bottom = low - pad;
+  // The row is read across, so it is scaled across: where the three indices
+  // share a scale, this panel gives up its own extremes for theirs. Its own
+  // points are inside that range by construction, so nothing is clipped.
+  const shared = asPercent ? scale : null;
+  const top = shared ? fromPercent(shared.high) : high + pad;
+  const bottom = shared ? fromPercent(shared.low) : low - pad;
 
   const height = 230, leftGutter = 2, rightGutter = 56, headroom = 10;
   const width = Math.max(measured, 200);
@@ -208,10 +251,6 @@ function IndexChart({ entry, range }: { entry: Panel; range: MarketRange }) {
    * Without a baseline there is nothing to be a percentage of, so the axis
    * falls back to levels rather than inventing a reference.
    */
-  const base = entry.baseline;
-  const asPercent = base != null && base !== 0;
-  const toPercent = (value: number) => (value / base! - 1) * 100;
-  const fromPercent = (value: number) => base! * (1 + value / 100);
   const ticks = asPercent
     ? priceTicks(toPercent(bottom), toPercent(top)).map(fromPercent)
     : priceTicks(bottom, top);
@@ -393,6 +432,8 @@ export function MarketPage({ watchlist = [], indicesOnly = false }: { watchlist?
   }, [range, load]);
 
   const dated = entries?.find((entry): entry is Panel => !failed(entry));
+  // One scale for the three, measured on whichever of them arrived.
+  const scale = sharedPercentScale((entries ?? []).filter((entry): entry is Panel => !failed(entry)));
 
   return <div className="market-page">
     <header className="page-heading">
@@ -425,7 +466,7 @@ export function MarketPage({ watchlist = [], indicesOnly = false }: { watchlist?
     {entries != null && !entries.length && !error && <p className="simple-state">No index data is available right now.</p>}
 
     <div className="index-grid">
-      {(entries ?? []).map((entry) => <IndexPanel key={entry.id} entry={entry} range={range}/>)}
+      {(entries ?? []).map((entry) => <IndexPanel key={entry.id} entry={entry} range={range} scale={scale}/>)}
     </div>
 
     {!indicesOnly ? <>

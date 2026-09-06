@@ -674,6 +674,11 @@ describe("the redesign", () => {
     // The last-price badge is drawn at the corner radius of the panels around
     // it rather than as a pill of its own.
     expect(market).toContain("height={16} rx={2}");
+    // One scale for the row: the three panels are measured together, so zero
+    // is at the same height in each and a deeper fall is drawn deeper.
+    expect(market).toContain("sharedPercentScale(");
+    expect(market).toContain("<IndexPanel key={entry.id} entry={entry} range={range} scale={scale}/>");
+    expect(market).toContain("const top = shared ? fromPercent(shared.high) : high + pad;");
   });
 
   it("puts an official, date-explicit macro snapshot below the market indices", () => {
