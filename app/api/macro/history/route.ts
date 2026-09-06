@@ -45,19 +45,22 @@ const WORLD_BANK: Record<string, string> = {
   "current-account": "BN.CAB.XOKA.GD.ZS",
 };
 
-const OECD_ECONOMIC: Record<string, { dataflow: string; key: (country: string) => string; sourceUrl: string }> = {
+const OECD_ECONOMIC: Record<string, { dataflows: string[]; key: (country: string) => string; sourceUrl: string }> = {
   inflation: {
-    dataflow: "OECD.SDD.TPS,DSD_PRICES@DF_PRICES_ALL,1.0",
+    dataflows: [
+      "OECD.SDD.TPS,DSD_PRICES_COICOP2018@DF_PRICES_C2018_ALL,1.0",
+      "OECD.SDD.TPS,DSD_PRICES@DF_PRICES_ALL,1.0",
+    ],
     key: (country) => `${country}.M.N.CPI.PA._T.N.GY`,
     sourceUrl: "https://data-explorer.oecd.org/vis?df%5Bag%5D=OECD.SDD.TPS&df%5Bid%5D=DSD_PRICES%40DF_PRICES_ALL",
   },
   "gdp-growth": {
-    dataflow: "OECD.SDD.NAD,DSD_NAMAIN1@DF_QNA_EXPENDITURE_GROWTH_G20,1.1",
+    dataflows: ["OECD.SDD.NAD,DSD_NAMAIN1@DF_QNA_EXPENDITURE_GROWTH_G20,1.1"],
     key: (country) => `Q..${country}.S1..B1GQ......G1.`,
     sourceUrl: "https://data-explorer.oecd.org/vis?df%5Bag%5D=OECD.SDD.NAD&df%5Bid%5D=DSD_NAMAIN1%40DF_QNA_EXPENDITURE_GROWTH_G20",
   },
   unemployment: {
-    dataflow: "OECD.SDD.TPS,DSD_LFS@DF_IALFS_UNE_M,1.0",
+    dataflows: ["OECD.SDD.TPS,DSD_LFS@DF_IALFS_UNE_M,1.0"],
     key: (country) => `${country}..._Z.Y._T.Y_GE15..M`,
     sourceUrl: "https://data-explorer.oecd.org/vis?df%5Bag%5D=OECD.SDD.TPS&df%5Bid%5D=DSD_LFS%40DF_IALFS_UNE_M",
   },
@@ -175,12 +178,19 @@ async function oecdEconomicHistory(country: MacroCountry, definition: MacroSerie
   const config = OECD_ECONOMIC[definition.id];
   if (!country.oecd || !config) return null;
   const start = startPeriod(range, definition.frequency, 1990);
-  const url = `https://sdmx.oecd.org/public/rest/data/${config.dataflow}/${config.key(country.oecd)}?startPeriod=${start}&dimensionAtObservation=AllDimensions&format=csvfile`;
+  let observations: MacroObservation[] = [];
+  for (const dataflow of config.dataflows) {
+    try {
+      const url = `https://sdmx.oecd.org/public/rest/data/${dataflow}/${config.key(country.oecd)}?startPeriod=${start}&dimensionAtObservation=AllDimensions&format=csvfile`;
+      observations = parseSdmxCsvObservations(await text(url, "text/csv"));
+      if (observations.length) break;
+    } catch { /* The other OECD classification may still carry this country. */ }
+  }
   return {
     definition,
     source: SOURCE.oecd.name,
     sourceUrl: config.sourceUrl,
-    observations: parseSdmxCsvObservations(await text(url, "text/csv")),
+    observations,
   };
 }
 
@@ -295,7 +305,7 @@ export async function GET(request: Request) {
   }
   const range = requestedRange as HistoryRange;
   const { body, hit } = await cachedJson(
-    `macro-history:${country.code}:${definition.id}:${range}:v1`,
+    `macro-history:${country.code}:${definition.id}:${range}:v2`,
     21_600,
     () => buildHistory(country, definition, range),
     completeness,

@@ -151,19 +151,22 @@ async function readEurostat(country: MacroCountry): Promise<MacroIndicator[]> {
 const OECD_ECONOMIC = [
   {
     definition: COMMON_MACRO_SERIES[0],
-    dataflow: "OECD.SDD.TPS,DSD_PRICES@DF_PRICES_ALL,1.0",
+    dataflows: [
+      "OECD.SDD.TPS,DSD_PRICES_COICOP2018@DF_PRICES_C2018_ALL,1.0",
+      "OECD.SDD.TPS,DSD_PRICES@DF_PRICES_ALL,1.0",
+    ],
     key: (country: string) => `${country}.M.N.CPI.PA._T.N.GY`,
     sourceUrl: "https://data-explorer.oecd.org/vis?df%5Bag%5D=OECD.SDD.TPS&df%5Bid%5D=DSD_PRICES%40DF_PRICES_ALL",
   },
   {
     definition: COMMON_MACRO_SERIES[1],
-    dataflow: "OECD.SDD.NAD,DSD_NAMAIN1@DF_QNA_EXPENDITURE_GROWTH_G20,1.1",
+    dataflows: ["OECD.SDD.NAD,DSD_NAMAIN1@DF_QNA_EXPENDITURE_GROWTH_G20,1.1"],
     key: (country: string) => `Q..${country}.S1..B1GQ......G1.`,
     sourceUrl: "https://data-explorer.oecd.org/vis?df%5Bag%5D=OECD.SDD.NAD&df%5Bid%5D=DSD_NAMAIN1%40DF_QNA_EXPENDITURE_GROWTH_G20",
   },
   {
     definition: COMMON_MACRO_SERIES[2],
-    dataflow: "OECD.SDD.TPS,DSD_LFS@DF_IALFS_UNE_M,1.0",
+    dataflows: ["OECD.SDD.TPS,DSD_LFS@DF_IALFS_UNE_M,1.0"],
     key: (country: string) => `${country}..._Z.Y._T.Y_GE15..M`,
     sourceUrl: "https://data-explorer.oecd.org/vis?df%5Bag%5D=OECD.SDD.TPS&df%5Bid%5D=DSD_LFS%40DF_IALFS_UNE_M",
   },
@@ -172,16 +175,20 @@ const OECD_ECONOMIC = [
 async function readOecdEconomic(country: MacroCountry): Promise<MacroIndicator[]> {
   if (!country.oecd) return [];
   const year = new Date().getUTCFullYear();
-  return Promise.all(OECD_ECONOMIC.map(async ({ definition, dataflow, key, sourceUrl }) => {
+  return Promise.all(OECD_ECONOMIC.map(async ({ definition, dataflows, key, sourceUrl }) => {
     try {
       const start = definition.frequency === "Quarterly" ? `${year - 2}-Q1` : `${year - 2}-01`;
-      const url = `https://sdmx.oecd.org/public/rest/data/${dataflow}/${key(country.oecd as string)}?startPeriod=${start}&dimensionAtObservation=AllDimensions&format=csvfile`;
-      const response = await fetch(url, {
-        headers: { Accept: "text/csv", "User-Agent": "FinScope/1.0 macro dashboard" },
-        signal: AbortSignal.timeout(8_000),
-      });
-      if (!response.ok) throw new Error(`OECD returned ${response.status}.`);
-      const observation = parseSdmxCsvObservation(await response.text());
+      let observation = null;
+      for (const dataflow of dataflows) {
+        const url = `https://sdmx.oecd.org/public/rest/data/${dataflow}/${key(country.oecd as string)}?startPeriod=${start}&dimensionAtObservation=AllDimensions&format=csvfile`;
+        const response = await fetch(url, {
+          headers: { Accept: "text/csv", "User-Agent": "FinScope/1.0 macro dashboard" },
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (!response.ok) continue;
+        observation = parseSdmxCsvObservation(await response.text());
+        if (observation) break;
+      }
       if (!observation) throw new Error("No recent observation.");
       return makeIndicator(definition, SOURCE.oecd, sourceUrl, observation);
     } catch (cause) {
