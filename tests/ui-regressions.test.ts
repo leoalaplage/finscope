@@ -690,7 +690,7 @@ describe("the redesign", () => {
     expect(route).toContain("sdmx.oecd.org");
     expect(route).toContain("https://markets.newyorkfed.org/api/rates/unsecured/effr/last/1.json");
     expect(route).toContain("daily_treasury_yield_curve");
-    expect(route).toContain('cachedJson(`macro:${country.code}:v5`');
+    expect(route).toContain('cachedJson(`macro:${country.code}:v6`');
   });
 
   it("returns to the last valid company, or to the watchlist without one", () => {

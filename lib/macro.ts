@@ -34,7 +34,7 @@ export interface MacroIndicator extends MacroSeriesDefinition {
 
 export const MACRO_COUNTRIES: MacroCountry[] = [
   { code: "US", name: "United States", worldBank: "USA", oecd: "USA" },
-  { code: "EA", name: "Euro area", worldBank: "EMU", eurostat: "EA20", ecb: true },
+  { code: "EA", name: "Euro area", worldBank: "EMU", eurostat: "EA21", ecb: true },
   { code: "FR", name: "France", worldBank: "FRA", oecd: "FRA", eurostat: "FR", ecb: true },
   { code: "DE", name: "Germany", worldBank: "DEU", oecd: "DEU", eurostat: "DE", ecb: true },
   { code: "IT", name: "Italy", worldBank: "ITA", oecd: "ITA", eurostat: "IT", ecb: true },

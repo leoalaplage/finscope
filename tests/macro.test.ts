@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MACRO_COUNTRIES,
   macroDefinitionsFor,
   parseCsvRows,
   parseEurostatObservation,
@@ -52,5 +53,9 @@ describe("official macro observations", () => {
     expect(macroDefinitionsFor("US").map((series) => series.id)).toContain("treasury-10y");
     expect(macroDefinitionsFor("FR").map((series) => series.id)).toContain("ecb-rate");
     expect(macroDefinitionsFor("JP").map((series) => series.id)).not.toContain("ecb-rate");
+  });
+
+  it("uses the current 21-member Eurostat aggregate", () => {
+    expect(MACRO_COUNTRIES.find((country) => country.code === "EA")?.eurostat).toBe("EA21");
   });
 });

@@ -231,7 +231,7 @@ export async function GET(request: Request) {
   if (!country) {
     return Response.json({ error: "Unknown country." }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
-  const { body, hit } = await cachedJson(`macro:${country.code}:v5`, 21_600, () => buildAnswer(country), completeness);
+  const { body, hit } = await cachedJson(`macro:${country.code}:v6`, 21_600, () => buildAnswer(country), completeness);
   const answer = JSON.parse(body) as MacroAnswer;
   return new Response(body, {
     status: answer.error ? 502 : 200,
