@@ -262,7 +262,8 @@ export function MacroSnapshot() {
     if (!missing.length) return;
     const controller = new AbortController();
     const load = async () => {
-      const results = await Promise.all(missing.map(async (code) => {
+      const results: Array<{ key: string; data: MacroHistory | null; error: string }> = [];
+      for (const code of missing) {
         const option = MACRO_COUNTRIES.find((candidate) => candidate.code === code);
         const key = `${code}:${effectiveSeries}:${historyRange}`;
         try {
@@ -270,11 +271,12 @@ export function MacroSnapshot() {
           const parsed = await readParsed<MacroHistory>(response, { what: `${option?.name ?? code}'s historical macro data` });
           if (parsed.error) throw new Error(parsed.error);
           if (!parsed.data) throw new Error("Historical macro data is unavailable.");
-          return { key, data: parsed.data, error: "" };
+          results.push({ key, data: parsed.data, error: "" });
         } catch (cause) {
-          return { key, data: null, error: cause instanceof Error ? cause.message : "Historical macro data is unavailable." };
+          results.push({ key, data: null, error: cause instanceof Error ? cause.message : "Historical macro data is unavailable." });
         }
-      }));
+        if (controller.signal.aborted) return;
+      }
       if (controller.signal.aborted) return;
       setHistories((current) => ({
         ...current,

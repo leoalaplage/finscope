@@ -99,12 +99,21 @@ function unique(points: MacroObservation[]) {
 }
 
 async function text(url: string, accept: string) {
-  const response = await fetch(url, {
-    headers: { Accept: accept, "User-Agent": "FinScope/1.0 macro history" },
-    signal: AbortSignal.timeout(12_000),
-  });
-  if (!response.ok) throw new Error(`Official source returned ${response.status}.`);
-  return response.text();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const response = await fetch(url, {
+      headers: { Accept: accept, "User-Agent": "FinScope/1.0 macro history" },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (response.ok) return response.text();
+    const retryable = response.status === 429 || response.status >= 500;
+    if (!retryable || attempt === 2) throw new Error(`Official source returned ${response.status}.`);
+    const retryAfter = Number(response.headers.get("Retry-After"));
+    const delay = Number.isFinite(retryAfter) && retryAfter > 0
+      ? Math.min(retryAfter * 1_000, 2_000)
+      : 250 * 2 ** attempt;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  throw new Error("Official source is temporarily unavailable.");
 }
 
 async function json(url: string) {
@@ -326,7 +335,7 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unknown macro history request." }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
   const range = requestedRange as HistoryRange;
-  const cacheVersion = definition.id === CPI_INDEX_SERIES.id ? "v5" : "v3";
+  const cacheVersion = definition.id === CPI_INDEX_SERIES.id ? "v6" : "v3";
   const { body, hit } = await cachedJson(
     `macro-history:${country.code}:${definition.id}:${range}:${cacheVersion}`,
     21_600,
