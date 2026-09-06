@@ -20,7 +20,8 @@ import {
   type MacroSeriesDefinition,
   type TreasurySeriesId,
 } from "@/lib/macro";
-import { cachedJson, type Completeness } from "@/lib/market-cache";
+import { marketKey } from "@/lib/market-cache";
+import { datasetCache } from "@/lib/runtime-env";
 
 type HistoryRange = "1Y" | "5Y" | "10Y" | "MAX";
 
@@ -29,6 +30,8 @@ const responseHeaders = {
   "Content-Type": "application/json; charset=utf-8",
   Vary: "Accept-Encoding",
 };
+
+const MACRO_SOURCE_URL = "https://finscope-macro-source.leoalaplage.workers.dev";
 
 const SOURCE = {
   bls: { name: "U.S. Bureau of Labor Statistics", url: "https://data.bls.gov/timeseries" },
@@ -204,7 +207,16 @@ async function oecdEconomicHistory(country: MacroCountry, definition: MacroSerie
   const start = startPeriod(range, definition.frequency, 1990);
   let observations: MacroObservation[] = [];
   let lastFailure = "";
+  if (definition.id === CPI_INDEX_SERIES.id) {
+    try {
+      const proxy = `${MACRO_SOURCE_URL}/oecd/cpi?country=${encodeURIComponent(country.oecd)}`;
+      observations = parseSdmxCsvObservations(await text(proxy, "text/csv")).filter((point) => point.date >= start);
+    } catch (cause) {
+      lastFailure = cause instanceof Error ? cause.message : "OECD is temporarily unavailable.";
+    }
+  }
   for (const dataflow of config.dataflows) {
+    if (observations.length) break;
     try {
       const url = `https://sdmx.oecd.org/public/rest/data/${dataflow}/${config.key(country.oecd)}?startPeriod=${start}&dimensionAtObservation=AllDimensions&format=csvfile`;
       observations = parseSdmxCsvObservations(await text(url, "text/csv"));
@@ -329,8 +341,35 @@ async function buildHistory(country: MacroCountry, definition: MacroSeriesDefini
   }
 }
 
-function completeness(answer: MacroHistory): Completeness {
-  return answer.observations.length ? "full" : "empty";
+async function cachedHistory(
+  country: MacroCountry,
+  definition: MacroSeriesDefinition,
+  range: HistoryRange,
+): Promise<{ body: string; cache: "hit" | "miss" | "stale" }> {
+  const cache = datasetCache();
+  const freshVersion = definition.id === CPI_INDEX_SERIES.id ? "v8" : "v3";
+  const freshKey = marketKey(`macro-history:${country.code}:${definition.id}:${range}:${freshVersion}`);
+  const snapshotKey = marketKey(`macro-history-snapshot:${country.code}:${definition.id}:${range}:v1`);
+  const legacyVersion = country.code === "US" ? "v5" : "v4";
+  const legacyKey = marketKey(`macro-history:${country.code}:${definition.id}:${range}:${legacyVersion}`);
+  const read = async (key: string) => {
+    try { return await cache?.get(key, "text") ?? null; } catch { return null; }
+  };
+  const fresh = await read(freshKey);
+  if (fresh) return { body: fresh, cache: "hit" };
+  const snapshot = await read(snapshotKey) ?? (definition.id === CPI_INDEX_SERIES.id ? await read(legacyKey) : null);
+  const answer = await buildHistory(country, definition, range);
+  if (answer.observations.length) {
+    const body = JSON.stringify(answer);
+    try { await cache?.put(freshKey, body, { expirationTtl: 21_600 }); } catch { /* Cache writes are best-effort. */ }
+    try { await cache?.put(snapshotKey, body, { expirationTtl: 2_592_000 }); } catch { /* Keep serving the answer. */ }
+    return { body, cache: "miss" };
+  }
+  if (snapshot) {
+    try { await cache?.put(snapshotKey, snapshot, { expirationTtl: 2_592_000 }); } catch { /* The legacy entry is still usable. */ }
+    return { body: snapshot, cache: "stale" };
+  }
+  return { body: JSON.stringify(answer), cache: "miss" };
 }
 
 export async function GET(request: Request) {
@@ -346,20 +385,14 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unknown macro history request." }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
   const range = requestedRange as HistoryRange;
-  const cacheVersion = definition.id === CPI_INDEX_SERIES.id ? "v7" : "v3";
-  const { body, hit } = await cachedJson(
-    `macro-history:${country.code}:${definition.id}:${range}:${cacheVersion}`,
-    21_600,
-    () => buildHistory(country, definition, range),
-    completeness,
-  );
+  const { body, cache } = await cachedHistory(country, definition, range);
   const answer = JSON.parse(body) as MacroHistory;
   return new Response(body, {
     status: answer.error ? 502 : 200,
     headers: {
       ...responseHeaders,
       ...(answer.error ? { "Cache-Control": "no-store" } : {}),
-      "X-FinScope-Cache": hit ? "hit" : "miss",
+      "X-FinScope-Cache": cache,
     },
   });
 }

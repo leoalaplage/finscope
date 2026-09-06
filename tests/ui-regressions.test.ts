@@ -709,6 +709,7 @@ describe("the redesign", () => {
     expect(history).toContain('parameters: "coicop18=TOTAL&unit=I25"');
     expect(history).toContain(".M.N.CPI.IX._T.N._Z");
     expect(history).toContain("rebaseObservations");
+    expect(history).toContain("finscope-macro-source.leoalaplage.workers.dev");
     expect(history).toContain("macro-history:");
   });
 

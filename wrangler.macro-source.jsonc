@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "finscope-macro-source",
+  "main": "workers/macro-source.ts",
+  "compatibility_date": "2026-09-06",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  }
+}
