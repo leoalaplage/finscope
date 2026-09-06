@@ -911,7 +911,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .macro-chart-active line { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 3; }
 .macro-chart-active circle { fill: var(--ink); stroke: var(--bg); stroke-width: 1.5; }
 .macro-history-tooltip {
-  position: absolute; inset-block-start: 34px; inset-inline-end: 8px; display: grid; gap: var(--u);
+  position: absolute; inset-block-start: -14px; inset-inline-end: 8px; display: grid; gap: var(--u);
   padding: 6px 9px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--bg);
   font-family: var(--mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; pointer-events: none;
 }

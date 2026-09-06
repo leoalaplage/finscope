@@ -678,6 +678,7 @@ describe("the redesign", () => {
     const macro = readFileSync(new URL("../components/io/MacroSnapshot.tsx", import.meta.url), "utf8");
     const route = readFileSync(new URL("../app/api/macro/route.ts", import.meta.url), "utf8");
     const definitions = readFileSync(new URL("../lib/macro.ts", import.meta.url), "utf8");
+    const ioCss = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
     expect(page.indexOf("<MacroSnapshot />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
     expect(page.indexOf("<MarketNews />")).toBeGreaterThan(page.indexOf("<MacroSnapshot />"));
     expect(macro).toContain('aria-label="Select a macro geography"');
@@ -694,6 +695,7 @@ describe("the redesign", () => {
     expect(macro).toContain("CPI · base 100");
     expect(macro).toContain('effectiveSeries === CPI_INDEX_SERIES.id');
     expect(macro).toContain("readEurostatDirect");
+    expect(ioCss).toMatch(/\.macro-history-tooltip\s*\{[\s\S]*?inset-block-start:\s*-14px;/);
     expect(route).toContain("api.worldbank.org");
     expect(route).toContain("api.bls.gov/publicAPI/v2/timeseries/data/");
     expect(definitions).toContain("ec.europa.eu/eurostat/api");
