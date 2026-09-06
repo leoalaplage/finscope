@@ -235,7 +235,8 @@ async function fedHistory(range: HistoryRange) {
 }
 
 async function treasuryHistory(definition: MacroSeriesDefinition, range: HistoryRange) {
-  const first = Number(startPeriod(range, "Annual", 1990));
+  const start = startPeriod(range, "Daily", 1990);
+  const first = Number(start.slice(0, 4));
   const last = new Date().getUTCFullYear();
   const years = Array.from({ length: last - first + 1 }, (_, index) => first + index);
   const observations: MacroObservation[] = [];
@@ -251,7 +252,12 @@ async function treasuryHistory(definition: MacroSeriesDefinition, range: History
     }));
     observations.push(...batch.flat());
   }
-  return { definition, source: SOURCE.treasury.name, sourceUrl: SOURCE.treasury.url, observations: unique(observations) };
+  return {
+    definition,
+    source: SOURCE.treasury.name,
+    sourceUrl: SOURCE.treasury.url,
+    observations: unique(observations).filter((point) => point.date >= start),
+  };
 }
 
 async function buildHistory(country: MacroCountry, definition: MacroSeriesDefinition, range: HistoryRange): Promise<MacroHistory> {
@@ -305,7 +311,7 @@ export async function GET(request: Request) {
   }
   const range = requestedRange as HistoryRange;
   const { body, hit } = await cachedJson(
-    `macro-history:${country.code}:${definition.id}:${range}:v2`,
+    `macro-history:${country.code}:${definition.id}:${range}:v3`,
     21_600,
     () => buildHistory(country, definition, range),
     completeness,
