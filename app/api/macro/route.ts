@@ -34,7 +34,11 @@ async function readBls(): Promise<MacroIndicator[]> {
   try {
     const response = await fetch("https://api.bls.gov/publicAPI/v2/timeseries/data/", {
       method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 FinScope/1.0",
+      },
       body: JSON.stringify({ seriesid: ids.map((id) => definition(id).series), ...currentYears() }),
       signal: AbortSignal.timeout(8_000),
     });
