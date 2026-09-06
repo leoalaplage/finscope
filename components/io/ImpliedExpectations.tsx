@@ -296,7 +296,7 @@ export function ImpliedExpectations({
         */}
       {guide ? (
         <dl className="implied-guide">
-          <dt className="label">Return you require</dt>
+          <dt className="label">Annual return you require</dt>
           <dd>What you want to earn a year for owning this. The only figure here nobody filed — move it and every number below moves with it.</dd>
           <dt className="label">Price asks</dt>
           <dd>The growth in free cash flow that would make today&rsquo;s price exactly right, if you earn what you require. Read backwards from the price, never forecast.</dd>

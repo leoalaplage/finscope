@@ -352,7 +352,7 @@ export function Dcf({ initial }: { initial: string }) {
                 {/* The two assumptions, side by side and named as assumptions:
                     what the reader wants out, and what they suppose goes in. */}
                 <label className="dcf-assume">
-                  <span className="label">Growth you assume</span>
+                  <span className="label">Annual FCF growth you assume</span>
                   <input
                     type="number"
                     inputMode="decimal"
@@ -368,7 +368,7 @@ export function Dcf({ initial }: { initial: string }) {
                   />
                   <span className="label">%</span>
                 </label>
-                <span className="label">Return you require</span>
+                <span className="label">Annual return you require</span>
                 <div className="seg">
                   {RATES.map((rate) => (
                     <button key={rate} type="button" aria-pressed={required === rate} onClick={() => setRequired(rate)}>

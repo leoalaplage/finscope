@@ -435,7 +435,7 @@ describe("the redesign", () => {
      * are rows and the assumption is a figure, opened on the longest record so
      * it starts somewhere real and named "you assume" wherever it appears.
      */
-    expect(dcf).toContain('<span className="label">Growth you assume</span>');
+    expect(dcf).toContain('<span className="label">Annual FCF growth you assume</span>');
     expect(dcf).toContain("const custom = assumed ?? Math.round");
     expect(dcf).toContain('{ id: "own" as const, label: "You assume", rate: custom }');
     // Editing it is choosing it, and every figure on the page follows the one
@@ -550,7 +550,7 @@ describe("the redesign", () => {
     expect(panel).toContain("How to read this");
     // And the control that needed naming is named: four bare percentages
     // beside a heading are four percentages of nothing.
-    expect(dcfSource).toContain("<span className=\"label\">Return you require</span>");
+    expect(dcfSource).toContain("<span className=\"label\">Annual return you require</span>");
     expect(css).toContain(".implied-guide {");
     // Set like every other note here — monospaced and small — rather than as a
     // paragraph of body text from a different product.
