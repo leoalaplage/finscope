@@ -679,9 +679,8 @@ describe("the redesign", () => {
     const route = readFileSync(new URL("../app/api/macro/route.ts", import.meta.url), "utf8");
     expect(page.indexOf("<MacroSnapshot />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
     expect(page.indexOf("<MarketNews />")).toBeGreaterThan(page.indexOf("<MacroSnapshot />"));
-    expect(macro).toContain("Latest published observation");
-    expect(macro).toContain("Daily and monthly figures keep their own observation date");
-    expect(route).toContain("https://api.bls.gov/publicAPI/v2/timeseries/data/");
+    expect(macro).toContain("US policy &amp; rates · latest observation");
+    expect(macro).toContain("Each figure keeps its own observation date");
     expect(route).toContain("https://markets.newyorkfed.org/api/rates/unsecured/effr/last/1.json");
     expect(route).toContain("daily_treasury_yield_curve");
     expect(route).toContain('s-maxage=21600');

@@ -52,7 +52,7 @@ export function MacroSnapshot() {
     <section className="section macro-section" aria-labelledby="macro-heading">
       <div className="section-head">
         <h2 className="label" id="macro-heading">Macro</h2>
-        <span className="label">Latest published observation</span>
+        <span className="label">US policy &amp; rates · latest observation</span>
       </div>
       {answer?.error && <p className="notice">{answer.error}</p>}
       <div className="grid-ruled macro-grid" aria-busy={answer == null}>
@@ -66,7 +66,7 @@ export function MacroSnapshot() {
         ))}
       </div>
       <p className="macro-foot">
-        Official US series from <a href="https://www.bls.gov/bls/api_features.htm" target="_blank" rel="noreferrer">BLS</a>, <a href="https://www.newyorkfed.org/markets/reference-rates" target="_blank" rel="noreferrer">New York Fed</a> and <a href="https://home.treasury.gov/treasury-daily-interest-rate-xml-feed" target="_blank" rel="noreferrer">U.S. Treasury</a>. Daily and monthly figures keep their own observation date.
+        Official US series from the <a href="https://www.newyorkfed.org/markets/reference-rates" target="_blank" rel="noreferrer">New York Fed</a> and <a href="https://home.treasury.gov/treasury-daily-interest-rate-xml-feed" target="_blank" rel="noreferrer">U.S. Treasury</a>. Each figure keeps its own observation date.
       </p>
     </section>
   );
