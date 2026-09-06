@@ -3,7 +3,6 @@ import {
   ECB_RATE_SERIES,
   EUROSTAT_SERIES,
   MACRO_COUNTRIES,
-  OECD_SERIES,
   US_RATE_SERIES,
   eurostatUrls,
   macroDefinitionsFor,
@@ -106,6 +105,7 @@ const WORLD_BANK_INDICATORS = [
   { definition: { ...COMMON_MACRO_SERIES[1], note: "Real output · year over year", frequency: "Annual" as const }, series: "NY.GDP.MKTP.KD.ZG" },
   { definition: { ...COMMON_MACRO_SERIES[2], frequency: "Annual" as const }, series: "SL.UEM.TOTL.ZS" },
   { definition: COMMON_MACRO_SERIES[3], series: "BN.CAB.XOKA.GD.ZS" },
+  { definition: COMMON_MACRO_SERIES[4], series: "NY.GDP.MKTP.CD" },
 ] as const;
 
 async function readWorldBank(country: MacroCountry): Promise<MacroIndicator[]> {
@@ -213,28 +213,6 @@ async function readEcb(): Promise<MacroIndicator> {
   }
 }
 
-async function readOecd(country: MacroCountry): Promise<MacroIndicator | null> {
-  if (!country.oecd) return null;
-  const sourceUrl = "https://data-explorer.oecd.org/vis?df%5Bag%5D=OECD.SDD.STES&df%5Bid%5D=DSD_STES%40DF_CLI";
-  try {
-    const start = `${new Date().getUTCFullYear() - 2}-01`;
-    const url = `https://sdmx.oecd.org/public/rest/data/OECD.SDD.STES,DSD_STES@DF_CLI,4.1/${country.oecd}.M.LI...AA...H?startPeriod=${start}&dimensionAtObservation=AllDimensions&format=csvfile`;
-    const response = await fetch(url, {
-      headers: { Accept: "text/csv", "User-Agent": "FinScope/1.0 macro dashboard" },
-      signal: AbortSignal.timeout(4_000),
-    });
-    if (!response.ok) throw new Error(`OECD returned ${response.status}.`);
-    const observation = parseSdmxCsvObservation(await response.text());
-    if (!observation) throw new Error("No recent observation.");
-    return makeIndicator(OECD_SERIES, SOURCE.oecd, sourceUrl, observation);
-  } catch {
-    // OECD rejects some cloud/VPN traffic. The comparable World Bank series
-    // remain usable, so an optional leading indicator must not delay or fail
-    // the whole country snapshot.
-    return null;
-  }
-}
-
 async function readFedFunds(): Promise<MacroIndicator> {
   const definition = US_RATE_SERIES[0];
   const sourceUrl = "https://www.newyorkfed.org/markets/reference-rates/effr";
@@ -278,10 +256,9 @@ async function buildAnswer(country: MacroCountry): Promise<MacroAnswer> {
   // A Worker may keep at most six outbound connections open at once. Read the
   // high-frequency providers first (at most five concurrent requests), then
   // the four World Bank series, so no provider is silently starved.
-  const [eurostat, ecb, oecd, fedFunds, treasury] = await Promise.all([
+  const [eurostat, ecb, fedFunds, treasury] = await Promise.all([
     readEurostat(country),
     country.ecb ? readEcb() : Promise.resolve(null),
-    readOecd(country),
     country.code === "US" ? readFedFunds() : Promise.resolve(null),
     country.code === "US" ? readTreasury() : Promise.resolve([]),
   ]);
@@ -291,7 +268,7 @@ async function buildAnswer(country: MacroCountry): Promise<MacroAnswer> {
 
   // Monthly/quarterly Eurostat releases replace the equivalent annual World
   // Bank cards; the latter remains the global fallback and current account.
-  const preferred = [...worldBank, ...oecdEconomic, ...bls, ...eurostat, ...(ecb ? [ecb] : []), ...(oecd ? [oecd] : []), ...(fedFunds ? [fedFunds] : []), ...treasury];
+  const preferred = [...worldBank, ...oecdEconomic, ...bls, ...eurostat, ...(ecb ? [ecb] : []), ...(fedFunds ? [fedFunds] : []), ...treasury];
   const indicators = macroDefinitionsFor(country.code).flatMap((definition) => {
     const candidates = preferred.filter((candidate) => candidate.id === definition.id);
     const available = candidates.findLast((candidate) => candidate.value != null);
@@ -318,7 +295,7 @@ export async function GET(request: Request) {
   if (!country) {
     return Response.json({ error: "Unknown country." }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
-  const { body, hit } = await cachedJson(`macro:${country.code}:v7`, 21_600, () => buildAnswer(country), completeness);
+  const { body, hit } = await cachedJson(`macro:${country.code}:v8`, 21_600, () => buildAnswer(country), completeness);
   const answer = JSON.parse(body) as MacroAnswer;
   return new Response(body, {
     status: answer.error ? 502 : 200,

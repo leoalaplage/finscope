@@ -3,7 +3,6 @@ import {
   ECB_RATE_SERIES,
   EUROSTAT_SERIES,
   MACRO_COUNTRIES,
-  OECD_SERIES,
   US_RATE_SERIES,
   eurostatUrls,
   macroDefinitionsFor,
@@ -49,6 +48,7 @@ const WORLD_BANK: Record<string, string> = {
   "gdp-growth": "NY.GDP.MKTP.KD.ZG",
   unemployment: "SL.UEM.TOTL.ZS",
   "current-account": "BN.CAB.XOKA.GD.ZS",
+  gdp: "NY.GDP.MKTP.CD",
 };
 
 const OECD_ECONOMIC: Record<string, { dataflows: string[]; key: (country: string) => string; sourceUrl: string }> = {
@@ -259,18 +259,6 @@ async function imfCpiHistory(country: MacroCountry, range: HistoryRange) {
   };
 }
 
-async function oecdCliHistory(country: MacroCountry, range: HistoryRange) {
-  if (!country.oecd) return null;
-  const start = startPeriod(range, OECD_SERIES.frequency, 1990);
-  const url = `https://sdmx.oecd.org/public/rest/data/OECD.SDD.STES,DSD_STES@DF_CLI,4.1/${country.oecd}.M.LI...AA...H?startPeriod=${start}&dimensionAtObservation=AllDimensions&format=csvfile`;
-  return {
-    definition: OECD_SERIES,
-    source: SOURCE.oecd.name,
-    sourceUrl: "https://data-explorer.oecd.org/vis?df%5Bag%5D=OECD.SDD.STES&df%5Bid%5D=DSD_STES%40DF_CLI",
-    observations: parseSdmxCsvObservations(await text(url, "text/csv")),
-  };
-}
-
 async function ecbHistory(range: HistoryRange) {
   const start = startPeriod(range, ECB_RATE_SERIES.frequency, 1999);
   const url = `https://data-api.ecb.europa.eu/service/data/FM/D.U2.EUR.4F.KR.DFR.LEV?format=csvdata&startPeriod=${start}`;
@@ -336,7 +324,6 @@ async function buildHistory(country: MacroCountry, definition: MacroSeriesDefini
     };
     let result = null;
     if (definition.id === "ecb-rate") result = await ecbHistory(range);
-    else if (definition.id === "oecd-cli") result = await oecdCliHistory(country, range);
     else if (definition.id === "fed-funds") result = await fedHistory(range);
     else if (definition.id.startsWith("treasury-") || definition.id === "curve") result = await treasuryHistory(definition, range);
     else if (definition.id === "current-account") result = await worldBankHistory(country, definition, range);

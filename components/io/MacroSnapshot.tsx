@@ -24,11 +24,18 @@ interface MacroAnswer {
 type HistoryRange = "1Y" | "5Y" | "10Y" | "MAX";
 type InflationView = "level" | "rate";
 const HISTORY_RANGES: HistoryRange[] = ["1Y", "5Y", "10Y", "MAX"];
-const COMPARABLE_SERIES = new Set(["inflation", "gdp-growth", "unemployment", "current-account", "oecd-cli"]);
+const COMPARABLE_SERIES = new Set(["inflation", "gdp-growth", "unemployment", "current-account", "gdp"]);
 const MAX_COMPARED_COUNTRIES = 5;
+
+function compactUsd(value: number, decimals: number) {
+  const magnitude = Math.abs(value);
+  const [divisor, suffix] = magnitude >= 1e12 ? [1e12, "T"] : magnitude >= 1e9 ? [1e9, "B"] : magnitude >= 1e6 ? [1e6, "M"] : [1, ""];
+  return `$${(value / divisor).toFixed(decimals)}${suffix}`;
+}
 
 function valueOf(indicator: Pick<MacroIndicator, "value" | "unit" | "decimals">) {
   if (indicator.value == null || !Number.isFinite(indicator.value)) return "—";
+  if (indicator.unit === "usd") return compactUsd(indicator.value, indicator.decimals);
   const sign = indicator.unit === "percentage-points" && indicator.value > 0 ? "+" : "";
   const suffix = indicator.unit === "index" ? "" : indicator.unit === "percentage-points" ? " pp" : "%";
   return `${sign}${indicator.value.toFixed(indicator.decimals)}${suffix}`;
@@ -47,7 +54,8 @@ function periodOf(date: string | null, frequency: MacroIndicator["frequency"]) {
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
-function axisValue(value: number, decimals: number) {
+function axisValue(value: number, decimals: number, unit: MacroIndicator["unit"]) {
+  if (unit === "usd") return compactUsd(value, decimals);
   return value.toLocaleString("en-US", { maximumFractionDigits: decimals });
 }
 
@@ -109,7 +117,6 @@ function MacroHistoryChart({ histories }: { histories: MacroHistory[] }) {
         <i style={{ borderTopStyle: index === 0 ? "solid" : index % 2 ? "dashed" : "dotted" }}/>
         <span>{item.country.name}</span>
         <strong>{valueOf({ value: item.observations.at(-1)?.value ?? null, unit: item.indicator.unit, decimals: item.indicator.decimals })}</strong>
-        <small>{item.indicator.source}</small>
       </div>)}
     </div>
     <svg ref={svg} viewBox={`0 0 ${width} ${height}`} role="img"
@@ -117,7 +124,7 @@ function MacroHistoryChart({ histories }: { histories: MacroHistory[] }) {
       onPointerMove={updateHover} onPointerLeave={() => setHovered(null)}>
       {tickValues.map((tick) => <g key={tick}>
         <line className="macro-chart-grid" x1={left} x2={width - right} y1={y(tick)} y2={y(tick)}/>
-        <text className="macro-chart-axis" x={left - 9} y={y(tick) + 3} textAnchor="end">{axisValue(tick, history.indicator.decimals)}</text>
+        <text className="macro-chart-axis" x={left - 9} y={y(tick) + 3} textAnchor="end">{axisValue(tick, history.indicator.decimals, history.indicator.unit)}</text>
       </g>)}
       {bar && floor < 0 && ceiling > 0 && <line className="macro-chart-zero" x1={left} x2={width - right} y1={zero} y2={zero}/>}
       {bar ? history.observations.map((point, index) => {
@@ -156,6 +163,7 @@ function changeOf(points: MacroObservation[], indicator: MacroHistory["indicator
   const previous = points.at(-2)?.value;
   if (current == null || previous == null) return "—";
   const change = current - previous;
+  if (indicator.unit === "usd") return `${change > 0 ? "+" : change < 0 ? "−" : ""}${compactUsd(Math.abs(change), indicator.decimals)}`;
   const suffix = indicator.unit === "index" ? "" : " pp";
   return `${change > 0 ? "+" : change < 0 ? "−" : ""}${Math.abs(change).toFixed(indicator.decimals)}${suffix}`;
 }
@@ -196,7 +204,7 @@ export function MacroSnapshot() {
   const [countryCode, setCountryCode] = useState("US");
   const [answers, setAnswers] = useState<Record<string, MacroAnswer>>({});
   const [selected, setSelected] = useState<string | null>(null);
-  const [inflationView, setInflationView] = useState<InflationView>("level");
+  const [inflationView, setInflationView] = useState<InflationView>("rate");
   const [historyRange, setHistoryRange] = useState<HistoryRange>("10Y");
   const [histories, setHistories] = useState<Record<string, MacroHistory>>({});
   const [historyError, setHistoryError] = useState("");
@@ -388,7 +396,7 @@ export function MacroSnapshot() {
                 aria-pressed={range === historyRange} key={range} onClick={() => setHistoryRange(range)}>{range === "MAX" ? "Max" : range}</button>)}
             </div>
           </div>
-          <span className="label">{history?.indicator.source || selectedIndicator.source || "Official release"} · {history?.indicator.frequency ?? panelIndicator?.frequency ?? selectedIndicator.frequency}</span>
+          <span className="label">{history?.indicator.frequency ?? panelIndicator?.frequency ?? selectedIndicator.frequency}</span>
         </div>
         {comparisonOptions.length > 0 && <div className="macro-country-compare">
           <div className="macro-country-compare-head">
@@ -415,21 +423,19 @@ export function MacroSnapshot() {
           <span>{effectiveSeries === CPI_INDEX_SERIES.id
             ? "Rebased to 100 at the first visible observation · published price levels only"
             : "Published observations only · no interpolation"}</span>
-          {(history?.indicator.sourceUrl || selectedIndicator.sourceUrl) && <a href={history?.indicator.sourceUrl || selectedIndicator.sourceUrl} target="_blank" rel="noreferrer">Open official source ↗</a>}
         </footer>
       </article>}
       <div className="grid-ruled macro-grid" aria-busy={answer == null}>
         {indicators.map((indicator) => (
           <article className={`macro-card${selected === indicator.id ? " active" : ""}`} key={indicator.id}>
             <button className="macro-card-open" type="button" aria-expanded={selected === indicator.id}
-              aria-label={`Open ${indicator.label} history`} onClick={() => { setSelected(indicator.id); if (indicator.id === "inflation") { setInflationView("level"); setHistoryRange("5Y"); } setComparisonCountries([]); setHistoryError(""); }}>
+              aria-label={`Open ${indicator.label} history`} onClick={() => { setSelected(indicator.id); if (indicator.id === "inflation") { setInflationView("rate"); setHistoryRange("5Y"); } setComparisonCountries([]); setHistoryError(""); }}>
               <span className="label">{indicator.label}</span>
               <strong data-empty={indicator.value == null}>{answer == null ? "···" : valueOf(indicator)}</strong>
               <small>{indicator.note}</small>
               <span className="macro-card-action">View history ↗</span>
             </button>
             <div className="macro-card-meta">
-              {indicator.sourceUrl ? <a href={indicator.sourceUrl} target="_blank" rel="noreferrer">{indicator.source}</a> : <span>Official release</span>}
               <time dateTime={indicator.date ?? undefined}>{indicator.frequency} · {periodOf(indicator.date, indicator.frequency)}</time>
             </div>
           </article>

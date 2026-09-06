@@ -703,7 +703,7 @@ describe("the redesign", () => {
     expect(route).toContain("sdmx.oecd.org");
     expect(route).toContain("https://markets.newyorkfed.org/api/rates/unsecured/effr/last/1.json");
     expect(route).toContain("daily_treasury_yield_curve");
-    expect(route).toContain('cachedJson(`macro:${country.code}:v7`');
+    expect(route).toContain('cachedJson(`macro:${country.code}:v8`');
     const history = readFileSync(new URL("../app/api/macro/history/route.ts", import.meta.url), "utf8");
     expect(history).toContain("OECD.SDD.TPS,DSD_PRICES@DF_PRICES_ALL");
     expect(history).toContain("DF_IALFS_UNE_M");
@@ -717,6 +717,30 @@ describe("the redesign", () => {
     expect(history).toContain("bestCachedHistoryBody");
     expect(history).toContain('CPI_INDEX_SERIES.id ? "v9"');
     expect(history).toContain("macro-history:");
+  });
+
+  it("carries the level of output for every geography, and names no data provider on screen", () => {
+    const macro = readFileSync(new URL("../components/io/MacroSnapshot.tsx", import.meta.url), "utf8");
+    const definitions = readFileSync(new URL("../lib/macro.ts", import.meta.url), "utf8");
+    const history = readFileSync(new URL("../app/api/macro/history/route.ts", import.meta.url), "utf8");
+    const ioCss = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
+    // GDP in current dollars is published for all ten geographies; the OECD
+    // composite leading indicator it replaces was published for some of them
+    // and refused cloud traffic for the rest.
+    expect(definitions).toContain('id: "gdp"');
+    expect(definitions).not.toContain("oecd-cli");
+    expect(history).toContain('gdp: "NY.GDP.MKTP.CD"');
+    expect(macro).toContain("compactUsd");
+    // The panel states the observation and its date; where it came from is a
+    // question the page does not put to the reader.
+    expect(macro).not.toContain("Open official source");
+    expect(macro).not.toContain("indicator.sourceUrl ?");
+    expect(macro).not.toContain("indicator.source ||");
+    expect(macro).not.toContain("{item.indicator.source}");
+    expect(ioCss).not.toContain(".macro-history-foot a");
+    // Inflation is asked about as a rate, so the panel opens on the rate.
+    expect(macro).toContain('useState<InflationView>("rate")');
+    expect(macro).toContain('if (indicator.id === "inflation") { setInflationView("rate")');
   });
 
   it("returns to the last valid company, or to the watchlist without one", () => {

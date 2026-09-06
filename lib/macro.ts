@@ -1,5 +1,5 @@
 export type MacroFrequency = "Daily" | "Monthly" | "Quarterly" | "Annual";
-export type MacroUnit = "percent" | "percentage-points" | "index";
+export type MacroUnit = "percent" | "percentage-points" | "index" | "usd";
 
 export interface MacroCountry {
   code: string;
@@ -85,6 +85,7 @@ export const COMMON_MACRO_SERIES: MacroSeriesDefinition[] = [
   { id: "gdp-growth", label: "GDP growth", note: "Real output · quarter over quarter", frequency: "Quarterly", unit: "percent", decimals: 1 },
   { id: "unemployment", label: "Unemployment", note: "Share of labour force", frequency: "Monthly", unit: "percent", decimals: 1 },
   { id: "current-account", label: "Current account", note: "Balance as a share of GDP", frequency: "Annual", unit: "percent", decimals: 1 },
+  { id: "gdp", label: "GDP", note: "Nominal output · current USD", frequency: "Annual", unit: "usd", decimals: 1 },
 ];
 
 export const CPI_INDEX_SERIES: MacroSeriesDefinition = {
@@ -112,15 +113,6 @@ export const ECB_RATE_SERIES: MacroSeriesDefinition = {
   frequency: "Daily",
   unit: "percent",
   decimals: 2,
-};
-
-export const OECD_SERIES: MacroSeriesDefinition = {
-  id: "oecd-cli",
-  label: "Leading indicator",
-  note: "OECD composite · trend = 100",
-  frequency: "Monthly",
-  unit: "index",
-  decimals: 1,
 };
 
 export const EUROSTAT_SERIES = [
@@ -157,7 +149,6 @@ export function macroDefinitionsFor(countryCode: string): MacroSeriesDefinition[
     ...COMMON_MACRO_SERIES,
     ...(country.code === "US" ? US_RATE_SERIES : []),
     ...(country.ecb ? [ECB_RATE_SERIES] : []),
-    ...(country.oecd ? [OECD_SERIES] : []),
   ];
 }
 
