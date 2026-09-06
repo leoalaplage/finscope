@@ -64,10 +64,19 @@ const OECD_ECONOMIC: Record<string, { dataflow: string; key: (country: string) =
 };
 
 function startPeriod(range: HistoryRange, frequency: MacroSeriesDefinition["frequency"], maxYear = 1990) {
-  const year = new Date().getUTCFullYear() - ({ "1Y": 1, "5Y": 5, "10Y": 10, MAX: new Date().getUTCFullYear() - maxYear }[range]);
-  if (frequency === "Monthly") return `${year}-01`;
-  if (frequency === "Quarterly") return `${year}-Q1`;
-  if (frequency === "Daily") return `${year}-01-01`;
+  const now = new Date();
+  if (range === "MAX") {
+    if (frequency === "Monthly") return `${maxYear}-01`;
+    if (frequency === "Quarterly") return `${maxYear}-Q1`;
+    if (frequency === "Daily") return `${maxYear}-01-01`;
+    return String(maxYear);
+  }
+  const year = now.getUTCFullYear() - ({ "1Y": 1, "5Y": 5, "10Y": 10 }[range]);
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(now.getUTCDate()).padStart(2, "0");
+  if (frequency === "Monthly") return `${year}-${month}`;
+  if (frequency === "Quarterly") return `${year}-Q${Math.floor(now.getUTCMonth() / 3) + 1}`;
+  if (frequency === "Daily") return `${year}-${month}-${day}`;
   return String(year);
 }
 
@@ -237,6 +246,9 @@ async function treasuryHistory(definition: MacroSeriesDefinition, range: History
 
 async function buildHistory(country: MacroCountry, definition: MacroSeriesDefinition, range: HistoryRange): Promise<MacroHistory> {
   try {
+    const attempt = async <T,>(read: () => Promise<T>): Promise<T | null> => {
+      try { return await read(); } catch { return null; }
+    };
     let result = null;
     if (definition.id === "ecb-rate") result = await ecbHistory(range);
     else if (definition.id === "oecd-cli") result = await oecdCliHistory(country, range);
@@ -245,11 +257,11 @@ async function buildHistory(country: MacroCountry, definition: MacroSeriesDefini
     else if (definition.id === "current-account") result = await worldBankHistory(country, definition, range);
     else {
       if (country.code === "US" && (definition.id === "inflation" || definition.id === "unemployment")) {
-        result = await blsHistory(definition, range);
+        result = await attempt(() => blsHistory(definition, range));
       }
-      if (!result?.observations.length) result = await eurostatHistory(country, definition, range);
-      if (!result?.observations.length) result = await oecdEconomicHistory(country, definition, range);
-      if (!result?.observations.length) result = await worldBankHistory(country, definition, range);
+      if (!result?.observations.length) result = await attempt(() => eurostatHistory(country, definition, range));
+      if (!result?.observations.length) result = await attempt(() => oecdEconomicHistory(country, definition, range));
+      if (!result?.observations.length) result = await attempt(() => worldBankHistory(country, definition, range));
     }
     if (!result?.observations.length) throw new Error("No historical observation is available from the official source.");
     return {
