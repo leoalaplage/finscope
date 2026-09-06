@@ -671,6 +671,9 @@ describe("the redesign", () => {
     expect(indices).toContain('label: "S&P 500"');
     expect(indices).toContain('label: "NASDAQ"');
     expect(indices).toContain('label: "Dow Jones"');
+    // The last-price badge is drawn at the corner radius of the panels around
+    // it rather than as a pill of its own.
+    expect(market).toContain("height={16} rx={2}");
   });
 
   it("puts an official, date-explicit macro snapshot below the market indices", () => {

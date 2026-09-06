@@ -271,8 +271,10 @@ function IndexChart({ entry, range }: { entry: Panel; range: MarketRange }) {
         {last != null && path.length > 0 &&
           <circle className="index-dot" cx={x(points.length - 1)} cy={y(last)} r={2.6}/>}
 
+        {/* The badge is a panel, not a pill: the page's own corner radius, so
+            it belongs to the same drawing as the cards around it. */}
         {last != null && <g className="index-last">
-          <rect x={width - rightGutter + 3} y={y(last) - 8} width={rightGutter - 6} height={16} rx={4}/>
+          <rect x={width - rightGutter + 3} y={y(last) - 8} width={rightGutter - 6} height={16} rx={2}/>
           <text x={width - rightGutter + 8} y={y(last) + 3.5}>{badge}</text>
         </g>}
       </svg>
