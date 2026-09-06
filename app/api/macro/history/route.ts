@@ -376,6 +376,23 @@ function parseCachedHistory(body: string | null) {
   }
 }
 
+function latestObservationDate(history: MacroHistory | null) {
+  return history?.observations.at(-1)?.date ?? "";
+}
+
+function bestCachedHistoryBody(...bodies: Array<string | null>) {
+  let best: { body: string; history: MacroHistory } | null = null;
+  for (const body of bodies) {
+    const history = parseCachedHistory(body);
+    if (!body || !history) continue;
+    const isNewer = latestObservationDate(history) > latestObservationDate(best?.history ?? null);
+    const isBroaderAtSameDate = latestObservationDate(history) === latestObservationDate(best?.history ?? null)
+      && history.observations.length > (best?.history.observations.length ?? 0);
+    if (!best || isNewer || isBroaderAtSameDate) best = { body, history };
+  }
+  return best?.body ?? null;
+}
+
 function sliceHistory(history: MacroHistory, range: HistoryRange) {
   const start = startPeriod(range, "Monthly", 1990);
   const observations = rebaseObservations(history.observations.filter((point) => point.date >= start));
@@ -395,7 +412,10 @@ function joinCpiHistories(historical: MacroHistory, recent: MacroHistory) {
     ...historical,
     indicator: {
       ...historical.indicator,
-      source: `${historical.indicator.source} · ${recent.indicator.source}`,
+      source: [...new Set([
+        ...historical.indicator.source.split(" · "),
+        ...recent.indicator.source.split(" · "),
+      ])].join(" · "),
       note: CPI_INDEX_SERIES.note,
     },
     observations,
@@ -408,7 +428,7 @@ async function cachedHistory(
   range: HistoryRange,
 ): Promise<{ body: string; cache: "hit" | "miss" | "stale" }> {
   const cache = datasetCache();
-  const freshVersion = definition.id === CPI_INDEX_SERIES.id ? "v8" : "v3";
+  const freshVersion = definition.id === CPI_INDEX_SERIES.id ? "v9" : "v3";
   const freshKey = marketKey(`macro-history:${country.code}:${definition.id}:${range}:${freshVersion}`);
   const snapshotKey = marketKey(`macro-history-snapshot:${country.code}:${definition.id}:${range}:v1`);
   const legacyVersion = country.code === "US" ? "v5" : "v4";
@@ -418,17 +438,31 @@ async function cachedHistory(
   };
   const fresh = await read(freshKey);
   if (fresh) return { body: fresh, cache: "hit" };
-  const snapshot = await read(snapshotKey) ?? (definition.id === CPI_INDEX_SERIES.id ? await read(legacyKey) : null);
-  const recentSnapshot = definition.id === CPI_INDEX_SERIES.id && range !== "5Y"
-    ? await read(marketKey(`macro-history-snapshot:${country.code}:${definition.id}:5Y:v1`))
-      ?? await read(marketKey(`macro-history:${country.code}:${definition.id}:5Y:${legacyVersion}`))
+  const snapshotEntry = await read(snapshotKey);
+  const legacyEntry = definition.id === CPI_INDEX_SERIES.id ? await read(legacyKey) : null;
+  const snapshot = bestCachedHistoryBody(snapshotEntry, legacyEntry);
+  const recentSnapshot = definition.id === CPI_INDEX_SERIES.id
+    ? bestCachedHistoryBody(
+      range === "5Y"
+        ? snapshotEntry
+        : await read(marketKey(`macro-history-snapshot:${country.code}:${definition.id}:5Y:v1`)),
+      range === "5Y"
+        ? legacyEntry
+        : await read(marketKey(`macro-history:${country.code}:${definition.id}:5Y:${legacyVersion}`)),
+    )
     : null;
   let answer = await buildHistory(country, definition, range);
   const recent = parseCachedHistory(recentSnapshot);
-  if (recent && answer.observations.length && answer.indicator.source.includes("DBnomics")) {
-    answer = joinCpiHistories(answer, recent);
-  } else if (recent && !answer.observations.length) {
-    answer = sliceHistory(recent, range) ?? answer;
+  const recentForRange = recent ? sliceHistory(recent, range) : null;
+  if (
+    recentForRange
+    && answer.observations.length
+    && answer.indicator.source.includes("DBnomics")
+    && latestObservationDate(recentForRange) > latestObservationDate(answer)
+  ) {
+    answer = joinCpiHistories(answer, recentForRange);
+  } else if (recentForRange && !answer.observations.length) {
+    answer = recentForRange;
   }
   if (answer.observations.length) {
     const body = JSON.stringify(answer);

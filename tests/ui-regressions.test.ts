@@ -712,6 +712,8 @@ describe("the redesign", () => {
     expect(history).toContain("finscope-macro-source.leoalaplage.workers.dev");
     expect(history).toContain("IMF IFS via DBnomics");
     expect(history).toContain("joinCpiHistories");
+    expect(history).toContain("bestCachedHistoryBody");
+    expect(history).toContain('CPI_INDEX_SERIES.id ? "v9"');
     expect(history).toContain("macro-history:");
   });
 
