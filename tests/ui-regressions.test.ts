@@ -682,15 +682,24 @@ describe("the redesign", () => {
     expect(page.indexOf("<MarketNews />")).toBeGreaterThan(page.indexOf("<MacroSnapshot />"));
     expect(macro).toContain('aria-label="Select a macro geography"');
     expect(macro).toContain("latest available data");
-    expect(macro).toContain("Official releases only");
+    expect(macro).toContain("Published observations only");
+    expect(macro).toContain('aria-label={`Open ${indicator.label} history`}');
+    expect(macro).toContain('const HISTORY_RANGES: HistoryRange[] = ["1Y", "5Y", "10Y", "MAX"]');
+    expect(macro).toContain('history.indicator.id === "inflation"');
     expect(macro).toContain("readEurostatDirect");
     expect(route).toContain("api.worldbank.org");
+    expect(route).toContain("api.bls.gov/publicAPI/v2/timeseries/data/");
     expect(definitions).toContain("ec.europa.eu/eurostat/api");
     expect(route).toContain("data-api.ecb.europa.eu");
     expect(route).toContain("sdmx.oecd.org");
     expect(route).toContain("https://markets.newyorkfed.org/api/rates/unsecured/effr/last/1.json");
     expect(route).toContain("daily_treasury_yield_curve");
-    expect(route).toContain('cachedJson(`macro:${country.code}:v6`');
+    expect(route).toContain('cachedJson(`macro:${country.code}:v7`');
+    const history = readFileSync(new URL("../app/api/macro/history/route.ts", import.meta.url), "utf8");
+    expect(history).toContain("OECD.SDD.TPS,DSD_PRICES@DF_PRICES_ALL");
+    expect(history).toContain("DF_IALFS_UNE_M");
+    expect(history).toContain("DF_QNA_EXPENDITURE_GROWTH_G20");
+    expect(history).toContain("macro-history:");
   });
 
   it("returns to the last valid company, or to the watchlist without one", () => {

@@ -24,11 +24,39 @@ export interface MacroObservation {
   value: number;
 }
 
+interface BlsPoint { year?: string; period?: string; value?: string }
+
+/** Convert a BLS monthly series response to chronological observations. */
+export function parseBlsObservations(points: BlsPoint[]): MacroObservation[] {
+  return points.flatMap((point) => {
+    const month = point.period?.match(/^M(0[1-9]|1[0-2])$/)?.[1];
+    const value = Number(point.value);
+    return point.year && month && Number.isFinite(value) ? [{ date: `${point.year}-${month}`, value }] : [];
+  }).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Turn monthly index levels into a year-over-year rate for every comparable month. */
+export function yearOverYearObservations(observations: MacroObservation[]): MacroObservation[] {
+  const levels = new Map(observations.map((point) => [point.date, point.value]));
+  return observations.flatMap((point) => {
+    const [year, month] = point.date.split("-");
+    const prior = levels.get(`${Number(year) - 1}-${month}`);
+    return prior && point.value !== 0 ? [{ date: point.date, value: (point.value / prior - 1) * 100 }] : [];
+  });
+}
+
 export interface MacroIndicator extends MacroSeriesDefinition {
   value: number | null;
   date: string | null;
   source: string;
   sourceUrl: string;
+  error?: string;
+}
+
+export interface MacroHistory {
+  country: Pick<MacroCountry, "code" | "name">;
+  indicator: MacroSeriesDefinition & { source: string; sourceUrl: string };
+  observations: MacroObservation[];
   error?: string;
 }
 
@@ -46,9 +74,9 @@ export const MACRO_COUNTRIES: MacroCountry[] = [
 ];
 
 export const COMMON_MACRO_SERIES: MacroSeriesDefinition[] = [
-  { id: "inflation", label: "Inflation", note: "Consumer prices · year over year", frequency: "Annual", unit: "percent", decimals: 1 },
-  { id: "gdp-growth", label: "GDP growth", note: "Real output growth", frequency: "Annual", unit: "percent", decimals: 1 },
-  { id: "unemployment", label: "Unemployment", note: "Share of labour force", frequency: "Annual", unit: "percent", decimals: 1 },
+  { id: "inflation", label: "Inflation", note: "Consumer prices · year over year", frequency: "Monthly", unit: "percent", decimals: 1 },
+  { id: "gdp-growth", label: "GDP growth", note: "Real output · quarter over quarter", frequency: "Quarterly", unit: "percent", decimals: 1 },
+  { id: "unemployment", label: "Unemployment", note: "Share of labour force", frequency: "Monthly", unit: "percent", decimals: 1 },
   { id: "current-account", label: "Current account", note: "Balance as a share of GDP", frequency: "Annual", unit: "percent", decimals: 1 },
 ];
 
@@ -125,6 +153,25 @@ export interface TreasuryRates {
   thirtyYear: number;
 }
 
+export type TreasurySeriesId = "treasury-3m" | "treasury-2y" | "treasury-10y" | "treasury-30y" | "curve";
+
+/** Every complete curve in a Treasury Atom XML feed, in chronological order. */
+export function parseTreasuryHistory(xml: string, series: TreasurySeriesId): MacroObservation[] {
+  const field: Record<Exclude<TreasurySeriesId, "curve">, string> = {
+    "treasury-3m": "BC_3MONTH",
+    "treasury-2y": "BC_2YEAR",
+    "treasury-10y": "BC_10YEAR",
+    "treasury-30y": "BC_30YEAR",
+  };
+  return [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].flatMap((entry) => {
+    const body = entry[1];
+    const date = body.match(/<d:NEW_DATE[^>]*>(\d{4}-\d{2}-\d{2})T/)?.[1];
+    const read = (name: string) => Number(body.match(new RegExp(`<d:${name}[^>]*>([^<]+)</`))?.[1]);
+    const value = series === "curve" ? read("BC_10YEAR") - read("BC_2YEAR") : read(field[series]);
+    return date && Number.isFinite(value) ? [{ date, value }] : [];
+  }).sort((a, b) => a.date.localeCompare(b.date));
+}
+
 /** Read the latest complete curve from the Treasury's Atom XML feed. */
 export function parseTreasuryRates(xml: string): TreasuryRates | null {
   const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)];
@@ -144,15 +191,20 @@ export function parseTreasuryRates(xml: string): TreasuryRates | null {
 
 /** Latest non-null annual observation returned by the World Bank API. */
 export function parseWorldBankObservation(payload: unknown): MacroObservation | null {
-  if (!Array.isArray(payload) || !Array.isArray(payload[1])) return null;
+  return parseWorldBankObservations(payload).at(-1) ?? null;
+}
+
+/** All populated annual observations returned by the World Bank API. */
+export function parseWorldBankObservations(payload: unknown): MacroObservation[] {
+  if (!Array.isArray(payload) || !Array.isArray(payload[1])) return [];
   const observations = payload[1] as Array<{ date?: unknown; value?: unknown }>;
-  for (const observation of observations) {
+  return observations.flatMap((observation) => {
     const value = Number(observation.value);
     if (typeof observation.date === "string" && observation.value != null && Number.isFinite(value)) {
-      return { date: observation.date, value };
+      return [{ date: observation.date, value }];
     }
-  }
-  return null;
+    return [];
+  }).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 interface EurostatPayload {
@@ -162,17 +214,21 @@ interface EurostatPayload {
 
 /** Latest populated time cell in a Eurostat JSON-stat response. */
 export function parseEurostatObservation(payload: unknown): MacroObservation | null {
-  if (!payload || typeof payload !== "object") return null;
+  return parseEurostatObservations(payload).at(-1) ?? null;
+}
+
+/** All populated time cells in a Eurostat JSON-stat response. */
+export function parseEurostatObservations(payload: unknown): MacroObservation[] {
+  if (!payload || typeof payload !== "object") return [];
   const data = payload as EurostatPayload;
   const time = data.dimension?.time?.category?.index;
-  if (!time || !data.value) return null;
+  if (!time || !data.value) return [];
   return Object.entries(time)
     .flatMap(([date, index]) => {
       const value = Number(data.value?.[String(index)]);
       return Number.isFinite(value) ? [{ date, value }] : [];
     })
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .at(-1) ?? null;
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /** A small CSV reader which is sufficient for the official ECB/OECD exports. */
@@ -206,13 +262,18 @@ export function parseCsvRows(csv: string): string[][] {
 
 /** Read the latest TIME_PERIOD / OBS_VALUE pair from an SDMX CSV export. */
 export function parseSdmxCsvObservation(csv: string): MacroObservation | null {
+  return parseSdmxCsvObservations(csv).at(-1) ?? null;
+}
+
+/** All TIME_PERIOD / OBS_VALUE pairs from an SDMX CSV export. */
+export function parseSdmxCsvObservations(csv: string): MacroObservation[] {
   const [header, ...rows] = parseCsvRows(csv);
-  if (!header) return null;
+  if (!header) return [];
   const timeIndex = header.indexOf("TIME_PERIOD");
   const valueIndex = header.indexOf("OBS_VALUE");
-  if (timeIndex < 0 || valueIndex < 0) return null;
+  if (timeIndex < 0 || valueIndex < 0) return [];
   return rows.flatMap((row) => {
     const value = Number(row[valueIndex]);
     return row[timeIndex] && Number.isFinite(value) ? [{ date: row[timeIndex], value }] : [];
-  }).sort((a, b) => a.date.localeCompare(b.date)).at(-1) ?? null;
+  }).sort((a, b) => a.date.localeCompare(b.date));
 }

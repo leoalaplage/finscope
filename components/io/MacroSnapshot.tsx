@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { readParsed } from "@/lib/fetch-json";
 import {
   EUROSTAT_SERIES,
@@ -9,7 +9,9 @@ import {
   macroDefinitionsFor,
   parseEurostatObservation,
   type MacroCountry,
+  type MacroHistory,
   type MacroIndicator,
+  type MacroObservation,
 } from "@/lib/macro";
 
 interface MacroAnswer {
@@ -17,6 +19,9 @@ interface MacroAnswer {
   indicators?: MacroIndicator[];
   error?: string;
 }
+
+type HistoryRange = "1Y" | "5Y" | "10Y" | "MAX";
+const HISTORY_RANGES: HistoryRange[] = ["1Y", "5Y", "10Y", "MAX"];
 
 function valueOf(indicator: Pick<MacroIndicator, "value" | "unit" | "decimals">) {
   if (indicator.value == null || !Number.isFinite(indicator.value)) return "—";
@@ -36,6 +41,84 @@ function periodOf(date: string | null, frequency: MacroIndicator["frequency"]) {
   const parsed = new Date(`${date}T12:00:00Z`);
   if (Number.isNaN(parsed.getTime())) return date;
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+function axisValue(value: number, decimals: number) {
+  return value.toLocaleString("en-US", { maximumFractionDigits: decimals });
+}
+
+function MacroHistoryChart({ history }: { history: MacroHistory }) {
+  const svg = useRef<SVGSVGElement | null>(null);
+  const [hovered, setHovered] = useState<number | null>(null);
+  const points = history.observations;
+  const bar = history.indicator.id === "inflation" || history.indicator.id === "gdp-growth" || history.indicator.id === "current-account";
+  const width = 960, height = 310, left = 54, right = 18, top = 18, bottom = 34;
+  const plotWidth = width - left - right, plotHeight = height - top - bottom;
+  const values = points.map((point) => point.value);
+  const rawMin = Math.min(...values), rawMax = Math.max(...values);
+  const min = bar ? Math.min(0, rawMin) : rawMin;
+  const max = bar ? Math.max(0, rawMax) : rawMax;
+  const pad = (max - min) * 0.08 || 1;
+  const floor = min - (bar && min === 0 ? 0 : pad), ceiling = max + pad;
+  const x = (index: number) => left + (index + 0.5) / Math.max(points.length, 1) * plotWidth;
+  const y = (value: number) => top + (ceiling - value) / Math.max(ceiling - floor, 1) * plotHeight;
+  const zero = y(0);
+  const tickValues = Array.from({ length: 5 }, (_, index) => floor + (ceiling - floor) * index / 4).reverse();
+  const labelIndexes = useMemo(() => {
+    if (points.length <= 6) return points.map((_, index) => index);
+    return Array.from({ length: 6 }, (_, index) => Math.round(index * (points.length - 1) / 5));
+  }, [points]);
+  const path = points.map((point, index) => `${index ? "L" : "M"}${x(index).toFixed(2)},${y(point.value).toFixed(2)}`).join("");
+  const activeIndex = hovered ?? points.length - 1;
+  const active = points[activeIndex];
+  const updateHover = (event: React.PointerEvent<SVGSVGElement>) => {
+    const bounds = svg.current?.getBoundingClientRect();
+    if (!bounds || !points.length) return;
+    const local = (event.clientX - bounds.left) / bounds.width * width;
+    const index = Math.round((local - left) / plotWidth * points.length - 0.5);
+    setHovered(Math.max(0, Math.min(points.length - 1, index)));
+  };
+
+  if (!points.length) return null;
+  return <div className="macro-history-plot">
+    <svg ref={svg} viewBox={`0 0 ${width} ${height}`} role="img"
+      aria-label={`${history.indicator.label}, ${points.length} ${history.indicator.frequency.toLowerCase()} observations.`}
+      onPointerMove={updateHover} onPointerLeave={() => setHovered(null)}>
+      {tickValues.map((tick) => <g key={tick}>
+        <line className="macro-chart-grid" x1={left} x2={width - right} y1={y(tick)} y2={y(tick)}/>
+        <text className="macro-chart-axis" x={left - 9} y={y(tick) + 3} textAnchor="end">{axisValue(tick, history.indicator.decimals)}</text>
+      </g>)}
+      {bar && floor < 0 && ceiling > 0 && <line className="macro-chart-zero" x1={left} x2={width - right} y1={zero} y2={zero}/>}
+      {bar ? points.map((point, index) => {
+        const column = plotWidth / Math.max(points.length, 1);
+        const barWidth = Math.max(1, column * 0.72);
+        const pointY = y(point.value);
+        return <rect className={`macro-chart-bar${index === activeIndex ? " active" : ""}`} key={point.date}
+          x={x(index) - barWidth / 2} y={Math.min(pointY, zero)} width={barWidth} height={Math.max(1, Math.abs(zero - pointY))}/>;
+      }) : <path className="macro-chart-line" d={path}/>}
+      {active && <g className="macro-chart-active">
+        <line x1={x(activeIndex)} x2={x(activeIndex)} y1={top} y2={height - bottom}/>
+        <circle cx={x(activeIndex)} cy={y(active.value)} r={3}/>
+      </g>}
+      {labelIndexes.map((index) => <text className="macro-chart-axis" key={points[index].date}
+        x={x(index)} y={height - 8} textAnchor={index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"}>
+        {periodOf(points[index].date, history.indicator.frequency)}
+      </text>)}
+    </svg>
+    {active && <div className="macro-history-tooltip" aria-live="polite">
+      <span>{periodOf(active.date, history.indicator.frequency)}</span>
+      <strong>{valueOf({ value: active.value, unit: history.indicator.unit, decimals: history.indicator.decimals })}</strong>
+    </div>}
+  </div>;
+}
+
+function changeOf(points: MacroObservation[], indicator: MacroHistory["indicator"]) {
+  const current = points.at(-1)?.value;
+  const previous = points.at(-2)?.value;
+  if (current == null || previous == null) return "—";
+  const change = current - previous;
+  const suffix = indicator.unit === "index" ? "" : " pp";
+  return `${change > 0 ? "+" : change < 0 ? "−" : ""}${Math.abs(change).toFixed(indicator.decimals)}${suffix}`;
 }
 
 async function readEurostatDirect(country: MacroCountry, signal: AbortSignal) {
@@ -73,6 +156,10 @@ function mergeEurostat(answer: MacroAnswer | null, country: MacroCountry, eurost
 export function MacroSnapshot() {
   const [countryCode, setCountryCode] = useState("US");
   const [answers, setAnswers] = useState<Record<string, MacroAnswer>>({});
+  const [selected, setSelected] = useState<string | null>(null);
+  const [historyRange, setHistoryRange] = useState<HistoryRange>("10Y");
+  const [histories, setHistories] = useState<Record<string, MacroHistory>>({});
+  const [historyError, setHistoryError] = useState("");
   const answer = answers[countryCode];
   const country = MACRO_COUNTRIES.find((candidate) => candidate.code === countryCode) ?? MACRO_COUNTRIES[0];
 
@@ -100,7 +187,34 @@ export function MacroSnapshot() {
     };
     void load();
     return () => controller.abort();
-  }, [answers, country.name, countryCode]);
+  }, [answers, country, countryCode]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const key = `${countryCode}:${selected}:${historyRange}`;
+    if (histories[key]) return;
+    const controller = new AbortController();
+    setHistoryError("");
+    const load = async () => {
+      try {
+        const response = await fetch(`/api/macro/history?country=${encodeURIComponent(countryCode)}&series=${encodeURIComponent(selected)}&range=${historyRange}`, { signal: controller.signal });
+        const parsed = await readParsed<MacroHistory>(response, { what: `${country.name}'s historical macro data` });
+        if (parsed.error) throw new Error(parsed.error);
+        if (!parsed.data) throw new Error("Historical macro data is unavailable.");
+        if (!controller.signal.aborted) setHistories((current) => ({ ...current, [key]: parsed.data as MacroHistory }));
+      } catch (cause) {
+        if (!controller.signal.aborted) setHistoryError(cause instanceof Error ? cause.message : "Historical macro data is unavailable.");
+      }
+    };
+    void load();
+    return () => controller.abort();
+  }, [country.name, countryCode, histories, historyRange, selected]);
+
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setSelected(null); };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, []);
 
   const indicators = answer?.indicators ?? macroDefinitionsFor(countryCode).map((definition) => ({
     ...definition,
@@ -109,6 +223,10 @@ export function MacroSnapshot() {
     source: "",
     sourceUrl: "",
   }));
+  const historyKey = selected ? `${countryCode}:${selected}:${historyRange}` : "";
+  const history = histories[historyKey];
+  const selectedIndicator = indicators.find((indicator) => indicator.id === selected);
+  const historyLatest = history?.observations.at(-1);
 
   return (
     <section className="section macro-section" aria-labelledby="macro-heading">
@@ -122,7 +240,7 @@ export function MacroSnapshot() {
             className={`macro-country${option.code === countryCode ? " active" : ""}`}
             type="button"
             aria-pressed={option.code === countryCode}
-            onClick={() => setCountryCode(option.code)}
+            onClick={() => { setCountryCode(option.code); setSelected(null); setHistoryError(""); }}
             key={option.code}
           >
             {option.name}
@@ -130,20 +248,54 @@ export function MacroSnapshot() {
         ))}
       </div>
       {answer?.error && <p className="notice">{answer.error}</p>}
+      {selectedIndicator && <article className="macro-history-panel">
+        <header className="macro-history-head">
+          <div>
+            <span className="label">{country.name} · {history?.indicator.frequency ?? selectedIndicator.frequency}</span>
+            <h3>{selectedIndicator.label}</h3>
+            <p>{history?.indicator.note ?? selectedIndicator.note}</p>
+          </div>
+          <button className="macro-history-close" type="button" aria-label="Close historical chart" onClick={() => setSelected(null)}>×</button>
+        </header>
+        <div className="macro-history-summary">
+          <div><span className="label">Latest</span><strong>{historyLatest ? valueOf({ ...selectedIndicator, value: historyLatest.value, unit: history?.indicator.unit ?? selectedIndicator.unit, decimals: history?.indicator.decimals ?? selectedIndicator.decimals }) : valueOf(selectedIndicator)}</strong><small>{periodOf(historyLatest?.date ?? selectedIndicator.date, history?.indicator.frequency ?? selectedIndicator.frequency)}</small></div>
+          <div><span className="label">Previous</span><strong>{history?.observations.at(-2) ? valueOf({ ...selectedIndicator, value: history.observations.at(-2)?.value ?? null }) : "—"}</strong></div>
+          <div><span className="label">Change</span><strong>{history ? changeOf(history.observations, history.indicator) : "—"}</strong></div>
+          <div><span className="label">Observations</span><strong>{history?.observations.length.toLocaleString("en-US") ?? "—"}</strong></div>
+        </div>
+        <div className="macro-history-tools">
+          <div className="segmented" role="group" aria-label="Historical range">
+            {HISTORY_RANGES.map((range) => <button className={range === historyRange ? "active" : ""} type="button"
+              aria-pressed={range === historyRange} key={range} onClick={() => setHistoryRange(range)}>{range === "MAX" ? "Max" : range}</button>)}
+          </div>
+          <span className="label">{history?.indicator.source ?? selectedIndicator.source} · {history?.indicator.frequency ?? selectedIndicator.frequency}</span>
+        </div>
+        {!history && !historyError && <div className="macro-history-loading" role="status">Loading historical observations…</div>}
+        {historyError && <p className="notice">{historyError}</p>}
+        {history && <MacroHistoryChart history={history}/>}
+        <footer className="macro-history-foot">
+          <span>Published observations only · no interpolation</span>
+          {(history?.indicator.sourceUrl || selectedIndicator.sourceUrl) && <a href={history?.indicator.sourceUrl || selectedIndicator.sourceUrl} target="_blank" rel="noreferrer">Open official source ↗</a>}
+        </footer>
+      </article>}
       <div className="grid-ruled macro-grid" aria-busy={answer == null}>
         {indicators.map((indicator) => (
-          <article className="macro-card" key={indicator.id}>
-            <span className="label">{indicator.label}</span>
-            <strong data-empty={indicator.value == null}>{answer == null ? "···" : valueOf(indicator)}</strong>
-            <small>{indicator.note}</small>
+          <article className={`macro-card${selected === indicator.id ? " active" : ""}`} key={indicator.id}>
+            <button className="macro-card-open" type="button" aria-expanded={selected === indicator.id}
+              aria-label={`Open ${indicator.label} history`} onClick={() => { setSelected(indicator.id); setHistoryError(""); }}>
+              <span className="label">{indicator.label}</span>
+              <strong data-empty={indicator.value == null}>{answer == null ? "···" : valueOf(indicator)}</strong>
+              <small>{indicator.note}</small>
+              <span className="macro-card-action">View history ↗</span>
+            </button>
             <div className="macro-card-meta">
               {indicator.sourceUrl ? <a href={indicator.sourceUrl} target="_blank" rel="noreferrer">{indicator.source}</a> : <span>Official release</span>}
-              <time dateTime={indicator.date ?? undefined}>{periodOf(indicator.date, indicator.frequency)}</time>
+              <time dateTime={indicator.date ?? undefined}>{indicator.frequency} · {periodOf(indicator.date, indicator.frequency)}</time>
             </div>
           </article>
         ))}
       </div>
-      <p className="macro-foot">Official releases only. Frequencies differ by series; no estimate is substituted for a missing observation.</p>
+      <p className="macro-foot">Select any indicator for its history. Inflation and unemployment are monthly where the official source publishes them; GDP remains quarterly. No missing period is estimated.</p>
     </section>
   );
 }
