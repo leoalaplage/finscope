@@ -10,6 +10,7 @@ import { Score } from "./Score";
 import { Multiples } from "./Multiples";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
 import { toggleMetric } from "./selection";
+import { CompanyNews } from "./CompanyNews";
 import { Statements } from "./Statements";
 import { Stats } from "./Stats";
 import { ValuationHistory } from "./ValuationHistory";
@@ -356,6 +357,13 @@ export function Company({ ticker }: { ticker: string }) {
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
       <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
       <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
+      {/* Last, because it is the only thing on this page the company did not
+          file: what it has said since. It draws itself away if there is
+          nothing verified to read. */}
+      {/* Keyed by the company, so moving from one to another starts this
+          panel over rather than leaving the first one's releases on screen
+          under the second one's name while the request is out. */}
+      <CompanyNews key={company.ticker} ticker={company.ticker} />
 
       <footer className="foot">
         <span className="label">Source</span>

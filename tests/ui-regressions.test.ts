@@ -681,6 +681,21 @@ describe("the redesign", () => {
     expect(market).toContain("const top = shared ? fromPercent(shared.high) : high + pad;");
   });
 
+  it("puts the company's own newsroom last on its page, under everything it filed", () => {
+    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const market = readFileSync(new URL("../components/io/MarketNews.tsx", import.meta.url), "utf8");
+    // Under the statements: the page is what the company filed, and this is
+    // the one section that is what it said since.
+    expect(company.indexOf("<CompanyNews key={company.ticker} ticker={company.ticker} />")).toBeGreaterThan(company.indexOf("<Statements view={view}"));
+    expect(company.indexOf("<CompanyNews")).toBeLessThan(company.indexOf('<footer className="foot">'));
+    // Both news panels read an instant the same way, from one helper.
+    expect(market).toContain('import { clock } from "./format"');
+    expect(market).not.toContain("function clock(");
+    // Keyed by company, so one company's releases never sit under another's
+    // name while the next request is out.
+    expect(company).toContain("<CompanyNews key={company.ticker}");
+  });
+
   it("puts an official, date-explicit macro snapshot below the market indices", () => {
     const page = readFileSync(new URL("../app/market/page.tsx", import.meta.url), "utf8");
     const macro = readFileSync(new URL("../components/io/MacroSnapshot.tsx", import.meta.url), "utf8");

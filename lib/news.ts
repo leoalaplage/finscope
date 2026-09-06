@@ -75,6 +75,33 @@ const field = (item: string, tag: string): string | null => {
 };
 
 /**
+ * The first tag of a name that carries content, of the several a feed may use.
+ *
+ * RSS and Atom name the same four things differently — `description` against
+ * `summary`, `pubDate` against `published` — and an entry may carry one, the
+ * other, or both.
+ */
+const firstField = (item: string, tags: string[]): string | null => {
+  for (const tag of tags) {
+    const value = field(item, tag);
+    if (value != null && value.trim()) return value;
+  }
+  return null;
+};
+
+/**
+ * An attribute, for the one field Atom writes as one.
+ *
+ * Atom files an entry's section as `<category term="UPDATE"/>`: a self-closing
+ * tag with nothing between it and its close, so reading its content returns
+ * the empty string and the section is lost.
+ */
+const attribute = (item: string, tag: string, name: string): string | null => {
+  const found = new RegExp(`<${tag}\\s[^>]*\\b${name}\\s*=\\s*"([^"]*)"`, "i").exec(item);
+  return found ? found[1] : null;
+};
+
+/**
  * Every item a feed carries, in the order it carries them.
  *
  * Written against the document rather than with an XML parser, because the
@@ -83,17 +110,33 @@ const field = (item: string, tag: string): string | null => {
  * is optional and absent where the feed does not say.
  */
 export function parseNewsFeed(xml: string, limit = 24): NewsItem[] {
+  /*
+   * RSS or Atom, because a newsroom is whichever its platform emits.
+   *
+   * The market wire is RSS and Apple's newsroom is Atom — `<entry>` instead of
+   * `<item>`, `<updated>` instead of `<pubDate>` — and reading only RSS gave
+   * Apple, the largest company on the site, a feed of twenty releases that
+   * parsed to nothing. The two formats disagree about four tag names and about
+   * nothing else that matters here, so they are read as one, with `<item>`
+   * deciding which document this is.
+   */
+  const rss = /<item(?:\s[^>]*)?>/i.test(xml);
+  const entries = rss
+    ? xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)
+    : xml.matchAll(/<entry(?:\s[^>]*)?>([\s\S]*?)<\/entry>/gi);
   const items: NewsItem[] = [];
-  for (const match of xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)) {
+  for (const match of entries) {
     const item = match[1];
     const title = plain(field(item, "title") ?? "", MAX_TITLE);
     if (!title) continue;
-    const published = plain(field(item, "pubDate") ?? "", 64);
+    // `published` before `updated`: a release that was corrected afterwards is
+    // still news of the day it was made.
+    const published = plain(firstField(item, ["pubDate", "published", "updated"]) ?? "", 64);
     const stamp = published ? Date.parse(published) : Number.NaN;
     items.push({
       title,
-      summary: plain(field(item, "description") ?? "", MAX_SUMMARY),
-      category: plain(field(item, "category") ?? "", 40) || null,
+      summary: plain(firstField(item, ["description", "summary", "content"]) ?? "", MAX_SUMMARY),
+      category: plain(firstField(item, ["category"]) ?? attribute(item, "category", "term") ?? "", 40) || null,
       publishedAt: Number.isFinite(stamp) ? new Date(stamp).toISOString() : null,
     });
     if (items.length === limit) break;

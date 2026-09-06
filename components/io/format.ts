@@ -156,6 +156,26 @@ export function yearOf(iso: string): string {
   return iso.slice(0, 4);
 }
 
+/**
+ * The hour for something published today, the date for anything older.
+ *
+ * A news item is read for how recent it is, and "14:20" says that where a date
+ * repeated eighteen times says nothing at all. Shared by the two news panels:
+ * the wire under the market and a company's own newsroom read the same way.
+ */
+export function clock(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return "";
+  const today = new Date();
+  const sameDay = at.getUTCFullYear() === today.getUTCFullYear()
+    && at.getUTCMonth() === today.getUTCMonth()
+    && at.getUTCDate() === today.getUTCDate();
+  return sameDay
+    ? at.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+    : shortDate(iso);
+}
+
 /** Where the filing this figure came from can be read in full. */
 export function edgarUrl(cik: string, accession: string): string | null {
   const digits = accession.replace(/\D/g, "");

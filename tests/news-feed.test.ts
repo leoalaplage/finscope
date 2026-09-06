@@ -87,3 +87,40 @@ describe("reading a news feed", () => {
     expect(parseNewsFeed("<html>not a feed</html>")).toEqual([]);
   });
 });
+
+describe("reading an Atom newsroom", () => {
+  // Apple's newsroom, as it actually arrives: entries rather than items, an
+  // instant in `updated`, and the section written as an attribute.
+  const atom = `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title><![CDATA[Apple Newsroom]]></title><updated><![CDATA[2026-08-27T13:59:18.486Z]]></updated>
+<entry><updated><![CDATA[2026-08-27T13:59:18.486Z]]></updated><category term="UPDATE"/><title><![CDATA[Exciting updates come to Apple Arcade
+]]></title><link href="https://www.apple.com/newsroom/2026/08/a/"/><summary><![CDATA[<p>A sentence about the update.</p>]]></summary></entry>
+<entry><published>2026-08-01T09:00:00Z</published><updated>2026-08-02T09:00:00Z</updated><title>Second release</title></entry></feed>`;
+
+  it("reads an entry the way it reads an item", () => {
+    const items = parseNewsFeed(atom);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toEqual({
+      title: "Exciting updates come to Apple Arcade",
+      summary: "A sentence about the update.",
+      category: "UPDATE",
+      publishedAt: "2026-08-27T13:59:18.486Z",
+    });
+  });
+
+  it("dates a release by when it was published, not by when it was corrected", () => {
+    expect(parseNewsFeed(atom)[1].publishedAt).toBe("2026-08-01T09:00:00.000Z");
+  });
+
+  it("never mistakes the feed's own title for an entry", () => {
+    // The feed-level <title> and <updated> sit outside every entry, and a
+    // reader that swept the whole document would file "Apple Newsroom" as the
+    // most recent headline.
+    expect(parseNewsFeed(atom).map((item) => item.title)).not.toContain("Apple Newsroom");
+  });
+
+  it("still reads an RSS feed as items when the document carries both names", () => {
+    const rss = `<rss><channel><item><title>An item</title></item></channel></rss>`;
+    expect(parseNewsFeed(rss).map((item) => item.title)).toEqual(["An item"]);
+  });
+});

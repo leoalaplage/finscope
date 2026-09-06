@@ -5,18 +5,21 @@ import { clock } from "./format";
 import type { NewsItem } from "@/lib/news";
 
 /**
- * The wire, under the indices.
+ * What the company itself has said lately, at the foot of its page.
  *
- * Headlines, in the same ink as everything else on the site: an hour, a
- * section, and the line itself. Nothing here is a link and nothing here is an
- * image — what the page offers is the news read where the reader already is,
- * rather than a row of doors out of it. Somebody else wrote these lines and
- * they are shown as their words, stripped to text on the way in and never
- * rendered as markup.
+ * The rest of this page is what a company filed: audited, dated, and months
+ * old by the time it is read. This is the other half of the same question —
+ * what it announced since — and it is the company's own newsroom rather than
+ * anybody's coverage of it, so the two halves of the page have the same author.
  *
- * Loaded after the charts and never in their way: the indices are what the page
- * is for, and a feed that is slow, refused or empty leaves the rest of the page
- * exactly as it was.
+ * Read exactly like the wire on the market page: stripped to text in the
+ * Worker, no markup, no images and no links. A headline is worth reading
+ * without being a door, and the one place this site sends a reader out to is
+ * the filing in the footer.
+ *
+ * A company with no verified feed has no panel. Not an empty box, not an
+ * apology — the page simply ends at the statements, exactly as it did before
+ * this section existed.
  */
 
 /** The item as the page draws it: the summary never crosses. */
@@ -27,14 +30,14 @@ type State =
   | { kind: "absent" }
   | { kind: "ready"; items: Headline[] };
 
-export function MarketNews() {
+export function CompanyNews({ ticker }: { ticker: string }) {
   const [state, setState] = useState<State>({ kind: "loading" });
 
   useEffect(() => {
     const controller = new AbortController();
     (async () => {
       try {
-        const response = await fetch("/api/news", { signal: controller.signal });
+        const response = await fetch(`/api/company/${encodeURIComponent(ticker)}/news`, { signal: controller.signal });
         if (!response.ok) { setState({ kind: "absent" }); return; }
         const payload = await response.json() as { items?: Headline[] };
         const items = (payload.items ?? []).filter((item) => item.title);
@@ -44,17 +47,15 @@ export function MarketNews() {
       }
     })();
     return () => controller.abort();
-  }, []);
+  }, [ticker]);
 
-  // A feed nobody can reach is simply not a section. The market page is about
-  // the indices above it, and an error box under them would say nothing a
-  // reader of this page came for.
   if (state.kind === "absent") return null;
 
   return (
-    <section className="section news" aria-labelledby="news-title">
+    <section className="section news" aria-labelledby="company-news-title">
       <div className="section-head">
-        <h2 className="label" id="news-title">Latest news</h2>
+        <h2 className="label" id="company-news-title">Newsroom</h2>
+        <span className="label">{ticker} · published by the company</span>
       </div>
       {state.kind === "loading" ? (
         <div className="news-list">
@@ -64,9 +65,6 @@ export function MarketNews() {
         <div className="news-list">
           {state.items.map((item) => (
             <article className="news-item" key={`${item.publishedAt ?? ""}${item.title}`}>
-              {/* The hour, or the date once an item is older than today. The
-                  section it was filed under names the headline rather than
-                  labelling it, so it reads at the end of the line. */}
               <div className="news-meta">
                 {item.publishedAt ? <time dateTime={item.publishedAt}>{clock(item.publishedAt)}</time> : null}
               </div>
