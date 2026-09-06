@@ -422,7 +422,7 @@ export function MacroSnapshot() {
         {indicators.map((indicator) => (
           <article className={`macro-card${selected === indicator.id ? " active" : ""}`} key={indicator.id}>
             <button className="macro-card-open" type="button" aria-expanded={selected === indicator.id}
-              aria-label={`Open ${indicator.label} history`} onClick={() => { setSelected(indicator.id); if (indicator.id === "inflation") setInflationView("level"); setComparisonCountries([]); setHistoryError(""); }}>
+              aria-label={`Open ${indicator.label} history`} onClick={() => { setSelected(indicator.id); if (indicator.id === "inflation") { setInflationView("level"); setHistoryRange("5Y"); } setComparisonCountries([]); setHistoryError(""); }}>
               <span className="label">{indicator.label}</span>
               <strong data-empty={indicator.value == null}>{answer == null ? "···" : valueOf(indicator)}</strong>
               <small>{indicator.note}</small>
