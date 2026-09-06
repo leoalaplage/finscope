@@ -1,12 +1,22 @@
+export type MacroFrequency = "Daily" | "Monthly" | "Quarterly" | "Annual";
+export type MacroUnit = "percent" | "percentage-points" | "index";
+
+export interface MacroCountry {
+  code: string;
+  name: string;
+  worldBank: string;
+  oecd?: string;
+  eurostat?: string;
+  ecb?: boolean;
+}
+
 export interface MacroSeriesDefinition {
   id: string;
-  series: string;
   label: string;
   note: string;
-  frequency: "Daily" | "Monthly";
-  unit: "percent" | "percentage-points";
+  frequency: MacroFrequency;
+  unit: MacroUnit;
   decimals: number;
-  sourceUrl: string;
 }
 
 export interface MacroObservation {
@@ -17,22 +27,95 @@ export interface MacroObservation {
 export interface MacroIndicator extends MacroSeriesDefinition {
   value: number | null;
   date: string | null;
+  source: string;
+  sourceUrl: string;
   error?: string;
 }
 
-/**
- * A compact view of the US policy rate and Treasury curve. Frequencies remain
- * explicit so the section can later accept monthly macro releases without
- * presenting them as though they arrived with the daily rates.
- */
-export const MACRO_SERIES: MacroSeriesDefinition[] = [
-  { id: "fed-funds", series: "EFFR", label: "Fed funds", note: "Effective rate", frequency: "Daily", unit: "percent", decimals: 2, sourceUrl: "https://www.newyorkfed.org/markets/reference-rates/effr" },
-  { id: "treasury-3m", series: "BC_3MONTH", label: "US 3M yield", note: "Treasury par yield", frequency: "Daily", unit: "percent", decimals: 2, sourceUrl: "https://home.treasury.gov/treasury-daily-interest-rate-xml-feed" },
-  { id: "treasury-2y", series: "BC_2YEAR", label: "US 2Y yield", note: "Treasury par yield", frequency: "Daily", unit: "percent", decimals: 2, sourceUrl: "https://home.treasury.gov/treasury-daily-interest-rate-xml-feed" },
-  { id: "treasury-10y", series: "BC_10YEAR", label: "US 10Y yield", note: "Treasury par yield", frequency: "Daily", unit: "percent", decimals: 2, sourceUrl: "https://home.treasury.gov/treasury-daily-interest-rate-xml-feed" },
-  { id: "treasury-30y", series: "BC_30YEAR", label: "US 30Y yield", note: "Treasury par yield", frequency: "Daily", unit: "percent", decimals: 2, sourceUrl: "https://home.treasury.gov/treasury-daily-interest-rate-xml-feed" },
-  { id: "curve", series: "BC_10YEAR-BC_2YEAR", label: "10Y − 2Y curve", note: "Treasury spread", frequency: "Daily", unit: "percentage-points", decimals: 2, sourceUrl: "https://home.treasury.gov/treasury-daily-interest-rate-xml-feed" },
+export const MACRO_COUNTRIES: MacroCountry[] = [
+  { code: "US", name: "United States", worldBank: "USA", oecd: "USA" },
+  { code: "EA", name: "Euro area", worldBank: "EMU", eurostat: "EA20", ecb: true },
+  { code: "FR", name: "France", worldBank: "FRA", oecd: "FRA", eurostat: "FR", ecb: true },
+  { code: "DE", name: "Germany", worldBank: "DEU", oecd: "DEU", eurostat: "DE", ecb: true },
+  { code: "IT", name: "Italy", worldBank: "ITA", oecd: "ITA", eurostat: "IT", ecb: true },
+  { code: "ES", name: "Spain", worldBank: "ESP", oecd: "ESP", eurostat: "ES", ecb: true },
+  { code: "GB", name: "United Kingdom", worldBank: "GBR", oecd: "GBR" },
+  { code: "JP", name: "Japan", worldBank: "JPN", oecd: "JPN" },
+  { code: "CN", name: "China", worldBank: "CHN", oecd: "CHN" },
+  { code: "CA", name: "Canada", worldBank: "CAN", oecd: "CAN" },
 ];
+
+export const COMMON_MACRO_SERIES: MacroSeriesDefinition[] = [
+  { id: "inflation", label: "Inflation", note: "Consumer prices · year over year", frequency: "Annual", unit: "percent", decimals: 1 },
+  { id: "gdp-growth", label: "GDP growth", note: "Real output growth", frequency: "Annual", unit: "percent", decimals: 1 },
+  { id: "unemployment", label: "Unemployment", note: "Share of labour force", frequency: "Annual", unit: "percent", decimals: 1 },
+  { id: "current-account", label: "Current account", note: "Balance as a share of GDP", frequency: "Annual", unit: "percent", decimals: 1 },
+];
+
+export const US_RATE_SERIES: MacroSeriesDefinition[] = [
+  { id: "fed-funds", label: "Fed funds", note: "Effective rate", frequency: "Daily", unit: "percent", decimals: 2 },
+  { id: "treasury-3m", label: "US 3M yield", note: "Treasury par yield", frequency: "Daily", unit: "percent", decimals: 2 },
+  { id: "treasury-2y", label: "US 2Y yield", note: "Treasury par yield", frequency: "Daily", unit: "percent", decimals: 2 },
+  { id: "treasury-10y", label: "US 10Y yield", note: "Treasury par yield", frequency: "Daily", unit: "percent", decimals: 2 },
+  { id: "treasury-30y", label: "US 30Y yield", note: "Treasury par yield", frequency: "Daily", unit: "percent", decimals: 2 },
+  { id: "curve", label: "10Y − 2Y curve", note: "Treasury spread", frequency: "Daily", unit: "percentage-points", decimals: 2 },
+];
+
+export const ECB_RATE_SERIES: MacroSeriesDefinition = {
+  id: "ecb-rate",
+  label: "ECB deposit rate",
+  note: "Deposit facility",
+  frequency: "Daily",
+  unit: "percent",
+  decimals: 2,
+};
+
+export const OECD_SERIES: MacroSeriesDefinition = {
+  id: "oecd-cli",
+  label: "Leading indicator",
+  note: "OECD composite · trend = 100",
+  frequency: "Monthly",
+  unit: "index",
+  decimals: 1,
+};
+
+export const EUROSTAT_SERIES = [
+  {
+    definition: { ...COMMON_MACRO_SERIES[0], frequency: "Monthly" as const },
+    dataset: "prc_hicp_minr",
+    parameters: "coicop18=TOTAL&unit=RCH_A",
+  },
+  {
+    definition: { ...COMMON_MACRO_SERIES[1], note: "Real output · quarter over quarter", frequency: "Quarterly" as const },
+    dataset: "namq_10_gdp",
+    parameters: "s_adj=SCA&na_item=B1GQ&unit=CLV_PCH_PRE",
+  },
+  {
+    definition: { ...COMMON_MACRO_SERIES[2], frequency: "Monthly" as const },
+    dataset: "une_rt_m",
+    parameters: "s_adj=SA&age=TOTAL&sex=T&unit=PC_ACT",
+  },
+] as const;
+
+export function eurostatUrls(dataset: string, geo: string, parameters: string, frequency: MacroFrequency) {
+  const year = new Date().getUTCFullYear() - 2;
+  const since = frequency === "Quarterly" ? `${year}-Q1` : `${year}-01`;
+  return {
+    api: `https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/${dataset}?geo=${geo}&${parameters}&sinceTimePeriod=${since}`,
+    source: `https://ec.europa.eu/eurostat/databrowser/view/${dataset}/default/table?lang=en`,
+  };
+}
+
+/** Definitions in their stable visual order for the selected geography. */
+export function macroDefinitionsFor(countryCode: string): MacroSeriesDefinition[] {
+  const country = MACRO_COUNTRIES.find((candidate) => candidate.code === countryCode) ?? MACRO_COUNTRIES[0];
+  return [
+    ...COMMON_MACRO_SERIES,
+    ...(country.code === "US" ? US_RATE_SERIES : []),
+    ...(country.ecb ? [ECB_RATE_SERIES] : []),
+    ...(country.oecd ? [OECD_SERIES] : []),
+  ];
+}
 
 export interface TreasuryRates {
   date: string;
@@ -57,4 +140,79 @@ export function parseTreasuryRates(xml: string): TreasuryRates | null {
       : [];
   });
   return parsed.sort((a, b) => a.date.localeCompare(b.date)).at(-1) ?? null;
+}
+
+/** Latest non-null annual observation returned by the World Bank API. */
+export function parseWorldBankObservation(payload: unknown): MacroObservation | null {
+  if (!Array.isArray(payload) || !Array.isArray(payload[1])) return null;
+  const observations = payload[1] as Array<{ date?: unknown; value?: unknown }>;
+  for (const observation of observations) {
+    const value = Number(observation.value);
+    if (typeof observation.date === "string" && observation.value != null && Number.isFinite(value)) {
+      return { date: observation.date, value };
+    }
+  }
+  return null;
+}
+
+interface EurostatPayload {
+  value?: Record<string, number>;
+  dimension?: { time?: { category?: { index?: Record<string, number> } } };
+}
+
+/** Latest populated time cell in a Eurostat JSON-stat response. */
+export function parseEurostatObservation(payload: unknown): MacroObservation | null {
+  if (!payload || typeof payload !== "object") return null;
+  const data = payload as EurostatPayload;
+  const time = data.dimension?.time?.category?.index;
+  if (!time || !data.value) return null;
+  return Object.entries(time)
+    .flatMap(([date, index]) => {
+      const value = Number(data.value?.[String(index)]);
+      return Number.isFinite(value) ? [{ date, value }] : [];
+    })
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .at(-1) ?? null;
+}
+
+/** A small CSV reader which is sufficient for the official ECB/OECD exports. */
+export function parseCsvRows(csv: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let index = 0; index < csv.length; index++) {
+    const character = csv[index];
+    if (character === '"') {
+      if (quoted && csv[index + 1] === '"') { field += '"'; index++; }
+      else quoted = !quoted;
+    } else if (character === "," && !quoted) {
+      row.push(field); field = "";
+    } else if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && csv[index + 1] === "\n") index++;
+      row.push(field);
+      if (row.some((cell) => cell.length > 0)) rows.push(row);
+      row = []; field = "";
+    } else {
+      field += character;
+    }
+  }
+  if (field.length || row.length) {
+    row.push(field);
+    if (row.some((cell) => cell.length > 0)) rows.push(row);
+  }
+  return rows;
+}
+
+/** Read the latest TIME_PERIOD / OBS_VALUE pair from an SDMX CSV export. */
+export function parseSdmxCsvObservation(csv: string): MacroObservation | null {
+  const [header, ...rows] = parseCsvRows(csv);
+  if (!header) return null;
+  const timeIndex = header.indexOf("TIME_PERIOD");
+  const valueIndex = header.indexOf("OBS_VALUE");
+  if (timeIndex < 0 || valueIndex < 0) return null;
+  return rows.flatMap((row) => {
+    const value = Number(row[valueIndex]);
+    return row[timeIndex] && Number.isFinite(value) ? [{ date: row[timeIndex], value }] : [];
+  }).sort((a, b) => a.date.localeCompare(b.date)).at(-1) ?? null;
 }

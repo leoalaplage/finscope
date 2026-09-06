@@ -821,19 +821,31 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .market-page .skeleton-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--u) * 4); }
 .market-page .skeleton-block { display: block; border: 1px solid var(--line); border-radius: var(--radius); background: var(--fill); animation: io-fade 1.5s ease-in-out infinite; }
 
+.macro-countries {
+  display: flex; flex-wrap: wrap; gap: 1px; width: fit-content; max-width: 100%;
+  margin-bottom: calc(var(--u) * 4); border: 1px solid var(--line); border-radius: var(--radius);
+  overflow: hidden; background: var(--line);
+}
+.macro-country {
+  padding: 5px 9px; background: var(--bg); color: var(--ink-3);
+  font-family: var(--mono); font-size: var(--fs-xs); white-space: nowrap;
+}
+.macro-country:hover { color: var(--ink); }
+.macro-country.active { background: var(--ink); color: var(--inverse); }
+.macro-section .notice { margin-bottom: calc(var(--u) * 4); color: var(--ink-3); font-family: var(--mono); font-size: var(--fs-xs); }
 .macro-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.macro-card { min-height: 112px; padding: 12px; }
+.macro-card { min-height: 126px; padding: 12px; }
 .macro-card strong {
   display: block; margin-top: calc(var(--u) * 2);
   font-family: var(--mono); font-size: var(--fs-xl); font-weight: 550; font-variant-numeric: tabular-nums;
 }
 .macro-card strong[data-empty="true"] { color: var(--ink-3); }
-.macro-card small, .macro-card time { display: block; font-family: var(--mono); font-size: var(--fs-micro); }
+.macro-card small, .macro-card-meta { font-family: var(--mono); font-size: var(--fs-micro); }
 .macro-card small { margin-top: 4px; color: var(--ink-2); }
-.macro-card time { margin-top: calc(var(--u) * 3); color: var(--ink-3); }
+.macro-card-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--u) calc(var(--u) * 3); margin-top: calc(var(--u) * 3); color: var(--ink-3); }
+.macro-card-meta a { color: var(--ink-2); border-bottom: 1px solid var(--line-strong); }
+.macro-card-meta a:hover { color: var(--ink); border-bottom-color: var(--ink); }
 .macro-foot { margin-top: calc(var(--u) * 3); font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-3); }
-.macro-foot a { color: var(--ink-2); border-bottom: 1px solid var(--line-strong); }
-.macro-foot a:hover { color: var(--ink); border-bottom-color: var(--ink); }
 
 @media (max-width: 1100px) { .index-grid, .market-page .skeleton-cards { grid-template-columns: 1fr; } }
 @media (max-width: 640px) {

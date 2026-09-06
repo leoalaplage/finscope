@@ -677,13 +677,20 @@ describe("the redesign", () => {
     const page = readFileSync(new URL("../app/market/page.tsx", import.meta.url), "utf8");
     const macro = readFileSync(new URL("../components/io/MacroSnapshot.tsx", import.meta.url), "utf8");
     const route = readFileSync(new URL("../app/api/macro/route.ts", import.meta.url), "utf8");
+    const definitions = readFileSync(new URL("../lib/macro.ts", import.meta.url), "utf8");
     expect(page.indexOf("<MacroSnapshot />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
     expect(page.indexOf("<MarketNews />")).toBeGreaterThan(page.indexOf("<MacroSnapshot />"));
-    expect(macro).toContain("US policy &amp; rates · latest observation");
-    expect(macro).toContain("Each figure keeps its own observation date");
+    expect(macro).toContain('aria-label="Select a macro geography"');
+    expect(macro).toContain("latest available data");
+    expect(macro).toContain("Official releases only");
+    expect(macro).toContain("readEurostatDirect");
+    expect(route).toContain("api.worldbank.org");
+    expect(definitions).toContain("ec.europa.eu/eurostat/api");
+    expect(route).toContain("data-api.ecb.europa.eu");
+    expect(route).toContain("sdmx.oecd.org");
     expect(route).toContain("https://markets.newyorkfed.org/api/rates/unsecured/effr/last/1.json");
     expect(route).toContain("daily_treasury_yield_curve");
-    expect(route).toContain('s-maxage=21600');
+    expect(route).toContain('cachedJson(`macro:${country.code}:v5`');
   });
 
   it("returns to the last valid company, or to the watchlist without one", () => {
