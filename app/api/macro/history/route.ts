@@ -175,11 +175,10 @@ async function worldBankHistory(country: MacroCountry, definition: MacroSeriesDe
 async function eurostatHistory(country: MacroCountry, definition: MacroSeriesDefinition, range: HistoryRange) {
   if (!country.eurostat) return null;
   const config = definition.id === "cpi-index"
-    ? { definition: CPI_INDEX_SERIES, dataset: "prc_hicp_midx", parameters: "coicop=CP00&unit=I15" }
+    ? { definition: CPI_INDEX_SERIES, dataset: "prc_hicp_minr", parameters: "coicop18=TOTAL&unit=I25" }
     : EUROSTAT_SERIES.find((candidate) => candidate.definition.id === definition.id);
   if (!config) return null;
-  const geo = definition.id === "cpi-index" && country.code === "EA" ? "EA" : country.eurostat;
-  const urls = eurostatUrls(config.dataset, geo, config.parameters, config.definition.frequency);
+  const urls = eurostatUrls(config.dataset, country.eurostat, config.parameters, config.definition.frequency);
   const api = new URL(urls.api);
   api.searchParams.set("sinceTimePeriod", startPeriod(range, config.definition.frequency, 1990));
   return {
@@ -329,8 +328,9 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unknown macro history request." }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
   const range = requestedRange as HistoryRange;
+  const cacheVersion = definition.id === CPI_INDEX_SERIES.id ? "v4" : "v3";
   const { body, hit } = await cachedJson(
-    `macro-history:${country.code}:${definition.id}:${range}:v3`,
+    `macro-history:${country.code}:${definition.id}:${range}:${cacheVersion}`,
     21_600,
     () => buildHistory(country, definition, range),
     completeness,

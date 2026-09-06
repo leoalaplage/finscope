@@ -706,7 +706,7 @@ describe("the redesign", () => {
     expect(history).toContain("OECD.SDD.TPS,DSD_PRICES@DF_PRICES_ALL");
     expect(history).toContain("DF_IALFS_UNE_M");
     expect(history).toContain("DF_QNA_EXPENDITURE_GROWTH_G20");
-    expect(history).toContain("prc_hicp_midx");
+    expect(history).toContain('parameters: "coicop18=TOTAL&unit=I25"');
     expect(history).toContain(".M.N.CPI.IX._T.N._Z");
     expect(history).toContain("rebaseObservations");
     expect(history).toContain("macro-history:");
