@@ -1,11 +1,16 @@
 
 /**
- * Joining a traded price to a filed period, and nothing else.
+ * Putting a traded price and a filed measure on one frame, and nothing else.
  *
- * The company page draws one point per period and places it by its position in
- * the series, so a share price shown beside a measure has to *be* those periods
- * rather than a daily line laid over them. These functions are that join, kept
- * apart from the component so every part of it can be checked directly.
+ * The two are quoted at grains an order of magnitude apart — a close every week
+ * against a figure every quarter — so the frame cannot be a row of positions
+ * both of them fill. It is a stretch of time, and each line is placed in it by
+ * its own dates: the price keeps every close it has, the measure keeps its
+ * periods, and the measure's line simply ends before the right edge when the
+ * market has traded past the last filing.
+ *
+ * These functions are that placement, kept apart from the component so every
+ * part of it can be checked directly.
  */
 
 export interface Bar { date: string; close: number }
@@ -45,31 +50,42 @@ export function closesAsOf(bars: Bar[], dates: string[]): Array<Close | null> {
 }
 
 /**
- * The same closes, except that the newest period carries today's price.
+ * The price itself, at the grain it was quoted, over the window a chart covers.
  *
- * The chart stops at the newest period that has been filed. The market does
- * not: it has kept trading through the weeks or months since, and it is that
- * price a reader is holding a measure up against. Reading the last point at its
- * own period end drew a line that stopped where the last filing did — Apple on
- * 7 September 2026 showed $283.78 under "Share price" while the price chart at
- * the top of the same page carried $319.97, thirteen per cent apart, two
- * figures on one screen that could not both be the share price.
+ * One point per filed period is the right shape for a *measure* and the wrong
+ * one for a price. A year of trailing quarters is five points, and five points
+ * drew the share price as four straight lines between quarter ends: the low of
+ * the year was whichever quarter end happened to catch it, a fall and a
+ * recovery inside one quarter did not exist, and the reader was looking at a
+ * line that no longer resembled the thing it was named after.
  *
- * Every earlier period keeps its own end, because there the chart has a next
- * point and the price at the time is the honest companion to the filing. Only
- * the newest one moves, and it moves to the latest close there is rather than
- * to an extrapolation. The date it moved to comes back with it, so the page can
- * say what it did instead of quietly showing a price the crosshair's date does
- * not name.
+ * So the price keeps every close in the window instead. It starts on the first
+ * period end — the same instant the measure starts, so the two lines share a
+ * left edge — and runs to the newest close there is. Nothing is averaged,
+ * resampled or interpolated; these are the weekly closes as they came.
  */
-export function overlayCloses(bars: Bar[], periodEnds: string[]): Array<Close | null> {
-  const closes = closesAsOf(bars, periodEnds);
-  const latest = bars.at(-1);
-  const last = closes.length - 1;
-  if (!latest || last < 0 || closes[last] == null) return closes;
-  if (latest.date <= closes[last]!.on) return closes;
-  closes[last] = { value: latest.close, on: latest.date };
-  return closes;
+export function priceSeries(bars: Bar[], from: string): Close[] {
+  const opening = closesAsOf(bars, [from])[0];
+  const after = bars.filter((bar) => bar.date > from).map((bar) => ({ value: bar.close, on: bar.date }));
+  return opening ? [{ value: opening.value, on: from }, ...after] : after;
+}
+
+/**
+ * Where each date falls across a window, as a fraction of its width.
+ *
+ * Two series on one frame only share an x axis if that axis means something to
+ * both of them. Spread by position it means nothing: fifty-two weekly closes
+ * and five quarters spread evenly across the same frame put week thirteen and
+ * quarter two in different places, and the crosshair would name a date for one
+ * line while pointing at another date on the other. Placed by their dates, both
+ * lines are on the same axis — time — and the measure simply stops before the
+ * right edge, which is the truth about it.
+ */
+export function positions(dates: string[], from: string, to: string): number[] {
+  const start = Date.parse(`${from}T00:00:00Z`), end = Date.parse(`${to}T00:00:00Z`);
+  const span = end - start;
+  if (!Number.isFinite(span) || span <= 0) return dates.map((_, index) => (dates.length < 2 ? 0.5 : index / (dates.length - 1)));
+  return dates.map((date) => Math.min(1, Math.max(0, (Date.parse(`${date}T00:00:00Z`) - start) / span)));
 }
 
 /** Whole days between two ISO dates, or nothing when either is missing. */

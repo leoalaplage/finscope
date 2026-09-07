@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
-import { axisExtents, Figure, MultiAxis, type AxisSeries, type PricePoint } from "./Plot";
+import { axisExtents, Figure, MultiAxis, pointAt, type AxisSeries, type PricePoint } from "./Plot";
 import { axesFor, fromBase } from "./selection";
-import { daysBetween, overlayCloses, overlayWindow, type Bar } from "./overlay";
+import { daysBetween, overlayWindow, positions, priceSeries, type Bar } from "./overlay";
 import { fundamentalWindow, METRIC_RANGES, metricRange, offersFrequency, priceWindow, RANGES, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate, type Unit } from "./format";
 
@@ -228,22 +228,20 @@ function useOverlayPrice(ticker: string, periods: IoPeriod[], enabled: boolean):
   }, [key, ticker]);
 
   /*
-   * The points, and how far the last of them reaches past its period.
+   * Every close in the window, not one per period.
    *
-   * A point is still placed on its period — the chart orders by position and
-   * the crosshair names one date for every line — but the newest period is
-   * priced at the latest close rather than at its own end, because that is the
-   * period the market is pricing today. The gap between the two comes back so
-   * the chart can state it; it is the one thing the picture cannot show.
+   * The price used to be sampled at each period end so the two lines shared a
+   * set of positions. On a year of trailing quarters that was five points, and
+   * five points are not a share price: the year's low was whichever quarter end
+   * caught it, and a fall and a recovery inside one quarter did not happen at
+   * all. Both lines are placed by their dates instead, which is an axis they
+   * genuinely share, and the price keeps the grain it was quoted at.
    */
   const { points, pricedOn } = useMemo<{ points: PricePoint[]; pricedOn: string | null }>(() => {
-    if (!current?.bars?.length) return { points: [], pricedOn: null };
-    const closes = overlayCloses(current.bars, periods.map((period) => period.end));
-    const drawn = periods.flatMap((period, index) => {
-      const close = closes[index];
-      return close == null ? [] : [{ date: period.end, value: close.value }];
-    });
-    return { points: drawn, pricedOn: closes.at(-1)?.on ?? null };
+    const from = periods[0]?.end;
+    if (!current?.bars?.length || !from) return { points: [], pricedOn: null };
+    const closes = priceSeries(current.bars, from);
+    return { points: closes.map((close) => ({ date: close.on, value: close.value })), pricedOn: closes.at(-1)?.on ?? null };
   }, [current, periods]);
 
   const lag = daysBetween(periods.at(-1)?.end, pricedOn);
@@ -345,7 +343,25 @@ function MetricSection({
     // written with the price formatter and never shares the measures' axis.
     ...(priced ? [{ label: "Share price", unit: "price", points: rebased ? fromBase(overlay.points) : overlay.points, axis: (rebased ? 0 : 1) as 0 | 1 }] : []),
   ].filter((entry) => entry.points.length > 1);
-  const series: AxisSeries[] = drawn.map(({ label, points, axis }) => ({ label, points, axis }));
+
+  /*
+   * One window, and both lines placed in it by their dates.
+   *
+   * It opens on the first period the measures cover and closes on the later of
+   * the last filed period and the last close — which are the same day only by
+   * accident. Placing by date is what lets a weekly price share a frame with a
+   * quarterly measure at all, and it makes the difference between the two right
+   * edges something a reader can see rather than something a caption has to
+   * apologise for: the measure's line simply stops before the frame does.
+   */
+  const opensOn = periods[0]?.end ?? null;
+  const closesOn = [periods.at(-1)?.end, overlay.pricedOn].filter((date): date is string => !!date).sort().at(-1) ?? null;
+  const series: AxisSeries[] = drawn.map(({ label, points, axis }) => ({
+    label,
+    points,
+    axis,
+    at: opensOn && closesOn ? positions(points.map((point) => point.date), opensOn, closesOn) : undefined,
+  }));
   const scales = rebased ? [] : priced ? [units[0] ?? "currency", "price"] : units;
 
   const single = chosen.length === 1 && metric != null && !priced;
@@ -416,7 +432,9 @@ function MetricSection({
             </>
           ) : (
             <span className="d">
-              {hover != null && series[0]?.points[hover] ? shortDate(series[0].points[hover].date) : `${shown} · ${frequency === "annual" ? "Yearly" : "TTM"}`}
+              {hover != null && series[0] && pointAt(series[0], hover)
+                ? shortDate(pointAt(series[0], hover)!.date)
+                : `${shown} · ${frequency === "annual" ? "Yearly" : "TTM"}`}
             </span>
           )}
         </div>
@@ -430,12 +448,20 @@ function MetricSection({
             */}
           <div className="compare-values">
             {drawn.map((entry, index) => {
-              const point = hover == null ? entry.points.at(-1) : entry.points[hover];
+              /*
+               * Each line answers the crosshair with the point of its own that
+               * lies nearest it, and says which day that was. A weekly close and
+               * a quarterly figure under one crosshair are days or weeks apart,
+               * and the reader is entitled to know by how much rather than to
+               * assume the two figures share a date.
+               */
+              const point = hover == null ? entry.points.at(-1) : pointAt(series[index], hover);
               return (
                 <span className="compare-value" key={entry.label}>
                   <span className={`plot-swatch plot-stroke-${index % 5}`} />
                   <span className="compare-value-name">{entry.label}</span>
                   <span className="num">{point ? (rebased ? delta(point.value, 1) : writeWith(entry.unit)(point.value)) : ABSENT}</span>
+                  <span className="compare-value-date">{point ? shortDate(point.date) : ABSENT}</span>
                 </span>
               );
             })}
@@ -456,8 +482,9 @@ function MetricSection({
                     <span className="plot-tag" style={{ right: 0, bottom: 0 }}>{writeWith(scales[1])(extents[1].min)}</span>
                   </>
                 ) : null}
-                <span className="plot-tag plot-tag-under" style={{ left: 0 }}>{shortDate(series[0]?.points[0]?.date)}</span>
-                <span className="plot-tag plot-tag-under" style={{ right: 0 }}>{shortDate(series[0]?.points.at(-1)?.date)}</span>
+                {/* The frame's own edges, which the measure no longer reaches. */}
+                <span className="plot-tag plot-tag-under" style={{ left: 0 }}>{shortDate(opensOn ?? series[0]?.points[0]?.date)}</span>
+                <span className="plot-tag plot-tag-under" style={{ right: 0 }}>{shortDate(closesOn ?? series[0]?.points.at(-1)?.date)}</span>
               </div>
             </div>
           ) : (
@@ -483,22 +510,12 @@ function MetricSection({
           {frequency === "annual" ? "Not enough annual history for this measure." : "Not enough TTM history for this measure."}
         </p>
       )}
-      {/*
-        * The one date the picture cannot carry.
-        *
-        * Every point sits on its period, and for all but the last that is also
-        * the day its close was read. The newest one carries today's price
-        * instead, so it is a figure the crosshair's date does not name. Two days
-        * of that is a weekend and worth nobody's attention; a quarter of it — or
-        * on the yearly view, most of a year — is the whole reason the line was
-        * wrong, and it is said here rather than left for a reader to find by
-        * comparing this chart against the one above it.
-        */}
+      {/* Why one line stops before the other, said rather than left to be found. */}
       {priced && overlay.lag != null && overlay.lag > 7 ? (
         <p className="stat-note" style={{ marginTop: 10 }}>
-          The last point carries today&rsquo;s price — the close of {shortDate(overlay.pricedOn!)}, {overlay.lag} days
-          past the period end it sits on — because the chart stops at the newest filed period and the market does not.
-          Every earlier point is the close on or before its own period end.
+          The price is every weekly close through {shortDate(overlay.pricedOn!)}. The measure stops {overlay.lag} days
+          earlier, at the last period filed — so its line ends before the right edge rather than being stretched to
+          meet it.
         </p>
       ) : null}
       {/* A switch that appears to do nothing is worse than one that is not

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { closesAsOf, daysBetween, overlayCloses, overlayWindow } from "../components/io/overlay";
+import { closesAsOf, daysBetween, overlayWindow, positions, priceSeries } from "../components/io/overlay";
 
 /**
  * The share price beside a filed measure.
@@ -42,29 +42,41 @@ describe("the share price overlay", () => {
   it("returns one figure per period, so the two series stay aligned", () => {
     const dates = ["2024-03-31", "2024-06-30", "2024-09-30", "2024-12-31"];
     expect(closesAsOf(bars, dates)).toHaveLength(dates.length);
-    expect(overlayCloses(bars, dates)).toHaveLength(dates.length);
   });
 
-  it("prices the newest period at the latest close, not at its own end", () => {
-    // The period the market is pricing has no filing to close it, so reading
-    // it at its end stops the line a quarter short of the market. Apple showed
-    // $283.78 against its June period while trading at $319.97.
-    const closes = overlayCloses(bars, ["2024-03-31", "2024-06-30"]);
-    expect(closes[0]).toEqual({ value: 120, on: "2024-03-28" });
-    expect(closes[1]).toEqual({ value: 145, on: "2024-09-30" });
+  it("keeps every close in the window rather than one per period", () => {
+    // Five points are not a share price. A year of trailing quarters drew the
+    // price as four straight lines between quarter ends, and a fall and a
+    // recovery inside one quarter did not exist on it at all.
+    const drawn = priceSeries(bars, "2024-03-31");
+    expect(drawn.map((close) => close.on)).toEqual(["2024-03-31", "2024-06-28", "2024-09-30"]);
+    expect(drawn[0].value).toBe(120);
   });
 
-  it("leaves every earlier period on its own end", () => {
-    // Only the last point moves. An earlier period has its filing out, and the
-    // price beside it must be the one a reader of that filing was looking at.
-    const closes = overlayCloses(bars, ["2024-03-31", "2024-06-30", "2024-09-30"]);
-    expect(value(closes)).toEqual([120, 130, 145]);
-    expect(closes.map((close) => close?.on)).toEqual(["2024-03-28", "2024-06-28", "2024-09-30"]);
+  it("opens the price on the same day the measure does", () => {
+    // The two lines share a left edge, so the first close is the one as of the
+    // first period end and carries that period's date, not the bar's.
+    expect(priceSeries(bars, "2024-04-30")[0]).toEqual({ value: 120, on: "2024-04-30" });
   });
 
-  it("moves nothing when the quotes stop before the newest period", () => {
-    const closes = overlayCloses(bars, ["2024-09-30", "2025-06-30"]);
-    expect(value(closes)).toEqual([145, 145]);
+  it("draws nothing before the quotes begin", () => {
+    expect(priceSeries(bars, "2019-12-31").map((close) => close.on)).toEqual([
+      "2023-12-29", "2024-03-28", "2024-06-28", "2024-09-30",
+    ]);
+  });
+
+  it("places both lines on one axis by their dates, not by their counts", () => {
+    // Fifty-two weekly closes and five quarters spread evenly across one frame
+    // put week thirteen and quarter two in different places. Time is the axis
+    // they genuinely share.
+    expect(positions(["2024-01-01", "2024-07-01", "2024-12-31"], "2024-01-01", "2024-12-31"))
+      .toEqual([0, expect.closeTo(0.4986, 3), 1]);
+    // A measure that stops before the window closes stops before the edge.
+    expect(positions(["2024-12-31"], "2024-01-01", "2025-12-31")[0]).toBeCloseTo(0.5, 3);
+  });
+
+  it("falls back to even spacing when a window has no width", () => {
+    expect(positions(["2024-01-01", "2024-01-01"], "2024-01-01", "2024-01-01")).toEqual([0, 1]);
   });
 
   it("asks weekly, so a period end is never priced a month early", () => {

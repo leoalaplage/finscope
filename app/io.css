@@ -767,6 +767,9 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .compare-value { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: var(--fs-xs); }
 .compare-value-name { color: var(--ink-3); }
 .compare-value .num { color: var(--ink); }
+/* The day the figure beside it is from. Two lines under one crosshair are days
+   or weeks apart when one is quoted weekly and the other filed quarterly. */
+.compare-value-date { color: var(--ink-3); }
 .seg-wrap { flex-wrap: wrap; max-width: 100%; }
 .compare-frame { margin-top: calc(var(--u) * 2); }
 /* Room at the right for the name set at the end of each line. */

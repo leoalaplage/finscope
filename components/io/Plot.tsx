@@ -37,12 +37,13 @@ const xOf = (index: number, length: number) => (length < 2 ? W / 2 : (index / (l
 const yOf = (value: number, extent: Extent) => H - ((value - extent.min) / (extent.max - extent.min)) * H;
 
 /** One `M…L…` run per unbroken stretch, so a gap in the data is a gap in the line. */
-function segments(values: Array<number | null>, extent: Extent): string {
+function segments(values: Array<number | null>, extent: Extent, at?: number[]): string {
   const parts: string[] = [];
   let open = false;
   values.forEach((value, index) => {
     if (value == null || !Number.isFinite(value)) { open = false; return; }
-    const point = `${xOf(index, values.length).toFixed(2)} ${yOf(value, extent).toFixed(2)}`;
+    const x = at ? at[index] * W : xOf(index, values.length);
+    const point = `${x.toFixed(2)} ${yOf(value, extent).toFixed(2)}`;
     parts.push(`${open ? "L" : "M"}${point}`);
     open = true;
   });
@@ -346,7 +347,27 @@ export function MultiLine({
 }
 
 
-export interface AxisSeries { label: string; points: PricePoint[]; axis: 0 | 1 }
+/**
+ * A line on the two-scale frame, optionally placed in time rather than by index.
+ *
+ * `at` is one fraction of the frame's width per point. Without it a series is
+ * spread evenly across the frame, which is what every other chart here does and
+ * is right when the points are one per filed period. With it, a series that has
+ * fifty-two weekly closes can share a frame with one that has five quarters and
+ * both land where their dates put them.
+ */
+export interface AxisSeries { label: string; points: PricePoint[]; axis: 0 | 1; at?: number[] }
+
+/** The point nearest a fraction of the frame's width, in a series' own terms. */
+export function pointAt(series: AxisSeries, fraction: number): PricePoint | null {
+  if (!series.points.length) return null;
+  if (!series.at) return series.points[Math.round(fraction * (series.points.length - 1))] ?? null;
+  let best = 0;
+  for (let index = 1; index < series.at.length; index += 1) {
+    if (Math.abs(series.at[index] - fraction) < Math.abs(series.at[best] - fraction)) best = index;
+  }
+  return series.points[best] ?? null;
+}
 
 /**
  * Two or three measures on one frame, read against two scales.
@@ -367,7 +388,7 @@ export function MultiAxis({
   onHover,
 }: {
   series: AxisSeries[];
-  onHover: (index: number | null) => void;
+  onHover: (fraction: number | null) => void;
 }) {
   const frame = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<number | null>(null);
@@ -377,17 +398,26 @@ export function MultiAxis({
     [series]);
   const length = Math.max(...series.map((entry) => entry.points.length), 0);
 
+  /*
+   * The crosshair is a position on the frame, not an index into a series.
+   *
+   * It used to be an index, which works while every line has a point for every
+   * step. It stops working the moment one of them does not: a share price read
+   * every week beside a measure filed every quarter has ten times the points,
+   * and index thirty of the price has no counterpart in the measure at all.
+   * A fraction of the width is the one thing both lines share, and each of them
+   * answers it with the point of its own that lies nearest.
+   */
   const move = (event: ReactPointerEvent<HTMLDivElement>) => {
     const box = frame.current?.getBoundingClientRect();
     if (!box || box.width === 0 || length === 0) return;
     const fraction = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
-    const index = Math.round(fraction * (length - 1));
-    setCursor(index);
-    onHover(index);
+    setCursor(fraction);
+    onHover(fraction);
   };
 
   if (!extents[0] || length < 2) return null;
-  const cursorX = xOf(cursor ?? 0, length);
+  const cursorX = (cursor ?? 0) * W;
 
   return (
     <div
@@ -405,7 +435,7 @@ export function MultiAxis({
             <path
               key={entry.label}
               className={`plot-line plot-stroke-${index % 5}`}
-              d={segments(entry.points.map((point) => point.value), extent)}
+              d={segments(entry.points.map((point) => point.value), extent, entry.at)}
               vectorEffect="non-scaling-stroke"
             />
           );
