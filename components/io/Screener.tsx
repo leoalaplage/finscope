@@ -69,7 +69,16 @@ const POLL_LIMIT = 20;
  * A header sorts by the same definition the engine uses everywhere else, so
  * adding a criterion there offers it here without a second vocabulary.
  */
-const COLUMNS: Array<{ sort: string; label: string; read: (row: ScoredCompany) => ReactNode; empty: (row: ScoredCompany) => boolean }> = [
+interface Column {
+  sort: string;
+  label: string;
+  read: (row: ScoredCompany) => ReactNode;
+  empty: (row: ScoredCompany) => boolean;
+  /** Drawn rather than written, and therefore centred rather than right-aligned. */
+  drawn?: boolean;
+}
+
+const COLUMNS: Column[] = [
   { sort: "note", label: "Grade", read: (row) => row.note, empty: (row) => row.note === "NR" },
   { sort: "total", label: "Score", read: (row) => (row.total == null ? ABSENT : row.total.toFixed(1)), empty: (row) => row.total == null },
   ...QS_PILLARS.map((pillar) => ({
@@ -77,21 +86,23 @@ const COLUMNS: Array<{ sort: string; label: string; read: (row: ScoredCompany) =
     label: pillar as string,
     read: (row: ScoredCompany) => <Meter value={row.piliers[pillar]} label={pillar} />,
     empty: (row: ScoredCompany) => row.piliers[pillar] == null,
+    drawn: true,
   })),
   { sort: "couverture", label: "Coverage", read: (row) => percent(row.couverture, 0), empty: () => false },
   { sort: "alertes", label: "Alerts", read: (row) => String(row.alertes), empty: (row) => row.alertes === 0 },
   { sort: "cap", label: "Market cap", read: (row) => (row.Cap == null ? ABSENT : money(row.Cap * 1e9, "USD")), empty: (row) => row.Cap == null },
-  { sort: "etoiles", label: "Valuation", read: (row) => <Stars row={row} />, empty: (row) => row.piliers.Value == null },
+  { sort: "etoiles", label: "Valuation", read: (row) => <Stars row={row} />, empty: (row) => row.piliers.Value == null, drawn: true },
 ];
 
 /**
- * A pillar score as a length, with the figure it is a length of.
+ * A pillar score as a length, and only as a length.
  *
  * Four columns of two-digit numbers ask the reader to compare quantities by
- * reading them; a bar is compared by looking. The number stays beside it —
- * dimmer and smaller, because it is the check rather than the reading — since
- * a length alone cannot be sorted by eye to the point, and 61 against 64 is a
- * distinction the bar cannot draw at this width.
+ * reading them; a bar is compared by looking. The figure is not printed beside
+ * it — two readings of the same score in one cell is the crowding the bar was
+ * meant to remove — but it is not lost either: it is on the cell, for a hover
+ * and for a screen reader, and the Score column beside it is the number in
+ * full.
  *
  * One ink, as everywhere else on this site: the track is the page's soft plot
  * fill and the bar is its ink. Nothing about a colour says "good" here.
@@ -100,9 +111,13 @@ function Meter({ value, label }: { value: number | null; label: string }) {
   if (value == null || !Number.isFinite(value)) return <span className="meter-absent">{ABSENT}</span>;
   const width = Math.max(0, Math.min(100, value));
   return (
-    <span className="meter" title={`${label} ${value.toFixed(0)} out of 100`}>
+    <span
+      className="meter"
+      role="img"
+      aria-label={`${label} ${value.toFixed(0)} out of 100`}
+      title={`${label} ${value.toFixed(0)} out of 100`}
+    >
       <span className="meter-track" aria-hidden="true"><span style={{ width: `${width}%` }} /></span>
-      <span className="meter-figure">{value.toFixed(0)}</span>
     </span>
   );
 }
@@ -466,10 +481,11 @@ function ScoreTable({
 }) {
   if (!rows.length) return <div className="state"><p>No company in this list could be scored.</p></div>;
 
-  const header = (key: string, label: string) => (
+  const header = (key: string, label: string, drawn?: boolean) => (
     <th
       key={key}
       scope="col"
+      data-drawn={drawn || undefined}
       aria-sort={sortKey === key ? (direction === "asc" ? "ascending" : "descending") : "none"}
     >
       <button type="button" className="sort-header" onClick={() => onSort(key)}>
@@ -491,7 +507,7 @@ function ScoreTable({
                   <span className="sort-mark" aria-hidden="true">{sortKey === "ticker" ? (direction === "asc" ? "↑" : "↓") : ""}</span>
                 </button>
               </th>
-              {COLUMNS.map((column) => header(column.sort, column.label))}
+              {COLUMNS.map((column) => header(column.sort, column.label, column.drawn))}
             </tr>
           </thead>
           <tbody>
@@ -508,7 +524,7 @@ function ScoreTable({
                   </a>
                 </th>
                 {COLUMNS.map((column) => (
-                  <td key={column.sort} data-empty={column.empty(row)}>{column.read(row)}</td>
+                  <td key={column.sort} data-empty={column.empty(row)} data-drawn={column.drawn || undefined}>{column.read(row)}</td>
                 ))}
               </tr>
             ))}

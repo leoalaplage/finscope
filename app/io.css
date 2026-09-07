@@ -968,26 +968,32 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .source-caveat { max-width: 880px; margin-top: 12px; }
 
 /*
- * A pillar score, drawn as well as written.
+ * A pillar score, drawn instead of written.
  *
  * Four columns of marks out of a hundred were four columns of two-digit
  * numbers, and comparing them meant reading every one. A length is compared by
- * looking. The figure stays to the right of the bar, dimmer and smaller: it is
- * what settles 61 against 64, which no bar this wide can draw.
+ * looking — so the length is the whole cell. Printing the figure beside it put
+ * two readings of the same score in one column and left neither room to
+ * breathe; the number is on the cell for a hover and for a screen reader, and
+ * the Score column two along is the figure in full.
+ *
+ * A drawn column centres. Every other column on this site is right-aligned
+ * because digits line up on their last place; a bar has no last place, and
+ * hanging it off the right edge left it drifting away from the title above it.
  *
  * The track is the plot's own soft fill and the bar its ink, because a hue
  * here would be the fastest thing on the page saying what the length already
  * says — and saying it less precisely.
  */
-.meter { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; width: 100%; }
+.sheet th[data-drawn], .sheet td[data-drawn] { text-align: center; }
+.sheet th[data-drawn] .sort-header { justify-content: center; }
+.meter { display: flex; align-items: center; justify-content: center; }
 .meter-track {
-  flex: 0 0 56px; height: 4px; background: var(--plot-soft);
+  width: 64px; height: 4px; background: var(--plot-soft);
   border-radius: 1px; overflow: hidden;
 }
 .meter-track > span { display: block; height: 100%; background: var(--plot); }
-.meter-figure { min-width: 18px; color: var(--ink-2); font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
 .meter-absent { color: var(--ink-3); }
-.sheet tbody tr:hover .meter-figure { color: var(--ink); }
 
 /*
  * The valuation, in five stars.
@@ -996,7 +1002,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * plot fill, so the rating is a length of ink like every bar beside it rather
  * than a gold badge borrowed from somewhere else.
  */
-.stars { display: inline-flex; gap: 1px; font-size: var(--fs-sm); line-height: 1; letter-spacing: 0; }
+.stars { display: inline-flex; justify-content: center; gap: 1px; font-size: var(--fs-sm); line-height: 1; letter-spacing: 0; }
 .stars > span { color: var(--line-strong); }
 .stars > span[data-lit="true"] { color: var(--plot); }
 
