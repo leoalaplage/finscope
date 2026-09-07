@@ -393,14 +393,17 @@ function SourceAudit({ imported, native, pasted }: { imported: Feed; native: Sta
         <>
           <div className="sheet source-audit-sheet">
             <table>
-              <thead><tr><th>Company</th><th>FinScope · SEC</th><th>{sourceName}</th><th>Difference</th><th>Inputs that differ</th></tr></thead>
+              <thead><tr><th className="key">Company</th><th>FinScope · SEC</th><th>{sourceName}</th><th>Difference</th><th>Inputs that differ</th></tr></thead>
               <tbody>
                 {pairs.map(({ ticker, core, external }) => {
                   const changed = QS_METRICS.filter((metric) => materiallyDifferent(core.brut[metric.cle], external.brut[metric.cle])).length;
                   const delta = core.total == null || external.total == null ? null : external.total - core.total;
                   return (
                     <tr key={ticker} data-selected={selected === ticker}>
-                      <th scope="row"><button type="button" className="source-audit-open" onClick={() => setSelected((current) => current === ticker ? null : ticker)}>{ticker}</button></th>
+                      {/* A row label is a row label: the same column, face,
+                          weight and alignment the scored table gives a ticker,
+                          not a bold right-aligned heading beside it. */}
+                      <th className="key" scope="row"><button type="button" className="key-open" onClick={() => setSelected((current) => current === ticker ? null : ticker)}>{ticker}</button></th>
                       <td>{core.note}{core.total == null ? "" : ` · ${core.total.toFixed(1)}`}</td>
                       <td>{external.note}{external.total == null ? "" : ` · ${external.total.toFixed(1)}`}</td>
                       <td data-dir={delta == null ? undefined : delta >= 0 ? "up" : "down"}>{delta == null ? ABSENT : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`}</td>
@@ -419,11 +422,11 @@ function SourceAudit({ imported, native, pasted }: { imported: Feed; native: Sta
               </div>
               <div className="sheet">
                 <table>
-                  <thead><tr><th>Measure</th><th>FinScope · SEC</th><th>{sourceName}</th><th>FinScope metric score</th><th>Imported metric score</th></tr></thead>
+                  <thead><tr><th className="key">Measure</th><th>FinScope · SEC</th><th>{sourceName}</th><th>FinScope metric score</th><th>Imported metric score</th></tr></thead>
                   <tbody>
                     {differences.map((metric) => (
                       <tr key={metric.cle}>
-                        <th scope="row">{QS_METRIC_NAMES[metric.cle] ?? metric.cle}</th>
+                        <th className="key" scope="row">{QS_METRIC_NAMES[metric.cle] ?? metric.cle}</th>
                         <td>{auditValue(metric.cle, chosen.core.brut[metric.cle])}</td>
                         <td>{auditValue(metric.cle, chosen.external.brut[metric.cle])}</td>
                         <td>{chosen.core.score_metrique[metric.cle] == null ? ABSENT : chosen.core.score_metrique[metric.cle]!.toFixed(0)}</td>
