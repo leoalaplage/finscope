@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { axisExtents, Figure, MultiAxis, type AxisSeries, type PricePoint } from "./Plot";
 import { axesFor, fromBase } from "./selection";
-import { closesAsOf, overlayWindow, type Bar } from "./overlay";
+import { daysBetween, overlayCloses, overlayWindow, type Bar } from "./overlay";
 import { fundamentalWindow, METRIC_RANGES, metricRange, offersFrequency, priceWindow, RANGES, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate, type Unit } from "./format";
 
@@ -199,7 +199,7 @@ type OverlayState = "idle" | "loading" | "ready" | "failed";
  * what lets a reader put free cash flow per share against the price paid for it
  * and see the two shapes on the same seventeen years.
  */
-function useOverlayPrice(ticker: string, periods: IoPeriod[], enabled: boolean): { state: OverlayState; points: PricePoint[] } {
+function useOverlayPrice(ticker: string, periods: IoPeriod[], enabled: boolean): { state: OverlayState; points: PricePoint[]; pricedOn: string | null; lag: number | null } {
   const [answer, setAnswer] = useState<Answer | null>(null);
   const asked = enabled ? overlayWindow(periods) : null;
   const key = asked ? `${ticker}|${asked.frequency}|${asked.start}|${periods.length}|${periods.at(-1)?.end ?? ""}` : "";
@@ -227,18 +227,30 @@ function useOverlayPrice(ticker: string, periods: IoPeriod[], enabled: boolean):
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, ticker]);
 
-  const points = useMemo<PricePoint[]>(() => {
-    if (!current?.bars?.length) return [];
-    const closes = closesAsOf(current.bars, periods.map((period) => period.end));
-    return periods.flatMap((period, index) => {
+  /*
+   * The points, and how far the last of them reaches past its period.
+   *
+   * A point is still placed on its period — the chart orders by position and
+   * the crosshair names one date for every line — but the newest period is
+   * priced at the latest close rather than at its own end, because that is the
+   * period the market is pricing today. The gap between the two comes back so
+   * the chart can state it; it is the one thing the picture cannot show.
+   */
+  const { points, pricedOn } = useMemo<{ points: PricePoint[]; pricedOn: string | null }>(() => {
+    if (!current?.bars?.length) return { points: [], pricedOn: null };
+    const closes = overlayCloses(current.bars, periods.map((period) => period.end));
+    const drawn = periods.flatMap((period, index) => {
       const close = closes[index];
-      return close == null ? [] : [{ date: period.end, value: close }];
+      return close == null ? [] : [{ date: period.end, value: close.value }];
     });
+    return { points: drawn, pricedOn: closes.at(-1)?.on ?? null };
   }, [current, periods]);
 
-  if (!enabled) return { state: "idle", points: [] };
-  if (!current) return { state: "loading", points: [] };
-  return { state: current.bars == null ? "failed" : "ready", points };
+  const lag = daysBetween(periods.at(-1)?.end, pricedOn);
+
+  if (!enabled) return { state: "idle", points: [], pricedOn: null, lag: null };
+  if (!current) return { state: "loading", points: [], pricedOn: null, lag: null };
+  return { state: current.bars == null ? "failed" : "ready", points, pricedOn, lag };
 }
 
 function MetricSection({
@@ -471,6 +483,24 @@ function MetricSection({
           {frequency === "annual" ? "Not enough annual history for this measure." : "Not enough TTM history for this measure."}
         </p>
       )}
+      {/*
+        * The one date the picture cannot carry.
+        *
+        * Every point sits on its period, and for all but the last that is also
+        * the day its close was read. The newest one carries today's price
+        * instead, so it is a figure the crosshair's date does not name. Two days
+        * of that is a weekend and worth nobody's attention; a quarter of it — or
+        * on the yearly view, most of a year — is the whole reason the line was
+        * wrong, and it is said here rather than left for a reader to find by
+        * comparing this chart against the one above it.
+        */}
+      {priced && overlay.lag != null && overlay.lag > 7 ? (
+        <p className="stat-note" style={{ marginTop: 10 }}>
+          The last point carries today&rsquo;s price — the close of {shortDate(overlay.pricedOn!)}, {overlay.lag} days
+          past the period end it sits on — because the chart stops at the newest filed period and the market does not.
+          Every earlier point is the close on or before its own period end.
+        </p>
+      ) : null}
       {/* A switch that appears to do nothing is worse than one that is not
           offered: say why the quote is not on the picture. */}
       {overlay.state === "failed" ? (
