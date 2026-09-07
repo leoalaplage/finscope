@@ -58,7 +58,10 @@ describe("one range, read by each half of the page", () => {
   it("asks the market endpoint for the granularity each window can show", () => {
     expect(priceWindow("1M").frequency).toBe("daily");
     expect(priceWindow("5Y").frequency).toBe("weekly");
-    expect(priceWindow("MAX")).toMatchObject({ frequency: "monthly", start: "1985-01-01" });
+    // Weekly is the floor. A monthly bar is one close a month: it loses the
+    // range's own high and low, and its last point is the last completed month.
+    expect(priceWindow("10Y").frequency).toBe("weekly");
+    expect(priceWindow("MAX")).toMatchObject({ frequency: "weekly", start: "1985-01-01" });
   });
 });
 

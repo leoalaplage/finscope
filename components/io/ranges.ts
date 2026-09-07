@@ -49,24 +49,33 @@ export function metricRange(range: Range): Range {
   return range === "1M" || range === "6M" ? "1Y" : range;
 }
 
-const PRICE: Record<Range, { frequency: "daily" | "weekly" | "monthly"; days: number | null }> = {
+const PRICE: Record<Range, { frequency: "daily" | "weekly"; days: number | null }> = {
   "1M": { frequency: "daily", days: 35 },
   "6M": { frequency: "daily", days: 190 },
   "1Y": { frequency: "daily", days: 370 },
   "3Y": { frequency: "weekly", days: 1100 },
   "5Y": { frequency: "weekly", days: 1830 },
-  "10Y": { frequency: "monthly", days: 3660 },
-  MAX: { frequency: "monthly", days: null },
+  "10Y": { frequency: "weekly", days: 3660 },
+  MAX: { frequency: "weekly", days: null },
 };
 
 /**
  * How the market endpoint is asked for this range.
  *
- * Each window asks for the granularity it can actually show: a month of
- * sessions is drawn daily, twenty years is drawn monthly. Asking for daily bars
- * across twenty years would be twenty times the payload to draw the same line
- * at the same width — and every one of these windows is a cache key the market
- * endpoint already keeps warm.
+ * Each window asks for the granularity it can actually show, and weekly is the
+ * floor. Ten years and MAX used to drop to monthly on the reasoning that the
+ * line is drawn at the same width either way — true of the shape, false of
+ * everything a reader reads off it. A monthly bar is one close a month: the
+ * high and the low of the range are whichever month ends happened to catch
+ * them, the crosshair can only ever name a month end, and the last point is
+ * the last completed month rather than Friday. A crash that took three weeks
+ * does not exist on it.
+ *
+ * Weekly across forty years is about two thousand bars where monthly was five
+ * hundred, on a payload the handover notes call explicitly not the problem.
+ * Daily across that span would be — five figures of bars to draw the same
+ * line — so daily stays on the windows short enough to show every session.
+ * Every one of these windows is a cache key the market endpoint keeps warm.
  */
 export function priceWindow(range: Range) {
   const found = PRICE[range] ?? PRICE["1Y"];
