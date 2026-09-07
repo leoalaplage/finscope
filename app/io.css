@@ -1281,6 +1281,19 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .compare-fcf-share { margin-bottom: calc(var(--u) * 7); }
 .compare-table-head { margin-bottom: calc(var(--u) * 3); }
 .valuation-history-sheet table { min-width: 920px; }
+.valuation-history-sheet .key-open { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+
+/* The decade behind one of the three rows, opened under the table it summarises. */
+.valuation-history-chart { margin-top: calc(var(--u) * 5); padding-top: calc(var(--u) * 4); border-top: 1px solid var(--line); }
+.valuation-history-chart .section-head { margin-bottom: calc(var(--u) * 2); }
+.valuation-history-chart .stat-note { max-width: 88ch; }
+/* The ten-year median, drawn across the plot: the one line that turns a
+   percentile into something a reader can look at. Dotted, like every other
+   boundary here, because it is a reference and not a reading. */
+.valuation-median {
+  position: absolute; left: 0; right: 0; height: 0;
+  border-top: 1px dashed var(--line-strong);
+}
 
 @media (max-width: 560px) {
   .fcf-share-growth { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -11,7 +11,8 @@ import {
 } from "@/lib/io/valuation-range";
 import type { PricePoint } from "@/lib/types";
 import type { IoQuote } from "./quote";
-import { ABSENT, percent, ratio } from "./format";
+import { Figure, type PricePoint as PlotPoint } from "./Plot";
+import { ABSENT, percent, ratio, shortDate } from "./format";
 
 interface PriceAnswer {
   key: string;
@@ -93,6 +94,8 @@ export function ValuationHistory({ view, quote }: { view: IoCompanyView; quote: 
     });
   }, [currentAnswer, periods]);
 
+  const [opened, setOpened] = useState<HistoricalValuationMetric | null>(null);
+
   const currentPeriod = [...periods].reverse().find(usable) ?? null;
   const currentPrice = quote?.price != null && quote.currency
     ? { price: quote.price, date: quote.asOf?.slice(0, 10) ?? new Date().toISOString().slice(0, 10), currency: quote.currency }
@@ -134,8 +137,26 @@ export function ValuationHistory({ view, quote }: { view: IoCompanyView; quote: 
                 const five = historicalValuationRange(history, metric.key, now, 5, asOf);
                 const ten = historicalValuationRange(history, metric.key, now, 10, asOf);
                 return (
-                  <tr key={metric.key}>
-                    <th className="key" scope="row">{metric.label}</th>
+                  <tr key={metric.key} data-selected={opened === metric.key}>
+                    {/*
+                      * The row opens its own history.
+                      *
+                      * Five numbers across — a range, a median, a percentile,
+                      * twice over — are the summary of a shape nobody could
+                      * see. The shape is what says whether a company sat at
+                      * thirty times for a decade and is at forty now, or
+                      * whether forty is where it has always been. Every other
+                      * table on this page sends its row to the chart at the
+                      * top; this one cannot, because these three are struck
+                      * here from filing-date prices and are not measures the
+                      * page carries. So the chart comes to the row.
+                      */}
+                    <th className="key" scope="row">
+                      <button type="button" className="key-open" aria-expanded={opened === metric.key} onClick={() => setOpened((current) => current === metric.key ? null : metric.key)}>
+                        {metric.label}
+                        <span className="score-open-mark" aria-hidden="true">{opened === metric.key ? "−" : "+"}</span>
+                      </button>
+                    </th>
                     <td data-empty={now == null}>{write(now, metric.percent)}</td>
                     <td data-empty={five.low == null} title={`${five.observations} observations`}>{writeRange(five.low, five.high, metric.percent)}</td>
                     <td data-empty={five.median == null}>{write(five.median, metric.percent)}</td>
@@ -150,6 +171,92 @@ export function ValuationHistory({ view, quote }: { view: IoCompanyView; quote: 
           </table>
         </div>
       )}
+
+      {opened && currentAnswer && !currentAnswer.failed ? (
+        <MetricHistory
+          metric={METRICS.find((entry) => entry.key === opened)!}
+          history={history}
+          current={current}
+          median={historicalValuationRange(history, opened, current?.metrics[opened] ?? null, 10, asOf).median}
+        />
+      ) : null}
     </section>
+  );
+}
+
+/**
+ * One of the three, over the decade the table summarises.
+ *
+ * The points are the filing dates — the days the figures above were knowable —
+ * with today's on the end, struck from the live quote against the newest
+ * period. Nothing is interpolated between them: a multiple only changes when
+ * either the price or the filing does, and the price is read once per filing so
+ * that a point is never a price the market had not yet seen.
+ *
+ * The median of the ten years is drawn across it. That is the one line that
+ * turns the percentile in the row above into something a reader can look at:
+ * above it dear against its own record, below it cheap, and the distance says
+ * how far.
+ */
+function MetricHistory({
+  metric,
+  history,
+  current,
+  median,
+}: {
+  metric: { key: HistoricalValuationMetric; label: string; percent: boolean };
+  history: HistoricalValuationPoint[];
+  current: HistoricalValuationPoint | null;
+  median: number | null;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const points = useMemo<Array<PlotPoint & { label: string }>>(() => {
+    const drawn = [...history, ...(current ? [current] : [])]
+      .flatMap((point) => {
+        const value = point.metrics[metric.key];
+        return value == null ? [] : [{ date: point.date, value, label: point.periodLabel }];
+      });
+    return drawn.sort((left, right) => left.date.localeCompare(right.date));
+  }, [history, current, metric.key]);
+
+  if (points.length < 2) {
+    return <p className="stat-note" style={{ marginTop: 12 }}>Fewer than two observations of {metric.label} in the filed record, so there is no history to draw.</p>;
+  }
+
+  const values = points.map((point) => point.value);
+  const high = Math.max(...values), low = Math.min(...values);
+  const active = hover == null ? points.at(-1)! : points[hover] ?? points.at(-1)!;
+  // The plot's own scale, so the median rule lands where the line does.
+  const medianTop = median != null && high > low ? ((high - median) / (high - low)) * 100 : null;
+
+  return (
+    <div className="valuation-history-chart">
+      <div className="section-head">
+        <div className="readout">
+          <span className="v">{write(active.value, metric.percent)}</span>
+          <span className="d">{active.label} · {shortDate(active.date)}</span>
+        </div>
+        <span className="label">{metric.label} · {points.length} observations</span>
+      </div>
+      <div className="price-frame">
+        <Figure points={points} shape="area" onHover={setHover} />
+        <div className="plot-axis">
+          {medianTop != null ? (
+            <>
+              <span className="valuation-median" style={{ top: `${medianTop}%` }} />
+              <span className="plot-tag" style={{ left: 0, top: `calc(${medianTop}% - 14px)` }}>10Y median {write(median, metric.percent)}</span>
+            </>
+          ) : null}
+          <span className="plot-tag" style={{ right: 0, top: 0 }}>{write(high, metric.percent)}</span>
+          <span className="plot-tag" style={{ right: 0, bottom: 0 }}>{write(low, metric.percent)}</span>
+          <span className="plot-tag plot-tag-under" style={{ left: 0 }}>{shortDate(points[0].date)}</span>
+          <span className="plot-tag plot-tag-under" style={{ right: 0 }}>{shortDate(points.at(-1)!.date)}</span>
+        </div>
+      </div>
+      <p className="stat-note" style={{ marginTop: 14 }}>
+        One point per filing — the multiple as it stood on the day each set of figures became public — with today&rsquo;s
+        on the end, struck from the live quote against the newest period. Nothing is drawn between two filings.
+      </p>
+    </div>
   );
 }
