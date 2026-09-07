@@ -81,17 +81,27 @@ interface Column {
 const COLUMNS: Column[] = [
   { sort: "note", label: "Grade", read: (row) => row.note, empty: (row) => row.note === "NR" },
   { sort: "total", label: "Score", read: (row) => (row.total == null ? ABSENT : row.total.toFixed(1)), empty: (row) => row.total == null },
-  ...QS_PILLARS.map((pillar) => ({
+  /*
+   * Three pillars as bars, and the fourth as stars.
+   *
+   * Value had a column of its own beside a "Valuation" column struck from it,
+   * which was the same score twice: a bar at 31 and one lit star said one
+   * thing, in two widths of table. The stars take the pillar's place in the
+   * row — between Growth and Coverage, where Value stood — so the four pillars
+   * still read left to right in the engine's own order, and the last of them
+   * is read as the verdict it was always turned into.
+   */
+  ...QS_PILLARS.filter((pillar) => pillar !== "Value").map((pillar) => ({
     sort: pillar as string,
     label: pillar as string,
     read: (row: ScoredCompany) => <Meter value={row.piliers[pillar]} label={pillar} />,
     empty: (row: ScoredCompany) => row.piliers[pillar] == null,
     drawn: true,
   })),
+  { sort: "etoiles", label: "Valuation", read: (row) => <Stars row={row} />, empty: (row) => row.piliers.Value == null, drawn: true },
   { sort: "couverture", label: "Coverage", read: (row) => percent(row.couverture, 0), empty: () => false },
   { sort: "alertes", label: "Alerts", read: (row) => String(row.alertes), empty: (row) => row.alertes === 0 },
   { sort: "cap", label: "Market cap", read: (row) => (row.Cap == null ? ABSENT : money(row.Cap * 1e9, "USD")), empty: (row) => row.Cap == null },
-  { sort: "etoiles", label: "Valuation", read: (row) => <Stars row={row} />, empty: (row) => row.piliers.Value == null, drawn: true },
 ];
 
 /**
@@ -596,16 +606,18 @@ function Method({ preset }: { preset: PresetName }) {
               <p className="stat-note">
                 A pillar bar is the weighted average of its measures, each on the same nought-to-a-hundred scale: 0 is
                 broken, 50 is what a solid listed company reads, 100 is exceptional and rare. Half a bar is not half of
-                anything the company owns — it is the mark, drawn.
+                anything the company owns — it is the mark, drawn. Three pillars are drawn this way; the fourth is the
+                stars.
               </p>
             </section>
 
             <section className="method-scale">
               <h3 className="label">The stars</h3>
               <p className="stat-note">
-                The valuation stars are the Value pillar read as a verdict — the same number, in five bands. Five stars
-                is the cheapest, one the dearest. Cheap is not good: a company can be five stars because the market
-                doubts its cash flows.
+                The stars are the fourth pillar. Value is the only one of the four that is not a judgement about the
+                company but about its price, so it is shown as the verdict it becomes: the same score out of 100, in
+                five bands. Five stars is the cheapest, one the dearest. Cheap is not good — a company can be five
+                stars because the market doubts its cash flows.
               </p>
               <ul className="method-list">
                 {QS_STAR_BANDS.map(([stars, floor, name]) => (
