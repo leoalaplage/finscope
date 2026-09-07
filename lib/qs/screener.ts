@@ -127,6 +127,14 @@ export function gradeForScore(value: number | null | undefined): string {
   return QS_GRADE_SCALE.find(([, floor]) => value >= floor)?.[0] ?? "NR";
 }
 export const QS_METRIC_NAMES = cfg.NOMS_METRIQUES as Record<string, string>;
+/** The letter bands themselves, for a legend that cannot drift from the engine. */
+export const QS_GRADE_BANDS = QS_GRADE_SCALE;
+/** The absolute anchors: what a metric has to read to score nought, fifty, a hundred. */
+export const QS_ANCHORS = cfg.ANCRES_ABSOLUES as Record<string, number[]>;
+/** The rules that raise an alert, in the engine's own wording. */
+export const QS_ALERT_RULES = cfg.REGLES_ALERTES as Array<[string, string, string, number]>;
+/** The named valuation bands the star rating is cut from. */
+export const QS_VALUATION_LEVELS = cfg.NIVEAUX_VALUATION as Array<[string, number]>;
 export const QS_METRIC_NOTES = cfg.DESCRIPTIONS_METRIQUES as Record<string, string>;
 export const QS_COVERAGE_FLOOR = cfg.SEUIL_COUVERTURE as number;
 export const QS_ALERT_PENALTY = cfg.MALUS_ALERTE as number;
@@ -185,6 +193,14 @@ interface Criterion { valeur: (row: ScoredCompany) => number | string | null | u
 const LOCAL_CRITERIA: Record<string, Criterion> = {
   rang: { valeur: (row) => row.rang, sens: 1 },
   qv_median: { valeur: (row) => (row.qv_median ? 1 : 0), sens: -1 },
+  /*
+   * The star rating orders by the number it is drawn from, not by its own
+   * five bands. Sorting on the bands alone would leave every company inside a
+   * band in whatever order it arrived — four stars at 82 above four stars at
+   * 67 one read and below it the next — so the column ranks on the Value
+   * pillar and the stars follow it.
+   */
+  etoiles: { valeur: (row) => row.piliers.Value, sens: -1 },
 };
 
 const criterionFor = (key: string): Criterion | null =>
@@ -218,6 +234,35 @@ export function sortRowsBy(rows: ScoredCompany[], key: string, direction: SortDi
       ? factor * String(a).localeCompare(String(b), "en")
       : factor * ((a as number) - (b as number));
   });
+}
+
+/**
+ * The valuation, in five stars rather than three words.
+ *
+ * It is the Value pillar and nothing else — the same number the "Value" column
+ * carries, cut into bands and read as a verdict, exactly as "Attractive / Fair
+ * / Expensive" already was. Five stars is the cheapest, one the dearest.
+ *
+ * The bands are the engine's own two boundaries — 66 and 40, where Attractive
+ * begins and Expensive ends — plus the midpoint of each band above Expensive.
+ * Nothing here is invented: a five-star company is in the cheaper half of
+ * Attractive, a one-star company is Expensive, and the stars can never say
+ * something the named level does not.
+ */
+export const QS_STAR_BANDS: Array<[number, number, string]> = [
+  [5, 83, "Attractive · cheapest half"],
+  [4, 66, "Attractive"],
+  [3, 53, "Fair · cheaper half"],
+  [2, 40, "Fair"],
+  [1, 0, "Expensive"],
+];
+
+export const QS_STARS = 5;
+
+/** How many stars a Value pillar score is worth, or nothing when it has none. */
+export function valuationStars(value: number | null | undefined): number | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  return QS_STAR_BANDS.find(([, floor]) => value >= floor)?.[0] ?? 1;
 }
 
 /**

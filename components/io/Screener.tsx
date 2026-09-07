@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { QS_COLUMNS, qsTable, qsValuationColumns, type QsRow } from "@/lib/qs-export";
 import {
-  naturalDirection, QS_METRIC_NAMES, QS_METRICS, QS_PRESETS, screen, sortRowsBy,
-  type PresetName, type ScoredCompany, type SortDirection,
+  naturalDirection, QS_ALERT_PENALTY, QS_ALERT_RULES, QS_ANCHORS, QS_COVERAGE_FLOOR,
+  QS_GRADE_BANDS, QS_METRIC_NAMES, QS_METRIC_NOTES, QS_METRICS, QS_PILLARS, QS_PRESETS,
+  QS_STAR_BANDS, QS_STARS, screen, sortRowsBy, valuationStars,
+  type PillarName, type PresetName, type ScoredCompany, type SortDirection,
 } from "@/lib/qs/screener";
 import type { PricePoint } from "@/lib/types";
 import { KEY_VERSION } from "@/lib/data-version";
@@ -67,20 +69,69 @@ const POLL_LIMIT = 20;
  * A header sorts by the same definition the engine uses everywhere else, so
  * adding a criterion there offers it here without a second vocabulary.
  */
-const COLUMNS: Array<{ sort: string; label: string; read: (row: ScoredCompany) => string; empty: (row: ScoredCompany) => boolean }> = [
+const COLUMNS: Array<{ sort: string; label: string; read: (row: ScoredCompany) => ReactNode; empty: (row: ScoredCompany) => boolean }> = [
   { sort: "note", label: "Grade", read: (row) => row.note, empty: (row) => row.note === "NR" },
   { sort: "total", label: "Score", read: (row) => (row.total == null ? ABSENT : row.total.toFixed(1)), empty: (row) => row.total == null },
-  { sort: "Quality", label: "Quality", read: (row) => write(row.piliers.Quality), empty: (row) => row.piliers.Quality == null },
-  { sort: "Health", label: "Health", read: (row) => write(row.piliers.Health), empty: (row) => row.piliers.Health == null },
-  { sort: "Growth", label: "Growth", read: (row) => write(row.piliers.Growth), empty: (row) => row.piliers.Growth == null },
-  { sort: "Value", label: "Value", read: (row) => write(row.piliers.Value), empty: (row) => row.piliers.Value == null },
+  ...QS_PILLARS.map((pillar) => ({
+    sort: pillar as string,
+    label: pillar as string,
+    read: (row: ScoredCompany) => <Meter value={row.piliers[pillar]} label={pillar} />,
+    empty: (row: ScoredCompany) => row.piliers[pillar] == null,
+  })),
   { sort: "couverture", label: "Coverage", read: (row) => percent(row.couverture, 0), empty: () => false },
   { sort: "alertes", label: "Alerts", read: (row) => String(row.alertes), empty: (row) => row.alertes === 0 },
   { sort: "cap", label: "Market cap", read: (row) => (row.Cap == null ? ABSENT : money(row.Cap * 1e9, "USD")), empty: (row) => row.Cap == null },
-  { sort: "valuation", label: "Valuation", read: (row) => row.valuation || ABSENT, empty: (row) => !row.valuation },
+  { sort: "etoiles", label: "Valuation", read: (row) => <Stars row={row} />, empty: (row) => row.piliers.Value == null },
 ];
 
-const write = (value: number | null) => (value == null ? ABSENT : value.toFixed(0));
+/**
+ * A pillar score as a length, with the figure it is a length of.
+ *
+ * Four columns of two-digit numbers ask the reader to compare quantities by
+ * reading them; a bar is compared by looking. The number stays beside it —
+ * dimmer and smaller, because it is the check rather than the reading — since
+ * a length alone cannot be sorted by eye to the point, and 61 against 64 is a
+ * distinction the bar cannot draw at this width.
+ *
+ * One ink, as everywhere else on this site: the track is the page's soft plot
+ * fill and the bar is its ink. Nothing about a colour says "good" here.
+ */
+function Meter({ value, label }: { value: number | null; label: string }) {
+  if (value == null || !Number.isFinite(value)) return <span className="meter-absent">{ABSENT}</span>;
+  const width = Math.max(0, Math.min(100, value));
+  return (
+    <span className="meter" title={`${label} ${value.toFixed(0)} out of 100`}>
+      <span className="meter-track" aria-hidden="true"><span style={{ width: `${width}%` }} /></span>
+      <span className="meter-figure">{value.toFixed(0)}</span>
+    </span>
+  );
+}
+
+/**
+ * The valuation as five stars, cheapest first.
+ *
+ * It is the Value pillar read as a verdict — which is what the column always
+ * was, when it said "Attractive", "Fair" or "Expensive". Five bands instead of
+ * three separate the merely fair from the nearly cheap without inventing a
+ * second measurement: the band edges are the engine's own, and the named level
+ * travels with the stars so the two can never disagree.
+ */
+function Stars({ row }: { row: ScoredCompany }) {
+  const stars = valuationStars(row.piliers.Value);
+  if (stars == null) return <span className="meter-absent">{ABSENT}</span>;
+  return (
+    <span
+      className="stars"
+      role="img"
+      aria-label={`${stars} of ${QS_STARS} stars, ${row.valuation}`}
+      title={`${row.valuation} · Value pillar ${row.piliers.Value!.toFixed(0)} of 100`}
+    >
+      {Array.from({ length: QS_STARS }, (_, index) => (
+        <span key={index} aria-hidden="true" data-lit={index < stars}>★</span>
+      ))}
+    </span>
+  );
+}
 
 export function Screener() {
   const tickers = useStoredWatchlist();
@@ -262,6 +313,8 @@ export function Screener() {
       </section>
 
       <Paste value={pasted} onChange={setPasted} />
+
+      <Method preset={preset} />
     </main>
   );
 }
@@ -474,6 +527,156 @@ function ScoreTable({
         </p>
       ) : null}
     </>
+  );
+}
+
+
+/**
+ * What the columns above are, written from the engine rather than about it.
+ *
+ * Every figure in this section is read out of the scoring configuration at
+ * render time — the pillar weights of the preset in force, the metrics each
+ * pillar holds and their weight inside it, the value each metric has to reach
+ * to score nought, fifty or a hundred, the letter bands, the alert rules. None
+ * of it is prose repeating a constant, so none of it can fall out of step with
+ * the score the table just struck.
+ *
+ * It folds. The site's rule is that pedagogy hides behind a word and facts do
+ * not; a reader who wants to know what Quality counts opens Quality, and the
+ * table is not pushed down a screen for everyone else.
+ */
+function Method({ preset }: { preset: PresetName }) {
+  const weights = QS_PRESETS[preset];
+  const [open, setOpen] = useState(false);
+
+  return (
+    <section className="section method">
+      <div className="section-head">
+        <h2 className="label">How a company is scored</h2>
+        <button className="metric-toggle" type="button" onClick={() => setOpen((current) => !current)} aria-expanded={open}>
+          {open ? "Hide" : "Read the method"}
+        </button>
+      </div>
+
+      <p className="stat-note method-lead">
+        Each of the {QS_METRICS.length} measures is read against a fixed scale, not against the other companies in the
+        table: the same ROIC earns the same mark whether it is scored alone or beside five hundred others. The measures
+        make four pillars, the pillars are weighted into one score out of 100, and that score becomes a letter. A
+        company carrying less than {Math.round(QS_COVERAGE_FLOOR * 100)}% of the measures is left unrated rather than
+        graded on what happens to be there.
+      </p>
+
+      {open ? (
+        <div className="method-body">
+          <div className="method-pillars">
+            {QS_PILLARS.map((pillar) => (
+              <PillarMethod key={pillar} pillar={pillar} weight={weights[pillar]} />
+            ))}
+          </div>
+
+          <div className="method-scales">
+            <section className="method-scale">
+              <h3 className="label">The bars, out of 100</h3>
+              <p className="stat-note">
+                A pillar bar is the weighted average of its measures, each on the same nought-to-a-hundred scale: 0 is
+                broken, 50 is what a solid listed company reads, 100 is exceptional and rare. Half a bar is not half of
+                anything the company owns — it is the mark, drawn.
+              </p>
+            </section>
+
+            <section className="method-scale">
+              <h3 className="label">The stars</h3>
+              <p className="stat-note">
+                The valuation stars are the Value pillar read as a verdict — the same number, in five bands. Five stars
+                is the cheapest, one the dearest. Cheap is not good: a company can be five stars because the market
+                doubts its cash flows.
+              </p>
+              <ul className="method-list">
+                {QS_STAR_BANDS.map(([stars, floor, name]) => (
+                  <li key={stars}>
+                    <span className="stars" aria-hidden="true">
+                      {Array.from({ length: QS_STARS }, (_, index) => <span key={index} data-lit={index < stars}>★</span>)}
+                    </span>
+                    <span className="method-band">Value {floor} and above</span>
+                    <span className="method-band-name">{name}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="method-scale">
+              <h3 className="label">The letter</h3>
+              <ul className="method-list method-grades">
+                {QS_GRADE_BANDS.map(([grade, floor]) => (
+                  <li key={grade}><b>{grade}</b><span className="method-band">{floor} and above</span></li>
+                ))}
+                <li><b>NR</b><span className="method-band">under {Math.round(QS_COVERAGE_FLOOR * 100)}% coverage</span></li>
+              </ul>
+            </section>
+
+            <section className="method-scale">
+              <h3 className="label">The alerts</h3>
+              <p className="stat-note">
+                An alert never moves the score in the table. It is a flag on a reading that would worry an analyst, and
+                it costs {QS_ALERT_PENALTY} points of the risk-adjusted score kept in the export.
+              </p>
+              <ul className="method-list method-alerts">
+                {QS_ALERT_RULES.map(([label, key, operator, threshold]) => (
+                  <li key={label}>
+                    <span>{label}</span>
+                    <span className="method-band">{QS_METRIC_NAMES[key] ?? key} {operator} {threshold}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * One pillar: what it weighs, what it counts, and where each measure's scale sits.
+ *
+ * The three anchors are the whole of the notation system in one line — the
+ * value scored 0, the value scored 50 and the value scored 100 — so a reader
+ * can see that a 15% ROIC is deliberately worth fifty rather than wonder why it
+ * is not worth more. Between two anchors the mark is interpolated.
+ */
+function PillarMethod({ pillar, weight }: { pillar: PillarName; weight: number }) {
+  const metrics = QS_METRICS.filter((metric) => metric.pilier === pillar);
+  return (
+    <details className="method-pillar">
+      <summary>
+        <span className="method-pillar-name">{pillar}</span>
+        <span className="method-band">{weight}% of the score · {metrics.length} measures</span>
+      </summary>
+      <div className="sheet method-sheet">
+        <table>
+          <thead>
+            <tr><th className="key">Measure</th><th>Weight</th><th>Scores 0</th><th>Scores 50</th><th>Scores 100</th></tr>
+          </thead>
+          <tbody>
+            {metrics.map((metric) => {
+              const anchors = QS_ANCHORS[metric.cle];
+              return (
+                <tr key={metric.cle}>
+                  <th className="key" scope="row">
+                    <span className="method-measure">{QS_METRIC_NAMES[metric.cle] ?? metric.cle}</span>
+                    <small>{QS_METRIC_NOTES[metric.cle]}</small>
+                  </th>
+                  <td>{metric.poids}%</td>
+                  {(anchors ?? [null, null, null]).map((anchor, index) => (
+                    <td key={index} data-empty={anchor == null}>{auditValue(metric.cle, anchor)}</td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </details>
   );
 }
 

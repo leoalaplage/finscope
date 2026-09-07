@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { QS_METRIC_NAMES, QS_METRICS, QS_PILLARS, detectCapDivisor, naturalDirection, resultsToCsv, scoreColour, scoreInk, screen, sectorsOf, sortRowsBy } from "../lib/qs/screener";
+import { QS_METRIC_NAMES, QS_METRICS, QS_PILLARS, QS_VALUATION_LEVELS, detectCapDivisor, naturalDirection, resultsToCsv, scoreColour, scoreInk, screen, sectorsOf, sortRowsBy, valuationStars } from "../lib/qs/screener";
 
 /**
  * The engine lives in two places and must never differ between them.
@@ -149,6 +149,41 @@ describe("rendering the scores", () => {
   it("offers every metric the engine weights", () => {
     expect(QS_METRICS.length).toBeGreaterThan(20);
     expect(new Set(QS_METRICS.map((metric) => metric.pilier))).toEqual(new Set(QS_PILLARS));
+  });
+});
+
+describe("the valuation, in stars", () => {
+  it("never contradicts the level the engine names", () => {
+    // Five bands drawn over three named ones. The stars are a finer reading of
+    // the same number, so every star count has to sit wholly inside one level:
+    // an "Expensive" company must never show three stars.
+    const named = (value: number) => QS_VALUATION_LEVELS.find(([, floor]) => value >= floor)![0];
+    const levels = new Map<number, Set<string>>();
+    for (let value = 0; value <= 100; value += 0.5) {
+      const stars = valuationStars(value)!;
+      (levels.get(stars) ?? levels.set(stars, new Set()).get(stars)!).add(named(value));
+    }
+    expect([...levels.keys()].sort()).toEqual([1, 2, 3, 4, 5]);
+    for (const words of levels.values()) expect(words.size).toBe(1);
+    expect(levels.get(5)).toEqual(new Set(["Attractive"]));
+    expect(levels.get(1)).toEqual(new Set(["Expensive"]));
+  });
+
+  it("rises with cheapness and is withheld where the pillar is", () => {
+    expect(valuationStars(92)).toBeGreaterThan(valuationStars(70)!);
+    expect(valuationStars(70)).toBeGreaterThan(valuationStars(20)!);
+    expect(valuationStars(null)).toBeNull();
+    expect(valuationStars(Number.NaN)).toBeNull();
+  });
+
+  it("ranks the column by the pillar the stars are cut from", () => {
+    // Sorting on the five bands alone would leave the order inside a band to
+    // whatever arrived first. The column ranks on the Value score itself.
+    const rows = screen(TABLE).all;
+    const byStars = sortRowsBy(rows, "etoiles", "desc").map((row) => row.Ticker);
+    const byValue = sortRowsBy(rows, "Value", "desc").map((row) => row.Ticker);
+    expect(byStars).toEqual(byValue);
+    expect(naturalDirection("etoiles")).toBe("desc");
   });
 });
 
