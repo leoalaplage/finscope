@@ -355,7 +355,8 @@ function MetricSection({
    * apologise for: the measure's line simply stops before the frame does.
    */
   const opensOn = periods[0]?.end ?? null;
-  const closesOn = [periods.at(-1)?.end, overlay.pricedOn].filter((date): date is string => !!date).sort().at(-1) ?? null;
+  const filedTo = periods.at(-1)?.end ?? null;
+  const closesOn = [filedTo, overlay.pricedOn].filter((date): date is string => !!date).sort().at(-1) ?? null;
   const series: AxisSeries[] = drawn.map(({ label, points, axis }) => ({
     label,
     points,
@@ -363,6 +364,17 @@ function MetricSection({
     at: opensOn && closesOn ? positions(points.map((point) => point.date), opensOn, closesOn) : undefined,
   }));
   const scales = rebased ? [] : priced ? [units[0] ?? "currency", "price"] : units;
+
+  /*
+   * The rule is drawn only when there is a gap worth drawing one for.
+   *
+   * A few days is a filing that has just landed, and a rule sitting on the
+   * right edge would be furniture. It appears with the caption that explains
+   * it, and at the same threshold.
+   */
+  const filedThrough = priced && overlay.lag != null && overlay.lag > 7 && opensOn && closesOn && filedTo
+    ? positions([filedTo], opensOn, closesOn)[0]
+    : null;
 
   const single = chosen.length === 1 && metric != null && !priced;
   const points = single ? pointsFor(metric.key) : [];
@@ -468,7 +480,7 @@ function MetricSection({
           </div>
           {series.length ? (
             <div className="price-frame">
-              <MultiAxis series={series} onHover={setHover} />
+              <MultiAxis series={series} onHover={setHover} mark={filedThrough} />
               <div className="plot-axis">
                 {extents[0] ? (
                   <>
@@ -511,11 +523,11 @@ function MetricSection({
         </p>
       )}
       {/* Why one line stops before the other, said rather than left to be found. */}
-      {priced && overlay.lag != null && overlay.lag > 7 ? (
+      {filedThrough != null ? (
         <p className="stat-note" style={{ marginTop: 10 }}>
-          The price is every weekly close through {shortDate(overlay.pricedOn!)}. The measure stops {overlay.lag} days
-          earlier, at the last period filed — so its line ends before the right edge rather than being stretched to
-          meet it.
+          The price is every weekly close through {shortDate(overlay.pricedOn!)}. The measure stops at the dotted rule —
+          {" "}{shortDate(filedTo!)}, the last period filed, {overlay.lag} days earlier. Its line ends there rather than
+          being stretched to the edge to meet a date it does not have.
         </p>
       ) : null}
       {/* A switch that appears to do nothing is worse than one that is not

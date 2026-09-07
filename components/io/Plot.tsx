@@ -386,9 +386,21 @@ export function pointAt(series: AxisSeries, fraction: number): PricePoint | null
 export function MultiAxis({
   series,
   onHover,
+  mark,
 }: {
   series: AxisSeries[];
   onHover: (fraction: number | null) => void;
+  /**
+   * Where the filed record ends, as a fraction of the frame's width.
+   *
+   * A line that stops in mid-air reads as data that failed to arrive. This one
+   * has simply run out of filings while the price kept trading, and on a
+   * one-year window that stretch can be a third of the chart — Exxon and Visa
+   * are 160 days behind the market today, Costco 372 on the yearly view. The
+   * rule is what turns an apparent break into a boundary, and it is the mark
+   * the implied-expectations chart already uses where the filed years end.
+   */
+  mark?: number | null;
 }) {
   const frame = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<number | null>(null);
@@ -440,6 +452,9 @@ export function MultiAxis({
             />
           );
         })}
+        {mark != null ? (
+          <line className="plot-mark" x1={mark * W} x2={mark * W} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
+        ) : null}
         {cursor != null ? (
           <line className="plot-cursor" x1={cursorX} x2={cursorX} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
         ) : null}

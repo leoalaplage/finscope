@@ -517,6 +517,9 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .plot-bar-projected { fill: none; stroke: var(--plot); stroke-width: 1; stroke-dasharray: 2 2; }
 .plot-bar-active-outline { stroke: var(--ink); stroke-dasharray: none; }
 .plot-cursor { stroke: var(--line-strong); stroke-width: 1; }
+/* Where the filings stop and the price carries on alone. Dotted, and lighter
+   than the crosshair, because it is a boundary rather than a reading. */
+.plot-mark { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 2 5; }
 
 /*
  * Five strokes, for the one chart that carries more than one company.
