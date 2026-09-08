@@ -40,3 +40,7 @@ yarn-error.log*
 /.wrangler/
 /outputs/
 /work/
+
+# The quarterly 13F artifact: rebuilt by scripts/fetch-13f-holders.mjs and
+# uploaded to KV, never served from the bundle.
+/data

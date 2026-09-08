@@ -1022,6 +1022,18 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .performance-wait { display: inline-block; width: 38px; height: 9px; vertical-align: -1px; }
 .performance .stat-note { max-width: 92ch; }
 
+/* --- Institutional holders ------------------------------------------------ */
+
+.holders-sheet table { min-width: 640px; }
+.holders-sheet th.key { min-width: 300px; white-space: normal; }
+.holders-foot { margin-top: calc(var(--u) * 3); }
+.holders-note { max-width: 92ch; margin-top: calc(var(--u) * 4); }
+/* The one bold word on the page, because the sentence it opens is the only
+   thing standing between a percentage and a reader who would otherwise take
+   it for a measurement. */
+.holders-note strong { color: var(--ink); font-weight: 550; }
+.holders .stat-note + .stat-note { margin-top: calc(var(--u) * 2); max-width: 92ch; }
+
 /* --- Insider dealing ------------------------------------------------------ */
 
 .insiders-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: calc(var(--u) * 4); }

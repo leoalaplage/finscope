@@ -13,6 +13,7 @@ import { toggleMetric } from "./selection";
 import { CompanyNews } from "./CompanyNews";
 import { Statements } from "./Statements";
 import { Stats } from "./Stats";
+import { Holders } from "./Holders";
 import { Insiders } from "./Insiders";
 import { ValuationHistory } from "./ValuationHistory";
 import { useValuationHistory, VALUATION_METRICS } from "./valuation-series";
@@ -387,6 +388,9 @@ export function Company({ ticker }: { ticker: string }) {
         * the second one's name while the request is out.
         */}
       <Insiders key={company.ticker} ticker={company.ticker} />
+      {/* Beside the insiders, and for the same reason: it is about who holds
+          the company rather than what the company did. */}
+      <Holders key={`holders-${company.ticker}`} ticker={company.ticker} view={view} />
       {/* Last, because it is the only thing on this page the company did not
           file: what it has said since. It draws itself away if there is
           nothing verified to read. */}
