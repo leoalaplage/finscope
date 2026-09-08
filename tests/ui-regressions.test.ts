@@ -294,8 +294,15 @@ describe("the redesign", () => {
     // to one module so the screener scores the same list the home page edits.
     const store = readFileSync(new URL("../components/io/watchlist.ts", import.meta.url), "utf8");
     expect(store).toContain("localStorage.setItem(WATCHLIST_KEY");
-    expect(watchlist).toContain("writeWatchlist(parsed)");
-    expect(watchlist).toContain("Reset 27");
+    // One editor writes the list, and both the home page and the market page
+    // open that one. A second copy would be two editors that agree until one
+    // of them is changed.
+    const editor = readFileSync(new URL("../components/io/WatchlistEditor.tsx", import.meta.url), "utf8");
+    expect(editor).toContain("writeWatchlist(parsed)");
+    expect(editor).toContain("Reset {DEFAULT_TICKERS.length}");
+    expect(watchlist).toContain("<WatchlistEditor");
+    const performance = readFileSync(new URL("../components/io/MarketPerformance.tsx", import.meta.url), "utf8");
+    expect(performance).toContain("<WatchlistEditor");
     expect(page).not.toContain('from "next/link"');
     // Still a real document navigation where it navigates at all — the compare
     // page hands the symbol back instead, and passes no destination.
@@ -724,8 +731,15 @@ describe("the redesign", () => {
     const route = readFileSync(new URL("../app/api/macro/route.ts", import.meta.url), "utf8");
     const definitions = readFileSync(new URL("../lib/macro.ts", import.meta.url), "utf8");
     const ioCss = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
-    expect(page.indexOf("<MacroSnapshot />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
-    expect(page.indexOf("<MarketNews />")).toBeGreaterThan(page.indexOf("<MacroSnapshot />"));
+    /*
+     * The order the market page reads in. A reader opening "Market" wants what
+     * happened to what they hold before what happened to the economy, so their
+     * own list sits directly under the indices and the macro panel — the least
+     * personal thing on the page — keeps its place at the foot.
+     */
+    expect(page.indexOf("<MarketPerformance />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
+    expect(page.indexOf("<MarketNews />")).toBeGreaterThan(page.indexOf("<MarketPerformance />"));
+    expect(page.indexOf("<MacroSnapshot />")).toBeGreaterThan(page.indexOf("<MarketNews />"));
     expect(macro).toContain('aria-label="Select a macro geography"');
     expect(macro).toContain("latest available data");
     expect(macro).toContain("Published observations only");

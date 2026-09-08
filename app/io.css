@@ -1011,6 +1011,17 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .stars > span { color: var(--line-strong); }
 .stars > span[data-lit="true"] { color: var(--plot); }
 
+/* --- Watchlist performance ------------------------------------------------ */
+
+.performance-meta { display: flex; align-items: center; gap: calc(var(--u) * 3); }
+.performance-sheet { margin-top: calc(var(--u) * 3); }
+.performance-sheet table { min-width: 860px; }
+.performance-sheet th.key, .performance-sheet td.key { min-width: 120px; }
+/* A cell still waiting for its batch: the row is drawn, the figure is not
+   invented. */
+.performance-wait { display: inline-block; width: 38px; height: 9px; vertical-align: -1px; }
+.performance .stat-note { max-width: 92ch; }
+
 /* --- Insider dealing ------------------------------------------------------ */
 
 .insiders-lead { max-width: 88ch; margin-top: calc(var(--u) * 2); }

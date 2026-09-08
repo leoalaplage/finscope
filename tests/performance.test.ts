@@ -14,16 +14,20 @@ function series(from: string, days: number, price: (index: number) => number): M
 
 describe("a performance table's windows", () => {
   it("states every window from one pass over the sessions", () => {
-    // 100 on day zero, rising by one a day for six years.
-    const sessions = series("2020-01-01", 2200, (index) => 100 + index);
+    // 100 on day zero, rising by one a day for eleven years — long enough for
+    // the longest window to have something to anchor on, which is the point of
+    // asserting every one of them.
+    const sessions = series("2015-01-01", 4100, (index) => 100 + index);
     const result = performanceOf(sessions);
     expect(result.asOf).toBe(sessions.at(-1)!.date);
-    expect(result.price).toBe(100 + 2199);
+    expect(result.price).toBe(100 + 4099);
     for (const window of WINDOWS) expect(result.changes[window.id], window.label).not.toBeNull();
     // A day back is one point on a series that gains one a day.
-    expect(result.changes.d1).toBeCloseTo(1 / (100 + 2198), 10);
+    expect(result.changes.d1).toBeCloseTo(1 / (100 + 4098), 10);
     // A week back is seven.
-    expect(result.changes.w1).toBeCloseTo(7 / (100 + 2192), 10);
+    expect(result.changes.w1).toBeCloseTo(7 / (100 + 4092), 10);
+    // And ten years back is 3,653 of them.
+    expect(result.changes.y10).toBeCloseTo(3653 / (100 + 4099 - 3653), 10);
   });
 
   it("compares against the previous session, not the previous calendar day", () => {

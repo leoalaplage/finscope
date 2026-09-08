@@ -1,0 +1,193 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Pencil } from "lucide-react";
+import { WINDOWS, type WindowId } from "@/lib/performance";
+import type { PerformanceRow } from "@/app/api/performance/route";
+import { ABSENT, delta, price as writePrice, shortDate } from "./format";
+import { useStoredWatchlist } from "./watchlist";
+import { WatchlistEditor } from "./WatchlistEditor";
+
+/**
+ * Every window's return for the list a reader follows.
+ *
+ * Eight windows out of one pass over one set of daily closes, which is what
+ * makes a table like this cheap enough to draw at all — a request per company
+ * rather than one per cell.
+ *
+ * A window longer than a company's own history is blank, not a return since
+ * listing. Palantir has no ten-year column because Palantir has no ten years,
+ * and stating one anchored on its first session would be a figure about the
+ * IPO wearing the label of a decade.
+ */
+
+/** How many companies one request prices. The endpoint's own cap. */
+const BATCH = 8;
+
+type Rows = Record<string, PerformanceRow>;
+
+export function MarketPerformance() {
+  const stored = useStoredWatchlist();
+  const [session, setSession] = useState<string[] | null>(null);
+  const [editing, setEditing] = useState(false);
+  /*
+   * The rows carry the list they were priced for.
+   *
+   * A reader who edits their watchlist has figures in hand that are not this
+   * list's, and rows that say which list they belong to cannot be shown under
+   * another one while the new one is fetched. The same rule the screener holds
+   * its table under, and it needs no effect to clear anything.
+   */
+  const [answer, setAnswer] = useState<{ followed: string; rows: Rows; failed: boolean }>(
+    { followed: "", rows: {}, failed: false },
+  );
+  const [sort, setSort] = useState<{ key: WindowId | "ticker"; direction: "asc" | "desc" }>({ key: "ytd", direction: "desc" });
+
+  const tickers = session ?? stored;
+  const followed = tickers.join(",");
+  const current = answer.followed === followed ? answer : { followed, rows: {} as Rows, failed: false };
+  const rows = current.rows;
+  const failed = current.failed;
+
+  useEffect(() => {
+    if (!followed) return;
+    const controller = new AbortController();
+    const list = followed.split(",");
+    (async () => {
+      /*
+       * In batches, and drawn as they land. Sixty companies is sixty sets of a
+       * decade of sessions; asking for them in one request would be one long
+       * wait ending in a timeout rather than a table that fills in.
+       */
+      for (let index = 0; index < list.length; index += BATCH) {
+        try {
+          const response = await fetch(
+            `/api/performance?tickers=${encodeURIComponent(list.slice(index, index + BATCH).join(","))}`,
+            { signal: controller.signal },
+          );
+          if (!response.ok) throw new Error(String(response.status));
+          const payload = await response.json() as { rows?: PerformanceRow[] };
+          if (controller.signal.aborted) return;
+          setAnswer((held) => {
+            const next: Rows = held.followed === followed ? { ...held.rows } : {};
+            for (const row of payload.rows ?? []) next[row.ticker.toUpperCase()] = row;
+            return { followed, rows: next, failed: false };
+          });
+        } catch {
+          if (!controller.signal.aborted && index === 0) {
+            setAnswer((held) => (held.followed === followed ? { ...held, failed: true } : { followed, rows: {}, failed: true }));
+          }
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, [followed]);
+
+  const ordered = useMemo(() => {
+    const present = tickers.map((ticker) => ({ ticker, row: rows[ticker] ?? null }));
+    const factor = sort.direction === "asc" ? 1 : -1;
+    if (sort.key === "ticker") {
+      return [...present].sort((left, right) => factor * left.ticker.localeCompare(right.ticker, "en"));
+    }
+    /*
+     * A company with no figure for a window is neither the best nor the worst
+     * at it, so it sits at the bottom whichever way the column points. Sorting
+     * it as nought would rank a company that has not existed long enough above
+     * every company that fell.
+     */
+    const window = sort.key;
+    return [...present].sort((left, right) => {
+      const a = left.row?.changes[window] ?? null;
+      const b = right.row?.changes[window] ?? null;
+      if (a == null && b == null) return left.ticker.localeCompare(right.ticker, "en");
+      if (a == null) return 1;
+      if (b == null) return -1;
+      return factor * (a - b);
+    });
+  }, [tickers, rows, sort]);
+
+  const choose = (key: WindowId | "ticker") => setSort((current) => current.key === key
+    ? { key, direction: current.direction === "asc" ? "desc" : "asc" }
+    : { key, direction: key === "ticker" ? "asc" : "desc" });
+
+  const loaded = Object.keys(rows).length;
+  const asOf = Object.values(rows).map((row) => row.asOf).filter((date): date is string => !!date).sort().at(-1) ?? null;
+
+  const header = (key: WindowId | "ticker", label: string, wide = false) => (
+    <th
+      key={key}
+      scope="col"
+      className={wide ? "key" : undefined}
+      aria-sort={sort.key === key ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button type="button" className="sort-header" onClick={() => choose(key)}>
+        {label}
+        <span className="sort-mark" aria-hidden="true">{sort.key === key ? (sort.direction === "asc" ? "↑" : "↓") : ""}</span>
+      </button>
+    </th>
+  );
+
+  return (
+    <section className="section performance" aria-labelledby="performance-title">
+      <div className="section-head">
+        <h2 className="label" id="performance-title">Watchlist performance</h2>
+        <div className="performance-meta">
+          <span className="label">
+            {loaded < tickers.length ? `${loaded} of ${tickers.length} priced` : `${tickers.length} companies`}
+            {asOf ? ` · ${shortDate(asOf)}` : ""}
+          </span>
+          <button className="watchlist-edit" type="button" onClick={() => setEditing(true)} aria-label="Edit watchlist" title="Edit watchlist">
+            <Pencil size={11} />
+          </button>
+        </div>
+      </div>
+
+      {failed ? (
+        <p className="stat-note">Prices are temporarily unavailable, so no window can be measured.</p>
+      ) : (
+        <div className="sheet performance-sheet">
+          <table>
+            <thead>
+              <tr>
+                {header("ticker", "Company", true)}
+                <th scope="col">Price</th>
+                {WINDOWS.map((window) => header(window.id, window.label))}
+              </tr>
+            </thead>
+            <tbody>
+              {ordered.map(({ ticker, row }) => (
+                <tr key={ticker}>
+                  <th className="key" scope="row">
+                    <a className="key-open" href={`/s/${encodeURIComponent(ticker)}`}>{ticker}</a>
+                  </th>
+                  <td data-empty={row?.price == null}>
+                    {row ? (row.price == null ? ABSENT : writePrice(row.price, "USD")) : <span className="skeleton performance-wait" />}
+                  </td>
+                  {WINDOWS.map((window) => {
+                    const value = row?.changes[window.id] ?? null;
+                    return (
+                      <td key={window.id} data-empty={value == null} data-dir={value == null ? undefined : value >= 0 ? "up" : "down"}>
+                        {row ? (value == null ? ABSENT : delta(value, 1)) : <span className="skeleton performance-wait" />}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="stat-note" style={{ marginTop: 12 }}>
+        Measured from the last close on or before each window&rsquo;s start — never after it, which would report a return
+        the market had not yet delivered. A window older than a company&rsquo;s first session is blank rather than
+        anchored on it: a ten-year column for a company that listed in 2020 would be a figure about its listing wearing
+        the label of a decade. Editing this list edits it everywhere on the site.
+      </p>
+
+      {editing ? (
+        <WatchlistEditor tickers={tickers} onClose={() => setEditing(false)} onSaved={setSession} />
+      ) : null}
+    </section>
+  );
+}

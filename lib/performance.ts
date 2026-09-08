@@ -17,6 +17,7 @@ export const WINDOWS = [
   { id: "ytd", label: "YTD", days: null },
   { id: "y1", label: "1Y", days: 365 },
   { id: "y5", label: "5Y", days: 1826 },
+  { id: "y10", label: "10Y", days: 3653 },
 ] as const;
 
 export type WindowId = typeof WINDOWS[number]["id"];
