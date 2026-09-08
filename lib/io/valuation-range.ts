@@ -1,6 +1,8 @@
 import type { IoPeriod } from "./view";
 
-export type HistoricalValuationMetric = "enterpriseToFreeCashFlow" | "priceToFreeCashFlow" | "freeCashFlowYield";
+export type HistoricalValuationMetric =
+  | "enterpriseToFreeCashFlow" | "priceToFreeCashFlow" | "freeCashFlowYield"
+  | "dividendYield" | "buybackYield" | "shareholderYield";
 
 export interface ValuationPrice {
   price: number;
@@ -36,6 +38,26 @@ const positiveRatio = (numerator: number | null, denominator: number | null) =>
     : null;
 
 /**
+ * The same, where a negative numerator is a fact rather than a failure.
+ *
+ * A multiple struck on negative earnings is meaningless — a company losing
+ * money is not cheap — which is why every ratio above refuses one. Cash
+ * returned to shareholders is not a multiple: a company that issued more stock
+ * than it bought back returned *less than nothing*, and that is exactly the
+ * thing a reader wants to see. Only the price has to be positive.
+ */
+const signedRatio = (numerator: number | null, denominator: number | null) =>
+  numerator != null && denominator != null
+    && Number.isFinite(numerator) && Number.isFinite(denominator)
+    && denominator > 0
+    ? numerator / denominator
+    : null;
+
+/** Two figures added where either may be missing, and nothing where both are. */
+const summed = (left: number | null, right: number | null) =>
+  left == null && right == null ? null : (left ?? 0) + (right ?? 0);
+
+/**
  * One valuation observation, using only figures that were public on its date.
  *
  * The period carries its own share count and net debt. Using today's balance
@@ -50,6 +72,20 @@ export function historicalValuationPoint(period: IoPeriod, price: ValuationPrice
   const freeCashFlow = period.values.freeCashFlow;
   const marketCap = price.price * basis.shares;
   const enterpriseValue = basis.netDebt == null ? null : marketCap + basis.netDebt;
+  /*
+   * What the company paid out, against what it was worth on the day.
+   *
+   * Dividends are a cash outflow and are normalized positive; net repurchases
+   * are gross buybacks less issuance proceeds and are signed, so a company that
+   * issued more stock than it retired carries a negative buyback yield. That is
+   * the reading — it diluted its owners — and it is kept rather than withheld.
+   *
+   * Priced on the same day and the same share count as every other figure here,
+   * so a payout is measured against what the company cost when it was announced
+   * rather than against what it costs now.
+   */
+  const dividends = period.values.dividendsPaid;
+  const netBuybacks = period.values.netShareRepurchases;
   return {
     date: price.date,
     publishedAt: period.publishedAt,
@@ -59,6 +95,9 @@ export function historicalValuationPoint(period: IoPeriod, price: ValuationPrice
       enterpriseToFreeCashFlow: positiveRatio(enterpriseValue, freeCashFlow),
       priceToFreeCashFlow: positiveRatio(marketCap, freeCashFlow),
       freeCashFlowYield: positiveRatio(freeCashFlow, marketCap),
+      dividendYield: signedRatio(dividends, marketCap),
+      buybackYield: signedRatio(netBuybacks, marketCap),
+      shareholderYield: signedRatio(summed(dividends, netBuybacks), marketCap),
     },
   };
 }

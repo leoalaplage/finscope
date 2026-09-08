@@ -24,11 +24,21 @@ import type { IoQuote } from "./quote";
  * is how two answers to one question get onto one page.
  */
 
-/** The three, shaped as the chart's own measures so nothing has to special-case them. */
-export const VALUATION_METRICS: Array<IoMetric & { key: HistoricalValuationMetric; percent: boolean }> = [
-  { key: "enterpriseToFreeCashFlow", label: "EV / free cash flow", short: "EV / FCF", unit: "ratio", formula: "Enterprise value ÷ trailing free cash flow, at each filing date", percent: false },
-  { key: "priceToFreeCashFlow", label: "Price / free cash flow", short: "P / FCF", unit: "ratio", formula: "Market capitalisation ÷ trailing free cash flow, at each filing date", percent: false },
-  { key: "freeCashFlowYield", label: "Free cash flow yield", short: "FCF yield", unit: "percent", formula: "Trailing free cash flow ÷ market capitalisation, at each filing date", percent: true },
+/**
+ * The six, shaped as the chart's own measures so nothing has to special-case them.
+ *
+ * Two questions, priced the same way. The first three ask what the market
+ * charges for the cash a company makes. The last three ask how much of that
+ * cash actually reached its owners — which is the other half of the same
+ * arithmetic and was the one this page never showed.
+ */
+export const VALUATION_METRICS: Array<IoMetric & { key: HistoricalValuationMetric; percent: boolean; group: "price" | "return" }> = [
+  { key: "enterpriseToFreeCashFlow", label: "EV / free cash flow", short: "EV / FCF", unit: "ratio", formula: "Enterprise value ÷ trailing free cash flow, at each filing date", percent: false, group: "price" },
+  { key: "priceToFreeCashFlow", label: "Price / free cash flow", short: "P / FCF", unit: "ratio", formula: "Market capitalisation ÷ trailing free cash flow, at each filing date", percent: false, group: "price" },
+  { key: "freeCashFlowYield", label: "Free cash flow yield", short: "FCF yield", unit: "percent", formula: "Trailing free cash flow ÷ market capitalisation, at each filing date", percent: true, group: "price" },
+  { key: "dividendYield", label: "Dividend yield", short: "Dividend yield", unit: "percent", formula: "Trailing dividends paid ÷ market capitalisation, at each filing date", percent: true, group: "return" },
+  { key: "buybackYield", label: "Buyback yield", short: "Buyback yield", unit: "percent", formula: "Trailing repurchases less issuance ÷ market capitalisation; negative where a company issued more stock than it retired", percent: true, group: "return" },
+  { key: "shareholderYield", label: "Shareholder yield", short: "Shareholder yield", unit: "percent", formula: "Trailing dividends plus net repurchases ÷ market capitalisation, at each filing date", percent: true, group: "return" },
 ];
 
 const KEYS = new Set<string>(VALUATION_METRICS.map((metric) => metric.key));
@@ -36,10 +46,17 @@ const KEYS = new Set<string>(VALUATION_METRICS.map((metric) => metric.key));
 /** Whether a chart key is one of these rather than one the company filed. */
 export const isValuationMetric = (key: string): key is HistoricalValuationMetric => KEYS.has(key);
 
-/** A period can carry a multiple only if it has a basis and positive cash flow. */
-export const valuationUsable = (period: IoPeriod) => period.valuationBasis != null
-  && period.values.freeCashFlow != null
-  && period.values.freeCashFlow > 0;
+/*
+ * A period can be priced if it carries a filed basis. That is the whole test.
+ *
+ * It used to demand positive free cash flow as well, which was the right guard
+ * on the wrong thing: it belongs to the three multiples struck on that cash,
+ * and each of those already withholds itself when the denominator is absent or
+ * negative. Applied to the period it also threw away the dividend a company
+ * kept paying through a year it burned cash — which is precisely the year a
+ * reader would want to see it.
+ */
+export const valuationUsable = (period: IoPeriod) => period.valuationBasis != null;
 
 export interface ValuationHistoryState {
   /** The periods the multiples could be struck for, newest last. */

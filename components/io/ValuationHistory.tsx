@@ -41,7 +41,7 @@ export function ValuationHistory({
   return (
     <section className="section valuation-history" id="valuation-history">
       <div className="section-head">
-        <h2 className="label">Valuation history</h2>
+        <h2 className="label">Valuation and capital returned</h2>
         <span className="label">{state.usesTrailing ? "TTM" : "Annual"} · filing-date prices</span>
       </div>
 
@@ -65,13 +65,14 @@ export function ValuationHistory({
               </tr>
             </thead>
             <tbody>
-              {VALUATION_METRICS.map((metric) => {
+              {VALUATION_METRICS.map((metric, index) => {
                 const now = state.current?.metrics[metric.key] ?? null;
                 const five = historicalValuationRange(state.history, metric.key, now, 5, asOf);
                 const ten = historicalValuationRange(state.history, metric.key, now, 10, asOf);
                 const chosen = selected.includes(metric.key);
+                const opens = index > 0 && metric.group !== VALUATION_METRICS[index - 1].group;
                 return (
-                  <tr key={metric.key} data-selected={chosen}>
+                  <tr key={metric.key} data-selected={chosen} className={opens ? "rule" : undefined}>
                     <th className="key" scope="row">
                       <button type="button" className="key-open" aria-pressed={chosen} onClick={() => onSelect(chosen ? null : metric.key)}>
                         {metric.short}
