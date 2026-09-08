@@ -476,7 +476,5 @@ export function MarketPage({ watchlist = [], indicesOnly = false }: { watchlist?
       <Suspense fallback={<SkeletonCards label="watchlist performance" count={1} height={260}/>}><PerformanceTable tickers={watchlist}/></Suspense>
     </> : null}
 
-    {entries?.some((entry) => !failed(entry)) &&
-      <p className="market-foot">Prices are delayed as the exchange requires.</p>}
   </div>;
 }

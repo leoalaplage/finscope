@@ -441,7 +441,6 @@ export function MacroSnapshot() {
           </article>
         ))}
       </div>
-      <p className="macro-foot">Select any indicator for its history. Inflation and unemployment are monthly where the official source publishes them; GDP remains quarterly. No missing period is estimated.</p>
     </section>
   );
 }

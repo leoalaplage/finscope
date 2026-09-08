@@ -1239,7 +1239,13 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * promising a page elsewhere — the item is when it was filed, what it is about
  * and the line itself, and none of it is a link because none of it goes
  * anywhere. Two columns where the screen has room for two, because eighteen
- * headlines in one column is a scroll rather than a page.
+ * headlines in one column is a scroll rather than a page — and they are read
+ * down the left one and then down the right, which is how a page of newsprint
+ * is read. A two-column grid fills across instead, so the second item of the
+ * wire sat at the top right and the reader's eye had to zig-zag to follow the
+ * clock. Multi-column fills the first column before it starts the second, and
+ * leaves the order in the markup chronological for anything not reading it in
+ * two dimensions.
  *
  * The hour is the column, because that is what a wire is read by. It is
  * monospaced and tabular so eighteen of them make a straight edge, and the
@@ -1247,13 +1253,20 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * caption line above every line of news would be more furniture than news.
  */
 .news { border-top: 1px solid var(--line); }
-.news-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 calc(var(--u) * 10); }
+.news-list { columns: 2; column-gap: calc(var(--u) * 10); }
 .news-item {
   display: grid; grid-template-columns: minmax(0, 46px) minmax(0, 1fr);
   align-items: baseline; gap: calc(var(--u) * 3);
   padding-block: 9px; border-top: 1px solid var(--line);
+  /* A headline split down the middle of a column break is not a headline. */
+  break-inside: avoid;
 }
-.news-list > .news-item:first-child, .news-list > .news-item:nth-child(2) { border-top: 0; padding-top: 0; }
+/*
+ * Both columns open on a rule, because in a multi-column flow there is no
+ * selector for "first of its column" — and one column starting with a hairline
+ * while the other does not is worse than both having one.
+ */
+.news-list > .news-item:first-child { border-top: 1px solid var(--line); }
 .news-meta {
   font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-3);
   font-variant-numeric: tabular-nums; white-space: nowrap;
@@ -1266,8 +1279,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .news-item.skeleton { display: block; border-radius: 2px; }
 
 @media (max-width: 900px) {
-  .news-list { grid-template-columns: minmax(0, 1fr); }
-  .news-list > .news-item:nth-child(2) { border-top: 1px solid var(--line); padding-top: calc(var(--u) * 3); }
+  .news-list { columns: 1; }
 }
 
 /* --- Portfolio ----------------------------------------------------------- */

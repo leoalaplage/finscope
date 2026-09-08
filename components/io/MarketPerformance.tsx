@@ -186,14 +186,6 @@ export function MarketPerformance() {
         </div>
       )}
 
-      <p className="stat-note" style={{ marginTop: 12 }}>
-        The day and the year to date are total moves; five and ten years are annual rates, compounded over the time
-        actually elapsed between the two closes rather than the length of the window asked for. Each is measured from
-        the last close on or before that window&rsquo;s start — never after it, which would report a return the market
-        had not yet delivered. A window older than a company&rsquo;s first session is blank rather than anchored on it:
-        a ten-year column for a company that listed in 2020 would be a figure about its listing wearing the label of a
-        decade. Editing this list edits it everywhere on the site.
-      </p>
 
       {editing ? (
         <WatchlistEditor tickers={tickers} onClose={() => setEditing(false)} onSaved={setSession} />
