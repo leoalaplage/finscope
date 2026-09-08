@@ -105,6 +105,25 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v30: a filer that keeps its books under IFRS is read. Ten per cent of the
+ * coverage sweep files its annual report on Form 20-F under IFRS, where not one
+ * concept in the US GAAP map exists — so SAP, Shell, AstraZeneca, Novo Nordisk,
+ * HSBC and UBS were all listed in New York and all normalized to nothing, and
+ * the application said so correctly and uselessly. The IFRS names are appended
+ * to the same table as further taxonomies, so every rule downstream applies to
+ * them unchanged; they were taken from those filers' own company-facts
+ * documents rather than from the standard's labels, because several are not the
+ * obvious ones — the diluted weighted average share count is
+ * `AdjustedWeightedAverageShares`.
+ *
+ * With it, the reporting currency is read from both taxonomies. It used to scan
+ * only US GAAP, so an IFRS filer inherited whatever its registry entry declared:
+ * dollars, for a company keeping its books in euros, kroner or francs. That is
+ * the test deciding whether a dollar quote may be multiplied by a filed share
+ * count, so it would not have mislabelled a multiple, it would have invented
+ * one. Nothing is reconciled between the two standards and no figure is
+ * converted. The stored datasets hold none of this, so they are built again.
+ *
  * v29: a period carries the day it was first published, beside the day it was
  * last filed. Both are facts and neither stands in for the other: a value is
  * taken from the newest filing that carries it, because a restatement
@@ -169,4 +188,4 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v29";
+export const KEY_VERSION = "v30";

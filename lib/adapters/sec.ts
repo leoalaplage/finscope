@@ -18,13 +18,14 @@ const SecResponseSchema = z.object({
 });
 
 type SecUnit = z.infer<typeof SecUnitSchema>;
+type Taxonomy = "us-gaap" | "dei" | "ifrs-full";
 type ConceptSpec = {
-  namespace: "us-gaap" | "dei"; tags: string[]; unit: "currency" | "shares" | "perShare";
+  namespace: Taxonomy; tags: string[]; unit: "currency" | "shares" | "perShare";
   /** Further taxonomies to try, in preference order after `tags`. */
-  also?: Array<{ namespace: "us-gaap" | "dei"; tags: string[] }>;
+  also?: Array<{ namespace: Taxonomy; tags: string[] }>;
 };
 
-export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepurchases">, ConceptSpec> = {
+const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepurchases">, ConceptSpec> = {
   // Financial institutions commonly state the top line net of interest expense
   // rather than under generic Revenues. It is a fallback only: an industrial
   // filer's contract/total revenue concepts retain their existing preference.
@@ -191,6 +192,123 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   operatingExpenses: { namespace: "us-gaap", tags: ["OperatingExpenses"], unit: "currency" },
   otherIncomeExpense: { namespace: "us-gaap", tags: ["NonoperatingIncomeExpense"], unit: "currency" },
 };
+
+/**
+ * The same measures, as an IFRS filer tags them.
+ *
+ * A foreign private issuer files its annual report on Form 20-F, and if it
+ * reports under IFRS not one concept in the table above exists in it. Every
+ * such filer normalized to nothing: SAP, Shell, AstraZeneca, Novo Nordisk,
+ * HSBC and UBS are listed in New York and the application said, correctly but
+ * uselessly, that it could not read them. That was ten per cent of the coverage
+ * sweep.
+ *
+ * These names are not guessed from the IFRS taxonomy. They are the concepts
+ * those five filers actually tag, taken from their own company-facts documents,
+ * which is why several of them are not the obvious ones: the diluted weighted
+ * average share count is `AdjustedWeightedAverageShares` and the basic one is
+ * `WeightedAverageShares`, neither of which contains the word "diluted" or
+ * "ordinary" that the standard's own labels would suggest.
+ *
+ * Where a filer tags several candidates the order is preference, exactly as it
+ * is above: `ProfitLossAttributableToOwnersOfParent` is the figure a per-share
+ * measure needs, so it precedes the group total.
+ *
+ * This is a translation of names and nothing else. No IFRS figure is adjusted,
+ * reconciled to US GAAP or made comparable to one — an operating profit struck
+ * under one standard is not the same measurement as under the other, and this
+ * application does not pretend otherwise. It reads what the filer published.
+ */
+const IFRS_CONCEPTS: Partial<Record<keyof typeof US_GAAP_CONCEPTS, string[]>> = {
+  revenue: ["Revenue", "RevenueFromContractsWithCustomers", "RevenueFromSaleOfGoods"],
+  grossProfit: ["GrossProfit"],
+  costOfRevenue: ["CostOfSales"],
+  operatingIncome: ["ProfitLossFromOperatingActivities"],
+  netIncome: ["ProfitLossAttributableToOwnersOfParent", "ProfitLoss"],
+  incomeBeforeTax: ["ProfitLossBeforeTax"],
+  incomeTaxExpense: ["IncomeTaxExpenseContinuingOperations"],
+  operatingCashFlow: ["CashFlowsFromUsedInOperatingActivities"],
+  /*
+   * The second name is Shell's capital expenditure, awkwardly labelled.
+   *
+   * The taxonomy calls it "other long-term assets", but it is the cash outflow
+   * on the investing line of Shell's own statement — $18.9bn in 2025 against a
+   * reported capital expenditure of about nineteen. AstraZeneca tags both and
+   * takes the first, so the order is preference and not a merge.
+   *
+   * SAP is deliberately absent. It tags no cash capital expenditure at all,
+   * only additions to property, plant and equipment — an accrual disclosure of
+   * what the balance grew by, not what was paid. Reading one as the other would
+   * be the silent substitution this application refuses everywhere else, so SAP
+   * carries no free cash flow and the page says so.
+   */
+  capitalExpenditures: [
+    "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities",
+    "PurchaseOfOtherLongtermAssetsClassifiedAsInvestingActivities",
+    "PaymentsToAcquirePropertyPlantAndEquipment",
+  ],
+  acquisitions: ["CashFlowsFromUsedInObtainingControlOfSubsidiariesOrOtherBusinessesClassifiedAsInvestingActivities"],
+  cashAndEquivalents: ["CashAndCashEquivalents"],
+  totalAssets: ["Assets"],
+  totalLiabilities: ["Liabilities"],
+  totalEquity: ["EquityAttributableToOwnersOfParent", "Equity"],
+  currentAssets: ["CurrentAssets"],
+  currentLiabilities: ["CurrentLiabilities"],
+  // Not "diluted" and not "ordinary": these are the names the filings use.
+  dilutedShares: ["AdjustedWeightedAverageShares"],
+  basicShares: ["WeightedAverageShares"],
+  dilutedEpsReported: ["DilutedEarningsLossPerShare"],
+  sharesOutstanding: ["NumberOfSharesOutstanding"],
+  sharesIssued: ["NumberOfSharesIssued"],
+  // Owners of the parent first: it excludes the minority's share, which is what
+  // a per-share or a yield figure needs.
+  dividendsPaid: [
+    "DividendsPaidToEquityHoldersOfParentClassifiedAsFinancingActivities",
+    "DividendsPaidClassifiedAsFinancingActivities",
+    "DividendsPaidOrdinaryShares",
+    "DividendsPaid",
+  ],
+  dividendsPerShare: ["DividendsPaidOrdinarySharesPerShare", "DividendsRecognisedAsDistributionsToOwnersPerShare"],
+  stockBasedCompensation: ["ExpenseFromSharebasedPaymentTransactionsWithEmployees"],
+  shareRepurchases: ["PaymentsToAcquireOrRedeemEntitysShares", "PurchaseOfTreasuryShares"],
+  shareIssuance: ["ProceedsFromIssueOfOrdinaryShares", "ProceedsFromIssuingShares", "SaleOrIssueOfTreasuryShares"],
+  // IFRS states finance costs where US GAAP states interest expense. They are
+  // not the same boundary — finance costs carry more than the coupon — so the
+  // interest-cover reading of an IFRS filer is the filer's own definition.
+  interestExpense: ["FinanceCosts", "InterestExpense"],
+  interestPaid: ["InterestPaidClassifiedAsOperatingActivities", "InterestPaid"],
+  depreciationAndAmortization: [
+    "DepreciationAmortisationAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss",
+    "DepreciationAndAmortisationExpense",
+  ],
+  inventory: ["Inventories"],
+  accountsReceivable: ["TradeAndOtherCurrentReceivables"],
+  accountsPayable: ["TradeAndOtherCurrentPayables"],
+  goodwill: ["Goodwill"],
+  intangibleAssets: ["IntangibleAssetsOtherThanGoodwill"],
+  propertyPlantAndEquipment: ["PropertyPlantAndEquipment"],
+  retainedEarnings: ["RetainedEarnings"],
+  researchAndDevelopment: ["ResearchAndDevelopmentExpense"],
+  shortTermBorrowings: ["CurrentBorrowings", "ShorttermBorrowings"],
+  longTermDebtNoncurrent: ["NoncurrentPortionOfNoncurrentBorrowings", "NoncurrentBorrowings"],
+  totalDebt: ["Borrowings"],
+};
+
+/**
+ * One table, two standards, one preference order.
+ *
+ * The IFRS names are appended as further taxonomies rather than held in a
+ * parallel map, so every rule downstream — the flat preference order, the
+ * fallback-first insertion, the unit key, the period normalizer — applies to
+ * them unchanged and cannot drift from the US GAAP path.
+ */
+export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepurchases">, ConceptSpec> =
+  Object.fromEntries(
+    (Object.entries(US_GAAP_CONCEPTS) as Array<[keyof typeof US_GAAP_CONCEPTS, ConceptSpec]>).map(([metric, spec]) => {
+      const ifrs = IFRS_CONCEPTS[metric];
+      return [metric, ifrs ? { ...spec, also: [...(spec.also ?? []), { namespace: "ifrs-full" as const, tags: ifrs }] } : spec];
+    }),
+  ) as Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepurchases">, ConceptSpec>;
 
 function sourceUrl(cik: string, accession: string) {
   return `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replaceAll("-", "")}/`;
@@ -794,10 +912,21 @@ function recoverSharesFromDividends(periods: FinancialPeriod[], ratesSeen: boole
  */
 function reportingCurrency(namespaces: z.infer<typeof SecResponseSchema>["facts"], declared: string): string {
   const counts = new Map<string, number>();
-  for (const node of Object.values(namespaces["us-gaap"] ?? {})) {
-    for (const [unit, facts] of Object.entries(node.units)) {
-      if (!/^[A-Z]{3}$/.test(unit)) continue;
-      counts.set(unit, (counts.get(unit) ?? 0) + facts.length);
+  /*
+   * Both standards, because the accounts are kept in one currency whichever one
+   * they are kept under. Reading only `us-gaap` left every IFRS filer on the
+   * currency its registry entry happened to declare — dollars — while SAP keeps
+   * its books in euros, Novo Nordisk in kroner and UBS in francs. That is not a
+   * cosmetic label: it is the test that decides whether a dollar quote may be
+   * multiplied by a filed share count at all, so getting it wrong would not
+   * mislabel a multiple, it would invent one.
+   */
+  for (const taxonomy of ["us-gaap", "ifrs-full"] as const) {
+    for (const node of Object.values(namespaces[taxonomy] ?? {})) {
+      for (const [unit, facts] of Object.entries(node.units)) {
+        if (!/^[A-Z]{3}$/.test(unit)) continue;
+        counts.set(unit, (counts.get(unit) ?? 0) + facts.length);
+      }
     }
   }
   return [...counts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? declared;
@@ -1092,9 +1221,14 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
    */
   if (!annual.length && !quarterly.length) {
     const spaces = Object.keys(parsed.facts);
+    /*
+     * IFRS is read now, so a filer reaching here under it is not refused for
+     * being IFRS: it is a filer whose particular concepts this map does not
+     * carry, which is a different sentence and points at a different fix.
+     */
     throw new Error(spaces.includes("ifrs-full") && !spaces.includes("us-gaap")
-      ? `${parsed.entityName} reports under IFRS rather than US GAAP. FinScope reads US GAAP concepts, so this filer's statements cannot be normalized yet.`
-      : `No standardized US GAAP facts were found for ${parsed.entityName} on Forms 10-K, 10-Q, 20-F or 40-F.`);
+      ? `${parsed.entityName} reports under IFRS, and none of the IFRS concepts FinScope reads appear in its filings. Its statements cannot be normalized yet.`
+      : `No standardized facts were found for ${parsed.entityName} on Forms 10-K, 10-Q, 20-F or 40-F.`);
   }
 
   return validateCompanyDataset({
