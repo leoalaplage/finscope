@@ -1011,6 +1011,34 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .stars > span { color: var(--line-strong); }
 .stars > span[data-lit="true"] { color: var(--plot); }
 
+/* --- Insider dealing ------------------------------------------------------ */
+
+.insiders-lead { max-width: 88ch; margin-top: calc(var(--u) * 2); }
+.insiders-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: calc(var(--u) * 4); }
+.insiders-grid .stat-note { margin-top: 5px; }
+.insiders-switch { margin-top: calc(var(--u) * 5); }
+.insiders-sheet table { min-width: 820px; }
+.insiders-sheet th.key { min-width: 240px; }
+/* The row label is two lines, not a flex row: the table's own `.key-open` lays
+   its children out side by side, which puts a job title beside a name. */
+.sheet.insiders-sheet .key-open { display: block; }
+.insiders-name { display: block; }
+.insiders-sheet th.key small { display: block; margin-top: 3px; color: var(--ink-3); font-size: var(--fs-micro); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/*
+ * A decision, told apart from the machinery of being paid in stock.
+ *
+ * One ink, so it cannot be a colour: an open-market purchase or sale goes to
+ * full ink and everything else stays at the dimmer weight the rest of the table
+ * is set in. That is the only distinction on this page worth a difference in
+ * emphasis, because it is the difference between a choice and a payroll entry.
+ */
+.insiders-sheet td[data-decision="true"] { color: var(--ink); }
+.insiders-sheet td[data-decision="false"] { color: var(--ink-3); }
+
+@media (max-width: 700px) {
+  .insiders-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* --- How a company is scored --------------------------------------------- */
 
 .method { padding-bottom: calc(var(--u) * 12); }
