@@ -29,7 +29,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
 
   try {
     const { body, hit } = await cachedJson(
-      `insiders:v1:${company.ticker}:${INSIDER_FILING_LIMIT}`,
+      `insiders:v2:${company.ticker}:${INSIDER_FILING_LIMIT}`,
       CACHE_SECONDS,
       () => fetchInsiderTransactions(company.ticker, company.cik, new Date().toISOString()),
       /*

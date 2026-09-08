@@ -108,12 +108,46 @@ describe("reading a Form 4", () => {
       form: ["4", "8-K", "4", "10-Q", "4"],
       accessionNumber: ["a", "b", "c", "d", "e"],
       filingDate: ["2026-09-03", "2026-09-02", "2026-09-01", "2026-08-30", "2026-08-27"],
+      primaryDocument: ["xslF345X06/form4.xml", "x.htm", "xslF345X06/doc4.xml", "y.htm", "xslF345X05/wk-form4_1788901755.xml"],
     };
     expect(recentForm4s(index, 2)).toEqual([
-      { accession: "a", filedAt: "2026-09-03" },
-      { accession: "c", filedAt: "2026-09-01" },
+      { accession: "a", filedAt: "2026-09-03", document: "form4.xml" },
+      { accession: "c", filedAt: "2026-09-01", document: "doc4.xml" },
     ]);
     expect(recentForm4s(index).map((filing) => filing.accession)).toEqual(["a", "c", "e"]);
+  });
+
+  it("takes each filing's document name from the index rather than assuming one", () => {
+    /*
+     * Every filing agent names the file differently: Apple's is `form4.xml`,
+     * JPMorgan's `doc4.xml`, NVIDIA's and Palantir's `wk-form4_1788901755.xml`.
+     * A guessed name read one company and returned nothing for the rest —
+     * JPMorgan reported forty filings read and no transactions in them, which
+     * reads exactly like a company whose insiders did nothing.
+     *
+     * `primaryDocument` points at the human-readable rendering under an
+     * `xslF345X0N/` prefix; the XML is the same name in the filing's own
+     * directory, so the prefix is dropped and nothing else is invented.
+     */
+    const index = {
+      form: ["4", "4", "4"],
+      accessionNumber: ["a", "b", "c"],
+      filingDate: ["2026-09-03", "2026-09-02", "2026-09-01"],
+      primaryDocument: ["xslF345X06/doc4.xml", "xslF345X05/wk-form4_1788901755.xml", "form4.xml"],
+    };
+    expect(recentForm4s(index).map((filing) => filing.document))
+      .toEqual(["doc4.xml", "wk-form4_1788901755.xml", "form4.xml"]);
+  });
+
+  it("skips a filing whose index entry names no XML to read", () => {
+    // Nothing to fetch is not something to guess a filename for.
+    const index = {
+      form: ["4", "4"],
+      accessionNumber: ["a", "b"],
+      filingDate: ["2026-09-03", "2026-09-02"],
+      primaryDocument: ["", "xslF345X06/doc4.xml"],
+    };
+    expect(recentForm4s(index).map((filing) => filing.accession)).toEqual(["b"]);
   });
 
   it("states nothing rather than guessing when a document is not a Form 4", () => {

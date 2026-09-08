@@ -158,21 +158,36 @@ export function parseForm4(xml: string, accession: string, filedAt: string, sour
   });
 }
 
-interface Submission { accessionNumber: string[]; filingDate: string[]; form: string[] }
+interface Submission { accessionNumber: string[]; filingDate: string[]; form: string[]; primaryDocument: string[] }
 
-/** The recent Form 4 filings a company's own submissions index lists. */
+/**
+ * The recent Form 4 filings a company's own submissions index lists.
+ *
+ * The document name comes from the index and is never assumed. Every filing
+ * agent names the file differently — Apple's is `form4.xml`, JPMorgan's
+ * `doc4.xml`, NVIDIA's and Palantir's `wk-form4_1788901755.xml` — so a guessed
+ * name reads one company and silently returns nothing for the rest. That is
+ * exactly what it did: JPMorgan reported forty filings read and no transactions
+ * in them, which looks like a company whose insiders did nothing.
+ *
+ * `primaryDocument` points at the human-readable rendering, `xslF345X06/…`.
+ * The XML behind it is the same name in the filing's own directory, so the
+ * rendering prefix is dropped and nothing else is invented.
+ */
 export function recentForm4s(recent: Submission, limit = INSIDER_FILING_LIMIT) {
-  const found: Array<{ accession: string; filedAt: string }> = [];
+  const found: Array<{ accession: string; filedAt: string; document: string }> = [];
   for (let index = 0; index < recent.form.length; index += 1) {
     if (recent.form[index] !== "4") continue;
-    found.push({ accession: recent.accessionNumber[index], filedAt: recent.filingDate[index] });
+    const document = (recent.primaryDocument?.[index] ?? "").replace(/^xsl[^/]*\//, "");
+    if (!document.endsWith(".xml")) continue;
+    found.push({ accession: recent.accessionNumber[index], filedAt: recent.filingDate[index], document });
     if (found.length >= limit) break;
   }
   return found;
 }
 
-const form4Url = (cik: string, accession: string) =>
-  `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replaceAll("-", "")}/form4.xml`;
+const form4Url = (cik: string, accession: string, document: string) =>
+  `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replaceAll("-", "")}/${document}`;
 
 /**
  * Every recent Form 4 for one company, read from EDGAR.
@@ -209,12 +224,12 @@ export async function fetchInsiderTransactions(
    */
   const transactions: InsiderTransaction[] = [];
   for (let start = 0; start < wanted.length; start += 5) {
-    const batch = await Promise.all(wanted.slice(start, start + 5).map(async ({ accession, filedAt }) => {
+    const batch = await Promise.all(wanted.slice(start, start + 5).map(async ({ accession, filedAt, document }) => {
       try {
-        const url = form4Url(padded, accession);
-        const document = await fetch(url, { headers: { "User-Agent": SEC_AGENT() } });
-        if (!document.ok) return [];
-        return parseForm4(await document.text(), accession, filedAt, url);
+        const url = form4Url(padded, accession, document);
+        const response = await fetch(url, { headers: { "User-Agent": SEC_AGENT() } });
+        if (!response.ok) return [];
+        return parseForm4(await response.text(), accession, filedAt, url);
       } catch {
         return [];
       }
