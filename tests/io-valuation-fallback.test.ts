@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { companyView } from "../lib/io/view";
+
+/*
+ * The fixture is CBOE's own SEC company-facts document, cut to the concepts
+ * this adapter reads. Refresh it with:
+ *
+ *   SEC_USER_AGENT="you you@example.com" node scripts/fetch-fixture.mjs CBOE 0001374310
+ */
 import { normalizeSecPayload } from "../lib/adapters/sec";
 
 const CBOE = {
@@ -19,10 +26,18 @@ describe("a denominator the newest period does not report", () => {
      * price-to-free-cash-flow and the free-cash-flow yield vanished for a
      * company whose free cash flow was sitting one quarter back, complete.
      */
-    const view = companyView(normalizeSecPayload(JSON.parse(readFileSync("/tmp/cboe-facts.json", "utf8")), "CBOE", new Date().toISOString(), CBOE));
+    const view = companyView(normalizeSecPayload(JSON.parse(readFileSync(new URL("./fixtures/cboe-facts.json", import.meta.url), "utf8")), "CBOE", new Date().toISOString(), CBOE));
     expect(view.ttm?.values.freeCashFlow).toBeNull();
     const carried = [...view.trailing].reverse().find((period) => period.values.freeCashFlow != null);
     expect(carried).toBeDefined();
-    writeFileSync("/tmp/fallback.out", `${view.ttm?.label} n'a pas de FCF; ${carried?.label} en a ${(carried!.values.freeCashFlow! / 1e9).toFixed(2)}B`);
+    /*
+     * The figure that was vanishing, asserted rather than printed to a file in
+     * /tmp for a human to read. The carried period must be a real trailing
+     * window with a real free cash flow, and it must be older than the newest
+     * one — otherwise this passes on the very period it exists to prove is
+     * empty.
+     */
+    expect(carried!.end < view.ttm!.end).toBe(true);
+    expect(carried!.values.freeCashFlow!).toBeGreaterThan(0);
   });
 });

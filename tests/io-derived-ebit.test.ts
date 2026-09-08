@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { normalizeSecPayload } from "../lib/adapters/sec";
 import { companyView } from "../lib/io/view";
+
+/*
+ * The fixture is XOM's own SEC company-facts document, cut to the concepts
+ * this adapter reads. Refresh it with:
+ *
+ *   SEC_USER_AGENT="you you@example.com" node scripts/fetch-fixture.mjs XOM 0000034088
+ */
 
 const XOM = {
   name: "Exxon Mobil Corporation", ticker: "XOM", yahooTicker: "XOM", cik: "0000034088",
@@ -19,7 +26,7 @@ describe("a filer that publishes no operating income subtotal", () => {
      * so it came out of the screener unrated on barely half its data, while the
      * two figures the subtotal is made of sat in the same filing.
      */
-    const view = companyView(normalizeSecPayload(JSON.parse(readFileSync("/tmp/xom-facts.json", "utf8")), "XOM", new Date().toISOString(), XOM));
+    const view = companyView(normalizeSecPayload(JSON.parse(readFileSync(new URL("./fixtures/xom-facts.json", import.meta.url), "utf8")), "XOM", new Date().toISOString(), XOM));
     const latest = view.ttm ?? view.annual.at(-1)!;
     const v = latest.values;
     expect(v.operatingIncome).not.toBeNull();
@@ -29,9 +36,17 @@ describe("a filer that publishes no operating income subtotal", () => {
     for (const key of ["operatingMargin", "ebitda", "roic", "interestCoverage"]) {
       expect(v[key]).not.toBeNull();
     }
-    writeFileSync("/tmp/xom.out", [
-      `EBIT ${(v.operatingIncome! / 1e9).toFixed(1)}B = pretax ${(v.incomeBeforeTax! / 1e9).toFixed(1)}B + interest ${(Math.abs(v.interestExpense!) / 1e9).toFixed(1)}B`,
-      `marge operationnelle ${(v.operatingMargin! * 100).toFixed(1)}% | EBITDA ${(v.ebitda! / 1e9).toFixed(1)}B | ROIC ${(v.roic! * 100).toFixed(1)}%`,
-    ].join("\n"));
+    /*
+     * The six measures that rest on the subtotal, checked as figures rather
+     * than merely as present. This used to print them to a file in /tmp for a
+     * human to read, which is a script and not a test: nothing failed when the
+     * numbers moved, and the file it read was a download nobody else had, so
+     * the assertions above ran on no machine but the one that wrote them.
+     */
+    expect(v.operatingMargin!).toBeGreaterThan(0);
+    expect(v.operatingMargin!).toBeLessThan(0.35);
+    expect(v.ebitda!).toBeGreaterThan(v.operatingIncome!);
+    expect(v.roic!).toBeGreaterThan(0);
+    expect(v.interestCoverage!).toBeGreaterThan(1);
   });
 });
