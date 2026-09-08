@@ -71,7 +71,18 @@ export function useValuationHistory(view: IoCompanyView | null, quote: IoQuote |
     return source.filter((period) => period.end >= from && valuationUsable(period));
   }, [source]);
 
-  const dates = useMemo(() => [...new Set(periods.map((period) => period.filingDate))].sort(), [periods]);
+  /*
+   * Priced on the day the figures became public, not on the day they were last
+   * republished. `filingDate` names the filing each value was read out of, and
+   * that is the newest one to carry it — a quarter reappears as a comparative
+   * in the following year's report, so for Apple it ran about four hundred days
+   * after the period rather than thirty-four. Every historical multiple was
+   * therefore a year-old set of figures against a year-newer price, which for a
+   * growing company inflates every one of them: Apple's ten-year median P/FCF
+   * read 29.6× where it should read 25.2×, and today's multiple sat at the 77th
+   * percentile of its own decade instead of the 95th.
+   */
+  const dates = useMemo(() => [...new Set(periods.map((period) => period.publishedAt))].sort(), [periods]);
   const ticker = view?.company.ticker ?? "";
   const key = `${ticker}|${dates.join(",")}`;
   const [answer, setAnswer] = useState<PriceAnswer | null>(null);
@@ -105,7 +116,7 @@ export function useValuationHistory(view: IoCompanyView | null, quote: IoQuote |
   const history = useMemo<HistoricalValuationPoint[]>(() => {
     if (!current || current.failed) return [];
     return periods.flatMap((period) => {
-      const price = current.points[period.filingDate];
+      const price = current.points[period.publishedAt];
       const point = price ? historicalValuationPoint(period, price) : null;
       return point ? [point] : [];
     });

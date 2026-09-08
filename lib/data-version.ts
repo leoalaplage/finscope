@@ -105,6 +105,25 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v29: a period carries the day it was first published, beside the day it was
+ * last filed. Both are facts and neither stands in for the other: a value is
+ * taken from the newest filing that carries it, because a restatement
+ * supersedes what it corrects, but a quarter reappears as a comparative in the
+ * following year's report whether or not anything about it changed — so that
+ * filing date is routinely a year after the figure became public. Sixty-two of
+ * Apple's sixty-nine trailing periods carried a date about four hundred days
+ * after their close where the true lag is thirty-four, and three carried one
+ * over two years late.
+ *
+ * The valuation history priced every historical multiple on that date, so it
+ * was pairing a year-old set of figures with a year-newer price — which for a
+ * growing company inflates every multiple in the series. Apple's ten-year
+ * median price to free cash flow read 29.6× against a correctly dated 25.2×,
+ * and today's 34.2× sat at the 77th percentile of its own decade rather than
+ * the 95th: a table built to say whether a company is dear against its own
+ * record was saying the opposite of what the record says. The stored datasets
+ * carry only the one date, so they have to be built again.
+ *
  * v28: a convertible note is read as the borrowing it is. Cloudflare,
  * Snowflake and Shopify tag their notes under `ConvertibleDebtCurrent` and
  * `ConvertibleDebtNoncurrent`, which this adapter did not read, so three
@@ -150,4 +169,4 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v28";
+export const KEY_VERSION = "v29";

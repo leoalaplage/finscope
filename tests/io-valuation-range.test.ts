@@ -9,6 +9,7 @@ const period = (over: Partial<IoPeriod> = {}): IoPeriod => ({
   fiscalYear: 2025,
   fiscalQuarter: "Q4",
   filingDate: "2026-02-10",
+  publishedAt: "2026-02-10",
   accession: "x",
   currency: "USD",
   values: { freeCashFlow: 100 },
@@ -40,7 +41,7 @@ describe("historical valuation ranges", () => {
 
   it("keeps five- and ten-year windows separate and reports the observed range", () => {
     const make = (date: string, value: number) => ({
-      date, filingDate: date, periodEnd: date, periodLabel: date,
+      date, publishedAt: date, periodEnd: date, periodLabel: date,
       metrics: { enterpriseToFreeCashFlow: value, priceToFreeCashFlow: value, freeCashFlowYield: 1 / value },
     });
     const history = [make("2017-02-10", 10), make("2022-02-10", 20), make("2025-02-10", 30)];

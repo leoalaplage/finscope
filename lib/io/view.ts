@@ -37,6 +37,11 @@ export interface IoPeriod {
   fiscalYear: number;
   fiscalQuarter: string | null;
   filingDate: string;
+  /**
+   * The day these figures first became public, which is what a historical
+   * multiple has to be priced on. See `Provenance.firstFiled`.
+   */
+  publishedAt: string;
   accession: string;
   currency: string;
   values: Record<string, number | null>;
@@ -189,6 +194,7 @@ function projectPeriod(dataset: CompanyDataset, period: FinancialPeriod, withhel
     fiscalYear: period.fiscalYear,
     fiscalQuarter: period.fiscalQuarter ?? null,
     filingDate: period.filingDate,
+    publishedAt: period.publishedAt ?? period.filingDate,
     accession: period.accession,
     currency: period.currency,
     values,

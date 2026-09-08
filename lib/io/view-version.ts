@@ -23,8 +23,11 @@ import { KEY_VERSION } from "../data-version";
  * filing that states one rather than taking the enterprise value with it. iov8
  * carries that same point-in-time share and net-debt basis on each period, so
  * historical valuation never prices old fundamentals with today's balance.
+ * iov9 carries the day each period was first published beside the day it was
+ * last filed, so a historical multiple is priced on the day its figures became
+ * news rather than on the day the next year's report repeated them.
  */
-export const VIEW_SHAPE = "iov8";
+export const VIEW_SHAPE = "iov9";
 
 /** The token a reader's request carries: the shape, then the figures. */
 export const IO_VIEW = `${VIEW_SHAPE}.${KEY_VERSION}`;

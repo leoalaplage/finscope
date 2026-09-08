@@ -10,7 +10,8 @@ export interface ValuationPrice {
 
 export interface HistoricalValuationPoint {
   date: string;
-  filingDate: string;
+  /** The day the figures behind this point became public, and it was priced. */
+  publishedAt: string;
   periodEnd: string;
   periodLabel: string;
   metrics: Record<HistoricalValuationMetric, number | null>;
@@ -51,7 +52,7 @@ export function historicalValuationPoint(period: IoPeriod, price: ValuationPrice
   const enterpriseValue = basis.netDebt == null ? null : marketCap + basis.netDebt;
   return {
     date: price.date,
-    filingDate: period.filingDate,
+    publishedAt: period.publishedAt,
     periodEnd: period.end,
     periodLabel: period.label,
     metrics: {

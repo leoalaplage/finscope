@@ -9,6 +9,7 @@ const year = (value: number | null, fiscalYear: number): IoPeriod => ({
   fiscalYear,
   fiscalQuarter: "FY",
   filingDate: `${fiscalYear + 1}-02-01`,
+  publishedAt: `${fiscalYear + 1}-02-01`,
   accession: String(fiscalYear),
   currency: "USD",
   values: { freeCashFlowPerShare: value },

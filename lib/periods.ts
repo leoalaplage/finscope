@@ -42,11 +42,25 @@ export function dedupeFacts(facts: RawFinancialFact[]) {
     }
     const ranked = [...buckets.entries()].sort((left, right) => right[0] - left[0] || right[1].length - left[1].length);
     const hasUnitConflict = ranked.length > 1 && ranked.some(([power]) => Math.abs(power - ranked[0][0]) >= 2);
-    const selected = latest(hasUnitConflict ? ranked[0][1] : group)!;
+    const considered = hasUnitConflict ? ranked[0][1] : group;
+    const selected = latest(considered)!;
+    /*
+     * The newest filing gives the value; the oldest gives the date it was news.
+     *
+     * A restatement supersedes the figure it corrects, so `latest` is right
+     * about *what* to report. It is wrong about *when*: a quarter is republished
+     * as a comparative in the following year's report whether or not anything
+     * about it changed, so the winning fact's filing date is routinely a year
+     * after the day the number became public. Both dates are carried, and only
+     * facts of the magnitude actually selected are considered — a conflicting
+     * one from an earlier filing is not evidence of when this figure was known.
+     */
+    const firstFiled = considered.map((fact) => fact.filed).sort()[0];
     const inheritedConflicts = group.flatMap((fact)=>fact.sourceConflictValues??[]); const conflictValues=[...new Set([...distinct,...inheritedConflicts])];
     const conflict = hasUnitConflict || inheritedConflicts.length > 0;
     return {
       ...selected,
+      firstFiled,
       restated: group.length > 1 && distinct.length > 1,
       sourceConflictValues: conflict ? conflictValues : undefined,
       normalizationNote: conflict ? (group.find((fact)=>fact.normalizationNote)?.normalizationNote ?? `Conflicting SEC magnitudes (${distinct.join(", ")}); selected the magnitude consistent with the SEC shares unit before split adjustment.`) : undefined,
@@ -151,6 +165,28 @@ export function adjustPeriodsForSplits(periods: FinancialPeriod[], splits: Array
 const POSITIVE_OUTFLOW_METRICS = new Set<MetricKey>(["capitalExpenditures","acquisitions","shareRepurchases","dividendsPaid","interestExpense","interestPaid"]);
 export function normalizeFinancialSign(metric: MetricKey, value: number) { return POSITIVE_OUTFLOW_METRICS.has(metric) ? Math.abs(value) : value; }
 
+/**
+ * The day a period first appeared in a filing, taken across everything in it.
+ *
+ * Not the anchor fact's own first filing. A concept can be born later than the
+ * period it describes — Apple restated its FY2018 quarters onto the ASC 606
+ * revenue concept in FY2019, so that concept's earliest instance genuinely is a
+ * year after the quarter — and a calculated Q4 inherits the annual filing it
+ * was isolated from. Neither is the answer to "when could a reader first have
+ * seen this period", and the answer to that is simply the earliest filing that
+ * carried anything about it at all.
+ */
+function firstPublished(facts: FinancialPeriod["facts"], fallback: string): string {
+  const dates = Object.values(facts)
+    .flatMap((fact) => {
+      const provenance = fact?.provenance;
+      const date = provenance?.firstFiled ?? provenance?.filingDate;
+      return date ? [date] : [];
+    })
+    .sort();
+  return dates[0] ?? fallback;
+}
+
 function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", fiscalQuarter?: "Q1" | "Q2" | "Q3" | "Q4"): NormalizedFact {
   const value = normalizeFinancialSign(raw.metric, raw.value); const signChanged = value !== raw.value;
   return {
@@ -158,6 +194,7 @@ function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", 
     periodStart: raw.start, periodEnd: raw.end, periodicity, fiscalYear: raw.fiscalYear, fiscalQuarter,
     provenance: {
       provider: "SEC", sourceUrl: raw.sourceUrl, accession: raw.accession, filingDate: raw.filed,
+      firstFiled: raw.firstFiled ?? raw.filed,
       retrievedAt: raw.retrievedAt, concept: raw.concept, status: raw.restated ? "restated" : "reported",
       note: raw.normalizationNote ?? (signChanged ? "Raw cash outflow sign normalized to the FinScope positive-outflow convention; raw value retained." : raw.restated ? "Latest filing selected for a duplicated SEC context with a changed value." : "Directly reported standardized XBRL fact."),
     },
@@ -218,7 +255,7 @@ function calculated(metric: MetricKey, value: number, current: RawFinancialFact,
     metric, value: normalizeFinancialSign(metric,value), currency: current.currency, unit: current.unit, periodStart: start,
     periodEnd: current.end, periodicity: "quarterly", fiscalYear: current.fiscalYear, fiscalQuarter: quarter,
     provenance: {
-      provider: "Calculated", sourceUrl: current.sourceUrl, accession: current.accession, filingDate: current.filed,
+      provider: "Calculated", sourceUrl: current.sourceUrl, accession: current.accession, filingDate: current.filed, firstFiled: current.firstFiled ?? current.filed,
       retrievedAt: current.retrievedAt, concept: current.concept, status: "calculated", formula,
       sourceAccessions: [...new Set([current.accession, prior.accession])],
       note: `Quarter isolated from cumulative SEC facts: ${formula}. Sources ${prior.end} and ${current.end}.`,
@@ -241,7 +278,7 @@ type EndIndex = Map<string, RawFinancialFact[]>;
  * The annual and quarterly passes are handed the same array and would each
  * repeat the dedupe, so the result is memoised against that array by identity.
  */
-const preparedFacts = new WeakMap<RawFinancialFact[], { facts: RawFinancialFact[]; index: FactIndex; endIndex: EndIndex }>();
+const preparedFacts = new WeakMap<RawFinancialFact[], { facts: RawFinancialFact[]; index: FactIndex; endIndex: EndIndex; published: Map<string, string> }>();
 
 function prepare(input: RawFinancialFact[]) {
   const cached = preparedFacts.get(input);
@@ -249,6 +286,27 @@ function prepare(input: RawFinancialFact[]) {
   const facts = dedupeFacts(relabelFiscalYears(normalizeShareUnitScales(input)));
   const index: FactIndex = new Map();
   const endIndex: EndIndex = new Map();
+  /*
+   * The earliest filing that said anything about a period ending on a given day.
+   *
+   * Read off the undeduplicated facts, and keyed by nothing but the closing
+   * date, because every narrower key is one the answer can hide behind. The
+   * same figure lands in several groups — the SEC stamps `fy` and `fp` with the
+   * filing's fiscal context rather than the fact's, so a year repeated as a
+   * comparative arrives labelled with the *next* year — and a concept can be
+   * born after the period it describes, as Apple's FY2018 quarters were when
+   * they were restated onto the ASC 606 revenue concept. A calculated Q4 has no
+   * filing of its own at all.
+   *
+   * None of that matters to the question being asked. A fact about a period
+   * cannot be filed before that period ends, so the earliest filing carrying
+   * any fact about it is the report that first made it public.
+   */
+  const published = new Map<string, string>();
+  for (const fact of input) {
+    const known = published.get(fact.end);
+    if (!known || fact.filed < known) published.set(fact.end, fact.filed);
+  }
   for (const fact of facts) {
     const key = `${fact.metric}|${fact.fiscalYear}|${fact.fiscalPeriod}`;
     const bucket = index.get(key);
@@ -259,7 +317,7 @@ function prepare(input: RawFinancialFact[]) {
       if (atEnd) atEnd.push(fact); else endIndex.set(endKey, [fact]);
     }
   }
-  const value = { facts, index, endIndex };
+  const value = { facts, index, endIndex, published };
   preparedFacts.set(input, value);
   return value;
 }
@@ -550,7 +608,7 @@ function quarterFromConcept(index: FactIndex, metric: MetricKey, fy: number, qua
         if (implausible(metric, rawValue)) return undefined;
         const value = rawValue;
         const start = new Date(Date.parse(directQuarters[2].end) + 86_400_000).toISOString().slice(0,10);
-        return { metric, value:normalizeFinancialSign(metric,value), currency: current.currency, unit: current.unit, periodStart:start, periodEnd:current.end, periodicity:"quarterly", fiscalYear:fy, fiscalQuarter:"Q4", provenance:{provider:"Calculated",sourceUrl:current.sourceUrl,accession:current.accession,filingDate:current.filed,retrievedAt:current.retrievedAt,concept:current.concept,status:"calculated",formula:WEIGHTED_SHARE_METRICS.includes(metric)?"Q4 weighted shares = (annual weighted shares × annual days − Σ(Q1–Q3 weighted shares × quarter days)) / Q4 days":"Q4 = annual − Q1 − Q2 − Q3",sourceAccessions:[...new Set([current.accession,...directQuarters.map((fact)=>fact.accession)])],note:"Q4 isolated from the annual fact and three direct fiscal quarters; no value was imputed; cash outflows use positive normalized magnitudes."} };
+        return { metric, value:normalizeFinancialSign(metric,value), currency: current.currency, unit: current.unit, periodStart:start, periodEnd:current.end, periodicity:"quarterly", fiscalYear:fy, fiscalQuarter:"Q4", provenance:{provider:"Calculated",sourceUrl:current.sourceUrl,accession:current.accession,filingDate:current.filed,firstFiled:current.firstFiled??current.filed,retrievedAt:current.retrievedAt,concept:current.concept,status:"calculated",formula:WEIGHTED_SHARE_METRICS.includes(metric)?"Q4 weighted shares = (annual weighted shares × annual days − Σ(Q1–Q3 weighted shares × quarter days)) / Q4 days":"Q4 = annual − Q1 − Q2 − Q3",sourceAccessions:[...new Set([current.accession,...directQuarters.map((fact)=>fact.accession)])],note:"Q4 isolated from the annual fact and three direct fiscal quarters; no value was imputed; cash outflows use positive normalized magnitudes."} };
       }
     }
   }
@@ -581,7 +639,7 @@ function instantFact(endIndex: EndIndex, metric: MetricKey, fy: number, quarter:
 }
 
 export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: string) {
-  const { facts, index, endIndex } = prepare(input);
+  const { facts, index, endIndex, published } = prepare(input);
   const years = [...new Set(facts.filter((fact) => fact.fiscalPeriod === "FY" && isAnnualForm(fact.form)).map((fact) => fact.fiscalYear))].sort();
   return years.map((fiscalYear): FinancialPeriod | null => {
     const annualFacts: FinancialPeriod["facts"] = {};
@@ -609,12 +667,12 @@ export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: stri
         provenance: { provider: "Calculated", sourceUrl: anchor.sourceUrl, retrievedAt: anchor.retrievedAt, concept: "NetShareRepurchases", status: "calculated", formula: "Gross repurchases − stock issuance proceeds", note: "Cash-flow measure; not inferred from share-count change." },
       };
     }
-    return { label: `FY ${fiscalYear}`, fiscalYear, periodStart: anchor.start, periodEnd: anchor.end, periodicity: "annual", filingDate: anchor.filed, accession: anchor.accession, currency, durationDays: daysBetween(anchor.start, anchor.end), facts: annualFacts };
+    return { label: `FY ${fiscalYear}`, fiscalYear, periodStart: anchor.start, periodEnd: anchor.end, periodicity: "annual", filingDate: anchor.filed, publishedAt: published.get(anchor.end) ?? firstPublished(annualFacts, anchor.firstFiled ?? anchor.filed), accession: anchor.accession, currency, durationDays: daysBetween(anchor.start, anchor.end), facts: annualFacts };
   }).filter((period): period is FinancialPeriod => period !== null);
 }
 
 export function normalizeQuarterlyPeriods(input: RawFinancialFact[], currency: string) {
-  const { facts, index, endIndex } = prepare(input);
+  const { facts, index, endIndex, published } = prepare(input);
   const years = [...new Set(facts.filter((fact) => fact.form === "10-Q" || isAnnualForm(fact.form)).map((fact) => fact.fiscalYear))].sort();
   const periods: FinancialPeriod[] = [];
   for (const fiscalYear of years) {
@@ -637,7 +695,7 @@ export function normalizeQuarterlyPeriods(input: RawFinancialFact[], currency: s
           provenance: { provider: "Calculated", sourceUrl: anchor.provenance.sourceUrl, retrievedAt: anchor.provenance.retrievedAt, concept: "NetShareRepurchases", status: "calculated", formula: "Gross repurchases − issuance proceeds", note: "Cash-flow measure, distinct from the change in shares outstanding." },
         };
       }
-      periods.push({ label: `${quarter} FY${fiscalYear}`, fiscalYear, fiscalQuarter: quarter, periodStart: anchor.periodStart, periodEnd: anchor.periodEnd, periodicity: "quarterly", filingDate: anchor.provenance.filingDate ?? "", accession: anchor.provenance.accession ?? "", currency, durationDays: daysBetween(anchor.periodStart, anchor.periodEnd), facts: periodFacts });
+      periods.push({ label: `${quarter} FY${fiscalYear}`, fiscalYear, fiscalQuarter: quarter, periodStart: anchor.periodStart, periodEnd: anchor.periodEnd, periodicity: "quarterly", filingDate: anchor.provenance.filingDate ?? "", publishedAt: published.get(anchor.periodEnd) ?? firstPublished(periodFacts, anchor.provenance.firstFiled ?? anchor.provenance.filingDate ?? ""), accession: anchor.provenance.accession ?? "", currency, durationDays: daysBetween(anchor.periodStart, anchor.periodEnd), facts: periodFacts });
     }
   }
   return periods.sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
@@ -683,7 +741,10 @@ export function buildTtmPeriods(quarters: FinancialPeriod[], currency: string) {
       const source = facts.shareRepurchases ?? facts.shareIssuance!;
       facts.netShareRepurchases = { metric: "netShareRepurchases", value: (facts.shareRepurchases?.value ?? 0) - (facts.shareIssuance?.value ?? 0), currency, unit: "currency", periodStart: window[0].periodStart, periodEnd: latestQuarter.periodEnd, periodicity: "ttm", fiscalYear: latestQuarter.fiscalYear, fiscalQuarter: latestQuarter.fiscalQuarter, provenance: { provider: "Calculated", sourceUrl: source.provenance.sourceUrl, retrievedAt: source.provenance.retrievedAt, concept: "NetShareRepurchases", status: "calculated", formula: "TTM gross repurchases − TTM issuance proceeds" } };
     }
-    periods.push({ label: `TTM ${latestQuarter.fiscalQuarter} FY${latestQuarter.fiscalYear}`, fiscalYear: latestQuarter.fiscalYear, fiscalQuarter: latestQuarter.fiscalQuarter, periodStart: window[0].periodStart, periodEnd: latestQuarter.periodEnd, periodicity: "ttm", filingDate: latestQuarter.filingDate, accession: latestQuarter.accession, currency, durationDays: window.reduce((sum, period) => sum + (period.durationDays ?? 0), 0), ttmQuarterEnds: window.map((period) => period.periodEnd), facts });
+    // A trailing window becomes public with its newest quarter: the three
+    // behind it were already out. Both dates follow that quarter, and they are
+    // not the same date — see `Provenance.firstFiled`.
+    periods.push({ label: `TTM ${latestQuarter.fiscalQuarter} FY${latestQuarter.fiscalYear}`, fiscalYear: latestQuarter.fiscalYear, fiscalQuarter: latestQuarter.fiscalQuarter, periodStart: window[0].periodStart, periodEnd: latestQuarter.periodEnd, periodicity: "ttm", filingDate: latestQuarter.filingDate, publishedAt: latestQuarter.publishedAt ?? latestQuarter.filingDate, accession: latestQuarter.accession, currency, durationDays: window.reduce((sum, period) => sum + (period.durationDays ?? 0), 0), ttmQuarterEnds: window.map((period) => period.periodEnd), facts });
   }
   return periods;
 }

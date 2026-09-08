@@ -89,6 +89,17 @@ export interface Provenance {
   sourceUrl: string;
   accession?: string;
   filingDate?: string;
+  /**
+   * The first filing that published this figure, when a later one restated it.
+   *
+   * `filingDate` is the filing the *value* was taken from, and that is the most
+   * recent one: a restatement supersedes the original. But a quarter reappears
+   * as a comparative in the next year's report whether or not anything about it
+   * changed, so `filingDate` is routinely a year after the day the figure
+   * became public — and anything asking "what could a reader have known, and
+   * when" needs the other date. Both are kept; neither stands in for the other.
+   */
+  firstFiled?: string;
   retrievedAt: string;
   concept: string;
   status: FactStatus;
@@ -122,6 +133,13 @@ export interface FinancialPeriod {
   periodEnd: string;
   periodicity: Periodicity;
   filingDate: string;
+  /**
+   * The day this period's figures first became public.
+   *
+   * Not `filingDate`, which names the filing the values were read out of and is
+   * therefore the newest one to carry them. See `Provenance.firstFiled`.
+   */
+  publishedAt?: string;
   accession: string;
   currency: string;
   facts: Partial<Record<MetricKey, NormalizedFact>>;
@@ -247,6 +265,8 @@ export interface RawFinancialFact {
   start?: string;
   end: string;
   filed: string;
+  /** The earliest filing carrying this same figure. See `Provenance.firstFiled`. */
+  firstFiled?: string;
   accession: string;
   fiscalYear: number;
   fiscalPeriod: "Q1" | "Q2" | "Q3" | "FY";
