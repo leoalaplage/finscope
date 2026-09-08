@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getJson } from "@/lib/fetch-json";
-import { WINDOWS, type WindowId } from "@/lib/performance";
+import { PERFORMANCE_SHAPE, WINDOWS, type WindowId } from "@/lib/performance";
 import type { PerformanceRow } from "@/app/api/performance/route";
 
 /** The endpoint prices eight companies at a time; the page asks in turn. */
@@ -59,7 +59,7 @@ export function PerformanceTable({ tickers }: { tickers: string[] }) {
         // fetched and reduced, and a table that fills in reads better than one
         // that arrives all at once several seconds late.
         for (let index = 0; index < list.length; index += BATCH) {
-          const payload = await getJson<{ rows?: PerformanceRow[] }>(`/api/performance?tickers=${encodeURIComponent(list.slice(index, index + BATCH).join(","))}`, { what: "watchlist performance" });
+          const payload = await getJson<{ rows?: PerformanceRow[] }>(`/api/performance?tickers=${encodeURIComponent(list.slice(index, index + BATCH).join(","))}&v=${PERFORMANCE_SHAPE}`, { what: "watchlist performance" });
           if (!active) return;
           collected.push(...(payload.rows ?? []));
           setState({ followed, rows: [...collected], done: index + BATCH >= list.length, error: "" });

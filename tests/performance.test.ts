@@ -24,10 +24,21 @@ describe("a performance table's windows", () => {
     for (const window of WINDOWS) expect(result.changes[window.id], window.label).not.toBeNull();
     // A day back is one point on a series that gains one a day.
     expect(result.changes.d1).toBeCloseTo(1 / (100 + 4098), 10);
-    // A week back is seven.
-    expect(result.changes.w1).toBeCloseTo(7 / (100 + 4092), 10);
-    // And ten years back is 3,653 of them.
-    expect(result.changes.y10).toBeCloseTo(3653 / (100 + 4099 - 3653), 10);
+
+    /*
+     * The long windows are rates, not totals. This series multiplies by 7.7
+     * over its last ten years — a cumulative 669%, and an annual 22.5%.
+     * Printing the first under a heading a reader will compare with a one-day
+     * move is the mistake the annualisation exists to prevent.
+     */
+    const last = 100 + 4099;
+    const anchor = last - 3653;
+    const cumulative = last / anchor - 1;
+    const rate = (last / anchor) ** (365.25 / 3653) - 1;
+    expect(result.changes.y10).toBeCloseTo(rate, 6);
+    expect(rate).toBeLessThan(cumulative);
+    // Compounded back over the window, the rate returns the total it came from.
+    expect((1 + rate) ** (3653 / 365.25) - 1).toBeCloseTo(cumulative, 6);
   });
 
   it("compares against the previous session, not the previous calendar day", () => {
@@ -55,7 +66,36 @@ describe("a performance table's windows", () => {
     const sessions = series("2024-09-01", 400, () => 50);
     const result = performanceOf(sessions);
     expect(result.changes.y5).toBeNull();
-    expect(result.changes.m1).toBe(0);
+    expect(result.changes.y10).toBeNull();
+    // What it does have is still answered: a flat series has gone nowhere.
+    expect(result.changes.ytd).toBe(0);
+  });
+
+  it("annualises over the time actually elapsed, not the window asked for", () => {
+    /*
+     * Markets shut at weekends and holidays, so the close on or before a date
+     * five years back is routinely older than five years — and where a series
+     * is sparse it can be much older. Dividing by the nominal span would state
+     * a rate for a period that is not the one measured.
+     *
+     * Here the newest session at or before five years back is six years back,
+     * so the rate is the one that compounds over six years and not five.
+     */
+    const sparse = [at("2020-09-04", 100), at("2026-09-08", 200)];
+    const rate = performanceOf(sparse).changes.y5!;
+    const elapsed = (Date.parse("2026-09-08") - Date.parse("2020-09-04")) / (365.25 * 86_400_000);
+    expect(elapsed).toBeCloseTo(6.01, 2);
+    expect(rate).toBeCloseTo(2 ** (1 / elapsed) - 1, 10);
+    // Annualising the same doubling over the nominal five years would overstate
+    // the pace, which is exactly the error this avoids.
+    expect(rate).toBeLessThan(2 ** (1 / 5) - 1);
+  });
+
+  it("refuses a rate it cannot compound", () => {
+    // Under a year is not a period to annualise: it turns noise into a
+    // headline, and a base at or below nought has no proportion to grow by.
+    const short = [at("2026-06-01", 100), at("2026-09-08", 130)];
+    expect(performanceOf(short).changes.y5).toBeNull();
   });
 
   it("ignores sessions with no close rather than treating them as zero", () => {

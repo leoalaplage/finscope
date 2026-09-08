@@ -9,15 +9,36 @@ import type { MarketSession } from "./adapters/yahoo";
  * all — it is the last close of the previous year, whenever that was — so it
  * carries no days and is computed apart.
  */
+/**
+ * The four windows the table states, and what each figure is.
+ *
+ * A day and a year to date are total moves: over that long, a move is what a
+ * reader means. Five and ten years are annualised, because a cumulative
+ * five-hundred per cent tells you nothing about the pace it was earned at and
+ * cannot be set beside a one-day change without misleading. `annualised` is not
+ * decoration — the label carries "p.a." precisely because +25% a year and +25%
+ * over a decade are the same nine characters and opposite facts.
+ */
+/**
+ * What a stored or cached row was computed from.
+ *
+ * It travels in the URL the page asks with as well as in the key the answer is
+ * kept under, because the two caches are different caches: the store is keyed
+ * by this and the reader's own browser is keyed by the address. Bumping only
+ * the first is how a corrected row sits behind a copy the browser was told it
+ * could keep — and for a rate served under a heading that used to mean a total,
+ * that is not a stale number but a wrong one.
+ *
+ * p2 added the ten-year window. p3 cut the four middle ones and annualised the
+ * long two.
+ */
+export const PERFORMANCE_SHAPE = "p3";
+
 export const WINDOWS = [
-  { id: "d1", label: "1D", days: 1 },
-  { id: "w1", label: "1W", days: 7 },
-  { id: "m1", label: "1M", days: 30 },
-  { id: "m3", label: "3M", days: 91 },
-  { id: "ytd", label: "YTD", days: null },
-  { id: "y1", label: "1Y", days: 365 },
-  { id: "y5", label: "5Y", days: 1826 },
-  { id: "y10", label: "10Y", days: 3653 },
+  { id: "d1", label: "1D", days: 1, annualised: false },
+  { id: "ytd", label: "YTD", days: null, annualised: false },
+  { id: "y5", label: "5Y p.a.", days: 1826, annualised: true },
+  { id: "y10", label: "10Y p.a.", days: 3653, annualised: true },
 ] as const;
 
 export type WindowId = typeof WINDOWS[number]["id"];
@@ -50,12 +71,12 @@ function usable(sessions: MarketSession[]): Array<{ date: string; close: number 
  * silently anchoring on the earliest one, which would state a five-year return
  * for a company that listed two years ago.
  */
-function closeOnOrBefore(rows: Array<{ date: string; close: number }>, target: string): number | null {
+function closeOnOrBefore(rows: Array<{ date: string; close: number }>, target: string): { date: string; close: number } | null {
   if (!rows.length || target < rows[0].date) return null;
-  let found: number | null = null;
+  let found: { date: string; close: number } | null = null;
   for (const row of rows) {
     if (row.date > target) break;
-    found = row.close;
+    found = row;
   }
   return found;
 }
@@ -78,22 +99,42 @@ export function performanceOf(sessions: MarketSession[]): Performance {
   if (!last) return { price: null, asOf: null, changes: {} };
 
   const changes: Partial<Record<WindowId, number | null>> = {};
-  const from = (base: number | null) => base == null || base === 0 ? null : last.close / base - 1;
+  const total = (base: number | null) => base == null || base === 0 ? null : last.close / base - 1;
+
+  /*
+   * The rate that compounds from the anchor to the last close.
+   *
+   * Over the time actually elapsed, not the length of the window asked for:
+   * markets are shut at weekends, so the close on or before a date ten years
+   * back is up to four days older than ten years, and dividing by the nominal
+   * span would quietly state a rate for a period that is not the one measured.
+   *
+   * A base at or below nought has no rate to compound — a company cannot be
+   * said to have grown at a proportion of a loss — and neither has a span too
+   * short to annualise without turning noise into a headline.
+   */
+  const annualised = (anchor: { date: string; close: number } | null) => {
+    if (!anchor || anchor.close <= 0 || last.close <= 0) return null;
+    const years = (Date.parse(`${last.date}T00:00:00Z`) - Date.parse(`${anchor.date}T00:00:00Z`)) / (365.25 * DAY_MS);
+    if (!Number.isFinite(years) || years < 1) return null;
+    return (last.close / anchor.close) ** (1 / years) - 1;
+  };
 
   for (const window of WINDOWS) {
     if (window.id === "d1") {
       const previous = rows.at(-2);
-      changes.d1 = previous ? from(previous.close) : null;
+      changes.d1 = previous ? total(previous.close) : null;
       continue;
     }
     if (window.id === "ytd") {
       // The last close of the previous calendar year, which is what every
       // year-to-date figure anywhere is measured from.
       const yearStart = `${last.date.slice(0, 4)}-01-01`;
-      changes.ytd = from(closeOnOrBefore(rows, shiftDays(yearStart, 1)));
+      changes.ytd = total(closeOnOrBefore(rows, shiftDays(yearStart, 1))?.close ?? null);
       continue;
     }
-    changes[window.id] = from(closeOnOrBefore(rows, shiftDays(last.date, window.days!)));
+    const anchor = closeOnOrBefore(rows, shiftDays(last.date, window.days!));
+    changes[window.id] = window.annualised ? annualised(anchor) : total(anchor?.close ?? null);
   }
 
   return { price: last.close, asOf: last.date, changes };

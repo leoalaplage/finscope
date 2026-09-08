@@ -3,12 +3,12 @@ import { cachedJson, TODAY_SECONDS } from "@/lib/market-cache";
 import { COVERED_TICKERS } from "@/lib/company-registry";
 import { requestedTickers } from "@/lib/dataset-cache";
 import { resolveMarketProfile } from "@/lib/market-profile";
-import { performanceOf, type Performance } from "@/lib/performance";
+import { performanceOf, PERFORMANCE_SHAPE, type Performance } from "@/lib/performance";
 
 /**
  * How many companies one request may price.
  *
- * Each is ten years of daily sessions fetched and reduced to eight numbers, so
+ * Each is ten years of daily sessions fetched and reduced to four numbers, so
  * a reader following sixty companies must not turn that into one request. The
  * page asks in batches and fills the table in as they arrive.
  */
@@ -17,15 +17,7 @@ const BATCH = 8;
 /** Ten years and a margin, so the ten-year window has something to anchor on. */
 const YEARS = 10;
 
-/**
- * What a stored row was computed from.
- *
- * The key already carries the day, which retires a row overnight — but not a
- * row built this morning under a shorter history. Adding the ten-year window
- * without this would have left every reader who opened the page earlier today
- * looking at a blank column until midnight.
- */
-const SHAPE = "p2";
+
 
 const headers = {
   "Content-Type": "application/json",
@@ -57,7 +49,7 @@ export async function GET(request: Request) {
     const symbol = company.yahooTicker ?? company.ticker;
     try {
       const { body } = await cachedJson(
-        `performance:${SHAPE}:${symbol}:${end}`,
+        `performance:${PERFORMANCE_SHAPE}:${symbol}:${end}`,
         TODAY_SECONDS,
         async () => performanceOf((await fetchYahooSessions(symbol, start, end)).sessions),
         // A row with no price in it is an upstream hiccup, not a company with

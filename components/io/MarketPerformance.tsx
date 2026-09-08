@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Pencil } from "lucide-react";
-import { WINDOWS, type WindowId } from "@/lib/performance";
+import { PERFORMANCE_SHAPE, WINDOWS, type WindowId } from "@/lib/performance";
 import type { PerformanceRow } from "@/app/api/performance/route";
 import { ABSENT, delta, price as writePrice, shortDate } from "./format";
 import { useStoredWatchlist } from "./watchlist";
@@ -11,9 +11,17 @@ import { WatchlistEditor } from "./WatchlistEditor";
 /**
  * Every window's return for the list a reader follows.
  *
- * Eight windows out of one pass over one set of daily closes, which is what
+ * Four windows out of one pass over one set of daily closes, which is what
  * makes a table like this cheap enough to draw at all — a request per company
  * rather than one per cell.
+ *
+ * Two of them are totals and two are rates. A day and a year to date are moves;
+ * five and ten years are annualised, because a cumulative six hundred per cent
+ * says nothing about the pace it was earned at and cannot sit in a row beside a
+ * one-day change without misleading. The headings carry "p.a." for the same
+ * reason the figures do not carry a colour: the distinction has to be readable,
+ * and +25% a year against +25% over a decade is the same nine characters and
+ * the opposite fact.
  *
  * A window longer than a company's own history is blank, not a return since
  * listing. Palantir has no ten-year column because Palantir has no ten years,
@@ -62,7 +70,7 @@ export function MarketPerformance() {
       for (let index = 0; index < list.length; index += BATCH) {
         try {
           const response = await fetch(
-            `/api/performance?tickers=${encodeURIComponent(list.slice(index, index + BATCH).join(","))}`,
+            `/api/performance?tickers=${encodeURIComponent(list.slice(index, index + BATCH).join(","))}&v=${PERFORMANCE_SHAPE}`,
             { signal: controller.signal },
           );
           if (!response.ok) throw new Error(String(response.status));
@@ -179,10 +187,12 @@ export function MarketPerformance() {
       )}
 
       <p className="stat-note" style={{ marginTop: 12 }}>
-        Measured from the last close on or before each window&rsquo;s start — never after it, which would report a return
-        the market had not yet delivered. A window older than a company&rsquo;s first session is blank rather than
-        anchored on it: a ten-year column for a company that listed in 2020 would be a figure about its listing wearing
-        the label of a decade. Editing this list edits it everywhere on the site.
+        The day and the year to date are total moves; five and ten years are annual rates, compounded over the time
+        actually elapsed between the two closes rather than the length of the window asked for. Each is measured from
+        the last close on or before that window&rsquo;s start — never after it, which would report a return the market
+        had not yet delivered. A window older than a company&rsquo;s first session is blank rather than anchored on it:
+        a ten-year column for a company that listed in 2020 would be a figure about its listing wearing the label of a
+        decade. Editing this list edits it everywhere on the site.
       </p>
 
       {editing ? (
