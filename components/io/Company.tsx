@@ -14,6 +14,7 @@ import { CompanyNews } from "./CompanyNews";
 import { Statements } from "./Statements";
 import { Stats } from "./Stats";
 import { ValuationHistory } from "./ValuationHistory";
+import { useValuationHistory, VALUATION_METRICS } from "./valuation-series";
 import type { IoQuote } from "./quote";
 import { fundamentalWindow, RANGES, type Frequency, type Range } from "./ranges";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "./format";
@@ -146,8 +147,28 @@ export function Company({ ticker }: { ticker: string }) {
    * annual series, which is the right default for a reader who chose MAX and
    * the wrong one for a reader who chose a measure.
    */
+  /*
+   * The valuation multiples, read once for the page.
+   *
+   * The table below the chart states their ranges and the chart draws them, and
+   * both are looking at this one series. Read here rather than inside either,
+   * because two readers of the same figures making two requests for the same
+   * prices is how two answers to one question get onto one page.
+   */
+  const valuation = useValuationHistory(state.kind === "ready" ? state.view : null, quote);
+
+  /*
+   * The unit a measure is read in, filed or struck.
+   *
+   * `toggleMetric` and `axesFor` both count distinct units to decide what a
+   * chart can carry, so a measure whose unit is unknown is a measure they place
+   * wherever the code happened to. The three valuation multiples are not in
+   * `view.metrics` — a company files free cash flow and a share count, not what
+   * the market charged for them — so they are named beside it.
+   */
   const unitOf = (key: string) =>
-    (state.kind === "ready" ? state.view.metrics.find((metric) => metric.key === key)?.unit ?? null : null);
+    VALUATION_METRICS.find((metric) => metric.key === key)?.unit
+    ?? (state.kind === "ready" ? state.view.metrics.find((metric) => metric.key === key)?.unit ?? null : null);
 
   /*
    * A measure opens on its whole history, in trailing figures.
@@ -349,11 +370,12 @@ export function Company({ ticker }: { ticker: string }) {
         onRebased={setRebased}
         withPrice={withPrice}
         onWithPrice={setWithPrice}
+        valuation={valuation}
       />
       <Stats view={view} quote={quote} />
       <Score key={company.ticker} ticker={company.ticker} />
       <FcfShareGrowth view={view} />
-      <ValuationHistory view={view} quote={quote} />
+      <ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
       <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
       <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />

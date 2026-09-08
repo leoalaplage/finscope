@@ -350,7 +350,9 @@ describe("the redesign", () => {
     const section = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
-    expect(section).toContain("useOverlayPrice(ticker, periods, withPrice && offersPrice)");
+    // The overlay is told where the measures on screen open, not just which
+    // periods they came from: the two have to start on the same day.
+    expect(section).toContain("useOverlayPrice(ticker, periods, withPrice && offersPrice, metricsOpenOn)");
     expect(section).toContain(">\n            Share price\n          </button>");
     // Shareable, like every other choice made on this page.
     expect(company).toContain('withPrice: asked.get("p") === "1"');
@@ -608,12 +610,32 @@ describe("the redesign", () => {
   it("puts current valuation beside observed five- and ten-year ranges", () => {
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     const history = readFileSync(new URL("../components/io/ValuationHistory.tsx", import.meta.url), "utf8");
-    expect(company).toContain("<ValuationHistory view={view} quote={quote} />");
+    const series = readFileSync(new URL("../components/io/valuation-series.ts", import.meta.url), "utf8");
+    // One read for the page: the table states the ranges and the chart draws
+    // the line, and two requests for the same prices would be two answers.
+    expect(company).toContain("const valuation = useValuationHistory(");
+    expect(company).toContain("<ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />");
+    expect(company).toContain("valuation={valuation}");
     expect(history).toContain("5Y range");
     expect(history).toContain("10Y range");
-    expect(history).toContain("published=1");
+    expect(series).toContain("published=1");
+    // A row sends its multiple to the chart at the top, like every other table.
+    expect(history).toContain("onSelect(chosen ? null : metric.key)");
     expect(history).not.toContain("Current valuation against observed 5Y and 10Y ranges");
     expect(history).not.toContain("One observation per published");
+  });
+
+  it("lets the big chart draw a multiple it struck itself", () => {
+    const section = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
+    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    // A filer publishes free cash flow and a share count, not what the market
+    // charged for them, so these three are not in `view.metrics`. Everything
+    // that decides what a chart can carry has to know them anyway.
+    expect(company).toContain("VALUATION_METRICS.find((metric) => metric.key === key)?.unit");
+    expect(section).toContain("VALUATION_METRICS.find((item) => item.key === key) ?? view.metrics.find");
+    expect(section).toContain("if (isValuationMetric(key))");
+    // Read as % change, lines of different ages still begin on the same day.
+    expect(section).toContain("const rebaseFrom = rebased");
   });
 
   it("shows FCF per-share growth and consistency beside valuation history", () => {

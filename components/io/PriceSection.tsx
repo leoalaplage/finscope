@@ -7,6 +7,7 @@ import { axesFor, fromBase } from "./selection";
 import { daysBetween, overlayWindow, positions, priceSeries, type Bar } from "./overlay";
 import { fundamentalWindow, METRIC_RANGES, metricRange, offersFrequency, priceWindow, RANGES, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate, type Unit } from "./format";
+import { isValuationMetric, VALUATION_METRICS, valuationPoints, type ValuationHistoryState } from "./valuation-series";
 
 /**
  * The chart the page is built around, and the one control that drives it.
@@ -36,6 +37,7 @@ export function PriceSection({
   onRebased,
   withPrice,
   onWithPrice,
+  valuation,
 }: {
   ticker: string;
   currency: string;
@@ -50,6 +52,7 @@ export function PriceSection({
   onRebased: (rebased: boolean) => void;
   withPrice: boolean;
   onWithPrice: (withPrice: boolean) => void;
+  valuation: ValuationHistoryState;
 }) {
   /*
    * The anchor sits on a wrapper that outlives the swap.
@@ -78,6 +81,7 @@ export function PriceSection({
             onRebased={onRebased}
             withPrice={withPrice}
             onWithPrice={onWithPrice}
+            valuation={valuation}
           />
         )
         : <MarketPriceSection ticker={ticker} currency={currency} range={range} onRange={onRange} />}
@@ -199,7 +203,7 @@ type OverlayState = "idle" | "loading" | "ready" | "failed";
  * what lets a reader put free cash flow per share against the price paid for it
  * and see the two shapes on the same seventeen years.
  */
-function useOverlayPrice(ticker: string, periods: IoPeriod[], enabled: boolean): { state: OverlayState; points: PricePoint[]; pricedOn: string | null; lag: number | null } {
+function useOverlayPrice(ticker: string, periods: IoPeriod[], enabled: boolean, from: string | null): { state: OverlayState; points: PricePoint[]; pricedOn: string | null; lag: number | null } {
   const [answer, setAnswer] = useState<Answer | null>(null);
   const asked = enabled ? overlayWindow(periods) : null;
   const key = asked ? `${ticker}|${asked.frequency}|${asked.start}|${periods.length}|${periods.at(-1)?.end ?? ""}` : "";
@@ -238,11 +242,10 @@ function useOverlayPrice(ticker: string, periods: IoPeriod[], enabled: boolean):
    * genuinely share, and the price keeps the grain it was quoted at.
    */
   const { points, pricedOn } = useMemo<{ points: PricePoint[]; pricedOn: string | null }>(() => {
-    const from = periods[0]?.end;
     if (!current?.bars?.length || !from) return { points: [], pricedOn: null };
     const closes = priceSeries(current.bars, from);
     return { points: closes.map((close) => ({ date: close.on, value: close.value })), pricedOn: closes.at(-1)?.on ?? null };
-  }, [current, periods]);
+  }, [current, from]);
 
   const lag = daysBetween(periods.at(-1)?.end, pricedOn);
 
@@ -265,6 +268,7 @@ function MetricSection({
   onRebased,
   withPrice,
   onWithPrice,
+  valuation,
 }: {
   ticker: string;
   currency: string;
@@ -279,10 +283,22 @@ function MetricSection({
   onRebased: (rebased: boolean) => void;
   withPrice: boolean;
   onWithPrice: (withPrice: boolean) => void;
+  valuation: ValuationHistoryState;
 }) {
   const [hover, setHover] = useState<number | null>(null);
+  /*
+   * A measure is a measure, whether the company filed it or this page struck it.
+   *
+   * The three valuation multiples are not in `view.metrics` — a filer publishes
+   * free cash flow and a share count, not what the market charged for them — so
+   * they are looked up beside it. Everything downstream, the axes, the units,
+   * the readouts, the price overlay, then treats them exactly as it treats
+   * revenue.
+   */
   const chosen = useMemo(
-    () => metricKeys.map((key) => view.metrics.find((item) => item.key === key)).filter((item): item is NonNullable<typeof item> => item != null),
+    () => metricKeys
+      .map((key) => VALUATION_METRICS.find((item) => item.key === key) ?? view.metrics.find((item) => item.key === key))
+      .filter((item): item is NonNullable<typeof item> => item != null),
     [metricKeys, view.metrics],
   );
   const metric = chosen[0] ?? null;
@@ -293,10 +309,41 @@ function MetricSection({
     return withinYears(series, fundamentalWindow(shown).years);
   }, [view.annual, view.trailing, frequency, shown]);
 
-  const pointsFor = (key: string): PricePoint[] => periods.flatMap((period) => {
-    const value = period.values[key];
-    return value == null || !Number.isFinite(value) ? [] : [{ date: period.end, value }];
-  });
+  /*
+   * A measure's points, from wherever that measure comes from.
+   *
+   * A filed one is read off the periods on screen. A valuation multiple is a
+   * series of its own — one point per filing date, plus today's quote — and is
+   * cut to the same opening date rather than to the same periods: it is not
+   * quarterly in the way the periods are, and clipping it to them would drop
+   * its newest point, which is the one a reader came for.
+   */
+  const pointsFor = (key: string): PricePoint[] => {
+    if (isValuationMetric(key)) {
+      const from = periods[0]?.end ?? "";
+      return valuationPoints(valuation, key)
+        .filter((point) => point.date >= from)
+        .map((point) => ({ date: point.date, value: point.value }));
+    }
+    return periods.flatMap((period) => {
+      const value = period.values[key];
+      return value == null || !Number.isFinite(value) ? [] : [{ date: period.end, value }];
+    });
+  };
+
+  /*
+   * The measures' own points, and where the earliest of them begins.
+   *
+   * The frame opens where the measures do, not where the filed periods do. A
+   * valuation multiple carries ten years while the annual series carries
+   * seventeen, and a price drawn from 2009 beside a multiple starting in 2017
+   * would give "% change" two different starting lines while its caption
+   * promised one. Whatever is drawn, every line is rebased from the same day.
+   */
+  const drawnMetrics = chosen.map((item) => ({ item, points: pointsFor(item.key) }));
+  const metricsOpenOn = drawnMetrics
+    .flatMap((entry) => (entry.points[0]?.date ? [entry.points[0].date] : []))
+    .sort()[0] ?? periods[0]?.end ?? null;
 
   const currency = periods.at(-1)?.currency ?? view.company.currency;
   /*
@@ -322,7 +369,7 @@ function MetricSection({
    * being drawn against a scale that is not its own.
    */
   const offersPrice = units.length <= 1;
-  const overlay = useOverlayPrice(ticker, periods, withPrice && offersPrice);
+  const overlay = useOverlayPrice(ticker, periods, withPrice && offersPrice, metricsOpenOn);
   const priced = overlay.state === "ready" && overlay.points.length > 1;
 
   /*
@@ -333,15 +380,30 @@ function MetricSection({
    * only way a chart can answer "which of these moved further", because with
    * two scales that answer is a property of where the scales were put.
    */
+  /*
+   * Read as % change, every line really does begin on the same day.
+   *
+   * The caption under that view promises it, and until the chart could carry
+   * measures of different ages it was true by construction. It is not any more:
+   * a valuation multiple has ten years where free cash flow per share has
+   * seventeen, and rebasing each from its own first point would put two
+   * starting lines on a picture whose whole claim is one. So in that view alone
+   * the lines are cut back to the latest of their openings. The absolute view
+   * is untouched — there, each line showing all it has is the point.
+   */
+  const rebaseFrom = rebased
+    ? drawnMetrics.flatMap((entry) => (entry.points[0]?.date ? [entry.points[0].date] : [])).sort().at(-1) ?? null
+    : null;
+  const fromCommonStart = (points: PricePoint[]) =>
+    fromBase(rebaseFrom ? points.filter((point) => point.date >= rebaseFrom) : points);
+
   const drawn = [
-    ...chosen.map((item) => {
-      const points = pointsFor(item.key);
-      return { label: item.short, unit: item.unit as string, points: rebased ? fromBase(points) : points, axis: (rebased ? 0 : axisOf(item.key)) as 0 | 1 };
-    }),
+    ...drawnMetrics.map(({ item, points }) =>
+      ({ key: item.key, label: item.short, unit: item.unit as string, points: rebased ? fromCommonStart(points) : points, axis: (rebased ? 0 : axisOf(item.key)) as 0 | 1 })),
     // The quote is a currency of its own — the one the shares trade in, which
     // for a filer reporting in another currency is not the accounts' — so it is
     // written with the price formatter and never shares the measures' axis.
-    ...(priced ? [{ label: "Share price", unit: "price", points: rebased ? fromBase(overlay.points) : overlay.points, axis: (rebased ? 0 : 1) as 0 | 1 }] : []),
+    ...(priced ? [{ key: "price", label: "Share price", unit: "price", points: rebased ? fromCommonStart(overlay.points) : overlay.points, axis: (rebased ? 0 : 1) as 0 | 1 }] : []),
   ].filter((entry) => entry.points.length > 1);
 
   /*
@@ -354,9 +416,21 @@ function MetricSection({
    * edges something a reader can see rather than something a caption has to
    * apologise for: the measure's line simply stops before the frame does.
    */
-  const opensOn = periods[0]?.end ?? null;
-  const filedTo = periods.at(-1)?.end ?? null;
-  const closesOn = [filedTo, overlay.pricedOn].filter((date): date is string => !!date).sort().at(-1) ?? null;
+  /*
+   * The window every line is placed in: the whole span anything on screen covers.
+   *
+   * Taken from the lines themselves rather than from the filed periods, because
+   * not everything drawn here is one of them. A valuation multiple runs to
+   * today's quote and a filed measure stops at its last period; whichever
+   * reaches furthest sets the right edge, and the others end short of it, which
+   * is the truth about them.
+   */
+  const spanned = [...drawn.flatMap((entry) => entry.points.map((point) => point.date)), ...(overlay.pricedOn ? [overlay.pricedOn] : [])].sort();
+  const opensOn = spanned[0] ?? periods[0]?.end ?? null;
+  const closesOn = spanned.at(-1) ?? null;
+  // Only a filed measure can stop short of the market; a multiple struck here
+  // is priced today like the quote beside it.
+  const filedTo = drawn.some((entry) => entry.unit !== "price" && !isValuationMetric(entry.key)) ? periods.at(-1)?.end ?? null : null;
   const series: AxisSeries[] = drawn.map(({ label, points, axis }) => ({
     label,
     points,
@@ -369,10 +443,13 @@ function MetricSection({
    * The rule is drawn only when there is a gap worth drawing one for.
    *
    * A few days is a filing that has just landed, and a rule sitting on the
-   * right edge would be furniture. It appears with the caption that explains
-   * it, and at the same threshold.
+   * right edge would be furniture. What sets the edge is no longer only the
+   * price: a valuation multiple is struck against today's quote and reaches it
+   * too, so a filed measure drawn beside one stops short of the frame whether
+   * or not the share price is on the picture.
    */
-  const filedThrough = priced && overlay.lag != null && overlay.lag > 7 && opensOn && closesOn && filedTo
+  const lagToEdge = daysBetween(filedTo, closesOn);
+  const filedThrough = filedTo && opensOn && closesOn && lagToEdge != null && lagToEdge > 7
     ? positions([filedTo], opensOn, closesOn)[0]
     : null;
 
@@ -525,9 +602,11 @@ function MetricSection({
       {/* Why one line stops before the other, said rather than left to be found. */}
       {filedThrough != null ? (
         <p className="stat-note" style={{ marginTop: 10 }}>
-          The price is every weekly close through {shortDate(overlay.pricedOn!)}. The measure stops at the dotted rule —
-          {" "}{shortDate(filedTo!)}, the last period filed, {overlay.lag} days earlier. Its line ends there rather than
-          being stretched to the edge to meet a date it does not have.
+          {priced
+            ? <>The price is every weekly close through {shortDate(closesOn!)}. </>
+            : <>The chart runs to {shortDate(closesOn!)}. </>}
+          The filed figures stop at the dotted rule — {shortDate(filedTo!)}, the last period filed, {lagToEdge} days
+          earlier. Their line ends there rather than being stretched to the edge to meet a date it does not have.
         </p>
       ) : null}
       {/* A switch that appears to do nothing is worse than one that is not
