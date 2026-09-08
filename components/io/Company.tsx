@@ -377,13 +377,16 @@ export function Company({ ticker }: { ticker: string }) {
       <Score key={company.ticker} ticker={company.ticker} />
       <FcfShareGrowth view={view} />
       <ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />
-      {/* Keyed by the company, so moving from one to another starts the panel
-          over rather than leaving the first filer's insiders under the second
-          one's name while the request is out. */}
-      <Insiders key={company.ticker} ticker={company.ticker} />
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
       <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
       <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
+      {/*
+        * Below the statements, because it is about the people rather than the
+        * business. Keyed by the company, so moving from one to another starts
+        * the panel over rather than leaving the first filer's insiders under
+        * the second one's name while the request is out.
+        */}
+      <Insiders key={company.ticker} ticker={company.ticker} />
       {/* Last, because it is the only thing on this page the company did not
           file: what it has said since. It draws itself away if there is
           nothing verified to read. */}

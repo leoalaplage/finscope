@@ -20,6 +20,9 @@ import { ABSENT, count, money, shortDate } from "./format";
  * for what it is, and left out of the total.
  */
 
+/** Rows on screen before the reader asks for the rest. */
+const VISIBLE = 5;
+
 type State =
   | { kind: "loading" }
   | { kind: "absent"; reason: string }
@@ -51,7 +54,13 @@ const tally = (rows: InsiderTransaction[], from: string): Tally => {
 
 export function Insiders({ ticker }: { ticker: string }) {
   const [state, setState] = useState<State>({ kind: "loading" });
-  const [showAll, setShowAll] = useState(false);
+  /*
+   * Two switches, and they are about different things. `everything` decides
+   * whether the compensation rows are on the table at all; `expanded` decides
+   * how much of it is on screen. A section is a glance, not a register.
+   */
+  const [everything, setEverything] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     // No reset here: the section is keyed by the company, so a different
@@ -80,10 +89,11 @@ export function Insiders({ ticker }: { ticker: string }) {
     () => (record?.transactions ?? []).filter((row) => row.kind === "open-market"),
     [record],
   );
-  const shown = useMemo(() => {
-    const rows = showAll ? record?.transactions ?? [] : decisions;
-    return rows.slice(0, 40);
-  }, [showAll, record, decisions]);
+  const listed = useMemo(
+    () => (everything ? record?.transactions ?? [] : decisions),
+    [everything, record, decisions],
+  );
+  const shown = expanded ? listed.slice(0, 40) : listed.slice(0, VISIBLE);
 
   if (state.kind === "loading") return null;
   if (state.kind === "absent") return null;
@@ -100,12 +110,6 @@ export function Insiders({ ticker }: { ticker: string }) {
         </span>
       </div>
 
-      <p className="stat-note insiders-lead">
-        Officers, directors and ten-per-cent owners must report a change in their holding within two business days. The
-        totals below count open-market purchases and sales only — somebody choosing to own more or less with their own
-        money. A vesting grant, an option exercise and the shares withheld to pay tax on it are listed further down under
-        their own names, and never added to these.
-      </p>
 
       <div className="grid-ruled insiders-grid">
         {WINDOWS.map((window) => {
@@ -131,11 +135,18 @@ export function Insiders({ ticker }: { ticker: string }) {
 
       <div className="section-head insiders-switch">
         <span className="label">
-          {showAll ? "Every reported transaction" : "Open-market decisions"} · {shown.length} shown
+          {everything ? "Every reported transaction" : "Open-market decisions"} · {shown.length} of {listed.length}
         </span>
-        <button className="metric-toggle" type="button" aria-pressed={showAll} onClick={() => setShowAll((current) => !current)}>
-          {showAll ? "Decisions only" : "Show grants and exercises"}
-        </button>
+        <div className="insiders-controls">
+          {listed.length > VISIBLE ? (
+            <button className="metric-toggle" type="button" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)}>
+              {expanded ? `Show ${VISIBLE}` : `Show all ${listed.length}`}
+            </button>
+          ) : null}
+          <button className="metric-toggle" type="button" aria-pressed={everything} onClick={() => { setEverything((current) => !current); setExpanded(false); }}>
+            {everything ? "Decisions only" : "Show grants and exercises"}
+          </button>
+        </div>
       </div>
 
       {shown.length ? (
