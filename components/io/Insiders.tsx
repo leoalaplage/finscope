@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { InsiderRecord, InsiderTransaction } from "@/lib/adapters/insiders";
+import { INSIDER_SHAPE, type InsiderRecord, type InsiderTransaction } from "@/lib/adapters/insiders";
 import { ABSENT, count, money, shortDate } from "./format";
 
 /**
@@ -59,7 +59,9 @@ export function Insiders({ ticker }: { ticker: string }) {
     const controller = new AbortController();
     (async () => {
       try {
-        const response = await fetch(`/api/io/${encodeURIComponent(ticker)}/insiders`, { signal: controller.signal });
+        // The shape travels in the URL: a day-long edge copy of a corrected
+        // answer is a correction nobody sees. See `INSIDER_SHAPE`.
+        const response = await fetch(`/api/io/${encodeURIComponent(ticker)}/insiders?v=${INSIDER_SHAPE}`, { signal: controller.signal });
         if (!response.ok) {
           const body = await response.json().catch(() => ({})) as { error?: string };
           setState({ kind: "absent", reason: body.error ?? "Form 4 filings could not be read." });

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchInsiderTransactions, INSIDER_FILING_LIMIT } from "@/lib/adapters/insiders";
+import { fetchInsiderTransactions, INSIDER_FILING_LIMIT, INSIDER_SHAPE } from "@/lib/adapters/insiders";
 import { cachedJson, type Completeness } from "@/lib/market-cache";
 import { resolveMarketProfile } from "@/lib/market-profile";
 
@@ -29,7 +29,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
 
   try {
     const { body, hit } = await cachedJson(
-      `insiders:v2:${company.ticker}:${INSIDER_FILING_LIMIT}`,
+      `insiders:${INSIDER_SHAPE}:${company.ticker}:${INSIDER_FILING_LIMIT}`,
       CACHE_SECONDS,
       () => fetchInsiderTransactions(company.ticker, company.cik, new Date().toISOString()),
       /*

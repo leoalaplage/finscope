@@ -21,6 +21,19 @@ const SEC_AGENT = () => process.env.SEC_USER_AGENT || "FinScope research applica
 export const INSIDER_FILING_LIMIT = 40;
 
 /**
+ * What the reader is asking for, in the URL as well as in the store.
+ *
+ * The answer is kept for a day at the edge and in the reader's own browser, so
+ * a correction to this parser would otherwise sit behind a copy both were told
+ * they could keep — which is exactly what happened: the filename fix landed,
+ * the store held the right answer, and every page went on being served the
+ * empty one it had cached that morning. Bumping this retires those copies.
+ *
+ * i1: first release, reading Form 4 from the document name the index gives.
+ */
+export const INSIDER_SHAPE = "i1";
+
+/**
  * What a transaction code means, in the terms a reader thinks in.
  *
  * The letters are the SEC's own (Table I of the Form 4 instructions). The
