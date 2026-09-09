@@ -1036,7 +1036,18 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  */
 .holders-split { display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: calc(var(--u) * 8); align-items: center; }
 .holders-ring { display: block; width: 168px; height: 168px; }
-.holders-ring circle { stroke: var(--plot); }
+.holders-ring circle {
+  stroke: var(--plot);
+  /* Width and weight move together when an arc is picked out, so the change
+     reads as emphasis rather than as the figure itself having changed. */
+  transition: opacity .12s ease, stroke-width .12s ease;
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) { .holders-ring circle { transition: none; } }
+/* Everyone else is the part of the company no listed manager accounts for. It
+   is a row so that five managers are never mistaken for the whole of it, and
+   dimmer than the rest because it is a remainder rather than a holding. */
+.holders-sheet tr[data-rest] th.key, .holders-sheet tr[data-rest] td { color: var(--ink-3); }
 .holders-sheet table { min-width: 480px; }
 .holders-sheet th.key { min-width: 300px; white-space: normal; }
 .holders-foot { margin-top: calc(var(--u) * 3); }

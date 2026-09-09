@@ -50,6 +50,8 @@ function sharesAt(view: IoCompanyView, asOf: string | null): { shares: number | 
   return { shares: nearest.valuationBasis!.shares, from: nearest.label };
 }
 
+interface Slice { id: string; name: string; share: number; shares: number; value: number; rest: boolean }
+
 /**
  * The company as a circle, and the managers on screen as arcs of it.
  *
@@ -58,31 +60,48 @@ function sharesAt(view: IoCompanyView, asOf: string | null): { shares: number | 
  * table beside it reads in. Nothing is encoded here that the table does not
  * also state in figures — the ring is for the proportion, which is the one
  * thing a column of percentages is bad at showing.
+ *
+ * Pointing at an arc names its row and pointing at a row lights its arc, which
+ * is the whole reason to draw the two side by side: on a ring of five similar
+ * slices, "which one is BlackRock" is otherwise a question the picture cannot
+ * answer and the reader has to count round to solve.
  */
-function Ring({ slices }: { slices: { drawn: Array<{ name: string; share: number }>; rest: number } }) {
+function Ring({ slices, active, onActive }: {
+  slices: Slice[];
+  active: string | null;
+  onActive: (id: string | null) => void;
+}) {
   const R = 60, C = 2 * Math.PI * R;
-  let turned = 0;
-  const arcs = [...slices.drawn, ...(slices.rest ? [{ name: "", share: slices.rest }] : [])];
-  if (!arcs.length) return null;
+  if (!slices.length) return null;
+  // Each arc starts where the one before it ended, worked out in one pass so
+  // nothing is mutated while the picture is being drawn.
+  const arcs = slices.reduce<Array<{ slice: Slice; length: number; offset: number }>>((laid, slice) => {
+    const length = Math.max(0, Math.min(1, slice.share)) * C;
+    const offset = laid.length ? laid[laid.length - 1].offset + laid[laid.length - 1].length : 0;
+    return [...laid, { slice, length, offset }];
+  }, []);
   return (
     <svg className="holders-ring" viewBox="0 0 150 150" role="img" aria-label="Share of the company held by the managers listed">
-      {arcs.map((slice, index) => {
-        const length = Math.max(0, Math.min(1, slice.share)) * C;
-        const offset = turned;
-        turned += length;
+      {arcs.map(({ slice, length, offset }, index) => {
+        // Faintest for the part no listed manager accounts for, and a step
+        // down the ramp for each one that does. Whatever is under the pointer
+        // goes to full ink and everything else stands back.
+        const weight = slice.rest ? 0.08 : Math.max(0.3, 0.95 - index * 0.14);
         return (
           <circle
-            key={slice.name || "rest"}
+            key={slice.id}
             cx="75" cy="75" r={R}
             fill="none"
-            strokeWidth="26"
+            strokeWidth={active === slice.id ? 30 : 26}
             strokeDasharray={`${length.toFixed(2)} ${(C - length).toFixed(2)}`}
             strokeDashoffset={(-offset).toFixed(2)}
-            // Faintest for the part no listed manager accounts for, and a step
-            // down the ramp for each one that does.
-            opacity={slice.name ? Math.max(0.3, 0.95 - index * 0.14) : 0.08}
+            opacity={active == null ? weight : active === slice.id ? 1 : Math.min(weight, 0.18)}
             transform="rotate(-90 75 75)"
-          />
+            onMouseEnter={() => onActive(slice.id)}
+            onMouseLeave={() => onActive(null)}
+          >
+            <title>{slice.name}</title>
+          </circle>
         );
       })}
     </svg>
@@ -116,22 +135,39 @@ export function Holders({ ticker, view }: { ticker: string; view: IoCompanyView 
     [expanded, record],
   );
 
+  const [active, setActive] = useState<string | null>(null);
+
   /*
-   * The circle is the company, and the slices are the managers on screen.
+   * One list, read twice: once as arcs and once as rows.
    *
-   * Whatever is left is everyone else — the thousands of smaller filings, and
-   * everybody who files nothing at all. It is drawn faintest and named nothing,
-   * because it is not a holder: it is the part of the company this table does
-   * not account for, which a pie of only the top five would quietly pretend
-   * away by making five managers add up to the whole of Apple.
+   * The circle is the company, so whatever the listed managers do not account
+   * for is a slice of it too — the thousands of smaller filings and everybody
+   * who files nothing at all. It is named rather than left as an unlabelled
+   * gap, because a table of five managers and a ring with a silent majority
+   * invite the same wrong reading: that these five are the company.
+   *
+   * Ring and table share this array, so an arc and its row cannot disagree
+   * about a figure or fall out of step over which one is under the pointer.
    */
   const slices = useMemo(() => {
     const drawn = shown.flatMap((holding) => {
       const share = shareOfCompany(holding.shares, basis.shares);
-      return share == null ? [] : [{ name: holding.name, share }];
+      return share == null ? [] : [{
+        id: holding.name,
+        name: holding.name,
+        share,
+        shares: holding.shares,
+        value: holding.value,
+        rest: false,
+      }];
     });
-    const rest = 1 - drawn.reduce((sum, slice) => sum + slice.share, 0);
-    return { drawn, rest: rest > 0.005 ? rest : 0 };
+    const left = 1 - drawn.reduce((sum, slice) => sum + slice.share, 0);
+    const shares = basis.shares == null ? null : basis.shares - drawn.reduce((sum, slice) => sum + slice.shares, 0);
+    // Under half a per cent it is a rounding artefact, and over a hundred the
+    // filings have double-counted the company away. Neither is a slice.
+    return left > 0.005
+      ? [...drawn, { id: "rest", name: "Everyone else", share: left, shares: shares ?? 0, value: 0, rest: true }]
+      : drawn;
   }, [shown, basis.shares]);
 
   if (!record || !record.top.length) return null;
@@ -146,7 +182,7 @@ export function Holders({ ticker, view }: { ticker: string; view: IoCompanyView 
       </div>
 
       <div className="holders-split">
-        <Ring slices={slices} />
+        <Ring slices={slices} active={active} onActive={setActive} />
         <div className="sheet holders-sheet">
           <table>
             <thead>
@@ -158,17 +194,21 @@ export function Holders({ ticker, view }: { ticker: string; view: IoCompanyView 
               </tr>
             </thead>
             <tbody>
-              {shown.map((holding) => {
-                const share = shareOfCompany(holding.shares, basis.shares);
-                return (
-                  <tr key={holding.name}>
-                    <th className="key" scope="row">{holding.name}</th>
-                    <td>{count(holding.shares)}</td>
-                    <td data-empty={!holding.value}>{holding.value ? money(holding.value, "USD") : ABSENT}</td>
-                    <td data-empty={share == null}>{share == null ? ABSENT : percent(share, 2)}</td>
-                  </tr>
-                );
-              })}
+              {slices.map((slice) => (
+                <tr
+                  key={slice.id}
+                  data-selected={active === slice.id}
+                  data-rest={slice.rest || undefined}
+                  onMouseEnter={() => setActive(slice.id)}
+                  onMouseLeave={() => setActive(null)}
+                >
+                  <th className="key" scope="row">{slice.name}</th>
+                  <td data-empty={!slice.shares}>{slice.shares ? count(slice.shares) : ABSENT}</td>
+                  {/* Everyone else has no filed value: it is not a filing. */}
+                  <td data-empty={!slice.value}>{slice.value ? money(slice.value, "USD") : ABSENT}</td>
+                  <td>{percent(slice.share, 2)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
