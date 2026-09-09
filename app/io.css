@@ -1024,9 +1024,29 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 /* --- Institutional holders ------------------------------------------------ */
 
-.holders-sheet table { min-width: 640px; }
+/*
+ * The proportion beside the figures.
+ *
+ * A column of percentages is bad at one thing — showing how much of a company
+ * five managers actually are — and a ring is bad at everything else, so they
+ * sit side by side and neither is asked to do the other's work. The ring is
+ * drawn in one ink, stepping down in weight from the largest holder, which is
+ * the order the table reads in; the faintest arc is everything no listed
+ * manager accounts for.
+ */
+.holders-split { display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: calc(var(--u) * 8); align-items: center; }
+.holders-ring { display: block; width: 168px; height: 168px; }
+.holders-ring circle { stroke: var(--plot); }
+.holders-sheet table { min-width: 480px; }
 .holders-sheet th.key { min-width: 300px; white-space: normal; }
 .holders-foot { margin-top: calc(var(--u) * 3); }
+
+@media (max-width: 820px) {
+  /* The ring is a companion to the table, not a substitute: where they cannot
+     sit side by side the figures are what a reader keeps. */
+  .holders-split { grid-template-columns: minmax(0, 1fr); gap: calc(var(--u) * 5); }
+  .holders-ring { margin-inline: auto; }
+}
 
 /* --- Insider dealing ------------------------------------------------------ */
 

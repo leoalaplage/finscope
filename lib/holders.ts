@@ -24,9 +24,19 @@
  * copies of a cache key are one edit away from writing under a name nothing
  * reads.
  */
-export const HOLDERS_SHAPE = "h2";
+export const HOLDERS_SHAPE = "h3";
 
-export const holdersKey = (ticker: string) => `holders:${HOLDERS_SHAPE}:${ticker.toUpperCase()}`;
+/**
+ * The key a company's record is stored under.
+ *
+ * Stripped to letters and digits, because the two conventions disagree about
+ * separators and the store is written from one of them: Berkshire's B shares
+ * are `BRKB` in the SEC's own symbol file and `BRK.B` here. Normalising only on
+ * the way in wrote a record that nothing could ever read — which is precisely
+ * what happened, and Berkshire showed no holders at all.
+ */
+export const holdersKey = (ticker: string) =>
+  `holders:${HOLDERS_SHAPE}:${ticker.toUpperCase().replace(/[^A-Z0-9]/g, "")}`;
 
 export interface HeldPosition {
   name: string;

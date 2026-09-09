@@ -70,11 +70,19 @@ const [latest13f] = await listing(
 );
 if (!latest13f) throw new Error("The SEC's 13F data-set page listed no archive.");
 
-/** The two newest fails-to-deliver files, for a fuller CUSIP-to-symbol join. */
+/**
+ * The newest fails-to-deliver files, for the CUSIP-to-symbol join.
+ *
+ * A fortnight of them names only the securities that actually failed to settle
+ * in that fortnight, and the most liquid companies sometimes fail in none:
+ * Exxon was absent from the two first used, so it had no holders at all while
+ * every mid-cap around it did. Several months of files together name eighteen
+ * thousand symbols against fifteen, and every mega-cap appears in them.
+ */
 const fails = (await listing(
   "https://www.sec.gov/data/foiadocsfailsdatahtm",
   /\/files\/data\/fails-deliver-data\/cnsfails\d{6}[ab]\.zip/g,
-)).slice(0, 2);
+)).slice(0, 12);
 if (!fails.length) throw new Error("The SEC's fails-to-deliver page listed no file.");
 
 console.log(`13F archive: ${latest13f}`);
@@ -89,11 +97,18 @@ const plain = (value) => value.toUpperCase().replace(/[^A-Z0-9]/g, "");
 const symbolOf = new Map();
 for (const path of fails) {
   const file = await download(`https://www.sec.gov${path}`, join(work, path.split("/").pop()));
+  // The file inside is not always named after the archive, so it is read from
+  // the listing rather than derived — one month's spelling should not cost the
+  // whole crosswalk.
+  const listed = execFileSync("unzip", ["-Z", "-1", file], { encoding: "utf8" })
+    .split("\n").map((line) => line.trim()).filter((line) => line.toLowerCase().endsWith(".txt"));
+  if (!listed.length) { console.warn(`  no text file in ${path}`); continue; }
   execFileSync("unzip", ["-o", "-q", file, "-d", work]);
-  const name = path.split("/").pop().replace(".zip", ".txt");
-  for (const line of readFileSync(join(work, name), "latin1").split("\n").slice(1)) {
-    const [, cusip, symbol] = line.split("|");
-    if (cusip?.trim() && symbol?.trim()) symbolOf.set(cusip.trim(), plain(symbol));
+  for (const name of listed) {
+    for (const line of readFileSync(join(work, name), "latin1").split("\n").slice(1)) {
+      const [, cusip, symbol] = line.split("|");
+      if (cusip?.trim() && symbol?.trim()) symbolOf.set(cusip.trim(), plain(symbol));
+    }
   }
 }
 console.log(`crosswalk holds ${symbolOf.size.toLocaleString()} CUSIPs`);
