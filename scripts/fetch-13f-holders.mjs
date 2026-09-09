@@ -110,22 +110,74 @@ const readTsv = async (path, each) => {
   }
 };
 
-const manager = new Map();
+const cover = new Map();
 await readTsv(join(work, "COVERPAGE.tsv"), (row, at) => {
-  manager.set(row[at.ACCESSION_NUMBER], row[at.FILINGMANAGER_NAME]);
+  cover.set(row[at.ACCESSION_NUMBER], { name: row[at.FILINGMANAGER_NAME], amendment: (row[at.AMENDMENTTYPE] ?? "").trim() });
 });
-const quarter = new Map();
+const filing = new Map();
 await readTsv(join(work, "SUBMISSION.tsv"), (row, at) => {
-  quarter.set(row[at.ACCESSION_NUMBER], row[at.PERIODOFREPORT]);
+  filing.set(row[at.ACCESSION_NUMBER], {
+    cik: row[at.CIK],
+    period: row[at.PERIODOFREPORT],
+    type: row[at.SUBMISSIONTYPE],
+    filed: row[at.FILING_DATE],
+  });
 });
-console.log(`${manager.size.toLocaleString()} filings`);
+console.log(`${filing.size.toLocaleString()} filings`);
+
+/*
+ * One quarter, and one report per manager within it.
+ *
+ * The archive is named for a span of filing dates, not for a quarter: this one
+ * carries ten thousand reports for the March quarter and a tail of hundreds for
+ * December, September and every quarter back to 2008, filed late or amended. A
+ * manager appearing in two of them is two different quarters, and adding them
+ * together doubles that manager's position.
+ *
+ * Amendments do the same again. Vanguard Capital Management filed three reports
+ * for the March quarter — an original and two amendments — and summing all
+ * three put it at thirteen per cent of Apple against BlackRock's eight, which
+ * is what sent me looking. The SEC's own semantics settle it: a RESTATEMENT
+ * replaces the holdings it amends, so only the newest one counts; a NEW
+ * HOLDINGS amendment adds to them, so it is kept alongside the original. A
+ * notice filing (13F-NT) reports no holdings at all — another manager reports
+ * them — and is dropped.
+ */
+const periods = new Map();
+for (const { period } of filing.values()) periods.set(period, (periods.get(period) ?? 0) + 1);
+const asOf = [...periods].sort((left, right) => right[1] - left[1])[0]?.[0] ?? null;
+
+const byManager = new Map();
+for (const [accession, entry] of filing) {
+  if (entry.period !== asOf) continue;
+  if (!entry.type.startsWith("13F-HR")) continue;
+  const held = byManager.get(entry.cik) ?? [];
+  held.push({ accession, ...entry, amendment: cover.get(accession)?.amendment ?? "" });
+  byManager.set(entry.cik, held);
+}
+
+const use = new Set();
+let restated = 0;
+for (const reports of byManager.values()) {
+  const restatements = reports.filter((report) => report.amendment === "RESTATEMENT");
+  if (restatements.length) {
+    restated += 1;
+    const newest = restatements.reduce((best, report) => (report.filed > best.filed ? report : best));
+    use.add(newest.accession);
+    continue;
+  }
+  for (const report of reports) use.add(report.accession);
+}
+console.log(`${asOf}: ${byManager.size.toLocaleString()} managers, ${use.size.toLocaleString()} reports counted (${restated} restated)`);
 
 /* --- the holdings --------------------------------------------------------- */
 
 const held = new Map();
-let rows = 0, counted = 0, periodSeen = new Map();
+let rows = 0, counted = 0;
 await readTsv(join(work, "INFOTABLE.tsv"), (row, at) => {
   rows += 1;
+  const accession = row[at.ACCESSION_NUMBER];
+  if (!use.has(accession)) return;
   // An option is not a holding, and neither is a principal amount of debt.
   if (row[at.PUTCALL]?.trim()) return;
   if (row[at.SSHPRNAMTTYPE]?.trim() !== "SH") return;
@@ -134,11 +186,9 @@ await readTsv(join(work, "INFOTABLE.tsv"), (row, at) => {
   const shares = Number(row[at.SSHPRNAMT]);
   const value = Number(row[at.VALUE]);
   if (!Number.isFinite(shares) || shares <= 0) return;
-  const name = manager.get(row[at.ACCESSION_NUMBER]);
+  const name = cover.get(accession)?.name;
   if (!name) return;
   counted += 1;
-  const period = quarter.get(row[at.ACCESSION_NUMBER]);
-  if (period) periodSeen.set(period, (periodSeen.get(period) ?? 0) + 1);
   const company = held.get(ticker) ?? new Map();
   const running = company.get(name) ?? { shares: 0, value: 0 };
   running.shares += shares;
@@ -147,9 +197,6 @@ await readTsv(join(work, "INFOTABLE.tsv"), (row, at) => {
   held.set(ticker, company);
 });
 console.log(`${rows.toLocaleString()} rows, ${counted.toLocaleString()} counted, ${held.size.toLocaleString()} companies`);
-
-/** The quarter the greatest number of these holdings were reported for. */
-const asOf = [...periodSeen].sort((left, right) => right[1] - left[1])[0]?.[0] ?? null;
 
 const out = {};
 for (const [ticker, managers] of held) {

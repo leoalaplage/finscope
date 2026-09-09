@@ -76,8 +76,6 @@ export function Holders({ ticker, view }: { ticker: string; view: IoCompanyView 
 
   if (!record || !record.top.length) return null;
 
-  const reportedShare = shareOfCompany(record.reported, basis.shares);
-
   return (
     <section className="section holders" id="holders">
       <div className="section-head">
@@ -121,19 +119,6 @@ export function Holders({ ticker, view }: { ticker: string; view: IoCompanyView 
         </div>
       ) : null}
 
-      <p className="stat-note holders-note">
-        Every share of the company here is <strong>the sum of what was filed, and may double-count</strong>: where
-        discretion over the same shares is shared — a custodian and the adviser behind it — both managers file, and both
-        are right. All {count(record.managers)} filings together report{" "}
-        {reportedShare == null ? "a share that cannot be struck" : percent(reportedShare, 0)} of the company on that
-        basis{basis.from ? `, measured against the share count filed for ${basis.from}` : ""}.
-      </p>
-      <p className="stat-note">
-        13F covers managers with over $100m under discretion and their US-listed equity only, filed within 45 days of
-        the quarter end. It is not a register of owners: insiders, founders, holders outside the United States and
-        every smaller manager are absent from it. Options are excluded — a right to buy a million shares is not a
-        million shares.
-      </p>
     </section>
   );
 }

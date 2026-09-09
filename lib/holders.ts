@@ -44,10 +44,13 @@ export interface HoldersRecord {
  * it double-counts — Apple's reported shares come to eighty-five per cent of a
  * company that is not eighty-five per cent institutionally owned.
  *
- * The figure is kept because it is what a reader wants, and it is returned with
- * nothing hiding what it is: the page states it as the sum of filings and says
- * it may double-count. A percentage printed without that sentence is the same
- * arithmetic, wrong, and quiet about it.
+ * What it must not carry on top of that is arithmetic of this application's
+ * own making. It did: the quarterly archive is named for a span of filing
+ * dates rather than a quarter, and summing every report in it added December's
+ * holdings to March's and an amendment to the report it amends. Vanguard came
+ * out at thirteen per cent of Apple against BlackRock's eight. Filtered to one
+ * quarter and one report a manager, it is 6.5 against 7.8, and every reported
+ * share of Apple comes to 64% of the company rather than 85%.
  */
 export function shareOfCompany(shares: number, sharesOutstanding: number | null): number | null {
   if (sharesOutstanding == null || !(sharesOutstanding > 0) || !(shares > 0)) return null;
