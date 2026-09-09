@@ -24,7 +24,7 @@
  * copies of a cache key are one edit away from writing under a name nothing
  * reads.
  */
-export const HOLDERS_SHAPE = "h3";
+export const HOLDERS_SHAPE = "h4";
 
 /**
  * The key a company's record is stored under.

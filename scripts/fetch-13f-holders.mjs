@@ -187,10 +187,60 @@ console.log(`${asOf}: ${byManager.size.toLocaleString()} managers, ${use.size.to
 
 /* --- the holdings --------------------------------------------------------- */
 
-const held = new Map();
-let rows = 0, counted = 0;
+/**
+ * What one share was worth, according to everybody who reported holding it.
+ *
+ * The value column changed convention: Form 13F used to be filed in thousands
+ * of dollars and is now filed in whole ones, and five per cent of managers are
+ * still on the old footing. T. Rowe Price reported 33m shares of Meta at
+ * $18.9m — a price of fifty-seven cents for a share that traded at $572.
+ *
+ * There is no need to fetch a price to catch it. Seven thousand managers hold
+ * Meta and the median of what they implicitly paid a share *is* the price;
+ * a filer a thousandth of that is filing in thousands, and nothing else is a
+ * thousandth of anything. It is the same inference the screener makes about a
+ * market-cap column stated in an unknown unit, for the same reason: the scale
+ * is a fact about the source, not about the company.
+ *
+ * First pass: what did each company's filers imply a share was worth.
+ */
+const impliedPrices = new Map();
+let rows = 0;
 await readTsv(join(work, "INFOTABLE.tsv"), (row, at) => {
   rows += 1;
+  if (!use.has(row[at.ACCESSION_NUMBER])) return;
+  if (row[at.PUTCALL]?.trim()) return;
+  if (row[at.SSHPRNAMTTYPE]?.trim() !== "SH") return;
+  const ticker = symbolOf.get(row[at.CUSIP]?.trim());
+  if (!ticker) return;
+  const shares = Number(row[at.SSHPRNAMT]);
+  const value = Number(row[at.VALUE]);
+  if (!(shares > 0) || !(value > 0)) return;
+  const seen = impliedPrices.get(ticker) ?? [];
+  seen.push(value / shares);
+  impliedPrices.set(ticker, seen);
+});
+
+const priceOf = new Map();
+for (const [ticker, seen] of impliedPrices) {
+  seen.sort((left, right) => left - right);
+  priceOf.set(ticker, seen[Math.floor(seen.length / 2)]);
+}
+impliedPrices.clear();
+console.log(`${rows.toLocaleString()} rows, a share price implied for ${priceOf.size.toLocaleString()} companies`);
+
+/*
+ * Second pass, with the value read in the unit its filer used.
+ *
+ * A thousandth of the company's median is corrected. Anything else outside a
+ * fivefold band of it is a figure this cannot account for — a mistyped share
+ * count, a class the CUSIP does not distinguish — and the value is withheld
+ * rather than guessed at. The shares are kept either way: they are what the
+ * percentage is struck from, and they are not in doubt.
+ */
+const held = new Map();
+let counted = 0, rescaled = 0, withheld = 0;
+await readTsv(join(work, "INFOTABLE.tsv"), (row, at) => {
   const accession = row[at.ACCESSION_NUMBER];
   if (!use.has(accession)) return;
   // An option is not a holding, and neither is a principal amount of debt.
@@ -199,19 +249,31 @@ await readTsv(join(work, "INFOTABLE.tsv"), (row, at) => {
   const ticker = symbolOf.get(row[at.CUSIP]?.trim());
   if (!ticker) return;
   const shares = Number(row[at.SSHPRNAMT]);
-  const value = Number(row[at.VALUE]);
   if (!Number.isFinite(shares) || shares <= 0) return;
   const name = cover.get(accession)?.name;
   if (!name) return;
   counted += 1;
+
+  const typical = priceOf.get(ticker);
+  const raw = Number(row[at.VALUE]);
+  let value = null;
+  if (Number.isFinite(raw) && raw > 0 && typical > 0) {
+    const implied = raw / shares;
+    const ratio = implied / typical;
+    if (ratio > 0.2 && ratio < 5) value = raw;
+    else if (ratio > 0.0002 && ratio < 0.005) { value = raw * 1000; rescaled += 1; }
+    else withheld += 1;
+  }
+
   const company = held.get(ticker) ?? new Map();
-  const running = company.get(name) ?? { shares: 0, value: 0 };
+  const running = company.get(name) ?? { shares: 0, value: 0, unpriced: false };
   running.shares += shares;
-  running.value += Number.isFinite(value) ? value : 0;
+  if (value == null) running.unpriced = true;
+  else running.value += value;
   company.set(name, running);
   held.set(ticker, company);
 });
-console.log(`${rows.toLocaleString()} rows, ${counted.toLocaleString()} counted, ${held.size.toLocaleString()} companies`);
+console.log(`${counted.toLocaleString()} holdings counted, ${rescaled.toLocaleString()} filed in thousands and rescaled, ${withheld.toLocaleString()} values withheld, ${held.size.toLocaleString()} companies`);
 
 const out = {};
 for (const [ticker, managers] of held) {
@@ -222,7 +284,13 @@ for (const [ticker, managers] of held) {
     // Every manager's shares, so a share of the company can be struck against
     // the whole of what was reported rather than against the fifteen shown.
     reported: ranked.reduce((sum, [, holding]) => sum + holding.shares, 0),
-    top: ranked.slice(0, TOP).map(([name, holding]) => ({ name, shares: holding.shares, value: holding.value })),
+    // A manager any part of whose value could not be read carries none: half a
+    // position priced and half not is a figure about neither.
+    top: ranked.slice(0, TOP).map(([name, holding]) => ({
+      name,
+      shares: holding.shares,
+      value: holding.unpriced ? 0 : holding.value,
+    })),
   };
 }
 
