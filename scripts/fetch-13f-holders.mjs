@@ -37,6 +37,7 @@ import { createInterface } from "node:readline";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { impliedPrice, pricingDisagreement, valueInDollars } from "../lib/thirteen-f.js";
 
 const AGENT = process.env.SEC_USER_AGENT;
 if (!AGENT) {
@@ -222,10 +223,7 @@ await readTsv(join(work, "INFOTABLE.tsv"), (row, at) => {
 });
 
 const priceOf = new Map();
-for (const [ticker, seen] of impliedPrices) {
-  seen.sort((left, right) => left - right);
-  priceOf.set(ticker, seen[Math.floor(seen.length / 2)]);
-}
+for (const [ticker, seen] of impliedPrices) priceOf.set(ticker, impliedPrice(seen));
 impliedPrices.clear();
 console.log(`${rows.toLocaleString()} rows, a share price implied for ${priceOf.size.toLocaleString()} companies`);
 
@@ -254,16 +252,9 @@ await readTsv(join(work, "INFOTABLE.tsv"), (row, at) => {
   if (!name) return;
   counted += 1;
 
-  const typical = priceOf.get(ticker);
-  const raw = Number(row[at.VALUE]);
-  let value = null;
-  if (Number.isFinite(raw) && raw > 0 && typical > 0) {
-    const implied = raw / shares;
-    const ratio = implied / typical;
-    if (ratio > 0.2 && ratio < 5) value = raw;
-    else if (ratio > 0.0002 && ratio < 0.005) { value = raw * 1000; rescaled += 1; }
-    else withheld += 1;
-  }
+  const { value, state } = valueInDollars(Number(row[at.VALUE]), shares, priceOf.get(ticker));
+  if (state === "rescaled") rescaled += 1;
+  if (state === "withheld") withheld += 1;
 
   const company = held.get(ticker) ?? new Map();
   const running = company.get(name) ?? { shares: 0, value: 0, unpriced: false };
@@ -312,6 +303,31 @@ const pairs = Object.entries(out).map(([ticker, value]) => ({
   key: `holders:${HOLDERS_SHAPE}:${ticker}`,
   value: JSON.stringify(value),
 }));
+
+/*
+ * Nothing is written until the finished records agree with themselves.
+ *
+ * Every manager in one company's table is quoting one quarter-end price, so
+ * their implied prices must agree; where they do not, a convention has changed
+ * again or something else is wrong, and the right move is to stop rather than
+ * to publish. This is the check that did not exist when a filer's thousands
+ * went onto the page as dollars — and the reason it did not exist is that the
+ * logic lived here, in a script, where nothing could test it. It lives in
+ * `lib/thirteen-f.js` now, with the suite around it.
+ */
+const disagreements = [];
+for (const [ticker, record] of Object.entries(out)) {
+  const found = pricingDisagreement(record.top);
+  if (found) disagreements.push({ ticker, ...found });
+}
+if (disagreements.length) {
+  console.error(`\n${disagreements.length} companies price their holders inconsistently. Nothing written.`);
+  for (const bad of disagreements.slice(0, 10)) {
+    console.error(`  ${bad.ticker}: ${bad.name} implies $${bad.price.toFixed(4)} a share against a median of $${bad.median.toFixed(2)}`);
+  }
+  process.exit(1);
+}
+console.log("every company prices its holders consistently");
 
 mkdirSync("data", { recursive: true });
 const CHUNK = 9_000;
