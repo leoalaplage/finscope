@@ -9,7 +9,7 @@ import {
   type PillarName, type PresetName, type ScoredCompany, type SortDirection,
 } from "@/lib/qs/screener";
 import type { PricePoint } from "@/lib/types";
-import { KEY_VERSION } from "@/lib/data-version";
+import { KEY_VERSION, SUMMARY_SHAPE } from "@/lib/data-version";
 import { stated } from "@/lib/sector";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import { useStoredWatchlist } from "./watchlist";
@@ -217,7 +217,7 @@ export function Screener() {
         // The version travels in the URL as well as in the key: a digest built
         // under corrected semantics must not sit behind a copy the reader's own
         // browser was told it could keep for a day.
-        const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(followed)}&v=${KEY_VERSION}`, { signal: controller.signal });
+        const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(followed)}&v=${KEY_VERSION}.${SUMMARY_SHAPE}`, { signal: controller.signal });
         if (!response.ok) throw new Error("The watchlist could not be read.");
         const payload = await response.json() as { summaries?: WatchlistSummary[]; pending?: string[] };
         const summaries = (payload.summaries ?? []).filter((item) => item.qs);

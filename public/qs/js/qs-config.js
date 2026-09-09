@@ -94,22 +94,50 @@ export const METRIQUES = [
    * jugement, et le poids en tient compte desormais — le FCF par action reste
    * la mesure la plus lourde du pilier, sans que sa jumelle en fasse la moitie.
    */
-  { cle: "Rev5", pilier: "Growth", poids: 20, sens: "H",
+  { cle: "Rev5", pilier: "Growth", poids: 12, sens: "H",
     entetes: ["CA CAGR 5a (%)", "Revenue 5Y CAGR", "Revenue 5Y"] },
   { cle: "RevFwd3", pilier: "Growth", poids: 20, sens: "H",
     entetes: ["CA fwd 3a (%)", "Revenue Forward 3Y CAGR", "Revenue Forward 3Y"] },
-  { cle: "LevFCF5", pilier: "Growth", poids: 10, sens: "H",
+  { cle: "LevFCF5", pilier: "Growth", poids: 6, sens: "H",
     entetes: ["FCF CAGR 5a (%)", "Levered FCF 5Y CAGR", "FCF 5Y CAGR",
               "Levered Free Cash Flow 5Y CAGR"] },
-  { cle: "NI5", pilier: "Growth", poids: 15, sens: "H",
+  { cle: "NI5", pilier: "Growth", poids: 9, sens: "H",
     entetes: ["Res.net CAGR 5a (%)", "Net Income 5Y CAGR", "Net Income 5Y"] },
   // derivees : CAGR de la metrique corrige du CAGR du nombre d'actions
-  { cle: "RevPS5", pilier: "Growth", poids: 15, sens: "H",
+  { cle: "RevPS5", pilier: "Growth", poids: 9, sens: "H",
     // Sans en-tete, cette metrique ne pouvait etre fournie par aucune source :
     // ni une exportation collee, ni la table que FinScope genere. Elle pesait
     // 15 points du pilier Growth qu'aucun titre ne pouvait jamais gagner.
     entetes: ["CA/action CAGR 5a (%)", "Revenue Per Share 5Y CAGR", "Revenue per Share 5Y CAGR", "Revenue/Share 5Y CAGR"] },
-  { cle: "FCFPS5", pilier: "Growth", poids: 20, sens: "H",
+  /*
+   * La meme croissance, sur la fenetre longue.
+   *
+   * Cinq ans a partir de 2020 mesure une reprise, pas une croissance : Booking
+   * sort a +31,7 %/an de chiffre d'affaires et +146,8 %/an de resultat net
+   * parce que son exercice 2020 est un cratere — sur dix ans la meme societe
+   * fait +11,3 % et +7,8 %. Tout un secteur est dans ce cas : voyage,
+   * hotellerie, aerien, energie.
+   *
+   * Aucune moyenne ne repare ca. La moitie de 147 % plafonne encore l'ancre.
+   * Les deux fenetres sont donc notees separement et une societe doit tenir sur
+   * les deux : ce qui n'existe que sur une seule est un rebond, et un rebond
+   * vaut la moitie des points d'une croissance etablie.
+   *
+   * Une table collee qui ne porte pas ces colonnes les met simplement hors de
+   * portee de son univers, comme le moteur le fait deja pour toute mesure que
+   * personne ne porte.
+   */
+  { cle: "Rev10", pilier: "Growth", poids: 8, sens: "H",
+    entetes: ["CA CAGR 10a (%)", "Revenue 10Y CAGR", "Revenue 10Y"] },
+  { cle: "NI10", pilier: "Growth", poids: 6, sens: "H",
+    entetes: ["Res.net CAGR 10a (%)", "Net Income 10Y CAGR", "Net Income 10Y"] },
+  { cle: "LevFCF10", pilier: "Growth", poids: 4, sens: "H",
+    entetes: ["FCF CAGR 10a (%)", "Levered FCF 10Y CAGR", "FCF 10Y CAGR"] },
+  { cle: "RevPS10", pilier: "Growth", poids: 6, sens: "H",
+    entetes: ["CA/action CAGR 10a (%)", "Revenue Per Share 10Y CAGR", "Revenue/Share 10Y CAGR"] },
+  { cle: "FCFPS10", pilier: "Growth", poids: 8, sens: "H",
+    entetes: ["FCF/action CAGR 10a (%)", "FCF Per Share 10Y CAGR", "FCF/Share 10Y CAGR"] },
+  { cle: "FCFPS5", pilier: "Growth", poids: 12, sens: "H",
     // Idem, et c'est la metrique la plus lourde du pilier : la croissance du
     // free cash flow par action est ce que la dilution rend visible ou non.
     entetes: ["FCF/action CAGR 5a (%)", "FCF Per Share 5Y CAGR", "Free Cash Flow Per Share 5Y CAGR", "FCF/Share 5Y CAGR"] },
@@ -164,6 +192,8 @@ export const NOMS_METRIQUES = {
   Rev5: "Revenue growth 5y", RevFwd3: "Fwd revenue growth", LevFCF5: "FCF growth 5y",
   NI5: "Net income growth 5y",
   RevPS5: "Revenue/share growth 5y", FCFPS5: "FCF/share growth 5y",
+  Rev10: "Revenue growth 10y", NI10: "Net income growth 10y", LevFCF10: "FCF growth 10y",
+  RevPS10: "Revenue/share growth 10y", FCFPS10: "FCF/share growth 10y",
   EV_EBIT: "Attractive EV/EBIT", EV_FCF: "Attractive EV/FCF",
   FwdP_FCF: "Attractive P/FCF fwd", FCFYield: "FCF yield",
 };
@@ -187,6 +217,11 @@ export const DESCRIPTIONS_METRIQUES = {
   RevFwd3: "Expected revenue 3-year forward CAGR (analyst estimates).",
   LevFCF5: "Levered free cash flow 5-year CAGR. Growth of the cash that actually reaches shareholders.",
   NI5: "Net income 5-year CAGR. Bottom-line growth.",
+  Rev10: "Revenue 10-year CAGR. The long window, which a five-year one starting at a trough cannot see past.",
+  NI10: "Net income 10-year CAGR.",
+  LevFCF10: "Levered free cash flow 10-year CAGR.",
+  RevPS10: "Revenue per share 10-year CAGR.",
+  FCFPS10: "FCF per share 10-year CAGR. Growth that exists on five years and not on ten is a recovery.",
   RevPS5: "Revenue growth adjusted for changes in share count. How much top-line growth accrues per share.",
   FCFPS5: "FCF growth adjusted for changes in share count. The cash growth that actually accrues per share.",
   EV_EBIT: "EV / EBIT. Enterprise value vs operating profit; lower is cheaper (scored inverted).",
@@ -285,6 +320,13 @@ export const ANCRES_ABSOLUES = {
   NI5: [0, 8, 25],
   RevPS5: [0, 7, 22],
   FCFPS5: [0, 8, 25],
+  // Dix ans compose plus bas que cinq pour presque toute societe : les ancres
+  // le disent, sinon la fenetre longue punirait tout le monde.
+  Rev10: [0, 7, 20],
+  NI10: [0, 7, 20],
+  LevFCF10: [0, 7, 20],
+  RevPS10: [0, 6, 18],
+  FCFPS10: [0, 7, 20],
 
   // Value
   EV_EBIT: [40, 20, 10],

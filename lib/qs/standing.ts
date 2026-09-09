@@ -37,6 +37,13 @@ const STANDING: Readonly<Record<string, { strong: string; weak: string }>> = {
   "Net income growth 5y": { strong: "Strong net income growth", weak: "Weak net income growth" },
   "Revenue/share growth 5y": { strong: "Strong revenue per share growth", weak: "Weak revenue per share growth" },
   "FCF/share growth 5y": { strong: "Strong FCF per share growth", weak: "Weak FCF per share growth" },
+  // The decade says the same thing about a different span, so it has to say it
+  // differently: "strong revenue growth" twice in one list is not two findings.
+  "Revenue growth 10y": { strong: "Strong revenue growth over a decade", weak: "Weak revenue growth over a decade" },
+  "FCF growth 10y": { strong: "Strong FCF growth over a decade", weak: "Weak FCF growth over a decade" },
+  "Net income growth 10y": { strong: "Strong net income growth over a decade", weak: "Weak net income growth over a decade" },
+  "Revenue/share growth 10y": { strong: "Strong revenue per share growth over a decade", weak: "Weak revenue per share growth over a decade" },
+  "FCF/share growth 10y": { strong: "Strong FCF per share growth over a decade", weak: "Weak FCF per share growth over a decade" },
   "Attractive EV/EBIT": { strong: "Cheap on EV/EBIT", weak: "Expensive on EV/EBIT" },
   "Attractive EV/FCF": { strong: "Cheap on EV/FCF", weak: "Expensive on EV/FCF" },
   "Attractive P/FCF fwd": { strong: "Cheap on forward P/FCF", weak: "Expensive on forward P/FCF" },

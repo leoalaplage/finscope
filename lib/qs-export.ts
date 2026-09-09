@@ -39,6 +39,8 @@ export const QS_COLUMNS = [
   "Net Debt / EBITDA", "EBIT / Interest Expense", "Current Ratio", "Long-term Debt to Assets", "OCF/Capex",
   "Revenue 5Y CAGR", "FCF 5Y CAGR", "Net Income 5Y CAGR",
   "Revenue Per Share 5Y CAGR", "FCF Per Share 5Y CAGR", "FCF/Share 5Y R2",
+  "Revenue 10Y CAGR", "FCF 10Y CAGR", "Net Income 10Y CAGR",
+  "Revenue Per Share 10Y CAGR", "FCF Per Share 10Y CAGR",
   "EV/EBIT", "EV/FCF", "FCF Yield",
   "OCF", "Capex",
 ] as const;
@@ -277,6 +279,17 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
   const ebitda = now("ebitda");
   const interest = now("interestExpense") ?? now("interestPaid");
   const growth = (metric: string) => cagrForPeriods(annual, metric, 5).value;
+  /*
+   * The same rate over the decade.
+   *
+   * Five years from a trough measures the climb out of it. Booking compounds
+   * revenue at 31.7% a year over five and 11.3% over ten, because its 2020 is a
+   * hole; the whole travel, energy and airline complex reads the same way. The
+   * long window is not better — it is slower to notice a business that has
+   * genuinely changed — so both are scored, and neither is allowed to answer
+   * for the other.
+   */
+  const growth10 = (metric: string) => cagrForPeriods(annual, metric, 10).value;
   // The current ratio is not a derived metric but a balance-sheet health
   // question, so it comes from the panel that answers it rather than from a
   // second division here that could quietly disagree with it.
@@ -326,6 +339,22 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
        * them. Fitted on the same annual figures the CAGR above is read from.
        */
       "FCF/Share 5Y R2": industrial(fcfPerShareConsistency(annual)),
+
+      /*
+       * And the decade, which is where a recovery stops looking like growth.
+       *
+       * Weighted a little under the five-year figures, so a business that has
+       * genuinely accelerated is not held back by its own history — but heavily
+       * enough that a company whose growth exists only since 2020 cannot reach
+       * the same score as one that has compounded through two cycles. A company
+       * younger than ten years simply has no such figure, and the coverage rule
+       * decides whether it can still be graded.
+       */
+      "Revenue 10Y CAGR": percent(growth10("revenue")),
+      "FCF 10Y CAGR": percent(industrial(growth10("freeCashFlow"))),
+      "Net Income 10Y CAGR": percent(growth10("netIncome")),
+      "Revenue Per Share 10Y CAGR": percent(growth10("revenuePerShare")),
+      "FCF Per Share 10Y CAGR": percent(industrial(growth10("freeCashFlowPerShare"))),
 
       "OCF": billions(industrial(operatingCashFlow)),
       "Capex": billions(industrial(capex == null ? null : Math.abs(capex))),

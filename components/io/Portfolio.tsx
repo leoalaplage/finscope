@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { KEY_VERSION } from "@/lib/data-version";
+import { KEY_VERSION, SUMMARY_SHAPE } from "@/lib/data-version";
 import {
   concentration, DAILY_WINDOWS, overWindow, portfolioExposure, portfolioQuality, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, WINDOWS,
   type Position, type SeriesPoint, type ValuedPosition, type WindowId,
@@ -98,7 +98,7 @@ export function Portfolio() {
     const tickers = followed.split(",");
     (async () => {
       try {
-        const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(followed)}&v=${KEY_VERSION}`, { signal: controller.signal });
+        const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(followed)}&v=${KEY_VERSION}.${SUMMARY_SHAPE}`, { signal: controller.signal });
         const payload = response.ok
           ? await response.json() as { summaries?: WatchlistSummary[]; pending?: string[] }
           : { summaries: [], pending: tickers };

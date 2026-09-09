@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pencil } from "lucide-react";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
-import { KEY_VERSION } from "@/lib/data-version";
+import { KEY_VERSION, SUMMARY_SHAPE } from "@/lib/data-version";
 import { summarySector, type WatchlistSummary } from "@/lib/watchlist-summary";
 import { useStoredWatchlist } from "./watchlist";
 import { WatchlistEditor } from "./WatchlistEditor";
@@ -34,7 +34,7 @@ export function HomeWatchlist() {
     const controller = new AbortController();
     (async () => {
       try {
-        const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(unknown)}&v=${KEY_VERSION}`, { signal: controller.signal });
+        const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(unknown)}&v=${KEY_VERSION}.${SUMMARY_SHAPE}`, { signal: controller.signal });
         if (!response.ok) return;
         const payload = await response.json() as { summaries?: WatchlistSummary[] };
         const named: Record<string, string> = {};

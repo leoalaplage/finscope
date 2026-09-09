@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SUMMARY_SHAPE } from "@/lib/data-version";
+import { QS_MODEL_VERSION } from "@/lib/qs/insight";
 import { ABSENT, percent } from "./format";
 
 /**
@@ -80,7 +82,10 @@ export function Score({ ticker }: { ticker: string }) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const load = async () => {
       try {
-        const response = await fetch(`/api/io/${encodeURIComponent(ticker)}/score`, { signal: controller.signal });
+        // The version travels in the URL as well as in the cache key: the
+        // answer is cacheable at the edge for a week, so a model or digest
+        // change that only moved the key would keep serving last week's grade.
+        const response = await fetch(`/api/io/${encodeURIComponent(ticker)}/score?v=${QS_MODEL_VERSION}.${SUMMARY_SHAPE}`, { signal: controller.signal });
         if (response.status === 202) {
           if (attempts < 30) {
             attempts += 1;

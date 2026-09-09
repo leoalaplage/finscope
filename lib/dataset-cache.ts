@@ -3,9 +3,8 @@ import { datasetCache, selfFetcher } from "./runtime-env";
 import { TICKER_PATTERN } from "./market-profile";
 import type { WatchlistSummary } from "./watchlist-summary";
 
-export { KEY_VERSION } from "./data-version";
-import { KEY_VERSION } from "./data-version";
-
+export { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
+import { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
 
 /**
  * Versions whose stored data may still be served while this one is being built.
@@ -70,52 +69,6 @@ export const CACHE_SECONDS = 604_800;
 export function datasetKey(ticker: string) {
   return `company:${KEY_VERSION}:${ticker.toUpperCase()}`;
 }
-
-/**
- * What the digest itself contains, versioned apart from the dataset.
- *
- * A digest depends on two things: the meaning of the periods underneath it, and
- * the set of figures it carries. The first is `KEY_VERSION`; this is the
- * second, so adding a field rebuilds the digests without forcing every company
- * to be parsed from raw XBRL again.
- *
- * s2: carries each company's QS Screener row.
- * s3: carries the three five-year figures the watchlist card shows — free cash
- *     flow margin after stock-based compensation, cash return on capital, and
- *     the compound growth of free cash flow per share.
- * s4: carries when the filings were read and whether the company is a financial
- *     institution — the first so the timer can find a stale company without
- *     reading the dataset, the second so a card never states a free-cash-flow
- *     margin for a broker.
- * s5: gross profit is read as the subtraction it is where the filer publishes
- *     both sides and no subtotal, so six companies — Alphabet and Meta among
- *     them — have a gross margin in their screener row for the first time.
- *     Recomputed from the stored dataset; no filing is parsed again for it.
- * s6: the screener's price inputs carry the currency the statements are kept in
- *     and which share count they are on, so the columns finished in the browser
- *     refuse a quote in another currency instead of dividing across two.
- * s7: the current period is the later of TTM and annual. A stale historical TTM
- *     no longer wins merely because one exists, so cached cards and QS rows use
- *     the same genuinely current period as the company page.
- * s8: the screener row carries the five-year growth of revenue per share and of
- *     free cash flow per share. Both are scored — forty of the Growth pillar's
- *     hundred points — and neither had a column title, so no table could supply
- *     them and no company could earn them. FinScope had computed both all along.
- * s9: native ROIC uses average opening/closing invested capital when both are
- *     filed, and long-term debt/assets prefers the dedicated long-term and
- *     lease balances before the conservative total-debt fallback.
- * s11: the digest carries the window the score was struck on, which is not
- *     always the newest the company has: where its most recent trailing period
- *     tags no operating income, the row is read from the newest one that does.
- *     Eli Lilly's two newest trailing windows carry none, so leverage and
- *     interest cover went missing and a company with a complete annual record
- *     lost its grade.
- * s10: the row carries how straight the free cash flow per share line was, as
- *     R² of a log-linear fit over five years. The Quality pillar scores it, and
- *     a digest built before this has no column for it — so every company would
- *     score the pillar on eight of its nine measures until it was rebuilt.
- */
-const SUMMARY_SHAPE = "s11";
 
 /**
  * The card-sized digest stored beside each dataset.
