@@ -77,15 +77,31 @@ export const METRIQUES = [
   { cle: "OCF_Capex", pilier: "Health", poids: 15, sens: "H",
     entetes: ["OCF/Capex", "Capex Coverage (OCF/Capex)", "Capex Coverage"] },
 
-  // ---- GROWTH ----
-  { cle: "Rev5", pilier: "Growth", poids: 15, sens: "H",
+  /* ---- GROWTH ----
+   *
+   * Aucune serie ne porte plus d'un tiers du pilier.
+   *
+   * La croissance du free cash flow et celle du free cash flow par action
+   * pesaient 15 et 25 : quarante des quatre-vingts points reellement mesurables
+   * du pilier, sur une seule serie. Or un seul exercice a flux negatif — un
+   * creux cyclique, une annee 2020 — rend les deux taux indefinis d'un coup, et
+   * le pilier tombait a la moitie de lui-meme au moment precis ou un lecteur
+   * veut savoir ce que la societe a fait de ce creux. Booking, Exxon, Palantir
+   * et Intel s'y retrouvaient tous entre 38 et 50 %.
+   *
+   * Le chiffre d'affaires, lui, n'est jamais negatif : ses deux mesures ne
+   * tombent jamais ensemble. L'asymetrie est dans la donnee, pas dans le
+   * jugement, et le poids en tient compte desormais — le FCF par action reste
+   * la mesure la plus lourde du pilier, sans que sa jumelle en fasse la moitie.
+   */
+  { cle: "Rev5", pilier: "Growth", poids: 20, sens: "H",
     entetes: ["CA CAGR 5a (%)", "Revenue 5Y CAGR", "Revenue 5Y"] },
   { cle: "RevFwd3", pilier: "Growth", poids: 20, sens: "H",
     entetes: ["CA fwd 3a (%)", "Revenue Forward 3Y CAGR", "Revenue Forward 3Y"] },
-  { cle: "LevFCF5", pilier: "Growth", poids: 15, sens: "H",
+  { cle: "LevFCF5", pilier: "Growth", poids: 10, sens: "H",
     entetes: ["FCF CAGR 5a (%)", "Levered FCF 5Y CAGR", "FCF 5Y CAGR",
               "Levered Free Cash Flow 5Y CAGR"] },
-  { cle: "NI5", pilier: "Growth", poids: 10, sens: "H",
+  { cle: "NI5", pilier: "Growth", poids: 15, sens: "H",
     entetes: ["Res.net CAGR 5a (%)", "Net Income 5Y CAGR", "Net Income 5Y"] },
   // derivees : CAGR de la metrique corrige du CAGR du nombre d'actions
   { cle: "RevPS5", pilier: "Growth", poids: 15, sens: "H",
@@ -93,7 +109,7 @@ export const METRIQUES = [
     // ni une exportation collee, ni la table que FinScope genere. Elle pesait
     // 15 points du pilier Growth qu'aucun titre ne pouvait jamais gagner.
     entetes: ["CA/action CAGR 5a (%)", "Revenue Per Share 5Y CAGR", "Revenue per Share 5Y CAGR", "Revenue/Share 5Y CAGR"] },
-  { cle: "FCFPS5", pilier: "Growth", poids: 25, sens: "H",
+  { cle: "FCFPS5", pilier: "Growth", poids: 20, sens: "H",
     // Idem, et c'est la metrique la plus lourde du pilier : la croissance du
     // free cash flow par action est ce que la dilution rend visible ou non.
     entetes: ["FCF/action CAGR 5a (%)", "FCF Per Share 5Y CAGR", "Free Cash Flow Per Share 5Y CAGR", "FCF/Share 5Y CAGR"] },
