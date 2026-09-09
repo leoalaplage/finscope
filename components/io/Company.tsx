@@ -7,6 +7,7 @@ import { stated } from "@/lib/sector";
 import { FcfShareGrowth } from "./FcfShareGrowth";
 import { Growth } from "./Growth";
 import { Score } from "./Score";
+import { Health } from "./Health";
 import { Multiples } from "./Multiples";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
 import { toggleMetric } from "./selection";
@@ -375,7 +376,8 @@ export function Company({ ticker }: { ticker: string }) {
         valuation={valuation}
       />
       <Stats view={view} quote={quote} />
-      <Score key={company.ticker} ticker={company.ticker} />
+      <Score key={`score-${company.ticker}`} ticker={company.ticker} />
+      <Health view={view} />
       <FcfShareGrowth view={view} />
       <ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
@@ -385,9 +387,11 @@ export function Company({ ticker }: { ticker: string }) {
         * Below the statements, because it is about the people rather than the
         * business. Keyed by the company, so moving from one to another starts
         * the panel over rather than leaving the first filer's insiders under
-        * the second one's name while the request is out.
+        * the second one's name while the request is out. The key is prefixed
+        * because the score above is keyed by the company too, and two siblings
+        * under one key is a collision React resolves by dropping one of them.
         */}
-      <Insiders key={company.ticker} ticker={company.ticker} />
+      <Insiders key={`insiders-${company.ticker}`} ticker={company.ticker} />
       {/* Beside the insiders, and for the same reason: it is about who holds
           the company rather than what the company did. */}
       <Holders key={`holders-${company.ticker}`} ticker={company.ticker} view={view} />

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SUMMARY_SHAPE } from "@/lib/data-version";
 import { QS_MODEL_VERSION } from "@/lib/qs/insight";
+import { QS_COVERAGE_FLOOR } from "@/lib/qs/screener";
 import { ABSENT, percent } from "./format";
 
 /**
@@ -169,20 +170,22 @@ export function Score({ ticker }: { ticker: string }) {
  * Why there is no grade, which is two different sentences.
  *
  * "Not rated" reads as a failure to measure, and for most filers it is: some
- * measures are missing and the grade waits for them. For a bank, a broker, an
- * insurer or a holding company it is not. This application withholds free cash
- * flow, capital expenditure and the current ratio from them on purpose —
- * every one of those rests on a boundary such a filer does not have — so the
- * model is not measuring them badly, it is not measuring them at all. Saying
- * the first when the second is true invites a reader to wait for a grade that
- * is never coming.
+ * measures are missing and the grade waits for them. For a bank, a broker or an
+ * insurer it is not. This application withholds free cash flow, capital
+ * expenditure and the current ratio from them on purpose — every one of those
+ * rests on a boundary such a filer does not have — so the model is not
+ * measuring them badly, it is not measuring them at all. Saying the first when
+ * the second is true invites a reader to wait for a grade that is never coming.
+ *
+ * An exchange and a holding company were on this list and have come off it.
+ * Nothing is withheld from them any more: Cboe's capital expenditure is
+ * equipment and Berkshire's is railways. Where they are unrated now it is for
+ * the ordinary reason, and the ordinary sentence is the true one.
  */
 const NOT_MEASURED: Partial<Record<Scored["businessType"], string>> = {
   bank: "a bank",
   broker: "a broker",
   insurer: "an insurer",
-  holding: "a holding company",
-  exchange: "an exchange",
 };
 
 function Unrated({ score }: { score: Scored }) {
@@ -199,7 +202,7 @@ function Unrated({ score }: { score: Scored }) {
   return (
     <p className="stat-note" style={{ marginTop: 10 }}>
       Not rated: {percent(score.coverage, 0)} of the scored measures are available for this filer, below the
-      three-quarters the grade requires. The pillars above are struck on what is there.
+      {" "}{Math.round(QS_COVERAGE_FLOOR * 100)}% the grade requires. The pillars above are struck on what is there.
     </p>
   );
 }
