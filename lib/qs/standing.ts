@@ -23,6 +23,7 @@ const STANDING: Readonly<Record<string, { strong: string; weak: string }>> = {
   "FCF margin 5y": { strong: "High FCF margin over 5y", weak: "Thin FCF margin over 5y" },
   "FCF/Net income conv.": { strong: "Strong FCF conversion", weak: "Weak FCF conversion" },
   "Gross margin": { strong: "High gross margin", weak: "Thin gross margin" },
+  "FCF/share consistency": { strong: "Steady FCF per share", weak: "Erratic FCF per share" },
   "Low dilution": { strong: "No dilution", weak: "Share dilution" },
   "Low SBC/Revenue": { strong: "Light stock-based pay", weak: "Heavy stock-based pay" },
   "Low leverage": { strong: "Low leverage", weak: "High leverage" },

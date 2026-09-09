@@ -104,8 +104,12 @@ export function datasetKey(ticker: string) {
  * s9: native ROIC uses average opening/closing invested capital when both are
  *     filed, and long-term debt/assets prefers the dedicated long-term and
  *     lease balances before the conservative total-debt fallback.
+ * s10: the row carries how straight the free cash flow per share line was, as
+ *     R² of a log-linear fit over five years. The Quality pillar scores it, and
+ *     a digest built before this has no column for it — so every company would
+ *     score the pillar on eight of its nine measures until it was rebuilt.
  */
-const SUMMARY_SHAPE = "s9";
+const SUMMARY_SHAPE = "s10";
 
 /**
  * The card-sized digest stored beside each dataset.

@@ -4,6 +4,7 @@ import { balanceSheetHealth } from "./statement-flows";
 import type { CompanyDataset, FinancialPeriod } from "./types";
 import { isFinancialBusiness } from "./business-type";
 import { currentDatasetPeriod } from "./current-period";
+import { logLinearRSquared } from "./log-linear.js";
 
 /**
  * The watchlist, written as the table the QS Screener already reads.
@@ -37,7 +38,7 @@ export const QS_COLUMNS = [
   "Gross Margin 5Yr Avg", "Shares Outstanding 5Y CAGR", "SBC to Revenue",
   "Net Debt / EBITDA", "EBIT / Interest Expense", "Current Ratio", "Long-term Debt to Assets", "OCF/Capex",
   "Revenue 5Y CAGR", "FCF 5Y CAGR", "Net Income 5Y CAGR",
-  "Revenue Per Share 5Y CAGR", "FCF Per Share 5Y CAGR",
+  "Revenue Per Share 5Y CAGR", "FCF Per Share 5Y CAGR", "FCF/Share 5Y R2",
   "EV/EBIT", "EV/FCF", "FCF Yield",
   "OCF", "Capex",
 ] as const;
@@ -49,6 +50,26 @@ const ordered = (dataset: CompanyDataset, periodicity: "annual" | "ttm") =>
 function fiveYearAverage(annual: FinancialPeriod[], metric: string): number | null {
   const values = annual.slice(-5).map((period) => derivedValue(period, metric)).filter((value): value is number => value != null && Number.isFinite(value));
   return values.length < 3 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+/**
+ * How straight the last five years of free cash flow per share were.
+ *
+ * The same log-linear fit the company page's own panel draws, from the same
+ * module, so the screener and the page can never state two different numbers
+ * for one company. A zero or negative year has no logarithm and fewer than
+ * three observations is not a trend: both come back as nothing rather than as
+ * a nought, because "not measurable" and "erratic" are opposite statements.
+ */
+function fcfPerShareConsistency(annual: FinancialPeriod[]): number | null {
+  const recent = annual.slice(-6);
+  const first = recent[0];
+  if (!first) return null;
+  const points = recent.flatMap((period) => {
+    const value = derivedValue(period, "freeCashFlowPerShare");
+    return value == null || !Number.isFinite(value) ? [] : [{ x: yearsBetween(first.periodEnd, period.periodEnd), value }];
+  });
+  return logLinearRSquared(points);
 }
 
 /** Years between two balance-sheet dates, including leap years accurately enough for matching. */
@@ -244,6 +265,16 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
        */
       "Revenue Per Share 5Y CAGR": percent(growth("revenuePerShare")),
       "FCF Per Share 5Y CAGR": percent(industrial(growth("freeCashFlowPerShare"))),
+      /*
+       * And how straight that line was, which the rate alone cannot say.
+       *
+       * Two companies compounding free cash flow per share at twelve per cent —
+       * one a step a year, the other a collapse and a recovery — end in the
+       * same place and are not the same business. Scored in Quality rather than
+       * Growth, because it is a property of the earnings and not a rate of
+       * them. Fitted on the same annual figures the CAGR above is read from.
+       */
+      "FCF/Share 5Y R2": industrial(fcfPerShareConsistency(annual)),
 
       "OCF": billions(industrial(operatingCashFlow)),
       "Capex": billions(industrial(capex == null ? null : Math.abs(capex))),

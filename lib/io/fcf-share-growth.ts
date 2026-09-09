@@ -1,4 +1,5 @@
 import type { IoPeriod } from "./view";
+import { logLinearRSquared } from "../log-linear.js";
 
 export interface FcfShareReading {
   value: number | null;
@@ -94,18 +95,10 @@ function consistency(history: Point[], targetYears: 5 | 10): FcfShareReading {
   }
 
   const first = window[0].date;
-  const samples = window.map((point) => ({ x: elapsedYears(first, point.date), y: Math.log(point.value) }));
-  const meanX = samples.reduce((sum, point) => sum + point.x, 0) / samples.length;
-  const meanY = samples.reduce((sum, point) => sum + point.y, 0) / samples.length;
-  let sxx = 0; let sxy = 0; let syy = 0;
-  for (const point of samples) {
-    const dx = point.x - meanX;
-    const dy = point.y - meanY;
-    sxx += dx * dx;
-    sxy += dx * dy;
-    syy += dy * dy;
-  }
-  if (sxx === 0 || syy === 0) {
+  // The fit itself lives beside the screener that also needs it: one of them
+  // computing it a second time is how two numbers on one site disagree.
+  const fitted = logLinearRSquared(window.map((point) => ({ x: elapsedYears(first, point.date), value: point.value })));
+  if (fitted == null) {
     return {
       value: null,
       observations: window.length,
@@ -114,13 +107,7 @@ function consistency(history: Point[], targetYears: 5 | 10): FcfShareReading {
       reason: "The series does not vary enough for R²",
     };
   }
-  return {
-    value: Math.min(1, Math.max(0, (sxy * sxy) / (sxx * syy))),
-    observations: window.length,
-    startDate: first,
-    endDate: end.date,
-    reason: null,
-  };
+  return { value: fitted, observations: window.length, startDate: first, endDate: end.date, reason: null };
 }
 
 /** FCF/share growth and regularity from the validated annual series only. */
