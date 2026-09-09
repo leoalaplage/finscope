@@ -84,6 +84,8 @@ describe("what a health verdict is struck on", () => {
     const oracleish = companyHealth(burning(31.29, -23.69), [], "operating")!;
     expect(amazonish.questions.find((question) => question.key === "runway")!.state).toBe("sound");
     expect(oracleish.questions.find((question) => question.key === "runway")!.state).toBe("strained");
+    // Sixteen months is 1.3 years, not "1.3 year".
+    expect(oracleish.questions.find((question) => question.key === "runway")!.reading).toBe("1.3 years");
     // The question exists only for a company that is spending its cash.
     const earning = companyHealth(burning(50, 10), [], "operating")!;
     expect(earning.questions.some((question) => question.key === "runway")).toBe(false);

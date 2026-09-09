@@ -122,7 +122,7 @@ export interface HealthQuestion {
 }
 
 /** "0.3 years", "12 years" — one decimal until the figure stops needing it. */
-const years = (value: number) => `${value.toFixed(value >= 10 ? 0 : 1)} ${value >= 1.95 || value < 1 ? "years" : "year"}`;
+const years = (value: number) => `${value.toFixed(value >= 10 ? 0 : 1)} ${value === 1 ? "year" : "years"}`;
 const multiple = (value: number) => `${value.toFixed(value >= 100 ? 0 : 1)}\u00d7`;
 
 export interface HealthNote { key: string; text: string }
