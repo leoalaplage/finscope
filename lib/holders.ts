@@ -13,8 +13,18 @@
  * In the key, so a rebuilt quarter never sits behind the last one, and in the
  * URL the page asks with, because the reader's own browser is a second cache
  * keyed by the address rather than by the key.
+ *
+ * Bump it whenever the records change *meaning*, not only when they are
+ * rebuilt from a newer quarter. h1 counted every report in the archive; h2
+ * counts one quarter and one report a manager, and Apple's largest holder is a
+ * different name under the two. Overwriting h1 in place left the store correct
+ * and every reader looking at the old answer until the next day.
+ *
+ * `scripts/fetch-13f-holders.mjs` reads this line rather than repeating it: two
+ * copies of a cache key are one edit away from writing under a name nothing
+ * reads.
  */
-export const HOLDERS_SHAPE = "h1";
+export const HOLDERS_SHAPE = "h2";
 
 export const holdersKey = (ticker: string) => `holders:${HOLDERS_SHAPE}:${ticker.toUpperCase()}`;
 

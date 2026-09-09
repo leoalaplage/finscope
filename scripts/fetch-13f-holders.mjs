@@ -221,7 +221,10 @@ for (const [ticker, managers] of held) {
  *
  * `wrangler kv bulk put` takes ten thousand pairs a file, so they are chunked.
  */
-const HOLDERS_SHAPE = "h1";
+// Read from the one place that defines it, so the script cannot write under a
+// name the application does not read.
+const HOLDERS_SHAPE = /HOLDERS_SHAPE = "([^"]+)"/.exec(readFileSync("lib/holders.ts", "utf8"))?.[1];
+if (!HOLDERS_SHAPE) throw new Error("lib/holders.ts no longer declares HOLDERS_SHAPE.");
 const pairs = Object.entries(out).map(([ticker, value]) => ({
   key: `holders:${HOLDERS_SHAPE}:${ticker}`,
   value: JSON.stringify(value),
