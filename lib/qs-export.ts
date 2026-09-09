@@ -164,7 +164,22 @@ function longTermDebtFor(dataset: CompanyDataset, current: FinancialPeriod | nul
   return annual ? read(annual) : debtFor(dataset, current);
 }
 
-export interface QsRow { ticker: string; values: Record<string, number | string | null> }
+export interface QsRow {
+  ticker: string;
+  values: Record<string, number | string | null>;
+  /**
+   * The window the row was actually struck on.
+   *
+   * Not always the newest one the company has: where its most recent trailing
+   * period carries no operating income, the score reads the newest one that
+   * does. A grade shown against a date the figures did not come from is worse
+   * than a grade shown against an older date, so the date travels with it.
+   *
+   * Optional because a table assembled in the browser from a pasted export has
+   * no filed period behind it — only `qsRow` can know one.
+   */
+  period?: { label: string; end: string } | null;
+}
 
 /**
  * The few figures the valuation columns need a live price to finish.
@@ -214,9 +229,44 @@ export function qsValuationColumns(inputs: QsPriceInputs, price: number | null, 
  * there is no market capitalisation and therefore no valuation column, and the
  * quality, health and growth pillars still score.
  */
+/**
+ * The newest period this company can actually be scored on.
+ *
+ * Not always the newest one it has. A filer's most recent trailing window is
+ * assembled from quarters, and a quarter that tags no operating income leaves
+ * that window with a revenue line and nothing under it: Eli Lilly's two newest
+ * trailing periods carry no operating income, no interest expense and therefore
+ * no EBITDA, so leverage and interest cover went missing and a company with a
+ * complete annual record fell to 65% coverage and lost its grade.
+ *
+ * The figures are there one period back. Reading them from the newest filing
+ * that states them is the rule this application already follows for a borrowing
+ * the latest quarter does not tag, and for a free cash flow whose denominator
+ * arrives a quarter late. The period travels with the score, so a reader sees
+ * which window the grade was struck on rather than being told a date that is
+ * not where the numbers came from.
+ *
+ * Only the income statement decides. A period missing a balance-sheet line is
+ * missing one measure; a period missing its operating income is missing the
+ * subtotal six of them rest on.
+ */
+function scorePeriod(dataset: CompanyDataset): FinancialPeriod | null {
+  const newest = currentDatasetPeriod(dataset) ?? null;
+  const scoreable = (period: FinancialPeriod) =>
+    derivedValue(period, "revenue") != null && derivedValue(period, "operatingIncome") != null;
+  if (!newest || scoreable(newest)) return newest;
+  const earlier = dataset.periods
+    .filter((period) => period.periodicity === newest.periodicity && period.periodEnd < newest.periodEnd)
+    .sort((left, right) => left.periodEnd.localeCompare(right.periodEnd));
+  // Back through the same kind of window, newest first, and no further than the
+  // one before last: a grade struck on figures a year stale is not a grade.
+  for (const period of earlier.slice(-4).reverse()) if (scoreable(period)) return period;
+  return newest;
+}
+
 export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
   const annual = ordered(dataset, "annual");
-  const current = currentDatasetPeriod(dataset) ?? null;
+  const current = scorePeriod(dataset);
   const now = (metric: string) => current ? derivedValue(current, metric) : null;
   const financial = isFinancialBusiness(dataset.company.businessType);
   const industrial = (value: number | null) => financial ? null : value;
@@ -234,6 +284,7 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
 
   return {
     ticker: dataset.company.ticker,
+    period: current ? { label: current.label, end: current.periodEnd } : null,
     values: {
       "Ticker": dataset.company.ticker,
       "Sector": dataset.company.sector,

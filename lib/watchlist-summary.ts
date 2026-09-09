@@ -48,6 +48,9 @@ export interface WatchlistSummary {
   /** The period every figure below is taken from. */
   periodEnd: string;
   periodLabel: string;
+  /** The window the quality score was struck on; see `QsRow.period`. */
+  qsPeriodLabel?: string;
+  qsPeriodEnd?: string;
   shares: number | null;
   revenue: number | null;
   /** Latest full year against the one before it, never a trailing window. */
@@ -127,6 +130,7 @@ export function summariseDataset(dataset: CompanyDataset): WatchlistSummary | nu
   const annual = sorted(dataset, "annual");
   const latestYear = annual.at(-1); const priorYear = annual.at(-2);
   const thisYear = latestYear ? derivedValue(latestYear, "revenue") : null;
+  const scored = qsRow(dataset, null);
   const lastYear = priorYear ? derivedValue(priorYear, "revenue") : null;
   const financial = isFinancialBusiness(dataset.company.businessType);
   const industrial = (value: number | null) => financial ? null : value;
@@ -149,7 +153,15 @@ export function summariseDataset(dataset: CompanyDataset): WatchlistSummary | nu
     freeCashFlowAfterSbcMargin5Y: industrial(fiveYearAverage(annual, "freeCashFlowAfterSbcMargin")),
     cashReturnOnCapital5Y: industrial(fiveYearAverage(annual, "cashReturnOnCapital")),
     freeCashFlowPerShareCagr5Y: industrial(cagrForPeriods(annual, "freeCashFlowPerShare", 5).value),
-    qs: qsRow(dataset, null).values,
+    qs: scored.values,
+    /*
+     * The window the score was struck on, which is not always the one above.
+     * Where the newest trailing period tags no operating income the score reads
+     * the newest one that does, and a grade shown against a date its figures
+     * did not come from is worse than one shown against an older date.
+     */
+    qsPeriodLabel: scored.period?.label ?? period.label,
+    qsPeriodEnd: scored.period?.end ?? period.periodEnd,
     qsPrice: qsPriceInputs(dataset),
   };
 }

@@ -72,6 +72,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
     const row: QsRow = {
       ticker: summary.ticker,
       values: { ...summary.qs, ...qsValuationColumns(summary.qsPrice, quote?.price ?? null, quote?.currency ?? null) },
+      period: null,
     };
     const result = screen(qsTable([row]));
     const scored = result.all[0] ?? null;
@@ -89,10 +90,10 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
     if (scored.total != null && quote?.price != null) {
       const recordedAt = new Date().toISOString();
       const point: QualityScoreHistoryPoint = {
-        id: `${QS_MODEL_VERSION}:${summary.periodEnd}`,
+        id: `${QS_MODEL_VERSION}:${summary.qsPeriodEnd ?? summary.periodEnd}`,
         recordedAt,
-        periodEnd: summary.periodEnd,
-        periodLabel: summary.periodLabel,
+        periodEnd: summary.qsPeriodEnd ?? summary.periodEnd,
+        periodLabel: summary.qsPeriodLabel ?? summary.periodLabel,
         dataRetrievedAt: summary.retrievedAt,
         modelVersion: QS_MODEL_VERSION,
         grade: scored.note,
@@ -123,7 +124,24 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       weaknesses: scored.faiblesses.map(([name]) => asWeakness(name)),
       valuation: scored.valuation,
       modelVersion: QS_MODEL_VERSION,
-      period: { label: summary.periodLabel, end: summary.periodEnd, retrievedAt: summary.retrievedAt },
+      /*
+       * The window the score was struck on, which is not always the newest the
+       * company has: where its most recent trailing period tags no operating
+       * income, the row is read from the newest one that does.
+       */
+      period: {
+        label: summary.qsPeriodLabel ?? summary.periodLabel,
+        end: summary.qsPeriodEnd ?? summary.periodEnd,
+        retrievedAt: summary.retrievedAt,
+      },
+      /*
+       * What kind of filer this is, so an unrated company can say which of the
+       * two things happened. A bank has no free cash flow, no capital
+       * expenditure and no current ratio — this application withholds all three
+       * deliberately — so "not rated" reads as a failure to measure when the
+       * truth is that this model does not measure banks.
+       */
+      businessType: summary.businessType,
       source: "SEC filings; Yahoo Finance for market-price inputs",
       details,
       history: history.map((point) => ({

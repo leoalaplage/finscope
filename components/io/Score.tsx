@@ -29,6 +29,7 @@ interface Scored {
   weaknesses: string[];
   valuation: string;
   modelVersion: string;
+  businessType: "operating" | "bank" | "broker" | "insurer" | "exchange" | "holding";
   period: { label: string; end: string; retrievedAt: string };
   source: string;
   details: MetricDetail[];
@@ -140,12 +141,7 @@ export function Score({ ticker }: { ticker: string }) {
         </div>
       </div>
 
-      {!rated ? (
-        <p className="stat-note" style={{ marginTop: 10 }}>
-          Not rated: {percent(score.coverage, 0)} of the scored measures are available for this filer, below the
-          three-quarters the grade requires. The pillars above are struck on what is there.
-        </p>
-      ) : null}
+      {!rated ? <Unrated score={score} /> : null}
       {score.strengths.length || score.weaknesses.length ? (
         <div className="score-lists">
           {score.strengths.length ? (
@@ -161,6 +157,45 @@ export function Score({ ticker }: { ticker: string }) {
       ) : null}
       {open ? <ScoreDetail ticker={ticker} score={score} /> : null}
     </section>
+  );
+}
+
+/**
+ * Why there is no grade, which is two different sentences.
+ *
+ * "Not rated" reads as a failure to measure, and for most filers it is: some
+ * measures are missing and the grade waits for them. For a bank, a broker, an
+ * insurer or a holding company it is not. This application withholds free cash
+ * flow, capital expenditure and the current ratio from them on purpose —
+ * every one of those rests on a boundary such a filer does not have — so the
+ * model is not measuring them badly, it is not measuring them at all. Saying
+ * the first when the second is true invites a reader to wait for a grade that
+ * is never coming.
+ */
+const NOT_MEASURED: Partial<Record<Scored["businessType"], string>> = {
+  bank: "a bank",
+  broker: "a broker",
+  insurer: "an insurer",
+  holding: "a holding company",
+  exchange: "an exchange",
+};
+
+function Unrated({ score }: { score: Scored }) {
+  const kind = NOT_MEASURED[score.businessType];
+  if (kind) {
+    return (
+      <p className="stat-note" style={{ marginTop: 10 }}>
+        Not scored: this model measures operating companies, and {kind} has no free cash flow, capital expenditure or
+        current ratio to read — this application withholds all three rather than inventing a boundary. The pillars above
+        are struck on the measures that do apply.
+      </p>
+    );
+  }
+  return (
+    <p className="stat-note" style={{ marginTop: 10 }}>
+      Not rated: {percent(score.coverage, 0)} of the scored measures are available for this filer, below the
+      three-quarters the grade requires. The pillars above are struck on what is there.
+    </p>
   );
 }
 
