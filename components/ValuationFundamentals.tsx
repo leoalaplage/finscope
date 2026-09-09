@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { chartPalette, niceTicks, type ThemeName } from "@/lib/charting";
 import { cagrForPeriods, derivedValue } from "@/lib/finance";
-import { isFinancialBusiness } from "@/lib/business-type";
+import { balanceSheetIsTheBusiness } from "@/lib/business-type";
 import { currentDatasetPeriod } from "@/lib/current-period";
 import { marketBasis } from "@/lib/market-basis";
 import { valuationSnapshot } from "@/lib/valuation-history";
@@ -51,7 +51,7 @@ export function ValuationFundamentals({ dataset, price, theme, onCharts }: {
   const palette = chartPalette(theme);
 
   const current = currentDatasetPeriod(dataset);
-  const financial = isFinancialBusiness(dataset.company.businessType);
+  const financial = balanceSheetIsTheBusiness(dataset.company.businessType);
   const snapshot = !financial && current && price ? valuationSnapshot(current, price) : null;
   const fcfPerShare = financial || !current ? null : derivedValue(current, "freeCashFlowPerShare");
   const basisReason = current && price ? marketBasis(current, price).reason : price ? "No reported period to price" : "No matched market price";

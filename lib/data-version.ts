@@ -249,5 +249,10 @@ export const KEY_VERSION = "v31";
  *     separately, because five years measured from 2020 is a recovery rather
  *     than a rate: Booking read +146.8% a year on net income over five years
  *     and +7.8% over ten. A digest built before this carries no such column.
+ * s13: an exchange keeps its cash-flow measures. Whether free cash flow means
+ *     anything is asked by `balanceSheetIsTheBusiness`, not by whether the
+ *     filer is in the business of money — Cboe and CME earn fees and buy
+ *     ordinary equipment, and their digests were withholding a decade of free
+ *     cash flow their own company pages were already showing.
  */
-export const SUMMARY_SHAPE = "s12";
+export const SUMMARY_SHAPE = "s13";

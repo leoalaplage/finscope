@@ -5,7 +5,7 @@ import { Search } from "lucide-react";
 import { summariseDataset, type WatchlistSummary } from "@/lib/watchlist-summary";
 import { getJson } from "@/lib/fetch-json";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod } from "@/lib/types";
-import { isFinancialBusiness } from "@/lib/business-type";
+import { balanceSheetIsTheBusiness } from "@/lib/business-type";
 import { currentDatasetPeriod } from "@/lib/current-period";
 
 const percent = (value: number | null) => value == null || !Number.isFinite(value) ? "—" : `${(value * 100).toFixed(1)}%`;
@@ -310,7 +310,7 @@ export function HomePage({ watchlist, datasets, loading, onOpen, onLoad, onSearc
             // The dataset's own profile wins where there is one: a company the
             // reader added carries whatever the SEC search decided, and the
             // digest was built from the dataset that was actually normalized.
-            const financial = isFinancialBusiness(digest?.businessType ?? dataset?.company.businessType ?? company.businessType);
+            const financial = balanceSheetIsTheBusiness(digest?.businessType ?? dataset?.company.businessType ?? company.businessType);
             const figures = cardFigures(digest, financial);
             return <li key={company.ticker}>
               <button type="button" className="company-card" onClick={() => onOpen(company.ticker)}>

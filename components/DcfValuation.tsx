@@ -8,7 +8,7 @@ import { cagrForPeriods, derivedValue, valueOf } from "@/lib/finance";
 import type { CompanyDataset, FinancialPeriod, PricePoint } from "@/lib/types";
 import { getJson } from "@/lib/fetch-json";
 import { change, money, percent, perShare, shares, tone } from "@/lib/format";
-import { businessTypeLabel, isFinancialBusiness } from "@/lib/business-type";
+import { balanceSheetIsTheBusiness, businessTypeLabel } from "@/lib/business-type";
 
 const pct = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? "N/M" : percent(value);
 const shareCount = (value: number | null | undefined) => shares(value);
@@ -50,7 +50,7 @@ export function dcfBaseFromPeriods(periods: FinancialPeriod[]): DcfBase | null {
 export function DcfValuation({ dataset }: { dataset: CompanyDataset }) {
   const annual = useMemo(()=>dataset.periods.filter((period)=>period.periodicity==="annual").sort((a,b)=>a.periodEnd.localeCompare(b.periodEnd)),[dataset.periods]);
   const foundation = useMemo(()=>buildDcfFoundation(annual),[annual]);
-  const financial = isFinancialBusiness(dataset.company.businessType);
+  const financial = balanceSheetIsTheBusiness(dataset.company.businessType);
   const base = useMemo(()=>financial ? null : dcfBaseFromPeriods(annual),[annual,financial]); const [mode,setMode]=useState<"simple"|"advanced">("simple"); const [scenario,setScenario]=useState<ScenarioName>("base");
   const [years,setYears]=useState(10); const initial=base?{bear:defaultDcfAssumptions(base,10,"bear"),base:applyDcfFoundation(defaultDcfAssumptions(base,10,"base"),foundation),bull:defaultDcfAssumptions(base,10,"bull")}:null;
   const [scenarios,setScenarios]=useState<Record<ScenarioName,DcfAssumptions>|null>(initial); const [price,setPrice]=useState<PricePoint|null>(null); const [priceError,setPriceError]=useState(""); const [priceLoading,setPriceLoading]=useState(false); const [priceAttempt,setPriceAttempt]=useState(0); const [saveName,setSaveName]=useState("Base case");

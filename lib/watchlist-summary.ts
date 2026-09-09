@@ -3,7 +3,7 @@ import { qsPriceInputs, qsRow, type QsPriceInputs } from "./qs-export";
 import type { CompanyDataset, CompanyProfile, FinancialPeriod } from "./types";
 import { shareCount } from "./market-basis";
 import { stated } from "./sector";
-import { isFinancialBusiness } from "./business-type";
+import { balanceSheetIsTheBusiness } from "./business-type";
 import { currentDatasetPeriod } from "./current-period";
 
 /**
@@ -132,7 +132,7 @@ export function summariseDataset(dataset: CompanyDataset): WatchlistSummary | nu
   const thisYear = latestYear ? derivedValue(latestYear, "revenue") : null;
   const scored = qsRow(dataset, null);
   const lastYear = priorYear ? derivedValue(priorYear, "revenue") : null;
-  const financial = isFinancialBusiness(dataset.company.businessType);
+  const financial = balanceSheetIsTheBusiness(dataset.company.businessType);
   const industrial = (value: number | null) => financial ? null : value;
   return {
     ticker: dataset.company.ticker,

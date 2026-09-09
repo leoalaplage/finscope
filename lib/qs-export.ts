@@ -2,7 +2,7 @@ import { cagrForPeriods, derivedValue, reportedDebt, valueOf } from "./finance";
 import { shareCount, type SharesBasis } from "./market-basis";
 import { balanceSheetHealth } from "./statement-flows";
 import type { CompanyDataset, FinancialPeriod } from "./types";
-import { isFinancialBusiness } from "./business-type";
+import { balanceSheetIsTheBusiness } from "./business-type";
 import { currentDatasetPeriod } from "./current-period";
 import { logLinearRSquared } from "./log-linear.js";
 
@@ -196,7 +196,7 @@ export interface QsPriceInputs { shares: number | null; sharesBasis: SharesBasis
 export function qsPriceInputs(dataset: CompanyDataset): QsPriceInputs {
   const current = currentDatasetPeriod(dataset) ?? null;
   const counted = current ? shareCount(current) : null;
-  const financial = isFinancialBusiness(dataset.company.businessType);
+  const financial = balanceSheetIsTheBusiness(dataset.company.businessType);
   return {
     shares: counted?.shares ?? null,
     sharesBasis: counted?.basis ?? null,
@@ -270,7 +270,7 @@ export function qsRow(dataset: CompanyDataset, price: number | null): QsRow {
   const annual = ordered(dataset, "annual");
   const current = scorePeriod(dataset);
   const now = (metric: string) => current ? derivedValue(current, metric) : null;
-  const financial = isFinancialBusiness(dataset.company.businessType);
+  const financial = balanceSheetIsTheBusiness(dataset.company.businessType);
   const industrial = (value: number | null) => financial ? null : value;
 
   const operatingCashFlow = now("operatingCashFlow");

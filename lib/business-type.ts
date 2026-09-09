@@ -48,7 +48,21 @@ export function classifyBusiness(profile: CompanyProfile): CompanyProfile {
   return classified && classified !== profile.businessType ? { ...profile, businessType: classified } : profile;
 }
 
-/** Legacy `financial` remains readable in locally stored watchlists. */
+/**
+ * Whether the filer is in the business of money at all.
+ *
+ * A question about sector, not about arithmetic. It is the right question in
+ * exactly one place — whether to strike an operating income out of pre-tax
+ * income and interest expense, which is meaningless wherever interest is a cost
+ * of goods. It is the wrong question for "does free cash flow mean anything
+ * here", and asking it there is what left Cboe and CME at 36% and 26% coverage:
+ * both earn fees and buy ordinary equipment, both have a clean decade of free
+ * cash flow on their own company pages, and the score refused to look at it.
+ * `balanceSheetIsTheBusiness` is that question, and every measure withheld on
+ * those grounds asks it.
+ *
+ * Legacy `financial` remains readable in locally stored watchlists.
+ */
 export function isFinancialBusiness(type: BusinessType | undefined): boolean {
   return type === "financial" || type === "bank" || type === "broker" || type === "exchange" || type === "insurer" || type === "holding";
 }

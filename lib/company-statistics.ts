@@ -1,6 +1,6 @@
 import { cagrForPeriods, derivedValue, nopatBasis, safeDivide } from "./finance";
 import { marketBasis, shareCount } from "./market-basis";
-import { isFinancialBusiness } from "./business-type";
+import { balanceSheetIsTheBusiness } from "./business-type";
 import { METRICS } from "./metrics";
 import type { CompanyDataset, FinancialPeriod, PricePoint } from "./types";
 import { currentDatasetPeriod } from "./current-period";
@@ -111,7 +111,7 @@ const FINANCIAL_NOTE = "Free-cash-flow measures are withheld: operating cash flo
 const FALLBACK_LIMIT_MS = 550 * 86_400_000;
 
 export function companyStatistics(dataset: CompanyDataset, price: PricePoint | null, periodicity: StatisticsPeriodicity = "ttm"): StatGroup[] {
-  const financial = isFinancialBusiness(dataset.company.businessType);
+  const financial = balanceSheetIsTheBusiness(dataset.company.businessType);
   /** The value, unless free cash flow is meaningless for this filer. */
   const cash = (value: number | null) => financial ? null : value;
   /*
