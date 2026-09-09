@@ -105,6 +105,17 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v31: depreciation is read under the spelling most filers use.
+ * `DepreciationAndAmortization` was not in the map — only the depletion-bearing
+ * variants, which are the extractive industries' — so Visa and Mastercard had
+ * no depreciation at all despite tagging that concept more than two hundred
+ * times each. Without it there is no EBITDA, without EBITDA no net debt to
+ * EBITDA, and the Health pillar of two of the largest companies in the world
+ * rested on three of its five measures. Mastercard's second spelling,
+ * `DepreciationAmortizationAndAccretionNet`, is read last because it carries a
+ * little more than depreciation and amortisation. The stored datasets have the
+ * hole, so they are built again.
+ *
  * v30: a filer that keeps its books under IFRS is read. Ten per cent of the
  * coverage sweep files its annual report on Form 20-F under IFRS, where not one
  * concept in the US GAAP map exists — so SAP, Shell, AstraZeneca, Novo Nordisk,
@@ -188,4 +199,4 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v30";
+export const KEY_VERSION = "v31";

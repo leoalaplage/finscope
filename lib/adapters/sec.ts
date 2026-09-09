@@ -159,7 +159,19 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
   currentLiabilities: { namespace: "us-gaap", tags: ["LiabilitiesCurrent"], unit: "currency" },
   incomeBeforeTax: { namespace: "us-gaap", tags: ["IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest", "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"], unit: "currency" },
   incomeTaxExpense: { namespace: "us-gaap", tags: ["IncomeTaxExpenseBenefit"], unit: "currency" },
-  depreciationAndAmortization: { namespace: "us-gaap", tags: ["DepreciationDepletionAndAmortization", "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment", "Depreciation"], unit: "currency" },
+  /*
+   * `DepreciationAndAmortization` is the one most filers actually use.
+   *
+   * Reading only the depletion-bearing spellings — which are the extractive
+   * industries' — left Visa and Mastercard with no depreciation at all, and
+   * both tag this concept two hundred times over. Without it there is no
+   * EBITDA, without EBITDA there is no net-debt-to-EBITDA, and the Health
+   * pillar of two of the largest companies in the world rested on three of its
+   * five measures. The accretion-bearing variant is Mastercard's own second
+   * spelling and comes last: it carries a little more than depreciation and
+   * amortisation, so it stands in only where nothing narrower is filed.
+   */
+  depreciationAndAmortization: { namespace: "us-gaap", tags: ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment", "Depreciation", "DepreciationAmortizationAndAccretionNet"], unit: "currency" },
   totalAssets: { namespace: "us-gaap", tags: ["Assets"], unit: "currency" },
   // Goodwill and acquired intangibles are subtracted from assets for the
   // tangible-return measure: they are the price paid for past acquisitions,
