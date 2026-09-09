@@ -1050,6 +1050,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .holders-sheet tr[data-rest] th.key, .holders-sheet tr[data-rest] td { color: var(--ink-3); }
 .holders-sheet table { min-width: 480px; }
 .holders-sheet th.key { min-width: 300px; white-space: normal; }
+.holders-restated { max-width: 88ch; margin-top: calc(var(--u) * 2); margin-bottom: calc(var(--u) * 3); }
 .holders-foot { margin-top: calc(var(--u) * 3); }
 
 @media (max-width: 820px) {

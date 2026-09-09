@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { impliedPrice, pricingDisagreement, valueInDollars } from "../lib/thirteen-f.js";
+import { basisFactor, impliedPrice, pricingDisagreement, valueInDollars } from "../lib/thirteen-f.js";
 
 /**
  * Reading a 13F value in the unit its filer used.
@@ -97,5 +97,43 @@ describe("a finished company record", () => {
       holder("A", 10, 572), holder("B", 10, 572), holder("C", 10, 572),
       { name: "D", shares: 10, value: 0 },
     ])).toBeNull();
+  });
+});
+
+describe("the share basis a filing counted on", () => {
+  /*
+   * A 13F reports the shares a manager held on the day, counted as they were
+   * counted on the day; this application counts every share on today's basis.
+   * Booking split twenty-five for one after the March quarter, so its filings
+   * report 31.1m shares of a company this site says has 774.9m — and
+   * BlackRock's genuine eight and a half per cent arrived as nought point
+   * three, which is what sent me looking.
+   */
+  it("finds a split from the price, which no split can move", () => {
+    // Booking's filings imply $4,210.32 a share; its adjusted close that day
+    // was $169.16. The ratio is the split.
+    expect(basisFactor(4210.32, 169.16)).toBeCloseTo(24.89, 2);
+    expect(2_653_140 * basisFactor(4210.32, 169.16) / 774_878_436).toBeCloseTo(0.0852, 3);
+  });
+
+  it("leaves a company that never split alone", () => {
+    // Apple's filings imply $253.79 and its close that day was the same.
+    expect(basisFactor(253.79, 253.79)).toBe(1);
+    // A filer valuing a holding a day or two out is not a split.
+    expect(basisFactor(253.79 * 1.08, 253.79)).toBe(1);
+    expect(basisFactor(253.79 * 0.9, 253.79)).toBe(1);
+  });
+
+  it("reads a reverse split too", () => {
+    expect(basisFactor(10, 100)).toBeCloseTo(0.1, 10);
+  });
+
+  it("assumes the basis is unchanged when it cannot be measured", () => {
+    // No price is not evidence of a split, and the companies that have not
+    // split are almost all of them.
+    expect(basisFactor(null as unknown as number, 100)).toBe(1);
+    expect(basisFactor(100, null as unknown as number)).toBe(1);
+    expect(basisFactor(0, 100)).toBe(1);
+    expect(basisFactor(100, 0)).toBe(1);
   });
 });

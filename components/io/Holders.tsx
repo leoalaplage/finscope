@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
 import { HOLDERS_SHAPE, shareOfCompany, type HoldersRecord } from "@/lib/holders";
+import { basisFactor } from "@/lib/thirteen-f.js";
 import { ABSENT, count, money, percent } from "./format";
 
 /**
@@ -30,6 +31,15 @@ type State =
 
 /** Rows on screen before the reader asks for the rest. */
 const VISIBLE = 5;
+
+/** `31-MAR-2026` as the SEC writes it, in the form every date here is kept in. */
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+function isoQuarter(asOf: string | null): string | null {
+  const found = /^(\d{2})-([A-Z]{3})-(\d{4})$/.exec(asOf ?? "");
+  if (!found) return null;
+  const month = MONTHS.indexOf(found[2]);
+  return month < 0 ? null : `${found[3]}-${String(month + 1).padStart(2, "0")}-${found[1]}`;
+}
 
 /**
  * The share count to measure a quarter-old holding against.
@@ -129,6 +139,31 @@ export function Holders({ ticker, view }: { ticker: string; view: IoCompanyView 
   }, [ticker]);
 
   const record = state.kind === "ready" ? state.record : null;
+  const quarterEnd = isoQuarter(record?.asOf ?? null);
+  const [closeAt, setCloseAt] = useState<{ date: string; price: number | null } | null>(null);
+
+  /*
+   * One price: the company's own adjusted close on the quarter the filings are
+   * for. It is the other half of the basis test, and it comes from the endpoint
+   * the valuation history already asks, so it is a request the page has warm.
+   */
+  useEffect(() => {
+    if (!quarterEnd) return;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const response = await fetch(`/api/prices/${encodeURIComponent(ticker)}?dates=${quarterEnd}`, { signal: controller.signal });
+        if (!response.ok) return;
+        const body = await response.json() as { points?: Array<{ point?: { priceClose?: number | null; close?: number | null } | null }> };
+        const point = body.points?.[0]?.point;
+        setCloseAt({ date: quarterEnd, price: point?.priceClose ?? point?.close ?? null });
+      } catch {
+        // Without it the basis is assumed unchanged, which is right for every
+        // company that has not split.
+      }
+    })();
+    return () => controller.abort();
+  }, [ticker, quarterEnd]);
   const basis = useMemo(() => sharesAt(view, record?.asOf ?? null), [view, record]);
   const shown = useMemo(
     () => (expanded ? record?.top ?? [] : (record?.top ?? []).slice(0, VISIBLE)),
@@ -149,14 +184,28 @@ export function Holders({ ticker, view }: { ticker: string; view: IoCompanyView 
    * Ring and table share this array, so an arc and its row cannot disagree
    * about a figure or fall out of step over which one is under the pointer.
    */
+  /** What the filings implied a share was worth, from the filings on screen. */
+  const impliedPrice = useMemo(() => {
+    const prices = (record?.top ?? [])
+      .filter((holding) => holding.value > 0 && holding.shares > 0)
+      .map((holding) => holding.value / holding.shares)
+      .sort((left, right) => left - right);
+    return prices.length ? prices[Math.floor(prices.length / 2)] : null;
+  }, [record]);
+
+  const factor = basisFactor(impliedPrice, closeAt?.price ?? null);
+
   const slices = useMemo(() => {
     const drawn = shown.flatMap((holding) => {
-      const share = shareOfCompany(holding.shares, basis.shares);
+      // Restated onto the basis every other share count on this site is kept
+      // on, so a holding and the company it is a holding of can be divided.
+      const shares = holding.shares * factor;
+      const share = shareOfCompany(shares, basis.shares);
       return share == null ? [] : [{
         id: holding.name,
         name: holding.name,
         share,
-        shares: holding.shares,
+        shares,
         value: holding.value,
         rest: false,
       }];
@@ -168,7 +217,7 @@ export function Holders({ ticker, view }: { ticker: string; view: IoCompanyView 
     return left > 0.005
       ? [...drawn, { id: "rest", name: "Everyone else", share: left, shares: shares ?? 0, value: 0, rest: true }]
       : drawn;
-  }, [shown, basis.shares]);
+  }, [shown, basis.shares, factor]);
 
   if (!record || !record.top.length) return null;
 
@@ -180,6 +229,23 @@ export function Holders({ ticker, view }: { ticker: string; view: IoCompanyView 
           Form 13F · {count(record.managers)} managers{record.asOf ? ` · ${record.asOf}` : ""}
         </span>
       </div>
+
+      {/*
+        * A share count restated is a share count that says so.
+        *
+        * The filings counted shares as they stood at the quarter; this site
+        * counts every share on today's basis. Where a split has happened
+        * between the two, the holdings are restated onto the current basis so
+        * that a holding and the company it is a holding of can be divided at
+        * all — and the reader is told, because the figure on screen is then
+        * not the figure in the filing.
+        */}
+      {factor !== 1 ? (
+        <p className="stat-note holders-restated">
+          Restated for a {factor > 1 ? `${factor.toFixed(0)}-for-1 split` : `1-for-${(1 / factor).toFixed(0)} reverse split`} since
+          {" "}{record.asOf}: the filings counted shares as they stood then, and every count on this site is on today&rsquo;s basis.
+        </p>
+      ) : null}
 
       <div className="holders-split">
         <Ring slices={slices} active={active} onActive={setActive} />
