@@ -7,7 +7,7 @@ import {
 } from "./screener";
 
 /** Bumped whenever a score's financial meaning changes. */
-export const QS_MODEL_VERSION = "core-2026.09.4";
+export const QS_MODEL_VERSION = "core-2026.09.5";
 
 /** FinScope has no analyst-estimate feed; imported tables may still carry both. */
 export const NATIVE_OUT_OF_SCOPE = ["RevFwd3", "FwdP_FCF"] as const;
