@@ -1314,23 +1314,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   max-width: 46ch; margin: calc(var(--u) * 4) 0 calc(var(--u) * 5);
   font: 600 var(--fs-lg)/1.4 var(--mono); letter-spacing: -.01em;
 }
-/*
- * The finding takes the day's highlighter.
- *
- * The same green and red as today's move on the market table, and the same
- * rule: it marks the words and not the block they sit in, and the words carry
- * the finding for a reader who cannot separate the two hues.
- */
-.verdict-headline .day-mark {
-  display: inline; padding: 3px 7px; margin: 0 -3px;
-  border-radius: var(--radius); color: var(--ink);
-  box-decoration-break: clone; -webkit-box-decoration-break: clone;
-}
-.verdict-headline .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }
-.verdict-headline .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
-.verdict-headline .day-mark[data-dir="flat"] { background: var(--fill); }
-
-
 .dcf-earns { margin-top: calc(var(--u) * 5); }
 .dcf-earns > .label { display: block; margin-bottom: calc(var(--u) * 2); }
 
@@ -1390,30 +1373,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   .verdict-earns li > .label { display: none; }
 }
 
-/*
- * The readout above the chart: the year, every line at it, and the gap.
- *
- * One row of labelled figures rather than a tooltip that follows the cursor
- * and a legend in a corner — the same arrangement the price chart uses, for
- * the same reason: a reader should not have to look away from the drawing to
- * find out what it says.
- */
-.worth-readout {
-  display: flex; align-items: baseline; gap: calc(var(--u) * 5); flex-wrap: wrap;
-  margin-bottom: calc(var(--u) * 3); font-family: var(--mono); font-size: var(--fs-sm);
-  font-variant-numeric: tabular-nums;
-}
-.worth-year { font-weight: 600; }
-.worth-reading { display: flex; align-items: baseline; gap: calc(var(--u) * 2); }
 /* Each line carries its own gap: one margin figure would have to pick a rate
    and call it the answer, and the rates are on screen because they disagree. */
-.worth-readout .day-mark {
-  padding: 2px 5px; margin: -2px 0; border-radius: var(--radius);
-  color: var(--ink); font-weight: 550; font-size: var(--fs-xs);
-}
-.worth-readout .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }
-.worth-readout .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
-.worth-cost { margin-inline-start: auto; }
 
 
 .verdict-assume { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }

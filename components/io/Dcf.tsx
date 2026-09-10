@@ -3,10 +3,8 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { IO_VIEW } from "@/lib/io/view-version";
-import { impliedGrowth, impliedReturn, presentValue, terminalShare, valuePath } from "@/lib/io/implied-growth";
-import type { ImpliedGrowthTerms } from "@/lib/io/implied-growth";
+import { impliedGrowth, impliedReturn, presentValue, terminalShare } from "@/lib/io/implied-growth";
 import { costOfEquity, returnsOf, type CostOfEquity } from "@/lib/io/cost-of-equity";
-import { MultiLine, type Series } from "./Plot";
 import { Search } from "./Search";
 import { rememberCompany } from "@/lib/io/last-company";
 import { useRememberedCompany } from "./remembered";
@@ -537,41 +535,31 @@ export function Dcf({ initial }: { initial: string }) {
   const reading = (() => {
     if (!model) return null;
     const price = writePrice(model.price, model.basis.currency);
-    const name = view?.company.name ?? ticker;
     if (model.asks.kind === "beyond") {
       return model.asks.direction === "above"
-        ? { verdict: `No growth this model can project justifies ${price}.`, dir: null, aside: `Even at ${percent(model.asks.bound, 0)} a year for ten years, ten years of this company's free cash flow discounted at ${wanted} comes to less than the price.` }
-        : { verdict: `${price} is below what this company's cash is worth even if it never grows again.`, dir: null, aside: `Discounted at ${wanted}, with no growth at all.` };
+        ? { verdict: `No growth this model can project justifies ${price}.` }
+        : { verdict: `${price} is below what this company's cash is worth even if it never grows again.` };
     }
-    if (model.asks.kind !== "solved") return { verdict: model.asks.reason, dir: null, aside: null };
+    if (model.asks.kind !== "solved") return { verdict: model.asks.reason };
     const asks = model.asks.rate;
     if (!model.record) {
-      return {
-        verdict: `The price asks ${percent(asks, 1)} a year for ten years.`,
-        dir: null,
-        aside: "The filings do not carry enough free cash flow history to say what it has grown at before.",
-      };
+      return { verdict: `The price asks ${percent(asks, 1)} a year for ten years, and the filings do not carry enough history to say what it has grown at before.` };
     }
     const done = model.record.rate;
-    const span = Math.round(model.record.years);
-    const window = model.record.whole
-      ? `over the ${span} ${span === 1 ? "year" : "years"} it has filed`
-      : `over the ${span} ${span === 1 ? "year" : "years"} since its last year of burning cash`;
     /*
-     * The finding in one clause, and the arithmetic behind it in another.
+     * The finding, and only the finding.
      *
-     * It was one sentence of four lines that a reader had to parse to reach the
-     * three words that mattered. The clause carries the mark; the aside carries
-     * what it was struck on, in the smaller ink everything qualifying is set in
-     * on this site.
+     * It was one sentence of four lines that a reader had to parse to reach
+     * the three words that mattered. What it was struck on is in the three
+     * figures beside it; the rest of the workings are behind the disclosure at
+     * the foot.
      */
-    const aside = `To pay ${price} today and still earn ${wanted} a year, ${name}'s free cash flow has to grow ${percent(asks, 1)} a year for ten years. It grew ${percent(done, 1)} a year ${window}.`;
     if (Math.abs(asks - done) < .005) {
-      return { verdict: "The price is asking for about what the company has delivered.", dir: "flat" as const, aside };
+      return { verdict: "The price is asking for about what the company has delivered." };
     }
     return asks > done
-      ? { verdict: "The price is asking for more than the company has delivered.", dir: "down" as const, aside }
-      : { verdict: "The price is asking for less than the company has delivered.", dir: "up" as const, aside };
+      ? { verdict: "The price is asking for more than the company has delivered." }
+      : { verdict: "The price is asking for less than the company has delivered." };
   })();
 
   /*
@@ -691,11 +679,7 @@ export function Dcf({ initial }: { initial: string }) {
               * wants the arithmetic can read the line under it; a reader who
               * wants the answer should not have to.
               */}
-            <p className="verdict-headline">
-              {reading?.dir
-                ? <span className="day-mark" data-dir={reading.dir}>{reading.verdict}</span>
-                : reading?.verdict}
-            </p>
+            <p className="verdict-headline">{reading?.verdict}</p>
 
             {/*
               * The three figures the verdict is struck from, in the ruled grid
@@ -820,121 +804,8 @@ export function Dcf({ initial }: { initial: string }) {
             </details>
           </section>
 
-          {/*
-            * One chart, both halves of the question.
-            *
-            * The vertical gap at year nought is the margin on buying today —
-            * what it is worth against what it costs. The slope after it is the
-            * potential, and where a line meets the flat one is the year the
-            * company is worth what you would pay for it now. Nothing here is a
-            * colour: each line is dashed differently and named at its own end,
-            * the way every multi-series chart on this site is.
-            */}
-          <ValueOverTime model={model} required={required} rows={earnings} />
         </>
       )}
     </main>
-  );
-}
-
-/**
- * What it is worth, year by year, against what it costs today.
- *
- * A discounted cash flow's answer is one number and its argument is a shape:
- * the same company is worth two different things to two readers who disagree
- * about growth by two points a year. This draws the shape — one line for each
- * rate the company has actually delivered, and a flat one at the price.
- *
- * Two things are read off it and neither needs explaining. The vertical gap at
- * the left is the margin on buying now. Where a rising line meets the flat one
- * is the year the business becomes worth what the market is charging for it
- * today — and a line that never meets it is a price this record does not
- * justify inside the horizon.
- */
-function ValueOverTime({ model, required, rows }: {
-  model: { terms: Omit<ImpliedGrowthTerms, "discountRate">; basis: { shares: number; currency: string }; price: number };
-  required: number;
-  rows: Array<{ id: string; label: string; rate: number }>;
-}) {
-  const [year, setYear] = useState<number | null>(null);
-
-  const series = useMemo<Series[]>(() => {
-    const horizon = model.terms.years;
-    const dated = (index: number) => (index === 0 ? "today" : `+${index}y`);
-    /*
-     * The reader's own rate only earns a line where it is their own.
-     *
-     * It opens on the longest record, so drawing it unconditionally would put
-     * a second line exactly on top of the first and label the same series
-     * twice.
-     */
-    const drawn = rows.filter((row, index) =>
-      row.id !== "own" || !rows.some((other, place) => place < index && Math.abs(other.rate - row.rate) < .005));
-    /*
-     * Short names, because the name is set on the line itself.
-     *
-     * The rows above already say what each rate is and what it earns; a line
-     * carrying "Worth if it grows like the last 5 years" at its own end runs
-     * off the chart and repeats a sentence the reader has just read.
-     */
-    const paths = drawn.map((row) => ({
-      label: row.id === "own" ? "Your rate" : row.id === "near" ? "5-year rate" : "10-year rate",
-      points: valuePath({ ...model.terms, discountRate: required }, row.rate)
-        .map((value, index) => ({ date: dated(index), value: value / model.basis.shares })),
-    }));
-    return [
-      ...paths,
-      {
-        label: "What it costs today",
-        points: Array.from({ length: horizon + 1 }, (unused, index) => ({ date: dated(index), value: model.price })),
-      },
-    ];
-  }, [model, required, rows]);
-
-  const at = year == null ? 0 : year;
-  /*
-   * The last series is the price, and every other one is measured against it.
-   *
-   * A single margin figure would have to pick one of the rates and call it the
-   * answer; there are two or three on screen precisely because they disagree.
-   * So each line carries its own gap, marked the way today's move is on the
-   * market table.
-   */
-  const cost = series.at(-1)?.points[at]?.value ?? model.price;
-  const readings = series.slice(0, -1).map((entry) => {
-    const value = entry.points[at]?.value ?? null;
-    return { label: entry.label, value, gap: value == null || !(cost > 0) ? null : value / cost - 1 };
-  });
-
-  return (
-    <section className="section" id="worth">
-      <div className="section-head">
-        <h2 className="label">What it is worth, year by year</h2>
-        <span className="label">
-          Discounted at {percent(required, 1)} · {model.terms.holdYears ?? model.terms.years} years at the rate, then fading to {percent(model.terms.terminalGrowth, 1)}
-        </span>
-      </div>
-
-      {/* The readout says the year and every line at it, so the chart needs no
-          tooltip following the cursor and no legend in a corner. */}
-      <div className="worth-readout">
-        <span className="worth-year">{year == null ? "Today" : `In ${year} ${year === 1 ? "year" : "years"}`}</span>
-        {readings.map((reading) => (
-          <span className="worth-reading" key={reading.label}>
-            <span className="label">{reading.label}</span>
-            {reading.value == null ? ABSENT : writePrice(reading.value, model.basis.currency)}
-            {reading.gap == null ? null : (
-              <span className="day-mark" data-dir={reading.gap >= 0 ? "up" : "down"}>{delta(reading.gap, 0)}</span>
-            )}
-          </span>
-        ))}
-        <span className="worth-reading worth-cost">
-          <span className="label">It costs</span>
-          {writePrice(cost, model.basis.currency)}
-        </span>
-      </div>
-
-      <MultiLine series={series} onHover={setYear} />
-    </section>
   );
 }

@@ -421,7 +421,6 @@ describe("the redesign", () => {
     const page = readFileSync(new URL("../app/dcf/page.tsx", import.meta.url), "utf8");
     const dcf = readFileSync(new URL("../components/io/Dcf.tsx", import.meta.url), "utf8");
     const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
-    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
     expect(shell).toContain('>DCF</a>');
     // The company being valued is in the address, so a valuation can be sent.
     expect(page).toContain('export const dynamic = "force-static"');
@@ -461,13 +460,15 @@ describe("the redesign", () => {
      */
     expect(dcf).toContain("const BAND = .01;");
     expect(dcf).toContain("low: model.worth(required + BAND, model.record.rate)");
-    // And the comparison between the two is written out, because the
-    // comparison is the finding — highlighted the way today's move is on the
-    // market table, in the same green and red, with the words carrying it too.
+    /*
+     * And the comparison between the two is the headline, in one line and in
+     * plain ink. It was marked green and red for a while: the market table
+     * scans a column of moves and wants the hue, and a page with one sentence
+     * on it does not.
+     */
     expect(dcf).toContain("The price is asking for more than the company has delivered.");
     expect(dcf).toContain("The price is asking for less than the company has delivered.");
-    expect(dcf).toContain('<span className="day-mark" data-dir={reading.dir}>');
-    expect(css).toContain('.verdict-headline .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }');
+    expect(dcf).not.toContain("day-mark");
     /*
      * And the same question the other way round, which needs nothing at all.
      *
@@ -563,23 +564,17 @@ describe("the redesign", () => {
     expect(dcfSource).toContain("quote.price * basis.shares");
     expect(dcfSource).not.toContain("netDebt");
     /*
-     * One chart, both halves of the question.
+     * And nothing is drawn at all.
      *
-     * The vertical gap at year nought is the margin on buying now; the slope
-     * after it is the potential; and where a rising line meets the flat one is
-     * the year the company is worth what the market charges for it today. The
-     * panel it replaced drew two views, carried its own controls and needed a
-     * five-line guide behind a switch to be read at all.
+     * The page carried a two-view panel, then one chart of value against
+     * price, then two axes beside the figures. Each was honest and each said
+     * what the figures beside it already said; what a reader wants from this
+     * page is a sentence and three numbers.
      */
-    expect(dcfSource).toContain("valuePath({ ...model.terms, discountRate: required }, row.rate)");
-    expect(dcfSource).toContain('label: "What it costs today"');
-    expect(dcfSource).toContain("<MultiLine series={series} onHover={setYear} />");
+    expect(dcfSource).not.toContain("MultiLine");
+    expect(dcfSource).not.toContain("valuePath");
     expect(dcfSource).not.toContain("How to read this");
     expect(dcfSource).not.toContain("What the price implies");
-    // And a line for the reader's own rate only where it is their own: it opens
-    // on the longest record, and a second line on top of the first would label
-    // the same series twice.
-    expect(dcfSource).toContain('row.id !== "own" ||');
     // The control that needed naming is named: four bare percentages beside a
     // heading are four percentages of nothing.
     expect(dcfSource).toContain("<span className=\"label\">The return you want a year</span>");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { impliedGrowth, impliedReturn, presentValue, projectCashFlows, valuePath, type ImpliedGrowthTerms } from "../lib/io/implied-growth";
+import { impliedGrowth, impliedReturn, presentValue, projectCashFlows, type ImpliedGrowthTerms } from "../lib/io/implied-growth";
 
 /**
  * A discounted cash flow run backwards.
@@ -87,33 +87,6 @@ describe("what a price implies", () => {
     expect(shrinking.map((flow) => Math.round(flow))).toEqual([90, 81, 73]);
   });
 
-  it("starts the value path at the value itself", () => {
-    // The path's first point is today's valuation: one model, struck at
-    // eleven dates rather than two models that could disagree.
-    const path = valuePath(terms(), .07);
-    expect(path).toHaveLength(11);
-    expect(path[0]).toBeCloseTo(presentValue(terms(), .07), 6);
-  });
-
-  it("grows the value at the discount rate less the cash paid out", () => {
-    // The identity the path is built on, checked forwards: a year's value is
-    // the previous year's compounded at the discount rate, less that year's
-    // cash, which the holder has received rather than the company kept.
-    const rate = .07;
-    const path = valuePath(terms(), rate);
-    const flows = projectCashFlows(50, rate, 10);
-    for (let year = 1; year <= 10; year++) {
-      expect(path[year]).toBeCloseTo(path[year - 1] * 1.1 - flows[year - 1], 6);
-    }
-  });
-
-  it("ends on the perpetuity, which is all that is left by then", () => {
-    const rate = .07;
-    const path = valuePath(terms(), rate);
-    const last = projectCashFlows(50, rate, 10)[9];
-    expect(path[10]).toBeCloseTo((last * 1.025) / (.1 - .025), 6);
-  });
-
   it("answers the same question from the other side", () => {
     // Fix what the reader requires and the arithmetic says what the company
     // must do; fix what the company does and it says what the reader earns.
@@ -194,13 +167,12 @@ describe("the fade to the terminal rate", () => {
 
   it("is one shape, read by every function that draws or solves it", () => {
     /*
-     * A fade applied to the cash flows and not to the value path is two models
-     * on one page: the headline would answer for one projection and the chart
-     * would draw another.
+     * A fade applied when the rate is solved and not when the flows are
+     * projected is two models under one heading: the figure on screen would
+     * answer for one shape and the workings behind it for another.
      */
     const rate = (impliedGrowth(faded) as { rate: number }).rate;
     expect(presentValue(faded, rate)).toBeCloseTo(1_000, 6);
-    expect(valuePath(faded, rate)[0]).toBeCloseTo(1_000, 6);
     const flows = projectCashFlows(50, rate, 10, faded);
     let discounted = 0;
     flows.forEach((flow, index) => { discounted += flow / 1.10 ** (index + 1); });
