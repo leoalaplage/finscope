@@ -435,27 +435,34 @@ describe("the redesign", () => {
      * deliver? That is arithmetic on the price, so it needs nothing from the
      * reader, and it can be set beside what the company has actually done.
      */
-    expect(dcf).toContain('<div className="label">The price asks for</div>');
-    expect(dcf).toContain('<div className="label">It has delivered</div>');
-    expect(dcf).toContain('<div className="label">Fair value at that record</div>');
     /*
-     * Named as a fair value with a margin of safety beside it, which is what a
-     * reader arriving from any other site is looking for — and stated as a
-     * band, which is what the measurement supports. A single value per share
-     * moves nine to nineteen per cent on one point of the discount rate, and
-     * the rate is itself an estimate: a three-year beta window instead of five
-     * moves the value by up to a quarter.
+     * The finding on its own line, and the two comparisons drawn rather than
+     * written. It was a strip of figures followed by two paragraphs of
+     * monospace prose: thirty-eight per cent of the page was text a reader had
+     * to parse to reach three words.
+     */
+    expect(dcf).toContain('className="verdict-headline"');
+    expect(dcf).toContain('<span className="label">It has delivered</span>');
+    expect(dcf).toContain('<span className="label">Fair value at that record</span>');
+    // Both comparisons are a band and a mark on one axis, in the drawing the
+    // company page already uses for a valuation range.
+    expect(dcf).toContain("function Axis({ from, to, bar, mark, pad }");
+    expect(dcf).toContain('className="range-line dcf-axis"');
+    /*
+     * The fair value is a band, which is what the measurement supports: a
+     * single value per share moves nine to nineteen per cent on one point of
+     * the discount rate, and the rate is itself an estimate — a three-year beta
+     * window instead of five moves the value by up to a quarter.
      */
     expect(dcf).toContain("const BAND = .01;");
     expect(dcf).toContain("low: model.worth(required + BAND, model.record.rate)");
-    expect(dcf).toContain("margin against ${writePrice(model.price, model.basis.currency)}, at ${wanted}");
     // And the comparison between the two is written out, because the
     // comparison is the finding — highlighted the way today's move is on the
     // market table, in the same green and red, with the words carrying it too.
     expect(dcf).toContain("The price is asking for more than the company has delivered.");
     expect(dcf).toContain("The price is asking for less than the company has delivered.");
     expect(dcf).toContain('<span className="day-mark" data-dir={reading.dir}>');
-    expect(css).toContain('.verdict-sentence .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }');
+    expect(css).toContain('.verdict-headline .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }');
     /*
      * And the same question the other way round, which needs nothing at all.
      *
@@ -476,7 +483,12 @@ describe("the redesign", () => {
      * growth field is optional and named as an assumption.
      */
     expect(dcf).toContain('<span className="label">The return you want a year</span>');
-    expect(dcf).toContain('<span className="label">Or try your own growth</span>');
+    /*
+     * And the growth field is the third row's own figure, not a box at the
+     * foot of the page: the assumption is made where its answer appears.
+     */
+    expect(dcf).toContain('label: "If it grows at your own rate"');
+    expect(dcf).toContain('{row.id === "own" ? (');
     expect(dcf).toContain("const custom = assumed ?? Math.round");
     expect(dcf).toContain('setPicked("own")');
     /*
@@ -524,7 +536,11 @@ describe("the redesign", () => {
      */
     expect(dcfSource).toContain("const required = chosen ?? priced?.rate ?? .10;");
     expect(dcfSource).toContain("costOfEquity(yields == null ? null : yields / 100, returnsOf(company), returnsOf(market))");
-    expect(dcfSource).toContain("is this company's cost of equity:");
+    expect(dcfSource).toContain("is this company&rsquo;s cost of equity");
+    // The workings sit behind a disclosure, as the score audit has since it
+    // was written: every one is worth keeping and none of them is the answer.
+    expect(dcfSource).toContain('<details className="dcf-workings">');
+    expect(dcfSource).toContain("How this was struck");
     // A beta belongs to a filer, so it is carried with the ticker it was
     // measured for rather than left on screen while the next one loads.
     expect(dcfSource).toContain("risk?.ticker === ticker ? risk.value : null");

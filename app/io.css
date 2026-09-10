@@ -486,7 +486,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * Seven columns also gives each label the width it needs to be read whole.
  */
 .stats-seven { grid-template-columns: repeat(7, minmax(0, 1fr)); }
-.stats-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .stat { padding: 11px 12px 12px; min-width: 0; }
 .stat .label, .stat-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-value { font-family: var(--mono); font-size: var(--fs-lg); margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -691,7 +690,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 @media (max-width: 560px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stats-seven { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .stats-three { grid-template-columns: 1fr; }
   /* Restated rather than inherited: the rule above is what makes this work. */
   .multiples { grid-template-columns: minmax(0, 1fr); }
 }
@@ -1218,8 +1216,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   /* Five options where this company has a cost of equity of its own, four
      where it does not, so the row is filled rather than counted. */
   .dcf-page .seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; }
-  .dcf-page .verdict-assume { display: grid; grid-template-columns: minmax(0, 1fr) 96px auto; align-items: center; }
-  .dcf-page .verdict-assume input { width: 100%; }
+  .dcf-page .verdict-assume input { min-height: 34px; }
 }
 
 
@@ -1302,32 +1299,83 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 /*
  * The page answers before it is touched, so the answer is the page.
  *
- * Three readings and a sentence: what the price is asking for, what the
- * company has actually done, and what it is worth if it merely repeats itself.
- * The sentence carries the comparison because the comparison is the finding,
- * and a finding written out is one a reader who does not know what a
- * discounted cash flow is can still act on.
+ * The finding on its own line, the arithmetic under it in the smaller ink, and
+ * the two comparisons drawn rather than written. It was a strip of figures
+ * followed by two paragraphs of monospace prose — thirty-eight per cent of the
+ * page was text a reader had to parse to reach three words.
  */
+.dcf-controls { display: flex; align-items: center; gap: calc(var(--u) * 4); flex-wrap: wrap; }
 .verdict-rate { display: flex; align-items: center; gap: calc(var(--u) * 3); }
-.verdict-sentence {
-  max-width: 78ch; margin-top: calc(var(--u) * 4);
-  color: var(--ink); font: var(--fs-sm)/1.65 var(--mono);
+.verdict-headline {
+  max-width: 46ch; margin-top: calc(var(--u) * 4);
+  font: 600 var(--fs-lg)/1.4 var(--mono); letter-spacing: -.01em;
 }
 /*
- * The verdict clause takes the day's highlighter.
+ * The finding takes the day's highlighter.
  *
  * The same green and red as today's move on the market table, and the same
- * rule: it marks the words and not the block they sit in, and the words
- * themselves carry the finding for a reader who cannot separate the two hues.
+ * rule: it marks the words and not the block they sit in, and the words carry
+ * the finding for a reader who cannot separate the two hues.
  */
-.verdict-sentence .day-mark {
-  display: inline; padding: 2px 5px; margin: 0 -2px;
-  border-radius: var(--radius); color: var(--ink); font-weight: 550;
+.verdict-headline .day-mark {
+  display: inline; padding: 3px 7px; margin: 0 -3px;
+  border-radius: var(--radius); color: var(--ink);
   box-decoration-break: clone; -webkit-box-decoration-break: clone;
 }
-.verdict-sentence .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }
-.verdict-sentence .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
-.verdict-sentence .day-mark[data-dir="flat"] { background: var(--fill); }
+.verdict-headline .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }
+.verdict-headline .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
+.verdict-headline .day-mark[data-dir="flat"] { background: var(--fill); }
+
+.verdict-aside { max-width: 84ch; margin-top: calc(var(--u) * 3); line-height: 1.55; }
+.verdict-caveat { max-width: 84ch; margin-top: calc(var(--u) * 4); line-height: 1.55; }
+
+/*
+ * A span and a mark on one axis, in the drawing the company page already uses.
+ *
+ * The two comparisons this page makes are the same shape: what the record has
+ * done against what the price demands, and what it is worth against what it
+ * costs. Both are a band and a mark, so both are drawn as one — the reader
+ * learns the picture once.
+ */
+.dcf-scale { margin-top: calc(var(--u) * 6); }
+.dcf-scale-head { display: flex; justify-content: space-between; gap: calc(var(--u) * 4); margin-bottom: calc(var(--u) * 2); }
+.dcf-scale-asks { color: var(--ink); }
+.dcf-axis { height: 46px; }
+/* The bar and the mark are labelled where they sit, so the ends would print
+   the same two numbers a second time. */
+.dcf-axis .range-ends { display: none; }
+/* Each figure sits under the thing it names, clamped inside the frame. */
+.dcf-axis-bar, .dcf-axis-mark {
+  position: absolute; top: 16px; white-space: nowrap;
+  font: var(--fs-xs)/1 var(--mono); font-variant-numeric: tabular-nums;
+}
+.dcf-axis-bar { color: var(--ink-2); }
+.dcf-axis-mark { font-weight: 600; }
+/* Centred in the middle of the frame, hung off the near edge at either end. */
+.dcf-axis-bar[data-side="middle"], .dcf-axis-mark[data-side="middle"] { transform: translateX(-50%); }
+.dcf-axis-bar[data-side="right"], .dcf-axis-mark[data-side="right"] { transform: translateX(-100%); }
+
+.dcf-earns { margin-top: calc(var(--u) * 6); }
+.dcf-earns > .label { display: block; margin-bottom: calc(var(--u) * 2); }
+
+/*
+ * The workings, one click away.
+ *
+ * Where the rate came from, which window was priced, what shape the projection
+ * takes and what the band does and does not cover. Every one of them is a
+ * disclosure worth keeping and none of them is the answer, which is the same
+ * arrangement the score audit has had since it was written.
+ */
+.dcf-workings { margin-top: calc(var(--u) * 5); border-top: 1px solid var(--line); }
+.dcf-workings > summary { padding: 11px 0; cursor: pointer; list-style: none; }
+.dcf-workings > summary::-webkit-details-marker { display: none; }
+.dcf-workings > summary .label { color: var(--ink-2); }
+.dcf-workings > summary::after { content: " +"; color: var(--ink-3); font-family: var(--mono); }
+.dcf-workings[open] > summary::after { content: " \2212"; }
+.dcf-workings > summary:hover .label { color: var(--ink); }
+.dcf-workings dl { margin: 0 0 calc(var(--u) * 3); }
+.dcf-workings dl div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: calc(var(--u) * 4); padding: 8px 0; border-top: 1px solid var(--line); }
+.dcf-workings dd { margin: 0; max-width: 84ch; color: var(--ink-2); font: var(--fs-xs)/1.55 var(--mono); }
 
 /*
  * The question the other way round: what the record earns at today's price.
@@ -1337,28 +1385,33 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * reader who wants to see one projected clicks the line they were already
  * reading.
  */
-.verdict-earns { display: grid; margin: calc(var(--u) * 5) 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+/*
+ * One line each: the assumption, its rate, and what it earns.
+ *
+ * The reader's own rate is the third row and the field is its rate, so the
+ * assumption is typed where its answer appears rather than in a box at the
+ * foot of the page.
+ */
+.verdict-earns { display: grid; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
 .verdict-earns li {
-  display: grid; align-items: baseline; gap: calc(var(--u) * 3);
-  grid-template-columns: minmax(0, 1fr) 92px 128px;
-  padding-block: 10px; border-bottom: 1px solid var(--line);
+  display: grid; align-items: center; gap: calc(var(--u) * 3);
+  grid-template-columns: minmax(0, 1fr) 86px 96px auto;
+  padding-block: 9px; border-bottom: 1px solid var(--line);
 }
 .verdict-earns button {
   min-width: 0; padding: 0; border: 0; background: none; color: var(--ink-2);
-  font-family: var(--mono); text-align: left; cursor: pointer;
+  font: var(--fs-xs)/1.3 var(--mono); text-align: left; cursor: pointer;
 }
 .verdict-earns button:hover { color: var(--ink); }
 .verdict-earns li[data-selected="true"] button { color: var(--ink); }
-.verdict-earns button span { font-size: var(--fs-xs); }
-.verdict-earns button small { display: block; margin-top: 2px; color: var(--ink-3); font-size: var(--fs-micro); }
-.verdict-earns-value { font: 600 var(--fs-lg)/1 var(--mono); text-align: right; }
+.verdict-earns-rate { color: var(--ink-3); font: var(--fs-xs)/1 var(--mono); text-align: right; }
+.verdict-earns-value { font: 600 var(--fs-md)/1 var(--mono); text-align: right; }
 .verdict-earns-value[data-empty="true"] { color: var(--ink-3); }
-.verdict-earns .label { align-self: center; }
 
 /* Narrow: the reading and its caption stack under the row they belong to. */
 @media (max-width: 640px) {
-  .verdict-earns li { grid-template-columns: minmax(0, 1fr) auto; }
-  .verdict-earns .label { grid-column: 2; text-align: right; }
+  .verdict-earns li { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .verdict-earns li > .label { display: none; }
 }
 
 /*
@@ -1386,15 +1439,10 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .worth-readout .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
 .worth-cost { margin-inline-start: auto; }
 
-/* Two figures where the others carry one, so it steps down a size rather
-   than wrapping mid-range. */
-.stat-band { font-size: var(--fs-md); }
 
-.verdict-terms { max-width: 88ch; margin-top: calc(var(--u) * 3); line-height: 1.55; }
-
-.verdict-assume { display: flex; align-items: baseline; gap: calc(var(--u) * 2); margin-top: calc(var(--u) * 4); }
+.verdict-assume { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 .verdict-assume input {
-  width: 82px; min-height: 30px; padding: 0 8px; border: 1px solid var(--line-strong);
+  width: 56px; min-height: 26px; padding: 0 6px; border: 1px solid var(--line-strong);
   border-radius: var(--radius); background: var(--bg); color: var(--ink);
   font: var(--fs-xs)/1 var(--mono); text-align: right;
 }

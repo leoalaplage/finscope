@@ -540,27 +540,38 @@ export function Dcf({ initial }: { initial: string }) {
     const name = view?.company.name ?? ticker;
     if (model.asks.kind === "beyond") {
       return model.asks.direction === "above"
-        ? { fact: `No growth this model can project justifies ${price}: even at ${percent(model.asks.bound, 0)} a year for ten years, ten years of this company's free cash flow discounted at ${wanted} comes to less than the price.`, verdict: null, dir: null }
-        : { fact: `${price} is below what ten years of this company's free cash flow is worth at ${wanted} even if that cash flow never grows again.`, verdict: null, dir: null };
+        ? { verdict: `No growth this model can project justifies ${price}.`, dir: null, aside: `Even at ${percent(model.asks.bound, 0)} a year for ten years, ten years of this company's free cash flow discounted at ${wanted} comes to less than the price.` }
+        : { verdict: `${price} is below what this company's cash is worth even if it never grows again.`, dir: null, aside: `Discounted at ${wanted}, with no growth at all.` };
     }
-    if (model.asks.kind !== "solved") return { fact: model.asks.reason, verdict: null, dir: null };
+    if (model.asks.kind !== "solved") return { verdict: model.asks.reason, dir: null, aside: null };
     const asks = model.asks.rate;
-    const head = `To pay ${price} today and still earn ${wanted} a year, ${name}'s free cash flow has to grow ${percent(asks, 1)} a year for ten years.`;
-    if (!model.record) return { fact: `${head} The filings do not carry enough free cash flow history to say what it has grown at before.`, verdict: null, dir: null };
+    if (!model.record) {
+      return {
+        verdict: `The price asks ${percent(asks, 1)} a year for ten years.`,
+        dir: null,
+        aside: "The filings do not carry enough free cash flow history to say what it has grown at before.",
+      };
+    }
     const done = model.record.rate;
-    // A shortened window says so, because "the 8 years it has filed" would be
-    // a false claim about a company that has filed a decade of them.
     const span = Math.round(model.record.years);
-    const over = model.record.whole
-      ? `Over the ${span} ${span === 1 ? "year" : "years"} it has filed, it grew ${percent(done, 1)} a year.`
-      : `A rate across its last negative year would mean nothing, so the window stops there: over the ${span} ${span === 1 ? "year" : "years"} since, it grew ${percent(done, 1)} a year.`;
-    const fact = `${head} ${over}`;
+    const window = model.record.whole
+      ? `over the ${span} ${span === 1 ? "year" : "years"} it has filed`
+      : `over the ${span} ${span === 1 ? "year" : "years"} since its last year of burning cash`;
+    /*
+     * The finding in one clause, and the arithmetic behind it in another.
+     *
+     * It was one sentence of four lines that a reader had to parse to reach the
+     * three words that mattered. The clause carries the mark; the aside carries
+     * what it was struck on, in the smaller ink everything qualifying is set in
+     * on this site.
+     */
+    const aside = `To pay ${price} today and still earn ${wanted} a year, ${name}'s free cash flow has to grow ${percent(asks, 1)} a year for ten years. It grew ${percent(done, 1)} a year ${window}.`;
     if (Math.abs(asks - done) < .005) {
-      return { fact, verdict: "The price is asking for about what the company has delivered.", dir: "flat" as const };
+      return { verdict: "The price is asking for about what the company has delivered.", dir: "flat" as const, aside };
     }
     return asks > done
-      ? { fact, verdict: "The price is asking for more than the company has delivered.", dir: "down" as const }
-      : { fact, verdict: "The price is asking for less than the company has delivered.", dir: "up" as const };
+      ? { verdict: "The price is asking for more than the company has delivered.", dir: "down" as const, aside }
+      : { verdict: "The price is asking for less than the company has delivered.", dir: "up" as const, aside };
   })();
 
   /*
@@ -648,159 +659,186 @@ export function Dcf({ initial }: { initial: string }) {
             <div className="section-head">
               <h2 className="label">Is there room to buy?</h2>
               {/*
-                * The one control, and it says what it is.
+                * Both controls in one place, and both named.
                 *
-                * Four bare percentages beside a heading are four percentages of
-                * nothing. This is the only figure on the page nobody filed, and
-                * every number here moves with it.
+                * The rate sat in the heading and the growth field three
+                * sections below it, so a page with two settings looked like a
+                * page with one and a stray box at the foot.
                 */}
-              <label className="verdict-rate">
-                <span className="label">The return you want a year</span>
-                <span className="seg">
-                  {/* This company's own cost of equity first, and pressed until
-                      the reader picks otherwise: a round number is a choice
-                      nobody made, and moving it four points moves the answer by
-                      seven to twelve. */}
-                  {priced ? (
-                    <button type="button" aria-pressed={chosen == null} onClick={() => { setChosen(null); writeScenario(priced.rate, custom); }}>
-                      {percent(priced.rate, 1)}
-                    </button>
-                  ) : null}
-                  {RATES.map((rate) => (
-                    <button key={rate} type="button" aria-pressed={chosen === rate} onClick={() => requireReturn(rate)}>
-                      {percent(rate, 0)}
-                    </button>
-                  ))}
-                </span>
-              </label>
-            </div>
-
-            <div className="grid-ruled stats stats-three">
-              <div className="stat">
-                <div className="label">The price asks for</div>
-                <div className="stat-value" data-empty={priceAsks == null}>{priceAsks == null ? ABSENT : percent(priceAsks, 1)}</div>
-                <div className="stat-note">a year, for ten years</div>
-              </div>
-              <div className="stat">
-                <div className="label">It has delivered</div>
-                <div className="stat-value" data-empty={model.record == null}>
-                  {model.record == null ? ABSENT : percent(model.record.rate, 1)}
-                </div>
-                <div className="stat-note">
-                  {model.record == null
-                    ? "no filed record"
-                    : `a year, over ${Math.round(model.record.years)} ${Math.round(model.record.years) === 1 ? "year" : "years"}`
-                      + (model.record.whole ? " of filings" : " since its last year of burning cash")}
-                </div>
-              </div>
-              <div className="stat">
-                <div className="label">Fair value at that record</div>
-                {/* A band, because the measurement supports a band: the same
-                    company is worth a fifth more to somebody discounting a
-                    point lower, and the rate is itself an estimate. */}
-                <div className="stat-value stat-band" data-empty={fair == null}>
-                  {fair == null
-                    ? ABSENT
-                    : `${writePrice(fair.low, model.basis.currency)} \u2013 ${writePrice(fair.high, model.basis.currency)}`}
-                </div>
-                <div className="stat-note">
-                  {fair == null
-                    ? `against ${writePrice(model.price, model.basis.currency)} today`
-                    /* The margin of safety, named, and as wide as the value it
-                       comes from: how far above what the market charges, or how
-                       far short. */
-                    : `${delta(fair.low / model.price - 1, 0)} to ${delta(fair.high / model.price - 1, 0)} margin against ${writePrice(model.price, model.basis.currency)}, at ${wanted} \u00b1 a point`}
-                </div>
+              <div className="dcf-controls">
+                <label className="verdict-rate">
+                  <span className="label">The return you want a year</span>
+                  <span className="seg">
+                    {priced ? (
+                      <button type="button" aria-pressed={chosen == null} onClick={() => { setChosen(null); writeScenario(priced.rate, custom); }}>
+                        {percent(priced.rate, 1)}
+                      </button>
+                    ) : null}
+                    {RATES.map((rate) => (
+                      <button key={rate} type="button" aria-pressed={chosen === rate} onClick={() => requireReturn(rate)}>
+                        {percent(rate, 0)}
+                      </button>
+                    ))}
+                  </span>
+                </label>
               </div>
             </div>
-
-            <p className="verdict-sentence">
-              {reading?.fact}
-              {reading?.verdict ? <> <span className="day-mark" data-dir={reading.dir}>{reading.verdict}</span></> : null}
-            </p>
 
             {/*
-              * And what that same record would earn you at today's price.
+              * The finding, and only the finding.
               *
-              * The page asked the reader for a growth rate and gave back a
-              * value; this asks nothing and gives back the figure the question
-              * is really about. The reader's own rate is the last row, so the
-              * field below is an addition to the answer rather than the way in
-              * to it.
+              * It was the last clause of a four-line paragraph. A reader who
+              * wants the arithmetic can read the line under it; a reader who
+              * wants the answer should not have to.
               */}
-            {earnings.length ? (
-              <ul className="verdict-earns">
-                {earnings.map((row) => (
-                  <li key={row.id} data-selected={row.id === growth}>
-                    <button type="button" aria-pressed={row.id === growth} onClick={() => setGrowth(row.id)}>
-                      <span>{row.label}</span>
-                      <small>{percent(row.rate, 1)} a year</small>
-                    </button>
-                    <span className="verdict-earns-value" data-empty={row.earns.kind === "unavailable"}>
-                      {earned(row.earns)}
-                    </span>
-                    <span className="label">a year, buying today</span>
-                  </li>
-                ))}
-              </ul>
+            <p className="verdict-headline">
+              {reading?.dir
+                ? <span className="day-mark" data-dir={reading.dir}>{reading.verdict}</span>
+                : reading?.verdict}
+            </p>
+            {reading?.aside ? <p className="stat-note verdict-aside">{reading.aside}</p> : null}
+
+            {/*
+              * The two rates on one axis, because the comparison is the page.
+              *
+              * They were two figures in two boxes and the reader did the
+              * comparing. The bar is what this company has actually done with
+              * its cash; the mark is what today's price is asking of it. Which
+              * is further right is the whole reading, and it needs no caption.
+              */}
+            {priceAsks != null && model.record ? (
+              <div className="dcf-scale">
+                <div className="dcf-scale-head">
+                  <span className="label">It has delivered</span>
+                  <span className="label dcf-scale-asks">The price asks for</span>
+                </div>
+                <Axis
+                  from={Math.min(0, priceAsks, model.record.rate)}
+                  to={Math.max(priceAsks, model.record.rate) * 1.15}
+                  bar={{ from: 0, to: model.record.rate, label: percent(model.record.rate, 1) }}
+                  mark={{ at: priceAsks, label: percent(priceAsks, 1) }}
+                />
+              </div>
             ) : null}
 
             {/*
-              * What the reader is trusting, and what it was struck on.
+              * And what that record would earn you at today's price.
               *
-              * Two facts a discounted cash flow normally hides: how much of it
-              * is the period nobody can observe, and which filed window the
-              * cash came from when the newest one could not be used.
+              * The reader's own rate is the last row and its figure is the
+              * field, so the assumption is made where its answer appears
+              * rather than in a box at the foot of the page.
               */}
-            <p className="stat-note verdict-terms">
-              {/* Where the rate came from, when it came from this company
-                  rather than from the reader. */}
-              {chosen == null && priced
-                ? `${percent(priced.rate, 1)} is this company's cost of equity: ${percent(priced.riskFree, 2)} on the ten-year Treasury plus a beta of ${priced.beta.toFixed(2)} against the S&P 500 at a ${percent(priced.premium, 0)} equity risk premium. `
-                : null}
-              {perpetuity == null
-                ? null
-                : `${percent(perpetuity, 0)} of that value is the perpetuity after year ${HORIZON} rather than the ten years projected. `}
-              {/* A sum of billions is written as billions: a share price wants
-                  its cents and a cash flow does not. */}
-              {model.cash.period ? `Struck on ${model.cash.period.label}'s free cash flow of ${money(model.cash.value, model.basis.currency)}` : null}
-              {model.cash.skipped
-                ? `, because ${model.cash.skipped.period.label} was ${money(model.cash.skipped.value, model.basis.currency)} — the company spent more than it earned.`
-                : model.cash.period ? "." : null}
-              {/* The whole answer compounds from that one year, so a year
-                  unlike the decade behind it is worth naming. Whether it is a
-                  new level or a good year is a judgement about the business,
-                  not about the arithmetic, and it stays the reader's. */}
-              {base
-                ? ` That is ${base.off > 0 ? `${(1 + base.off).toFixed(1)}\u00d7` : `${(100 * (1 + base.off)).toFixed(0)}% of`} what the decade's trend puts at the same date — the answer above rests on a year unlike the ten behind it.`
-                : null}
-            </p>
+            {earnings.length ? (
+              <div className="dcf-earns">
+                <div className="label">What you would earn, buying today</div>
+                <ul className="verdict-earns">
+                  {earnings.map((row) => (
+                    <li key={row.id} data-selected={row.id === growth}>
+                      <button type="button" aria-pressed={row.id === growth} onClick={() => setGrowth(row.id)}>
+                        {row.label}
+                      </button>
+                      {row.id === "own" ? (
+                        <span className="verdict-assume">
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            step=".5"
+                            min={-50}
+                            max={100}
+                            value={assumed == null && record == null && near == null ? "" : Number((custom * 100).toFixed(2))}
+                            onChange={(event) => {
+                              const typed = Number(event.target.value);
+                              if (Number.isFinite(typed)) assume(typed / 100);
+                            }}
+                            aria-label="Growth in free cash flow you assume, in percent a year"
+                          />
+                          <span className="label">%</span>
+                        </span>
+                      ) : (
+                        <span className="verdict-earns-rate">{percent(row.rate, 1)}</span>
+                      )}
+                      <span className="verdict-earns-value" data-empty={row.earns.kind === "unavailable"}>
+                        {earned(row.earns)}
+                      </span>
+                      <span className="label">a year</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             {/*
-              * The second control, and the last: optional, and named as an
-              * assumption. Everything above it is filed or is arithmetic on a
-              * filing; this is the reader putting a number of their own in, and
-              * the model below redraws on it.
+              * The fair value, drawn against what it costs.
+              *
+              * Two prices and a percentage in a caption asked the reader to
+              * hold three numbers and subtract. The band is what it is worth
+              * at the record; the mark is what the market charges. Whether the
+              * mark falls inside the band, left of it or right of it is the
+              * answer, read at a glance.
               */}
-            <label className="verdict-assume">
-              <span className="label">Or try your own growth</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                step=".5"
-                min={-50}
-                max={100}
-                /* Empty rather than nought where no record set it: the field
-                   should not read as an assumption until one is made. */
-                value={assumed == null && record == null && near == null ? "" : Number((custom * 100).toFixed(2))}
-                onChange={(event) => {
-                  const typed = Number(event.target.value);
-                  if (Number.isFinite(typed)) assume(typed / 100);
-                }}
-                aria-label="Growth in free cash flow you assume, in percent a year"
-              />
-              <span className="label">% a year</span>
-            </label>
+            {fair ? (
+              <div className="dcf-scale">
+                <div className="dcf-scale-head">
+                  <span className="label">Fair value at that record</span>
+                  <span className="label dcf-scale-asks">{delta(fair.low / model.price - 1, 0)} to {delta(fair.high / model.price - 1, 0)} margin</span>
+                </div>
+                <Axis
+                  from={Math.min(fair.low, model.price)}
+                  to={Math.max(fair.high, model.price)}
+                  pad
+                  bar={{ from: fair.low, to: fair.high, label: `${writePrice(fair.low, model.basis.currency)} \u2013 ${writePrice(fair.high, model.basis.currency)}` }}
+                  mark={{ at: model.price, label: `${writePrice(model.price, model.basis.currency)} today` }}
+                />
+              </div>
+            ) : null}
+
+            {/*
+              * The two qualifications that belong beside the answer, and the
+              * rest a click away.
+              *
+              * How much of the value is a period nobody can observe, and
+              * whether the year it was all compounded from looks like the
+              * decade behind it. Everything else — where the rate came from,
+              * which window was priced — is workings, and workings behind a
+              * disclosure is how this site has always handled the score audit.
+              */}
+            {perpetuity != null || base ? (
+              <p className="stat-note verdict-caveat">
+                {perpetuity == null ? null : `${percent(perpetuity, 0)} of that value is the perpetuity after year ${HORIZON}.`}
+                {base
+                  ? ` The year it compounds from is ${base.off > 0 ? `${(1 + base.off).toFixed(1)}\u00d7` : `${(100 * (1 + base.off)).toFixed(0)}% of`} what the decade's trend puts at the same date.`
+                  : null}
+              </p>
+            ) : null}
+
+            <details className="dcf-workings">
+              <summary><span className="label">How this was struck</span></summary>
+              <dl>
+                {chosen == null && priced ? (
+                  <div>
+                    <dt className="label">The rate</dt>
+                    <dd>{percent(priced.rate, 1)} is this company&rsquo;s cost of equity: {percent(priced.riskFree, 2)} on the ten-year Treasury plus a beta of {priced.beta.toFixed(2)} against the S&amp;P 500 at a {percent(priced.premium, 0)} equity risk premium.</dd>
+                  </div>
+                ) : (
+                  <div><dt className="label">The rate</dt><dd>{wanted} a year, chosen by you.</dd></div>
+                )}
+                <div>
+                  <dt className="label">The cash</dt>
+                  <dd>
+                    {model.cash.period ? `${model.cash.period.label}, ${money(model.cash.value, model.basis.currency)} of free cash flow` : "Not filed"}
+                    {model.cash.skipped ? `, because ${model.cash.skipped.period.label} was ${money(model.cash.skipped.value, model.basis.currency)} — the company spent more than it earned.` : "."}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="label">The shape</dt>
+                  <dd>{HOLD} years at the rate, then a straight line down to {percent(TERMINAL, 1)} and a perpetuity at it.</dd>
+                </div>
+                <div>
+                  <dt className="label">The band</dt>
+                  <dd>A point either side of the rate. It covers the rate and nothing else: what the base year and the length of the record do to the answer is larger still.</dd>
+                </div>
+              </dl>
+            </details>
           </section>
 
           {/*
@@ -919,5 +957,59 @@ function ValueOverTime({ model, required, rows }: {
 
       <MultiLine series={series} onHover={setYear} />
     </section>
+  );
+}
+
+/**
+ * One axis, a band on it and a mark against the band.
+ *
+ * The same drawing the company page uses for a valuation range, and the same
+ * classes, because two bars that mean "here is a span and here is where you
+ * are" should not be two visual languages. It answers both comparisons this
+ * page makes: what the company has done against what the price demands, and
+ * what it is worth against what it costs.
+ *
+ * The scale is stretched to hold the mark when the mark falls outside the band,
+ * which is the case that matters — a price above everything the record can
+ * justify should sit past the end of the bar, not pinned to it.
+ */
+function Axis({ from, to, bar, mark, pad }: {
+  from: number;
+  to: number;
+  bar: { from: number; to: number; label: string };
+  mark: { at: number; label: string };
+  /** Room at both ends, where the extremes are the band and the mark itself. */
+  pad?: boolean;
+}) {
+  const room = pad ? Math.abs(to - from) * .12 || Math.abs(to) * .12 || 1 : 0;
+  const low = Math.min(from, bar.from, mark.at) - room;
+  const high = Math.max(to, bar.to, mark.at) + room;
+  const span = high - low;
+  if (!(span > 0)) return null;
+  const at = (value: number) => Math.min(1, Math.max(0, (value - low) / span));
+  const place = (value: number) => `${(100 * at(value)).toFixed(2)}%`;
+  /*
+   * Which way a label hangs off its own position.
+   *
+   * Centred in the middle of the axis, and anchored to the near edge at either
+   * end — otherwise a mark at ninety per cent carries its figure off the right
+   * of the frame, which is exactly where the interesting marks sit.
+   */
+  const side = (value: number) => (at(value) > .72 ? "right" : at(value) < .14 ? "left" : "middle");
+  const left = Math.min(bar.from, bar.to);
+  const width = Math.abs(bar.to - bar.from);
+
+  return (
+    <div
+      className="range-line dcf-axis"
+      role="img"
+      aria-label={`${bar.label} against ${mark.label}`}
+    >
+      <span className="range-rule" />
+      <span className="range-band" style={{ left: place(left), width: `${Math.max(.6, 100 * width / span).toFixed(2)}%` }} />
+      <span className="range-now" style={{ left: place(mark.at) }} />
+      <span className="dcf-axis-bar" data-side={side(left)} style={{ left: place(left) }}>{bar.label}</span>
+      <span className="dcf-axis-mark" data-side={side(mark.at)} style={{ left: place(mark.at) }}>{mark.label}</span>
+    </div>
   );
 }
