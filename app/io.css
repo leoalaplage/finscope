@@ -500,12 +500,12 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
 }
 .decision-cell {
-  display: flex; min-width: 0; min-height: 116px; flex-direction: column; justify-content: space-between;
-  gap: calc(var(--u) * 2); padding: 13px 14px; background: var(--bg);
+  display: flex; min-width: 0; min-height: 96px; flex-direction: column; justify-content: space-between;
+  gap: calc(var(--u) * 2); padding: 10px 12px; background: var(--bg);
   outline: 1px solid var(--line); transition: background .12s ease;
 }
 .decision-cell:hover { background: var(--raise); }
-.decision-cell strong { font: 600 22px/1 var(--mono); letter-spacing: -.025em; }
+.decision-cell strong { font: 600 var(--fs-lg)/1.15 var(--mono); letter-spacing: -.01em; }
 .decision-cell strong[data-empty="true"] { color: var(--ink-3); font-size: var(--fs-lg); }
 .decision-cell small { overflow: hidden; color: var(--ink-3); font: var(--fs-xs)/1.4 var(--mono); text-overflow: ellipsis; }
 .coverage-notes { margin-top: calc(var(--u) * 3); padding-top: calc(var(--u) * 3); border-top: 1px solid var(--line); }
