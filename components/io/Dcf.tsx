@@ -15,18 +15,22 @@ import { ABSENT, datedCagrOf, delta, percent, price as writePrice } from "./form
 /**
  * One company, one question: what would have to be true for this price.
  *
- * The company page carries the same model in a panel, under everything else a
- * reader might want. This page is for the reader who has already decided what
- * they are asking — is there room to buy this today — and it answers in the
- * order that question is asked: what you would earn if the company merely
- * repeats itself, what it is worth against what it costs, and under which
- * assumptions that verdict changes.
+ * A discounted cash flow is normally a machine a reader has to drive — a growth
+ * rate, a discount rate, a terminal assumption, a horizon — and it answers
+ * whatever it is fed. This page turns it round and asks the only version of the
+ * question that needs nothing from the reader: at today's price, what growth
+ * would the company have to deliver? That number is arithmetic on the price,
+ * not a forecast, and it can be set beside what the company has actually done
+ * and read in a sentence.
  *
- * Nothing here is a recommendation and nothing is a forecast. The growth comes
- * out of the filings, the price comes from the market, and the one number that
- * is the reader's own is the return they require — which is why the grid at the
- * bottom shows every answer at once rather than hiding the sensitivity behind a
- * single setting.
+ * So the page opens answered. One control moves it — the return you want a year
+ * — and it is a control with a plain label rather than four bare percentages.
+ * A second, optional, lets a reader put their own growth rate in; everything
+ * else on screen is filed or is arithmetic on filings.
+ *
+ * It carried a strip of four statistics, three named cases, a growth field and
+ * a twelve-cell grid of margins, and a reader had to understand all four to
+ * read any of them. What replaced them is one sentence and one number.
  */
 
 const HORIZON = 10;
@@ -35,28 +39,6 @@ const POLL_LIMIT = 30;
 const TERMINAL = .025;
 /** The requirements the grid answers for, and the records it answers on. */
 const RATES = [.06, .08, .10, .12];
-type ScenarioName = "Bear" | "Base" | "Bull" | "Custom";
-
-/**
- * What a named case actually is: two numbers, and nothing else.
- *
- * "Bear", "Base" and "Bull" sat in a strip at the top of the page and silently
- * moved two controls three sections below — so the words meant nothing on
- * screen, and touching either control turned the reading to "Custom" for no
- * visible reason. A case is a shortcut to a pair of assumptions, so it is
- * offered beside them and prints the pair it sets.
- *
- * The base is the rate the company's own filings have compounded free cash
- * flow at; the cases move it two points either way, and require twelve, ten
- * and eight per cent a year in return.
- */
-function caseValues(name: Exclude<ScenarioName, "Custom">, base: number) {
-  return {
-    growth: Math.min(1, Math.max(-.5, base + (name === "Bear" ? -.02 : name === "Bull" ? .02 : 0))),
-    required: name === "Bear" ? .12 : name === "Bull" ? .08 : .10,
-  };
-}
-
 interface Loaded { ticker: string; view: IoCompanyView | null; quote: IoQuote | null; error: string | null }
 
 const LIST_EVENT = "finscope:dcf-symbol";
@@ -109,7 +91,6 @@ export function Dcf({ initial }: { initial: string }) {
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [required, setRequired] = useState(.10);
-  const [scenario, setScenario] = useState<ScenarioName>("Base");
   /*
    * One growth for the whole page.
    *
@@ -140,10 +121,8 @@ export function Dcf({ initial }: { initial: string }) {
     const address = new URLSearchParams(search);
     const rate = Number(address.get("r"));
     const growth = Number(address.get("g"));
-    const named = address.get("scenario");
     if (Number.isFinite(rate) && rate >= .01 && rate <= .30) setRequired(rate);
     if (Number.isFinite(growth) && growth >= -.50 && growth <= 1) { setAssumed(growth); setPicked("own"); }
-    if (named === "Bear" || named === "Base" || named === "Bull" || named === "Custom") setScenario(named);
   }, [asked, search]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -222,32 +201,27 @@ export function Dcf({ initial }: { initial: string }) {
   // Opened on the longest record the filings support, rounded to the half point
   // the control steps in, and the reader's from the first edit onwards.
   const custom = assumed ?? Math.round((record?.rate ?? near?.rate ?? 0) * 200) / 200;
-  const writeScenario = (rate: number, growthRate: number, name: ScenarioName) => {
+  /** The two settings live in the address, so a reading can be sent as a link. */
+  const writeScenario = (rate: number, growthRate: number) => {
     const url = new URL(window.location.href);
     url.searchParams.set("s", ticker);
     url.searchParams.set("r", rate.toFixed(4));
     url.searchParams.set("g", growthRate.toFixed(4));
-    url.searchParams.set("scenario", name);
     window.history.replaceState(null, "", url);
   };
   const assume = (next: number) => {
     const growthRate = Math.min(1, Math.max(-.5, next));
     setAssumed(growthRate);
     setPicked("own");
-    setScenario("Custom");
-    writeScenario(required, growthRate, "Custom");
+    writeScenario(required, growthRate);
   };
   const setGrowth = (next: GrowthChoice) => {
-    setPicked(next); setScenario("Custom");
+    setPicked(next);
     const growthRate = next === "near" ? near?.rate ?? custom : next === "far" ? record?.rate ?? custom : custom;
-    writeScenario(required, growthRate, "Custom");
+    writeScenario(required, growthRate);
   };
   const requireReturn = (rate: number) => {
-    setRequired(rate); setScenario("Custom"); writeScenario(rate, custom, "Custom");
-  };
-  const applyScenario = (name: Exclude<ScenarioName, "Custom">) => {
-    const { growth: growthRate, required: rate } = caseValues(name, record?.rate ?? near?.rate ?? custom);
-    setRequired(rate); setAssumed(growthRate); setPicked("own"); setScenario(name); writeScenario(rate, growthRate, name);
+    setRequired(rate); writeScenario(rate, custom);
   };
 
   /*
@@ -299,24 +273,37 @@ export function Dcf({ initial }: { initial: string }) {
   }, [view, quote, required, growth, record, near, custom]);
 
   /*
-   * The rows the grid answers for, in the panel's own vocabulary.
+   * The growth today's price is asking for, and the sentence that reads it.
    *
-   * The price's own rate is deliberately not one of them: by construction it
-   * values the company at exactly its price, so a row of noughts across every
-   * column would say nothing. What is left is what the filings support and the
-   * floor nobody has to defend.
+   * `impliedGrowth` will not always solve: a company priced above anything a
+   * ten-year projection can reach returns a bound instead of a rate, and the
+   * page says which side of it the price sits on rather than inventing a
+   * figure. The comparison sentence is only written where both halves are
+   * numbers, because "more than the record" is a claim and needs two of them.
    */
-  const growths = useMemo(() => {
-    if (!view) return [];
-    const near = delivered(view.annual, 5);
-    const far = delivered(view.annual, 10);
-    const longer = far != null && near != null && far.years > near.years + .5;
-    return [
-      ...(near ? [{ id: "near" as const, label: `Delivered · ${Math.round(near.years)} years`, rate: near.rate }] : []),
-      ...(longer && far ? [{ id: "far" as const, label: `Delivered · ${Math.round(far.years)} years`, rate: far.rate }] : []),
-      { id: "own" as const, label: "You assume", rate: custom },
-    ];
-  }, [view, custom]);
+  const priceAsks = model?.asks.kind === "solved" ? model.asks.rate : null;
+  const sentence = (() => {
+    if (!model) return "";
+    const price = writePrice(model.price, model.basis.currency);
+    const name = view?.company.name ?? ticker;
+    if (model.asks.kind === "beyond") {
+      return model.asks.direction === "above"
+        ? `No growth this model can project justifies ${price}: even at ${percent(model.asks.bound, 0)} a year for ten years, ten years of this company's free cash flow discounted at ${percent(required, 0)} comes to less than the price.`
+        : `${price} is below what ten years of this company's free cash flow is worth at ${percent(required, 0)} even if that cash flow never grows again.`;
+    }
+    if (model.asks.kind !== "solved") return model.asks.reason;
+    const asks = model.asks.rate;
+    const head = `To pay ${price} today and still earn ${percent(required, 0)} a year, ${name}'s free cash flow has to grow ${percent(asks, 1)} a year for ten years.`;
+    if (!model.record) return `${head} The filings do not carry enough free cash flow history to say what it has grown at before.`;
+    const done = model.record.rate;
+    const over = `Over the ${Math.round(model.record.years)} years it has filed, it grew ${percent(done, 1)} a year.`;
+    const verdict = Math.abs(asks - done) < .005
+      ? "The price is asking for about what the company has delivered."
+      : asks > done
+        ? "The price is asking for more than the company has delivered."
+        : "The price is asking for less than the company has delivered.";
+    return `${head} ${over} ${verdict}`;
+  })();
 
   return (
     <main className="wrap dcf-page" id="main-content" tabIndex={-1}>
@@ -352,164 +339,88 @@ export function Dcf({ initial }: { initial: string }) {
       ) : (
         <>
           {/*
-            * The verdict, in the order the question is asked: what it earns if
-            * nothing changes, what it is worth to you, how far that is from the
-            * price, and what the price is.
-            */}
-          <section className="section" style={{ borderTop: 0, paddingTop: 0 }}>
-            <div className="grid-ruled stats stats-four">
-              {/* "a year" belongs in the label, not in the figure: a cell that
-                  crops its own number is worse than one that says less. */}
-              <div className="stat">
-                <div className="label">Earns a year</div>
-                <div className="stat-value" data-empty={model.earns == null || model.earns.kind === "unavailable"}>
-                  {model.earns == null || model.earns.kind === "unavailable"
-                    ? ABSENT
-                    : model.earns.kind === "solved"
-                      ? delta(model.earns.rate)
-                      : `${model.earns.direction === "above" ? "> " : "< "}${delta(model.earns.bound, 0)}`}
-                </div>
-              </div>
-              <div className="stat">
-                <div className="label">Worth at {percent(required, 0)}</div>
-                <div className="stat-value">{writePrice(model.worth(required, model.drawn), model.basis.currency)}</div>
-              </div>
-              <div className="stat">
-                <div className="label">Margin</div>
-                <div className="stat-value">{delta(model.worth(required, model.drawn) / model.price - 1, 0)}</div>
-              </div>
-              <div className="stat">
-                <div className="label">Price</div>
-                <div className="stat-value">{writePrice(model.price, model.basis.currency)}</div>
-              </div>
-            </div>
-            <p className="stat-note" style={{ marginTop: 10 }}>
-              {model.record
-                ? `Its free cash flow has compounded at ${delta(model.record.rate)} a year over ${Math.round(model.record.years)} years of filings. `
-                : "The filings do not carry enough free cash flow history to state a record. "}
-              {growth === "own"
-                ? `At the ${delta(custom)} a year you assume, buying at ${writePrice(model.price, model.basis.currency)} earns what the first figure says — and the assumption is yours, not a filing.`
-                : `At that record, buying at ${writePrice(model.price, model.basis.currency)} earns what the first figure says, which is the record and not a forecast of it.`}
-            </p>
-          </section>
-
-          {/*
-            * Every answer at once, because the setting is the argument.
+            * The page, answered before anything is touched.
             *
-            * A single value per share hides the fact that it is mostly the
-            * reader's own requirement: the same company is worth twice as much
-            * to somebody who will accept six percent as to somebody who wants
-            * twelve. The grid says so outright — each row a growth the filings
-            * support, each column a return somebody might require, each cell
-            * how far that value sits from what the market charges today.
+            * Three readings and a sentence. The first is arithmetic on the
+            * price and the second is arithmetic on the filings, so the
+            * comparison between them is a fact rather than a view — which is
+            * the whole reason this page asks the question backwards.
             */}
-          <section className="section">
+          <section className="section verdict" style={{ borderTop: 0, paddingTop: 0 }}>
             <div className="section-head">
-              <h2 className="label">Margin against the price</h2>
-              {/* The one control on the page: the strip above, the column
-                  marked below and the chart under it all answer for it. */}
-              <div className="implied-rate-picker">
-                {/* A case is a shortcut to the two dials beside it, and says
-                    which pair it sets. Nothing is pressed once either dial has
-                    been moved by hand: the reader is then on their own numbers,
-                    which is a state worth showing rather than naming. */}
-                <div className="dcf-cases">
-                  {(["Bear", "Base", "Bull"] as const).map((name) => {
-                    const values = caseValues(name, record?.rate ?? near?.rate ?? custom);
-                    return (
-                      <button type="button" key={name} aria-pressed={scenario === name} onClick={() => applyScenario(name)}>
-                        <strong>{name}</strong>
-                        <small>{percent(values.growth, 1)} growth · {percent(values.required, 0)} required</small>
-                      </button>
-                    );
-                  })}
-                </div>
-                {/* The two assumptions, side by side and named as assumptions:
-                    what the reader wants out, and what they suppose goes in. */}
-                <label className="dcf-assume">
-                  <span className="label">Annual FCF growth you assume</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    step=".5"
-                    min={-50}
-                    max={100}
-                    value={Number((custom * 100).toFixed(2))}
-                    onChange={(event) => {
-                      const typed = Number(event.target.value);
-                      if (Number.isFinite(typed)) assume(typed / 100);
-                    }}
-                    aria-label="Growth in free cash flow you assume, in percent a year"
-                  />
-                  <span className="label">%</span>
-                </label>
-                <span className="label">Annual return you require</span>
-                <div className="seg">
+              <h2 className="label">Is there room to buy?</h2>
+              {/*
+                * The one control, and it says what it is.
+                *
+                * Four bare percentages beside a heading are four percentages of
+                * nothing. This is the only figure on the page nobody filed, and
+                * every number here moves with it.
+                */}
+              <label className="verdict-rate">
+                <span className="label">The return you want a year</span>
+                <span className="seg">
                   {RATES.map((rate) => (
                     <button key={rate} type="button" aria-pressed={required === rate} onClick={() => requireReturn(rate)}>
                       {percent(rate, 0)}
                     </button>
                   ))}
+                </span>
+              </label>
+            </div>
+
+            <div className="grid-ruled stats stats-three">
+              <div className="stat">
+                <div className="label">The price asks for</div>
+                <div className="stat-value" data-empty={priceAsks == null}>{priceAsks == null ? ABSENT : percent(priceAsks, 1)}</div>
+                <div className="stat-note">a year, for ten years</div>
+              </div>
+              <div className="stat">
+                <div className="label">It has delivered</div>
+                <div className="stat-value" data-empty={model.record == null}>
+                  {model.record == null ? ABSENT : percent(model.record.rate, 1)}
+                </div>
+                <div className="stat-note">
+                  {model.record == null ? "no filed record" : `a year, over ${Math.round(model.record.years)} years of filings`}
+                </div>
+              </div>
+              <div className="stat">
+                <div className="label">Worth at that record</div>
+                <div className="stat-value" data-empty={model.record == null}>
+                  {model.record == null ? ABSENT : writePrice(model.worth(required, model.record.rate), model.basis.currency)}
+                </div>
+                <div className="stat-note">
+                  {model.record == null
+                    ? `against ${writePrice(model.price, model.basis.currency)} today`
+                    : `${delta(model.worth(required, model.record.rate) / model.price - 1, 0)} against ${writePrice(model.price, model.basis.currency)} today`}
                 </div>
               </div>
             </div>
-            <p className="horizontal-hint" id="dcf-matrix-hint">Swipe horizontally to compare every required return →</p>
-            <div className="dcf-matrix-frame">
-              {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Keyboard users need to reach and pan the overflow region. */}
-              <div className="sheet dcf-matrix" role="region" aria-label="DCF margin matrix" aria-describedby="dcf-matrix-hint" tabIndex={0}>
-                <table>
-                <thead>
-                  <tr>
-                    <th className="key" scope="col">Growth</th>
-                    {RATES.map((rate) => <th key={rate} scope="col">{percent(rate, 0)} required</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {growths.map((row) => (
-                    <tr key={row.label} data-selected={row.id === growth}>
-                      <th className="key" scope="row">
-                        {/* The name of the row chooses the row, which is what a
-                            reader tries first. The cells choose the pair. */}
-                        <button
-                          type="button"
-                          className="dcf-row"
-                          aria-pressed={row.id === growth}
-                          onClick={() => setGrowth(row.id)}
-                        >
-                          {row.label}
-                          <span className="screener-sector">{delta(row.rate)}</span>
-                        </button>
-                      </th>
-                      {RATES.map((rate) => {
-                        const value = model.worth(rate, row.rate);
-                        const margin = value / model.price - 1;
-                        const here = row.id === growth && rate === required;
-                        return (
-                          <td key={rate} data-under={margin > 0} data-here={here}>
-                            {/* A cell is the pair it stands for: choosing it
-                                sets both, and the chart below draws it. */}
-                            <button
-                              type="button"
-                              className="dcf-cell"
-                              aria-pressed={here}
-                              onClick={() => { setGrowth(row.id); setRequired(rate); setScenario("Custom"); writeScenario(rate, row.rate, "Custom"); }}
-                              title={`${writePrice(value, model.basis.currency)} a share`}
-                            >
-                              {delta(margin, 0)}
-                            </button>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-                </table>
-              </div>
-            </div>
-            <p className="stat-note" style={{ marginTop: 10 }}>
-              A filled figure is room: the value at that growth and that requirement is above what the market charges.
-              Choosing a cell draws it below; hover one for the value a share it comes from.
-            </p>
+
+            <p className="verdict-sentence">{sentence}</p>
+
+            {/*
+              * The second control, and the last: optional, and named as an
+              * assumption. Everything above it is filed or is arithmetic on a
+              * filing; this is the reader putting a number of their own in, and
+              * the model below redraws on it.
+              */}
+            <label className="verdict-assume">
+              <span className="label">Or try your own growth</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                step=".5"
+                min={-50}
+                max={100}
+                value={Number((custom * 100).toFixed(2))}
+                onChange={(event) => {
+                  const typed = Number(event.target.value);
+                  if (Number.isFinite(typed)) assume(typed / 100);
+                }}
+                aria-label="Growth in free cash flow you assume, in percent a year"
+              />
+              <span className="label">% a year</span>
+            </label>
           </section>
 
           {/* The model itself, drawn — the same panel the company page carries,

@@ -5,23 +5,24 @@ import { buildCsv, buildPdf, buildXlsx } from "../components/io/ExportMenu";
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 describe("shareable research workflows", () => {
-  it("keeps the complete DCF scenario in the address, and names what a case sets", () => {
+  it("keeps the two settings in the address, and asks the question backwards", () => {
     const source = read("../components/io/Dcf.tsx");
+    // A reading can be sent as a link: the company, the return required and
+    // the growth assumed.
+    expect(source).toContain('url.searchParams.set("s", ticker)');
     expect(source).toContain('url.searchParams.set("r"');
     expect(source).toContain('url.searchParams.set("g"');
-    expect(source).toContain('url.searchParams.set("scenario"');
-    for (const name of ["Bear", "Base", "Bull"]) expect(source).toContain(`"${name}"`);
     /*
-     * The three cases sat in a strip at the top and moved two controls three
-     * sections below without saying so. One definition now feeds both the
-     * button's own label and what pressing it does, so the two cannot drift.
+     * The page opens answered. What growth would justify today's price is
+     * arithmetic on the price, so it takes nothing from the reader — unlike a
+     * forward model, which answers whatever it is fed.
      */
-    expect(source).toContain("function caseValues(");
-    expect(source).toContain("caseValues(name, record?.rate ?? near?.rate ?? custom)");
-    expect(source).toContain("{percent(values.growth, 1)} growth · {percent(values.required, 0)} required");
-    // Nothing copies a link out of the page any more.
-    expect(source).not.toContain("Copy scenario");
-    expect(source).not.toContain("navigator.clipboard");
+    expect(source).toContain("model?.asks.kind === \"solved\" ? model.asks.rate : null");
+    expect(source).toContain("The price is asking for");
+    // Three named cases, a strip of statistics and a grid of margins are gone.
+    expect(source).not.toContain("caseValues");
+    expect(source).not.toContain("Bear");
+    expect(source).not.toContain("dcf-matrix");
   });
 
   it("stores named watchlists and company notes locally", () => {

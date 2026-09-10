@@ -490,6 +490,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * Seven columns also gives each label the width it needs to be read whole.
  */
 .stats-seven { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.stats-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .stat { padding: 11px 12px 12px; min-width: 0; }
 .stat .label, .stat-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-value { font-family: var(--mono); font-size: var(--fs-lg); margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -694,6 +695,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 @media (max-width: 560px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stats-seven { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-three { grid-template-columns: 1fr; }
   /* Restated rather than inherited: the rule above is what makes this work. */
   .multiples { grid-template-columns: minmax(0, 1fr); }
 }
@@ -833,7 +835,21 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .index-quote { display: flex; flex-direction: column; align-items: flex-end; font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .index-quote strong { font-size: var(--fs-lg); font-weight: 600; }
 .index-change { color: var(--ink-2); font-size: var(--fs-xs); }
+/*
+ * The index line takes the day's colour, the panel around it does not.
+ *
+ * The same green and red as the watchlist's own day column, on the same
+ * reasoning and confined the same way: the drawing carries the hue, while the
+ * index's name and its level stay in one ink. Everything inside the chart is
+ * `currentColor`, so a single declaration moves the line, the wash beneath it,
+ * the last dot and the badge together.
+ */
 .index-chart { position: relative; min-width: 0; margin-top: calc(var(--u) * 3); color: var(--ink); }
+.index-panel.up .index-chart { color: var(--gain); }
+.index-panel.down .index-chart { color: var(--loss); }
+.index-panel.up .index-change { color: var(--gain); }
+.index-panel.down .index-change { color: var(--loss); }
+.index-panel.up .index-last rect, .index-panel.down .index-last rect { fill: currentColor; }
 .index-chart svg { display: block; max-width: 100%; }
 .index-chart line.index-grid { stroke: var(--line); stroke-width: 1; }
 .index-chart line.index-grid-zero { stroke: var(--line-strong); }
@@ -1194,62 +1210,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 /* --- The DCF page -------------------------------------------------------- */
 
 .dcf-search { min-width: min(320px, 100%); }
-.horizontal-hint { display: none; }
-.dcf-matrix-frame { position: relative; min-width: 0; }
-/*
- * A figure the reader sets, dressed as a figure.
- *
- * Everything on this site that states a number is monospaced and right-aligned;
- * an input is the one place a reader writes one, and it has no business looking
- * like a form control from somewhere else. The spinners go, because the step is
- * on the keyboard and a pair of grey arrows is furniture.
- */
-.dcf-assume { display: flex; align-items: baseline; gap: calc(var(--u) * 2); }
-.dcf-assume input {
-  width: 62px; padding: 4px 6px; text-align: right;
-  font-family: var(--mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums;
-  color: var(--ink); background: var(--bg);
-  border: 1px solid var(--line); border-radius: var(--radius);
-}
-.dcf-assume input:hover { border-color: var(--line-strong); }
-.dcf-assume input:focus-visible { outline: none; border-color: var(--ink); }
-.dcf-assume input::-webkit-outer-spin-button, .dcf-assume input::-webkit-inner-spin-button { appearance: none; margin: 0; }
-.dcf-assume input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
-/*
- * Room to buy, marked the way a leader used to be: filled.
- *
- * The grid is read for one thing — where the value is above the price — and a
- * positive number in a table of negatives is easy to miss at a glance. It is
- * the only cell on this site that is filled, and it is filled because the whole
- * table exists to find it.
- */
-.sheet td[data-under="true"] { background: var(--ink); color: var(--inverse); }
-.sheet tbody tr:hover td[data-under="true"] { background: var(--ink); color: var(--inverse); }
-/* A cell is the pair it stands for, so the whole cell is the target, and so is
-   the name of the row: choosing a growth is choosing a row. */
-.dcf-cell { display: block; width: 100%; text-align: right; font: inherit; color: inherit; border-radius: 0; }
-.dcf-row { display: flex; gap: 6px; align-items: baseline; font: inherit; color: var(--ink-2); border-radius: 0; }
-.dcf-row:hover, .sheet tr[data-selected="true"] .dcf-row { color: var(--ink); }
-.sheet td[data-here="true"] { box-shadow: inset 0 0 0 1px var(--ink); }
-.sheet td[data-here="true"][data-under="true"] { box-shadow: inset 0 0 0 1px var(--inverse); }
-.sheet tr[data-selected="true"] th.key { color: var(--ink); }
-/*
- * A filled cell stays filled inside the chosen row.
- *
- * The row highlight is a background and the fill is a background, and the row's
- * rule is the more specific of the two — so a positive figure in the selected
- * row kept the inverse ink it is drawn in and lost the ink it is drawn on:
- * white text on light grey, black text on dark grey, unreadable in both
- * themes. The pair that matters most on the page was the one pair nobody could
- * read.
- */
-.sheet tr[data-selected="true"] td[data-under="true"],
-.sheet tbody tr[data-selected="true"]:hover td[data-under="true"] {
-  background: var(--ink); color: var(--inverse);
-}
-
 .implied-head { flex-wrap: wrap; gap: calc(var(--u) * 3); }
-.implied-rate-picker { display: flex; align-items: center; gap: calc(var(--u) * 2); margin-inline-start: auto; }
 /*
  * The explanation, when it is asked for.
  *
@@ -1277,25 +1238,9 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 }
 @media (max-width: 640px) {
   .dcf-page .section-head { align-items: stretch; flex-direction: column; }
-  .dcf-page .implied-rate-picker {
-    display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch;
-    width: 100%; margin-inline-start: 0; gap: calc(var(--u) * 3);
-  }
-  .dcf-page .dcf-assume { display: grid; grid-template-columns: minmax(0, 1fr) 76px auto; align-items: center; }
-  .dcf-page .dcf-assume input { width: 100%; min-height: 44px; }
   .dcf-page .seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
-  .dcf-page .sheet { max-width: 100%; overscroll-behavior-inline: contain; touch-action: pan-x pan-y; }
-  .dcf-page .dcf-matrix table { min-width: 720px; }
-  .dcf-page .dcf-matrix th.key { min-width: 180px; }
-  .horizontal-hint {
-    display: block; margin: calc(var(--u) * -1) 0 calc(var(--u) * 2);
-    color: var(--ink-3); font-family: var(--mono); font-size: var(--fs-xs);
-  }
-  .dcf-matrix-frame::after {
-    content: ""; position: absolute; inset-block: 1px; inset-inline-end: 1px; width: 28px;
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--bg) 92%, transparent));
-    pointer-events: none;
-  }
+  .dcf-page .verdict-assume { display: grid; grid-template-columns: minmax(0, 1fr) 96px auto; align-items: center; }
+  .dcf-page .verdict-assume input { width: 100%; }
   .implied-guide { grid-template-columns: minmax(0, 1fr); gap: 2px calc(var(--u) * 4); }
   .implied-guide dd { margin-bottom: 7px; }
 }
@@ -1394,23 +1339,29 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .notebook-foot a { min-height: 36px; display: inline-flex; align-items: center; }
 
 /*
- * A named case, printing the pair of assumptions it sets.
+ * The page answers before it is touched, so the answer is the page.
  *
- * The three sat in a strip at the top of the page and moved two controls three
- * sections below without saying so. Here they are beside those controls, each
- * carrying its own two numbers, so a click is a visible move rather than a
- * word.
+ * Three readings and a sentence: what the price is asking for, what the
+ * company has actually done, and what it is worth if it merely repeats itself.
+ * The sentence carries the comparison because the comparison is the finding,
+ * and a finding written out is one a reader who does not know what a
+ * discounted cash flow is can still act on.
  */
-.dcf-cases { display: inline-flex; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-.dcf-cases button {
-  min-width: 0; padding: 5px 10px; border: 0; background: var(--bg); color: var(--ink-2);
-  font-family: var(--mono); text-align: left; cursor: pointer;
+.verdict-rate { display: flex; align-items: center; gap: calc(var(--u) * 3); }
+.verdict-sentence {
+  max-width: 78ch; margin-top: calc(var(--u) * 4);
+  color: var(--ink); font: var(--fs-sm)/1.65 var(--mono);
 }
-.dcf-cases button:hover { color: var(--ink); background: var(--raise); }
-.dcf-cases button[aria-pressed="true"] { background: var(--ink); color: var(--inverse); }
-.dcf-cases strong, .dcf-cases small { display: block; }
-.dcf-cases strong { font-size: var(--fs-xs); font-weight: 550; }
-.dcf-cases small { margin-top: 2px; font-size: var(--fs-micro); opacity: .72; }
+.verdict-assume { display: flex; align-items: baseline; gap: calc(var(--u) * 2); margin-top: calc(var(--u) * 4); }
+.verdict-assume input {
+  width: 82px; min-height: 30px; padding: 0 8px; border: 1px solid var(--line-strong);
+  border-radius: var(--radius); background: var(--bg); color: var(--ink);
+  font: var(--fs-xs)/1 var(--mono); text-align: right;
+}
+.verdict-assume input:hover { border-color: var(--ink-2); }
+.verdict-assume input:focus-visible { outline: none; border-color: var(--ink); }
+.verdict-assume input::-webkit-outer-spin-button, .verdict-assume input::-webkit-inner-spin-button { appearance: none; margin: 0; }
+.verdict-assume input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
 
 
@@ -1436,8 +1387,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   .notebook-foot > span { margin-inline-start: 0; }
   .export-menu { width: 100%; }
   .export-menu button { flex: 1; min-height: 44px; }
-  .dcf-cases { display: grid; grid-template-columns: repeat(3, 1fr); }
-  .dcf-cases button { min-height: 44px; }
+  .verdict-rate { align-items: stretch; flex-direction: column; gap: var(--u); }
+  .verdict-assume input { min-height: 44px; }
   .empty-actions { flex-direction: column; }
 }
 
@@ -1489,12 +1440,15 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * than read — and the sign stays in the number, so nothing here is said in
  * colour alone. Every other window in the same table is one ink.
  */
-.performance-sheet td[data-window="d1"][data-dir] .day-mark {
+.performance-sheet td[data-window="d1"][data-dir] .day-mark,
+.portfolio-holdings-sheet td[data-window="d1"][data-dir] .day-mark {
   display: inline-block; padding: 2px 5px; margin: -2px -5px;
   border-radius: var(--radius); color: var(--ink); font-weight: 550;
 }
-.performance-sheet td[data-window="d1"][data-dir="up"] .day-mark { background: color-mix(in srgb, var(--gain) 30%, transparent); }
-.performance-sheet td[data-window="d1"][data-dir="down"] .day-mark { background: color-mix(in srgb, var(--loss) 30%, transparent); }
+.performance-sheet td[data-window="d1"][data-dir="up"] .day-mark,
+.portfolio-holdings-sheet td[data-window="d1"][data-dir="up"] .day-mark { background: color-mix(in srgb, var(--gain) 30%, transparent); }
+.performance-sheet td[data-window="d1"][data-dir="down"] .day-mark,
+.portfolio-holdings-sheet td[data-window="d1"][data-dir="down"] .day-mark { background: color-mix(in srgb, var(--loss) 30%, transparent); }
 
 @media (max-width: 720px) {
   .allocation-row { grid-template-columns: minmax(90px, 1fr) 1fr minmax(46px, auto); }

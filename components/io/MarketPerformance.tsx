@@ -57,7 +57,14 @@ export function MarketPerformance() {
   const [answer, setAnswer] = useState<{ followed: string; rows: Rows; failed: boolean }>(
     { followed: "", rows: {}, failed: false },
   );
-  const [sort, setSort] = useState<{ key: WindowId | "ticker"; direction: "asc" | "desc" }>({ key: "ytd", direction: "desc" });
+  /*
+   * Today, best first.
+   *
+   * The table opens on the question a reader opens the market page with —
+   * what moved, and which way — rather than on a year-to-date ranking that is
+   * the same list it was yesterday morning.
+   */
+  const [sort, setSort] = useState<{ key: WindowId | "ticker"; direction: "asc" | "desc" }>({ key: "d1", direction: "desc" });
 
   const tickers = session ?? stored;
   const followed = tickers.join(",");

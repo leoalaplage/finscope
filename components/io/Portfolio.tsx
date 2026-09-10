@@ -721,7 +721,7 @@ function Holdings({
   dayContributions: Record<string, number | undefined>;
 }) {
   return (
-    <div className="sheet">
+    <div className="sheet portfolio-holdings-sheet">
       <table>
         <thead>
           <tr>
@@ -758,8 +758,10 @@ function Holdings({
                 </th>
                 <td>{row.shares.toLocaleString("en-US", { maximumFractionDigits: 4 })}</td>
                 <td data-empty={row.price == null}>{row.price == null ? ABSENT : writePrice(row.price, quote?.currency ?? BASE_CURRENCY)}</td>
-                <td data-empty={quote?.changePercent == null} data-dir={direction(quote?.changePercent ?? null)}>
-                  {quote?.changePercent == null ? ABSENT : delta(quote.changePercent)}
+                {/* The day carries the market page's highlighter, on the same
+                    terms: the width of the figure, and only this column. */}
+                <td data-empty={quote?.changePercent == null} data-window="d1" data-dir={direction(quote?.changePercent ?? null)}>
+                  {quote?.changePercent == null ? ABSENT : <span className="day-mark">{delta(quote.changePercent)}</span>}
                 </td>
                 <td data-empty={row.value == null}>{row.value == null ? ABSENT : money(row.value, BASE_CURRENCY)}</td>
                 <td data-empty={row.weight == null}>{row.weight == null ? ABSENT : percent(row.weight, 1)}</td>

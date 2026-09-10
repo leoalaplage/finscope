@@ -421,47 +421,45 @@ describe("the redesign", () => {
     const page = readFileSync(new URL("../app/dcf/page.tsx", import.meta.url), "utf8");
     const dcf = readFileSync(new URL("../components/io/Dcf.tsx", import.meta.url), "utf8");
     const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
-    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
     expect(shell).toContain('>DCF</a>');
     // The company being valued is in the address, so a valuation can be sent.
     expect(page).toContain('export const dynamic = "force-static"');
     expect(dcf).toContain('url.searchParams.set("s", next)');
     /*
-     * The verdict in the order the question is asked: what it earns if the
-     * company merely repeats itself — which takes nothing from the reader at
-     * all — then what it is worth to them, how far that is from the price, and
-     * the price.
-     */
-    expect(dcf).toContain('<div className="label">Earns a year</div>');
-    expect(dcf).toContain("impliedReturn(terms, drawn)");
-    expect(dcf).toContain('<div className="label">Margin</div>');
-    // Every answer at once, because the setting is the argument: a growth the
-    // filings support down the side, a return somebody might require across.
-    expect(dcf).toContain('{RATES.map((rate) => <th key={rate} scope="col">{percent(rate, 0)} required</th>)}');
-    expect(dcf).toContain('data-under={margin > 0}');
-    /*
-     * And the growth is the reader's too, beside the return they require.
+     * The page answers before it is touched.
      *
-     * The filings anchor the question — this is what it did — and cannot answer
-     * it, because what is being bought is the next ten years. So the records
-     * are rows and the assumption is a figure, opened on the longest record so
-     * it starts somewhere real and named "you assume" wherever it appears.
+     * A discounted cash flow normally has to be driven — a growth rate, a
+     * discount rate, a horizon — and answers whatever it is fed. This one is
+     * asked backwards: at today's price, what growth would the company have to
+     * deliver? That is arithmetic on the price, so it needs nothing from the
+     * reader, and it can be set beside what the company has actually done.
      */
-    expect(dcf).toContain('<span className="label">Annual FCF growth you assume</span>');
+    expect(dcf).toContain('<div className="label">The price asks for</div>');
+    expect(dcf).toContain('<div className="label">It has delivered</div>');
+    expect(dcf).toContain('<div className="label">Worth at that record</div>');
+    // And the comparison between the two is written out, because the
+    // comparison is the finding.
+    expect(dcf).toContain("The price is asking for more than the company has delivered.");
+    expect(dcf).toContain("The price is asking for less than the company has delivered.");
+    /*
+     * Two controls, and the first one says what it is.
+     *
+     * Four bare percentages beside a heading are four percentages of nothing.
+     * The return required is the only figure on the page nobody filed; the
+     * growth field is optional and named as an assumption.
+     */
+    expect(dcf).toContain('<span className="label">The return you want a year</span>');
+    expect(dcf).toContain('<span className="label">Or try your own growth</span>');
     expect(dcf).toContain("const custom = assumed ?? Math.round");
-    expect(dcf).toContain('{ id: "own" as const, label: "You assume", rate: custom }');
-    // Editing it is choosing it, and every figure on the page follows the one
-    // pair: this growth, this requirement.
     expect(dcf).toContain('setPicked("own")');
-    expect(dcf).toContain("earns: impliedReturn(terms, drawn)");
-    // The grid and the chart are one instrument: a cell sets the pair it stands
-    // for, and the panel below draws it. One growth and one required return for
-    // the whole page, so a reader is never comparing a table with a chart of
-    // something else.
-    expect(dcf).toContain('onClick={() => { setGrowth(row.id); setRequired(rate); setScenario("Custom"); writeScenario(rate, row.rate, "Custom"); }}');
-    // The name of the row chooses the row, which is what a reader tries first.
-    expect(dcf).toContain('className="dcf-row"');
-    expect(dcf).toContain("onClick={() => setGrowth(row.id)}");
+    /*
+     * What is gone: three named cases, a strip of four statistics and a
+     * twelve-cell grid of margins, all of which had to be understood before
+     * any of them could be read.
+     */
+    expect(dcf).not.toContain("caseValues");
+    expect(dcf).not.toContain("dcf-matrix");
+    expect(dcf).not.toContain('<div className="label">Earns a year</div>');
     /*
      * And a filled cell stays filled inside the chosen row.
      *
@@ -469,7 +467,6 @@ describe("the redesign", () => {
      * row's rule is the more specific — so the figure that matters most on the
      * page was drawn in inverse ink on the wrong ground, in both themes.
      */
-    expect(css).toContain('.sheet tr[data-selected="true"] td[data-under="true"],');
     expect(dcf).toContain("rate={required}");
     expect(dcf).toContain("growth={growth}");
     // The panel no longer holds either setting: the page that carries it does.
@@ -480,7 +477,6 @@ describe("the redesign", () => {
     expect(dcf).toContain("rememberCompany(ticker)");
     const company2 = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     expect(company2).toContain('href={`/dcf?s=${encodeURIComponent(company.ticker)}`}');
-    expect(css).toContain('.sheet td[data-under="true"] { background: var(--ink); color: var(--inverse); }');
     // A company nobody has opened is waited for rather than refused.
     expect(dcf).toContain("timer = setTimeout(load, POLL_MS)");
     // And the model itself is the panel the company page carries: two
@@ -562,7 +558,7 @@ describe("the redesign", () => {
     expect(panel).toContain("How to read this");
     // And the control that needed naming is named: four bare percentages
     // beside a heading are four percentages of nothing.
-    expect(dcfSource).toContain("<span className=\"label\">Annual return you require</span>");
+    expect(dcfSource).toContain("<span className=\"label\">The return you want a year</span>");
     expect(css).toContain(".implied-guide {");
     // Set like every other note here — monospaced and small — rather than as a
     // paragraph of body text from a different product.
