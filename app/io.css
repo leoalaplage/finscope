@@ -1215,7 +1215,9 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  */
 @media (max-width: 640px) {
   .dcf-page .section-head { align-items: stretch; flex-direction: column; }
-  .dcf-page .seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
+  /* Five options where this company has a cost of equity of its own, four
+     where it does not, so the row is filled rather than counted. */
+  .dcf-page .seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; }
   .dcf-page .verdict-assume { display: grid; grid-template-columns: minmax(0, 1fr) 96px auto; align-items: center; }
   .dcf-page .verdict-assume input { width: 100%; }
 }

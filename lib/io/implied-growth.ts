@@ -42,6 +42,19 @@ export interface ImpliedGrowthTerms {
   years: number;
   /** What is assumed to continue for ever afterwards. */
   terminalGrowth: number;
+  /**
+   * How many of those years hold the rate before it fades to the terminal one.
+   *
+   * A rate held flat for a decade and then dropped to two and a half per cent
+   * overnight is a shape no business has ever had. Tesla's price asks 43.5% a
+   * year on that reading; on a fade it asks 61.2%, because the later years are
+   * worth less and the early ones have to carry more. Neither figure is a
+   * forecast — both are arithmetic on the same price — but only one of them is
+   * arithmetic on a path anybody would defend.
+   *
+   * Absent, the whole horizon holds, which is the flat model this replaced.
+   */
+  holdYears?: number;
 }
 
 export type ImpliedGrowth =
@@ -57,18 +70,34 @@ const CEILING = 1;
 const STEPS = 60;
 
 /**
+ * The rate applied in a given year of the projection.
+ *
+ * Flat while the hold lasts, then a straight line down to the terminal rate
+ * over the years that remain. One definition, read by every function in this
+ * file, because a fade applied to the cash flows and not to the value path is
+ * two models on one page.
+ */
+function rateInYear(year: number, rate: number, terms: Pick<ImpliedGrowthTerms, "years" | "terminalGrowth" | "holdYears">): number {
+  const hold = Math.min(Math.max(terms.holdYears ?? terms.years, 0), terms.years);
+  if (year <= hold) return rate;
+  const fading = terms.years - hold;
+  return fading <= 0 ? rate : rate + (terms.terminalGrowth - rate) * ((year - hold) / fading);
+}
+
+/**
  * The present value of a cash flow growing at `rate`, on these terms.
  *
- * Ten years of compounding, then a perpetuity at the terminal rate, discounted
- * back. Written out rather than expressed in closed form so the reader of this
- * file can see exactly what is being claimed and what is not.
+ * The projected years compounded at the rate the fade puts on each of them,
+ * then a perpetuity at the terminal rate, discounted back. Written out rather
+ * than expressed in closed form so the reader of this file can see exactly
+ * what is being claimed and what is not.
  */
 export function presentValue(terms: ImpliedGrowthTerms, rate: number): number {
   const { freeCashFlow, discountRate, years, terminalGrowth } = terms;
   let value = 0;
   let flow = freeCashFlow;
   for (let year = 1; year <= years; year++) {
-    flow *= 1 + rate;
+    flow *= 1 + rateInYear(year, rate, terms);
     value += flow / (1 + discountRate) ** year;
   }
   // The perpetuity is struck on the year after the last one projected, which is
@@ -96,7 +125,7 @@ export function terminalShare(terms: ImpliedGrowthTerms, rate: number): number |
   let explicit = 0;
   let flow = freeCashFlow;
   for (let year = 1; year <= years; year++) {
-    flow *= 1 + rate;
+    flow *= 1 + rateInYear(year, rate, terms);
     explicit += flow / (1 + discountRate) ** year;
   }
   const terminal = ((flow * (1 + terminalGrowth)) / (discountRate - terminalGrowth)) / (1 + discountRate) ** years;
@@ -149,11 +178,12 @@ export function impliedReturn(terms: Omit<ImpliedGrowthTerms, "discountRate">, g
  * compounded, and the picture is honest only because the bars it becomes are
  * drawn as outlines beside the filed ones.
  */
-export function projectCashFlows(freeCashFlow: number, rate: number, years: number): number[] {
+export function projectCashFlows(freeCashFlow: number, rate: number, years: number, fade?: Pick<ImpliedGrowthTerms, "terminalGrowth" | "holdYears">): number[] {
+  const shape = { years, terminalGrowth: fade?.terminalGrowth ?? rate, holdYears: fade?.holdYears ?? years };
   const flows: number[] = [];
   let flow = freeCashFlow;
   for (let year = 1; year <= years; year++) {
-    flow *= 1 + rate;
+    flow *= 1 + rateInYear(year, rate, shape);
     flows.push(flow);
   }
   return flows;
@@ -180,7 +210,9 @@ export function projectCashFlows(freeCashFlow: number, rate: number, years: numb
  */
 export function valuePath(terms: ImpliedGrowthTerms, rate: number): number[] {
   const { freeCashFlow, discountRate, years, terminalGrowth } = terms;
-  const flows = projectCashFlows(freeCashFlow, rate, years);
+  // The same flows the present value discounts, so the chart and the headline
+  // cannot be drawn from two different projections.
+  const flows = projectCashFlows(freeCashFlow, rate, years, terms);
   const path = new Array<number>(years + 1);
   // The last year holds the perpetuity and nothing else: every projected flow
   // has been received by then.

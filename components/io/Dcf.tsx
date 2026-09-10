@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { IO_VIEW } from "@/lib/io/view-version";
 import { impliedGrowth, impliedReturn, presentValue, terminalShare, valuePath } from "@/lib/io/implied-growth";
+import type { ImpliedGrowthTerms } from "@/lib/io/implied-growth";
+import { costOfEquity, returnsOf, type CostOfEquity } from "@/lib/io/cost-of-equity";
 import { MultiLine, type Series } from "./Plot";
 import { Search } from "./Search";
 import { rememberCompany } from "@/lib/io/last-company";
@@ -35,11 +37,25 @@ import { ABSENT, datedCagrOf, delta, money, percent, price as writePrice } from 
  */
 
 const HORIZON = 10;
+/**
+ * How many of those years hold the rate before it fades to the terminal one.
+ *
+ * A rate held flat for a decade and then dropped to two and a half per cent
+ * overnight is a shape no business has ever had. Five and five is the ordinary
+ * two-stage form, and it is not cosmetic: Tesla's price asks 43.5% a year on
+ * the flat reading and 61.2% on the fade, because the later years are worth
+ * less and the early ones have to carry more.
+ */
+const HOLD = 5;
 const POLL_MS = 2_000;
 const POLL_LIMIT = 30;
 const TERMINAL = .025;
-/** The requirements the grid answers for, and the records it answers on. */
+/** The round numbers a reader may prefer to this company's own cost of equity. */
 const RATES = [.06, .08, .10, .12];
+/** Five years of weekly returns, which is what a beta is normally measured on. */
+const BETA_YEARS = 5;
+/** The index the beta is measured against, as this site already serves it. */
+const MARKET = "SPY";
 /** Which growth the chart is drawn at: a filed record, or the reader's own. */
 type GrowthChoice = "near" | "far" | "own";
 
@@ -157,7 +173,22 @@ export function Dcf({ initial }: { initial: string }) {
   const ticker = asked || remembered || initial;
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const [required, setRequired] = useState(.10);
+  /*
+   * The reader's own choice, and nothing until they make one.
+   *
+   * Held as null rather than as a number so the default can be this company's
+   * cost of equity the moment it arrives, without an effect writing over a
+   * state the reader may already have touched.
+   */
+  const [chosen, setChosen] = useState<number | null>(null);
+  /*
+   * Carried with the company it was measured for.
+   *
+   * A beta belongs to a filer, and a page that keeps the last one while the
+   * next is being fetched prices Palantir at Johnson & Johnson's cost of
+   * capital for a second — which is a wrong number on screen, not a slow one.
+   */
+  const [risk, setRisk] = useState<{ ticker: string; value: CostOfEquity | null } | null>(null);
   /*
    * One growth for the whole page.
    *
@@ -203,7 +234,7 @@ export function Dcf({ initial }: { initial: string }) {
     };
     const rate = asRate("r");
     const growth = asRate("g");
-    if (rate != null && rate >= .01 && rate <= .30) setRequired(rate);
+    if (rate != null && rate >= .01 && rate <= .30) setChosen(rate);
     if (growth != null && growth >= -.50 && growth <= 1) { setAssumed(growth); setPicked("own"); }
   }, [asked, search]);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -268,6 +299,59 @@ export function Dcf({ initial }: { initial: string }) {
   const quote = current?.quote ?? null;
 
   /*
+   * What this company's own risk implies, from figures this site already holds.
+   *
+   * Three requests the page did not make before: five years of this company's
+   * weekly closes, the same weeks of the S&P 500, and the ten-year Treasury.
+   * They arrive after the filings and the price, and nothing waits for them —
+   * a page that cannot reach them falls back to the reader's own choice, which
+   * is what it had before.
+   */
+  useEffect(() => {
+    if (!ticker) return;
+    const controller = new AbortController();
+    const end = new Date();
+    const from = new Date(end);
+    from.setUTCFullYear(from.getUTCFullYear() - BETA_YEARS);
+    const window = `frequency=weekly&start=${from.toISOString().slice(0, 10)}&end=${end.toISOString().slice(0, 10)}`;
+    const closes = async (symbol: string) => {
+      const response = await fetch(`/api/market/${encodeURIComponent(symbol)}?${window}`, { signal: controller.signal });
+      if (!response.ok) return null;
+      const body = await response.json() as { bars?: Array<{ close?: number | null; adjustedClose?: number | null }> };
+      return (body.bars ?? []).map((bar) => bar.adjustedClose ?? bar.close ?? null);
+    };
+    (async () => {
+      try {
+        const [company, market, macro] = await Promise.all([
+          closes(ticker),
+          closes(MARKET),
+          fetch("/api/macro", { signal: controller.signal }).then((response) => response.ok ? response.json() as Promise<{ indicators?: Array<{ id: string; value: number | null }> }> : null),
+        ]);
+        if (controller.signal.aborted || !company || !market) return;
+        const yields = macro?.indicators?.find((item) => item.id === "treasury-10y")?.value ?? null;
+        setRisk({ ticker, value: costOfEquity(yields == null ? null : yields / 100, returnsOf(company), returnsOf(market)) });
+      } catch {
+        // The reader's own choice remains, which is what the page had before.
+      }
+    })();
+    return () => controller.abort();
+  }, [ticker]);
+
+  /*
+   * The rate every figure on the page is struck at.
+   *
+   * The reader's if they have chosen one, this company's cost of equity if not,
+   * and ten per cent where neither is available. Derived rather than held in
+   * state, so the computed rate can arrive late without overwriting a choice
+   * already made.
+   */
+  const priced = risk?.ticker === ticker ? risk.value : null;
+  const required = chosen ?? priced?.rate ?? .10;
+  /* A computed rate has a decimal and a chosen one does not, and "7%" beside a
+     control reading 7.2% is the same number written two ways. */
+  const wanted = percent(required, Math.round(required * 1000) % 10 === 0 ? 0 : 1);
+
+  /*
    * The record, until the reader says otherwise.
    *
    * The company page opens this model on what the price asks, because there the
@@ -303,7 +387,7 @@ export function Dcf({ initial }: { initial: string }) {
     writeScenario(required, growthRate);
   };
   const requireReturn = (rate: number) => {
-    setRequired(rate); writeScenario(rate, custom);
+    setChosen(rate); writeScenario(rate, custom);
   };
 
   /*
@@ -321,7 +405,7 @@ export function Dcf({ initial }: { initial: string }) {
     const marketCap = basis && !mismatch && quote?.price != null && quote.price > 0 ? quote.price * basis.shares : null;
     if (!basis || marketCap == null || cash.value == null || cash.value <= 0) return null;
 
-    const terms = { marketCap, freeCashFlow: cash.value, years: HORIZON, terminalGrowth: TERMINAL };
+    const terms = { marketCap, freeCashFlow: cash.value, years: HORIZON, terminalGrowth: TERMINAL, holdYears: HOLD };
     const worth = (rate: number, growth: number) => presentValue({ ...terms, discountRate: rate }, growth) / basis.shares;
     /*
      * The rate the strip is struck at: whichever the reader has chosen.
@@ -425,12 +509,12 @@ export function Dcf({ initial }: { initial: string }) {
     const name = view?.company.name ?? ticker;
     if (model.asks.kind === "beyond") {
       return model.asks.direction === "above"
-        ? { fact: `No growth this model can project justifies ${price}: even at ${percent(model.asks.bound, 0)} a year for ten years, ten years of this company's free cash flow discounted at ${percent(required, 0)} comes to less than the price.`, verdict: null, dir: null }
-        : { fact: `${price} is below what ten years of this company's free cash flow is worth at ${percent(required, 0)} even if that cash flow never grows again.`, verdict: null, dir: null };
+        ? { fact: `No growth this model can project justifies ${price}: even at ${percent(model.asks.bound, 0)} a year for ten years, ten years of this company's free cash flow discounted at ${wanted} comes to less than the price.`, verdict: null, dir: null }
+        : { fact: `${price} is below what ten years of this company's free cash flow is worth at ${wanted} even if that cash flow never grows again.`, verdict: null, dir: null };
     }
     if (model.asks.kind !== "solved") return { fact: model.asks.reason, verdict: null, dir: null };
     const asks = model.asks.rate;
-    const head = `To pay ${price} today and still earn ${percent(required, 0)} a year, ${name}'s free cash flow has to grow ${percent(asks, 1)} a year for ten years.`;
+    const head = `To pay ${price} today and still earn ${wanted} a year, ${name}'s free cash flow has to grow ${percent(asks, 1)} a year for ten years.`;
     if (!model.record) return { fact: `${head} The filings do not carry enough free cash flow history to say what it has grown at before.`, verdict: null, dir: null };
     const done = model.record.rate;
     // A shortened window says so, because "the 8 years it has filed" would be
@@ -542,8 +626,17 @@ export function Dcf({ initial }: { initial: string }) {
               <label className="verdict-rate">
                 <span className="label">The return you want a year</span>
                 <span className="seg">
+                  {/* This company's own cost of equity first, and pressed until
+                      the reader picks otherwise: a round number is a choice
+                      nobody made, and moving it four points moves the answer by
+                      seven to twelve. */}
+                  {priced ? (
+                    <button type="button" aria-pressed={chosen == null} onClick={() => { setChosen(null); writeScenario(priced.rate, custom); }}>
+                      {percent(priced.rate, 1)}
+                    </button>
+                  ) : null}
                   {RATES.map((rate) => (
-                    <button key={rate} type="button" aria-pressed={required === rate} onClick={() => requireReturn(rate)}>
+                    <button key={rate} type="button" aria-pressed={chosen === rate} onClick={() => requireReturn(rate)}>
                       {percent(rate, 0)}
                     </button>
                   ))}
@@ -570,14 +663,16 @@ export function Dcf({ initial }: { initial: string }) {
                 </div>
               </div>
               <div className="stat">
-                <div className="label">Worth at that record</div>
+                <div className="label">Fair value at that record</div>
                 <div className="stat-value" data-empty={model.record == null}>
                   {model.record == null ? ABSENT : writePrice(model.worth(required, model.record.rate), model.basis.currency)}
                 </div>
                 <div className="stat-note">
                   {model.record == null
                     ? `against ${writePrice(model.price, model.basis.currency)} today`
-                    : `${delta(model.worth(required, model.record.rate) / model.price - 1, 0)} against ${writePrice(model.price, model.basis.currency)} today`}
+                    /* The margin of safety, named: how far the value sits above
+                       what the market charges, or how far short it falls. */
+                    : `${delta(model.worth(required, model.record.rate) / model.price - 1, 0)} margin against ${writePrice(model.price, model.basis.currency)} today`}
                 </div>
               </div>
             </div>
@@ -621,6 +716,11 @@ export function Dcf({ initial }: { initial: string }) {
               * cash came from when the newest one could not be used.
               */}
             <p className="stat-note verdict-terms">
+              {/* Where the rate came from, when it came from this company
+                  rather than from the reader. */}
+              {chosen == null && priced
+                ? `${percent(priced.rate, 1)} is this company's cost of equity: ${percent(priced.riskFree, 2)} on the ten-year Treasury plus a beta of ${priced.beta.toFixed(2)} against the S&P 500 at a ${percent(priced.premium, 0)} equity risk premium. `
+                : null}
               {perpetuity == null
                 ? null
                 : `${percent(perpetuity, 0)} of that value is the perpetuity after year ${HORIZON} rather than the ten years projected. `}
@@ -698,7 +798,7 @@ export function Dcf({ initial }: { initial: string }) {
  * justify inside the horizon.
  */
 function ValueOverTime({ model, required, rows }: {
-  model: { terms: { marketCap: number; freeCashFlow: number; years: number; terminalGrowth: number }; basis: { shares: number; currency: string }; price: number };
+  model: { terms: Omit<ImpliedGrowthTerms, "discountRate">; basis: { shares: number; currency: string }; price: number };
   required: number;
   rows: Array<{ id: string; label: string; rate: number }>;
 }) {
@@ -756,7 +856,9 @@ function ValueOverTime({ model, required, rows }: {
     <section className="section" id="worth">
       <div className="section-head">
         <h2 className="label">What it is worth, year by year</h2>
-        <span className="label">Discounted at {percent(required, 0)} · {model.terms.years} years</span>
+        <span className="label">
+          Discounted at {percent(required, 1)} · {model.terms.holdYears ?? model.terms.years} years at the rate, then fading to {percent(model.terms.terminalGrowth, 1)}
+        </span>
       </div>
 
       {/* The readout says the year and every line at it, so the chart needs no

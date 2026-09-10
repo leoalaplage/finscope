@@ -156,3 +156,62 @@ describe("what a price implies", () => {
     expect(presentValue(flat, 0)).toBeCloseTo(annuity + terminal, 6);
   });
 });
+
+/**
+ * The shape of the projection, which used to be a cliff.
+ *
+ * A rate held flat for ten years and then dropped to two and a half per cent
+ * overnight is a path no business has ever taken. Holding it for five and
+ * fading it over the next five is the ordinary two-stage form, and it is not
+ * cosmetic: the later years are worth less, so the early ones have to carry
+ * more, and the rate a price demands rises.
+ */
+describe("the fade to the terminal rate", () => {
+  const flat = { marketCap: 1_000, freeCashFlow: 50, discountRate: .10, years: 10, terminalGrowth: .025 };
+  const faded = { ...flat, holdYears: 5 };
+
+  it("holds the rate, then walks it down to the terminal one", () => {
+    const flows = projectCashFlows(100, .20, 10, { terminalGrowth: .02, holdYears: 5 });
+    const growth = flows.map((flow, index) => (index === 0 ? flow / 100 : flow / flows[index - 1]) - 1);
+    // Five years at the rate itself.
+    for (let year = 0; year < 5; year++) expect(growth[year], `year ${year + 1}`).toBeCloseTo(.20, 10);
+    // Then five steps of equal size down to the terminal rate.
+    expect(growth[5]).toBeCloseTo(.164, 3);
+    expect(growth[9]).toBeCloseTo(.02, 10);
+    for (let year = 6; year < 10; year++) {
+      expect(growth[year - 1] - growth[year]).toBeCloseTo(.036, 3);
+    }
+  });
+
+  it("makes a price demand more of the early years", () => {
+    // The same price, the same cash, a shape that gives less away later.
+    const onFlat = impliedGrowth(flat);
+    const onFade = impliedGrowth(faded);
+    expect(onFlat.kind).toBe("solved");
+    expect(onFade.kind).toBe("solved");
+    expect((onFade as { rate: number }).rate).toBeGreaterThan((onFlat as { rate: number }).rate);
+  });
+
+  it("is one shape, read by every function that draws or solves it", () => {
+    /*
+     * A fade applied to the cash flows and not to the value path is two models
+     * on one page: the headline would answer for one projection and the chart
+     * would draw another.
+     */
+    const rate = (impliedGrowth(faded) as { rate: number }).rate;
+    expect(presentValue(faded, rate)).toBeCloseTo(1_000, 6);
+    expect(valuePath(faded, rate)[0]).toBeCloseTo(1_000, 6);
+    const flows = projectCashFlows(50, rate, 10, faded);
+    let discounted = 0;
+    flows.forEach((flow, index) => { discounted += flow / 1.10 ** (index + 1); });
+    const terminal = (flows[9] * 1.025) / (.10 - .025) / 1.10 ** 10;
+    expect(discounted + terminal).toBeCloseTo(1_000, 6);
+  });
+
+  it("leaves the flat model exactly as it was when no hold is stated", () => {
+    // Every caller that does not ask for a fade gets the model it had.
+    const rate = .07;
+    expect(presentValue(flat, rate)).toBeCloseTo(presentValue({ ...flat, holdYears: 10 }, rate), 10);
+    expect(projectCashFlows(50, rate, 10)).toEqual(projectCashFlows(50, rate, 10, { terminalGrowth: .025, holdYears: 10 }));
+  });
+});

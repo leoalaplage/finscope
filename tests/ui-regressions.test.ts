@@ -437,7 +437,10 @@ describe("the redesign", () => {
      */
     expect(dcf).toContain('<div className="label">The price asks for</div>');
     expect(dcf).toContain('<div className="label">It has delivered</div>');
-    expect(dcf).toContain('<div className="label">Worth at that record</div>');
+    expect(dcf).toContain('<div className="label">Fair value at that record</div>');
+    // Named as a fair value with a margin of safety beside it, which is what a
+    // reader arriving from any other site is looking for.
+    expect(dcf).toContain("margin against ${writePrice(model.price, model.basis.currency)} today");
     // And the comparison between the two is written out, because the
     // comparison is the finding — highlighted the way today's move is on the
     // market table, in the same green and red, with the words carrying it too.
@@ -501,6 +504,29 @@ describe("the redesign", () => {
     // The reader moves the return required; the terminal rate is a constant
     // rather than a control, because one tuned per company is a forecast again.
     expect(dcfSource).toContain("const RATES = [.06, .08, .10, .12];");
+    /*
+     * And the default among them is not a round number at all.
+     *
+     * Moving the required return from eight per cent to twelve changes the
+     * growth the price is asking for by seven to twelve points, so a reader
+     * with no view picking the middle button was picking the answer. The page
+     * opens on this company's own cost of equity, built from the ten-year
+     * Treasury it already serves and a beta measured against the S&P 500 from
+     * price series it already returns.
+     */
+    expect(dcfSource).toContain("const required = chosen ?? priced?.rate ?? .10;");
+    expect(dcfSource).toContain("costOfEquity(yields == null ? null : yields / 100, returnsOf(company), returnsOf(market))");
+    expect(dcfSource).toContain("is this company's cost of equity:");
+    // A beta belongs to a filer, so it is carried with the ticker it was
+    // measured for rather than left on screen while the next one loads.
+    expect(dcfSource).toContain("risk?.ticker === ticker ? risk.value : null");
+    /*
+     * And the projection fades rather than falling off a cliff. A rate held
+     * flat for a decade and then dropped to two and a half per cent overnight
+     * is a shape no business has ever had.
+     */
+    expect(dcfSource).toContain("const HOLD = 5;");
+    expect(dcfSource).toContain("terminalGrowth: TERMINAL, holdYears: HOLD");
     expect(dcfSource).toContain("const TERMINAL = .025;");
     expect(dcfSource).not.toContain("setTerminal");
     // Free cash flow is struck after interest, so it is held against the market
