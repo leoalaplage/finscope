@@ -66,7 +66,8 @@ describe("a company's own newsroom", () => {
     const panel = readFileSync(new URL("../components/io/CompanyNews.tsx", import.meta.url), "utf8");
     expect(panel).toContain('if (state.kind === "absent") return null;');
     expect(panel).toContain("}, [ticker]);");
-    expect(panel).toContain('href={item.sourceUrl}');
-    expect(panel).toContain('target="_blank" rel="noreferrer"');
+    // And nothing on it is a door: the newsroom is read here, not left for.
+    expect(panel).not.toContain("<a ");
+    expect(panel).not.toContain('target="_blank"');
   });
 });

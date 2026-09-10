@@ -56,6 +56,9 @@
   --plot: rgba(8, 8, 10, .82);
   --plot-soft: rgba(8, 8, 10, .07);
   --shade: rgba(8, 8, 10, .05);
+  /* The single exception to one ink: today's move on the watchlist table. */
+  --gain: #12704a;
+  --loss: #a32219;
 
   color-scheme: light;
   background: var(--bg);
@@ -87,6 +90,8 @@
     --plot: rgba(250, 250, 250, .88);
     --plot-soft: rgba(250, 250, 250, .09);
     --shade: rgba(250, 250, 250, .06);
+    --gain: #58c08b;
+    --loss: #ef6a63;
     color-scheme: dark;
   }
 }
@@ -104,6 +109,8 @@
   --plot: rgba(250, 250, 250, .88);
   --plot-soft: rgba(250, 250, 250, .09);
   --shade: rgba(250, 250, 250, .06);
+  --gain: #58c08b;
+  --loss: #ef6a63;
   color-scheme: dark;
 }
 
@@ -508,9 +515,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .decision-cell strong { font: 600 var(--fs-lg)/1.15 var(--mono); letter-spacing: -.01em; }
 .decision-cell strong[data-empty="true"] { color: var(--ink-3); font-size: var(--fs-lg); }
 .decision-cell small { overflow: hidden; color: var(--ink-3); font: var(--fs-xs)/1.4 var(--mono); text-overflow: ellipsis; }
-.coverage-notes { margin-top: calc(var(--u) * 3); padding-top: calc(var(--u) * 3); border-top: 1px solid var(--line); }
-.coverage-notes p { max-width: 100ch; color: var(--ink-3); font: var(--fs-xs)/1.55 var(--mono); }
-.coverage-notes p + p { margin-top: calc(var(--u) * 2); }
 
 .change-period { margin-bottom: calc(var(--u) * 3); color: var(--ink-3); font: var(--fs-xs)/1.4 var(--mono); }
 .change-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-block: 1px solid var(--line); }
@@ -1625,6 +1629,18 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 /* Direction is the sign, here as everywhere; the cell only leans on weight. */
 .sheet td[data-dir="up"], .sheet td[data-dir="down"] { color: var(--ink); }
+
+/*
+ * Except today, on the watchlist table, where the reader asked for the hue.
+ *
+ * The one place on this site where a colour carries meaning. It is confined to
+ * a single column on a single table: today's move is the figure people scan
+ * down rather than read, and the sign stays in the number so nothing is said in
+ * colour alone. Every other window in the same table, and every figure
+ * everywhere else, is still one ink.
+ */
+.performance-sheet td[data-window="d1"][data-dir="up"] { color: var(--gain); }
+.performance-sheet td[data-window="d1"][data-dir="down"] { color: var(--loss); }
 
 @media (max-width: 720px) {
   .allocation-row { grid-template-columns: minmax(90px, 1fr) 1fr minmax(46px, auto); }

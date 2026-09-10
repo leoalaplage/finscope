@@ -13,7 +13,7 @@ import { parseNewsFeed, type NewsItem } from "@/lib/news";
  */
 type Headline = Omit<NewsItem, "summary">;
 
-const headline = ({ title, category, publishedAt, sourceUrl }: NewsItem): Headline => ({ title, category, publishedAt, sourceUrl });
+const headline = ({ title, category, publishedAt }: NewsItem): Headline => ({ title, category, publishedAt });
 
 /**
  * The wire, fetched here because a browser cannot fetch it at all.

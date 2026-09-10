@@ -28,11 +28,6 @@ type State =
   | { kind: "absent" }
   | { kind: "ready"; items: Headline[] };
 
-const host = (url: string | null) => {
-  if (!url) return null;
-  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return null; }
-};
-
 export function CompanyNews({ ticker }: { ticker: string }) {
   const [state, setState] = useState<State>({ kind: "loading" });
 
@@ -70,10 +65,9 @@ export function CompanyNews({ ticker }: { ticker: string }) {
             <article className="news-item" key={`${item.publishedAt ?? ""}${item.title}`}>
               <div className="news-meta">
                 {item.publishedAt ? <time dateTime={item.publishedAt}>{clock(item.publishedAt)}</time> : null}
-                {host(item.sourceUrl) ? <span>{host(item.sourceUrl)}</span> : null}
               </div>
               <h3 className="news-headline">
-                {item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.title}</a> : item.title}
+                {item.title}
                 {item.category ? <span className="news-section"> · {item.category}</span> : null}
               </h3>
             </article>

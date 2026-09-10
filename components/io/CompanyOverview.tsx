@@ -20,6 +20,9 @@ const CORE_METRICS = [
   "roic",
 ] as const;
 
+/** "fortress" is the engine's word; "Fortress" is how the page says it. */
+const capitalised = (word: string | null) => word == null ? "Not read" : word[0].toUpperCase() + word.slice(1);
+
 const asHealthPeriod = (period: IoPeriod): HealthPeriod => ({
   label: period.label,
   end: period.end,
@@ -63,10 +66,10 @@ export function DecisionSummary({
 
   const cells = [
     { label: "Quality", value: quality.value, note: quality.note, href: "#score" },
-    { label: "Health", value: health?.state ?? "Not read", note: health ? `${health.answered}/${health.questions.length} tests answered` : "Not applicable or unavailable", href: "#health" },
+    { label: "Health", value: health ? capitalised(health.state) : "Not read", note: health ? `${health.answered}/${health.questions.length} tests answered` : "Not applicable or unavailable", href: "#health" },
     { label: "Growth", value: growth.value == null ? ABSENT : percent(growth.value, 1), note: "FCF / share · 5Y CAGR", href: "#financials-section" },
     { label: "Valuation", value: valuationReading.value, note: valuationReading.note, href: "#valuation-section" },
-    { label: "Coverage", value: `${covered}/${CORE_METRICS.length}`, note: `${view.annual.length} annual · ${view.quarterly.length} quarterly periods`, href: "#coverage-notes" },
+    { label: "Coverage", value: `${covered}/${CORE_METRICS.length}`, note: `${view.annual.length} annual · ${view.quarterly.length} quarterly periods`, href: "#financials-section" },
   ];
 
   return (
@@ -83,11 +86,6 @@ export function DecisionSummary({
             <small>{cell.note}</small>
           </a>
         ))}
-      </div>
-      <div className="coverage-notes" id="coverage-notes">
-        <p><span className="label">Scope</span> SEC XBRL · US-GAAP coverage · identity {view.company.resolution}. Missing or economically inapplicable measures stay blank.</p>
-        {view.withheldReason ? <p>{view.withheldReason}</p> : null}
-        {view.warnings.map((warning) => <p key={warning}>{warning}</p>)}
       </div>
     </section>
   );
@@ -187,7 +185,19 @@ export function CompanyTimeline({ view, insiders }: { view: IoCompanyView; insid
         detail: transaction.value == null ? transaction.codeLabel : money(transaction.value, "USD"),
         href: transaction.sourceUrl,
       }));
-    return [...filings, ...dealing].sort((left, right) => right.date.localeCompare(left.date)).slice(0, 10);
+    /*
+     * Each kind is capped before they are merged, or one drowns the other.
+     *
+     * Apple files a Form 4 most weeks and an annual report once a year. Taking
+     * the ten newest events of any kind gave a section headed "filings,
+     * results and insider decisions" that was ten insider sales by the same
+     * officer, and the filings it promised were four years down a list that
+     * stops at ten.
+     */
+    const newest = (events: TimelineEvent[], count: number) =>
+      [...events].sort((left, right) => right.date.localeCompare(left.date)).slice(0, count);
+    return [...newest(filings, 5), ...newest(dealing, 5)]
+      .sort((left, right) => right.date.localeCompare(left.date));
   }, [insiders, view]);
 
   if (!events.length) return null;

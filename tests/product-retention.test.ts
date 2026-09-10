@@ -14,13 +14,11 @@ describe("shareable research workflows", () => {
     for (const name of ["Bear", "Base", "Bull"]) expect(source).toContain(`"${name}"`);
   });
 
-  it("stores named watchlists, company notes, screens and alert state locally", () => {
+  it("stores named watchlists, company notes and screens locally", () => {
     expect(read("../components/io/watchlist.ts")).toContain("WATCHLISTS_KEY");
     expect(read("../components/io/WatchlistEditor.tsx")).toContain("New list");
     expect(read("../components/io/CompanyNotebook.tsx")).toContain("Research notebook");
     expect(read("../components/io/Screener.tsx")).toContain("SAVED_SCREENS_KEY");
-    const alerts = read("../components/io/AlertsCenter.tsx");
-    for (const kind of ["filing", "insider", "valuation", "grade"]) expect(alerts).toContain(`"${kind}"`);
   });
 
   it("makes the home and empty portfolio decision-oriented", () => {

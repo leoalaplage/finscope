@@ -8,8 +8,12 @@ import type { NewsItem } from "@/lib/news";
  * The wire, under the indices.
  *
  * Headlines, in the same ink as everything else on the site: an hour, a
- * section, and the line itself. The verified HTTP(S) URL carried by the feed
- * opens the original source; no feed markup or image reaches this page.
+ * section, and the line itself. Nothing here is a link and nothing here is an
+ * image — what the page offers is the news read where the reader already is,
+ * rather than a row of doors out of it, and the wire's own host is not a
+ * byline worth printing beside every line. Somebody else wrote these lines and
+ * they are shown as their words, stripped to text on the way in and never
+ * rendered as markup.
  *
  * Loaded after the charts and never in their way: the indices are what the page
  * is for, and a feed that is slow, refused or empty leaves the rest of the page
@@ -23,11 +27,6 @@ type State =
   | { kind: "loading" }
   | { kind: "absent" }
   | { kind: "ready"; items: Headline[] };
-
-const host = (url: string | null) => {
-  if (!url) return null;
-  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return null; }
-};
 
 export function MarketNews() {
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -71,10 +70,9 @@ export function MarketNews() {
                   labelling it, so it reads at the end of the line. */}
               <div className="news-meta">
                 {item.publishedAt ? <time dateTime={item.publishedAt}>{clock(item.publishedAt)}</time> : null}
-                {host(item.sourceUrl) ? <span>{host(item.sourceUrl)}</span> : null}
               </div>
               <h3 className="news-headline">
-                {item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.title}</a> : item.title}
+                {item.title}
                 {item.category ? <span className="news-section"> · {item.category}</span> : null}
               </h3>
             </article>

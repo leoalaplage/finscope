@@ -19,7 +19,7 @@ import { parseNewsFeed, type NewsItem } from "@/lib/news";
  */
 type Headline = Omit<NewsItem, "summary">;
 
-const headline = ({ title, category, publishedAt, sourceUrl }: NewsItem): Headline => ({ title, category, publishedAt, sourceUrl });
+const headline = ({ title, category, publishedAt }: NewsItem): Headline => ({ title, category, publishedAt });
 
 /**
  * Fifteen minutes, and twelve items.
@@ -50,7 +50,7 @@ export async function GET(_request: Request, context: { params: Promise<{ ticker
   }
   try {
     const { body, hit } = await cachedJson<{ items: Headline[] }>(
-      `company-news:${symbol}:v2`,
+      `company-news:${symbol}:v3`,
       NEWS_SECONDS,
       async () => {
         const response = await fetch(feed, {

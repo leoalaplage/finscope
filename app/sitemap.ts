@@ -10,7 +10,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_ORIGIN}/dcf`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${SITE_ORIGIN}/markets`, changeFrequency: "daily", priority: 0.7 },
     { url: `${SITE_ORIGIN}/portfolio`, changeFrequency: "weekly", priority: 0.6 },
-    { url: `${SITE_ORIGIN}/alerts`, changeFrequency: "weekly", priority: 0.6 },
     { url: `${SITE_ORIGIN}/research`, changeFrequency: "weekly", priority: 0.5 },
   ];
   const companies: MetadataRoute.Sitemap = DEFAULT_WATCHLIST.map((company) => ({

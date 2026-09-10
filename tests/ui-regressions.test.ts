@@ -572,7 +572,7 @@ describe("the redesign", () => {
     expect(panel).not.toContain("Nothing on this page is a forecast");
   });
 
-  it("reads the wire under the indices as safe text linked to its original source", () => {
+  it("reads the wire under the indices as text, and never as a door", () => {
     const page = readFileSync(new URL("../app/market/page.tsx", import.meta.url), "utf8");
     const news = readFileSync(new URL("../components/io/MarketNews.tsx", import.meta.url), "utf8");
     const parser = readFileSync(new URL("../lib/news.ts", import.meta.url), "utf8");
@@ -581,12 +581,14 @@ describe("the redesign", () => {
     // component above it.
     expect(page.indexOf("<MarketNews />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
     // Somebody else's document is data. Nothing from it is rendered as markup,
-    // while its verified HTTP(S) source remains available.
+    // and nothing from it is followed: the feed's own link would send a reader
+    // somewhere nobody here vouches for, and its hostname is not a byline this
+    // page prints under every headline.
     expect(news).not.toContain("dangerouslySetInnerHTML");
-    expect(news).toContain('href={item.sourceUrl}');
-    expect(news).toContain('target="_blank" rel="noreferrer"');
+    expect(news).not.toContain("<a ");
+    expect(news).not.toContain('target="_blank"');
+    expect(news).not.toContain("hostname");
     expect(parser).toContain('replace(/<[^>]*>/g, " ")');
-    expect(parser).toContain('url.protocol === "https:" || url.protocol === "http:"');
     // Set like every other line of text here: a headline in the proportional
     // face reads as though it came from somewhere else.
     expect(css).toContain(".news-headline { font-family: var(--mono);");

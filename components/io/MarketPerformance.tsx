@@ -18,10 +18,17 @@ import { WatchlistEditor } from "./WatchlistEditor";
  * Two of them are totals and two are rates. A day and a year to date are moves;
  * five and ten years are annualised, because a cumulative six hundred per cent
  * says nothing about the pace it was earned at and cannot sit in a row beside a
- * one-day change without misleading. The headings carry "p.a." for the same
- * reason the figures do not carry a colour: the distinction has to be readable,
- * and +25% a year against +25% over a decade is the same nine characters and
- * the opposite fact.
+ * one-day change without misleading — the headings carry "p.a." because +25% a
+ * year against +25% over a decade is the same nine characters and the opposite
+ * fact.
+ *
+ * The day is the one figure on this site that carries a colour, and it is here
+ * at the reader's request. It is defensible in the narrow way a rule like this
+ * can be: today's move is the only column anyone scans rather than reads, and
+ * the sign is already in the number for anyone who cannot see the hue. It is
+ * still an exception to how the rest of the site says up and down, which is
+ * with the sign alone, so it is confined to this one column rather than let
+ * loose down the table.
  *
  * A window longer than a company's own history is blank, not a return since
  * listing. Palantir has no ten-year column because Palantir has no ten years,
@@ -174,7 +181,12 @@ export function MarketPerformance() {
                   {WINDOWS.map((window) => {
                     const value = row?.changes[window.id] ?? null;
                     return (
-                      <td key={window.id} data-empty={value == null} data-dir={value == null ? undefined : value >= 0 ? "up" : "down"}>
+                      <td
+                        key={window.id}
+                        data-empty={value == null}
+                        data-window={window.id}
+                        data-dir={value == null ? undefined : value > 0 ? "up" : value < 0 ? "down" : "flat"}
+                      >
                         {row ? (value == null ? ABSENT : delta(value, 1)) : <span className="skeleton performance-wait" />}
                       </td>
                     );

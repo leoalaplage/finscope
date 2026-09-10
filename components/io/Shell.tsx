@@ -112,7 +112,6 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
             <a href="/screener" aria-current={isCurrent("/screener") ? "page" : undefined}>Screener</a>
             <a href={dcfHref} aria-current={isCurrent("/dcf") ? "page" : undefined}>DCF</a>
             <a href="/portfolio" aria-current={isCurrent("/portfolio") ? "page" : undefined}>Portfolio</a>
-            <a href="/alerts" aria-current={isCurrent("/alerts") ? "page" : undefined}>Alerts</a>
           </nav>
           <ThemeSwitch />
           <a className="settings-link" href="/settings" aria-label="Open settings" title="Settings" aria-current={isCurrent("/settings") ? "page" : undefined}>
@@ -133,7 +132,7 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
               type="button"
               aria-expanded={moreOpen}
               aria-controls={moreId}
-              data-active={isCurrent("/compare") || isCurrent("/dcf") || isCurrent("/alerts")}
+              data-active={isCurrent("/compare") || isCurrent("/dcf")}
               onClick={() => setMoreOpen((open) => !open)}
             >
               More <span aria-hidden="true">{moreOpen ? "−" : "+"}</span>
@@ -142,8 +141,7 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
               <div className="mobile-more-panel" id={moreId}>
                 <a href={compareHref} aria-current={isCurrent("/compare") ? "page" : undefined}>Compare</a>
                 <a href={dcfHref} aria-current={isCurrent("/dcf") ? "page" : undefined}>DCF</a>
-                <a href="/alerts" aria-current={isCurrent("/alerts") ? "page" : undefined}>Alerts</a>
-              </div>
+                  </div>
             ) : null}
           </div>
         </nav>
