@@ -821,6 +821,28 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .market-ranges .segmented button:hover { color: var(--ink-2); }
 .market-ranges .segmented button.active { background: var(--ink); color: var(--inverse); }
 .index-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--u) * 4); }
+
+/*
+ * The raw materials, as figures rather than as six more charts.
+ *
+ * The panels above are the subject of the page and earn their drawings; a
+ * barrel of oil is context, and context that takes as much room as the subject
+ * stops being context. Six cells of the ruled grid, read down.
+ */
+.commodity-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.commodity-grid .stat { padding: 11px 12px 12px; min-width: 0; }
+.commodity-move { display: flex; align-items: baseline; gap: calc(var(--u) * 2); margin-top: 5px; flex-wrap: wrap; }
+/* Today's move, the width of the figure — the watchlist's own highlighter. */
+.commodity-move .day-mark[data-dir] {
+  display: inline-block; padding: 2px 5px; margin: -2px -5px 0;
+  border-radius: var(--radius); color: var(--ink); font: 550 var(--fs-xs)/1 var(--mono);
+}
+.commodity-move .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }
+.commodity-move .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
+.commodity-move .label { color: var(--ink-3); }
+
+@media (max-width: 1080px) { .commodity-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .commodity-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .index-panel {
   min-width: 0; padding: calc(var(--u) * 4); border: 1px solid var(--line);
   border-radius: var(--radius); background: var(--bg); color: var(--ink);
