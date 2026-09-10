@@ -23,12 +23,13 @@ import { WatchlistEditor } from "./WatchlistEditor";
  * fact.
  *
  * The day is the one figure on this site that carries a colour, and it is here
- * at the reader's request. It is a wash behind the cell rather than a tint on
- * the figure: the number keeps its full-strength ink, so the column can be
- * scanned by anyone and read by everyone. The sign is in the number too, for a
- * reader who cannot separate the two hues. It is still an exception to how the
- * rest of the site says up and down, which is with the sign alone, so it is
- * confined to this one column rather than let loose down the table.
+ * at the reader's request. It is drawn as a highlighter over the number and
+ * nothing more — the width of the figure, not the width of the column — so the
+ * table keeps its ruled grid instead of gaining a block of colour in the middle
+ * of every row. The number keeps its full-strength ink and its sign, so the
+ * column can be scanned by anyone and read by everyone. It is still an
+ * exception to how the rest of the site says up and down, which is with the
+ * sign alone, so it is confined to this one column.
  *
  * A window longer than a company's own history is blank, not a return since
  * listing. Palantir has no ten-year column because Palantir has no ten years,
@@ -187,7 +188,14 @@ export function MarketPerformance() {
                         data-window={window.id}
                         data-dir={value == null ? undefined : value > 0 ? "up" : value < 0 ? "down" : "flat"}
                       >
-                        {row ? (value == null ? ABSENT : delta(value, 1)) : <span className="skeleton performance-wait" />}
+                        {row
+                          ? value == null
+                            ? ABSENT
+                            /* The figure carries the mark, not the cell it sits
+                               in: a highlighter over the number, the width of
+                               the number. */
+                            : <span className="day-mark">{delta(value, 1)}</span>
+                          : <span className="skeleton performance-wait" />}
                       </td>
                     );
                   })}
