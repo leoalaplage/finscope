@@ -3,7 +3,7 @@ import { searchSecCompanies } from "@/lib/adapters/sec";
 import { companyByTicker } from "@/lib/company-registry";
 import { companyView } from "@/lib/io/view";
 import { VIEW_SHAPE } from "@/lib/io/view-version";
-import { CACHE_SECONDS, KEY_VERSION, claimKey, datasetKey, fallbackDatasetKeys, requestCompany } from "@/lib/dataset-cache";
+import { CACHE_SECONDS, KEY_VERSION, claimKey, datasetKey, fallbackDatasetKeys, readTwice, requestCompany } from "@/lib/dataset-cache";
 import { TICKER_PATTERN } from "@/lib/market-profile";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
 import type { CompanyDataset } from "@/lib/types";
@@ -81,7 +81,9 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
 
   if (cache) {
     try {
-      const warm = await cache.get(viewKey(symbol), "stream");
+      // Given a ceiling and a second chance: a read that never settles used to
+      // hold the invocation open until the reader gave up. See `readTwice`.
+      const warm = await readTwice(() => cache.get(viewKey(symbol), "stream"));
       if (warm) return new Response(warm, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
     } catch {
       // A cache that misbehaves must never take the endpoint down with it.
@@ -101,10 +103,10 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
   let stored: string | null = null;
   if (cache) {
     try {
-      stored = await cache.get(datasetKey(symbol), "text");
+      stored = await readTwice(() => cache.get(datasetKey(symbol), "text"));
       if (!stored) {
         for (const previous of fallbackDatasetKeys(symbol)) {
-          stored = await cache.get(previous, "text");
+          stored = await readTwice(() => cache.get(previous, "text"));
           if (stored) break;
         }
       }

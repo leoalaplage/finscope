@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchSecCompany } from "@/lib/adapters/sec";
-import { CACHE_SECONDS, claimKey, datasetKey, digestIsCurrent, fallbackDatasetKeys, requestCompany, summaryKey } from "@/lib/dataset-cache";
+import { CACHE_SECONDS, claimKey, datasetKey, digestIsCurrent, fallbackDatasetKeys, readTwice, requestCompany, summaryKey } from "@/lib/dataset-cache";
 import { summariseDataset } from "@/lib/watchlist-summary";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
 
@@ -73,7 +73,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
           return new Response(stored, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
         }
       }
-      const warm = await cache?.get(key, "stream");
+      const warm = cache ? await readTwice(() => cache.get(key, "stream")) : null;
       if (warm) return new Response(warm, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
 
       /*
@@ -87,7 +87,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
        * for minutes rather than hours so the new build replaces it promptly.
        */
       for (const previous of fallbackDatasetKeys(symbol)) {
-        const stale = await cache?.get(previous, "stream");
+        const stale = cache ? await readTwice(() => cache.get(previous, "stream")) : null;
         if (stale) {
           return new Response(stale, { headers: {
             ...headers,

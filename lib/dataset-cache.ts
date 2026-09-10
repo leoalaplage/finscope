@@ -66,6 +66,47 @@ export function fallbackSummaryKeys(ticker: string) {
  */
 export const CACHE_SECONDS = 604_800;
 
+/**
+ * A cache read that is allowed to give up.
+ *
+ * The Worker's own logs caught this: about one request in ten to a warm
+ * endpoint returned `outcome: canceled` with a wall time of exactly the
+ * client's timeout and a CPU time of nought or one millisecond. Nought
+ * milliseconds of CPU over six seconds is a Worker parked on an await, and on
+ * a cache hit the only await before the response is the KV read. It does not
+ * fail and it does not throw — it simply never settles, and the reader watches
+ * "Reading the filings" until they close the tab.
+ *
+ * A warm read of this store answers in eight to fourteen milliseconds. Two
+ * seconds is a hundred and fifty times that, so nothing healthy is ever cut
+ * short; what the ceiling buys is that a stalled read becomes a miss, and a
+ * miss is a path every one of these endpoints already knows how to walk.
+ *
+ * The abandoned promise is left to settle on its own. Cancelling a KV read is
+ * not something the runtime offers, and an unhandled rejection from one that
+ * fails after we stopped waiting would take down the invocation that no longer
+ * cares about it.
+ */
+export const CACHE_READ_MS = 2_000;
+
+export function readWithin<T>(read: Promise<T>, ms = CACHE_READ_MS): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const ceiling = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), ms); });
+  return Promise.race([read.catch(() => null), ceiling]).finally(() => { if (timer) clearTimeout(timer); });
+}
+
+/**
+ * The same read, given a second chance before it is called a miss.
+ *
+ * A stall is not a property of the key: the request after it answers in nine
+ * milliseconds. One retry turns a one-in-ten stall into a one-in-a-hundred at
+ * the cost of two seconds on the requests that were going to fail anyway.
+ */
+export async function readTwice<T>(read: () => Promise<T>, ms = CACHE_READ_MS): Promise<T | null> {
+  const first = await readWithin(read(), ms);
+  return first ?? await readWithin(read(), ms);
+}
+
 export function datasetKey(ticker: string) {
   return `company:${KEY_VERSION}:${ticker.toUpperCase()}`;
 }
