@@ -118,11 +118,26 @@ export function Dcf({ initial }: { initial: string }) {
      precisely the synchronization this effect owns. */
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    /*
+     * A parameter that is not there is not a nought.
+     *
+     * `Number(null)` is 0, and nought is a valid growth rate — so arriving at
+     * /dcf?s=AAPL with no assumption at all set the reader's own rate to zero
+     * and offered them a row reading "if it grows at your own rate · 0.0% a
+     * year". The required return escaped it only because its floor is one per
+     * cent. Both are read as absent unless the address actually carries them.
+     */
     const address = new URLSearchParams(search);
-    const rate = Number(address.get("r"));
-    const growth = Number(address.get("g"));
-    if (Number.isFinite(rate) && rate >= .01 && rate <= .30) setRequired(rate);
-    if (Number.isFinite(growth) && growth >= -.50 && growth <= 1) { setAssumed(growth); setPicked("own"); }
+    const asRate = (name: string) => {
+      const raw = address.get(name);
+      if (raw == null || raw.trim() === "") return null;
+      const value = Number(raw);
+      return Number.isFinite(value) ? value : null;
+    };
+    const rate = asRate("r");
+    const growth = asRate("g");
+    if (rate != null && rate >= .01 && rate <= .30) setRequired(rate);
+    if (growth != null && growth >= -.50 && growth <= 1) { setAssumed(growth); setPicked("own"); }
   }, [asked, search]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -282,28 +297,66 @@ export function Dcf({ initial }: { initial: string }) {
    * numbers, because "more than the record" is a claim and needs two of them.
    */
   const priceAsks = model?.asks.kind === "solved" ? model.asks.rate : null;
-  const sentence = (() => {
-    if (!model) return "";
+
+  /*
+   * The finding, in two halves: what is true, and what it means.
+   *
+   * The second half is the one sentence on this page a reader could act on, so
+   * it is highlighted the way today's move is on the market table — the width
+   * of the words, in the same green and red, with the words themselves saying
+   * which way it goes for anyone who cannot separate the two hues.
+   */
+  const reading = (() => {
+    if (!model) return null;
     const price = writePrice(model.price, model.basis.currency);
     const name = view?.company.name ?? ticker;
     if (model.asks.kind === "beyond") {
       return model.asks.direction === "above"
-        ? `No growth this model can project justifies ${price}: even at ${percent(model.asks.bound, 0)} a year for ten years, ten years of this company's free cash flow discounted at ${percent(required, 0)} comes to less than the price.`
-        : `${price} is below what ten years of this company's free cash flow is worth at ${percent(required, 0)} even if that cash flow never grows again.`;
+        ? { fact: `No growth this model can project justifies ${price}: even at ${percent(model.asks.bound, 0)} a year for ten years, ten years of this company's free cash flow discounted at ${percent(required, 0)} comes to less than the price.`, verdict: null, dir: null }
+        : { fact: `${price} is below what ten years of this company's free cash flow is worth at ${percent(required, 0)} even if that cash flow never grows again.`, verdict: null, dir: null };
     }
-    if (model.asks.kind !== "solved") return model.asks.reason;
+    if (model.asks.kind !== "solved") return { fact: model.asks.reason, verdict: null, dir: null };
     const asks = model.asks.rate;
     const head = `To pay ${price} today and still earn ${percent(required, 0)} a year, ${name}'s free cash flow has to grow ${percent(asks, 1)} a year for ten years.`;
-    if (!model.record) return `${head} The filings do not carry enough free cash flow history to say what it has grown at before.`;
+    if (!model.record) return { fact: `${head} The filings do not carry enough free cash flow history to say what it has grown at before.`, verdict: null, dir: null };
     const done = model.record.rate;
-    const over = `Over the ${Math.round(model.record.years)} years it has filed, it grew ${percent(done, 1)} a year.`;
-    const verdict = Math.abs(asks - done) < .005
-      ? "The price is asking for about what the company has delivered."
-      : asks > done
-        ? "The price is asking for more than the company has delivered."
-        : "The price is asking for less than the company has delivered.";
-    return `${head} ${over} ${verdict}`;
+    const fact = `${head} Over the ${Math.round(model.record.years)} years it has filed, it grew ${percent(done, 1)} a year.`;
+    if (Math.abs(asks - done) < .005) {
+      return { fact, verdict: "The price is asking for about what the company has delivered.", dir: "flat" as const };
+    }
+    return asks > done
+      ? { fact, verdict: "The price is asking for more than the company has delivered.", dir: "down" as const }
+      : { fact, verdict: "The price is asking for less than the company has delivered.", dir: "up" as const };
   })();
+
+  /*
+   * The same question the other way round, and the reason this page needs no
+   * assumption at all.
+   *
+   * Requiring a return and solving for growth is one reading; taking the growth
+   * the company has actually delivered and solving for the return is the other,
+   * and it is the one most readers mean by "is this worth buying". Both records
+   * are on offer because they routinely disagree — a five-year rate off a
+   * pandemic trough against a decade that contains it — and the reader's own
+   * rate is the third row rather than the price of admission.
+   */
+  const earnings = useMemo(() => {
+    if (!model) return [];
+    const rows: Array<{ id: GrowthChoice; label: string; rate: number }> = [];
+    if (near) rows.push({ id: "near", label: `If it grows like the last ${Math.round(near.years)} years`, rate: near.rate });
+    if (record && (!near || record.years > near.years + .5)) {
+      rows.push({ id: "far", label: `If it grows like the last ${Math.round(record.years)} years`, rate: record.rate });
+    }
+    rows.push({ id: "own", label: "If it grows at your own rate", rate: custom });
+    return rows.map((row) => ({ ...row, earns: impliedReturn(model.terms, row.rate) }));
+  }, [model, near, record, custom]);
+
+  /** A return that solves, a bound where it does not, and nothing invented. */
+  const earned = (result: ReturnType<typeof impliedReturn>) => result.kind === "solved"
+    ? percent(result.rate, 1)
+    : result.kind === "beyond"
+      ? `${result.direction === "above" ? "over " : "under "}${percent(result.bound, 0)}`
+      : ABSENT;
 
   return (
     <main className="wrap dcf-page" id="main-content" tabIndex={-1}>
@@ -396,7 +449,36 @@ export function Dcf({ initial }: { initial: string }) {
               </div>
             </div>
 
-            <p className="verdict-sentence">{sentence}</p>
+            <p className="verdict-sentence">
+              {reading?.fact}
+              {reading?.verdict ? <> <span className="day-mark" data-dir={reading.dir}>{reading.verdict}</span></> : null}
+            </p>
+
+            {/*
+              * And what that same record would earn you at today's price.
+              *
+              * The page asked the reader for a growth rate and gave back a
+              * value; this asks nothing and gives back the figure the question
+              * is really about. The reader's own rate is the last row, so the
+              * field below is an addition to the answer rather than the way in
+              * to it.
+              */}
+            {earnings.length ? (
+              <ul className="verdict-earns">
+                {earnings.map((row) => (
+                  <li key={row.id} data-selected={row.id === growth}>
+                    <button type="button" aria-pressed={row.id === growth} onClick={() => setGrowth(row.id)}>
+                      <span>{row.label}</span>
+                      <small>{percent(row.rate, 1)} a year</small>
+                    </button>
+                    <span className="verdict-earns-value" data-empty={row.earns.kind === "unavailable"}>
+                      {earned(row.earns)}
+                    </span>
+                    <span className="label">a year, buying today</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
             {/*
               * The second control, and the last: optional, and named as an

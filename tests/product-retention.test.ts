@@ -25,10 +25,12 @@ describe("shareable research workflows", () => {
     expect(source).not.toContain("dcf-matrix");
   });
 
-  it("stores named watchlists and company notes locally", () => {
+  it("stores named watchlists locally, and keeps no notebook", () => {
     expect(read("../components/io/watchlist.ts")).toContain("WATCHLISTS_KEY");
     expect(read("../components/io/WatchlistEditor.tsx")).toContain("New list");
-    expect(read("../components/io/CompanyNotebook.tsx")).toContain("Research notebook");
+    // A notebook of thesis, risks and catalysts sat at the foot of every
+    // company page. It is a place to write, on a site for reading filings.
+    expect(read("../components/io/Company.tsx")).not.toContain("CompanyNotebook");
     /*
      * The screener saves nothing. Saved views were stored beside a minimum
      * score, a maximum alert count and a sector box, and all four are gone:

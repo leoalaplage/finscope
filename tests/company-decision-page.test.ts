@@ -20,11 +20,8 @@ describe("the company page", () => {
     }
   });
 
-  it("keeps the reader's own desk after the filings, not among them", () => {
-    // A notebook and an export are things done with a company page, not things
-    // read on one.
-    const company = read("../components/io/Company.tsx");
-    expect(company.indexOf("<CompanyNotebook")).toBeGreaterThan(company.indexOf("<CompanyNews"));
+  it("keeps the portfolio's export after the book, not on its masthead", () => {
+    // Taking the book away is something done after reading it.
     const portfolio = read("../components/io/Portfolio.tsx");
     expect(portfolio.indexOf("<ExportMenu")).toBeGreaterThan(portfolio.indexOf("<PortfolioAnalysis"));
   });

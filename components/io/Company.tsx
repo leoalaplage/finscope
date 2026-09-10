@@ -22,7 +22,6 @@ import type { IoQuote } from "./quote";
 import { fundamentalWindow, RANGES, type Frequency, type Range } from "./ranges";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "./format";
 import { rememberCompany } from "@/lib/io/last-company";
-import { CompanyNotebook } from "./CompanyNotebook";
 
 /**
  * One company, one screen.
@@ -412,16 +411,6 @@ export function Company({ ticker }: { ticker: string }) {
       {/* Last of the filings, because it is the only thing on this page the
           company did not file: what it has said since. */}
       <CompanyNews key={company.ticker} ticker={company.ticker} />
-
-      {/*
-        * And after all of it, the reader's own desk.
-        *
-        * A notebook and an export are things done with a company page, not
-        * things read on one. In the middle of the document they interrupted
-        * the filings with a form; at the end they are where a reader arrives
-        * having already read what they came for.
-        */}
-      <CompanyNotebook key={`notebook-${company.ticker}`} view={view} />
 
       <footer className="foot">
         <span className="label">Source</span>

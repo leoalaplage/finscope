@@ -421,6 +421,7 @@ describe("the redesign", () => {
     const page = readFileSync(new URL("../app/dcf/page.tsx", import.meta.url), "utf8");
     const dcf = readFileSync(new URL("../components/io/Dcf.tsx", import.meta.url), "utf8");
     const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
     expect(shell).toContain('>DCF</a>');
     // The company being valued is in the address, so a valuation can be sent.
     expect(page).toContain('export const dynamic = "force-static"');
@@ -438,9 +439,24 @@ describe("the redesign", () => {
     expect(dcf).toContain('<div className="label">It has delivered</div>');
     expect(dcf).toContain('<div className="label">Worth at that record</div>');
     // And the comparison between the two is written out, because the
-    // comparison is the finding.
+    // comparison is the finding — highlighted the way today's move is on the
+    // market table, in the same green and red, with the words carrying it too.
     expect(dcf).toContain("The price is asking for more than the company has delivered.");
     expect(dcf).toContain("The price is asking for less than the company has delivered.");
+    expect(dcf).toContain('<span className="day-mark" data-dir={reading.dir}>');
+    expect(css).toContain('.verdict-sentence .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }');
+    /*
+     * And the same question the other way round, which needs nothing at all.
+     *
+     * Requiring a return and solving for growth is one reading; taking the
+     * growth the company has delivered and solving for the return is the one
+     * most readers mean by "is this worth buying". Both records are offered
+     * because they routinely disagree, and the reader's own rate is the third
+     * row rather than the price of admission.
+     */
+    expect(dcf).toContain("impliedReturn(model.terms, row.rate)");
+    expect(dcf).toContain("If it grows like the last ${Math.round(near.years)} years");
+    expect(dcf).toContain('label: "If it grows at your own rate"');
     /*
      * Two controls, and the first one says what it is.
      *
