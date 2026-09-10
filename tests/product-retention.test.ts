@@ -21,11 +21,7 @@ describe("shareable research workflows", () => {
     expect(read("../components/io/Screener.tsx")).toContain("SAVED_SCREENS_KEY");
   });
 
-  it("makes the home and empty portfolio decision-oriented", () => {
-    const home = read("../components/io/HomeWatchlist.tsx");
-    expect(home).toContain("Recently viewed");
-    expect(home).toContain("changePercent");
-    expect(home).toContain("valuationStars");
+  it("makes an empty portfolio decision-oriented", () => {
     const portfolio = read("../components/io/Portfolio.tsx");
     expect(portfolio).toContain("Try an example");
     expect(portfolio).toContain("Look-through cash");

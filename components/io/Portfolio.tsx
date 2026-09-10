@@ -395,7 +395,6 @@ export function Portfolio() {
             <div className="head-meta">
               <span className="label">Valued in your browser</span>
               <button className="label head-compare" type="button" onClick={openEditor}>Edit holdings →</button>
-              {positions.length ? <ExportMenu name="finscope-portfolio" rows={valued.positions.map((position) => ({ ticker: position.ticker, shares: position.shares, price: position.price, value: position.value, weight: position.weight, costBasis: position.costBasis, profitPercent: position.profitPercent, filingPeriod: position.summary?.periodLabel ?? null, filingDate: position.summary?.periodEnd ?? null }))} provenance={["FinScope portfolio · SEC-filed company summaries", "Market prices carry their own as-of time", "Portfolio stored locally on this device"]} /> : null}
             </div>
           </div>
 
@@ -553,6 +552,22 @@ export function Portfolio() {
             score={score}
             risks={riskExposures}
           />
+
+          {/*
+            * At the foot, where the company page keeps its own.
+            *
+            * Taking the book away is something done after reading it, not a
+            * control that belongs beside the total at the top of the page.
+            */}
+          {positions.length ? (
+            <div className="section export-foot">
+              <ExportMenu
+                name="finscope-portfolio"
+                rows={valued.positions.map((position) => ({ ticker: position.ticker, shares: position.shares, price: position.price, value: position.value, weight: position.weight, costBasis: position.costBasis, profitPercent: position.profitPercent, filingPeriod: position.summary?.periodLabel ?? null, filingDate: position.summary?.periodEnd ?? null }))}
+                provenance={["FinScope portfolio · SEC-filed company summaries", "Market prices carry their own as-of time", "Portfolio stored locally on this device"]}
+              />
+            </div>
+          ) : null}
         </>
       )}
 

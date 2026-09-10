@@ -328,10 +328,9 @@ describe("the redesign", () => {
   it("names a company's own sector on its card, never the name of the list", () => {
     const watchlist = readFileSync(new URL("../components/io/HomeWatchlist.tsx", import.meta.url), "utf8");
     expect(watchlist).not.toContain('?? "Watchlist"');
-    expect(watchlist).toContain("summarySector(reading.summary)");
-    // A card with no digest yet states that it is being read rather than
-    // inventing a sector.
-    expect(watchlist).toContain('sector ?? "Filed company"');
+    expect(watchlist).toContain("summarySector(summary)");
+    // A card with no sector yet states the ticker alone rather than a placeholder.
+    expect(watchlist).toContain("{sector ? <span>{sector}</span> : null}");
   });
 
   it("drops the resolver's placeholders from a company header", () => {

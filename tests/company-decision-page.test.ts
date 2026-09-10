@@ -4,18 +4,29 @@ import { describe, expect, it } from "vitest";
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 describe("the company decision page", () => {
-  it("offers a sticky five-part reading path and opens grouped sections", () => {
-    const navigation = read("../components/io/CompanyNavigation.tsx");
+  it("reads top to bottom, with nothing folded away", () => {
+    /*
+     * A sub-navigation and four collapsible groups were added here, three of
+     * them shut on arrival. The statements, the insiders and the newsroom were
+     * behind a click a reader had to know to make, and the browser's own find
+     * could not see a word of them.
+     */
     const company = read("../components/io/Company.tsx");
-    const css = read("../app/io.css");
-    for (const label of ["Overview", "Valuation", "Financials", "Ownership", "News"]) {
-      expect(navigation).toContain(`label: "${label}"`);
+    expect(company).not.toContain("<CompanyGroup");
+    expect(company).not.toContain("<details");
+    expect(company).not.toContain("CompanyNavigation");
+    for (const section of ["<Statements", "<Insiders", "<Holders", "<CompanyNews"]) {
+      expect(company, section).toContain(section);
     }
-    expect(navigation).toContain('aria-current={active === item.id ? "location" : undefined}');
-    expect(company).toContain("<CompanyGroup");
-    expect(company).toContain("<details");
-    expect(css).toContain(".company-subnav {");
-    expect(css).toContain("position: sticky;");
+  });
+
+  it("keeps the reader's own desk after the filings, not among them", () => {
+    // A notebook and an export are things done with a company page, not things
+    // read on one.
+    const company = read("../components/io/Company.tsx");
+    expect(company.indexOf("<CompanyNotebook")).toBeGreaterThan(company.indexOf("<CompanyNews"));
+    const portfolio = read("../components/io/Portfolio.tsx");
+    expect(portfolio.indexOf("<ExportMenu")).toBeGreaterThan(portfolio.indexOf("<PortfolioAnalysis"));
   });
 
   it("puts the decision summary, filing changes and unified timeline in overview", () => {

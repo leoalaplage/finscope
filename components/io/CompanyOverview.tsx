@@ -67,9 +67,9 @@ export function DecisionSummary({
   const cells = [
     { label: "Quality", value: quality.value, note: quality.note, href: "#score" },
     { label: "Health", value: health ? capitalised(health.state) : "Not read", note: health ? `${health.answered}/${health.questions.length} tests answered` : "Not applicable or unavailable", href: "#health" },
-    { label: "Growth", value: growth.value == null ? ABSENT : percent(growth.value, 1), note: "FCF / share · 5Y CAGR", href: "#financials-section" },
-    { label: "Valuation", value: valuationReading.value, note: valuationReading.note, href: "#valuation-section" },
-    { label: "Coverage", value: `${covered}/${CORE_METRICS.length}`, note: `${view.annual.length} annual · ${view.quarterly.length} quarterly periods`, href: "#financials-section" },
+    { label: "Growth", value: growth.value == null ? ABSENT : percent(growth.value, 1), note: "FCF / share · 5Y CAGR", href: "#growth" },
+    { label: "Valuation", value: valuationReading.value, note: valuationReading.note, href: "#valuation" },
+    { label: "Coverage", value: `${covered}/${CORE_METRICS.length}`, note: `${view.annual.length} annual · ${view.quarterly.length} quarterly periods`, href: "#statements" },
   ];
 
   return (

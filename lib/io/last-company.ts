@@ -1,6 +1,4 @@
 export const LAST_COMPANY_KEY = "finscope.lastCompany";
-export const RECENT_COMPANIES_KEY = "finscope.io.recent-companies.v1";
-export const RECENT_COMPANIES_EVENT = "finscope:recent-companies";
 
 const TICKER = /^[A-Z0-9][A-Z0-9.-]{0,11}$/;
 
@@ -16,9 +14,6 @@ export function rememberCompany(ticker: string) {
   if (!TICKER.test(normalized)) return;
   try {
     localStorage.setItem(LAST_COMPANY_KEY, normalized);
-    const current = JSON.parse(localStorage.getItem(RECENT_COMPANIES_KEY) ?? "[]") as unknown;
-    const valid = Array.isArray(current) ? current.filter((item): item is string => typeof item === "string" && TICKER.test(item)) : [];
-    localStorage.setItem(RECENT_COMPANIES_KEY, JSON.stringify([normalized, ...valid.filter((item) => item !== normalized)].slice(0, 8)));
   }
   catch { /* A blocked store only disables the shortcut; the company page remains usable. */ }
   /*
@@ -31,16 +26,7 @@ export function rememberCompany(ticker: string) {
    */
   try {
     window.dispatchEvent(new Event("finscope:last-company"));
-    window.dispatchEvent(new Event(RECENT_COMPANIES_EVENT));
   } catch { /* Nothing depends on it. */ }
-}
-
-export function readRecentCompanies(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const value = JSON.parse(localStorage.getItem(RECENT_COMPANIES_KEY) ?? "[]") as unknown;
-    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && TICKER.test(item)).slice(0, 8) : [];
-  } catch { return []; }
 }
 
 export function lastCompanyPath(): string {
