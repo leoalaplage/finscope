@@ -17,13 +17,13 @@
  * one that breaks is the one that matters, and averaging is how a panel of
  * ratios hides it.
  *
- * Book equity is reported and never judged. Booking's equity is minus eleven
- * billion because it has bought back more stock than it has ever retained; its
+ * Book equity is never divided by. Booking's equity is minus eleven billion
+ * because it has bought back more stock than it has ever retained; its
  * borrowings are a third of one year's cash flow. A debt-to-equity ratio there
  * is not a severe reading, it is a meaningless one — the denominator is an
- * accounting residue, not a resource. So negative equity is stated, its cause
- * named from the retained earnings behind it, and the verdict is struck on what
- * actually services debt: profit and cash.
+ * accounting residue, not a resource. So no question here is struck on equity
+ * at all, and the panel says nothing about it: the verdict rests on what
+ * actually services debt, which is profit and cash.
  *
  * The same care is why the current ratio is not the liquidity test. Walmart's
  * is 0.77 and always has been: it sells the inventory before it pays for it.
@@ -354,18 +354,6 @@ function notesFor(period: HealthPeriod): HealthNote[] {
     const unit = size >= 1e9 ? [1e9, "bn"] as const : [1e6, "m"] as const;
     return `${value < 0 ? "\u2212" : ""}${symbol}${(size / unit[0]).toFixed(size / unit[0] >= 10 ? 0 : 1)}${unit[1]}`;
   };
-  const equity = at(period, "totalEquity");
-  const retained = at(period, "retainedEarnings");
-  if (equity != null && equity < 0) {
-    notes.push({
-      key: "negativeEquity",
-      text: retained != null && retained > 0
-        ? `Book equity is ${money(equity)} because buybacks have exceeded ${money(retained)} of retained earnings, not because the company has lost money. Debt over equity and equity over assets are withheld: the denominator is an accounting residue, and what services the borrowings is on the lines above.`
-        : retained != null
-          ? `Book equity is ${money(equity)} against ${money(retained)} of retained earnings — an accumulated deficit, not a buyback. Debt over equity is withheld as meaningless; the questions above are struck on profit and cash.`
-          : `Book equity is ${money(equity)}. Debt over equity and equity over assets are withheld rather than printed as negative numbers; the verdict rests on what services the borrowings.`,
-    });
-  }
   const netDebt = netBorrowings(period);
   if (netDebt != null && netDebt < 0) {
     notes.push({ key: "netCash", text: `Net cash of ${money(-netDebt)}: cash and short-term investments exceed every borrowing.` });
@@ -375,7 +363,7 @@ function notesFor(period: HealthPeriod): HealthNote[] {
   if (assets != null && assets > 0 && acquired != null && acquired / assets > 0.4) {
     notes.push({
       key: "acquired",
-      text: `${(100 * acquired / assets).toFixed(0)}% of the assets are goodwill and acquired intangibles — the price paid for past deals rather than something the company operates. Not a solvency question, and not scored above; it is what a write-down would fall on.`,
+      text: `${(100 * acquired / assets).toFixed(0)}% of the assets are goodwill and acquired intangibles: the price of past deals, not something the company operates.`,
     });
   }
   return notes;

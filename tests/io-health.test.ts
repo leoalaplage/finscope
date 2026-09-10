@@ -19,7 +19,7 @@ const history = (values: Record<string, number | null>) =>
   ["FY 2023", "FY 2024", "FY 2025"].map((label) => period(label, values));
 
 describe("what a health verdict is struck on", () => {
-  it("reads Booking as sound and refuses to price its negative equity", () => {
+  it("reads Booking as sound and never divides by its negative equity", () => {
     /*
      * Booking's book equity is minus eleven billion because it has bought back
      * more stock than it has retained; its borrowings are a third of one year's
@@ -36,14 +36,16 @@ describe("what a health verdict is struck on", () => {
     expect(reading.state).toBe("sound");
     // A reading in words where a number would be an artefact.
     expect(reading.questions.find((question) => question.key === "burden")!.reading).toBe("0.3 years");
-    const note = reading.notes.find((item) => item.key === "negativeEquity")!;
-    expect(note.text).toContain("buybacks have exceeded");
-    expect(note.text).toContain("not because the company has lost money");
-    // The ratio itself is never printed, only the fact and its cause.
+    /*
+     * Nothing on the panel is struck on equity, and nothing on it mentions
+     * equity: a page that has to explain why a ratio is absent is a page still
+     * thinking about the ratio. The verdict rests on profit and cash.
+     */
     expect(reading.questions.some((question) => question.basis.includes("equity"))).toBe(false);
+    expect(reading.notes.some((note) => /equity|retained|buyback/i.test(note.text))).toBe(false);
   });
 
-  it("names an accumulated deficit as what it is, not as a buyback", () => {
+  it("grades a company with an accumulated deficit on its cash flow alone", () => {
     const abbv = period("TTM Q2 FY2026", {
       totalDebt: bn(62.48), cashAndEquivalents: bn(6.57), shortTermInvestments: null,
       ebitda: bn(17.65), freeCashFlow: bn(18.21), operatingIncome: bn(16.87), interestExpense: bn(2.92),
@@ -51,7 +53,7 @@ describe("what a health verdict is struck on", () => {
       totalEquity: bn(-5.93), retainedEarnings: bn(-17.33), totalAssets: bn(135.12),
     });
     const reading = companyHealth(abbv, [abbv], "operating")!;
-    expect(reading.notes.find((item) => item.key === "negativeEquity")!.text).toContain("accumulated deficit");
+    expect(reading.notes.some((note) => /equity|deficit/i.test(note.text))).toBe(false);
     expect(reading.state).toBe("stretched");
   });
 

@@ -621,7 +621,7 @@ describe("the redesign", () => {
     expect(portfolio).not.toContain("Contributions add to the weighted score");
   });
 
-  it("puts current valuation beside observed five- and ten-year ranges", () => {
+  it("draws today's multiple against the decade behind it", () => {
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     const history = readFileSync(new URL("../components/io/ValuationHistory.tsx", import.meta.url), "utf8");
     const series = readFileSync(new URL("../components/io/valuation-series.ts", import.meta.url), "utf8");
@@ -630,8 +630,10 @@ describe("the redesign", () => {
     expect(company).toContain("const valuation = useValuationHistory(");
     expect(company).toContain("<ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />");
     expect(company).toContain("valuation={valuation}");
-    expect(history).toContain("5Y range");
-    expect(history).toContain("10Y range");
+    // Both windows still measured; both drawn rather than tabulated.
+    expect(history).toContain("historicalValuationRange(state.history, metric.key, now, 5, asOf)");
+    expect(history).toContain("historicalValuationRange(state.history, metric.key, now, 10, asOf)");
+    expect(history).not.toContain("<table>");
     expect(series).toContain("published=1");
     // A row sends its multiple to the chart at the top, like every other table.
     expect(history).toContain("onSelect(chosen ? null : metric.key)");

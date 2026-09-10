@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
-describe("the company decision page", () => {
+describe("the company page", () => {
   it("reads top to bottom, with nothing folded away", () => {
     /*
      * A sub-navigation and four collapsible groups were added here, three of
@@ -27,19 +27,6 @@ describe("the company decision page", () => {
     expect(company.indexOf("<CompanyNotebook")).toBeGreaterThan(company.indexOf("<CompanyNews"));
     const portfolio = read("../components/io/Portfolio.tsx");
     expect(portfolio.indexOf("<ExportMenu")).toBeGreaterThan(portfolio.indexOf("<PortfolioAnalysis"));
-  });
-
-  it("puts the decision summary, filing changes and unified timeline in overview", () => {
-    const company = read("../components/io/Company.tsx");
-    const overview = read("../components/io/CompanyOverview.tsx");
-    expect(company.indexOf("<DecisionSummary")).toBeLessThan(company.indexOf("<PriceSection"));
-    expect(company).toContain("<WhatChanged view={view} />");
-    expect(company).toContain("<CompanyTimeline");
-    for (const dimension of ["Quality", "Health", "Growth", "Valuation", "Coverage"]) {
-      expect(overview).toContain(`label: "${dimension}"`);
-    }
-    expect(overview).toContain('kind: "Insider"');
-    expect(overview).toContain('kind: period.fiscalQuarter ? "Results" : "Filing"');
   });
 });
 

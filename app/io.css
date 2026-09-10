@@ -446,47 +446,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .head-compare { color: var(--ink-2); transition: color .12s ease; }
 .head-compare:hover { color: var(--ink); }
 
-/* --- Company reading system -------------------------------------------- */
-
-
-.decision-summary { border-top: 0; }
-.decision-grid {
-  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
-  border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
-}
-.decision-cell {
-  display: flex; min-width: 0; min-height: 96px; flex-direction: column; justify-content: space-between;
-  gap: calc(var(--u) * 2); padding: 10px 12px; background: var(--bg);
-  outline: 1px solid var(--line); transition: background .12s ease;
-}
-.decision-cell:hover { background: var(--raise); }
-.decision-cell strong { font: 600 var(--fs-lg)/1.15 var(--mono); letter-spacing: -.01em; }
-.decision-cell strong[data-empty="true"] { color: var(--ink-3); font-size: var(--fs-lg); }
-.decision-cell small { overflow: hidden; color: var(--ink-3); font: var(--fs-xs)/1.4 var(--mono); text-overflow: ellipsis; }
-
-.change-period { margin-bottom: calc(var(--u) * 3); color: var(--ink-3); font: var(--fs-xs)/1.4 var(--mono); }
-.change-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-block: 1px solid var(--line); }
-.change-cell { min-width: 0; padding: 12px 14px; border-inline-start: 1px solid var(--line); }
-.change-cell:first-child { border-inline-start: 0; padding-inline-start: 0; }
-.change-cell strong, .change-cell small { display: block; font-family: var(--mono); }
-.change-cell strong { margin-top: 4px; font-size: var(--fs-lg); font-weight: 550; }
-.change-cell small { margin-top: 3px; color: var(--ink-3); font-size: var(--fs-xs); }
-
-.company-timeline ol { margin: 0; padding: 0; border-top: 1px solid var(--line); list-style: none; }
-.company-timeline li {
-  display: grid; grid-template-columns: 88px 72px minmax(0, 1fr); align-items: baseline;
-  gap: calc(var(--u) * 3); padding-block: 10px; border-bottom: 1px solid var(--line);
-  font-family: var(--mono); font-size: var(--fs-xs);
-}
-.company-timeline time, .timeline-kind { color: var(--ink-3); }
-.timeline-kind { text-transform: uppercase; letter-spacing: var(--track-label); }
-.company-timeline a, .timeline-copy { min-width: 0; }
-.company-timeline a:hover strong { text-decoration: underline; text-underline-offset: 3px; }
-.company-timeline strong, .company-timeline small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.company-timeline strong { font-weight: 500; }
-.company-timeline small { margin-top: 2px; color: var(--ink-3); }
-
-
 .io-legal {
   display: flex; justify-content: space-between; gap: calc(var(--u) * 4); padding-block: calc(var(--u) * 5);
   border-top: 1px solid var(--line); color: var(--ink-3); font: var(--fs-xs)/1.5 var(--mono);
@@ -778,14 +737,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   .head-row { flex-direction: column; }
   .price-block { text-align: left; }
   .sheet th.key, .sheet td.key { min-width: 160px; }
-  .decision-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .decision-cell:last-child { grid-column: span 2; }
-  .change-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .change-cell { border-bottom: 1px solid var(--line); }
-  .change-cell:nth-child(odd) { border-inline-start: 0; padding-inline-start: 0; }
-  .change-cell:nth-last-child(-n + 2) { border-bottom: 0; }
-  .company-timeline li { grid-template-columns: 78px minmax(0, 1fr); gap: 3px calc(var(--u) * 3); }
-  .company-timeline li > :is(a, .timeline-copy) { grid-column: 2; }
   .io-legal { flex-direction: column; }
 }
 
@@ -1543,9 +1494,65 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .fcf-share-growth { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .compare-fcf-share { margin-bottom: calc(var(--u) * 7); }
 .compare-table-head { margin-bottom: calc(var(--u) * 3); }
-.valuation-history-sheet table { min-width: 920px; }
-/* The row is the control that sends its multiple to the chart, as everywhere. */
-.valuation-history-sheet tr[aria-selected] { background: none; }
+/*
+ * Where today sits in the decade, drawn.
+ *
+ * Seven columns of figures became one line per measure. The decade is a rule,
+ * the last five years a heavier segment on it, the median a tick and today a
+ * filled mark — one ink at three weights, which is how the rest of the site
+ * says near and far. Nothing here is a hue and nothing here needs a legend of
+ * colours, only the sentence under the list.
+ */
+.range-list { display: grid; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.range-row {
+  display: grid; align-items: center; gap: calc(var(--u) * 4);
+  grid-template-columns: 120px 86px minmax(120px, 1fr) 120px;
+  padding-block: 11px; border-bottom: 1px solid var(--line);
+}
+/* Where the price multiples end and what was returned to owners begins. */
+.range-row[data-opens="true"] { border-top: 1px solid var(--line-strong); }
+.range-name {
+  min-width: 0; padding: 0; border: 0; background: none; color: var(--ink-2);
+  font: var(--fs-xs)/1.3 var(--mono); text-align: left; cursor: pointer;
+}
+.range-name:hover { color: var(--ink); }
+.range-row[data-selected="true"] .range-name { color: var(--ink); font-weight: 600; }
+.range-value { font: 550 var(--fs-sm)/1 var(--mono); }
+.range-value[data-empty="true"] { color: var(--ink-3); }
+.range-percentile { color: var(--ink-3); font: var(--fs-micro)/1.3 var(--mono); text-align: right; }
+.range-percentile[data-empty="true"] { color: var(--ink-3); }
+
+.range-line { position: relative; height: 26px; }
+.range-line-absent { display: grid; align-items: center; color: var(--ink-3); font: var(--fs-xs)/1 var(--mono); }
+/* Every layer sits on one baseline, eight pixels above the end labels. */
+.range-rule, .range-band, .range-median, .range-now { position: absolute; top: 7px; }
+.range-rule { left: 0; right: 0; height: 1px; background: var(--line-strong); }
+.range-band { height: 3px; margin-top: -1px; background: var(--plot-soft); }
+.range-decade { background: color-mix(in srgb, var(--ink) 16%, transparent); }
+.range-recent { background: color-mix(in srgb, var(--ink) 38%, transparent); }
+.range-median { width: 1px; height: 9px; margin-top: -4px; background: var(--ink-2); }
+.range-now {
+  width: 9px; height: 9px; margin: -4px 0 0 -4px; border-radius: 50%;
+  background: var(--ink); outline: 2px solid var(--bg);
+}
+.range-ends {
+  position: absolute; inset-inline: 0; top: 15px; display: flex; justify-content: space-between;
+  color: var(--ink-3); font: var(--fs-micro)/1 var(--mono);
+}
+.range-ends i { font-style: normal; }
+.range-legend { max-width: 92ch; margin-top: calc(var(--u) * 3); line-height: 1.55; }
+
+/*
+ * Narrow: the line takes a row of its own and the three readings share the one
+ * above it. Three stacked rows per measure made six measures a screen and a
+ * half of scrolling for a section a reader is meant to take in at a glance.
+ */
+@media (max-width: 860px) {
+  .range-row { grid-template-columns: minmax(0, 1fr) auto auto; gap: calc(var(--u) * 2) calc(var(--u) * 3); }
+  /* Row two explicitly: the line is written before the percentile, and
+     auto-placement would otherwise push the percentile down to a third row. */
+  .range-line { grid-column: 1 / -1; grid-row: 2; }
+}
 
 
 @media (max-width: 560px) {

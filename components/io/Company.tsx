@@ -22,7 +22,6 @@ import type { IoQuote } from "./quote";
 import { fundamentalWindow, RANGES, type Frequency, type Range } from "./ranges";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "./format";
 import { rememberCompany } from "@/lib/io/last-company";
-import { CompanyTimeline, DecisionSummary, WhatChanged } from "./CompanyOverview";
 import { CompanyNotebook } from "./CompanyNotebook";
 
 /**
@@ -373,9 +372,6 @@ export function Company({ ticker }: { ticker: string }) {
         * own find already searches every word of it, which no closed section
         * can say.
         */}
-      <DecisionSummary view={view} score={scoreState} valuation={valuation} />
-      <WhatChanged view={view} />
-
       <PriceSection
         ticker={company.ticker}
         currency={quote?.currency ?? company.currency}
@@ -395,7 +391,6 @@ export function Company({ ticker }: { ticker: string }) {
       <Stats view={view} quote={quote} />
       <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} />
       <Health view={view} />
-      <CompanyTimeline view={view} insiders={insiderState.kind === "ready" ? insiderState.record.transactions : []} />
       <FcfShareGrowth view={view} />
       <ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
