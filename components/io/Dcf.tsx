@@ -696,41 +696,55 @@ export function Dcf({ initial }: { initial: string }) {
                 ? <span className="day-mark" data-dir={reading.dir}>{reading.verdict}</span>
                 : reading?.verdict}
             </p>
-            {reading?.aside ? <p className="stat-note verdict-aside">{reading.aside}</p> : null}
 
             {/*
-              * The two rates on one axis, because the comparison is the page.
+              * The three figures the verdict is struck from, in the ruled grid
+              * this site states figures in everywhere else.
               *
-              * They were two figures in two boxes and the reader did the
-              * comparing. The bar is what this company has actually done with
-              * its cash; the mark is what today's price is asking of it. Which
-              * is further right is the whole reading, and it needs no caption.
+              * They were drawn on two axes for a while. The drawings were
+              * honest and they were redundant: a bar reaching further than a
+              * mark says the same thing as two numbers side by side, and it
+              * says it in more space and one more visual language to learn.
               */}
-            {priceAsks != null && model.record ? (
-              <div className="dcf-scale">
-                <div className="dcf-scale-head">
-                  <span className="label">It has delivered</span>
-                  <span className="label dcf-scale-asks">The price asks for</span>
-                </div>
-                <Axis
-                  from={Math.min(0, priceAsks, model.record.rate)}
-                  to={Math.max(priceAsks, model.record.rate) * 1.15}
-                  bar={{ from: 0, to: model.record.rate, label: percent(model.record.rate, 1) }}
-                  mark={{ at: priceAsks, label: percent(priceAsks, 1) }}
-                />
+            <div className="grid-ruled stats stats-three">
+              <div className="stat">
+                <div className="label">The price asks</div>
+                <div className="stat-value" data-empty={priceAsks == null}>{priceAsks == null ? ABSENT : percent(priceAsks, 1)}</div>
+                <div className="stat-note">a year, for ten</div>
               </div>
-            ) : null}
+              <div className="stat">
+                <div className="label">It has delivered</div>
+                <div className="stat-value" data-empty={model.record == null}>
+                  {model.record == null ? ABSENT : percent(model.record.rate, 1)}
+                </div>
+                <div className="stat-note">
+                  {model.record == null ? "no filed record" : `a year, over ${Math.round(model.record.years)}`}
+                </div>
+              </div>
+              <div className="stat">
+                <div className="label">Fair value</div>
+                <div className="stat-value stat-band" data-empty={fair == null}>
+                  {fair == null
+                    ? ABSENT
+                    : `${writePrice(fair.low, model.basis.currency)} \u2013 ${writePrice(fair.high, model.basis.currency)}`}
+                </div>
+                <div className="stat-note">
+                  {fair == null
+                    ? `against ${writePrice(model.price, model.basis.currency)}`
+                    : `${delta(fair.low / model.price - 1, 0)} to ${delta(fair.high / model.price - 1, 0)} against ${writePrice(model.price, model.basis.currency)}`}
+                </div>
+              </div>
+            </div>
 
             {/*
-              * And what that record would earn you at today's price.
-              *
-              * The reader's own rate is the last row and its figure is the
-              * field, so the assumption is made where its answer appears
-              * rather than in a box at the foot of the page.
+              * And what that record would earn you, which is the one figure on
+              * this page somebody can act on. The reader's own rate is the last
+              * row and its figure is the field, so the assumption is typed
+              * where its answer appears.
               */}
             {earnings.length ? (
               <div className="dcf-earns">
-                <div className="label">What you would earn, buying today</div>
+                <div className="label">Buying today earns you</div>
                 <ul className="verdict-earns">
                   {earnings.map((row) => (
                     <li key={row.id} data-selected={row.id === growth}>
@@ -767,50 +781,6 @@ export function Dcf({ initial }: { initial: string }) {
               </div>
             ) : null}
 
-            {/*
-              * The fair value, drawn against what it costs.
-              *
-              * Two prices and a percentage in a caption asked the reader to
-              * hold three numbers and subtract. The band is what it is worth
-              * at the record; the mark is what the market charges. Whether the
-              * mark falls inside the band, left of it or right of it is the
-              * answer, read at a glance.
-              */}
-            {fair ? (
-              <div className="dcf-scale">
-                <div className="dcf-scale-head">
-                  <span className="label">Fair value at that record</span>
-                  <span className="label dcf-scale-asks">{delta(fair.low / model.price - 1, 0)} to {delta(fair.high / model.price - 1, 0)} margin</span>
-                </div>
-                <Axis
-                  from={Math.min(fair.low, model.price)}
-                  to={Math.max(fair.high, model.price)}
-                  pad
-                  bar={{ from: fair.low, to: fair.high, label: `${writePrice(fair.low, model.basis.currency)} \u2013 ${writePrice(fair.high, model.basis.currency)}` }}
-                  mark={{ at: model.price, label: `${writePrice(model.price, model.basis.currency)} today` }}
-                />
-              </div>
-            ) : null}
-
-            {/*
-              * The two qualifications that belong beside the answer, and the
-              * rest a click away.
-              *
-              * How much of the value is a period nobody can observe, and
-              * whether the year it was all compounded from looks like the
-              * decade behind it. Everything else — where the rate came from,
-              * which window was priced — is workings, and workings behind a
-              * disclosure is how this site has always handled the score audit.
-              */}
-            {perpetuity != null || base ? (
-              <p className="stat-note verdict-caveat">
-                {perpetuity == null ? null : `${percent(perpetuity, 0)} of that value is the perpetuity after year ${HORIZON}.`}
-                {base
-                  ? ` The year it compounds from is ${base.off > 0 ? `${(1 + base.off).toFixed(1)}\u00d7` : `${(100 * (1 + base.off)).toFixed(0)}% of`} what the decade's trend puts at the same date.`
-                  : null}
-              </p>
-            ) : null}
-
             <details className="dcf-workings">
               <summary><span className="label">How this was struck</span></summary>
               <dl>
@@ -832,6 +802,15 @@ export function Dcf({ initial }: { initial: string }) {
                 <div>
                   <dt className="label">The shape</dt>
                   <dd>{HOLD} years at the rate, then a straight line down to {percent(TERMINAL, 1)} and a perpetuity at it.</dd>
+                </div>
+                <div>
+                  <dt className="label">The far end</dt>
+                  <dd>
+                    {perpetuity == null ? "Not struck." : `${percent(perpetuity, 0)} of that value is the perpetuity after year ${HORIZON} rather than the ten years projected.`}
+                    {base
+                      ? ` And the year it all compounds from is ${base.off > 0 ? `${(1 + base.off).toFixed(1)}\u00d7` : `${(100 * (1 + base.off)).toFixed(0)}% of`} what the decade's trend puts at the same date.`
+                      : ""}
+                  </dd>
                 </div>
                 <div>
                   <dt className="label">The band</dt>
@@ -957,59 +936,5 @@ function ValueOverTime({ model, required, rows }: {
 
       <MultiLine series={series} onHover={setYear} />
     </section>
-  );
-}
-
-/**
- * One axis, a band on it and a mark against the band.
- *
- * The same drawing the company page uses for a valuation range, and the same
- * classes, because two bars that mean "here is a span and here is where you
- * are" should not be two visual languages. It answers both comparisons this
- * page makes: what the company has done against what the price demands, and
- * what it is worth against what it costs.
- *
- * The scale is stretched to hold the mark when the mark falls outside the band,
- * which is the case that matters — a price above everything the record can
- * justify should sit past the end of the bar, not pinned to it.
- */
-function Axis({ from, to, bar, mark, pad }: {
-  from: number;
-  to: number;
-  bar: { from: number; to: number; label: string };
-  mark: { at: number; label: string };
-  /** Room at both ends, where the extremes are the band and the mark itself. */
-  pad?: boolean;
-}) {
-  const room = pad ? Math.abs(to - from) * .12 || Math.abs(to) * .12 || 1 : 0;
-  const low = Math.min(from, bar.from, mark.at) - room;
-  const high = Math.max(to, bar.to, mark.at) + room;
-  const span = high - low;
-  if (!(span > 0)) return null;
-  const at = (value: number) => Math.min(1, Math.max(0, (value - low) / span));
-  const place = (value: number) => `${(100 * at(value)).toFixed(2)}%`;
-  /*
-   * Which way a label hangs off its own position.
-   *
-   * Centred in the middle of the axis, and anchored to the near edge at either
-   * end — otherwise a mark at ninety per cent carries its figure off the right
-   * of the frame, which is exactly where the interesting marks sit.
-   */
-  const side = (value: number) => (at(value) > .72 ? "right" : at(value) < .14 ? "left" : "middle");
-  const left = Math.min(bar.from, bar.to);
-  const width = Math.abs(bar.to - bar.from);
-
-  return (
-    <div
-      className="range-line dcf-axis"
-      role="img"
-      aria-label={`${bar.label} against ${mark.label}`}
-    >
-      <span className="range-rule" />
-      <span className="range-band" style={{ left: place(left), width: `${Math.max(.6, 100 * width / span).toFixed(2)}%` }} />
-      <span className="range-now" style={{ left: place(mark.at) }} />
-      <span className="dcf-axis-bar" data-side={side(left)} style={{ left: place(left) }}>{bar.label}</span>
-      <span className="dcf-axis-mark" data-side={side(mark.at)} style={{ left: place(mark.at) }}>{mark.label}</span>
-    </div>
   );
 }

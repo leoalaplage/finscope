@@ -486,6 +486,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * Seven columns also gives each label the width it needs to be read whole.
  */
 .stats-seven { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.stats-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .stat { padding: 11px 12px 12px; min-width: 0; }
 .stat .label, .stat-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-value { font-family: var(--mono); font-size: var(--fs-lg); margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -690,6 +691,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 @media (max-width: 560px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stats-seven { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-three { grid-template-columns: 1fr; }
   /* Restated rather than inherited: the rule above is what makes this work. */
   .multiples { grid-template-columns: minmax(0, 1fr); }
 }
@@ -1306,8 +1308,10 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  */
 .dcf-controls { display: flex; align-items: center; gap: calc(var(--u) * 4); flex-wrap: wrap; }
 .verdict-rate { display: flex; align-items: center; gap: calc(var(--u) * 3); }
+/* Two prices where the other cells carry one, so it steps down a size. */
+.stat-band { font-size: var(--fs-md); }
 .verdict-headline {
-  max-width: 46ch; margin-top: calc(var(--u) * 4);
+  max-width: 46ch; margin: calc(var(--u) * 4) 0 calc(var(--u) * 5);
   font: 600 var(--fs-lg)/1.4 var(--mono); letter-spacing: -.01em;
 }
 /*
@@ -1326,36 +1330,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .verdict-headline .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
 .verdict-headline .day-mark[data-dir="flat"] { background: var(--fill); }
 
-.verdict-aside { max-width: 84ch; margin-top: calc(var(--u) * 3); line-height: 1.55; }
-.verdict-caveat { max-width: 84ch; margin-top: calc(var(--u) * 4); line-height: 1.55; }
 
-/*
- * A span and a mark on one axis, in the drawing the company page already uses.
- *
- * The two comparisons this page makes are the same shape: what the record has
- * done against what the price demands, and what it is worth against what it
- * costs. Both are a band and a mark, so both are drawn as one — the reader
- * learns the picture once.
- */
-.dcf-scale { margin-top: calc(var(--u) * 6); }
-.dcf-scale-head { display: flex; justify-content: space-between; gap: calc(var(--u) * 4); margin-bottom: calc(var(--u) * 2); }
-.dcf-scale-asks { color: var(--ink); }
-.dcf-axis { height: 46px; }
-/* The bar and the mark are labelled where they sit, so the ends would print
-   the same two numbers a second time. */
-.dcf-axis .range-ends { display: none; }
-/* Each figure sits under the thing it names, clamped inside the frame. */
-.dcf-axis-bar, .dcf-axis-mark {
-  position: absolute; top: 16px; white-space: nowrap;
-  font: var(--fs-xs)/1 var(--mono); font-variant-numeric: tabular-nums;
-}
-.dcf-axis-bar { color: var(--ink-2); }
-.dcf-axis-mark { font-weight: 600; }
-/* Centred in the middle of the frame, hung off the near edge at either end. */
-.dcf-axis-bar[data-side="middle"], .dcf-axis-mark[data-side="middle"] { transform: translateX(-50%); }
-.dcf-axis-bar[data-side="right"], .dcf-axis-mark[data-side="right"] { transform: translateX(-100%); }
-
-.dcf-earns { margin-top: calc(var(--u) * 6); }
+.dcf-earns { margin-top: calc(var(--u) * 5); }
 .dcf-earns > .label { display: block; margin-bottom: calc(var(--u) * 2); }
 
 /*

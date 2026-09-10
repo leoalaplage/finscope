@@ -442,12 +442,17 @@ describe("the redesign", () => {
      * to parse to reach three words.
      */
     expect(dcf).toContain('className="verdict-headline"');
-    expect(dcf).toContain('<span className="label">It has delivered</span>');
-    expect(dcf).toContain('<span className="label">Fair value at that record</span>');
-    // Both comparisons are a band and a mark on one axis, in the drawing the
-    // company page already uses for a valuation range.
-    expect(dcf).toContain("function Axis({ from, to, bar, mark, pad }");
-    expect(dcf).toContain('className="range-line dcf-axis"');
+    expect(dcf).toContain('<div className="label">The price asks</div>');
+    expect(dcf).toContain('<div className="label">It has delivered</div>');
+    expect(dcf).toContain('<div className="label">Fair value</div>');
+    /*
+     * Three figures in the ruled grid this site states figures in, and no
+     * drawing of them. They were bars on two axes for a while: honest, and
+     * redundant — a bar reaching further than a mark says what two numbers
+     * side by side already say, in more space and one more thing to learn.
+     */
+    expect(dcf).not.toContain("dcf-axis");
+    expect(dcf).not.toContain("function Axis(");
     /*
      * The fair value is a band, which is what the measurement supports: a
      * single value per share moves nine to nineteen per cent on one point of
