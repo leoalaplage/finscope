@@ -5,10 +5,23 @@ import { SkeletonCards } from "./Skeleton";
 import { readParsed } from "@/lib/fetch-json";
 import { MARKET_RANGES, type MarketRange, type MarketWindow } from "@/lib/adapters/intraday";
 
-type Panel = MarketWindow & { id: string; description: string };
+/**
+ * How the figure on a panel should be read.
+ *
+ * A price or an index level is read as a distance from where the window
+ * opened, which is what "+2.1% this month" means. A yield is read as a level:
+ * nobody says a ten-year yield rose two and a half per cent, they say it rose
+ * eleven basis points, and an axis labelled in per-cent-of-itself would be a
+ * chart of the wrong quantity.
+ */
+export type Measure = "level" | "yield";
+
+type Panel = MarketWindow & { id: string; description?: string; measure?: Measure };
 type PercentScale = { low: number; high: number };
-type Failed = { id: string; symbol: string; name: string; description: string; error: string };
-type Entry = Panel | Failed;
+type Failed = { id: string; symbol?: string; name: string; description?: string; error: string };
+/** One panel's worth of answer: the window, or the reason there isn't one. */
+export type MarketEntry = Panel | Failed;
+type Entry = MarketEntry;
 
 const failed = (entry: Entry): entry is Failed => "error" in entry;
 
@@ -194,7 +207,7 @@ function useMeasuredWidth<T extends HTMLElement>() {
  * comes to this page for is the shape of the line and the number at the end
  * of it.
  */
-function IndexPanel({ entry, range, scale }: { entry: Entry; range: MarketRange; scale: PercentScale | null }) {
+export function IndexPanel({ entry, range, scale }: { entry: Entry; range: MarketRange; scale: PercentScale | null }) {
   // The two cases are separate components rather than two returns from one,
   // because the chart measures itself with a hook and a hook cannot live
   // behind a conditional return.
@@ -211,7 +224,18 @@ function IndexChart({ entry, range, scale }: { entry: Panel; range: MarketRange;
   const points = entry.points;
   const rising = (entry.change ?? 0) >= 0;
   const base = entry.baseline;
-  const asPercent = base != null && base > 0;
+  /*
+   * A yield is drawn on its own scale, in the units it is quoted in.
+   *
+   * Everything else on this page is a distance from the baseline, because that
+   * is the question — "what has the S&P done today", "what has Brent done this
+   * month". A ten-year yield is not asked about that way: it moved from 4.84
+   * to 4.94, which is ten basis points, and calling the same move "+2.2%" is
+   * arithmetic on the wrong quantity. So the axis stays in per cent a year and
+   * the header states the move in the hundredths of a point yields trade in.
+   */
+  const isYield = entry.measure === "yield";
+  const asPercent = !isYield && base != null && base > 0;
   const toPercent = (value: number) => (value / base! - 1) * 100;
   const fromPercent = (value: number) => base! * (1 + value / 100);
   // The baseline belongs inside the scale even on a window that never traded
@@ -254,12 +278,16 @@ function IndexChart({ entry, range, scale }: { entry: Panel; range: MarketRange;
   const ticks = asPercent
     ? priceTicks(toPercent(bottom), toPercent(top)).map(fromPercent)
     : priceTicks(bottom, top);
-  const tickText = (value: number) => asPercent
-    ? `${toPercent(value) >= 0 ? "+" : "−"}${Math.abs(toPercent(value)).toFixed(Math.abs(toPercent(top) - toPercent(bottom)) < 3 ? 1 : 0)}%`
-    : level(value, 0);
-  const badge = asPercent && last != null
-    ? `${last >= base! ? "+" : "−"}${Math.abs(toPercent(last)).toFixed(2)}%`
-    : quoted(last);
+  const tickText = (value: number) => isYield
+    ? `${value.toFixed(top - bottom < .5 ? 2 : 1)}%`
+    : asPercent
+      ? `${toPercent(value) >= 0 ? "+" : "−"}${Math.abs(toPercent(value)).toFixed(Math.abs(toPercent(top) - toPercent(bottom)) < 3 ? 1 : 0)}%`
+      : level(value, 0);
+  const badge = isYield && last != null
+    ? `${last.toFixed(2)}%`
+    : asPercent && last != null
+      ? `${last >= base! ? "+" : "−"}${Math.abs(toPercent(last)).toFixed(2)}%`
+      : quoted(last);
 
   // The line and the shape under it are the same points; the fill is the line
   // carried down to the floor of the plot and closed. Drawing them as one path
@@ -276,12 +304,15 @@ function IndexChart({ entry, range, scale }: { entry: Panel; range: MarketRange;
     <header className="index-head">
       <h2>{entry.name}</h2>
       <div className="index-quote">
-        <strong>{quoted(last)}</strong>
+        <strong>{isYield ? (last == null ? "—" : `${last.toFixed(3)}%`) : quoted(last)}</strong>
         <span className={rising ? "index-change positive-text" : "index-change negative-text"}>
           {/* Both halves carry the sign. Stating "−9.41 (0.02%)" makes the
               reader check twice whether the index rose or fell, which is the
-              one thing this line exists to answer. */}
-          {signed(entry.change)} ({entry.changePercent == null ? "—" : `${entry.changePercent < 0 ? "−" : "+"}${(Math.abs(entry.changePercent) * 100).toFixed(2)}%`})
+              one thing this line exists to answer. A yield gets one half, in
+              basis points, because that is the whole of how yields are said. */}
+          {isYield
+            ? `${signed(entry.change == null ? null : entry.change * 100, 1)} bp`
+            : `${signed(entry.change)} (${entry.changePercent == null ? "—" : `${entry.changePercent < 0 ? "−" : "+"}${(Math.abs(entry.changePercent) * 100).toFixed(2)}%`})`}
         </span>
       </div>
     </header>

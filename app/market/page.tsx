@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "@/app/io.css";
 import { MarketPage } from "@/components/MarketPage";
 import { MacroSnapshot } from "@/components/io/MacroSnapshot";
+import { Bonds } from "@/components/io/Bonds";
 import { Commodities } from "@/components/io/Commodities";
 import { MarketNews } from "@/components/io/MarketNews";
 import { MarketPerformance } from "@/components/io/MarketPerformance";
@@ -28,6 +29,18 @@ export default function MarketRoute() {
           * and in none of the three above.
           */}
         <Commodities />
+        {/*
+          * And the rate both of the rows above are discounted by.
+          *
+          * Every valuation on this site starts from what a government pays to
+          * borrow; this is where that number comes from. The four US tenors are
+          * quoted like any instrument, the euro-area curve is struck once a
+          * business day by the bank that publishes it, and the United Kingdom
+          * is absent because no source for it can be read from here — which
+          * `lib/bonds.ts` says in full rather than filling the gap with a
+          * monthly average two months behind.
+          */}
+        <Bonds />
         {/*
           * The reader's own list, directly under the indices.
           *

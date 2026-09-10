@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { CommodityQuote } from "@/app/api/commodities/route";
+import { QuoteCharts, toggleOpen } from "./QuoteCharts";
 import { ABSENT, delta, price as writePrice } from "./format";
 
 /**
@@ -19,6 +20,11 @@ import { ABSENT, delta, price as writePrice } from "./format";
  * colour on this site — because this row is read the same way: scanned down,
  * not read across.
  *
+ * A figure is where a question starts, though: two per cent down is the end of
+ * a month of falling or the first day of it, and the number alone cannot say
+ * which. So each cell opens into the index panel — three at a time, the row
+ * above — and the reader who wants the shape asks for it.
+ *
  * Loaded after everything else and never in the way. Nothing here is refetched
  * on a timer: the answer is built once every five minutes for every reader,
  * because a contract that settles once a day does not need a live feed, and
@@ -32,6 +38,7 @@ type State =
 
 export function Commodities() {
   const [state, setState] = useState<State>({ kind: "loading" });
+  const [open, setOpen] = useState<string[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -60,18 +67,23 @@ export function Commodities() {
       </div>
 
       {state.kind === "loading" ? (
-        <div className="grid-ruled commodity-grid">
+        <div className="grid-ruled strip-grid">
           {[0, 1, 2, 3, 4, 5].map((cell) => <div className="stat skeleton" key={cell} style={{ height: 74 }} />)}
         </div>
       ) : (
-        <div className="grid-ruled commodity-grid">
+        <div className="grid-ruled strip-grid">
           {state.quotes.map((quote) => (
-            <div className="stat" key={quote.id}>
+            <button
+              className="strip-cell" key={quote.id} type="button"
+              aria-pressed={open.includes(quote.id)}
+              title={quote.contract ? `${quote.label} — ${quote.contract}` : quote.label}
+              onClick={() => setOpen((current) => toggleOpen(current, quote.id))}
+            >
               <div className="label">{quote.label}</div>
               <div className="stat-value">
                 {quote.price == null ? ABSENT : writePrice(quote.price, quote.currency, quote.places)}
               </div>
-              <div className="commodity-move">
+              <div className="strip-move">
                 {/* The width of the figure, as on the watchlist: the one place
                     on this site a colour carries meaning, and the sign is in
                     the number for a reader who cannot separate the two hues. */}
@@ -83,10 +95,12 @@ export function Commodities() {
                 </span>
                 <span className="label">{quote.unit}</span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
+
+      <QuoteCharts open={open} label="commodity"/>
     </section>
   );
 }

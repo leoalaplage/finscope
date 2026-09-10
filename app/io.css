@@ -823,26 +823,45 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .index-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--u) * 4); }
 
 /*
- * The raw materials, as figures rather than as six more charts.
+ * The strips under the indices: raw materials, and what governments pay.
  *
- * The panels above are the subject of the page and earn their drawings; a
- * barrel of oil is context, and context that takes as much room as the subject
- * stops being context. Six cells of the ruled grid, read down.
+ * Figures rather than twelve more charts. The panels above are the subject of
+ * the page and earn their drawings; a barrel of oil and a ten-year yield are
+ * context, and context that takes as much room as the subject stops being
+ * context. Six cells of the ruled grid each, read down.
+ *
+ * Every cell is a button, because every one of them opens into the same panel
+ * the indices are drawn in. The cell looks like the figure it was before —
+ * nothing here is a control wearing a border — and says it is pressable by
+ * lighting under the pointer and staying lit while its chart is open.
  */
-.commodity-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.commodity-grid .stat { padding: 11px 12px 12px; min-width: 0; }
-.commodity-move { display: flex; align-items: baseline; gap: calc(var(--u) * 2); margin-top: 5px; flex-wrap: wrap; }
+.strip-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.strip-cell {
+  display: block; width: 100%; min-width: 0; padding: 11px 12px 12px;
+  font: inherit; color: inherit; text-align: start;
+  background: var(--bg); border: 0; cursor: pointer;
+  transition: background .12s ease, box-shadow .12s ease;
+}
+.strip-cell:hover { background: var(--fill); }
+/* Open, in ink rather than in colour: the two hues on this site mean up and
+   down, and a third meaning would make all three ambiguous. */
+.strip-cell[aria-pressed="true"] { background: var(--fill); box-shadow: inset 2px 0 0 var(--ink); }
+.strip-move { display: flex; align-items: baseline; gap: calc(var(--u) * 2); margin-top: 5px; flex-wrap: wrap; }
 /* Today's move, the width of the figure — the watchlist's own highlighter. */
-.commodity-move .day-mark[data-dir] {
+.strip-move .day-mark[data-dir] {
   display: inline-block; padding: 2px 5px; margin: -2px -5px 0;
   border-radius: var(--radius); color: var(--ink); font: 550 var(--fs-xs)/1 var(--mono);
 }
-.commodity-move .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }
-.commodity-move .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
-.commodity-move .label { color: var(--ink-3); }
+.strip-move .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }
+.strip-move .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
+.strip-move .label { color: var(--ink-3); }
+/* The charts a reader opened, under the strip they were opened from. */
+.strip-open { margin-top: calc(var(--u) * 4); }
+.strip-open .market-ranges { margin-bottom: calc(var(--u) * 4); }
+.strip-open .index-panel.skeleton { border-color: transparent; }
 
-@media (max-width: 1080px) { .commodity-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .commodity-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1080px) { .strip-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .strip-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .index-panel {
   min-width: 0; padding: calc(var(--u) * 4); border: 1px solid var(--line);
   border-radius: var(--radius); background: var(--bg); color: var(--ink);

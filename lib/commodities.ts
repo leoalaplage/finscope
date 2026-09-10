@@ -50,3 +50,7 @@ export const COMMODITIES: CommodityDefinition[] = [
   { id: "SILVER", symbol: "SI=F", label: "Silver", group: "metal", unit: "an ounce", places: 2 },
   { id: "COPPER", symbol: "HG=F", label: "Copper", group: "metal", unit: "a pound", places: 2 },
 ];
+
+export function commodityById(id: string) {
+  return COMMODITIES.find((item) => item.id.toUpperCase() === id.toUpperCase()) ?? null;
+}
