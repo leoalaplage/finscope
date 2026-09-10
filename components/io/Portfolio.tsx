@@ -509,7 +509,6 @@ export function Portfolio() {
               rows={rows}
               quotes={feed.quotes}
               graded={graded}
-              qualityContributions={Object.fromEntries((score?.contributions ?? []).map((entry) => [entry.ticker, entry.contribution]))}
               dayContributions={day?.contributions ?? {}}
             />
           </section>
@@ -714,12 +713,11 @@ function PortfolioAnalysis({
 }
 
 function Holdings({
-  rows, quotes, graded, qualityContributions, dayContributions,
+  rows, quotes, graded, dayContributions,
 }: {
   rows: ValuedPosition[];
   quotes: Record<string, IoQuote | undefined>;
   graded: Record<string, ScoredCompany | undefined>;
-  qualityContributions: Record<string, number | undefined>;
   dayContributions: Record<string, number | undefined>;
 }) {
   return (
@@ -736,7 +734,6 @@ function Holdings({
             <th scope="col">Cost</th>
             <th scope="col">Gain</th>
             <th scope="col">Grade</th>
-            <th scope="col">QS contribution</th>
             <th scope="col">Day contribution</th>
             <th scope="col">FCF yield</th>
           </tr>
@@ -769,7 +766,6 @@ function Holdings({
                 <td data-empty={row.costBasis == null}>{row.costBasis == null ? ABSENT : money(row.costBasis, BASE_CURRENCY)}</td>
                 <td data-empty={row.profitPercent == null}>{row.profitPercent == null ? ABSENT : delta(row.profitPercent)}</td>
                 <td data-empty={grade == null || grade.note === "NR"}>{grade?.note ?? ABSENT}</td>
-                <td data-empty={qualityContributions[row.ticker] == null}>{qualityContributions[row.ticker] == null ? ABSENT : `${qualityContributions[row.ticker]!.toFixed(1)} pts`}</td>
                 <td data-empty={dayContributions[row.ticker] == null}>{dayContributions[row.ticker] == null ? ABSENT : delta(dayContributions[row.ticker])}</td>
                 <td data-empty={owned == null}>{owned == null ? ABSENT : percent(owned, 2)}</td>
               </tr>

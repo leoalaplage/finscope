@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { historicalValuationRange, type HistoricalValuationRange } from "@/lib/io/valuation-range";
 import { ABSENT, percent, ratio } from "./format";
 import { VALUATION_METRICS, type ValuationHistoryState } from "./valuation-series";
@@ -17,10 +18,16 @@ const write = (value: number | null, asPercent: boolean) => value == null
  * and is at forty now, or whether forty is simply where it lives. Reading a
  * shape out of "23.0× – 41.0× · 28.9× · 90%" is work the page can do instead.
  *
- * So each measure is a line. The decade it has traded in is the rule, the last
- * five years are the heavier segment inside it, the median is a tick, and today
- * is the mark you look for. Nothing here is a colour: the bar is one ink at
- * three weights, which is the same way the rest of the site says near and far.
+ * So each measure is a line. The window it has traded in is the band, the
+ * median is a tick, and today is the mark you look for. Nothing here is a
+ * colour: the bar is one ink at three weights, which is the same way the rest
+ * of the site says near and far.
+ *
+ * Five years or ten, chosen once for the whole list. Both were drawn at once
+ * for a while, one band inside the other, and the two readings argued: a
+ * company cheap against its decade and dear against its last five years had
+ * two marks' worth of meaning in one. The window is a question the reader asks,
+ * so it is a control rather than a layer.
  *
  * The scale is stretched to hold today when today is outside everything before
  * it. A company at a multiple it has never traded at should not have its mark
@@ -45,12 +52,12 @@ const place = (fraction: number) => `${(100 * Math.min(1, Math.max(0, fraction))
 /**
  * The ends of the drawn line.
  *
- * The decade decides it, widened for today where today is beyond it, and then
- * padded by a twentieth so a mark sitting on an end is still a mark and not a
- * cut edge.
+ * The chosen window decides them, widened for today where today is beyond it,
+ * and then padded by a twentieth so a mark sitting on an end is still a mark
+ * and not a cut edge.
  */
-function scaleFor(ten: HistoricalValuationRange, now: number | null): Scale | null {
-  const points = [ten.low, ten.high, now].filter((value): value is number => value != null && Number.isFinite(value));
+function scaleFor(window: HistoricalValuationRange, now: number | null): Scale | null {
+  const points = [window.low, window.high, now].filter((value): value is number => value != null && Number.isFinite(value));
   if (points.length < 2) return null;
   const from = Math.min(...points);
   const to = Math.max(...points);
@@ -58,25 +65,23 @@ function scaleFor(ten: HistoricalValuationRange, now: number | null): Scale | nu
   return { from: from - pad, to: to + pad };
 }
 
-function Line({ ten, five, now, asPercent, label }: {
-  ten: HistoricalValuationRange;
-  five: HistoricalValuationRange;
+function Line({ range, now, asPercent, label, years }: {
+  range: HistoricalValuationRange;
   now: number | null;
   asPercent: boolean;
   label: string;
+  years: number;
 }) {
-  const scale = scaleFor(ten, now);
+  const scale = scaleFor(range, now);
   if (!scale) return <div className="range-line range-line-absent">{ABSENT}</div>;
 
-  const band = (range: HistoricalValuationRange) => {
-    const low = at(scale, range.low);
-    const high = at(scale, range.high);
-    if (low == null || high == null) return null;
-    return { left: place(low), width: `${Math.max(0.6, 100 * (Math.min(1, high) - Math.max(0, low))).toFixed(2)}%` };
+  const low = at(scale, range.low);
+  const high = at(scale, range.high);
+  const band = low == null || high == null ? null : {
+    left: place(low),
+    width: `${Math.max(0.6, 100 * (Math.min(1, high) - Math.max(0, low))).toFixed(2)}%`,
   };
-  const decade = band(ten);
-  const recent = band(five);
-  const median = at(scale, ten.median);
+  const median = at(scale, range.median);
   const mark = at(scale, now);
 
   return (
@@ -84,23 +89,25 @@ function Line({ ten, five, now, asPercent, label }: {
       className="range-line"
       role="img"
       aria-label={
-        `${label}: today ${write(now, asPercent)}, ten-year range ${write(ten.low, asPercent)} to ${write(ten.high, asPercent)}`
-        + (ten.median == null ? "" : `, median ${write(ten.median, asPercent)}`)
-        + (ten.percentile == null ? "" : `, above ${percent(ten.percentile, 0)} of the decade`)
+        `${label}: today ${write(now, asPercent)}, ${years}-year range ${write(range.low, asPercent)} to ${write(range.high, asPercent)}`
+        + (range.median == null ? "" : `, median ${write(range.median, asPercent)}`)
+        + (range.percentile == null ? "" : `, above ${percent(range.percentile, 0)} of it`)
       }
     >
       <span className="range-rule" />
-      {decade ? <span className="range-band range-decade" style={decade} /> : null}
-      {recent ? <span className="range-band range-recent" style={recent} /> : null}
+      {band ? <span className="range-band" style={band} /> : null}
       {median == null ? null : <span className="range-median" style={{ left: place(median) }} />}
       {mark == null ? null : <span className="range-now" style={{ left: place(mark) }} />}
       <span className="range-ends">
-        <i>{write(ten.low, asPercent)}</i>
-        <i>{write(ten.high, asPercent)}</i>
+        <i>{write(range.low, asPercent)}</i>
+        <i>{write(range.high, asPercent)}</i>
       </span>
     </div>
   );
 }
+
+/** The two windows the filings can answer for, and the one on screen. */
+const WINDOWS = [5, 10] as const;
 
 export function ValuationHistory({
   state,
@@ -111,15 +118,45 @@ export function ValuationHistory({
   selected: string[];
   onSelect: (metric: string | null) => void;
 }) {
+  const [years, setYears] = useState<(typeof WINDOWS)[number]>(10);
   const asOf = state.current?.date ?? state.history.at(-1)?.date ?? new Date().toISOString().slice(0, 10);
 
   if (!state.periods.length) return null;
+
+  const rows = (group: "price" | "return") => VALUATION_METRICS.filter((metric) => metric.group === group).map((metric) => {
+    const now = state.current?.metrics[metric.key] ?? null;
+    const range = historicalValuationRange(state.history, metric.key, now, years, asOf);
+    const chosen = selected.includes(metric.key);
+    return (
+      <li className="range-row" key={metric.key} data-selected={chosen}>
+        <button type="button" className="range-name" aria-pressed={chosen} onClick={() => onSelect(chosen ? null : metric.key)}>
+          {metric.short}
+        </button>
+        <span className="range-value" data-empty={now == null}>{write(now, metric.percent)}</span>
+        <Line range={range} now={now} asPercent={metric.percent} label={metric.label} years={years} />
+        {/* The one figure the picture cannot state exactly: how much of the
+            window sits below where the company stands today. */}
+        <span className="range-percentile" data-empty={range.percentile == null}>
+          {range.percentile == null ? ABSENT : `${percent(range.percentile, 0)} of ${years}y below`}
+        </span>
+      </li>
+    );
+  });
 
   return (
     <section className="section valuation-history" id="valuation-history">
       <div className="section-head">
         <h2 className="label">Valuation and capital returned</h2>
-        <span className="label">{state.usesTrailing ? "TTM" : "Annual"} · filing-date prices</span>
+        <div className="range-controls">
+          <div className="seg">
+            {WINDOWS.map((window) => (
+              <button type="button" key={window} aria-pressed={years === window} onClick={() => setYears(window)}>
+                {window}Y
+              </button>
+            ))}
+          </div>
+          <span className="label">{state.usesTrailing ? "TTM" : "Annual"} · filing-date prices</span>
+        </div>
       </div>
 
       {state.loading ? (
@@ -128,34 +165,21 @@ export function ValuationHistory({
         <p className="stat-note">Historical prices are temporarily unavailable. Current valuation remains unchanged.</p>
       ) : (
         <>
-          <ul className="range-list">
-            {VALUATION_METRICS.map((metric, index) => {
-              const now = state.current?.metrics[metric.key] ?? null;
-              const five = historicalValuationRange(state.history, metric.key, now, 5, asOf);
-              const ten = historicalValuationRange(state.history, metric.key, now, 10, asOf);
-              const chosen = selected.includes(metric.key);
-              const opens = index > 0 && metric.group !== VALUATION_METRICS[index - 1].group;
-              return (
-                <li className="range-row" key={metric.key} data-selected={chosen} data-opens={opens || undefined}>
-                  <button type="button" className="range-name" aria-pressed={chosen} onClick={() => onSelect(chosen ? null : metric.key)}>
-                    {metric.short}
-                  </button>
-                  <span className="range-value" data-empty={now == null}>{write(now, metric.percent)}</span>
-                  <Line ten={ten} five={five} now={now} asPercent={metric.percent} label={metric.label} />
-                  {/* The one figure the picture cannot state exactly: how much
-                      of the decade is below where the company stands today. */}
-                  <span className="range-percentile" data-empty={ten.percentile == null}>
-                    {ten.percentile == null ? ABSENT : `${percent(ten.percentile, 0)} of 10y below`}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="stat-note range-legend">
-            The rule is the ten years of filed multiples behind this company, the heavier
-            segment the last five, the tick the ten-year median, and the mark today. Each
-            historical point is priced on the first session after that filing became public.
-          </p>
+          {/*
+            * Two lists, not one list with a rule through it.
+            *
+            * What a company costs and what it hands back are different
+            * questions, and a heavier border between two rows read as a table
+            * that had been cut rather than two groups. Each is named.
+            */}
+          <div className="range-group">
+            <h3 className="label">What it costs</h3>
+            <ul className="range-list">{rows("price")}</ul>
+          </div>
+          <div className="range-group">
+            <h3 className="label">What it returns</h3>
+            <ul className="range-list">{rows("return")}</ul>
+          </div>
         </>
       )}
     </section>

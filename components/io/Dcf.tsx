@@ -37,6 +37,26 @@ const TERMINAL = .025;
 const RATES = [.06, .08, .10, .12];
 type ScenarioName = "Bear" | "Base" | "Bull" | "Custom";
 
+/**
+ * What a named case actually is: two numbers, and nothing else.
+ *
+ * "Bear", "Base" and "Bull" sat in a strip at the top of the page and silently
+ * moved two controls three sections below — so the words meant nothing on
+ * screen, and touching either control turned the reading to "Custom" for no
+ * visible reason. A case is a shortcut to a pair of assumptions, so it is
+ * offered beside them and prints the pair it sets.
+ *
+ * The base is the rate the company's own filings have compounded free cash
+ * flow at; the cases move it two points either way, and require twelve, ten
+ * and eight per cent a year in return.
+ */
+function caseValues(name: Exclude<ScenarioName, "Custom">, base: number) {
+  return {
+    growth: Math.min(1, Math.max(-.5, base + (name === "Bear" ? -.02 : name === "Bull" ? .02 : 0))),
+    required: name === "Bear" ? .12 : name === "Bull" ? .08 : .10,
+  };
+}
+
 interface Loaded { ticker: string; view: IoCompanyView | null; quote: IoQuote | null; error: string | null }
 
 const LIST_EVENT = "finscope:dcf-symbol";
@@ -226,18 +246,8 @@ export function Dcf({ initial }: { initial: string }) {
     setRequired(rate); setScenario("Custom"); writeScenario(rate, custom, "Custom");
   };
   const applyScenario = (name: Exclude<ScenarioName, "Custom">) => {
-    const base = record?.rate ?? near?.rate ?? custom;
-    const growthRate = Math.min(1, Math.max(-.5, base + (name === "Bear" ? -.02 : name === "Bull" ? .02 : 0)));
-    const rate = name === "Bear" ? .12 : name === "Bull" ? .08 : .10;
+    const { growth: growthRate, required: rate } = caseValues(name, record?.rate ?? near?.rate ?? custom);
     setRequired(rate); setAssumed(growthRate); setPicked("own"); setScenario(name); writeScenario(rate, growthRate, name);
-  };
-  const [copied, setCopied] = useState("");
-  const copyScenario = async () => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("s", ticker); url.searchParams.set("r", required.toFixed(4)); url.searchParams.set("g", custom.toFixed(4)); url.searchParams.set("scenario", scenario);
-    try { await navigator.clipboard.writeText(url.toString()); setCopied("Link copied"); }
-    catch { setCopied("Copy unavailable"); }
-    setTimeout(() => setCopied(""), 1_800);
   };
 
   /*
@@ -341,14 +351,6 @@ export function Dcf({ initial }: { initial: string }) {
         </div>
       ) : (
         <>
-          <section className="dcf-scenarios" aria-label="DCF scenarios">
-            <div className="scenario-buttons">
-              {(["Bear", "Base", "Bull"] as const).map((name) => <button type="button" key={name} aria-pressed={scenario === name} onClick={() => applyScenario(name)}>{name}</button>)}
-            </div>
-            <span className="scenario-reading">{scenario} · {percent(required, 0)} required · {percent(custom, 1)} growth</span>
-            <button type="button" className="copy-scenario" onClick={copyScenario}>Copy scenario</button>
-            <span className="export-status" aria-live="polite">{copied}</span>
-          </section>
           {/*
             * The verdict, in the order the question is asked: what it earns if
             * nothing changes, what it is worth to you, how far that is from the
@@ -407,6 +409,21 @@ export function Dcf({ initial }: { initial: string }) {
               {/* The one control on the page: the strip above, the column
                   marked below and the chart under it all answer for it. */}
               <div className="implied-rate-picker">
+                {/* A case is a shortcut to the two dials beside it, and says
+                    which pair it sets. Nothing is pressed once either dial has
+                    been moved by hand: the reader is then on their own numbers,
+                    which is a state worth showing rather than naming. */}
+                <div className="dcf-cases">
+                  {(["Bear", "Base", "Bull"] as const).map((name) => {
+                    const values = caseValues(name, record?.rate ?? near?.rate ?? custom);
+                    return (
+                      <button type="button" key={name} aria-pressed={scenario === name} onClick={() => applyScenario(name)}>
+                        <strong>{name}</strong>
+                        <small>{percent(values.growth, 1)} growth · {percent(values.required, 0)} required</small>
+                      </button>
+                    );
+                  })}
+                </div>
                 {/* The two assumptions, side by side and named as assumptions:
                     what the reader wants out, and what they suppose goes in. */}
                 <label className="dcf-assume">

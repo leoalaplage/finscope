@@ -621,7 +621,7 @@ describe("the redesign", () => {
     expect(portfolio).not.toContain("Contributions add to the weighted score");
   });
 
-  it("draws today's multiple against the decade behind it", () => {
+  it("draws today's multiple against the window the reader chose", () => {
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     const history = readFileSync(new URL("../components/io/ValuationHistory.tsx", import.meta.url), "utf8");
     const series = readFileSync(new URL("../components/io/valuation-series.ts", import.meta.url), "utf8");
@@ -630,9 +630,9 @@ describe("the redesign", () => {
     expect(company).toContain("const valuation = useValuationHistory(");
     expect(company).toContain("<ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />");
     expect(company).toContain("valuation={valuation}");
-    // Both windows still measured; both drawn rather than tabulated.
-    expect(history).toContain("historicalValuationRange(state.history, metric.key, now, 5, asOf)");
-    expect(history).toContain("historicalValuationRange(state.history, metric.key, now, 10, asOf)");
+    // One window at a time, switched in a click, and drawn rather than tabulated.
+    expect(history).toContain("historicalValuationRange(state.history, metric.key, now, years, asOf)");
+    expect(history).toContain("const WINDOWS = [5, 10] as const;");
     expect(history).not.toContain("<table>");
     expect(series).toContain("published=1");
     // A row sends its multiple to the chart at the top, like every other table.

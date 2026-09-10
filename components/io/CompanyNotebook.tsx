@@ -43,7 +43,7 @@ export function CompanyNotebook({ view }: { view: IoCompanyView }) {
   return (
     <section className="section company-notebook" aria-labelledby="notebook-title">
       <div className="section-head">
-        <div><h2 className="label" id="notebook-title">Research notebook</h2><p className="stat-note">Private to this browser · tied to {ticker}</p></div>
+        <h2 className="label" id="notebook-title">Research notebook</h2>
         <ExportMenu name={`${ticker}-financials`} rows={rows} provenance={[`SEC EDGAR · ${source ?? "source unavailable"}`, `Filings read ${view.retrievedAt}`]} />
       </div>
       <div className="notebook-grid">

@@ -23,12 +23,12 @@ import { WatchlistEditor } from "./WatchlistEditor";
  * fact.
  *
  * The day is the one figure on this site that carries a colour, and it is here
- * at the reader's request. It is defensible in the narrow way a rule like this
- * can be: today's move is the only column anyone scans rather than reads, and
- * the sign is already in the number for anyone who cannot see the hue. It is
- * still an exception to how the rest of the site says up and down, which is
- * with the sign alone, so it is confined to this one column rather than let
- * loose down the table.
+ * at the reader's request. It is a wash behind the cell rather than a tint on
+ * the figure: the number keeps its full-strength ink, so the column can be
+ * scanned by anyone and read by everyone. The sign is in the number too, for a
+ * reader who cannot separate the two hues. It is still an exception to how the
+ * rest of the site says up and down, which is with the sign alone, so it is
+ * confined to this one column rather than let loose down the table.
  *
  * A window longer than a company's own history is blank, not a return since
  * listing. Palantir has no ten-year column because Palantir has no ten years,
