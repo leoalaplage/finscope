@@ -3,7 +3,7 @@ import { searchSecCompanies } from "@/lib/adapters/sec";
 import { companyByTicker } from "@/lib/company-registry";
 import { companyView } from "@/lib/io/view";
 import { VIEW_SHAPE } from "@/lib/io/view-version";
-import { CACHE_SECONDS, KEY_VERSION, claimKey, datasetKey, fallbackDatasetKeys, readTwice, requestCompany } from "@/lib/dataset-cache";
+import { CACHE_SECONDS, KEY_VERSION, claimKey, datasetKey, fallbackDatasetKeys, readWithin, requestCompany } from "@/lib/dataset-cache";
 import { TICKER_PATTERN } from "@/lib/market-profile";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
 import type { CompanyDataset } from "@/lib/types";
@@ -81,10 +81,22 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
 
   if (cache) {
     try {
-      // Given a ceiling and a second chance: a read that never settles used to
-      // hold the invocation open until the reader gave up. See `readTwice`.
-      const warm = await readTwice(() => cache.get(viewKey(symbol), "stream"));
-      if (warm) return new Response(warm, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
+      // Given a ceiling, because a read that never settles used to hold the
+      // invocation open until the reader gave up. See `readWithin`.
+      const warm = await readWithin(cache.get(viewKey(symbol), "stream"));
+      if (warm.value) return new Response(warm.value, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
+      /*
+       * A store that did not answer is not a company that is not there.
+       *
+       * Building is what a miss calls for; a stall calls for asking again, and
+       * this endpoint already has an answer that means exactly that — the page
+       * polls it every two seconds and the next read returns in nine
+       * milliseconds. Going on to the build path instead would spend an SEC
+       * lookup, a claim and a handoff on a company that was cached all along.
+       */
+      if (!warm.settled) {
+        return NextResponse.json({ building: true, ticker: symbol }, { status: 202, headers: { "Cache-Control": "no-store", "X-FinScope-Cache": "stalled" } });
+      }
     } catch {
       // A cache that misbehaves must never take the endpoint down with it.
     }
@@ -103,10 +115,10 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
   let stored: string | null = null;
   if (cache) {
     try {
-      stored = await readTwice(() => cache.get(datasetKey(symbol), "text"));
+      stored = (await readWithin(cache.get(datasetKey(symbol), "text"))).value;
       if (!stored) {
         for (const previous of fallbackDatasetKeys(symbol)) {
-          stored = await readTwice(() => cache.get(previous, "text"));
+          stored = (await readWithin(cache.get(previous, "text"))).value;
           if (stored) break;
         }
       }

@@ -67,44 +67,46 @@ export function fallbackSummaryKeys(ticker: string) {
 export const CACHE_SECONDS = 604_800;
 
 /**
- * A cache read that is allowed to give up.
+ * A cache read that is allowed to give up, and says whether it did.
  *
  * The Worker's own logs caught this: about one request in ten to a warm
  * endpoint returned `outcome: canceled` with a wall time of exactly the
  * client's timeout and a CPU time of nought or one millisecond. Nought
  * milliseconds of CPU over six seconds is a Worker parked on an await, and on
  * a cache hit the only await before the response is the KV read. It does not
- * fail and it does not throw — it simply never settles, and the reader watches
- * "Reading the filings" until they close the tab.
+ * fail and it does not throw — it simply never settles.
  *
- * A warm read of this store answers in eight to fourteen milliseconds. Two
- * seconds is a hundred and fifty times that, so nothing healthy is ever cut
- * short; what the ceiling buys is that a stalled read becomes a miss, and a
- * miss is a path every one of these endpoints already knows how to walk.
+ * A warm read of this store answers in eight to fourteen milliseconds, so a
+ * second and a half is a hundred times the healthy latency and nothing well is
+ * ever cut short.
+ *
+ * The distinction the result carries is the point. "The store said there is
+ * nothing here" and "the store did not answer" look identical to a caller that
+ * only gets a value back, and they call for opposite things: the first is a
+ * miss and means build it, the second means ask again in a moment. Conflating
+ * them sent a reader whose company was cached all along down the build path —
+ * an SEC lookup, a claim, a handoff — for a key that would have answered in
+ * nine milliseconds on the next try.
  *
  * The abandoned promise is left to settle on its own. Cancelling a KV read is
  * not something the runtime offers, and an unhandled rejection from one that
  * fails after we stopped waiting would take down the invocation that no longer
  * cares about it.
  */
-export const CACHE_READ_MS = 2_000;
+export const CACHE_READ_MS = 1_500;
 
-export function readWithin<T>(read: Promise<T>, ms = CACHE_READ_MS): Promise<T | null> {
+export type CacheRead<T> = { settled: true; value: T | null } | { settled: false; value: null };
+
+export function readWithin<T>(read: Promise<T>, ms = CACHE_READ_MS): Promise<CacheRead<T>> {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const ceiling = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), ms); });
-  return Promise.race([read.catch(() => null), ceiling]).finally(() => { if (timer) clearTimeout(timer); });
-}
-
-/**
- * The same read, given a second chance before it is called a miss.
- *
- * A stall is not a property of the key: the request after it answers in nine
- * milliseconds. One retry turns a one-in-ten stall into a one-in-a-hundred at
- * the cost of two seconds on the requests that were going to fail anyway.
- */
-export async function readTwice<T>(read: () => Promise<T>, ms = CACHE_READ_MS): Promise<T | null> {
-  const first = await readWithin(read(), ms);
-  return first ?? await readWithin(read(), ms);
+  const ceiling = new Promise<CacheRead<T>>((resolve) => {
+    timer = setTimeout(() => resolve({ settled: false, value: null }), ms);
+  });
+  const attempt = read.then(
+    (value) => ({ settled: true as const, value: value ?? null }),
+    () => ({ settled: true as const, value: null }),
+  );
+  return Promise.race([attempt, ceiling]).finally(() => { if (timer) clearTimeout(timer); });
 }
 
 export function datasetKey(ticker: string) {
