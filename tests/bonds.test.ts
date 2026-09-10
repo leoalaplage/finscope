@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEcbCsv } from "../lib/adapters/ecb";
+import { ECB_NO_INTRADAY, ecbDraws, parseEcbCsv } from "../lib/adapters/ecb";
 import { BONDS, bondById } from "../lib/bonds";
 import { COMMODITIES, commodityById } from "../lib/commodities";
 import { toggleOpen } from "../components/io/QuoteCharts";
@@ -103,6 +103,17 @@ describe("the ECB yield-curve answer", () => {
     // A published date with a blank value is a holiday, not a zero yield.
     const parsed = parseEcbCsv([header, row("2026-09-08", ""), row("2026-09-09", "3.42")].join("\n"));
     expect(parsed).toEqual([{ date: "2026-09-09", value: 3.42 }]);
+  });
+
+  it("refuses a single session rather than drawing a one-point line", () => {
+    /*
+     * A refusal, not a failure: nothing has gone wrong upstream, the series
+     * simply does not exist at that resolution. The route says so before
+     * spending a request, and the sentence tells the reader what to do next.
+     */
+    expect(ecbDraws("1D")).toBe(false);
+    for (const range of ["5D", "1M", "6M", "1Y", "5Y"] as const) expect(ecbDraws(range), range).toBe(true);
+    expect(ECB_NO_INTRADAY).toMatch(/once a day/);
   });
 
   it("puts the observations in date order whatever order they arrived in", () => {

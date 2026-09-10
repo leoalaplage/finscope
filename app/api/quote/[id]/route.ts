@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchEcbWindow } from "@/lib/adapters/ecb";
+import { ECB_NO_INTRADAY, ecbDraws, fetchEcbWindow } from "@/lib/adapters/ecb";
 import { fetchMarketWindow, MARKET_RANGES, type MarketRange, type MarketWindow } from "@/lib/adapters/intraday";
 import { bondById } from "@/lib/bonds";
 import { commodityById } from "@/lib/commodities";
@@ -64,6 +64,21 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   }
 
   const named = bond ?? commodity!;
+  /*
+   * A window this series does not exist at is refused before it is fetched.
+   *
+   * Nothing has gone wrong upstream, so this is not a bad gateway: the ECB
+   * strikes its curve once a business day, and a single session of it is one
+   * point rather than a line. Saying so costs no request and gives the panel a
+   * sentence a reader can act on.
+   */
+  if (bond?.feed.kind === "ecb" && !ecbDraws(range)) {
+    return NextResponse.json(
+      { id: bond.id, name: bond.label, range, error: ECB_NO_INTRADAY },
+      { status: 422, headers: { ...headers, "Cache-Control": "no-store" } },
+    );
+  }
+
   try {
     const { body } = await cachedJson<QuoteWindow>(
       `quote:${SHAPE}:${named.id}:${range}`,

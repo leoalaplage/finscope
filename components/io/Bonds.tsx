@@ -86,6 +86,10 @@ export function Bonds() {
             <button
               className="strip-cell" key={quote.id} type="button"
               aria-pressed={open.includes(quote.id)}
+              // The title alone would become the button's whole accessible
+              // name, so a screen reader would hear the sentence and never the
+              // tenor. The label leads; the description follows it.
+              aria-label={`${quote.label} — ${quote.description}`}
               title={quote.description}
               onClick={() => setOpen((current) => toggleOpen(current, quote.id))}
             >

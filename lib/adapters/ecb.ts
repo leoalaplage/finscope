@@ -38,6 +38,18 @@ const OBSERVATIONS: Partial<Record<MarketRange, number>> = {
   "5D": 5, "1M": 23, "6M": 131, "1Y": 262, "5Y": 1_305,
 };
 
+/**
+ * Why a single session cannot be drawn, in the words the panel shows.
+ *
+ * A refusal rather than an error: nothing has gone wrong upstream, the series
+ * simply does not exist at that resolution. Named here so the route can say it
+ * before spending a request finding out.
+ */
+export const ECB_NO_INTRADAY = "The ECB publishes this curve once a day, so there is no line inside a single session. Choose a longer window.";
+
+/** Whether this window has enough readings in it to be a line. */
+export const ecbDraws = (range: MarketRange) => OBSERVATIONS[range] != null;
+
 /** Noon UTC on a published date, which is a stamp rather than a claim about a time. */
 const stamp = (date: string) => Math.floor(Date.parse(`${date}T12:00:00Z`) / 1_000);
 
@@ -110,9 +122,7 @@ export async function fetchEcbLatest(key: string): Promise<{ rate: number; previ
  */
 export async function fetchEcbWindow(key: string, name: string, range: MarketRange): Promise<MarketWindow> {
   const wanted = OBSERVATIONS[range];
-  if (!wanted) {
-    throw new Error("The ECB publishes this curve once a day, so there is no line inside a single session. Choose a longer window.");
-  }
+  if (!wanted) throw new Error(ECB_NO_INTRADAY);
 
   const observations = await readSeries(key, wanted + 1);
   // The oldest reading is the baseline and is not drawn; everything after it is
