@@ -23,8 +23,6 @@ export default function Home() {
           Every filed figure.
         </h1>
 
-        <p className="home-proof">SEC XBRL · US-GAAP coverage · no analyst estimates · sources and filing dates stated</p>
-
         <div className="home-search">
           <Search size="hero" focusOnMount />
         </div>

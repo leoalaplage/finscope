@@ -483,104 +483,51 @@ describe("the redesign", () => {
      * row's rule is the more specific — so the figure that matters most on the
      * page was drawn in inverse ink on the wrong ground, in both themes.
      */
-    expect(dcf).toContain("rate={required}");
-    expect(dcf).toContain("growth={growth}");
-    // The panel no longer holds either setting: the page that carries it does.
-    const panel2 = readFileSync(new URL("../components/io/ImpliedExpectations.tsx", import.meta.url), "utf8");
-    expect(panel2).not.toContain("implied-rate-picker");
-    expect(panel2).toContain("rate: number;");
-    // And the two screens are one reading: each links to the other's company.
+    // The two screens are one reading: each links to the other's company.
     expect(dcf).toContain("rememberCompany(ticker)");
     const company2 = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     expect(company2).toContain('href={`/dcf?s=${encodeURIComponent(company.ticker)}`}');
     // A company nobody has opened is waited for rather than refused.
     expect(dcf).toContain("timer = setTimeout(load, POLL_MS)");
-    // And the model itself is the panel the company page carries: two
-    // implementations of one arithmetic is one too many.
-    expect(dcf).toContain("<ImpliedExpectations");
   });
 
-  it("inverts the discounted cash flow instead of forecasting one", () => {
-    const panel = readFileSync(new URL("../components/io/ImpliedExpectations.tsx", import.meta.url), "utf8");
+  it("draws what it is worth against what it costs, and nothing else", () => {
     const dcfSource = readFileSync(new URL("../components/io/Dcf.tsx", import.meta.url), "utf8");
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
-    const plot = readFileSync(new URL("../components/io/Plot.tsx", import.meta.url), "utf8");
-    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
-    // The model lives on its own page now. A reader deep in a company's
-    // statements is not the reader asking what its price implies, and the
-    // company page links there for the company it is showing.
+    // The model lives on its own page. A reader deep in a company's statements
+    // is not the reader asking what its price implies.
     expect(company).not.toContain("<ImpliedExpectations");
     expect(company).toContain(">DCF →</a>");
-    // The reader moves the discount rate; nothing else is theirs to move, and
-    // the terminal rate is a constant rather than a control — a terminal rate
-    // tuned per company is where this becomes a forecast again.
-    // The rates the reader may require live on the page that owns the control.
+    // The reader moves the return required; the terminal rate is a constant
+    // rather than a control, because one tuned per company is a forecast again.
     expect(dcfSource).toContain("const RATES = [.06, .08, .10, .12];");
-    expect(panel).toContain("const TERMINAL = .025;");
-    expect(panel).not.toContain("setTerminal");
+    expect(dcfSource).toContain("const TERMINAL = .025;");
+    expect(dcfSource).not.toContain("setTerminal");
     // Free cash flow is struck after interest, so it is held against the market
     // capitalisation and never against the enterprise value.
-    expect(panel).toContain("quote.price * basis.shares");
-    expect(panel).not.toContain("netDebt");
-    // The span of the record is measured from the filings rather than assumed
-    // from the window that was asked for.
-    expect(panel).toContain("const span = (Date.parse(to) - Date.parse(from))");
-    // Three rates on one scale rather than four cells and two paragraphs: the
-    // comparison is the point, and a scale that takes in nought draws a
-    // shrinking cash flow as the shrinkage it is.
-    expect(panel).toContain('className="allocation implied-rates"');
-    expect(panel).toContain("const rates = [0, ...rows.map((row) => row.rate)];");
-    expect(css).toContain(".implied-zero {");
-    // The terms are one line, not an essay: everything the arithmetic was
-    // struck from, in the order it is used.
-    expect(panel).toContain('className="stat-note implied-terms"');
+    expect(dcfSource).toContain("quote.price * basis.shares");
+    expect(dcfSource).not.toContain("netDebt");
     /*
-     * The projection is drawn, and drawn as what it is.
+     * One chart, both halves of the question.
      *
-     * Filed years are filled and implied years are outlines, so a year that has
-     * not happened is never drawn as though it had; the row that is chosen is
-     * the row the chart is drawing; and there is nowhere to type a rate nobody
-     * earned — every option is either the price's own arithmetic or a figure
-     * out of the filings.
+     * The vertical gap at year nought is the margin on buying now; the slope
+     * after it is the potential; and where a rising line meets the flat one is
+     * the year the company is worth what the market charges for it today. The
+     * panel it replaced drew two views, carried its own controls and needed a
+     * five-line guide behind a switch to be read at all.
      */
-    expect(panel).toContain("projectedFrom={history.length}");
-    expect(panel).toContain("projectCashFlows(cash, drawn.rate, HORIZON)");
-    expect(panel).toContain('aria-pressed={row.id === chosen}');
-    expect(panel).not.toContain("<input");
-    expect(plot).toContain("plot-bar-projected");
-    expect(css).toContain(".plot-bar-projected {");
-    // How far the projection reaches past the record it was taken from.
-    expect(panel).toContain("years projected from a record of");
-    /*
-     * And what it is worth, year by year, against what it costs today.
-     *
-     * A price cannot be projected — it is what somebody else will pay — so the
-     * second view draws the value and the flat line of today's price, and the
-     * year they meet is the discount stated as a date.
-     */
-    expect(panel).toContain("valuePath(");
-    expect(panel).toContain('{ label: "Value", points: path, area: true }');
-    expect(panel).toContain("worth today's price in");
-    /*
-     * The one panel that explains itself, folded away.
-     *
-     * Everywhere else a label that needs a paragraph is a label that failed.
-     * This is a model rather than a filed fact, its inputs are the reader's,
-     * and a model nobody can follow is worse than no model — so the five lines
-     * exist, and they are behind a switch rather than in the way.
-     */
-    expect(panel).toContain('aria-expanded={guide}');
-    expect(panel).toContain('className="implied-guide"');
-    expect(panel).toContain("How to read this");
-    // And the control that needed naming is named: four bare percentages
-    // beside a heading are four percentages of nothing.
+    expect(dcfSource).toContain("valuePath({ ...model.terms, discountRate: required }, row.rate)");
+    expect(dcfSource).toContain('label: "What it costs today"');
+    expect(dcfSource).toContain("<MultiLine series={series} onHover={setYear} />");
+    expect(dcfSource).not.toContain("How to read this");
+    expect(dcfSource).not.toContain("What the price implies");
+    // And a line for the reader's own rate only where it is their own: it opens
+    // on the longest record, and a second line on top of the first would label
+    // the same series twice.
+    expect(dcfSource).toContain('row.id !== "own" ||');
+    // The control that needed naming is named: four bare percentages beside a
+    // heading are four percentages of nothing.
     expect(dcfSource).toContain("<span className=\"label\">The return you want a year</span>");
-    expect(css).toContain(".implied-guide {");
-    // Set like every other note here — monospaced and small — rather than as a
-    // paragraph of body text from a different product.
-    expect(css).toContain(".implied-guide dd {\n  margin: 0; font-family: var(--mono); font-size: var(--fs-xs);");
-    expect(panel).not.toContain("That is the rate at which");
-    expect(panel).not.toContain("Nothing on this page is a forecast");
   });
 
   it("reads the wire under the indices as text, and never as a door", () => {
@@ -608,8 +555,16 @@ describe("the redesign", () => {
     expect(news).not.toContain("news-summary");
     expect(news).not.toContain("item.summary");
     expect(news).not.toContain("Breaking The News");
+    /*
+     * The wire's address is dropped in the Worker, not in the component, so
+     * nothing downstream can offer one. A company's own newsroom is the other
+     * case and keeps its link: there the destination is the filer being read
+     * about, and the release is the document the headline stands for.
+     */
     const route = readFileSync(new URL("../app/api/news/route.ts", import.meta.url), "utf8");
-    expect(route).toContain('type Headline = Omit<NewsItem, "summary">;');
+    expect(route).toContain('type Headline = Omit<NewsItem, "summary" | "sourceUrl">;');
+    const company = readFileSync(new URL("../app/api/company/[ticker]/news/route.ts", import.meta.url), "utf8");
+    expect(company).toContain("sourceUrl }: NewsItem): Headline => ({ title, category, publishedAt, sourceUrl })");
   });
 
   it("places portfolio analysis below sector concentration and omits the FCF-owned summary cell", () => {

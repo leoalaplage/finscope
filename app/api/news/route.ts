@@ -11,7 +11,15 @@ import { parseNewsFeed, type NewsItem } from "@/lib/news";
  * that ignored half of every item would be a different, worse thing to keep —
  * and this is where the page's own shape is applied.
  */
-type Headline = Omit<NewsItem, "summary">;
+/*
+ * The wire's own links do not cross.
+ *
+ * A company's newsroom links to that company's press release, which is the
+ * document a reader of this page is reading about. This feed is somebody
+ * else's front page, and its address is dropped here rather than in the
+ * component, so nothing downstream can offer one.
+ */
+type Headline = Omit<NewsItem, "summary" | "sourceUrl">;
 
 const headline = ({ title, category, publishedAt }: NewsItem): Headline => ({ title, category, publishedAt });
 

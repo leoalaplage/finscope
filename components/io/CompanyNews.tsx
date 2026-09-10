@@ -12,8 +12,12 @@ import type { NewsItem } from "@/lib/news";
  * what it announced since — and it is the company's own newsroom rather than
  * anybody's coverage of it, so the two halves of the page have the same author.
  *
- * Read exactly like the wire on the market page: stripped to text in the
- * Worker, with only the feed's verified HTTP(S) source allowed back out.
+ * Stripped to text in the Worker, and each headline opens the release itself.
+ * The wire on the market page carries no links and this does: there the
+ * destination is a third party nobody here vouches for, here it is the company
+ * whose filings are on the rest of the screen, and the release is the document
+ * the headline is a summary of. Only an HTTP(S) address survives the parser, so
+ * nothing that executes can reach the markup.
  *
  * A company with no verified feed has no panel. Not an empty box, not an
  * apology — the page simply ends at the statements, exactly as it did before
@@ -67,7 +71,12 @@ export function CompanyNews({ ticker }: { ticker: string }) {
                 {item.publishedAt ? <time dateTime={item.publishedAt}>{clock(item.publishedAt)}</time> : null}
               </div>
               <h3 className="news-headline">
-                {item.title}
+                {/* The company's own release, at the company's own address:
+                    the destination is the document being read about, not
+                    somebody else's front page. */}
+                {item.sourceUrl
+                  ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.title}</a>
+                  : item.title}
                 {item.category ? <span className="news-section"> · {item.category}</span> : null}
               </h3>
             </article>

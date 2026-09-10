@@ -8,11 +8,13 @@
  * every entity is resolved to a character, and what comes out the other side is
  * plain text that React escapes like any other string.
  *
- * The links are dropped on purpose too. A feed's own `<link>` is the one thing
- * on this site that would send a reader somewhere nobody here vouches for, and
- * a headline is worth reading without being a door. Validating the scheme made
- * the link safe to follow; it did not make it something this site is willing
- * to send a reader through, which was never a security question.
+ * The canonical link is carried, and what to do with it is the reader's page's
+ * decision rather than this parser's. Two feeds are read here and they are not
+ * the same kind of document: a company's own newsroom, where the link is the
+ * press release itself and the destination is the company being read about;
+ * and a market wire, where it is somebody else's site and a headline is worth
+ * reading without becoming a door out. Only HTTP(S) survives, so no page
+ * downstream can be handed a scheme that executes.
  */
 
 export interface NewsItem {
@@ -24,6 +26,8 @@ export interface NewsItem {
   category: string | null;
   /** When it was published, as an ISO instant, or null where unreadable. */
   publishedAt: string | null;
+  /** The item's own HTTP(S) address, or null where the feed gives none safely. */
+  sourceUrl: string | null;
 }
 
 /** How much of an item is kept, so one long entry cannot take over the page. */
@@ -103,6 +107,19 @@ const attribute = (item: string, tag: string, name: string): string | null => {
   return found ? found[1] : null;
 };
 
+/** A feed's own link, kept only where it parses as a page a browser can open. */
+function sourceUrl(raw: string | null): string | null {
+  if (!raw) return null;
+  const text = plain(raw, 2_048);
+  if (!text || text.endsWith("\u2026")) return null;
+  try {
+    const url = new URL(text);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Every item a feed carries, in the order it carries them.
  *
@@ -135,11 +152,17 @@ export function parseNewsFeed(xml: string, limit = 24): NewsItem[] {
     // still news of the day it was made.
     const published = plain(firstField(item, ["pubDate", "published", "updated"]) ?? "", 64);
     const stamp = published ? Date.parse(published) : Number.NaN;
+    // RSS states it as a child, Atom as an attribute of one, and a `guid` is
+    // routinely the article's address where a channel omits `link`.
+    const linked = rss
+      ? firstField(item, ["link", "guid"])
+      : attribute(item, "link", "href") ?? firstField(item, ["link"]);
     items.push({
       title,
       summary: plain(firstField(item, ["description", "summary", "content"]) ?? "", MAX_SUMMARY),
       category: plain(firstField(item, ["category"]) ?? attribute(item, "category", "term") ?? "", 40) || null,
       publishedAt: Number.isFinite(stamp) ? new Date(stamp).toISOString() : null,
+      sourceUrl: sourceUrl(linked),
     });
     if (items.length === limit) break;
   }

@@ -347,10 +347,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   letter-spacing: var(--track-hero); line-height: 1.02;
 }
 .home-title .dim { color: var(--ink-3); }
-.home-proof {
-  max-width: 70ch; margin-top: calc(var(--u) * 3);
-  color: var(--ink-2); font-family: var(--mono); font-size: var(--fs-xs); line-height: 1.5;
-}
 .home-search { margin-top: calc(var(--u) * 8); max-width: 560px; }
 .home-search .search { max-width: none; }
 .home-search .search-field { height: 46px; padding-inline: 12px; }
@@ -1190,14 +1186,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * filled and the record is outlined, which is the one-ink way of saying which
  * of the three is a claim about the future and which two are history.
  */
-.implied-rates { margin-top: calc(var(--u) * 2); }
-.implied-rates .allocation-bar { position: relative; height: 8px; }
-.implied-rates .allocation-bar > span { border-radius: 1px; }
-.implied-rates .allocation-bar > span[data-ask="false"] {
-  background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong);
-}
-.implied-zero { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--line-strong); }
-.implied-terms { margin-top: calc(var(--u) * 3); }
 /*
  * A row that is also a switch.
  *
@@ -1210,7 +1198,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 /* --- The DCF page -------------------------------------------------------- */
 
 .dcf-search { min-width: min(320px, 100%); }
-.implied-head { flex-wrap: wrap; gap: calc(var(--u) * 3); }
 /*
  * The explanation, when it is asked for.
  *
@@ -1218,12 +1205,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * screen, and the one sentence that says what it means. Two columns where there
  * is room, so the terms line up and the eye can find the one it came for.
  */
-.implied-guide {
-  display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
-  gap: 7px calc(var(--u) * 4); margin: calc(var(--u) * 2) 0 calc(var(--u) * 4);
-  padding-block: calc(var(--u) * 3); border-block: 1px solid var(--line);
-}
-.implied-guide dt { color: var(--ink-2); }
 /*
  * Set like every other note on this site, not like a paragraph from another one.
  *
@@ -1232,28 +1213,13 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * proportional body text in the middle of it reads as though it were pasted in
  * from a different product, whatever colour it is drawn in.
  */
-.implied-guide dd {
-  margin: 0; font-family: var(--mono); font-size: var(--fs-xs);
-  line-height: 1.55; color: var(--ink-3);
-}
 @media (max-width: 640px) {
   .dcf-page .section-head { align-items: stretch; flex-direction: column; }
   .dcf-page .seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
   .dcf-page .verdict-assume { display: grid; grid-template-columns: minmax(0, 1fr) 96px auto; align-items: center; }
   .dcf-page .verdict-assume input { width: 100%; }
-  .implied-guide { grid-template-columns: minmax(0, 1fr); gap: 2px calc(var(--u) * 4); }
-  .implied-guide dd { margin-bottom: 7px; }
 }
 
-.implied-row { width: 100%; text-align: left; border-radius: 0; }
-.implied-row:hover .allocation-name { color: var(--ink); }
-.implied-row[aria-pressed="true"] .allocation-name { color: var(--ink); }
-.implied-row[aria-pressed="true"] .allocation-bar > span[data-ask] { box-shadow: inset 0 0 0 1px var(--ink); }
-.implied-row[aria-pressed="true"] .allocation-bar > span[data-ask="true"] { background: var(--ink); }
-.implied-readout { margin-top: calc(var(--u) * 5); margin-bottom: calc(var(--u) * 2); min-height: 0; }
-/* The mark where filed years end and implied ones begin, centred on the join. */
-.implied .plot-tag-under { transform: none; }
-.implied .plot-axis > .plot-tag-under:nth-child(4) { transform: translateX(-50%); }
 
 /* --- The wire ------------------------------------------------------------ */
 
@@ -1392,6 +1358,31 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   .verdict-earns li { grid-template-columns: minmax(0, 1fr) auto; }
   .verdict-earns .label { grid-column: 2; text-align: right; }
 }
+
+/*
+ * The readout above the chart: the year, every line at it, and the gap.
+ *
+ * One row of labelled figures rather than a tooltip that follows the cursor
+ * and a legend in a corner — the same arrangement the price chart uses, for
+ * the same reason: a reader should not have to look away from the drawing to
+ * find out what it says.
+ */
+.worth-readout {
+  display: flex; align-items: baseline; gap: calc(var(--u) * 5); flex-wrap: wrap;
+  margin-bottom: calc(var(--u) * 3); font-family: var(--mono); font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.worth-year { font-weight: 600; }
+.worth-reading { display: flex; align-items: baseline; gap: calc(var(--u) * 2); }
+/* Each line carries its own gap: one margin figure would have to pick a rate
+   and call it the answer, and the rates are on screen because they disagree. */
+.worth-readout .day-mark {
+  padding: 2px 5px; margin: -2px 0; border-radius: var(--radius);
+  color: var(--ink); font-weight: 550; font-size: var(--fs-xs);
+}
+.worth-readout .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }
+.worth-readout .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
+.worth-cost { margin-inline-start: auto; }
 
 .verdict-assume { display: flex; align-items: baseline; gap: calc(var(--u) * 2); margin-top: calc(var(--u) * 4); }
 .verdict-assume input {

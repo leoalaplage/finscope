@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { IO_VIEW } from "@/lib/io/view-version";
-import { impliedGrowth, impliedReturn, presentValue } from "@/lib/io/implied-growth";
-import { ImpliedExpectations, type GrowthChoice } from "./ImpliedExpectations";
+import { impliedGrowth, impliedReturn, presentValue, valuePath } from "@/lib/io/implied-growth";
+import { MultiLine, type Series } from "./Plot";
 import { Search } from "./Search";
 import { rememberCompany } from "@/lib/io/last-company";
 import { useRememberedCompany } from "./remembered";
@@ -39,6 +39,9 @@ const POLL_LIMIT = 30;
 const TERMINAL = .025;
 /** The requirements the grid answers for, and the records it answers on. */
 const RATES = [.06, .08, .10, .12];
+/** Which growth the chart is drawn at: a filed record, or the reader's own. */
+type GrowthChoice = "near" | "far" | "own";
+
 interface Loaded { ticker: string; view: IoCompanyView | null; quote: IoQuote | null; error: string | null }
 
 const LIST_EVENT = "finscope:dcf-symbol";
@@ -505,19 +508,119 @@ export function Dcf({ initial }: { initial: string }) {
             </label>
           </section>
 
-          {/* The model itself, drawn — the same panel the company page carries,
-              because two implementations of one arithmetic is one too many. The
-              page owns the two settings, so there is one of each on screen. */}
-          <ImpliedExpectations
-            view={view!}
-            quote={quote}
-            rate={required}
-            growth={growth}
-            onGrowth={setGrowth}
-            custom={custom}
-          />
+          {/*
+            * One chart, both halves of the question.
+            *
+            * The vertical gap at year nought is the margin on buying today —
+            * what it is worth against what it costs. The slope after it is the
+            * potential, and where a line meets the flat one is the year the
+            * company is worth what you would pay for it now. Nothing here is a
+            * colour: each line is dashed differently and named at its own end,
+            * the way every multi-series chart on this site is.
+            */}
+          <ValueOverTime model={model} required={required} rows={earnings} />
         </>
       )}
     </main>
+  );
+}
+
+/**
+ * What it is worth, year by year, against what it costs today.
+ *
+ * A discounted cash flow's answer is one number and its argument is a shape:
+ * the same company is worth two different things to two readers who disagree
+ * about growth by two points a year. This draws the shape — one line for each
+ * rate the company has actually delivered, and a flat one at the price.
+ *
+ * Two things are read off it and neither needs explaining. The vertical gap at
+ * the left is the margin on buying now. Where a rising line meets the flat one
+ * is the year the business becomes worth what the market is charging for it
+ * today — and a line that never meets it is a price this record does not
+ * justify inside the horizon.
+ */
+function ValueOverTime({ model, required, rows }: {
+  model: { terms: { marketCap: number; freeCashFlow: number; years: number; terminalGrowth: number }; basis: { shares: number; currency: string }; price: number };
+  required: number;
+  rows: Array<{ id: string; label: string; rate: number }>;
+}) {
+  const [year, setYear] = useState<number | null>(null);
+
+  const series = useMemo<Series[]>(() => {
+    const horizon = model.terms.years;
+    const dated = (index: number) => (index === 0 ? "today" : `+${index}y`);
+    /*
+     * The reader's own rate only earns a line where it is their own.
+     *
+     * It opens on the longest record, so drawing it unconditionally would put
+     * a second line exactly on top of the first and label the same series
+     * twice.
+     */
+    const drawn = rows.filter((row, index) =>
+      row.id !== "own" || !rows.some((other, place) => place < index && Math.abs(other.rate - row.rate) < .005));
+    /*
+     * Short names, because the name is set on the line itself.
+     *
+     * The rows above already say what each rate is and what it earns; a line
+     * carrying "Worth if it grows like the last 5 years" at its own end runs
+     * off the chart and repeats a sentence the reader has just read.
+     */
+    const paths = drawn.map((row) => ({
+      label: row.id === "own" ? "Your rate" : row.id === "near" ? "5-year rate" : "10-year rate",
+      points: valuePath({ ...model.terms, discountRate: required }, row.rate)
+        .map((value, index) => ({ date: dated(index), value: value / model.basis.shares })),
+    }));
+    return [
+      ...paths,
+      {
+        label: "What it costs today",
+        points: Array.from({ length: horizon + 1 }, (unused, index) => ({ date: dated(index), value: model.price })),
+      },
+    ];
+  }, [model, required, rows]);
+
+  const at = year == null ? 0 : year;
+  /*
+   * The last series is the price, and every other one is measured against it.
+   *
+   * A single margin figure would have to pick one of the rates and call it the
+   * answer; there are two or three on screen precisely because they disagree.
+   * So each line carries its own gap, marked the way today's move is on the
+   * market table.
+   */
+  const cost = series.at(-1)?.points[at]?.value ?? model.price;
+  const readings = series.slice(0, -1).map((entry) => {
+    const value = entry.points[at]?.value ?? null;
+    return { label: entry.label, value, gap: value == null || !(cost > 0) ? null : value / cost - 1 };
+  });
+
+  return (
+    <section className="section" id="worth">
+      <div className="section-head">
+        <h2 className="label">What it is worth, year by year</h2>
+        <span className="label">Discounted at {percent(required, 0)} · {model.terms.years} years</span>
+      </div>
+
+      {/* The readout says the year and every line at it, so the chart needs no
+          tooltip following the cursor and no legend in a corner. */}
+      <div className="worth-readout">
+        <span className="worth-year">{year == null ? "Today" : `In ${year} ${year === 1 ? "year" : "years"}`}</span>
+        {readings.map((reading) => (
+          <span className="worth-reading" key={reading.label}>
+            <span className="label">{reading.label}</span>
+            {reading.value == null ? ABSENT : writePrice(reading.value, model.basis.currency)}
+            {reading.gap == null ? null : (
+              <span className="day-mark" data-dir={reading.gap >= 0 ? "up" : "down"}>{delta(reading.gap, 0)}</span>
+            )}
+          </span>
+        ))}
+        <span className="worth-reading worth-cost">
+          <span className="label">It costs</span>
+          {writePrice(cost, model.basis.currency)}
+        </span>
+      </div>
+
+      <MultiLine series={series} onHover={setYear} />
+    </section>
   );
 }

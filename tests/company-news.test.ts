@@ -66,8 +66,15 @@ describe("a company's own newsroom", () => {
     const panel = readFileSync(new URL("../components/io/CompanyNews.tsx", import.meta.url), "utf8");
     expect(panel).toContain('if (state.kind === "absent") return null;');
     expect(panel).toContain("}, [ticker]);");
-    // And nothing on it is a door: the newsroom is read here, not left for.
-    expect(panel).not.toContain("<a ");
-    expect(panel).not.toContain('target="_blank"');
+    /*
+     * And each headline opens the release it summarises.
+     *
+     * The market wire carries no links, because its destinations are third
+     * parties nobody here vouches for. This feed is the company's own
+     * newsroom: the destination is the filer whose statements are on the rest
+     * of the screen, and the release is the document the headline stands for.
+     */
+    expect(panel).toContain("href={item.sourceUrl}");
+    expect(panel).toContain('target="_blank" rel="noreferrer"');
   });
 });

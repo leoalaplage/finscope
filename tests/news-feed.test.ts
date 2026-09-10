@@ -25,6 +25,7 @@ describe("reading a news feed", () => {
       summary: "The Canadian government on Saturday expressed deep concern.",
       category: "Politics",
       publishedAt: "2026-09-05T19:19:00.000Z",
+      sourceUrl: "https://example.test/a",
     }]);
   });
 
@@ -59,21 +60,20 @@ describe("reading a news feed", () => {
 
   it("states nothing the feed does not say", () => {
     const items = parseNewsFeed(feed(`<item><title>Bare</title></item>`));
-    expect(items[0]).toEqual({ title: "Bare", summary: "", category: null, publishedAt: null });
+    expect(items[0]).toEqual({ title: "Bare", summary: "", category: null, publishedAt: null, sourceUrl: null });
   });
 
-  it("carries no link out of the site, safe or not", () => {
+  it("keeps only an address a browser can open", () => {
     /*
-     * The feed's own <link> was read for a while, validated as HTTP(S) and
-     * offered as a door on every headline. Validating the scheme answered the
-     * security question and not the editorial one: this site does not send a
-     * reader somewhere nobody here vouches for, and it does not print the
-     * wire's hostname as a byline either.
+     * The parser carries the link and each page decides what to do with it: a
+     * company's newsroom opens its own press release, the market wire prints
+     * text. What never survives is a scheme that executes, so no page
+     * downstream can be handed one.
      */
     const items = parseNewsFeed(feed(`
       <item><title>Unsafe</title><link>javascript:alert(1)</link></item>
       <item><title>Safe</title><link>https://example.test/source</link></item>`));
-    expect(items.map((item) => Object.keys(item).some((key) => /url|link|href/i.test(key)))).toEqual([false, false]);
+    expect(items.map((item) => item.sourceUrl)).toEqual([null, "https://example.test/source"]);
   });
 
   it("skips an item with no headline rather than showing an empty one", () => {
@@ -119,6 +119,7 @@ describe("reading an Atom newsroom", () => {
       summary: "A sentence about the update.",
       category: "UPDATE",
       publishedAt: "2026-08-27T13:59:18.486Z",
+      sourceUrl: "https://www.apple.com/newsroom/2026/08/a/",
     });
   });
 
