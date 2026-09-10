@@ -177,8 +177,10 @@ export function CompanyTimeline({ view, insiders }: { view: IoCompanyView; insid
       }));
     const dealing = insiders
       .filter((transaction) => transaction.kind === "open-market")
-      .map((transaction) => ({
-        id: `insider-${transaction.accession}-${transaction.owner}-${transaction.date}`,
+      .map((transaction, index) => ({
+        // One Form 4 can carry several rows for the same owner, date and
+        // security. Its order inside the filing distinguishes those rows.
+        id: `insider-${transaction.accession}-${transaction.owner}-${transaction.date}-${index}`,
         date: transaction.date,
         kind: "Insider",
         title: `${transaction.owner} · ${transaction.direction === "acquired" ? "purchase" : "sale"}`,
