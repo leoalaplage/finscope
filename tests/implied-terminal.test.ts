@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { impliedGrowth, presentValue, terminalShare } from "../lib/io/implied-growth";
+import { logLinearFit } from "../lib/log-linear.js";
 
 /**
  * How much of a discounted cash flow is the part nobody can observe.
@@ -70,5 +71,71 @@ describe("the share of the value that is the perpetuity", () => {
     const rate = (asked as { rate: number }).rate;
     expect(terminalShare(terms(), rate)!).toBeCloseTo(terminalShare(terms(), rate)!, 10);
     expect(presentValue(terms(), rate)).toBeCloseTo(1_000, 6);
+  });
+});
+
+/**
+ * Which filed year the whole answer is compounded from.
+ *
+ * A discounted cash flow grows one figure forward for a decade, so that figure
+ * carries the answer and choosing it is not neutral. Measured across the
+ * companies this site holds, the two obvious corrections both fail — and the
+ * failures are the reason the base is checked rather than replaced.
+ */
+describe("the year the model compounds from", () => {
+  const decade = (values: number[]) => values.map((value, index) => ({ x: index, value }));
+
+  it("will not take the median, which reads growth as a spike", () => {
+    /*
+     * Mastercard's free cash flow is a near-perfect straight line on a log
+     * scale — R² of 0.98 — and its ten-year median still sits about half its
+     * latest figure, because the middle of a rising series is its middle. A
+     * "normalised" base built on it would report a steadily compounding
+     * company as one having an exceptional year, every year.
+     */
+    const steady = decade(Array.from({ length: 10 }, (unused, year) => 100 * 1.15 ** year));
+    const fit = logLinearFit(steady)!;
+    expect(fit.rSquared).toBeCloseTo(1, 6);
+    const sorted = [...steady.map((point) => point.value)].sort((left, right) => left - right);
+    const median = (sorted[4] + sorted[5]) / 2;
+    const latest = steady.at(-1)!.value;
+    // Ten years at fifteen per cent puts the middle of the series about eighty
+    // per cent below the end of it, by construction and not by accident.
+    expect(latest / median).toBeGreaterThan(1.8);
+    // The fitted line, by contrast, lands on the year it is asked about.
+    expect(fit.at(9)).toBeCloseTo(latest, 6);
+  });
+
+  it("will not take the fitted line either, where the level has stepped", () => {
+    /*
+     * Eli Lilly's cash flow did not wobble, it changed level: R² near nought,
+     * and the line through the decade puts four billion against the eighteen
+     * it filed. Substituting the line there is not a correction, it is a
+     * stale figure with better manners.
+     */
+    const stepped = decade([4, 4.2, 3.9, 4.1, 4.3, 4, 4.2, 9, 14, 18]);
+    const fit = logLinearFit(stepped)!;
+    expect(fit.rSquared).toBeLessThan(.75);
+    expect(fit.at(9)).toBeLessThan(stepped.at(-1)!.value / 1.5);
+  });
+
+  it("notices the disagreement instead, which is what the page states", () => {
+    // What survives both failures: the fit is a detector, not a substitute.
+    // A quarter away from the trend is where the page says the answer rests
+    // on a year unlike the ten behind it.
+    const steady = decade(Array.from({ length: 10 }, (unused, year) => 100 * 1.15 ** year));
+    const stepped = decade([4, 4.2, 3.9, 4.1, 4.3, 4, 4.2, 9, 14, 18]);
+    const away = (points: ReturnType<typeof decade>) => {
+      const fit = logLinearFit(points)!;
+      return Math.abs(points.at(-1)!.value / fit.at(points.at(-1)!.x) - 1);
+    };
+    expect(away(steady)).toBeLessThan(.25);
+    expect(away(stepped)).toBeGreaterThan(.25);
+  });
+
+  it("refuses a fit where one year went negative", () => {
+    // A logarithm of a negative number is not a slow year, and ten of the
+    // twenty-seven companies here have one somewhere in the decade.
+    expect(logLinearFit(decade([10, 12, -3, 14, 16]))).toBeNull();
   });
 });

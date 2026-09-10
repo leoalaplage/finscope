@@ -8,6 +8,7 @@ import { MultiLine, type Series } from "./Plot";
 import { Search } from "./Search";
 import { rememberCompany } from "@/lib/io/last-company";
 import { useRememberedCompany } from "./remembered";
+import { logLinearFit } from "@/lib/log-linear.js";
 import { withinYears } from "./ranges";
 import type { IoQuote } from "./quote";
 import { ABSENT, datedCagrOf, delta, money, percent, price as writePrice } from "./format";
@@ -375,6 +376,42 @@ export function Dcf({ initial }: { initial: string }) {
   const perpetuity = model && priceAsks != null ? terminalShare({ ...model.terms, discountRate: required }, priceAsks) : null;
 
   /*
+   * Whether the year this is all compounded from looks like the decade behind it.
+   *
+   * A discounted cash flow grows one filed figure forward for ten years, so
+   * that figure carries the whole answer, and choosing it is not neutral. The
+   * obvious corrections do not work: the median of the decade punishes any
+   * company that grew — Mastercard's free cash flow is a near-perfect straight
+   * line and its median still sits ninety-nine per cent below the last point —
+   * and a line fitted through the decade is right where the deviation is noise
+   * and stale where it is a change of regime. Lilly's cash flow really did step
+   * up; the line through the ten years before it says four billion against the
+   * eighteen it filed.
+   *
+   * So the base is not corrected. It is checked, and where it stands well clear
+   * of the trend the page says so — one sentence, and the reader decides
+   * whether they are looking at a new level or a good year.
+   */
+  const AWAY_FROM_TREND = .25;
+  const base = useMemo(() => {
+    if (!view || !model?.cash.period) return null;
+    const annual = withinYears(view.annual, 10)
+      .flatMap((period) => {
+        const value = period.values.freeCashFlow;
+        return value == null || !Number.isFinite(value) ? [] : [{ date: period.end, value }];
+      });
+    if (annual.length < 4) return null;
+    const start = Date.parse(annual[0].date);
+    const years = (date: string) => (Date.parse(date) - start) / (365.25 * 86_400_000);
+    const fit = logLinearFit(annual.map((point) => ({ x: years(point.date), value: point.value })));
+    if (!fit) return null;
+    const line = fit.at(years(model.cash.period.end));
+    if (!(line > 0) || model.cash.value == null) return null;
+    const off = model.cash.value / line - 1;
+    return Math.abs(off) < AWAY_FROM_TREND ? null : { off, line };
+  }, [view, model]);
+
+  /*
    * The finding, in two halves: what is true, and what it means.
    *
    * The second half is the one sentence on this page a reader could act on, so
@@ -593,6 +630,13 @@ export function Dcf({ initial }: { initial: string }) {
               {model.cash.skipped
                 ? `, because ${model.cash.skipped.period.label} was ${money(model.cash.skipped.value, model.basis.currency)} — the company spent more than it earned.`
                 : model.cash.period ? "." : null}
+              {/* The whole answer compounds from that one year, so a year
+                  unlike the decade behind it is worth naming. Whether it is a
+                  new level or a good year is a judgement about the business,
+                  not about the arithmetic, and it stays the reader's. */}
+              {base
+                ? ` That is ${base.off > 0 ? `${(1 + base.off).toFixed(1)}\u00d7` : `${(100 * (1 + base.off)).toFixed(0)}% of`} what the decade's trend puts at the same date — the answer above rests on a year unlike the ten behind it.`
+                : null}
             </p>
 
             {/*
