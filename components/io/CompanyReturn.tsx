@@ -9,7 +9,7 @@ export function CompanyReturn() {
   useEffect(() => { window.location.replace(lastCompanyPath()); }, []);
 
   return (
-    <main className="wrap">
+    <main className="wrap" id="main-content" tabIndex={-1}>
       <div className="state" role="status" aria-live="polite">
         <p className="lead num">Company</p>
         <p>Opening your last company…</p>

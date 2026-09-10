@@ -20,9 +20,9 @@ import { ABSENT, percent } from "./format";
  * there is no crowd.
  */
 
-interface Pillars { Quality: number | null; Health: number | null; Growth: number | null; Value: number | null }
+export interface Pillars { Quality: number | null; Health: number | null; Growth: number | null; Value: number | null }
 
-interface Scored {
+export interface Scored {
   grade: string;
   total: number | null;
   coverage: number;
@@ -68,15 +68,16 @@ interface HistoryPoint {
   pillars: Pillars;
 }
 
-type State = { kind: "loading" } | { kind: "absent" } | { kind: "ready"; score: Scored };
+export type ScoreState =
+  | { kind: "loading"; ticker: string }
+  | { kind: "absent"; ticker: string }
+  | { kind: "ready"; ticker: string; score: Scored };
 
 const PILLARS: Array<keyof Pillars> = ["Quality", "Health", "Growth", "Value"];
 const write = (value: number | null) => (value == null ? ABSENT : value.toFixed(0));
 
-export function Score({ ticker }: { ticker: string }) {
-  const [state, setState] = useState<State>({ kind: "loading" });
-  const [open, setOpen] = useState(false);
-
+export function useCompanyScore(ticker: string): ScoreState {
+  const [state, setState] = useState<ScoreState>({ kind: "loading", ticker });
   useEffect(() => {
     const controller = new AbortController();
     let attempts = 0;
@@ -92,19 +93,25 @@ export function Score({ ticker }: { ticker: string }) {
             attempts += 1;
             timer = setTimeout(load, 2_000);
           } else {
-            setState({ kind: "absent" });
+            setState({ kind: "absent", ticker });
           }
           return;
         }
-        if (!response.ok) { setState({ kind: "absent" }); return; }
-        setState({ kind: "ready", score: await response.json() as Scored });
+        if (!response.ok) { setState({ kind: "absent", ticker }); return; }
+        setState({ kind: "ready", ticker, score: await response.json() as Scored });
       } catch {
-        if (!controller.signal.aborted) setState({ kind: "absent" });
+        if (!controller.signal.aborted) setState({ kind: "absent", ticker });
       }
     };
     load();
     return () => { controller.abort(); if (timer) clearTimeout(timer); };
   }, [ticker]);
+
+  return state.ticker === ticker ? state : { kind: "loading", ticker };
+}
+
+export function Score({ ticker, state }: { ticker: string; state: ScoreState }) {
+  const [open, setOpen] = useState(false);
 
   // A score that cannot be struck is simply not shown. The page is about the
   // filings; the judgement is an addition to them, not a precondition.

@@ -35,6 +35,7 @@ const POLL_LIMIT = 30;
 const TERMINAL = .025;
 /** The requirements the grid answers for, and the records it answers on. */
 const RATES = [.06, .08, .10, .12];
+type ScenarioName = "Bear" | "Base" | "Bull" | "Custom";
 
 interface Loaded { ticker: string; view: IoCompanyView | null; quote: IoQuote | null; error: string | null }
 
@@ -88,6 +89,7 @@ export function Dcf({ initial }: { initial: string }) {
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [required, setRequired] = useState(.10);
+  const [scenario, setScenario] = useState<ScenarioName>("Base");
   /*
    * One growth for the whole page.
    *
@@ -108,6 +110,22 @@ export function Dcf({ initial }: { initial: string }) {
    */
   const [assumed, setAssumed] = useState<number | null>(null);
   const current = loaded?.ticker === ticker ? loaded : null;
+
+  // A shared address is authoritative on first arrival and when the ticker in
+  // the address changes. Invalid assumptions are ignored rather than guessed.
+  /* The URL is an external store; applying a browser navigation to the model is
+     precisely the synchronization this effect owns. */
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const address = new URLSearchParams(search);
+    const rate = Number(address.get("r"));
+    const growth = Number(address.get("g"));
+    const named = address.get("scenario");
+    if (Number.isFinite(rate) && rate >= .01 && rate <= .30) setRequired(rate);
+    if (Number.isFinite(growth) && growth >= -.50 && growth <= 1) { setAssumed(growth); setPicked("own"); }
+    if (named === "Bear" || named === "Base" || named === "Bull" || named === "Custom") setScenario(named);
+  }, [asked, search]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   /*
    * A company nobody has opened here before is normalized from raw XBRL first,
@@ -184,11 +202,43 @@ export function Dcf({ initial }: { initial: string }) {
   // Opened on the longest record the filings support, rounded to the half point
   // the control steps in, and the reader's from the first edit onwards.
   const custom = assumed ?? Math.round((record?.rate ?? near?.rate ?? 0) * 200) / 200;
-  const assume = (next: number) => {
-    setAssumed(Math.min(1, Math.max(-.5, next)));
-    setPicked("own");
+  const writeScenario = (rate: number, growthRate: number, name: ScenarioName) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("s", ticker);
+    url.searchParams.set("r", rate.toFixed(4));
+    url.searchParams.set("g", growthRate.toFixed(4));
+    url.searchParams.set("scenario", name);
+    window.history.replaceState(null, "", url);
   };
-  const setGrowth = setPicked;
+  const assume = (next: number) => {
+    const growthRate = Math.min(1, Math.max(-.5, next));
+    setAssumed(growthRate);
+    setPicked("own");
+    setScenario("Custom");
+    writeScenario(required, growthRate, "Custom");
+  };
+  const setGrowth = (next: GrowthChoice) => {
+    setPicked(next); setScenario("Custom");
+    const growthRate = next === "near" ? near?.rate ?? custom : next === "far" ? record?.rate ?? custom : custom;
+    writeScenario(required, growthRate, "Custom");
+  };
+  const requireReturn = (rate: number) => {
+    setRequired(rate); setScenario("Custom"); writeScenario(rate, custom, "Custom");
+  };
+  const applyScenario = (name: Exclude<ScenarioName, "Custom">) => {
+    const base = record?.rate ?? near?.rate ?? custom;
+    const growthRate = Math.min(1, Math.max(-.5, base + (name === "Bear" ? -.02 : name === "Bull" ? .02 : 0)));
+    const rate = name === "Bear" ? .12 : name === "Bull" ? .08 : .10;
+    setRequired(rate); setAssumed(growthRate); setPicked("own"); setScenario(name); writeScenario(rate, growthRate, name);
+  };
+  const [copied, setCopied] = useState("");
+  const copyScenario = async () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("s", ticker); url.searchParams.set("r", required.toFixed(4)); url.searchParams.set("g", custom.toFixed(4)); url.searchParams.set("scenario", scenario);
+    try { await navigator.clipboard.writeText(url.toString()); setCopied("Link copied"); }
+    catch { setCopied("Copy unavailable"); }
+    setTimeout(() => setCopied(""), 1_800);
+  };
 
   /*
    * The three things the verdict is struck from, and nothing else.
@@ -259,7 +309,7 @@ export function Dcf({ initial }: { initial: string }) {
   }, [view, custom]);
 
   return (
-    <main className="wrap">
+    <main className="wrap dcf-page" id="main-content" tabIndex={-1}>
       <header className="head">
         <div className="head-row">
           <div>
@@ -291,6 +341,14 @@ export function Dcf({ initial }: { initial: string }) {
         </div>
       ) : (
         <>
+          <section className="dcf-scenarios" aria-label="DCF scenarios">
+            <div className="scenario-buttons">
+              {(["Bear", "Base", "Bull"] as const).map((name) => <button type="button" key={name} aria-pressed={scenario === name} onClick={() => applyScenario(name)}>{name}</button>)}
+            </div>
+            <span className="scenario-reading">{scenario} · {percent(required, 0)} required · {percent(custom, 1)} growth</span>
+            <button type="button" className="copy-scenario" onClick={copyScenario}>Copy scenario</button>
+            <span className="export-status" aria-live="polite">{copied}</span>
+          </section>
           {/*
             * The verdict, in the order the question is asked: what it earns if
             * nothing changes, what it is worth to you, how far that is from the
@@ -371,15 +429,18 @@ export function Dcf({ initial }: { initial: string }) {
                 <span className="label">Annual return you require</span>
                 <div className="seg">
                   {RATES.map((rate) => (
-                    <button key={rate} type="button" aria-pressed={required === rate} onClick={() => setRequired(rate)}>
+                    <button key={rate} type="button" aria-pressed={required === rate} onClick={() => requireReturn(rate)}>
                       {percent(rate, 0)}
                     </button>
                   ))}
                 </div>
               </div>
             </div>
-            <div className="sheet">
-              <table>
+            <p className="horizontal-hint" id="dcf-matrix-hint">Swipe horizontally to compare every required return →</p>
+            <div className="dcf-matrix-frame">
+              {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Keyboard users need to reach and pan the overflow region. */}
+              <div className="sheet dcf-matrix" role="region" aria-label="DCF margin matrix" aria-describedby="dcf-matrix-hint" tabIndex={0}>
+                <table>
                 <thead>
                   <tr>
                     <th className="key" scope="col">Growth</th>
@@ -414,7 +475,7 @@ export function Dcf({ initial }: { initial: string }) {
                               type="button"
                               className="dcf-cell"
                               aria-pressed={here}
-                              onClick={() => { setGrowth(row.id); setRequired(rate); }}
+                              onClick={() => { setGrowth(row.id); setRequired(rate); setScenario("Custom"); writeScenario(rate, row.rate, "Custom"); }}
                               title={`${writePrice(value, model.basis.currency)} a share`}
                             >
                               {delta(margin, 0)}
@@ -425,7 +486,8 @@ export function Dcf({ initial }: { initial: string }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
             <p className="stat-note" style={{ marginTop: 10 }}>
               A filled figure is room: the value at that growth and that requirement is above what the market charges.

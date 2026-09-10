@@ -15,9 +15,20 @@ import { Shell } from "@/components/io/Shell";
 export async function generateMetadata({ params }: { params: Promise<{ ticker: string }> }): Promise<Metadata> {
   const { ticker } = await params;
   const symbol = ticker.toUpperCase().slice(0, 12);
+  const title = `${symbol} — FinScope.io`;
+  const description = `Filed financials, market price and valuation for ${symbol}, read from SEC XBRL.`;
   return {
-    title: `${symbol} — FinScope.io`,
-    description: `Filed financials, market price and valuation for ${symbol}, read from SEC XBRL.`,
+    title,
+    description,
+    alternates: { canonical: `/s/${encodeURIComponent(symbol)}` },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: `/s/${encodeURIComponent(symbol)}`,
+      images: [],
+    },
+    twitter: { card: "summary", title, description, images: [] },
   };
 }
 

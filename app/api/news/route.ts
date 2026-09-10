@@ -13,7 +13,7 @@ import { parseNewsFeed, type NewsItem } from "@/lib/news";
  */
 type Headline = Omit<NewsItem, "summary">;
 
-const headline = ({ title, category, publishedAt }: NewsItem): Headline => ({ title, category, publishedAt });
+const headline = ({ title, category, publishedAt, sourceUrl }: NewsItem): Headline => ({ title, category, publishedAt, sourceUrl });
 
 /**
  * The wire, fetched here because a browser cannot fetch it at all.
@@ -35,7 +35,7 @@ const ITEMS = 18;
 export async function GET() {
   try {
     const { body, hit } = await cachedJson<{ items: Headline[] }>(
-      "news:headlines",
+      "news:headlines:v2",
       NEWS_SECONDS,
       async () => {
         const response = await fetch(FEED, {

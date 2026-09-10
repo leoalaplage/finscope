@@ -14,6 +14,7 @@ import { stated } from "@/lib/sector";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import { useStoredWatchlist } from "./watchlist";
 import { ABSENT, money, percent } from "./format";
+import { ExportMenu } from "./ExportMenu";
 
 /**
  * The Quality Score, over the list a reader follows or a table they paste.
@@ -62,6 +63,18 @@ type Progress = ({ kind: "building"; ready: number; asked: number } | { kind: "f
  */
 const POLL_MS = 3_000;
 const POLL_LIMIT = 20;
+const SAVED_SCREENS_KEY = "finscope.io.saved-screens.v1";
+interface SavedScreen { id: string; name: string; preset: PresetName; minScore: string; maxAlerts: string; sector: string }
+
+function filterRows(rows: ScoredCompany[], minScore: string, maxAlerts: string, sector: string) {
+  return rows.filter((row) => {
+    const floor = Number(minScore), ceiling = Number(maxAlerts);
+    if (minScore && (!Number.isFinite(floor) || row.total == null || row.total < floor)) return false;
+    if (maxAlerts && (!Number.isFinite(ceiling) || row.alertes > ceiling)) return false;
+    if (sector && !row.Secteur.toLowerCase().includes(sector.toLowerCase())) return false;
+    return true;
+  });
+}
 
 /**
  * The columns, each naming the criterion the engine already ranks it by.
@@ -167,6 +180,33 @@ export function Screener() {
   const [pasted, setPasted] = useState("");
   const [sortKey, setSortKey] = useState("total");
   const [direction, setDirection] = useState<SortDirection>("desc");
+  const [minScore, setMinScore] = useState("");
+  const [maxAlerts, setMaxAlerts] = useState("");
+  const [sector, setSector] = useState("");
+  const [screenName, setScreenName] = useState("My screen");
+  const [savedScreens, setSavedScreens] = useState<SavedScreen[]>([]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const value = JSON.parse(localStorage.getItem(SAVED_SCREENS_KEY) ?? "[]") as unknown;
+        if (Array.isArray(value)) setSavedScreens(value.filter((item): item is SavedScreen => typeof item === "object" && item != null && typeof (item as SavedScreen).name === "string").slice(0, 20));
+      } catch { /* No saved view is the default. */ }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const persistScreens = (screens: SavedScreen[]) => {
+    setSavedScreens(screens);
+    try { localStorage.setItem(SAVED_SCREENS_KEY, JSON.stringify(screens)); } catch { /* Session state still works. */ }
+  };
+  const saveScreen = () => {
+    const saved: SavedScreen = { id: `screen-${Date.now().toString(36)}`, name: screenName.trim().slice(0, 40) || "My screen", preset, minScore, maxAlerts, sector };
+    persistScreens([...savedScreens.filter((entry) => entry.name !== saved.name), saved].slice(-20));
+  };
+  const loadScreen = (id: string) => {
+    const saved = savedScreens.find((entry) => entry.id === id); if (!saved) return;
+    setScreenName(saved.name); setPreset(saved.preset); setMinScore(saved.minScore); setMaxAlerts(saved.maxAlerts); setSector(saved.sector);
+  };
 
   const chooseSort = (key: string) => {
     if (key === sortKey) { setDirection((current) => (current === "asc" ? "desc" : "asc")); return; }
@@ -187,11 +227,11 @@ export function Screener() {
     if (!pasted.trim()) return null;
     try {
       const result = screen(pasted, { preset });
-      return { kind: "ready", feed: { rows: result.all, missing: result.missing, warnings: result.warnings, asked: result.all.length, answered: result.all.length, source: "pasted" } };
+      return { kind: "ready", feed: { rows: filterRows(result.all, minScore, maxAlerts, sector), missing: result.missing, warnings: result.warnings, asked: result.all.length, answered: result.all.length, source: "pasted" } };
     } catch (error) {
       return { kind: "failed", message: error instanceof Error ? error.message : "That table could not be read." };
     }
-  }, [pasted, preset]);
+  }, [pasted, preset, minScore, maxAlerts, sector]);
 
   const scoringPasted = pasted.trim().length > 0;
 
@@ -274,11 +314,11 @@ export function Screener() {
     if (!built || built.followed !== followed) return null;
     try {
       const result = screen(built.table, { preset });
-      return { kind: "ready", feed: { rows: result.all, missing: result.missing, warnings: result.warnings, asked: built.asked, answered: built.answered, source: "watchlist" } };
+      return { kind: "ready", feed: { rows: filterRows(result.all, minScore, maxAlerts, sector), missing: result.missing, warnings: result.warnings, asked: built.asked, answered: built.answered, source: "watchlist" } };
     } catch (error) {
       return { kind: "failed", message: error instanceof Error ? error.message : "The screener could not be built." };
     }
-  }, [built, followed, preset]);
+  }, [built, followed, preset, minScore, maxAlerts, sector]);
 
   // A list the reader has just edited has no progress of its own yet either.
   const waiting = useMemo<State>(
@@ -294,7 +334,7 @@ export function Screener() {
   );
 
   return (
-    <main className="wrap">
+    <main className="wrap" id="main-content" tabIndex={-1}>
       <header className="head">
         <div className="head-id">
           <h1 className="head-ticker">QS Screener</h1>
@@ -311,17 +351,28 @@ export function Screener() {
                 : `${tickers.length} companies`}
           </span>
           <span className="label">Scored in your browser</span>
+          {state.kind === "ready" ? <ExportMenu name="finscope-screener" rows={ordered.map((row) => ({ ticker: row.Ticker, sector: row.Secteur, grade: row.note, score: row.total, coverage: row.couverture, alerts: row.alertes, quality: row.piliers.Quality, health: row.piliers.Health, growth: row.piliers.Growth, value: row.piliers.Value, valuation: row.valuation }))} provenance={["FinScope QS · SEC-filed data", `Watchlist: ${tickers.join(", ")}`]} /> : null}
         </div>
       </header>
 
       <section className="section" style={{ borderTop: 0 }}>
         <div className="section-head">
-          <div className="seg">
-            {(Object.keys(QS_PRESETS) as PresetName[]).map((name) => (
-              <button key={name} type="button" aria-pressed={preset === name} onClick={() => setPreset(name)}>
-                {name === "defaut" ? "Balanced" : name === "quality-purist" ? "Quality" : "Value"}
-              </button>
-            ))}
+          <div className="screener-controls">
+            <div className="seg">
+              {(Object.keys(QS_PRESETS) as PresetName[]).map((name) => (
+                <button key={name} type="button" aria-pressed={preset === name} onClick={() => setPreset(name)}>
+                  {name === "defaut" ? "Balanced" : name === "quality-purist" ? "Quality" : "Value"}
+                </button>
+              ))}
+            </div>
+            <label>Min score<input type="number" min="0" max="100" value={minScore} onChange={(event) => setMinScore(event.target.value)} placeholder="Any" /></label>
+            <label>Max alerts<input type="number" min="0" max="20" value={maxAlerts} onChange={(event) => setMaxAlerts(event.target.value)} placeholder="Any" /></label>
+            <label>Sector<input value={sector} onChange={(event) => setSector(event.target.value)} placeholder="Any" /></label>
+          </div>
+          <div className="saved-screen-controls">
+            <select aria-label="Load saved screen" defaultValue="" onChange={(event) => loadScreen(event.target.value)}><option value="">Saved screens</option>{savedScreens.map((screen) => <option key={screen.id} value={screen.id}>{screen.name}</option>)}</select>
+            <input aria-label="Saved screen name" value={screenName} onChange={(event) => setScreenName(event.target.value)} maxLength={40} />
+            <button type="button" onClick={saveScreen}>Save view</button>
           </div>
         </div>
 

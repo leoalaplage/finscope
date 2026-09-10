@@ -47,10 +47,10 @@ describe("a company's own newsroom", () => {
     expect(irFeedFor("GOOG")).toBe(irFeedFor("GOOGL"));
   });
 
-  it("hands the page a headline and nothing that could be rendered as markup", () => {
+  it("hands the page a headline and a validated source, with no renderable feed markup", () => {
     const route = readFileSync(new URL("../app/api/company/[ticker]/news/route.ts", import.meta.url), "utf8");
     // The summary is parsed and then dropped: what crosses is a title, a
-    // section and an instant.
+    // section, an instant and the validated item source.
     expect(route).toContain('type Headline = Omit<NewsItem, "summary">');
     expect(route).toContain("parseNewsFeed");
     // A company with no verified feed is refused here rather than guessed at.
@@ -66,7 +66,7 @@ describe("a company's own newsroom", () => {
     const panel = readFileSync(new URL("../components/io/CompanyNews.tsx", import.meta.url), "utf8");
     expect(panel).toContain('if (state.kind === "absent") return null;');
     expect(panel).toContain("}, [ticker]);");
-    // No link out, on a page whose one door is the filing in the footer.
-    expect(panel).not.toContain("<a ");
+    expect(panel).toContain('href={item.sourceUrl}');
+    expect(panel).toContain('target="_blank" rel="noreferrer"');
   });
 });

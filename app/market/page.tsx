@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default function MarketRoute() {
   return (
     <Shell>
-      <main className="wrap market-route">
+      <main className="wrap market-route" id="main-content" tabIndex={-1}>
         <MarketPage indicesOnly />
         {/*
           * The reader's own list, directly under the indices.

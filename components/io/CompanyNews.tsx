@@ -13,9 +13,7 @@ import type { NewsItem } from "@/lib/news";
  * anybody's coverage of it, so the two halves of the page have the same author.
  *
  * Read exactly like the wire on the market page: stripped to text in the
- * Worker, no markup, no images and no links. A headline is worth reading
- * without being a door, and the one place this site sends a reader out to is
- * the filing in the footer.
+ * Worker, with only the feed's verified HTTP(S) source allowed back out.
  *
  * A company with no verified feed has no panel. Not an empty box, not an
  * apology — the page simply ends at the statements, exactly as it did before
@@ -29,6 +27,11 @@ type State =
   | { kind: "loading" }
   | { kind: "absent" }
   | { kind: "ready"; items: Headline[] };
+
+const host = (url: string | null) => {
+  if (!url) return null;
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return null; }
+};
 
 export function CompanyNews({ ticker }: { ticker: string }) {
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -67,9 +70,10 @@ export function CompanyNews({ ticker }: { ticker: string }) {
             <article className="news-item" key={`${item.publishedAt ?? ""}${item.title}`}>
               <div className="news-meta">
                 {item.publishedAt ? <time dateTime={item.publishedAt}>{clock(item.publishedAt)}</time> : null}
+                {host(item.sourceUrl) ? <span>{host(item.sourceUrl)}</span> : null}
               </div>
               <h3 className="news-headline">
-                {item.title}
+                {item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.title}</a> : item.title}
                 {item.category ? <span className="news-section"> · {item.category}</span> : null}
               </h3>
             </article>

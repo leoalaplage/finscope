@@ -185,7 +185,7 @@ export function Compare({ initial }: { initial: string[] }) {
   const ready = columns.filter((column): column is Loaded & { view: IoCompanyView } => column.view != null);
 
   return (
-    <main className="wrap">
+    <main className="wrap" id="main-content" tabIndex={-1}>
       <header className="head">
         <div className="head-id">
           <h1 className="head-ticker">Compare</h1>

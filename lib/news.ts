@@ -8,9 +8,9 @@
  * every entity is resolved to a character, and what comes out the other side is
  * plain text that React escapes like any other string.
  *
- * The links are dropped on purpose too. A feed's own `<link>` is the one thing
- * on this site that would send a reader somewhere nobody here vouches for, and
- * a headline is worth reading without being a door.
+ * The canonical item link is preserved only when it parses as HTTP(S), so a
+ * reader can open the original source without allowing an executable scheme
+ * or any feed-provided markup into the interface.
  */
 
 export interface NewsItem {
@@ -22,6 +22,8 @@ export interface NewsItem {
   category: string | null;
   /** When it was published, as an ISO instant, or null where unreadable. */
   publishedAt: string | null;
+  /** The item's canonical HTTP(S) source, or null when the feed does not provide a safe one. */
+  sourceUrl: string | null;
 }
 
 /** How much of an item is kept, so one long entry cannot take over the page. */
@@ -101,6 +103,18 @@ const attribute = (item: string, tag: string, name: string): string | null => {
   return found ? found[1] : null;
 };
 
+function sourceUrl(raw: string | null): string | null {
+  if (!raw) return null;
+  const text = plain(raw, 2_048);
+  if (!text || text.endsWith("…")) return null;
+  try {
+    const url = new URL(text);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Every item a feed carries, in the order it carries them.
  *
@@ -133,11 +147,15 @@ export function parseNewsFeed(xml: string, limit = 24): NewsItem[] {
     // still news of the day it was made.
     const published = plain(firstField(item, ["pubDate", "published", "updated"]) ?? "", 64);
     const stamp = published ? Date.parse(published) : Number.NaN;
+    const linked = rss
+      ? firstField(item, ["link", "guid"])
+      : attribute(item, "link", "href") ?? firstField(item, ["link"]);
     items.push({
       title,
       summary: plain(firstField(item, ["description", "summary", "content"]) ?? "", MAX_SUMMARY),
       category: plain(firstField(item, ["category"]) ?? attribute(item, "category", "term") ?? "", 40) || null,
       publishedAt: Number.isFinite(stamp) ? new Date(stamp).toISOString() : null,
+      sourceUrl: sourceUrl(linked),
     });
     if (items.length === limit) break;
   }

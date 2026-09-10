@@ -7,7 +7,7 @@ export const dynamic = "force-static";
 
 export const metadata: Metadata = {
   title: "Settings — FinScope.io",
-  description: "Account, appearance and local-data settings for FinScope.",
+  description: "Appearance, privacy and local-data settings for FinScope.",
 };
 
 export default function SettingsPage() {

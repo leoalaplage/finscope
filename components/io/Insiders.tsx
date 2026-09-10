@@ -23,10 +23,10 @@ import { ABSENT, count, money, shortDate } from "./format";
 /** Rows on screen before the reader asks for the rest. */
 const VISIBLE = 5;
 
-type State =
-  | { kind: "loading" }
-  | { kind: "absent"; reason: string }
-  | { kind: "ready"; record: InsiderRecord };
+export type InsiderState =
+  | { kind: "loading"; ticker: string }
+  | { kind: "absent"; ticker: string; reason: string }
+  | { kind: "ready"; ticker: string; record: InsiderRecord };
 
 /** The window a total is struck over, and what a reader calls it. */
 const WINDOWS: Array<{ months: number; label: string }> = [
@@ -52,16 +52,8 @@ const tally = (rows: InsiderTransaction[], from: string): Tally => {
   return result;
 };
 
-export function Insiders({ ticker }: { ticker: string }) {
-  const [state, setState] = useState<State>({ kind: "loading" });
-  /*
-   * Two switches, and they are about different things. `everything` decides
-   * whether the compensation rows are on the table at all; `expanded` decides
-   * how much of it is on screen. A section is a glance, not a register.
-   */
-  const [everything, setEverything] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
+export function useInsiders(ticker: string): InsiderState {
+  const [state, setState] = useState<InsiderState>({ kind: "loading", ticker });
   useEffect(() => {
     // No reset here: the section is keyed by the company, so a different
     // ticker is a different component and starts in `loading` of its own.
@@ -73,16 +65,28 @@ export function Insiders({ ticker }: { ticker: string }) {
         const response = await fetch(`/api/io/${encodeURIComponent(ticker)}/insiders?v=${INSIDER_SHAPE}`, { signal: controller.signal });
         if (!response.ok) {
           const body = await response.json().catch(() => ({})) as { error?: string };
-          setState({ kind: "absent", reason: body.error ?? "Form 4 filings could not be read." });
+          setState({ kind: "absent", ticker, reason: body.error ?? "Form 4 filings could not be read." });
           return;
         }
-        setState({ kind: "ready", record: await response.json() as InsiderRecord });
+        setState({ kind: "ready", ticker, record: await response.json() as InsiderRecord });
       } catch {
-        if (!controller.signal.aborted) setState({ kind: "absent", reason: "Form 4 filings could not be read." });
+        if (!controller.signal.aborted) setState({ kind: "absent", ticker, reason: "Form 4 filings could not be read." });
       }
     })();
     return () => controller.abort();
   }, [ticker]);
+
+  return state.ticker === ticker ? state : { kind: "loading", ticker };
+}
+
+export function Insiders({ state }: { state: InsiderState }) {
+  /*
+   * Two switches, and they are about different things. `everything` decides
+   * whether the compensation rows are on the table at all; `expanded` decides
+   * how much of it is on screen. A section is a glance, not a register.
+   */
+  const [everything, setEverything] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const record = state.kind === "ready" ? state.record : null;
   const decisions = useMemo(

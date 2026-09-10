@@ -5,8 +5,8 @@ import { parseNewsFeed } from "../lib/news";
  * A feed somebody else writes, read as text and nothing else.
  *
  * Every rule here is the same rule: the document is data. No fragment of it
- * reaches the page as markup, no link out of it is offered, and anything the
- * feed leaves out is left out rather than guessed at.
+ * reaches the page as markup, only a verified HTTP(S) source can be linked,
+ * and anything the feed leaves out is left out rather than guessed at.
  */
 const feed = (items: string) => `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel><title>Wire</title>${items}</channel></rss>`;
@@ -25,6 +25,7 @@ describe("reading a news feed", () => {
       summary: "The Canadian government on Saturday expressed deep concern.",
       category: "Politics",
       publishedAt: "2026-09-05T19:19:00.000Z",
+      sourceUrl: "https://example.test/a",
     }]);
   });
 
@@ -59,7 +60,14 @@ describe("reading a news feed", () => {
 
   it("states nothing the feed does not say", () => {
     const items = parseNewsFeed(feed(`<item><title>Bare</title></item>`));
-    expect(items[0]).toEqual({ title: "Bare", summary: "", category: null, publishedAt: null });
+    expect(items[0]).toEqual({ title: "Bare", summary: "", category: null, publishedAt: null, sourceUrl: null });
+  });
+
+  it("keeps only HTTP(S) source URLs", () => {
+    const items = parseNewsFeed(feed(`
+      <item><title>Unsafe</title><link>javascript:alert(1)</link></item>
+      <item><title>Safe</title><link>https://example.test/source</link></item>`));
+    expect(items.map((item) => item.sourceUrl)).toEqual([null, "https://example.test/source"]);
   });
 
   it("skips an item with no headline rather than showing an empty one", () => {
@@ -105,6 +113,7 @@ describe("reading an Atom newsroom", () => {
       summary: "A sentence about the update.",
       category: "UPDATE",
       publishedAt: "2026-08-27T13:59:18.486Z",
+      sourceUrl: "https://www.apple.com/newsroom/2026/08/a/",
     });
   });
 

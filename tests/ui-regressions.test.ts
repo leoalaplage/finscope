@@ -293,12 +293,13 @@ describe("the redesign", () => {
     // The list still persists to the reader's own device; the definition moved
     // to one module so the screener scores the same list the home page edits.
     const store = readFileSync(new URL("../components/io/watchlist.ts", import.meta.url), "utf8");
-    expect(store).toContain("localStorage.setItem(WATCHLIST_KEY");
+    expect(store).toContain("localStorage.setItem(WATCHLISTS_KEY");
+    expect(store).toContain("localStorage.getItem(WATCHLIST_KEY)");
     // One editor writes the list, and both the home page and the market page
     // open that one. A second copy would be two editors that agree until one
     // of them is changed.
     const editor = readFileSync(new URL("../components/io/WatchlistEditor.tsx", import.meta.url), "utf8");
-    expect(editor).toContain("writeWatchlist(parsed)");
+    expect(editor).toContain("writeWatchlistCollection(next)");
     expect(editor).toContain("Reset {DEFAULT_TICKERS.length}");
     expect(watchlist).toContain("<WatchlistEditor");
     const performance = readFileSync(new URL("../components/io/MarketPerformance.tsx", import.meta.url), "utf8");
@@ -327,9 +328,10 @@ describe("the redesign", () => {
   it("names a company's own sector on its card, never the name of the list", () => {
     const watchlist = readFileSync(new URL("../components/io/HomeWatchlist.tsx", import.meta.url), "utf8");
     expect(watchlist).not.toContain('?? "Watchlist"');
-    expect(watchlist).toContain("summarySector(summary)");
-    // A card with no sector yet states the ticker alone rather than a placeholder.
-    expect(watchlist).toContain("{sector ? <span>{sector}</span> : null}");
+    expect(watchlist).toContain("summarySector(reading.summary)");
+    // A card with no digest yet states that it is being read rather than
+    // inventing a sector.
+    expect(watchlist).toContain('sector ?? "Filed company"');
   });
 
   it("drops the resolver's placeholders from a company header", () => {
@@ -372,8 +374,8 @@ describe("the redesign", () => {
     const page = readFileSync(new URL("../app/portfolio/page.tsx", import.meta.url), "utf8");
     const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
-    // A third destination in the bar, beside the two that were already there.
-    expect(shell).toContain('<a href="/portfolio">Portfolio</a>');
+    // The destination remains in both navigation layouts and names its active state.
+    expect(shell).toContain('href="/portfolio" aria-current={isCurrent("/portfolio") ? "page" : undefined}>Portfolio</a>');
     // The book is this device's, so the page is a constant and the valuation
     // happens in the browser: nothing about what somebody owns is sent anywhere.
     expect(page).toContain('export const dynamic = "force-static"');
@@ -403,8 +405,10 @@ describe("the redesign", () => {
     const memory = readFileSync(new URL("../lib/io/last-company.ts", import.meta.url), "utf8");
     // Compare and the DCF are about one company at a time, and the reader is
     // usually already reading one: the bar takes it with them.
-    expect(shell).toContain('<a href={onCompany("/compare", held)}>Compare</a>');
-    expect(shell).toContain('<a href={onCompany("/dcf", held)}>DCF</a>');
+    expect(shell).toContain('const compareHref = onCompany("/compare", held);');
+    expect(shell).toContain('const dcfHref = onCompany("/dcf", held);');
+    expect(shell).toContain('<a href={compareHref}');
+    expect(shell).toContain('<a href={dcfHref}');
     // Read as a store, so the first client render matches the prerendered
     // markup and the link fills in on the render after.
     expect(remembered).toContain('useSyncExternalStore(subscribe, read, () => "")');
@@ -455,7 +459,7 @@ describe("the redesign", () => {
     // for, and the panel below draws it. One growth and one required return for
     // the whole page, so a reader is never comparing a table with a chart of
     // something else.
-    expect(dcf).toContain("onClick={() => { setGrowth(row.id); setRequired(rate); }}");
+    expect(dcf).toContain('onClick={() => { setGrowth(row.id); setRequired(rate); setScenario("Custom"); writeScenario(rate, row.rate, "Custom"); }}');
     // The name of the row chooses the row, which is what a reader tries first.
     expect(dcf).toContain('className="dcf-row"');
     expect(dcf).toContain("onClick={() => setGrowth(row.id)}");
@@ -568,7 +572,7 @@ describe("the redesign", () => {
     expect(panel).not.toContain("Nothing on this page is a forecast");
   });
 
-  it("reads the wire under the indices, as text nobody can click", () => {
+  it("reads the wire under the indices as safe text linked to its original source", () => {
     const page = readFileSync(new URL("../app/market/page.tsx", import.meta.url), "utf8");
     const news = readFileSync(new URL("../components/io/MarketNews.tsx", import.meta.url), "utf8");
     const parser = readFileSync(new URL("../lib/news.ts", import.meta.url), "utf8");
@@ -576,11 +580,13 @@ describe("the redesign", () => {
     // Under the charts, and on this page only: the workspace shares the
     // component above it.
     expect(page.indexOf("<MarketNews />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
-    // Somebody else's document is data. Nothing from it is rendered as markup
-    // and nothing in it is a door out of the page.
+    // Somebody else's document is data. Nothing from it is rendered as markup,
+    // while its verified HTTP(S) source remains available.
     expect(news).not.toContain("dangerouslySetInnerHTML");
-    expect(news).not.toContain("<a ");
+    expect(news).toContain('href={item.sourceUrl}');
+    expect(news).toContain('target="_blank" rel="noreferrer"');
     expect(parser).toContain('replace(/<[^>]*>/g, " ")');
+    expect(parser).toContain('url.protocol === "https:" || url.protocol === "http:"');
     // Set like every other line of text here: a headline in the proportional
     // face reads as though it came from somewhere else.
     expect(css).toContain(".news-headline { font-family: var(--mono);");
@@ -693,7 +699,7 @@ describe("the redesign", () => {
     const page = readFileSync(new URL("../app/market/page.tsx", import.meta.url), "utf8");
     const market = readFileSync(new URL("../components/MarketPage.tsx", import.meta.url), "utf8");
     const indices = readFileSync(new URL("../lib/indices.ts", import.meta.url), "utf8");
-    expect(shell).toContain('<a href="/market">Market</a>');
+    expect(shell).toContain('href="/market" aria-current={isCurrent("/market") ? "page" : undefined}>Market</a>');
     expect(page).toContain('export const dynamic = "force-static"');
     expect(page).toContain("<MarketPage indicesOnly />");
     expect(market).toContain('/api/indices?range=');
@@ -807,14 +813,14 @@ describe("the redesign", () => {
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     const shortcut = readFileSync(new URL("../components/io/CompanyReturn.tsx", import.meta.url), "utf8");
     const page = readFileSync(new URL("../app/company/page.tsx", import.meta.url), "utf8");
-    expect(shell).toContain('<a href="/company">Company</a>');
+    expect(shell).toContain('href="/company" aria-current={isCurrent("/company") ? "page" : undefined}>Company</a>');
     expect(company).toContain("rememberCompany(view.company.ticker)");
     expect(shortcut).toContain("window.location.replace(lastCompanyPath())");
     expect(shortcut).toContain('href="/">Back to watchlist');
     expect(page).toContain('export const dynamic = "force-static"');
   });
 
-  it("separates navigation destinations and opens a complete settings foundation", () => {
+  it("separates navigation destinations and describes settings that really exist", () => {
     const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
     const settings = readFileSync(new URL("../components/io/Settings.tsx", import.meta.url), "utf8");
     const page = readFileSync(new URL("../app/settings/page.tsx", import.meta.url), "utf8");
@@ -823,11 +829,23 @@ describe("the redesign", () => {
     expect(shell).toContain("SettingsIcon");
     expect(css).toContain(".bar-nav a + a { border-inline-start: 1px solid var(--line-strong); }");
     expect(page).toContain('export const dynamic = "force-static"');
-    expect(settings).toContain("Account");
     expect(settings).toContain("Appearance");
     expect(settings).toContain("Data &amp; privacy");
-    expect(settings).toContain("Account service not connected yet · nothing is collected");
+    expect(settings).toContain("There is no FinScope account or cloud sync");
+    expect(settings).not.toContain('type="email"');
+    expect(settings).not.toContain("Create account");
     expect(settings).toContain("onClick={() => setTheme(option.value)}");
+  });
+
+  it("keeps the shared shell and local-data editors keyboard reachable", () => {
+    const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
+    const search = readFileSync(new URL("../components/io/Search.tsx", import.meta.url), "utf8");
+    const dialog = readFileSync(new URL("../components/io/use-modal-dialog.ts", import.meta.url), "utf8");
+    expect(shell).toContain('<a className="skip-link" href="#main-content">');
+    expect(shell).toContain('className="wrap bar-mobile-nav"');
+    expect(search).toContain("aria-activedescendant={activeOptionId}");
+    expect(dialog).toContain('event.key === "Escape"');
+    expect(dialog).toContain("opener?.focus()");
   });
 
   it("sets the Market introduction in the same mono ink as the page", () => {

@@ -57,6 +57,7 @@ export function Search({
   const chosen = (active > 0 && highlighted ? highlighted.ticker.toUpperCase() : null) ?? chooseSymbol(needle, matches);
   const working = needle.length > 0 && answer.query !== needle;
   const showing = open && needle.length > 0;
+  const activeOptionId = showing && highlighted ? `${listId}-option-${active}` : undefined;
   const destination = chosen ? `/s/${encodeURIComponent(chosen)}` : undefined;
 
   // The keyboard shortcut every application of this kind has, because a reader
@@ -130,8 +131,16 @@ export function Search({
           onFocus={() => setOpen(true)}
           onKeyDown={(event) => {
             if (event.key === "Escape") { setOpen(false); field.current?.blur(); return; }
-            if (event.key === "ArrowDown") { event.preventDefault(); setActive((index) => Math.min(index + 1, matches.length - 1)); return; }
-            if (event.key === "ArrowUp") { event.preventDefault(); setActive((index) => Math.max(index - 1, 0)); return; }
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              if (matches.length) setActive((index) => Math.min(index + 1, matches.length - 1));
+              return;
+            }
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              if (matches.length) setActive((index) => Math.max(index - 1, 0));
+              return;
+            }
             if (event.key === "Enter" && chosen) {
               event.preventDefault();
               submitButton.current?.click();
@@ -140,6 +149,7 @@ export function Search({
           role="combobox"
           aria-expanded={showing}
           aria-controls={showing ? listId : undefined}
+          aria-activedescendant={activeOptionId}
           aria-autocomplete="list"
           placeholder={size === "hero" ? "Ticker or company" : "Search"}
           spellCheck={false}
@@ -167,6 +177,7 @@ export function Search({
           {matches.map((match, index) => (
             <button
               key={`${match.cik}-${match.ticker}`}
+              id={`${listId}-option-${index}`}
               type="button"
               className="result"
               role="option"
@@ -195,7 +206,7 @@ export function Search({
             </button>
           ))}
           {!matches.length ? (
-            <p className="results-note">{working ? "Searching…" : "No filer matches that."}</p>
+            <p className="results-note" role="status">{working ? "Searching…" : "No filer matches that."}</p>
           ) : null}
         </div>
       ) : null}

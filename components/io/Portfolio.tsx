@@ -14,6 +14,8 @@ import { parseHoldings, saveHoldings, useStoredHoldings, writeHoldings } from ".
 import { MultiLine } from "./Plot";
 import type { IoQuote } from "./quote";
 import { ABSENT, delta, direction, money, percent, price as writePrice, ratio, shortDate } from "./format";
+import { useModalDialog } from "./use-modal-dialog";
+import { ExportMenu } from "./ExportMenu";
 
 /**
  * What you own, read through to the businesses underneath it.
@@ -382,7 +384,7 @@ export function Portfolio() {
     .map((position) => position.ticker);
 
   return (
-    <main className="wrap">
+    <main className="wrap" id="main-content" tabIndex={-1}>
       <header className="head">
         <div className="head-row">
           <div>
@@ -393,6 +395,7 @@ export function Portfolio() {
             <div className="head-meta">
               <span className="label">Valued in your browser</span>
               <button className="label head-compare" type="button" onClick={openEditor}>Edit holdings →</button>
+              {positions.length ? <ExportMenu name="finscope-portfolio" rows={valued.positions.map((position) => ({ ticker: position.ticker, shares: position.shares, price: position.price, value: position.value, weight: position.weight, costBasis: position.costBasis, profitPercent: position.profitPercent, filingPeriod: position.summary?.periodLabel ?? null, filingDate: position.summary?.periodEnd ?? null }))} provenance={["FinScope portfolio · SEC-filed company summaries", "Market prices carry their own as-of time", "Portfolio stored locally on this device"]} /> : null}
             </div>
           </div>
 
@@ -413,7 +416,7 @@ export function Portfolio() {
       </header>
 
       {!positions.length ? (
-        <Empty onOpen={openEditor} />
+        <Empty onOpen={openEditor} onExample={() => { const sample = parseHoldings("AAPL 10 @ 150\nMSFT 5 @ 300\nCOST 2 @ 700"); setSession(sample); saveHoldings(sample); }} />
       ) : (
         <>
           <section className="section" style={{ borderTop: 0, paddingTop: 0 }}>
@@ -763,14 +766,14 @@ function Holdings({
   );
 }
 
-function Empty({ onOpen }: { onOpen: () => void }) {
+function Empty({ onOpen, onExample }: { onOpen: () => void; onExample: () => void }) {
   return (
-    <div className="state">
-      <p className="lead num">Nothing held yet</p>
-      <p>A holding is a ticker and a number of shares. Everything else is read from the filings.</p>
-      <p style={{ marginTop: 14 }}>
-        <button className="metric-toggle" type="button" onClick={onOpen}>Add holdings</button>
-      </p>
+    <div className="guided-empty portfolio-empty">
+      <p className="lead num">See what the portfolio owns underneath the tickers</p>
+      <p>Add a ticker, shares and optionally the price paid. FinScope then reads the public filings and market prices locally.</p>
+      <div className="empty-benefits"><div><strong>Concentration</strong><span>Largest company, sector and effective number of holdings.</span></div><div><strong>Look-through cash</strong><span>Your share of revenue, free cash flow and valuation.</span></div><div><strong>Quality and benchmark</strong><span>Weighted grade, risk flags and a comparison with the S&amp;P 500.</span></div></div>
+      <div className="empty-actions"><button className="watchlist-save" type="button" onClick={onOpen}>Add holdings</button><button className="metric-toggle" type="button" onClick={onExample}>Try an example</button></div>
+      <p className="stat-note">You can paste rows copied from a broker or CSV. The example is saved only on this device and can be cleared immediately.</p>
     </div>
   );
 }
@@ -792,9 +795,10 @@ function Editor({
   onSave: () => void;
 }) {
   const parsed = parseHoldings(draft);
+  const { dialogRef, initialFocusRef } = useModalDialog(onClose);
   return (
     <div className="watchlist-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="watchlist-editor" role="dialog" aria-modal="true" aria-labelledby="portfolio-editor-title">
+      <section ref={dialogRef} className="watchlist-editor" role="dialog" aria-modal="true" aria-labelledby="portfolio-editor-title" aria-describedby="portfolio-editor-help" tabIndex={-1}>
         <div className="watchlist-editor-head">
           <div>
             <p className="label">Kept on this device</p>
@@ -803,8 +807,9 @@ function Editor({
           <button type="button" className="watchlist-close" onClick={onClose} aria-label="Close holdings editor">×</button>
         </div>
         <label className="watchlist-input">
-          <span>One a line · ticker, shares, and what you paid</span>
+          <span id="portfolio-editor-help">One a line · ticker, shares, and what you paid</span>
           <textarea
+            ref={initialFocusRef}
             value={draft}
             onChange={(event) => onDraft(event.target.value)}
             spellCheck={false}

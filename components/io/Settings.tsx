@@ -12,56 +12,22 @@ export function Settings() {
   const theme = useSyncExternalStore(subscribeTheme, readTheme, () => "dark" as Theme);
 
   return (
-    <main className="wrap settings-page">
+    <main className="wrap settings-page" id="main-content" tabIndex={-1}>
       <header className="head settings-head">
         <div className="head-id">
           <h1 className="head-ticker">Settings</h1>
-          <p className="head-name">Account, appearance and this device</p>
+          <p className="head-name">Appearance and this device</p>
         </div>
         <p className="head-note">Preferences stay in this browser</p>
       </header>
 
       <div className="settings-layout">
         <nav className="settings-index" aria-label="Settings sections">
-          <a href="#account">Account</a>
           <a href="#appearance">Appearance</a>
           <a href="#data">Data &amp; privacy</a>
         </nav>
 
         <div className="settings-content">
-          <section className="section settings-section" id="account">
-            <div className="settings-copy">
-              <h2>Account</h2>
-              <p>One identity for a watchlist and portfolio that can follow you across devices.</p>
-            </div>
-            <div className="settings-control">
-              <div className="settings-control-head">
-                <div>
-                  <span className="label">Status</span>
-                  <strong>Not signed in</strong>
-                </div>
-                <span className="settings-status">Foundation</span>
-              </div>
-
-              <div className="settings-fields" aria-label="Account creation preview" aria-describedby="account-foundation-note">
-                <label>
-                  <span className="label">Email</span>
-                  <input type="email" placeholder="name@example.com" autoComplete="email" disabled />
-                </label>
-                <label>
-                  <span className="label">Password</span>
-                  <input type="password" placeholder="••••••••••••" autoComplete="new-password" disabled />
-                </label>
-              </div>
-
-              <div className="settings-actions">
-                <button className="settings-primary" type="button" disabled>Create account</button>
-                <button className="settings-secondary" type="button" disabled>Sign in</button>
-                <span className="stat-note" id="account-foundation-note">Account service not connected yet · nothing is collected</span>
-              </div>
-            </div>
-          </section>
-
           <section className="section settings-section" id="appearance">
             <div className="settings-copy">
               <h2>Appearance</h2>
@@ -96,9 +62,8 @@ export function Settings() {
                 <div><dt>Watchlist &amp; last company</dt><dd>This browser</dd></div>
                 <div><dt>Portfolio holdings</dt><dd>This browser</dd></div>
                 <div><dt>Theme preference</dt><dd>This browser</dd></div>
-                <div><dt>Account sync</dt><dd>Not connected</dd></div>
               </dl>
-              <p className="stat-note settings-note">Public filing and market data may be cached by FinScope. Your watchlist and portfolio are not sent to a FinScope account.</p>
+              <p className="stat-note settings-note">There is no FinScope account or cloud sync. Public filing and market data may be cached by FinScope; your watchlist and portfolio remain in this browser.</p>
             </div>
           </section>
         </div>

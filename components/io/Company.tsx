@@ -6,7 +6,7 @@ import { IO_VIEW } from "@/lib/io/view-version";
 import { stated } from "@/lib/sector";
 import { FcfShareGrowth } from "./FcfShareGrowth";
 import { Growth } from "./Growth";
-import { Score } from "./Score";
+import { Score, useCompanyScore } from "./Score";
 import { Health } from "./Health";
 import { Multiples } from "./Multiples";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
@@ -15,13 +15,16 @@ import { CompanyNews } from "./CompanyNews";
 import { Statements } from "./Statements";
 import { Stats } from "./Stats";
 import { Holders } from "./Holders";
-import { Insiders } from "./Insiders";
+import { Insiders, useInsiders } from "./Insiders";
 import { ValuationHistory } from "./ValuationHistory";
 import { useValuationHistory, VALUATION_METRICS } from "./valuation-series";
 import type { IoQuote } from "./quote";
 import { fundamentalWindow, RANGES, type Frequency, type Range } from "./ranges";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "./format";
 import { rememberCompany } from "@/lib/io/last-company";
+import { CompanyNavigation, type CompanySectionId } from "./CompanyNavigation";
+import { CompanyTimeline, DecisionSummary, WhatChanged } from "./CompanyOverview";
+import { CompanyNotebook } from "./CompanyNotebook";
 
 /**
  * One company, one screen.
@@ -99,9 +102,46 @@ type State =
   | { kind: "failed"; ticker: string; message: string }
   | { kind: "ready"; ticker: string; view: IoCompanyView };
 
+type GroupId = Exclude<CompanySectionId, "overview">;
+
+function CompanyGroup({
+  id,
+  label,
+  note,
+  open,
+  onToggle,
+  children,
+}: {
+  id: GroupId;
+  label: string;
+  note: string;
+  open: boolean;
+  onToggle: (open: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="company-group" id={id} open={open} onToggle={(event) => onToggle(event.currentTarget.open)}>
+      <summary>
+        <span>{label}</span>
+        <small>{note}</small>
+        <i aria-hidden="true">{open ? "−" : "+"}</i>
+      </summary>
+      <div className="company-group-body">{children}</div>
+    </details>
+  );
+}
+
 export function Company({ ticker }: { ticker: string }) {
   const [loaded, setLoaded] = useState<State>({ kind: "loading", ticker, progress: 6 });
   const [quoted, setQuoted] = useState<IoQuote | null>(null);
+  const scoreState = useCompanyScore(ticker);
+  const insiderState = useInsiders(ticker);
+  const [groups, setGroups] = useState<Record<GroupId, boolean>>({
+    "valuation-section": true,
+    "financials-section": false,
+    "ownership-section": false,
+    "news-section": false,
+  });
   /*
    * The page is an address, the way a comparison already is.
    *
@@ -278,7 +318,7 @@ export function Company({ ticker }: { ticker: string }) {
 
   if (state.kind === "failed") {
     return (
-      <main className="wrap">
+      <main className="wrap" id="main-content" tabIndex={-1}>
         <div className="state">
           <p className="lead num">{ticker}</p>
           <p>{state.message}</p>
@@ -290,7 +330,7 @@ export function Company({ ticker }: { ticker: string }) {
   if (state.kind !== "ready") {
     const label = state.kind === "building" ? "Reading the filings" : "Opening company";
     return (
-      <main className="wrap">
+      <main className="wrap" id="main-content" tabIndex={-1}>
         <div className="state">
           <p className="lead num">{ticker}</p>
           <p className="load-copy" aria-live="polite">{label} · about {state.progress}%</p>
@@ -320,9 +360,11 @@ export function Company({ ticker }: { ticker: string }) {
     ? null
     : `${quote.change < 0 ? "\u2212" : "+"}${writePrice(Math.abs(quote.change), quote.currency)}`;
   const identity = [company.exchange, company.sector].map(stated).filter((part): part is string => part != null);
+  const setGroup = (id: GroupId, open: boolean) => setGroups((current) => current[id] === open ? current : { ...current, [id]: open });
+  const openGroup = (id: CompanySectionId) => { if (id !== "overview") setGroup(id, true); };
 
   return (
-    <main className="wrap">
+    <main className="wrap" id="main-content" tabIndex={-1}>
       <header className="head">
         <div className="head-row">
           <div>
@@ -359,49 +401,54 @@ export function Company({ ticker }: { ticker: string }) {
         </div>
       </header>
 
-      <PriceSection
-        ticker={company.ticker}
-        currency={quote?.currency ?? company.currency}
-        view={view}
-        metricKeys={selectedMetrics}
-        onClearMetric={() => selectMetric(null)}
-        range={range}
-        onRange={setRange}
-        frequency={frequency}
-        onFrequency={chooseFrequency}
-        rebased={rebased}
-        onRebased={setRebased}
-        withPrice={withPrice}
-        onWithPrice={setWithPrice}
-        valuation={valuation}
-      />
-      <Stats view={view} quote={quote} />
-      <Score key={`score-${company.ticker}`} ticker={company.ticker} />
-      <Health view={view} />
-      <FcfShareGrowth view={view} />
-      <ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />
-      <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
-      <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
-      <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
-      {/*
-        * Below the statements, because it is about the people rather than the
-        * business. Keyed by the company, so moving from one to another starts
-        * the panel over rather than leaving the first filer's insiders under
-        * the second one's name while the request is out. The key is prefixed
-        * because the score above is keyed by the company too, and two siblings
-        * under one key is a collision React resolves by dropping one of them.
-        */}
-      <Insiders key={`insiders-${company.ticker}`} ticker={company.ticker} />
-      {/* Beside the insiders, and for the same reason: it is about who holds
-          the company rather than what the company did. */}
-      <Holders key={`holders-${company.ticker}`} ticker={company.ticker} view={view} />
-      {/* Last, because it is the only thing on this page the company did not
-          file: what it has said since. It draws itself away if there is
-          nothing verified to read. */}
-      {/* Keyed by the company, so moving from one to another starts this
-          panel over rather than leaving the first one's releases on screen
-          under the second one's name while the request is out. */}
-      <CompanyNews key={company.ticker} ticker={company.ticker} />
+      <CompanyNavigation onOpen={openGroup} />
+
+      <div className="company-overview" id="overview">
+        <DecisionSummary view={view} score={scoreState} valuation={valuation} />
+        <WhatChanged view={view} />
+
+        <PriceSection
+          ticker={company.ticker}
+          currency={quote?.currency ?? company.currency}
+          view={view}
+          metricKeys={selectedMetrics}
+          onClearMetric={() => selectMetric(null)}
+          range={range}
+          onRange={setRange}
+          frequency={frequency}
+          onFrequency={chooseFrequency}
+          rebased={rebased}
+          onRebased={setRebased}
+          withPrice={withPrice}
+          onWithPrice={setWithPrice}
+          valuation={valuation}
+        />
+        <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} />
+        <Health view={view} />
+        <CompanyTimeline view={view} insiders={insiderState.kind === "ready" ? insiderState.record.transactions : []} />
+        <CompanyNotebook key={`notebook-${company.ticker}`} view={view} />
+      </div>
+
+      <CompanyGroup id="valuation-section" label="Valuation" note="Live multiples, history and capital returned" open={groups["valuation-section"]} onToggle={(open) => setGroup("valuation-section", open)}>
+        <Stats view={view} quote={quote} />
+        <ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />
+        <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
+      </CompanyGroup>
+
+      <CompanyGroup id="financials-section" label="Financials" note="Growth and filed statements" open={groups["financials-section"]} onToggle={(open) => setGroup("financials-section", open)}>
+        <FcfShareGrowth view={view} />
+        <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
+        <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
+      </CompanyGroup>
+
+      <CompanyGroup id="ownership-section" label="Ownership" note="Form 4 insiders and Form 13F institutions" open={groups["ownership-section"]} onToggle={(open) => setGroup("ownership-section", open)}>
+        <Insiders key={`insiders-${company.ticker}`} state={insiderState} />
+        <Holders key={`holders-${company.ticker}`} ticker={company.ticker} view={view} />
+      </CompanyGroup>
+
+      <CompanyGroup id="news-section" label="News" note="Verified company newsroom" open={groups["news-section"]} onToggle={(open) => setGroup("news-section", open)}>
+        <CompanyNews key={company.ticker} ticker={company.ticker} />
+      </CompanyGroup>
 
       <footer className="foot">
         <span className="label">Source</span>
