@@ -78,6 +78,33 @@ export function presentValue(terms: ImpliedGrowthTerms, rate: number): number {
 }
 
 /**
+ * How much of that present value is the perpetuity rather than the decade.
+ *
+ * The single most important thing a reader of a discounted cash flow is not
+ * told. Ten years of projected cash is the part of the exercise anybody can
+ * argue about; everything after it is one number standing for the rest of
+ * time, and on these terms it is routinely two thirds of the answer — 46% for
+ * Cboe, 77% for Tesla, about 63% across the companies this site holds.
+ *
+ * Stating it does not make the model better. It makes the reader's confidence
+ * in the model proportionate to how much of it rests on a period nobody can
+ * observe, which is the honest version of the same thing.
+ */
+export function terminalShare(terms: ImpliedGrowthTerms, rate: number): number | null {
+  const { freeCashFlow, discountRate, years, terminalGrowth } = terms;
+  if (!(freeCashFlow > 0) || !(discountRate > terminalGrowth)) return null;
+  let explicit = 0;
+  let flow = freeCashFlow;
+  for (let year = 1; year <= years; year++) {
+    flow *= 1 + rate;
+    explicit += flow / (1 + discountRate) ** year;
+  }
+  const terminal = ((flow * (1 + terminalGrowth)) / (discountRate - terminalGrowth)) / (1 + discountRate) ** years;
+  const whole = explicit + terminal;
+  return whole > 0 ? terminal / whole : null;
+}
+
+/**
  * The return today's price earns, if the cash grows at a stated rate.
  *
  * The same equation as `impliedGrowth`, inverted the other way round. There

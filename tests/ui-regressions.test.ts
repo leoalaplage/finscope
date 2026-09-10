@@ -528,6 +528,23 @@ describe("the redesign", () => {
     // The control that needed naming is named: four bare percentages beside a
     // heading are four percentages of nothing.
     expect(dcfSource).toContain("<span className=\"label\">The return you want a year</span>");
+    /*
+     * And the page says what the reader is trusting.
+     *
+     * Two thirds of a ten-year discounted cash flow is the perpetuity after
+     * it, and which filed window the cash came from is not always the newest
+     * one — Amazon's and Oracle's newest are negative, and a blank page for
+     * two of the largest companies here told a reader less than a stated
+     * substitution does.
+     */
+    expect(dcfSource).toContain("terminalShare({ ...model.terms, discountRate: required }, priceAsks)");
+    expect(dcfSource).toContain("of that value is the perpetuity after year");
+    expect(dcfSource).toContain("function latestPositive(");
+    expect(dcfSource).toContain("the company spent more than it earned.");
+    // A record measured across a change of sign is meaningless, so the window
+    // shortens — but only where the whole one cannot be measured at all.
+    expect(dcfSource).toContain("const whole = measured(points);");
+    expect(dcfSource).toContain("const SHORTEST_RECORD = 4;");
   });
 
   it("reads the wire under the indices as text, and never as a door", () => {
