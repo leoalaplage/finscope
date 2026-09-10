@@ -12,6 +12,7 @@ import { logLinearFit } from "@/lib/log-linear.js";
 import { withinYears } from "./ranges";
 import type { IoQuote } from "./quote";
 import { ABSENT, datedCagrOf, delta, money, percent, price as writePrice } from "./format";
+import { FullDcf } from "./FullDcf";
 
 /**
  * One company, one question: what would have to be true for this price.
@@ -174,7 +175,9 @@ function delivered(periods: IoPeriod[], years: number) {
 
 export function Dcf({ initial }: { initial: string }) {
   const search = useSyncExternalStore(subscribe, () => window.location.search, () => "");
-  const asked = new URLSearchParams(search).get("s")?.toUpperCase().replace(/[^A-Z0-9.-]/g, "") ?? "";
+  const address = new URLSearchParams(search);
+  const asked = address.get("s")?.toUpperCase().replace(/[^A-Z0-9.-]/g, "") ?? "";
+  const mode = address.get("mode") === "full" ? "full" : "quick";
   /*
    * The company you were last reading, when the address does not name one.
    *
@@ -223,6 +226,7 @@ export function Dcf({ initial }: { initial: string }) {
    * for something filed.
    */
   const [assumed, setAssumed] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
   const current = loaded?.ticker === ticker ? loaded : null;
 
   // A shared address is authoritative on first arrival and when the ticker in
@@ -310,6 +314,14 @@ export function Dcf({ initial }: { initial: string }) {
     window.dispatchEvent(new Event(LIST_EVENT));
   };
 
+  const showMode = (next: "quick" | "full") => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("s", ticker);
+    url.searchParams.set("mode", next);
+    window.history.replaceState(null, "", url);
+    window.dispatchEvent(new Event(LIST_EVENT));
+  };
+
   const view = current?.view ?? null;
   const quote = current?.quote ?? null;
 
@@ -388,7 +400,9 @@ export function Dcf({ initial }: { initial: string }) {
     url.searchParams.set("s", ticker);
     url.searchParams.set("r", rate.toFixed(4));
     url.searchParams.set("g", growthRate.toFixed(4));
+    url.searchParams.set("mode", "quick");
     window.history.replaceState(null, "", url);
+    return url.toString();
   };
   const assume = (next: number) => {
     const growthRate = Math.min(1, Math.max(-.5, next));
@@ -404,7 +418,6 @@ export function Dcf({ initial }: { initial: string }) {
   const requireReturn = (rate: number) => {
     setChosen(rate); writeScenario(rate, custom);
   };
-
   /*
    * The three things the verdict is struck from, and nothing else.
    *
@@ -452,6 +465,12 @@ export function Dcf({ initial }: { initial: string }) {
       asks: impliedGrowth({ ...terms, discountRate: required }),
     };
   }, [view, quote, required, growth, record, near, custom]);
+
+  const copyQuickScenario = async () => {
+    await navigator.clipboard.writeText(writeScenario(required, model?.drawn ?? custom));
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
 
   /*
    * The growth today's price is asking for, and the sentence that reads it.
@@ -610,6 +629,15 @@ export function Dcf({ initial }: { initial: string }) {
         </div>
       </header>
 
+      <nav className="dcf-mode" aria-label="DCF depth">
+        <button type="button" aria-pressed={mode === "quick"} onClick={() => showMode("quick")}>
+          <strong>Quick view</strong><span>What today&rsquo;s price asks</span>
+        </button>
+        <button type="button" aria-pressed={mode === "full"} onClick={() => showMode("full")}>
+          <strong>Full model</strong><span>FCFF, WACC and scenarios</span>
+        </button>
+      </nav>
+
       {!current ? (
         <p className="state"><span className="pulse" />Reading the filings</p>
       ) : current.error ? (
@@ -623,6 +651,16 @@ export function Dcf({ initial }: { initial: string }) {
               : "This company's free cash flow is not positive, so there is no cash flow for a price to be a multiple of."}
           </p>
         </div>
+      ) : mode === "full" && view ? (
+        <FullDcf
+          key={view.company.ticker}
+          view={view}
+          quote={quote}
+          search={search}
+          quickFair={fair}
+          quickRate={required}
+          quickGrowth={model.drawn}
+        />
       ) : (
         <>
           {/*
@@ -649,7 +687,7 @@ export function Dcf({ initial }: { initial: string }) {
                   <span className="seg">
                     {priced ? (
                       <button type="button" aria-pressed={chosen == null} onClick={() => { setChosen(null); writeScenario(priced.rate, custom); }}>
-                        {percent(priced.rate, 1)}
+                        Model {percent(priced.rate, 1)}
                       </button>
                     ) : null}
                     {RATES.map((rate) => (
@@ -659,6 +697,7 @@ export function Dcf({ initial }: { initial: string }) {
                     ))}
                   </span>
                 </label>
+                <button className="dcf-copy" type="button" onClick={copyQuickScenario}>{copied ? "Copied" : "Copy scenario"}</button>
               </div>
             </div>
 
@@ -784,6 +823,16 @@ export function Dcf({ initial }: { initial: string }) {
                 </div>
               </dl>
             </details>
+          </section>
+
+          <section className="section dcf-method-bridge" aria-labelledby="quick-method-title">
+            <div className="section-head"><div><h2 className="label" id="quick-method-title">Why these values differ</h2><p className="full-dcf-kicker">Quick view and Full model answer different questions.</p></div></div>
+            <div className="sheet"><table><thead><tr><th className="key">Bridge</th><th>Quick view</th><th>Full model</th></tr></thead><tbody>
+              <tr><th className="key">Cash flow</th><td>Filed free cash flow</td><td>FCFF from operating profit and reinvestment</td></tr>
+              <tr><th className="key">Discount rate</th><td>Cost of equity · {percent(required)}</td><td>WACC, including debt</td></tr>
+              <tr><th className="key">Growth</th><td>Historical / chosen · {percent(model.drawn)}</td><td>Year-by-year operating projection</td></tr>
+              <tr><th className="key">Output</th><td>{fair ? `${writePrice(fair.low, model.basis.currency)} – ${writePrice(fair.high, model.basis.currency)}` : ABSENT} fair-value band</td><td><button type="button" className="dcf-inline-link" onClick={() => showMode("full")}>Open the scenario value →</button></td></tr>
+            </tbody></table></div>
           </section>
 
         </>

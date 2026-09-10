@@ -92,8 +92,6 @@ const ChartsWorkspace = lazy(() => import("./ChartsWorkspace").then((module) => 
 const CompanyManager = lazy(() => import("./CompanyManager").then((module) => ({ default: module.CompanyManager })));
 const CoverageMatrix = lazy(() => import("./CoverageMatrix").then((module) => ({ default: module.CoverageMatrix })));
 const DataQuality = lazy(() => import("./DataQuality").then((module) => ({ default: module.DataQuality })));
-const DcfValuation = lazy(() => import("./DcfValuation").then((module) => ({ default: module.DcfValuation })));
-const FcfYieldCalculator = lazy(() => import("./FcfYieldCalculator").then((module) => ({ default: module.FcfYieldCalculator })));
 const ValuationFundamentals = lazy(() => import("./ValuationFundamentals").then((module) => ({ default: module.ValuationFundamentals })));
 const FormulaDataAudit = lazy(() => import("./FormulaDataAudit").then((module) => ({ default: module.FormulaDataAudit })));
 const QsScreener = lazy(() => import("./QsScreener").then((module) => ({ default: module.QsScreener })));
@@ -675,8 +673,6 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
 }) {
   const [periodicity, setPeriodicity] = useState<Periodicity>(() => typeof window === "undefined" ? "annual" : (localStorage.getItem("finscope.periodicity") as Periodicity) || "annual");
   const [price, setPrice] = useState<PricePoint | null>(null); const [priceError, setPriceError] = useState(""); const [evidence, setEvidence] = useState<Evidence | null>(null);
-  // Which discounted-cash-flow model the Valuation tab is showing.
-  const [model, setModel] = useState<"reverse" | "fcff">("reverse");
   useEffect(() => { localStorage.setItem("finscope.periodicity", periodicity); }, [periodicity]);
   /*
    * What the shares did today, from the two most recent sessions.
@@ -835,24 +831,9 @@ function CompanyPage({ dataset, theme, watchlist, datasets, tab, onTab, onBack, 
       <section id="dcf" className="plain-section">
         <div className="section-heading">
           <h2>Discounted cash flow</h2>
-          <div className="segmented">
-            <button className={model === "reverse" ? "active" : ""} onClick={() => setModel("reverse")}>Reverse DCF</button>
-            <button className={model === "fcff" ? "active" : ""} onClick={() => setModel("fcff")}>Full DCF</button>
-          </div>
         </div>
-        <p className="section-note">Every assumption is yours; every historical figure behind it is traceable.</p>
-        <Suspense fallback={<Skeleton label="the valuation model" chart height={360}/>}>
-          {model === "reverse"
-            ? <FcfYieldCalculator
-                // The server renders a fixture and live filings replace it
-                // moments later. The calculator seeds its inputs once from the
-                // dataset, so it has to be rebuilt when the dataset underneath
-                // it changes — otherwise it keeps offering the fixture's cash
-                // flow to edit.
-                key={`${dataset.company.ticker}:${dataset.retrievedAt}`}
-                dataset={dataset} price={price} theme={theme}/>
-            : <DcfValuation dataset={dataset}/>}
-        </Suspense>
+        <p className="section-note">Quick reverse DCF and the full FCFF model now share one company, one URL and one explanation of their different values.</p>
+        <a className="dcf-unified-link" href={`/dcf?s=${encodeURIComponent(dataset.company.ticker)}&mode=full`}>Open the unified DCF →</a>
       </section>
     </div>}
 

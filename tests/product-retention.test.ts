@@ -19,10 +19,21 @@ describe("shareable research workflows", () => {
      */
     expect(source).toContain("model?.asks.kind === \"solved\" ? model.asks.rate : null");
     expect(source).toContain('<div className="label">The price asks</div>');
-    // Three named cases, a strip of statistics and a grid of margins are gone.
+    // Quick view remains sparse; the named cases live in the separate full
+    // model so readers opt into the extra machinery.
     expect(source).not.toContain("caseValues");
     expect(source).not.toContain("Bear");
     expect(source).not.toContain("dcf-matrix");
+    expect(source).toContain("Quick view");
+    expect(source).toContain("Full model");
+    expect(source).toContain("Copy scenario");
+    expect(source).toContain("Why these values differ");
+
+    const full = read("../components/io/FullDcf.tsx");
+    expect(full).toContain('const CASES: ScenarioName[] = ["bear", "base", "bull"]');
+    expect(full).toContain('url.searchParams.set("d"');
+    expect(full).toContain("Terminal consistency");
+    expect(full).toContain("What the record suggests");
   });
 
   it("stores named watchlists locally, and keeps no notebook", () => {

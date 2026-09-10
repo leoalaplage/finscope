@@ -23,10 +23,12 @@ describe("UI regressions", () => {
     expect(source).toContain('type MainView = "search" | "companies" | "company" | "market" | "charts" | "qs"');
     expect(source).not.toContain("function DcfPage");
     expect(source).not.toContain("StatisticsPage");
-    // Both live inside the company page now, and comparison happens there.
+    // Company statistics stay here; valuation links to the single DCF page so
+    // two competing calculators cannot disagree without an explanation.
     expect(source).toContain("CompanyStatisticsTab");
     expect(source).toContain('{ key: "valuation", label: "Valuation" }');
-    expect(source).toContain("FcfYieldCalculator");
+    expect(source).toContain('href={`/dcf?s=${encodeURIComponent(dataset.company.ticker)}&mode=full`}');
+    expect(source).not.toContain("FcfYieldCalculator");
     const tab = readFileSync(new URL("../components/CompanyStatisticsTab.tsx", import.meta.url), "utf8");
     // The open company starts selected but is a real toggle: after choosing a
     // peer, the reader can remove the anchor and inspect that peer alone.

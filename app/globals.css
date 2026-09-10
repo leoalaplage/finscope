@@ -795,6 +795,12 @@ tbody tr:last-child > * { border-bottom: 0; }
 .column-picker-actions { display: flex; gap: 8px; margin-top: 12px; }
 
 .section-note { max-width: 78ch; margin: -8px 0 16px; color: var(--muted); font-size: var(--fs-base); }
+.dcf-unified-link {
+  display: inline-flex; align-items: center; min-height: 38px; padding: 8px 12px;
+  border: 1px solid var(--border-strong); border-radius: 4px;
+  color: var(--text); background: var(--surface); font-weight: 650; text-decoration: none;
+}
+.dcf-unified-link:hover { background: var(--control-hover); }
 .pershare-history { margin-top: 18px; border: 0; }
 
 .chart-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }

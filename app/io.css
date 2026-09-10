@@ -1330,6 +1330,11 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  */
 .dcf-controls { display: flex; align-items: center; gap: calc(var(--u) * 4); flex-wrap: wrap; }
 .verdict-rate { display: flex; align-items: center; gap: calc(var(--u) * 3); }
+.dcf-copy, .full-dcf-actions button {
+  min-height: 28px; padding: 5px 9px; border: 1px solid var(--line-strong); border-radius: var(--radius);
+  color: var(--ink-2); background: var(--bg); font: var(--fs-xs)/1 var(--mono);
+}
+.dcf-copy:hover, .full-dcf-actions button:hover { color: var(--ink); background: var(--raise); }
 /* Two prices where the other cells carry one, so it steps down a size. */
 .stat-band { font-size: var(--fs-md); }
 .dcf-earns { margin-top: calc(var(--u) * 5); }
@@ -1405,6 +1410,92 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .verdict-assume input:focus-visible { outline: none; border-color: var(--ink); }
 .verdict-assume input::-webkit-outer-spin-button, .verdict-assume input::-webkit-inner-spin-button { appearance: none; margin: 0; }
 .verdict-assume input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+
+/* One DCF, in two depths. The control stays close to the heading while the
+   detailed model below keeps the same type scale as the rest of the site. */
+.dcf-mode {
+  position: sticky; top: 52px; z-index: 18; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: calc(var(--u) * 7); border-block: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(12px);
+}
+.dcf-mode button { display: grid; gap: 2px; padding: 9px 12px; text-align: left; border-inline-start: 2px solid transparent; }
+.dcf-mode button + button { border-left: 1px solid var(--line); }
+.dcf-mode button strong { font: 600 var(--fs-sm)/1.2 var(--mono); }
+.dcf-mode button span { color: var(--ink-3); font: var(--fs-micro)/1.3 var(--mono); }
+.dcf-mode button[aria-pressed="true"] { border-inline-start-color: var(--ink); background: var(--raise); }
+
+.full-dcf-kicker { margin-top: 3px; color: var(--ink-3); font: var(--fs-xs)/1.45 var(--mono); }
+.full-dcf-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.full-dcf-cases { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: calc(var(--u) * 5); border-block: 1px solid var(--line); }
+.full-dcf-cases button { display: grid; gap: 4px; min-width: 0; padding: 10px 12px; text-align: left; border-inline-start: 2px solid transparent; }
+.full-dcf-cases button + button { border-left: 1px solid var(--line); }
+.full-dcf-cases button[aria-pressed="true"] { border-inline-start-color: var(--ink); background: var(--raise); }
+.full-dcf-cases strong { font: 600 var(--fs-lg)/1.1 var(--mono); }
+.full-dcf-cases small { overflow: hidden; color: var(--ink-3); font: var(--fs-micro)/1.35 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.full-dcf-assumption-head { margin-top: calc(var(--u) * 7); }
+.full-dcf-fields { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-block: 1px solid var(--line); }
+.full-dcf-field { display: grid; align-content: space-between; gap: 8px; min-width: 0; padding: 9px 10px; border-left: 1px solid var(--line); }
+.full-dcf-field:first-child { border-left: 0; }
+.full-dcf-field > span:last-child { display: flex; align-items: center; gap: 2px; font: var(--fs-xs)/1 var(--mono); }
+.full-dcf-field input {
+  width: 100%; min-width: 0; min-height: 28px; padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: var(--radius);
+  background: var(--bg); color: var(--ink); font: var(--fs-xs)/1 var(--mono); font-variant-numeric: tabular-nums;
+}
+.full-dcf-field select {
+  width: 100%; min-width: 0; min-height: 28px; padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: var(--radius);
+  background: var(--bg); color: var(--ink); font: var(--fs-xs)/1 var(--mono);
+}
+.full-dcf-field > span input { border: 0; border-bottom: 1px solid var(--line-strong); border-radius: 0; padding-inline: 0; text-align: right; }
+.full-dcf-split { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(250px, .7fr); gap: calc(var(--u) * 6); margin-top: calc(var(--u) * 7); }
+.full-dcf-split .section-head { align-items: flex-end; }
+.full-dcf-sensitivity td[data-selected="true"] { box-shadow: inset 0 0 0 1px var(--ink); font-weight: 600; }
+.terminal-check { padding: 11px 12px; border-block: 1px solid var(--line); }
+.terminal-check[data-state="review"], .terminal-check[data-state="inconsistent"] { border-top-color: var(--ink); }
+.terminal-check dl { margin: 9px 0 0; }
+.terminal-check dl div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--line); font: var(--fs-xs)/1.3 var(--mono); }
+.terminal-check dd { margin: 0; font-weight: 600; }
+.terminal-check p { margin-top: 9px; color: var(--ink-2); font: var(--fs-xs)/1.5 var(--mono); }
+.full-dcf-details { margin-top: calc(var(--u) * 6); }
+.full-dcf-details > .sheet, .full-dcf-details > .full-dcf-fields { margin-bottom: calc(var(--u) * 3); }
+.full-dcf-reported { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.full-dcf-reported > div { display: grid; gap: 4px; padding: 9px 10px; }
+.full-dcf-reported strong { overflow: hidden; font: 600 var(--fs-xs)/1.2 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.full-dcf-details .sheet th.key small { display: block; margin-top: 2px; color: var(--ink-3); font-size: var(--fs-micro); font-weight: 400; }
+.full-dcf-fields-secondary { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: calc(var(--u) * 4); }
+.full-dcf-value-bridge { grid-template-columns: repeat(6, minmax(0, 1fr)); margin-bottom: calc(var(--u) * 4); }
+.full-dcf-value-bridge > div { display: grid; gap: 4px; padding: 9px 10px; }
+.full-dcf-value-bridge strong { overflow: hidden; font: 600 var(--fs-xs)/1.2 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.full-dcf-paths { margin-bottom: calc(var(--u) * 4); }
+.full-dcf-path-input { display: inline-flex; align-items: center; gap: 2px; font: var(--fs-micro)/1 var(--mono); }
+.full-dcf-path-input input { width: 58px; padding: 3px 4px; border: 0; border-bottom: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); font: var(--fs-xs)/1 var(--mono); text-align: right; }
+.full-dcf-warnings { margin: 10px 0 0; padding-left: 18px; color: var(--ink-2); font: var(--fs-xs)/1.5 var(--mono); }
+.dcf-method-bridge { margin-top: calc(var(--u) * 7); }
+.dcf-method-bridge .sheet td { text-align: left; white-space: normal; }
+.dcf-inline-link { color: var(--ink); font: 600 var(--fs-xs)/1.3 var(--mono); text-decoration: underline; text-underline-offset: 3px; }
+
+@media (max-width: 900px) {
+  .full-dcf-fields { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .full-dcf-field:nth-child(5) { border-left: 0; }
+  .full-dcf-split { grid-template-columns: minmax(0, 1fr); }
+  .full-dcf-reported { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .full-dcf-value-bridge { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .dcf-mode { top: 52px; margin-inline: calc(var(--gutter) * -1); }
+  .dcf-mode button span { display: none; }
+  .full-dcf-heading { align-items: stretch; }
+  .full-dcf-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .full-dcf-actions button, .dcf-copy { min-height: 44px; }
+  .full-dcf-cases { grid-template-columns: 1fr; }
+  .full-dcf-cases button + button { border-left: 2px solid transparent; border-top: 1px solid var(--line); }
+  .full-dcf-cases button[aria-pressed="true"] { border-left-color: var(--ink); }
+  .full-dcf-fields, .full-dcf-fields-secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .full-dcf-field:nth-child(odd) { border-left: 0; }
+  .full-dcf-field input { min-height: 40px; }
+  .full-dcf-reported { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .full-dcf-value-bridge { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 
 
