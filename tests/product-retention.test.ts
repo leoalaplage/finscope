@@ -18,7 +18,7 @@ describe("shareable research workflows", () => {
      * forward model, which answers whatever it is fed.
      */
     expect(source).toContain("model?.asks.kind === \"solved\" ? model.asks.rate : null");
-    expect(source).toContain("The price is asking for");
+    expect(source).toContain('<div className="label">The price asks</div>');
     // Three named cases, a strip of statistics and a grid of margins are gone.
     expect(source).not.toContain("caseValues");
     expect(source).not.toContain("Bear");

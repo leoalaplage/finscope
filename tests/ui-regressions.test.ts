@@ -440,7 +440,6 @@ describe("the redesign", () => {
      * monospace prose: thirty-eight per cent of the page was text a reader had
      * to parse to reach three words.
      */
-    expect(dcf).toContain('className="verdict-headline"');
     expect(dcf).toContain('<div className="label">The price asks</div>');
     expect(dcf).toContain('<div className="label">It has delivered</div>');
     expect(dcf).toContain('<div className="label">Fair value</div>');
@@ -461,14 +460,17 @@ describe("the redesign", () => {
     expect(dcf).toContain("const BAND = .01;");
     expect(dcf).toContain("low: model.worth(required + BAND, model.record.rate)");
     /*
-     * And the comparison between the two is the headline, in one line and in
-     * plain ink. It was marked green and red for a while: the market table
-     * scans a column of moves and wants the hue, and a page with one sentence
-     * on it does not.
+     * And no sentence at all. Two numbers side by side say which is larger,
+     * and a line of prose telling the reader so was the page explaining its
+     * own table. The green and red went first, for the same reason: the market
+     * table scans a column of moves and wants the hue; three figures do not.
      */
-    expect(dcf).toContain("The price is asking for more than the company has delivered.");
-    expect(dcf).toContain("The price is asking for less than the company has delivered.");
+    expect(dcf).not.toContain("The price is asking for");
+    expect(dcf).not.toContain("verdict-headline");
     expect(dcf).not.toContain("day-mark");
+    // A dash still owes its reason, so the reason sits under the dash.
+    expect(dcf).toContain("const asksNote = (() => {");
+    expect(dcf).toContain("no growth to ${percent(model.asks.bound, 0)} a year justifies this price");
     /*
      * And the same question the other way round, which needs nothing at all.
      *

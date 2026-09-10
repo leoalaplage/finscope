@@ -532,34 +532,24 @@ export function Dcf({ initial }: { initial: string }) {
    * of the words, in the same green and red, with the words themselves saying
    * which way it goes for anyone who cannot separate the two hues.
    */
-  const reading = (() => {
-    if (!model) return null;
-    const price = writePrice(model.price, model.basis.currency);
+  /*
+   * Why there is no figure, where there is none.
+   *
+   * The page carried a sentence of verdict and the sentence carried these
+   * refusals with it. The figures answer on their own — a price asking more
+   * than a company has delivered is two numbers side by side and needs no
+   * third telling the reader which is bigger — but a dash still owes its
+   * reason, so the reason moves under the dash.
+   */
+  const asksNote = (() => {
+    if (!model) return "a year, for ten";
+    if (model.asks.kind === "solved") return "a year, for ten";
     if (model.asks.kind === "beyond") {
       return model.asks.direction === "above"
-        ? { verdict: `No growth this model can project justifies ${price}.` }
-        : { verdict: `${price} is below what this company's cash is worth even if it never grows again.` };
+        ? `no growth to ${percent(model.asks.bound, 0)} a year justifies this price`
+        : "below what its cash is worth with no growth at all";
     }
-    if (model.asks.kind !== "solved") return { verdict: model.asks.reason };
-    const asks = model.asks.rate;
-    if (!model.record) {
-      return { verdict: `The price asks ${percent(asks, 1)} a year for ten years, and the filings do not carry enough history to say what it has grown at before.` };
-    }
-    const done = model.record.rate;
-    /*
-     * The finding, and only the finding.
-     *
-     * It was one sentence of four lines that a reader had to parse to reach
-     * the three words that mattered. What it was struck on is in the three
-     * figures beside it; the rest of the workings are behind the disclosure at
-     * the foot.
-     */
-    if (Math.abs(asks - done) < .005) {
-      return { verdict: "The price is asking for about what the company has delivered." };
-    }
-    return asks > done
-      ? { verdict: "The price is asking for more than the company has delivered." }
-      : { verdict: "The price is asking for less than the company has delivered." };
+    return model.asks.reason;
   })();
 
   /*
@@ -672,14 +662,6 @@ export function Dcf({ initial }: { initial: string }) {
               </div>
             </div>
 
-            {/*
-              * The finding, and only the finding.
-              *
-              * It was the last clause of a four-line paragraph. A reader who
-              * wants the arithmetic can read the line under it; a reader who
-              * wants the answer should not have to.
-              */}
-            <p className="verdict-headline">{reading?.verdict}</p>
 
             {/*
               * The three figures the verdict is struck from, in the ruled grid
@@ -694,7 +676,7 @@ export function Dcf({ initial }: { initial: string }) {
               <div className="stat">
                 <div className="label">The price asks</div>
                 <div className="stat-value" data-empty={priceAsks == null}>{priceAsks == null ? ABSENT : percent(priceAsks, 1)}</div>
-                <div className="stat-note">a year, for ten</div>
+                <div className="stat-note">{asksNote}</div>
               </div>
               <div className="stat">
                 <div className="label">It has delivered</div>

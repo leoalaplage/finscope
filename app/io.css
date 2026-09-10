@@ -1310,10 +1310,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .verdict-rate { display: flex; align-items: center; gap: calc(var(--u) * 3); }
 /* Two prices where the other cells carry one, so it steps down a size. */
 .stat-band { font-size: var(--fs-md); }
-.verdict-headline {
-  max-width: 46ch; margin: calc(var(--u) * 4) 0 calc(var(--u) * 5);
-  font: 600 var(--fs-lg)/1.4 var(--mono); letter-spacing: -.01em;
-}
 .dcf-earns { margin-top: calc(var(--u) * 5); }
 .dcf-earns > .label { display: block; margin-bottom: calc(var(--u) * 2); }
 
