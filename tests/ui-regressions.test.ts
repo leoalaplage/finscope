@@ -438,9 +438,17 @@ describe("the redesign", () => {
     expect(dcf).toContain('<div className="label">The price asks for</div>');
     expect(dcf).toContain('<div className="label">It has delivered</div>');
     expect(dcf).toContain('<div className="label">Fair value at that record</div>');
-    // Named as a fair value with a margin of safety beside it, which is what a
-    // reader arriving from any other site is looking for.
-    expect(dcf).toContain("margin against ${writePrice(model.price, model.basis.currency)} today");
+    /*
+     * Named as a fair value with a margin of safety beside it, which is what a
+     * reader arriving from any other site is looking for — and stated as a
+     * band, which is what the measurement supports. A single value per share
+     * moves nine to nineteen per cent on one point of the discount rate, and
+     * the rate is itself an estimate: a three-year beta window instead of five
+     * moves the value by up to a quarter.
+     */
+    expect(dcf).toContain("const BAND = .01;");
+    expect(dcf).toContain("low: model.worth(required + BAND, model.record.rate)");
+    expect(dcf).toContain("margin against ${writePrice(model.price, model.basis.currency)}, at ${wanted}");
     // And the comparison between the two is written out, because the
     // comparison is the finding — highlighted the way today's move is on the
     // market table, in the same green and red, with the words carrying it too.

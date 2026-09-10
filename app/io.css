@@ -1386,6 +1386,10 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .worth-readout .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
 .worth-cost { margin-inline-start: auto; }
 
+/* Two figures where the others carry one, so it steps down a size rather
+   than wrapping mid-range. */
+.stat-band { font-size: var(--fs-md); }
+
 .verdict-terms { max-width: 88ch; margin-top: calc(var(--u) * 3); line-height: 1.55; }
 
 .verdict-assume { display: flex; align-items: baseline; gap: calc(var(--u) * 2); margin-top: calc(var(--u) * 4); }

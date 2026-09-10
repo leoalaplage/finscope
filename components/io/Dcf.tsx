@@ -47,6 +47,23 @@ const HORIZON = 10;
  * less and the early ones have to carry more.
  */
 const HOLD = 5;
+/**
+ * How far either side of the rate the fair value is stated.
+ *
+ * A point, because that is what the measurement supports. A single value per
+ * share moves nine to nineteen per cent on one point of the discount rate —
+ * seventeen for Johnson & Johnson, nineteen for Exxon — and the rate itself is
+ * an estimate: measuring the beta over three years instead of five moves it by
+ * up to two points, and the value by up to a quarter. A figure that swings a
+ * quarter on a defensible methodological choice is not a valuation, it is a
+ * range, and printing it as a point is the one dishonest thing a discounted
+ * cash flow can still do after everything else has been disclosed.
+ *
+ * The band covers the rate and only the rate. What the base year and the length
+ * of the record do to the answer is larger still, and the page states both in
+ * words rather than trying to widen a bracket around them.
+ */
+const BAND = .01;
 const POLL_MS = 2_000;
 const POLL_LIMIT = 30;
 const TERMINAL = .025;
@@ -457,6 +474,20 @@ export function Dcf({ initial }: { initial: string }) {
    * routinely two thirds of the value, and a reader trusting the figure above
    * should know how much of it they are trusting.
    */
+  /*
+   * What it is worth, as wide as the rate makes it.
+   *
+   * A harder discount is a smaller value, so the point either side of the rate
+   * gives the two ends the right way round. Struck at the record the page has
+   * just stated, which is the one growth on screen nobody assumed.
+   */
+  const fair = model?.record
+    ? {
+        low: model.worth(required + BAND, model.record.rate),
+        high: model.worth(Math.max(TERMINAL + .005, required - BAND), model.record.rate),
+      }
+    : null;
+
   const perpetuity = model && priceAsks != null ? terminalShare({ ...model.terms, discountRate: required }, priceAsks) : null;
 
   /*
@@ -664,15 +695,21 @@ export function Dcf({ initial }: { initial: string }) {
               </div>
               <div className="stat">
                 <div className="label">Fair value at that record</div>
-                <div className="stat-value" data-empty={model.record == null}>
-                  {model.record == null ? ABSENT : writePrice(model.worth(required, model.record.rate), model.basis.currency)}
+                {/* A band, because the measurement supports a band: the same
+                    company is worth a fifth more to somebody discounting a
+                    point lower, and the rate is itself an estimate. */}
+                <div className="stat-value stat-band" data-empty={fair == null}>
+                  {fair == null
+                    ? ABSENT
+                    : `${writePrice(fair.low, model.basis.currency)} \u2013 ${writePrice(fair.high, model.basis.currency)}`}
                 </div>
                 <div className="stat-note">
-                  {model.record == null
+                  {fair == null
                     ? `against ${writePrice(model.price, model.basis.currency)} today`
-                    /* The margin of safety, named: how far the value sits above
-                       what the market charges, or how far short it falls. */
-                    : `${delta(model.worth(required, model.record.rate) / model.price - 1, 0)} margin against ${writePrice(model.price, model.basis.currency)} today`}
+                    /* The margin of safety, named, and as wide as the value it
+                       comes from: how far above what the market charges, or how
+                       far short. */
+                    : `${delta(fair.low / model.price - 1, 0)} to ${delta(fair.high / model.price - 1, 0)} margin against ${writePrice(model.price, model.basis.currency)}, at ${wanted} \u00b1 a point`}
                 </div>
               </div>
             </div>
