@@ -53,6 +53,15 @@ const level = (value: number | null, digits = 2) =>
  * Dow at 53,459.78, where the last digits are noise and, in a badge sized for
  * the axis beside it, noise that pushes the leading digit out of view.
  */
+/**
+ * A yield, at the places asked, with the site's own minus.
+ *
+ * `toFixed` writes a hyphen, and a euro-area curve spent most of 2020 and 2021
+ * below zero — so the five-year axis read "-1.0%" beside every other figure on
+ * the site written "−1.0%".
+ */
+const rate = (value: number, digits: number) => `${value < 0 ? "−" : ""}${Math.abs(value).toFixed(digits)}%`;
+
 const quoted = (value: number | null) =>
   value == null || !Number.isFinite(value) ? "—"
     : value.toLocaleString("en-US", { maximumFractionDigits: Math.max(0, 6 - Math.max(1, Math.floor(Math.log10(Math.abs(value))) + 1)) });
@@ -279,12 +288,12 @@ function IndexChart({ entry, range, scale }: { entry: Panel; range: MarketRange;
     ? priceTicks(toPercent(bottom), toPercent(top)).map(fromPercent)
     : priceTicks(bottom, top);
   const tickText = (value: number) => isYield
-    ? `${value.toFixed(top - bottom < .5 ? 2 : 1)}%`
+    ? rate(value, top - bottom < .5 ? 2 : 1)
     : asPercent
       ? `${toPercent(value) >= 0 ? "+" : "−"}${Math.abs(toPercent(value)).toFixed(Math.abs(toPercent(top) - toPercent(bottom)) < 3 ? 1 : 0)}%`
       : level(value, 0);
   const badge = isYield && last != null
-    ? `${last.toFixed(2)}%`
+    ? rate(last, 2)
     : asPercent && last != null
       ? `${last >= base! ? "+" : "−"}${Math.abs(toPercent(last)).toFixed(2)}%`
       : quoted(last);
@@ -304,7 +313,7 @@ function IndexChart({ entry, range, scale }: { entry: Panel; range: MarketRange;
     <header className="index-head">
       <h2>{entry.name}</h2>
       <div className="index-quote">
-        <strong>{isYield ? (last == null ? "—" : `${last.toFixed(3)}%`) : quoted(last)}</strong>
+        <strong>{isYield ? (last == null ? "—" : rate(last, 3)) : quoted(last)}</strong>
         <span className={rising ? "index-change positive-text" : "index-change negative-text"}>
           {/* Both halves carry the sign. Stating "−9.41 (0.02%)" makes the
               reader check twice whether the index rose or fell, which is the

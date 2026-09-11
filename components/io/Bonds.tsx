@@ -94,7 +94,7 @@ export function Bonds() {
               onClick={() => setOpen((current) => toggleOpen(current, quote.id))}
             >
               <div className="label">{quote.label}</div>
-              <div className="stat-value">{quote.rate == null ? ABSENT : `${quote.rate.toFixed(3)}%`}</div>
+              <div className="stat-value">{quote.rate == null ? ABSENT : `${quote.rate < 0 ? "−" : ""}${Math.abs(quote.rate).toFixed(3)}%`}</div>
               <div className="strip-move">
                 {/* The width of the figure, as on the watchlist: the one place
                     on this site a colour carries meaning, and the sign is in
