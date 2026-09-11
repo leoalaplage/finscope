@@ -151,11 +151,6 @@ export function hourMarks(labels: string[]): Array<{ index: number; text: string
 
 /** "Aug 17" for a date, or "Aug 24" once a window spans more than a year. */
 function shortDate(iso: string, withYear: boolean) {
-  // A monthly series is labelled "2026-08": the month, never its first day.
-  if (/^\d{4}-\d{2}$/.test(iso)) {
-    const month = new Date(`${iso}-01T12:00:00Z`);
-    return month.toLocaleDateString("en-US", withYear ? { month: "short", year: "2-digit", timeZone: "UTC" } : { month: "short", timeZone: "UTC" });
-  }
   const parsed = new Date(`${iso}T12:00:00Z`);
   if (Number.isNaN(parsed.getTime())) return iso;
   return parsed.toLocaleDateString("en-US", withYear

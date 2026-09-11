@@ -51,22 +51,7 @@ export type DailyFeed =
   /** The Bank of Canada's Valet API. */
   | { kind: "boc"; series: string }
   /** The Reserve Bank of Australia's statistical table F2. */
-  | { kind: "rba"; series: string }
-  /**
-   * The ECB's long-term interest rate for convergence purposes: each euro
-   * member's ten-year government yield, as a monthly average.
-   *
-   * Monthly, and the only form of these yields that can be republished. The
-   * daily French ten-year is Euronext's TEC 10, whose values "may not be
-   * redistributed" without Euronext's written authorisation, and Italy's daily
-   * figure is not published anywhere this site can read. A month's average,
-   * labelled as one, is the honest figure that remains.
-   */
-  | { kind: "ecb-monthly"; country: string };
-
-/** How often a feed publishes, which decides what a window can show. */
-export type Frequency = "daily" | "monthly";
-export const frequencyOf = (feed: DailyFeed): Frequency => feed.kind === "ecb-monthly" ? "monthly" : "daily";
+  | { kind: "rba"; series: string };
 
 /**
  * Why a single session cannot be drawn, in the words the panel shows.
@@ -77,20 +62,8 @@ export const frequencyOf = (feed: DailyFeed): Frequency => feed.kind === "ecb-mo
  */
 export const DAILY_NO_INTRADAY = "This yield is published once a day, so there is no line inside a single session. Choose a longer window.";
 
-/** The same, for a figure published once a month. */
-export const MONTHLY_TOO_SHORT = "This yield is a monthly average, so a window shorter than six months has too few points to be a line. Choose a longer window.";
-
-/**
- * Why a window cannot be drawn for a feed, or null if it can.
- *
- * A daily series has no line inside one session. A monthly one has none inside
- * a month either, and five sessions or one month of it is at most a single
- * point — the smallest window with a shape in it is six.
- */
-export function refusalFor(frequency: Frequency, range: MarketRange): string | null {
-  if (frequency === "monthly") return ["1D", "5D", "1M"].includes(range) ? MONTHLY_TOO_SHORT : null;
-  return range === "1D" ? DAILY_NO_INTRADAY : null;
-}
+/** Whether a window has enough readings in it to be a line. */
+export const drawsDaily = (range: MarketRange) => range !== "1D";
 
 /* --- Reading the formats -------------------------------------------------- */
 
@@ -167,12 +140,7 @@ function column(header: string[], name: string) {
   return header.findIndex((cell) => cell.toUpperCase() === name.toUpperCase());
 }
 
-/**
- * The ECB's SDMX CSV: `TIME_PERIOD` and `OBS_VALUE` columns.
- *
- * A daily series is dated by the day and a monthly one by the month, "2026-08";
- * a month is held as its first day so both sort and count the same way.
- */
+/** The ECB's SDMX CSV: `TIME_PERIOD` and `OBS_VALUE` columns, ISO dates. */
 export function parseEcbCsv(text: string): Observation[] {
   const rows = lines(text).filter(Boolean).map(splitCsvLine);
   if (rows.length < 2) return [];
@@ -182,9 +150,7 @@ export function parseEcbCsv(text: string): Observation[] {
   const out: Observation[] = [];
   for (const row of rows.slice(1)) {
     const value = reading(row[what]);
-    const period = row[when] ?? "";
-    const date = /^\d{4}-\d{2}-\d{2}$/.test(period) ? period : /^\d{4}-\d{2}$/.test(period) ? `${period}-01` : null;
-    if (date && value != null) out.push({ date, value });
+    if (/^\d{4}-\d{2}-\d{2}$/.test(row[when] ?? "") && value != null) out.push({ date: row[when], value });
   }
   return sorted(out);
 }
@@ -373,11 +339,6 @@ export async function readDailyYields(feed: DailyFeed, since = historyStart()): 
       observations = parseEcbCsv(await text(
         `https://data-api.ecb.europa.eu/service/data/YC/${feed.key}?format=csvdata&detail=dataonly&startPeriod=${since}`, "The ECB data portal"));
       break;
-    case "ecb-monthly":
-      observations = parseEcbCsv(await text(
-        `https://data-api.ecb.europa.eu/service/data/IRS/M.${feed.country}.L.L40.CI.0000.EUR.N.Z?format=csvdata&detail=dataonly&startPeriod=${since.slice(0, 7)}`,
-        "The ECB data portal"));
-      break;
     case "bundesbank":
       observations = parseBundesbankCsv(await text(
         `https://api.statistiken.bundesbank.de/rest/data/BBSIS/${feed.key}?format=csv&lang=en&startPeriod=${since}`, "The Bundesbank"));
@@ -460,9 +421,8 @@ function opening(last: string, range: MarketRange) {
  * Five sessions is the exception and is counted in sessions, as it is for
  * every other panel on the page.
  */
-export function dailyWindow(observations: Observation[], name: string, range: MarketRange, symbol: string, frequency: Frequency = "daily"): MarketWindow {
-  const refused = refusalFor(frequency, range);
-  if (refused) throw new Error(refused);
+export function dailyWindow(observations: Observation[], name: string, range: MarketRange, symbol: string): MarketWindow {
+  if (!drawsDaily(range)) throw new Error(DAILY_NO_INTRADAY);
   const last = observations.at(-1);
   if (!last) throw new Error("The publisher returned no readings for this series.");
 
@@ -488,10 +448,7 @@ export function dailyWindow(observations: Observation[], name: string, range: Ma
     throw new Error(`This series reaches back only to ${observations[0].date}, so a ${range} window cannot be drawn yet.`);
   }
   const baseline = base.value;
-  // A month is labelled as a month: "2026-08" rather than the first of it,
-  // which would put "Aug 1" under a figure that is the whole of August.
-  const label = (date: string) => frequency === "monthly" ? date.slice(0, 7) : date;
-  const points = drawn.map((observation) => ({ time: stamp(observation.date), label: label(observation.date), close: observation.value }));
+  const points = drawn.map((observation) => ({ time: stamp(observation.date), label: observation.date, close: observation.value }));
   const lastValue = points.at(-1)?.close ?? null;
 
   return {
@@ -509,6 +466,6 @@ export function dailyWindow(observations: Observation[], name: string, range: Ma
     // A published curve does not trade, so it is never open.
     open: false,
     asOf: stamp(last.date),
-    sessionDate: label(last.date),
+    sessionDate: last.date,
   };
 }

@@ -25,9 +25,7 @@ import { MARKET_RANGES, type MarketRange } from "@/lib/adapters/intraday";
  */
 
 /**
- * A month, rather than the day the indices open on, unless a strip asks for
- * another — the bond strip opens on a year, because a yield is read over
- * quarters and its monthly members have one point a month.
+ * A month, rather than the day the indices open on.
  *
  * These panels are opened deliberately, by a reader who wants the shape of a
  * thing rather than its tick. A month is also the shortest window every source
@@ -36,8 +34,8 @@ import { MARKET_RANGES, type MarketRange } from "@/lib/adapters/intraday";
  */
 const DEFAULT_RANGE: MarketRange = "1M";
 
-export function QuoteCharts({ open, label, defaultRange = DEFAULT_RANGE }: { open: string[]; label: string; defaultRange?: MarketRange }) {
-  const [range, setRange] = useState<MarketRange>(defaultRange);
+export function QuoteCharts({ open, label }: { open: string[]; label: string }) {
+  const [range, setRange] = useState<MarketRange>(DEFAULT_RANGE);
   const [answers, setAnswers] = useState<Record<string, MarketEntry>>({});
   /*
    * What has already been asked for, kept beside the answers rather than
