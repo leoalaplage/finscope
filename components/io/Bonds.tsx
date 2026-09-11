@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { BondQuote } from "@/app/api/bonds/route";
+import { BOND_SETS, type BondSet } from "@/lib/bonds";
 import { QuoteCharts, toggleOpen } from "./QuoteCharts";
 import { ABSENT } from "./format";
 
@@ -13,11 +14,16 @@ import { ABSENT } from "./format";
  * this row is where that rate comes from, and the shape of it — three months
  * against thirty years — is the most watched reading in finance.
  *
- * Six lines, and only where a daily source exists that a machine can read: the
- * four US Treasury yields, which are quoted like any instrument, and the ECB's
- * own euro-area curve, which is struck once a business day. The United Kingdom
- * is not here, and the file that defines this list says exactly why rather than
+ * Two sets of six, turned with an arrow rather than stacked: the US and euro
+ * curves every other rate is read against, then the other large markets that
+ * publish daily — Germany, the UK, Japan, Spain, Canada and Australia. The
+ * second set is asked for only when a reader turns to it. France and Italy are
+ * absent, and the file that defines this list says exactly why rather than
  * putting a stale monthly average in a row of daily readings.
+ *
+ * A chart opened from one set stays open when the reader turns to the other,
+ * which is the point: the Bund beside the ten-year Treasury is the comparison
+ * a reader turns the page to make.
  *
  * Each figure carries the date it was struck on, which is the whole of how the
  * two frequencies are kept apart. A reading dated two days ago in a row of live
@@ -28,6 +34,12 @@ type State =
   | { kind: "loading" }
   | { kind: "absent" }
   | { kind: "ready"; quotes: BondQuote[] };
+
+/** What each set is, said beside the arrows so the reader knows where they are. */
+const SET_LABEL: Record<BondSet, string> = {
+  core: "US & euro area",
+  world: "Other large markets",
+};
 
 /** "Sep 9", the way a market page dates a reading. */
 function dated(date: string | null) {
@@ -47,36 +59,53 @@ const bp = (value: number | null) =>
   value == null || !Number.isFinite(value) ? ABSENT : `${value < 0 ? "−" : "+"}${Math.abs(value).toFixed(1)} bp`;
 
 export function Bonds() {
-  const [state, setState] = useState<State>({ kind: "loading" });
+  const [set, setSet] = useState<BondSet>("core");
+  const [sets, setSets] = useState<Partial<Record<BondSet, State>>>({});
   const [open, setOpen] = useState<string[]>([]);
+  const state: State = sets[set] ?? { kind: "loading" };
+  const loaded = sets[set] != null;
 
   useEffect(() => {
+    // Each set is asked for once, the first time it is shown.
+    if (loaded) return;
     const controller = new AbortController();
+    const settle = (next: State) => setSets((current) => ({ ...current, [set]: next }));
     (async () => {
       try {
-        const response = await fetch("/api/bonds", { signal: controller.signal });
-        if (!response.ok) { setState({ kind: "absent" }); return; }
+        const response = await fetch(`/api/bonds?set=${set}`, { signal: controller.signal });
+        if (!response.ok) { settle({ kind: "absent" }); return; }
         const payload = await response.json() as { bonds?: BondQuote[] };
         const quotes = (payload.bonds ?? []).filter((quote) => quote.rate != null);
-        setState(quotes.length ? { kind: "ready", quotes } : { kind: "absent" });
+        settle(quotes.length ? { kind: "ready", quotes } : { kind: "absent" });
       } catch {
-        if (!controller.signal.aborted) setState({ kind: "absent" });
+        if (!controller.signal.aborted) settle({ kind: "absent" });
       }
     })();
     return () => controller.abort();
-  }, []);
+  }, [set, loaded]);
 
-  // A feed nobody can reach is simply not a section, as the wire below is not.
-  if (state.kind === "absent") return null;
+  const index = BOND_SETS.indexOf(set);
+  // The first set going quiet is what it always was: no section, as the wire
+  // below has none. A later set going quiet says so, because the reader asked
+  // for it and a blank would read as a page that had not loaded.
+  if (set === "core" && state.kind === "absent") return null;
 
   return (
     <section className="section bonds" aria-labelledby="bonds-title">
       <div className="section-head">
         <h2 className="label" id="bonds-title">Government bonds</h2>
-        <span className="label">Benchmark yields</span>
+        <div className="strip-pager">
+          <span className="label" aria-live="polite">{SET_LABEL[set]} · {index + 1}/{BOND_SETS.length}</span>
+          <div className="seg" role="group" aria-label="Which government bonds to show">
+            <button type="button" aria-label="Previous six" disabled={index === 0} onClick={() => setSet(BOND_SETS[index - 1])}>‹</button>
+            <button type="button" aria-label="Next six" disabled={index === BOND_SETS.length - 1} onClick={() => setSet(BOND_SETS[index + 1])}>›</button>
+          </div>
+        </div>
       </div>
 
-      {state.kind === "loading" ? (
+      {state.kind === "absent" ? (
+        <p className="strip-note">These yields could not be read from their publishers just now.</p>
+      ) : state.kind === "loading" ? (
         <div className="grid-ruled strip-grid">
           {[0, 1, 2, 3, 4, 5].map((cell) => <div className="stat skeleton" key={cell} style={{ height: 74 }}/>)}
         </div>

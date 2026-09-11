@@ -855,6 +855,12 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .strip-move .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }
 .strip-move .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
 .strip-move .label { color: var(--ink-3); }
+/* Two sets of six, turned with an arrow: where the reader is, then the way on. */
+.strip-pager { display: inline-flex; align-items: center; gap: calc(var(--u) * 3); }
+.strip-pager .seg button { padding: 2px 9px; font-size: var(--fs-sm); line-height: 1.2; }
+.strip-pager .seg button:disabled { opacity: .35; cursor: default; }
+.strip-pager .seg button:disabled:hover { color: var(--ink-3); }
+.strip-note { padding: 11px 12px; border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink-3); font: var(--fs-xs)/1.5 var(--mono); }
 /* The charts a reader opened, under the strip they were opened from. */
 .strip-open { margin-top: calc(var(--u) * 4); }
 .strip-open .market-ranges { margin-bottom: calc(var(--u) * 4); }

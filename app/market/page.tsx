@@ -34,11 +34,12 @@ export default function MarketRoute() {
           *
           * Every valuation on this site starts from what a government pays to
           * borrow; this is where that number comes from. The four US tenors are
-          * quoted like any instrument, the euro-area curve is struck once a
-          * business day by the bank that publishes it, and the United Kingdom
-          * is absent because no source for it can be read from here — which
-          * `lib/bonds.ts` says in full rather than filling the gap with a
-          * monthly average two months behind.
+          * quoted like any instrument; every other yield is struck once a
+          * business day by the central bank or ministry that publishes it, and
+          * an arrow turns from the US and euro curves to the other large
+          * markets. France and Italy are absent because neither publishes a
+          * daily figure this site can read — which `lib/bonds.ts` says in full
+          * rather than filling the gap with a monthly average a month behind.
           */}
         <Bonds />
         {/*

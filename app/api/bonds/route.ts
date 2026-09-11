@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { fetchEcbLatest } from "@/lib/adapters/ecb";
+import { latestReading } from "@/lib/adapters/daily-yields";
 import { fetchMarketWindow } from "@/lib/adapters/intraday";
-import { BONDS } from "@/lib/bonds";
+import { BOND_SETS, BONDS, type BondSet } from "@/lib/bonds";
+import { dailyYields } from "@/lib/daily-yield-store";
 import { cachedJson } from "@/lib/market-cache";
 
 /**
@@ -13,13 +14,21 @@ import { cachedJson } from "@/lib/market-cache";
  * render is the shape most likely to get it refused. A ten-year yield does not
  * move enough in five minutes to be worth that.
  *
- * Two of the six are published once a business day, so the answer carries the
- * date each figure was struck on. A reading dated two days ago in a row of live
+ * One set of six at a time, because the page shows one at a time: the second
+ * is asked for only when a reader turns to it, and seven banks' files are not
+ * read on a first paint that will never look at them.
+ *
+ * Most of these are published once a business day, so the answer carries the
+ * date each figure was struck on. A reading dated yesterday in a row of live
  * ones is only a lie if nobody says so.
  */
 const TTL_SECONDS = 300;
-/** The stored answer's shape, versioned as every stored shape here is. */
-const SHAPE = "v1";
+/**
+ * The stored answer's shape, versioned as every stored shape here is.
+ *
+ * v2 is one answer per set rather than one for the page.
+ */
+const SHAPE = "v2";
 
 const headers = {
   "Content-Type": "application/json",
@@ -47,13 +56,18 @@ export interface BondQuote {
   error?: string;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  // An unknown set is answered with the first rather than an error: the
+  // parameter comes from a page a reader may have edited.
+  const asked = new URL(request.url).searchParams.get("set");
+  const set: BondSet = BOND_SETS.includes(asked as BondSet) ? asked as BondSet : "core";
+
   const { body } = await cachedJson<{ bonds: BondQuote[] }>(
-    `bonds:${SHAPE}`,
+    `bonds:${SHAPE}:${set}`,
     TTL_SECONDS,
     async () => {
       const quotes: BondQuote[] = [];
-      for (const bond of BONDS) {
+      for (const bond of BONDS.filter((each) => each.set === set)) {
         const base = { id: bond.id, label: bond.label, description: bond.description, live: bond.live };
         try {
           if (bond.feed.kind === "yahoo") {
@@ -65,7 +79,8 @@ export async function GET() {
               asOf: window.sessionDate || null,
             });
           } else {
-            const latest = await fetchEcbLatest(bond.feed.key);
+            const latest = latestReading(await dailyYields(bond.id, bond.feed));
+            if (!latest) throw new Error("The publisher returned no readings for this series.");
             quotes.push({
               ...base,
               rate: latest.rate,
