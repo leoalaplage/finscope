@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { latestReading } from "@/lib/adapters/daily-yields";
+import { frequencyOf, latestReading, type Frequency } from "@/lib/adapters/daily-yields";
 import { fetchMarketWindow } from "@/lib/adapters/intraday";
 import { BOND_SETS, BONDS, type BondSet } from "@/lib/bonds";
 import { dailyYields } from "@/lib/daily-yield-store";
@@ -26,9 +26,10 @@ const TTL_SECONDS = 300;
 /**
  * The stored answer's shape, versioned as every stored shape here is.
  *
- * v2 is one answer per set rather than one for the page.
+ * v2 is one answer per set rather than one for the page; v3 carries each
+ * figure's frequency, so a monthly average is dated as a month.
  */
-const SHAPE = "v2";
+const SHAPE = "v3";
 
 const headers = {
   "Content-Type": "application/json",
@@ -41,6 +42,12 @@ export interface BondQuote {
   description: string;
   /** Whether the figure moves during the session, or is struck once a day. */
   live: boolean;
+  /**
+   * How often the figure is published. A monthly one is an average of the
+   * month and is dated by it — "Aug avg." — rather than by a day it does not
+   * belong to.
+   */
+  frequency: Frequency;
   /** The yield, in per cent a year, as the source quotes it. */
   rate: number | null;
   /**
@@ -68,7 +75,10 @@ export async function GET(request: Request) {
     async () => {
       const quotes: BondQuote[] = [];
       for (const bond of BONDS.filter((each) => each.set === set)) {
-        const base = { id: bond.id, label: bond.label, description: bond.description, live: bond.live };
+        const base = {
+          id: bond.id, label: bond.label, description: bond.description, live: bond.live,
+          frequency: bond.feed.kind === "yahoo" ? "daily" as const : frequencyOf(bond.feed),
+        };
         try {
           if (bond.feed.kind === "yahoo") {
             const window = await fetchMarketWindow(bond.feed.symbol, bond.label, "1D");

@@ -1,7 +1,7 @@
 import { deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import {
-  DAILY_NO_INTRADAY, dailyWindow, drawsDaily, latestReading, parseBdeCsv, parseBocJson, parseBoeSpotSheet,
+  DAILY_NO_INTRADAY, MONTHLY_TOO_SHORT, dailyWindow, frequencyOf, latestReading, refusalFor, parseBdeCsv, parseBocJson, parseBoeSpotSheet,
   parseBundesbankCsv, parseEcbCsv, parseMofCsv, parseRbaCsv, recentOnly, splitCsvLine, type Observation,
 } from "../lib/adapters/daily-yields";
 import { BONDS, bondById } from "../lib/bonds";
@@ -18,26 +18,34 @@ import { toggleOpen } from "../components/io/QuoteCharts";
  * thirty years, Tokyo against London — is the most watched reading in finance.
  */
 describe("the government yields a market page carries", () => {
-  it("carries two sets of six: the reference curves, then the other large markets", () => {
+  it("carries three sets of six: the reference curves, the other daily markets, the monthly euro members", () => {
     expect(BONDS.filter((bond) => bond.set === "core").map((bond) => bond.id)).toEqual(["US3M", "US5Y", "US10Y", "US30Y", "EU2Y", "EU10Y"]);
     expect(BONDS.filter((bond) => bond.set === "world").map((bond) => bond.id)).toEqual(["DE10Y", "UK10Y", "JP10Y", "ES10Y", "CA10Y", "AU10Y"]);
+    expect(BONDS.filter((bond) => bond.set === "euro").map((bond) => bond.id)).toEqual(["FR10Y", "IT10Y", "NL10Y", "BE10Y", "PT10Y", "GR10Y"]);
   });
 
-  it("leaves out France and Italy rather than filling them with a stale figure", () => {
+  it("carries France and Italy only as the ECB's monthly average, never as a daily figure", () => {
     /*
-     * Not an oversight, and the reason is written into the registry: the
-     * Banque de France publishes the French ten-year daily only behind a
-     * registered key, and Italy's is not published daily in any form this
-     * site can read. The nearest figure for either is a monthly average a
-     * month behind, and a monthly average in a row of daily readings is the
-     * substitution this application does not make.
+     * The daily French ten-year is Euronext's TEC 10, whose values may not be
+     * redistributed without Euronext's written authorisation, whichever site
+     * it is read from; Italy's daily figure is not published anywhere this
+     * site can read. The ECB's monthly series is published for reuse.
      */
-    expect(BONDS.some((bond) => /FR|IT|france|italy/i.test(bond.id + bond.label))).toBe(false);
+    for (const id of ["FR10Y", "IT10Y"]) {
+      const bond = bondById(id)!;
+      expect(bond.feed.kind).toBe("ecb-monthly");
+      expect(bond.description).toMatch(/monthly average/);
+    }
+    // A monthly set is never mixed into a daily one.
+    for (const bond of BONDS) {
+      const monthly = bond.feed.kind === "ecb-monthly";
+      expect(bond.set === "euro", bond.id).toBe(monthly);
+    }
   });
 
-  it("takes every yield outside the US from the institution that strikes it", () => {
+  it("takes every yield outside the US from the institution that publishes it", () => {
     const sources = BONDS.filter((bond) => bond.feed.kind !== "yahoo").map((bond) => bond.feed.kind);
-    expect(sources).toEqual(["ecb", "ecb", "bundesbank", "boe", "mof", "bde", "boc", "rba"]);
+    expect(sources).toEqual(["ecb", "ecb", "bundesbank", "boe", "mof", "bde", "boc", "rba", ...Array(6).fill("ecb-monthly")]);
   });
 
   it("says which readings move during the session and which are struck once a day", () => {
@@ -61,7 +69,8 @@ describe("the government yields a market page carries", () => {
   it("finds a line by the id its URL carries, whatever the case", () => {
     expect(bondById("us10y")?.label).toBe("US 10-year");
     expect(bondById("uk10y")?.feed.kind).toBe("boe");
-    expect(bondById("FR10Y")).toBeNull();
+    expect(bondById("fr10y")?.feed.kind).toBe("ecb-monthly");
+    expect(bondById("CN10Y")).toBeNull();
   });
 
   it("shares no id with the commodities, because one route resolves both", () => {
@@ -79,6 +88,11 @@ describe("the government yields a market page carries", () => {
 describe("reading each publisher's format", () => {
   it("splits a CSV line on commas outside quotes only", () => {
     expect(splitCsvLine('"a, b",2,"c ""d"""')).toEqual(["a, b", "2", 'c "d"']);
+  });
+
+  it("holds an ECB month as its first day, so monthly and daily sort the same way", () => {
+    expect(parseEcbCsv(["TIME_PERIOD,OBS_VALUE", "2026-07,3.85", "2026-08,4"].join("\n")))
+      .toEqual([{ date: "2026-07-01", value: 3.85 }, { date: "2026-08-01", value: 4 }]);
   });
 
   it("reads the ECB's columns wherever they sit, and skips a blank observation", () => {
@@ -231,8 +245,32 @@ describe("a daily series as a figure and as a line", () => {
   });
 
   it("refuses a single session rather than drawing a one-point line", () => {
-    expect(drawsDaily("1D")).toBe(false);
+    expect(refusalFor("daily", "1D")).toBe(DAILY_NO_INTRADAY);
+    expect(refusalFor("daily", "5D")).toBeNull();
     expect(() => dailyWindow(series, "Test", "1D", "T")).toThrow(DAILY_NO_INTRADAY);
+  });
+
+  it("refuses any window of a monthly average shorter than six months", () => {
+    // Five sessions or one month of a monthly series is at most one point.
+    for (const range of ["1D", "5D", "1M"] as const) expect(refusalFor("monthly", range), range).toBe(MONTHLY_TOO_SHORT);
+    for (const range of ["6M", "1Y", "5Y"] as const) expect(refusalFor("monthly", range), range).toBeNull();
+    expect(frequencyOf({ kind: "ecb-monthly", country: "FR" })).toBe("monthly");
+    expect(frequencyOf({ kind: "boe", maturity: "10" })).toBe("daily");
+  });
+
+  it("draws a monthly average by the month, never by its first day", () => {
+    const months: Observation[] = [];
+    for (let month = 0; month < 30; month++) {
+      const date = new Date(Date.UTC(2024, 2 + month, 1)).toISOString().slice(0, 10);
+      months.push({ date, value: 3 + month / 100 });
+    }
+    const window = dailyWindow(months, "France 10-year", "1Y", "FR10Y", "monthly");
+    // Twelve months after the opening one, which is the baseline.
+    expect(window.points.map((point) => point.label)).toEqual(
+      ["2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08"]);
+    expect(window.baseline).toBe(months.find((each) => each.date === "2025-08-01")!.value);
+    expect(window.sessionDate).toBe("2026-08");
+    expect(() => dailyWindow(months, "France 10-year", "1M", "FR10Y", "monthly")).toThrow(MONTHLY_TOO_SHORT);
   });
 
   it("refuses a window the series does not reach rather than drawing it short", () => {

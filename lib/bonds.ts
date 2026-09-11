@@ -8,25 +8,27 @@
  * shape of it — three months against thirty years, Tokyo against London — is
  * the most watched reading in finance.
  *
- * Two sets of six, and only where a source exists that publishes daily and can
- * be read by a machine:
+ * Three sets of six, and only where a source exists that publishes and can be
+ * read by a machine and republished:
  *
  *   United States  Yahoo carries the four Treasury yields as symbols, with
  *                  intraday bars, so they behave exactly like the indices.
- *   Everywhere     The institution that strikes the number: the ECB for the
- *   else           euro-area curve, the Bundesbank, the Bank of England, Japan's
+ *   Daily          The institution that strikes the number: the ECB for the
+ *                  euro-area curve, the Bundesbank, the Bank of England, Japan's
  *                  Ministry of Finance, Banco de España, the Bank of Canada and
  *                  the Reserve Bank of Australia. Each publishes once a business
  *                  day, and each figure is shown with the date it belongs to.
+ *   Monthly        France, Italy and four more euro members, from the ECB's
+ *                  long-term rate for convergence purposes: a month's average,
+ *                  published the month after, and labelled as exactly that.
  *
- * France and Italy are absent, and absent for a stated reason rather than by
- * oversight. The Banque de France publishes the French ten-year daily, but
- * only through an interface that requires a registered key; Italy's is not
- * published daily in any form this application can read. The nearest figure
- * for either is the ECB's monthly convergence rate, a month behind, and a
- * monthly average sitting in a row of daily readings would be the substitution
- * this application does not make. A key from the Banque de France is the one
- * thing that would change that.
+ * France is monthly for a reason that is not technical. Its daily ten-year is
+ * the TEC 10, an index Euronext administers, and its values "may not be
+ * redistributed" without Euronext's written authorisation — whichever site it
+ * is read from, the Banque de France's and the Agence France Trésor's
+ * included. Italy's daily figure is not published anywhere this site can
+ * read. The ECB's monthly series is published for reuse, so it is the figure
+ * this site can honestly show.
  */
 
 import type { DailyFeed } from "./adapters/daily-yields";
@@ -41,10 +43,11 @@ export type BondFeed =
  * Which strip a line sits in.
  *
  * The first is the pair of curves every other rate is read against; the second
- * is the rest of the largest government markets that publish daily.
+ * is the rest of the largest government markets that publish daily; the third
+ * is the euro members that publish only a monthly figure anybody may reuse.
  */
-export type BondSet = "core" | "world";
-export const BOND_SETS: BondSet[] = ["core", "world"];
+export type BondSet = "core" | "world" | "euro";
+export const BOND_SETS: BondSet[] = ["core", "world", "euro"];
 
 export interface BondDefinition {
   /** How this application names it, and what its URL says. */
@@ -86,6 +89,13 @@ export const BONDS: BondDefinition[] = [
   { id: "ES10Y", label: "Spain 10-year", set: "world", live: false, feed: { kind: "bde", series: "D_G0B1F0ZP" }, description: "Banco de España's ten-year secondary-market yield on Spanish government bonds." },
   { id: "CA10Y", label: "Canada 10-year", set: "world", live: false, feed: { kind: "boc", series: "BD.CDN.10YR.DQ.YLD" }, description: "The Bank of Canada's ten-year benchmark bond yield." },
   { id: "AU10Y", label: "Australia 10-year", set: "world", live: false, feed: { kind: "rba", series: "FCMYGBAG10D" }, description: "The Reserve Bank of Australia's ten-year Australian Government bond yield." },
+
+  { id: "FR10Y", label: "France 10-year", set: "euro", live: false, feed: { kind: "ecb-monthly", country: "FR" }, description: "France's ten-year government yield, as the ECB's monthly average." },
+  { id: "IT10Y", label: "Italy 10-year", set: "euro", live: false, feed: { kind: "ecb-monthly", country: "IT" }, description: "Italy's ten-year government yield, as the ECB's monthly average." },
+  { id: "NL10Y", label: "Netherlands 10-year", set: "euro", live: false, feed: { kind: "ecb-monthly", country: "NL" }, description: "The Netherlands' ten-year government yield, as the ECB's monthly average." },
+  { id: "BE10Y", label: "Belgium 10-year", set: "euro", live: false, feed: { kind: "ecb-monthly", country: "BE" }, description: "Belgium's ten-year government yield, as the ECB's monthly average." },
+  { id: "PT10Y", label: "Portugal 10-year", set: "euro", live: false, feed: { kind: "ecb-monthly", country: "PT" }, description: "Portugal's ten-year government yield, as the ECB's monthly average." },
+  { id: "GR10Y", label: "Greece 10-year", set: "euro", live: false, feed: { kind: "ecb-monthly", country: "GR" }, description: "Greece's ten-year government yield, as the ECB's monthly average." },
 ];
 
 export function bondById(id: string) {

@@ -47,13 +47,6 @@ const level = (value: number | null, digits = 2) =>
   value == null || !Number.isFinite(value) ? "—" : value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 /**
- * A level at six significant digits, which is how an index is quoted.
- *
- * Two decimal places is right for the S&P at 7,745.06 and two too many for the
- * Dow at 53,459.78, where the last digits are noise and, in a badge sized for
- * the axis beside it, noise that pushes the leading digit out of view.
- */
-/**
  * A yield, at the places asked, with the site's own minus.
  *
  * `toFixed` writes a hyphen, and a euro-area curve spent most of 2020 and 2021
@@ -62,6 +55,13 @@ const level = (value: number | null, digits = 2) =>
  */
 const rate = (value: number, digits: number) => `${value < 0 ? "−" : ""}${Math.abs(value).toFixed(digits)}%`;
 
+/**
+ * A level at six significant digits, which is how an index is quoted.
+ *
+ * Two decimal places is right for the S&P at 7,745.06 and two too many for the
+ * Dow at 53,459.78, where the last digits are noise and, in a badge sized for
+ * the axis beside it, noise that pushes the leading digit out of view.
+ */
 const quoted = (value: number | null) =>
   value == null || !Number.isFinite(value) ? "—"
     : value.toLocaleString("en-US", { maximumFractionDigits: Math.max(0, 6 - Math.max(1, Math.floor(Math.log10(Math.abs(value))) + 1)) });
@@ -151,6 +151,11 @@ export function hourMarks(labels: string[]): Array<{ index: number; text: string
 
 /** "Aug 17" for a date, or "Aug 24" once a window spans more than a year. */
 function shortDate(iso: string, withYear: boolean) {
+  // A monthly series is labelled "2026-08": the month, never its first day.
+  if (/^\d{4}-\d{2}$/.test(iso)) {
+    const month = new Date(`${iso}-01T12:00:00Z`);
+    return month.toLocaleDateString("en-US", withYear ? { month: "short", year: "2-digit", timeZone: "UTC" } : { month: "short", timeZone: "UTC" });
+  }
   const parsed = new Date(`${iso}T12:00:00Z`);
   if (Number.isNaN(parsed.getTime())) return iso;
   return parsed.toLocaleDateString("en-US", withYear

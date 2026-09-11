@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { DAILY_NO_INTRADAY, dailyWindow, drawsDaily } from "@/lib/adapters/daily-yields";
+import { dailyWindow, frequencyOf, refusalFor } from "@/lib/adapters/daily-yields";
 import { fetchMarketWindow, MARKET_RANGES, type MarketRange, type MarketWindow } from "@/lib/adapters/intraday";
 import { bondById } from "@/lib/bonds";
 import { commodityById } from "@/lib/commodities";
@@ -69,13 +69,15 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
    * A window this series does not exist at is refused before it is fetched.
    *
    * Nothing has gone wrong upstream, so this is not a bad gateway: every
-   * yield outside the US is struck once a business day, and a single session
-   * of one is one point rather than a line. Saying so costs no request and
-   * gives the panel a sentence a reader can act on.
+   * yield outside the US is struck once a business day or once a month, and a
+   * single session of the one, or a single month of the other, is one point
+   * rather than a line. Saying so costs no request and gives the panel a
+   * sentence a reader can act on.
    */
-  if (bond && bond.feed.kind !== "yahoo" && !drawsDaily(range)) {
+  const refused = bond && bond.feed.kind !== "yahoo" ? refusalFor(frequencyOf(bond.feed), range) : null;
+  if (bond && refused) {
     return NextResponse.json(
-      { id: bond.id, name: bond.label, range, error: DAILY_NO_INTRADAY },
+      { id: bond.id, name: bond.label, range, error: refused },
       { status: 422, headers: { ...headers, "Cache-Control": "no-store" } },
     );
   }
@@ -88,13 +90,15 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         const window = bond
           ? bond.feed.kind === "yahoo"
             ? await fetchMarketWindow(bond.feed.symbol, bond.label, range)
-            : dailyWindow(await dailyYields(bond.id, bond.feed), bond.label, range, bond.id)
+            : dailyWindow(await dailyYields(bond.id, bond.feed), bond.label, range, bond.id, frequencyOf(bond.feed))
           : await fetchMarketWindow(commodity!.symbol, commodity!.label, range);
         return {
           ...window,
           // The label this site chose, not the contract month Yahoo answered
           // with: "Brent crude" is the subject, "BZ=F Nov 26" is the roll.
-          name: named.label,
+          // A monthly figure says so in the panel's own title, where the
+          // reader looks, rather than only in the axis dates.
+          name: bond && bond.feed.kind !== "yahoo" && frequencyOf(bond.feed) === "monthly" ? `${named.label} · monthly avg.` : named.label,
           id: named.id,
           description: bond ? bond.description : `${commodity!.label}, front-month futures, quoted for ${commodity!.unit}.`,
           measure: bond ? "yield" : "level",

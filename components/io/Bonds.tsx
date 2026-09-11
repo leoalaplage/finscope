@@ -14,12 +14,12 @@ import { ABSENT } from "./format";
  * this row is where that rate comes from, and the shape of it — three months
  * against thirty years — is the most watched reading in finance.
  *
- * Two sets of six, turned with an arrow rather than stacked: the US and euro
- * curves every other rate is read against, then the other large markets that
- * publish daily — Germany, the UK, Japan, Spain, Canada and Australia. The
- * second set is asked for only when a reader turns to it. France and Italy are
- * absent, and the file that defines this list says exactly why rather than
- * putting a stale monthly average in a row of daily readings.
+ * Three sets of six, turned with an arrow rather than stacked: the US and euro
+ * curves every other rate is read against; the other large markets that
+ * publish daily — Germany, the UK, Japan, Spain, Canada and Australia; then
+ * France, Italy and four more euro members, whose only republishable figure is
+ * the ECB's monthly average, dated as a month so it is never read as a day.
+ * Each later set is asked for only when a reader turns to it.
  *
  * A chart opened from one set stays open when the reader turns to the other,
  * which is the point: the Bund beside the ten-year Treasury is the comparison
@@ -39,13 +39,20 @@ type State =
 const SET_LABEL: Record<BondSet, string> = {
   core: "US & euro area",
   world: "Other large markets",
+  euro: "Euro members · monthly",
 };
 
-/** "Sep 9", the way a market page dates a reading. */
-function dated(date: string | null) {
+/**
+ * "Sep 9", the way a market page dates a reading — or "Aug avg." for a figure
+ * that is a whole month's average, which no single day of it is.
+ */
+function dated(date: string | null, frequency: BondQuote["frequency"]) {
   if (!date) return ABSENT;
-  const parsed = new Date(`${date}T12:00:00Z`);
-  return Number.isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const parsed = new Date(`${date.length === 7 ? `${date}-01` : date}T12:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return frequency === "monthly"
+    ? `${parsed.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" })} avg.`
+    : parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
 /**
@@ -134,14 +141,14 @@ export function Bonds() {
                 >
                   {bp(quote.changeBp)}
                 </span>
-                <span className="label">{dated(quote.asOf)}</span>
+                <span className="label">{dated(quote.asOf, quote.frequency)}</span>
               </div>
             </button>
           ))}
         </div>
       )}
 
-      <QuoteCharts open={open} label="government bond"/>
+      <QuoteCharts open={open} label="government bond" defaultRange="1Y"/>
     </section>
   );
 }
