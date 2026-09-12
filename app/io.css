@@ -596,6 +596,15 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 /* --- Statement table ----------------------------------------------------- */
 
+/*
+ * What the table is as current as, said above it rather than left to trust.
+ *
+ * Sits in the gap the section head already leaves, and gives the table back
+ * its own: a note glued to the top border of a ruled table reads as part of
+ * the table rather than as a statement about it.
+ */
+.filings-note { margin: calc(var(--u) * -2) 0 calc(var(--u) * 4); color: var(--ink-3); font: var(--fs-xs)/1.5 var(--mono); }
+
 .sheet { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
 .sheet table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 .sheet th, .sheet td { text-align: right; padding: 6px 12px; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-xs); }

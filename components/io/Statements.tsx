@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { IO_SECTIONS } from "@/lib/io/sections";
-import { ABSENT, formatUnit, type Unit } from "./format";
+import { ABSENT, formatUnit, shortDate, type Unit } from "./format";
 
 /**
  * The statements, as filed, with nothing folded away.
@@ -16,10 +16,34 @@ import { ABSENT, formatUnit, type Unit } from "./format";
  *
  * The most recent period is the leftmost column: a reader arrives wanting the
  * last one and reads backwards into the history from there.
+ *
+ * Above the table, the one line that stops a reader wondering whether the site
+ * is broken: which period is the last one on file, when the filer published
+ * it, and when these filings were read. A company whose newest column is five
+ * months old is either a company that has filed nothing since, or a site that
+ * has stopped looking — Copart's results were reported on the wire two days
+ * before its figures here were questioned, and nothing on this page said that
+ * the statements themselves were exactly as current as the SEC's own copy.
+ * The reader should not have to take that on trust, and should not have to ask.
  */
 
 const ANNUAL_COLUMNS = 15;
 const QUARTERLY_COLUMNS = 16;
+
+/**
+ * The last period the filer has actually filed, whichever table is on show.
+ *
+ * Not the selected frequency's last column: the question this answers is "how
+ * current is this company's reporting", and that is the same question whether
+ * the reader is looking at years or at quarters. Not the trailing twelve
+ * months either — that is a window this application computes, and a reader
+ * asking what has been filed is asking what the filer filed.
+ *
+ * The periods arrive oldest first, so the last of them is the newest.
+ */
+export function lastFiled(view: Pick<IoCompanyView, "quarterly" | "annual">): IoPeriod | null {
+  return view.quarterly.at(-1) ?? view.annual.at(-1) ?? null;
+}
 
 export function Statements({
   view,
@@ -43,6 +67,8 @@ export function Statements({
     return view.ttm ? [view.ttm, ...recent] : recent;
   }, [frequency, view]);
 
+  const filed = lastFiled(view);
+
   if (!columns.length) return null;
 
   return (
@@ -54,6 +80,14 @@ export function Statements({
           <button type="button" aria-pressed={frequency === "quarterly"} onClick={() => setFrequency("quarterly")}>Quarterly</button>
         </div>
       </div>
+
+      {filed && (
+        <p className="filings-note">
+          Last period on file: {filed.label}, ended {shortDate(filed.end)}
+          {filed.publishedAt ? `, published ${shortDate(filed.publishedAt)}` : ""}.
+          {" "}Filings read {shortDate(view.retrievedAt)}.
+        </p>
+      )}
 
       <div className="sheet">
         <table>
