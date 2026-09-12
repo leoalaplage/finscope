@@ -1,4 +1,5 @@
 import { DEFAULT_WATCHLIST } from "./company-registry";
+import { UNIVERSE } from "./universe";
 import { KEY_VERSION } from "./data-version";
 import { VIEW_SHAPE } from "./io/view-version";
 import { requestCompany } from "./dataset-cache";
@@ -123,7 +124,31 @@ export async function fetchCurrentFilings(): Promise<RecentFiling[]> {
  * By CIK, never by name: "Alphabet Inc." files once and this site carries two
  * tickers against it, and a name match would find neither.
  */
-export function coveredFilings(filings: RecentFiling[], watchlist = DEFAULT_WATCHLIST): Array<{ ticker: string; filing: RecentFiling }> {
+/**
+ * Every company this site would rebuild on a filing: the registry and the index.
+ *
+ * One feed read covers both. EDGAR's recent-filings document is the same
+ * request whether it is scanned against twenty-seven identifiers or five
+ * hundred, so watching the screener's whole universe costs nothing beyond a
+ * larger map — and without it a company in the index would be read once when
+ * the table first reached it and then never again, which is the failure this
+ * file exists to prevent, wearing a different hat.
+ *
+ * The registry comes first where both list a company, because the registry is
+ * where a deliberate decision about a filer is recorded — Exxon's among them.
+ */
+export function watchedCompanies(): Array<{ ticker: string; cik: string }> {
+  const seen = new Map<string, string>();
+  for (const company of DEFAULT_WATCHLIST) {
+    if (company.cik) seen.set(company.ticker.toUpperCase(), company.cik);
+  }
+  for (const member of UNIVERSE) {
+    if (!seen.has(member.ticker.toUpperCase())) seen.set(member.ticker.toUpperCase(), member.cik);
+  }
+  return [...seen].map(([ticker, cik]) => ({ ticker, cik }));
+}
+
+export function coveredFilings(filings: RecentFiling[], watchlist: Array<{ ticker: string; cik?: string }> = watchedCompanies()): Array<{ ticker: string; filing: RecentFiling }> {
   const byCik = new Map<string, string[]>();
   for (const company of watchlist) {
     if (!company.cik) continue;
@@ -214,7 +239,7 @@ export async function chaseFilings(origin: string): Promise<ChaseReport> {
     console.log(`[filing watch] feed unavailable: ${error instanceof Error ? error.message : String(error)}`);
   }
 
-  const companies = new Map(DEFAULT_WATCHLIST.map((company) => [company.ticker, company]));
+  const companies = new Map(watchedCompanies().map((company) => [company.ticker, company]));
   for (const [ticker, watch] of Object.entries(watches)) {
     const company = companies.get(ticker);
     if (!company?.cik) { delete watches[ticker]; continue; }

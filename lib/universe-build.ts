@@ -92,24 +92,40 @@ export async function readUniverse(): Promise<UniverseTable | null> {
 }
 
 /**
+ * How long a row may go unread before the rotation reads it again.
+ *
+ * Not the refresh mechanism — that is the filing watcher, which sees a report
+ * within half an hour of EDGAR accepting it and now watches every company in
+ * this index as well as the registry's own, at no extra cost: it is the same
+ * one feed read either way.
+ *
+ * This is the net under it. Three days, so that a filing the watcher somehow
+ * missed is late by days rather than by a week, and so that a table which has
+ * finished filling goes quiet instead of rebuilding five hundred companies
+ * round the clock — which would be rude to the SEC and would spend a quarter
+ * of a second of processor time per company to arrive at the figures already
+ * in hand.
+ */
+export const STALE_AFTER_HOURS = 72;
+
+/**
  * Which companies the next run should read.
  *
  * Anything with no row at all first, in the order the index lists them, so the
- * table fills predictably rather than at random; then the rows whose filings
- * were read longest ago, which is what keeps a full table from ageing. A
- * company whose digest is already the newest thing in the store is never asked
- * for again by this path — that is the filing watcher's job, and it does it
- * within half an hour of a report rather than whenever the rotation comes
- * round.
+ * table fills predictably rather than at random; then the rows nobody has read
+ * in three days, oldest first. A table that is full and current asks for
+ * nothing, which is the state it should spend most of its life in.
  */
-export function nextToBuild(table: UniverseTable | null, limit = BUILD_PER_RUN): string[] {
+export function nextToBuild(table: UniverseTable | null, limit = BUILD_PER_RUN, now = new Date()): string[] {
   const held = new Map((table?.rows ?? []).map((each) => [each.ticker, each.retrievedAt]));
   const missing = UNIVERSE.filter((member) => !held.has(member.ticker)).map((member) => member.ticker);
   if (missing.length >= limit) return missing.slice(0, limit);
-  const oldest = [...held.entries()]
+  const cutoff = new Date(now.getTime() - STALE_AFTER_HOURS * 3_600_000).toISOString();
+  const stale = [...held.entries()]
+    .filter(([, retrievedAt]) => retrievedAt < cutoff)
     .sort((left, right) => left[1].localeCompare(right[1]))
     .map(([ticker]) => ticker);
-  return [...missing, ...oldest].slice(0, limit);
+  return [...missing, ...stale].slice(0, limit);
 }
 
 /**
@@ -134,9 +150,16 @@ export async function buildUniverseSlice(origin: string, limit = BUILD_PER_RUN):
     const member = byTicker.get(ticker);
     if (!member) continue;
     try {
-      // Warm rather than rebuild: this asks for the company to exist in the
-      // store, and the endpoint decides whether anything has to be normalized.
-      const response = await requestCompany(origin, ticker);
+      /*
+       * A company with no row is asked for; one with a stale row is rebuilt.
+       *
+       * The difference matters: a warm request hands back whatever the store
+       * holds and normalizes only what is missing, which is right for filling
+       * the table and useless for refreshing it. Only rows the rotation has
+       * already judged old reach the second form, so the expensive path runs
+       * on the few and never on the five hundred.
+       */
+      const response = await requestCompany(origin, ticker, rows.has(ticker));
       await response.body?.cancel();
       const digest = (await cache.get(summaryKey(ticker), "json")) as WatchlistSummary | null;
       if (digest?.qs) rows.set(ticker, row(member, digest));

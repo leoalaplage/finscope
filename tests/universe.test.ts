@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SPARK_BATCH, yahooSymbol } from "../lib/adapters/spark";
 import { COMPANIES } from "../lib/company-registry";
 import { KNOWN_SUCCESSORS, UNIVERSE, UNIVERSE_AS_OF, UNIVERSE_NAME, UNIVERSE_TICKERS, universeMember } from "../lib/universe";
-import { BUILD_PER_RUN, nextToBuild, universeKey, type UniverseRow, type UniverseTable } from "../lib/universe-build";
+import { BUILD_PER_RUN, STALE_AFTER_HOURS, nextToBuild, universeKey, type UniverseRow, type UniverseTable } from "../lib/universe-build";
 
 /**
  * The list a screener is allowed to look through.
@@ -113,10 +113,31 @@ describe("which companies the next run reads", () => {
     expect(next).toEqual(UNIVERSE.slice(400, 405).map((member) => member.ticker));
   });
 
+  it("asks for nothing at all when the table is full and current", () => {
+    /*
+     * The filing watcher is what keeps this table fresh — it sees a report
+     * within half an hour and now watches every company in the index. The
+     * rotation is the net under it, and a net that fires constantly would
+     * rebuild five hundred companies round the clock to arrive at the figures
+     * already in hand.
+     */
+    const now = new Date("2026-09-12T08:00:00.000Z");
+    const fresh = UNIVERSE.map((member) => [member.ticker, "2026-09-12T06:00:00.000Z"] as [string, string]);
+    expect(nextToBuild(table(fresh), 100, now)).toEqual([]);
+    expect(STALE_AFTER_HOURS).toBe(72);
+  });
+
+  it("reads again what nobody has read in three days", () => {
+    const now = new Date("2026-09-12T08:00:00.000Z");
+    const rows = UNIVERSE.map((member, index) =>
+      [member.ticker, index === 3 ? "2026-09-01T00:00:00.000Z" : "2026-09-12T06:00:00.000Z"] as [string, string]);
+    expect(nextToBuild(table(rows), 100, now)).toEqual([UNIVERSE[3].ticker]);
+  });
+
   it("refreshes the oldest first once nothing is missing", () => {
     const held = UNIVERSE.map((member, index) =>
       [member.ticker, `2026-0${index === 7 ? 1 : 9}-01T00:00:00.000Z`] as [string, string]);
-    expect(nextToBuild(table(held), 1)).toEqual([UNIVERSE[7].ticker]);
+    expect(nextToBuild(table(held), 1, new Date("2026-09-12T08:00:00.000Z"))).toEqual([UNIVERSE[7].ticker]);
   });
 
   it("stores the table under the dataset version and the digest shape", () => {
