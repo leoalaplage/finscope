@@ -3,6 +3,7 @@ import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } fr
 import handler from "vinext/server/app-router-entry";
 import { warmWatchlist, warmSomeMissing, requestedTickers } from "../lib/dataset-cache";
 import { chaseFilings } from "../lib/filing-watch";
+import { buildUniverseSlice } from "../lib/universe-build";
 import { COVERED_TICKERS } from "../lib/company-registry";
 import { setRuntimeBindings } from "../lib/runtime-env";
 
@@ -114,6 +115,20 @@ const worker = {
           console.log(`[filing watch] rebuilt ${report.rebuilt.join(",") || "none"}` +
             (report.waiting.length ? `; waiting on ${report.waiting.join(",")}` : "") +
             (report.abandoned.length ? `; gave up on ${report.abandoned.join(",")}` : ""));
+        }
+        /*
+         * Then a slice of the index, on the same half-hourly beat.
+         *
+         * After the watch, never instead of it: the watch is what keeps a
+         * company a reader is looking at current, and it costs one request.
+         * The slice is the background fill of the screener's universe, and it
+         * is bounded so that the two together stay inside one invocation's
+         * processor time — forty companies is about ten seconds of it against
+         * an allowance of thirty.
+         */
+        const universe = await buildUniverseSlice(origin);
+        if (universe) {
+          console.log(`[universe] ${universe.rows.length}/${universe.members} scored, ${universe.pending.length} pending`);
         }
       })().catch((error) => {
         console.log(`[filing watch] ${error instanceof Error ? error.message : String(error)}`);
