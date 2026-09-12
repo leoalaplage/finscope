@@ -103,6 +103,7 @@ describe("which companies the next run reads", () => {
 
   it("never asks for more than one run's worth", () => {
     expect(nextToBuild(null).length).toBe(BUILD_PER_RUN);
+    expect(BUILD_PER_RUN).toBeLessThanOrEqual(150);
     expect(nextToBuild(null, 3)).toHaveLength(3);
   });
 

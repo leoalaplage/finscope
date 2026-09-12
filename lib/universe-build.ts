@@ -37,8 +37,17 @@ import type { WatchlistSummary } from "./watchlist-summary";
 export const UNIVERSE_SHAPE = "u1";
 export const universeKey = () => `universe:${UNIVERSE_SHAPE}.${KEY_VERSION}.${SUMMARY_SHAPE}`;
 
-/** How many companies one scheduled run may normalize. */
-export const BUILD_PER_RUN = 40;
+/**
+ * How many companies one scheduled run may read.
+ *
+ * Bounded by the run's own wall clock rather than by its processor time: each
+ * company is normalized inside its own invocation on the other side of a
+ * subrequest, so what this loop actually spends is a request and a two-kilobyte
+ * read per company. A hundred is about three minutes against an allowance of
+ * fifteen, and about a hundred and thirty subrequests against a thousand — and
+ * it fills five hundred companies in five runs rather than thirteen.
+ */
+export const BUILD_PER_RUN = 100;
 
 export interface UniverseRow {
   ticker: string;

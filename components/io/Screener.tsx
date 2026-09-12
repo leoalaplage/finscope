@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { QS_COLUMNS, qsTable, qsValuationColumns, type QsRow } from "@/lib/qs-export";
+import { QS_COLUMNS, qsTable, qsValuationColumns, type QsPriceInputs, type QsRow } from "@/lib/qs-export";
 import {
   naturalDirection, QS_ALERT_PENALTY, QS_ALERT_RULES, QS_ANCHORS, QS_COVERAGE_FLOOR,
   QS_GRADE_BANDS, QS_METRIC_NAMES, QS_METRIC_NOTES, QS_METRICS, QS_PILLARS, QS_PRESETS,
@@ -29,7 +29,32 @@ import { ABSENT, money, percent } from "./format";
  * leaves the page at all.
  */
 
-interface Feed { rows: ScoredCompany[]; missing: string[]; warnings: string[]; asked: number; answered: number; source: "watchlist" | "pasted" }
+interface Feed { rows: ScoredCompany[]; missing: string[]; warnings: string[]; asked: number; answered: number; source: Source | "pasted" }
+
+/**
+ * Where the rows come from, which is the difference between a calculator and
+ * a search.
+ *
+ * The watchlist is what this screener has always scored: the companies a
+ * reader already follows, every one of them shown, nothing hidden. The index
+ * is the other question — which companies out of five hundred are worth
+ * following at all — and it can only be asked of a table somebody else filled
+ * in advance. Both run the same engine in the same browser over the same
+ * columns; only the list differs.
+ *
+ * A pasted table still wins over both, untouched, as it always has.
+ */
+type Source = "watchlist" | "universe";
+
+interface UniverseAnswer {
+  /** The index and the day its membership was taken, both shown. */
+  name: string;
+  asOf: string;
+  members: number;
+  rows: Array<{ ticker: string; name: string; qs: Record<string, number | string | null>; qsPrice: QsPriceInputs; retrievedAt: string }>;
+  prices: Record<string, { price: number | null; currency: string | null; asOf: string | null }>;
+  pending: string[];
+}
 
 /**
  * The watchlist written as the engine's table, plus what it took to build it.
@@ -163,6 +188,9 @@ export function Screener() {
   const [built, setBuilt] = useState<Built | null>(null);
   const [progress, setProgress] = useState<Progress>(() => ({ kind: "building", followed, ready: 0, asked: tickers.length }));
   const [preset, setPreset] = useState<PresetName>("defaut");
+  const [source, setSource] = useState<Source>("watchlist");
+  const [universe, setUniverse] = useState<{ table: ReturnType<typeof qsTable>; asked: number; answered: number; name: string; asOf: string } | null>(null);
+  const [universeBuilding, setUniverseBuilding] = useState<{ ready: number; asked: number } | null>(null);
   const [pasted, setPasted] = useState("");
   const [sortKey, setSortKey] = useState("total");
   const [direction, setDirection] = useState<SortDirection>("desc");
@@ -267,6 +295,54 @@ export function Screener() {
     return () => { controller.abort(); if (timer) clearTimeout(timer); };
   }, [followed, scoringPasted]);
 
+  /**
+   * The index, fetched once and scored in the browser like everything else.
+   *
+   * One request for five hundred companies, because the table was assembled on
+   * a timer: digests and prices together, already versioned, already dated. A
+   * table still filling answers 202 and says how far along it is, which is the
+   * same state the watchlist shows while its companies build — a grade over
+   * four hundred of five hundred is a different statement from a grade over
+   * all of them, and the reader is told which they are looking at.
+   */
+  useEffect(() => {
+    if (source !== "universe" || universe) return;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const response = await fetch(`/api/universe?v=${KEY_VERSION}.${SUMMARY_SHAPE}`, { signal: controller.signal });
+        const payload = await response.json() as UniverseAnswer & { building?: boolean; members?: number };
+        if (controller.signal.aborted) return;
+        if (!response.ok || payload.building || !payload.rows?.length) {
+          setUniverseBuilding({ ready: payload.rows?.length ?? 0, asked: payload.members ?? 0 });
+          return;
+        }
+        const rows: QsRow[] = payload.rows.map((item) => {
+          const quote = payload.prices[item.ticker];
+          return {
+            ticker: item.ticker,
+            values: { ...item.qs, ...qsValuationColumns(item.qsPrice, quote?.price ?? null, quote?.currency) },
+          };
+        });
+        setUniverse({ table: qsTable(rows), asked: payload.members, answered: rows.length, name: payload.name, asOf: payload.asOf });
+        setUniverseBuilding(null);
+      } catch {
+        if (!controller.signal.aborted) setUniverseBuilding({ ready: 0, asked: 0 });
+      }
+    })();
+    return () => controller.abort();
+  }, [source, universe]);
+
+  const universeState = useMemo<State | null>(() => {
+    if (!universe) return universeBuilding ? { kind: "building", followed, ready: universeBuilding.ready, asked: universeBuilding.asked } : null;
+    try {
+      const result = screen(universe.table, { preset });
+      return { kind: "ready", feed: { rows: result.all, missing: result.missing, warnings: result.warnings, asked: universe.asked, answered: universe.answered, source: "universe" } };
+    } catch (error) {
+      return { kind: "failed", followed, message: error instanceof Error ? error.message : "The index could not be scored." };
+    }
+  }, [universe, universeBuilding, preset, followed]);
+
   /** The same engine, over the table already in hand — if it is this list's. */
   const watchlistState = useMemo<State | null>(() => {
     if (!built || built.followed !== followed) return null;
@@ -283,7 +359,8 @@ export function Screener() {
     () => (progress.followed === followed ? progress : { kind: "building", ready: 0, asked: tickers.length }),
     [progress, followed, tickers.length],
   );
-  const state = pastedState ?? watchlistState ?? waiting;
+  const chosen = source === "universe" ? universeState : watchlistState;
+  const state = pastedState ?? chosen ?? waiting;
   const nativeAuditState = watchlistState ?? waiting;
 
   const ordered = useMemo(
@@ -308,6 +385,12 @@ export function Screener() {
                 ? `${state.ready} of ${state.asked || tickers.length} ready`
                 : `${tickers.length} companies`}
           </span>
+          {source === "universe" && universe ? (
+            // The membership is part of the answer: an index is a committee's
+            // list on a day, and two answers a month apart are not the same
+            // question asked twice.
+            <span className="label">{universe.name} · {universe.asOf}</span>
+          ) : null}
           <span className="label">Scored in your browser</span>
         </div>
       </header>
@@ -330,6 +413,17 @@ export function Screener() {
                 {name === "defaut" ? "Balanced" : name === "quality-purist" ? "Quality" : "Value"}
               </button>
             ))}
+          </div>
+          {/*
+            * The list, which is the other half of the question.
+            *
+            * Kept beside the weighting rather than above the table, because it
+            * is the same kind of control: neither hides a company, both change
+            * what the ranking is a ranking of.
+            */}
+          <div className="seg" role="group" aria-label="Which companies to score">
+            <button type="button" aria-pressed={source === "watchlist"} onClick={() => setSource("watchlist")}>Watchlist</button>
+            <button type="button" aria-pressed={source === "universe"} onClick={() => setSource("universe")}>S&amp;P 500</button>
           </div>
         </div>
 
@@ -558,9 +652,10 @@ function ScoreTable({
           {feed.missing.slice(0, 6).join(", ")}{feed.missing.length > 6 ? "…" : ""}
         </p>
       ) : null}
-      {feed.source === "watchlist" && feed.answered < feed.asked ? (
+      {feed.source !== "pasted" && feed.answered < feed.asked ? (
         <p className="stat-note" style={{ marginTop: 6 }}>
-          {feed.asked - feed.answered} of your companies have not been built yet and are left out rather than scored on nothing.
+          {feed.asked - feed.answered} {feed.source === "watchlist" ? "of your companies have" : "companies in the index have"} not been read yet
+          and are left out rather than scored on nothing.
         </p>
       ) : null}
     </>
