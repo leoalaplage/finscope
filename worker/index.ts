@@ -2,6 +2,7 @@
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { warmWatchlist, warmSomeMissing, requestedTickers } from "../lib/dataset-cache";
+import { chaseFilings } from "../lib/filing-watch";
 import { COVERED_TICKERS } from "../lib/company-registry";
 import { setRuntimeBindings } from "../lib/runtime-env";
 
@@ -28,6 +29,15 @@ interface ExecutionContext {
 interface ScheduledEvent { cron: string; scheduledTime: number }
 
 const DEFAULT_ORIGIN = "https://finscope-financial-research.leoalaplage.workers.dev";
+
+/**
+ * The schedule that watches EDGAR, as written in vite.config.ts.
+ *
+ * Named here because the scheduled handler is handed the cron line that fired
+ * it and has to tell the two kinds of run apart: this one asks what has just
+ * been filed, the four daily ones rebuild the watchlist.
+ */
+const FILING_WATCH_CRON = "*/30 * * * *";
 
 // Image security config. SVG sources with .svg extension auto-skip the
 // optimization endpoint on the client side (served directly, no proxy).
@@ -86,9 +96,34 @@ const worker = {
    */
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     setRuntimeBindings(env, ctx);
+    const origin = env.SELF_ORIGIN ?? DEFAULT_ORIGIN;
+
+    /*
+     * The half-hourly run is not a warm and must never become one.
+     *
+     * It reads one feed from EDGAR, and on the ordinary run — which is every
+     * run but a handful a quarter — it finds nothing of ours in it and stops.
+     * Rebuilding a company happens only when that company has filed and the
+     * numbers behind the filing can actually be read, which is what keeps the
+     * cost of asking often close to nothing.
+     */
+    if (event.cron === FILING_WATCH_CRON) {
+      ctx.waitUntil((async () => {
+        const report = await chaseFilings(origin);
+        if (report.rebuilt.length || report.waiting.length || report.abandoned.length) {
+          console.log(`[filing watch] rebuilt ${report.rebuilt.join(",") || "none"}` +
+            (report.waiting.length ? `; waiting on ${report.waiting.join(",")}` : "") +
+            (report.abandoned.length ? `; gave up on ${report.abandoned.join(",")}` : ""));
+        }
+      })().catch((error) => {
+        console.log(`[filing watch] ${error instanceof Error ? error.message : String(error)}`);
+      }));
+      return;
+    }
+
     ctx.waitUntil((async () => {
       const started = Date.now();
-      const report = await warmWatchlist(env.SELF_ORIGIN ?? DEFAULT_ORIGIN);
+      const report = await warmWatchlist(origin);
       const seconds = ((Date.now() - started) / 1000).toFixed(1);
       console.log(`[warm ${event.cron}] ${report.warmed.length} warmed in ${seconds}s` +
         (report.failed.length ? `; ${report.failed.length} failed: ${report.failed.map((item) => `${item.ticker} (${item.reason})`).join(", ")}` : ""));

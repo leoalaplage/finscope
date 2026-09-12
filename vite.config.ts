@@ -27,7 +27,14 @@ const localBindingConfig = {
   // and a run that is skipped or dies halfway used to mean nobody noticed until
   // someone opened the site and found it empty. Each later run is a no-op when
   // the morning's succeeded: a cached company is skipped without being read.
-  triggers: { crons: ["0 7,13,19,1 * * *"] },
+  //
+  // The half-hourly run is a different job: it reads EDGAR's feed of filings
+  // just accepted and rebuilds only a company that has actually reported. A
+  // quarter's figures reach the screen within half an hour of the SEC being
+  // able to serve them, instead of waiting for the next daily rebuild — which
+  // is a whole day of showing the previous quarter on the one day it matters.
+  // See lib/filing-watch.ts.
+  triggers: { crons: ["0 7,13,19,1 * * *", "*/30 * * * *"] },
   kv_namespaces: [{ binding: "DATASET_CACHE", id: DATASET_CACHE_NAMESPACE_ID }],
   // How the warm-up reaches this Worker's own endpoints. A plain
   // `fetch("https://this-worker/api/company/X")` does *not* re-enter the
