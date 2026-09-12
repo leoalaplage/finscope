@@ -1,4 +1,6 @@
 import { DEFAULT_WATCHLIST } from "./company-registry";
+import { KEY_VERSION } from "./data-version";
+import { VIEW_SHAPE } from "./io/view-version";
 import { requestCompany } from "./dataset-cache";
 import { datasetCache } from "./runtime-env";
 
@@ -23,6 +25,22 @@ import { datasetCache } from "./runtime-env";
  * first sight of a filing would rebuild the same unchanged dataset and then
  * wait a full day for the next run, which is the failure this is here to fix.
  */
+
+/**
+ * The page's own copy, which has to go when the dataset under it changes.
+ *
+ * A rebuilt dataset is not a rebuilt page. The company view is derived from the
+ * dataset once and kept for a day under its own key, so a fresh quarter in the
+ * store sat behind a view built yesterday — the filing was on the site and
+ * invisible on it, which is the whole of what this file exists to prevent.
+ * Dropping the view costs the next reader one derivation and nothing else.
+ *
+ * The same expression is written in `app/api/io/[ticker]/route.ts`, which is
+ * the only place that writes this key. The two have to stay in step; keeping
+ * both spelled out of `VIEW_SHAPE` and `KEY_VERSION` is what makes a bump to
+ * either carry to both.
+ */
+const viewKey = (ticker: string) => `view:${VIEW_SHAPE}.${KEY_VERSION}:${ticker.toUpperCase()}`;
 
 /** The forms that carry statements. An 8-K is news; the figures come later. */
 const WATCHED_FORMS = new Set(["10-K", "10-Q", "10-K/A", "10-Q/A", "20-F", "40-F"]);
@@ -218,6 +236,10 @@ export async function chaseFilings(origin: string): Promise<ChaseReport> {
       const response = await requestCompany(origin, ticker, true);
       await response.body?.cancel();
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      // The dataset is written by the time that answers; the page's own copy
+      // of it is not, and a day-old view would hide the very filing that was
+      // just chased.
+      try { await cache?.delete(viewKey(ticker)); } catch { /* The view expires on its own within a day. */ }
       delete watches[ticker];
       report.rebuilt.push(ticker);
     } catch (error) {

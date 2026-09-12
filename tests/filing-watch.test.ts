@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { coveredFilings, givenUp, parseCurrentFilings, withNewFilings, type Watches } from "../lib/filing-watch";
 import { DEFAULT_WATCHLIST } from "../lib/company-registry";
 
@@ -99,5 +100,24 @@ describe("the outstanding list", () => {
     // time the daily warm has had its own turn anyway.
     expect(givenUp({ accession: "x", form: "10-K", filed: "2026-09-11", tries: 47 })).toBe(false);
     expect(givenUp({ accession: "x", form: "10-K", filed: "2026-09-11", tries: 48 })).toBe(true);
+  });
+});
+
+/**
+ * A rebuilt dataset is not a rebuilt page.
+ *
+ * The company view is derived from the dataset once and kept for a day under
+ * its own key. Chasing a filing into the store and leaving the view alone puts
+ * the new quarter on the site and keeps it invisible on it.
+ */
+describe("the page's own copy", () => {
+  it("is dropped by the same key the endpoint writes it under", () => {
+    const watcher = readFileSync("lib/filing-watch.ts", "utf8");
+    const route = readFileSync("app/api/io/[ticker]/route.ts", "utf8");
+    const key = /`view:\$\{VIEW_SHAPE\}\.\$\{KEY_VERSION\}:\$\{ticker\.toUpperCase\(\)\}`/;
+    expect(watcher).toMatch(key);
+    // The endpoint writes it, here or through a helper spelled the same way.
+    expect(route.includes("view:${VIEW_SHAPE}.${KEY_VERSION}") || /ioViewKey/.test(route)).toBe(true);
+    expect(watcher).toMatch(/cache\?\.delete\(viewKey\(ticker\)\)/);
   });
 });
