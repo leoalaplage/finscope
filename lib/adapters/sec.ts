@@ -72,8 +72,24 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
    * ConocoPhillips and Phillips 66 remain without one, and nothing here can
    * fix that: both report capital expenditure only as a company extension,
    * which this endpoint does not carry.
+   *
+   * A property company's plant is its property, so buying and developing real
+   * estate is its capital expenditure, and an oil company's is the ground it
+   * drills. Eleven companies had no capital expenditure at all for want of
+   * those two names — Alexandria, Prologis, Public Storage, Digital Realty,
+   * Essex, Federal Realty, Regency, Vornado, Texas Pacific Land, Diamondback
+   * and Ralph Lauren — and therefore no free cash flow, no cash conversion and
+   * no growth in either. It is a conservative reading and it is deliberate: a
+   * REIT that buys a building has spent the cash, exactly as a manufacturer
+   * that builds a plant has, and a grower will show it as negative free cash
+   * flow because that is what it is.
+   *
+   * Two neighbouring names are not read: real estate "held for investment" and
+   * real estate "and real estate joint ventures" are an insurer's portfolio
+   * rather than its plant, and reading them as capital expenditure would
+   * subtract an investment from operating cash flow.
    */
-  capitalExpenditures: { namespace: "us-gaap", tags: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForProceedsFromProductiveAssets", "PaymentsForSoftware", "PaymentsToAcquireOtherPropertyPlantAndEquipment", "PaymentsForCapitalImprovements"], unit: "currency" },
+  capitalExpenditures: { namespace: "us-gaap", tags: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForProceedsFromProductiveAssets", "PaymentsForSoftware", "PaymentsToAcquireOtherPropertyPlantAndEquipment", "PaymentsForCapitalImprovements", "PaymentsToDevelopRealEstateAssets", "PaymentsToAcquireRealEstate", "PaymentsToAcquireOilAndGasProperty", "PaymentsToAcquireMachineryAndEquipment"], unit: "currency" },
   acquisitions: { namespace: "us-gaap", tags: ["PaymentsToAcquireBusinessesNetOfCashAcquired", "PaymentsToAcquireBusinessesGross"], unit: "currency" },
   dividendsPaid: { namespace: "us-gaap", tags: ["PaymentsOfDividends", "PaymentsOfDividendsCommonStock", "PaymentsOfOrdinaryDividends"], unit: "currency" },
   dilutedShares: { namespace: "us-gaap", tags: ["WeightedAverageNumberOfDilutedSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"], unit: "shares" },
