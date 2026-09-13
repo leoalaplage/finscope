@@ -68,10 +68,18 @@ export async function GET() {
     }];
   });
 
-  if (moved.length < 20) {
-    // A handful of prices is not a market. Better to say nothing than to call
-    // nine companies "the index".
-    return NextResponse.json({ building: true, priced: moved.length }, { status: 202, headers: { ...headers, "Cache-Control": "no-store" } });
+  /*
+   * Three fifths of the index, or nothing at all.
+   *
+   * The table fills a hundred companies at a time and empties whenever its
+   * shape changes, so a partly filled one is a normal state rather than a
+   * failure — and a hundred companies called "what the market did" is a
+   * sentence about a quarter of the index wearing the whole one's name.
+   * Breadth is the reading most damaged by a partial table: the missing four
+   * hundred are missing from both sides and from the middle.
+   */
+  if (moved.length < table.members * 0.6) {
+    return NextResponse.json({ building: true, priced: moved.length, members: table.members }, { status: 202, headers: { ...headers, "Cache-Control": "no-store" } });
   }
 
   const bySector = new Map<string, Mover[]>();
