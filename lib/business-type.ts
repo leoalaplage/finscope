@@ -41,11 +41,14 @@ const VERIFIED_TYPES_BY_CIK: Readonly<Record<string, BusinessType>> = {
  *     trusts are read as the operating businesses they are.
  * c3: a property company's buildings and an oil company's acreage are read as
  *     its capital expenditure, which eleven companies had none of.
+ * c4: a company that has never borrowed owes nought rather than an unknown,
+ *     and a score falls back to the last year reported where no trailing
+ *     window carries an operating income.
  *
  * It covers what a company *is* and how its filings are read, because both
  * change what a stored dataset says and neither reaches one already stored.
  */
-export const CLASSIFICATION_VERSION = "c3";
+export const CLASSIFICATION_VERSION = "c4";
 
 /**
  * What a filer is, from the industry code it files under.

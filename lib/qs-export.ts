@@ -4,6 +4,7 @@ import { balanceSheetHealth } from "./statement-flows";
 import type { CompanyDataset, FinancialPeriod } from "./types";
 import { balanceSheetIsTheBusiness } from "./business-type";
 import { currentDatasetPeriod } from "./current-period";
+import { borrowingsAbsent } from "./io/health";
 import { logLinearRSquared } from "./log-linear.js";
 
 /**
@@ -95,8 +96,52 @@ const over = (numerator: number | null, denominator: number | null) =>
 const debtFor = (dataset: CompanyDataset, current: FinancialPeriod | null): number | null =>
   reportedDebt(dataset.periods, current)?.value ?? null;
 
+/**
+ * Whether this company owes nothing that matters, as opposed to nothing found.
+ *
+ * The same test the health panel makes, over the same filings, rather than a
+ * second one that could disagree with it: three consecutive parsed balance
+ * sheets with no borrowing worth a hundredth of the assets and no interest
+ * bill worth a hundredth of the operating profit.
+ */
+function noBorrowings(dataset: CompanyDataset): boolean {
+  return borrowingsAbsent(ordered(dataset, "annual").map((period) => ({
+    label: period.label,
+    end: period.periodEnd,
+    currency: period.currency,
+    values: {
+      totalAssets: valueOf(period, "totalAssets"),
+      totalDebt: valueOf(period, "totalDebt"),
+      interestExpense: valueOf(period, "interestExpense"),
+      interestPaid: valueOf(period, "interestPaid"),
+      operatingIncome: derivedValue(period, "operatingIncome"),
+    },
+  })));
+}
+
+/**
+ * What the company owes, counting a demonstrably debt-free company as nought.
+ *
+ * A filer that has never borrowed tags no debt, and reading that silence as
+ * "unknown" cost twenty companies in the index their grade — Intuitive
+ * Surgical, Garmin, Monolithic Power, Expeditors, Align among them. Their net
+ * debt is not unknown: it is minus their cash, which is the most important
+ * thing about a balance sheet with no borrowings on it.
+ *
+ * Still a refusal wherever the evidence is not there. An absence is read as
+ * nought only on three consecutive balance sheets that were actually parsed —
+ * the same standard the health panel holds, because NVIDIA files no capital
+ * expenditure before 2022 and reading that absence as a zero would invent six
+ * years of free cash flow.
+ */
+function scoreDebt(dataset: CompanyDataset, current: FinancialPeriod | null): number | null {
+  const filed = debtFor(dataset, current);
+  if (filed != null) return filed;
+  return noBorrowings(dataset) ? 0 : null;
+}
+
 function scoreNetDebt(dataset: CompanyDataset, current: FinancialPeriod | null): number | null {
-  const debt = debtFor(dataset, current);
+  const debt = scoreDebt(dataset, current);
   const cash = current ? valueOf(current, "cashAndEquivalents") : null;
   return debt == null || cash == null ? null : debt - cash;
 }
@@ -105,7 +150,7 @@ function scoreRoic(dataset: CompanyDataset, current: FinancialPeriod | null): nu
   if (!current) return null;
   const nopat = derivedValue(current, "nopat");
   const capital = (period: FinancialPeriod) => {
-    const debt = debtFor(dataset, period);
+    const debt = scoreDebt(dataset, period);
     const equity = valueOf(period, "totalEquity");
     const cash = valueOf(period, "cashAndEquivalents");
     const invested = debt == null || equity == null || cash == null ? null : debt + equity - cash;
@@ -263,6 +308,25 @@ function scorePeriod(dataset: CompanyDataset): FinancialPeriod | null {
   // Back through the same kind of window, newest first, and no further than the
   // one before last: a grade struck on figures a year stale is not a grade.
   for (const period of earlier.slice(-4).reverse()) if (scoreable(period)) return period;
+  /*
+   * Then the last year the filer actually reported one.
+   *
+   * A trailing window is built from quarters, and a filer that states an
+   * operating income once a year and never in a quarter has none in any
+   * trailing window ever — so walking back through them finds nothing, however
+   * far it goes. TJX, Sherwin-Williams, PPG and ConocoPhillips all publish an
+   * operating income every year and had no grade at all, because the score
+   * asked the one window that could not answer.
+   *
+   * Bounded, because the rule above is right: eighteen months from the newest
+   * window, so the grade is struck on the last year rather than on a year that
+   * has stopped describing the company.
+   */
+  const yearly = dataset.periods
+    .filter((period) => period.periodicity === "annual" && scoreable(period) && period.periodEnd <= newest.periodEnd)
+    .sort((left, right) => left.periodEnd.localeCompare(right.periodEnd))
+    .at(-1);
+  if (yearly && yearsBetween(yearly.periodEnd, newest.periodEnd) <= 1.5) return yearly;
   return newest;
 }
 

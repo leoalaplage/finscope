@@ -154,3 +154,60 @@ describe("the watchlist as the screener's table", () => {
     expect(row["EBIT / Interest Expense"]).toBeCloseTo(derivedValue(period, "interestCoverage")!, 8);
   });
 });
+
+/**
+ * Two silences that were being read as ignorance.
+ *
+ * Both cost companies their grade entirely, and both were measured against the
+ * whole index before they were touched: twenty companies with no borrowings,
+ * and four that report an operating income once a year and never in a quarter.
+ */
+describe("what a filing does not say", () => {
+  const debtFree = { ...business, totalDebt: undefined, interestExpense: undefined } as Partial<Record<MetricKey, number>>;
+  const withoutDebt = (count: number) => Array.from({ length: count }, (_, index) =>
+    period("annual", `${2021 + index}-12-31`, { ...debtFree, revenue: 1_000 * 1.1 ** index }));
+
+  it("reads a company that owes nothing as owing nothing, not as unknown", () => {
+    /*
+     * Intuitive Surgical, Garmin, Monolithic Power, Expeditors and Align have
+     * never borrowed. Their net debt is not unknown: it is minus their cash,
+     * which is the most important thing about a balance sheet with no
+     * borrowings on it.
+     */
+    const row = qsRow(dataset([...withoutDebt(5), period("ttm", "2026-06-30", debtFree)]), 50).values;
+    const ebitda = derivedValue(period("ttm", "2026-06-30", debtFree), "ebitda")!;
+    expect(row["Net Debt / EBITDA"]).toBeCloseTo(-200 / ebitda, 6);
+    expect(row["ROIC"]).not.toBeNull();
+  });
+
+  it("still refuses where the silence is not evidence", () => {
+    // Two parsed balance sheets are not three, and a debt-free reading has to
+    // be earned: NVIDIA files no capital expenditure before 2022, and reading
+    // that absence as a zero would invent six years of free cash flow.
+    const thin = dataset([...withoutDebt(2), period("ttm", "2026-06-30", debtFree)]);
+    expect(qsRow(thin, 50).values["Net Debt / EBITDA"]).toBeNull();
+  });
+
+  it("scores on the last year reported where no trailing window carries the figure", () => {
+    /*
+     * A trailing window is built from quarters. A filer that states an
+     * operating income once a year and never in a quarter has none in any
+     * trailing window ever, so walking back through them finds nothing however
+     * far it goes — TJX, Sherwin-Williams, PPG and ConocoPhillips each had no
+     * grade at all because the score asked the one window that could not answer.
+     */
+    const quarterly = { ...business, operatingIncome: undefined } as Partial<Record<MetricKey, number>>;
+    const mixed = dataset([...years(5), period("ttm", "2026-06-30", quarterly)]);
+    expect(qsRow(mixed, 50).period?.label).toBe("annual 2025-12-31");
+    // Struck on that year's own figures: three hundred of operating income on
+    // the revenue it actually reported, not on the trailing window's.
+    expect(qsRow(mixed, 50).values["Operating Margin"]).toBeCloseTo(300 / (1_000 * 1.1 ** 4) * 100, 6);
+  });
+
+  it("will not reach back to a year that has stopped describing the company", () => {
+    // Eighteen months, so a grade is struck on the last year rather than on a
+    // year the business has moved on from.
+    const stale = dataset([period("annual", "2021-12-31", business), period("ttm", "2026-06-30", { ...business, operatingIncome: undefined })]);
+    expect(qsRow(stale, 50).values["Operating Margin"]).toBeNull();
+  });
+});
