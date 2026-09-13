@@ -56,6 +56,9 @@ export interface MarketRow {
 
 export interface MarketsAnswer { rows: MarketRow[]; builtAt: string }
 
+/** "a barrel" is a sentence; "barrel" is a column heading two inches wide. */
+const shortUnit = (unit: string) => unit.replace(/^an? /, "").replace("million BTU", "MMBtu");
+
 /** A month of daily closes for many symbols, in one request per twenty. */
 async function monthOfCloses(symbols: string[]): Promise<Map<string, number[]>> {
   const series = new Map<string, number[]>();
@@ -86,14 +89,23 @@ export async function GET() {
     `markets:${SHAPE}`,
     TTL_SECONDS,
     async () => {
+      /*
+       * A note only where the row is ambiguous without one.
+       *
+       * The DAX does not need "Germany" and EUR / USD does not need "dollars
+       * per euro" — the name is the note, and a column repeating it truncated
+       * to "GERMA…" is worse than an empty one. Gold per ounce against copper
+       * per pound is a real ambiguity, and so is the day a published curve was
+       * struck on.
+       */
       const yahoo = [
-        ...WORLD_INDICES.map((each) => ({ ...each, group: "world" as const, measure: "level" as const })),
-        ...COMMODITIES.map((each) => ({ id: each.id, symbol: each.symbol, label: each.label, note: each.unit, places: each.places, description: "", group: "commodities" as const, measure: "price" as const })),
+        ...WORLD_INDICES.map((each) => ({ ...each, note: "", group: "world" as const, measure: "level" as const })),
+        ...COMMODITIES.map((each) => ({ id: each.id, symbol: each.symbol, label: each.label, note: shortUnit(each.unit), places: each.places, description: "", group: "commodities" as const, measure: "price" as const })),
         ...BONDS.filter((bond) => bond.feed.kind === "yahoo").map((bond) => ({
           id: bond.id, symbol: bond.feed.kind === "yahoo" ? bond.feed.symbol : "", label: bond.label,
           note: "", places: 3, description: "", group: "rates" as const, measure: "yield" as const,
         })),
-        ...CURRENCIES.map((each) => ({ ...each, group: "currencies" as const, measure: "price" as const })),
+        ...CURRENCIES.map((each) => ({ ...each, note: "", group: "currencies" as const, measure: "price" as const })),
       ];
 
       const symbols = yahoo.map((each) => each.symbol);

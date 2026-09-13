@@ -43,6 +43,14 @@ function figure(row: MarketRow): string {
   return row.last.toLocaleString("en-US", { minimumFractionDigits: row.places, maximumFractionDigits: row.places });
 }
 
+/** A published curve's date, in the width a column has: "Sep 11". */
+function shortDate(note: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(note)) return note;
+  const parsed = new Date(`${note}T12:00:00Z`);
+  return Number.isNaN(parsed.getTime()) ? note
+    : parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
 /** The day: per cent for anything priced, basis points for a yield. */
 function move(row: MarketRow): { text: string; direction: string | undefined } {
   const value = row.measure === "yield" ? row.changeBasisPoints : row.changePercent;
@@ -173,7 +181,7 @@ function Row({ row, open, onOpen }: { row: MarketRow; open: boolean; onOpen: () 
         <Spark points={row.spark} rising={first != null && last != null ? last >= first : true}/>
       </td>
       {/* Said once, in the quietest ink: what the figure is of. */}
-      <td className="markets-note label">{row.note}</td>
+      <td className="markets-note label">{shortDate(row.note)}</td>
     </tr>
   );
 }
