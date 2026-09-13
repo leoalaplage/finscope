@@ -6,7 +6,7 @@ import { Bonds } from "@/components/io/Bonds";
 import { Commodities } from "@/components/io/Commodities";
 import { Internals } from "@/components/io/Internals";
 import { Strip } from "@/components/io/Strip";
-import { MarketNews } from "@/components/io/MarketNews";
+import { Filings } from "@/components/io/Filings";
 import { MarketPerformance } from "@/components/io/MarketPerformance";
 import { Shell } from "@/components/io/Shell";
 
@@ -79,9 +79,16 @@ export default function MarketRoute() {
           * on the page, at the foot, where the wider background belongs.
           */}
         <MarketPerformance />
-        {/* Under the indices, and only here: the research workspace shares the
-            component above and has its own front page to put a wire on. */}
-        <MarketNews />
+        {/*
+          * What the companies here told the market, in place of a news wire.
+          *
+          * The wire was general: of eighteen headlines it carried, ten were
+          * political, six were about wars, one was a Formula One result and
+          * one was about a company. This is the same material every figure on
+          * this site comes from — EDGAR's index of what was accepted today,
+          * filtered to the forms that say something about a business.
+          */}
+        <Filings />
         <MacroSnapshot />
       </main>
     </Shell>

@@ -601,41 +601,33 @@ describe("the redesign", () => {
     expect(dcfSource).toContain("const SHORTEST_RECORD = 4;");
   });
 
-  it("reads the wire under the indices as text, and never as a door", () => {
+  it("reads the day's filings under the indices, as filings rather than as news", () => {
     const page = readFileSync(new URL("../app/market/page.tsx", import.meta.url), "utf8");
-    const news = readFileSync(new URL("../components/io/MarketNews.tsx", import.meta.url), "utf8");
-    const parser = readFileSync(new URL("../lib/news.ts", import.meta.url), "utf8");
-    const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
-    // Under the charts, and on this page only: the workspace shares the
-    // component above it.
-    expect(page.indexOf("<MarketNews />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
-    // Somebody else's document is data. Nothing from it is rendered as markup,
-    // and nothing from it is followed: the feed's own link would send a reader
-    // somewhere nobody here vouches for, and its hostname is not a byline this
-    // page prints under every headline.
-    expect(news).not.toContain("dangerouslySetInnerHTML");
-    expect(news).not.toContain("<a ");
-    expect(news).not.toContain('target="_blank"');
-    expect(news).not.toContain("hostname");
-    expect(parser).toContain('replace(/<[^>]*>/g, " ")');
-    // Set like every other line of text here: a headline in the proportional
-    // face reads as though it came from somewhere else.
-    expect(css).toContain(".news-headline { font-family: var(--mono);");
-    // Headlines, and only headlines: the summaries the parser reads are not
-    // sent, and the feed's own name is not a badge on the section.
-    expect(news).not.toContain("news-summary");
-    expect(news).not.toContain("item.summary");
-    expect(news).not.toContain("Breaking The News");
+    const filings = readFileSync(new URL("../components/io/Filings.tsx", import.meta.url), "utf8");
+    const daily = readFileSync(new URL("../lib/edgar-daily.ts", import.meta.url), "utf8");
     /*
-     * The wire's address is dropped in the Worker, not in the component, so
-     * nothing downstream can offer one. A company's own newsroom is the other
-     * case and keeps its link: there the destination is the filer being read
-     * about, and the release is the document the headline stands for.
+     * A general news wire stood here, and it was counted rather than judged:
+     * of eighteen headlines, ten were political, six were about wars, one was
+     * a Formula One result and one was about a company. What replaced it is
+     * the material every other figure on this site comes from.
      */
-    const route = readFileSync(new URL("../app/api/news/route.ts", import.meta.url), "utf8");
-    expect(route).toContain('type Headline = Omit<NewsItem, "summary" | "sourceUrl">;');
+    expect(page).not.toContain("<MarketNews />");
+    expect(page.indexOf("<Filings />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
+    // The form name is the news: nothing is summarised, and nothing is ranked
+    // by importance — importance is a judgement, a form is a fact.
+    expect(filings).not.toContain("dangerouslySetInnerHTML");
+    expect(daily).toContain("export function investorForm");
+    // Both ends of a line are sources: the company here, the document at the
+    // SEC. And a filing is one of ours only if its identifier is.
+    expect(filings).toContain("edgarUrl(item.cik, item.accession)");
+    expect(daily).toContain("watched.has(filing.cik)");
+    /*
+     * The company's own newsroom keeps its link and its place. There the
+     * destination is the filer being read about, and the release is the
+     * document the headline stands for.
+     */
     const company = readFileSync(new URL("../app/api/company/[ticker]/news/route.ts", import.meta.url), "utf8");
-    expect(company).toContain("sourceUrl }: NewsItem): Headline => ({ title, category, publishedAt, sourceUrl })");
+    expect(company).toContain("publishedAt, sourceUrl })");
   });
 
   it("places portfolio analysis below sector concentration and omits the FCF-owned summary cell", () => {
@@ -759,14 +751,14 @@ describe("the redesign", () => {
 
   it("puts the company's own newsroom last on its page, under everything it filed", () => {
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
-    const market = readFileSync(new URL("../components/io/MarketNews.tsx", import.meta.url), "utf8");
+    const news = readFileSync(new URL("../components/io/CompanyNews.tsx", import.meta.url), "utf8");
     // Under the statements: the page is what the company filed, and this is
     // the one section that is what it said since.
     expect(company.indexOf("<CompanyNews key={company.ticker} ticker={company.ticker} />")).toBeGreaterThan(company.indexOf("<Statements view={view}"));
     expect(company.indexOf("<CompanyNews")).toBeLessThan(company.indexOf('<footer className="foot">'));
-    // Both news panels read an instant the same way, from one helper.
-    expect(market).toContain('import { clock } from "./format"');
-    expect(market).not.toContain("function clock(");
+    // It reads an instant from the one helper every other panel reads it from.
+    expect(news).toContain('from "./format"');
+    expect(news).not.toContain("function clock(");
     // Keyed by company, so one company's releases never sit under another's
     // name while the next request is out.
     expect(company).toContain("<CompanyNews key={company.ticker}");
@@ -785,8 +777,8 @@ describe("the redesign", () => {
      * personal thing on the page — keeps its place at the foot.
      */
     expect(page.indexOf("<MarketPerformance />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
-    expect(page.indexOf("<MarketNews />")).toBeGreaterThan(page.indexOf("<MarketPerformance />"));
-    expect(page.indexOf("<MacroSnapshot />")).toBeGreaterThan(page.indexOf("<MarketNews />"));
+    expect(page.indexOf("<Filings />")).toBeGreaterThan(page.indexOf("<MarketPerformance />"));
+    expect(page.indexOf("<MacroSnapshot />")).toBeGreaterThan(page.indexOf("<Filings />"));
     expect(macro).toContain('aria-label="Select a macro geography"');
     expect(macro).toContain("latest available data");
     expect(macro).toContain("Published observations only");

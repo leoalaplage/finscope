@@ -634,6 +634,27 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 @media (max-width: 900px) { .internals-grid { grid-template-columns: 1fr; } }
 
+/*
+ * The day's filings: a ticker, a form, what the form means, the document.
+ *
+ * Two columns of short lines rather than one of long ones — a filing is four
+ * short facts, and a list of them down a full-width page is mostly white.
+ */
+.filings-list { columns: 2; column-gap: calc(var(--u) * 10); }
+.filings-item {
+  display: grid; grid-template-columns: minmax(0, 64px) minmax(0, 88px) minmax(0, 1fr) auto;
+  align-items: baseline; gap: calc(var(--u) * 3);
+  padding-block: 7px; border-top: 1px solid var(--line);
+  font-family: var(--mono); font-size: var(--fs-xs);
+  break-inside: avoid;
+}
+.filings-ticker { font-weight: 600; }
+.filings-form { color: var(--ink-2); }
+.filings-said { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filings-source { color: var(--ink-3); }
+.filings-source:hover { color: var(--ink); }
+@media (max-width: 900px) { .filings-list { columns: 1; } }
+
 /* The evidence line under the grade: a paragraph, so it wraps like one. */
 .score-evidence { margin-top: calc(var(--u) * 3); max-width: 92ch; line-height: 1.6; }
 
