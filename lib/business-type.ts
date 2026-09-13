@@ -29,7 +29,7 @@ const VERIFIED_TYPES_BY_CIK: Readonly<Record<string, BusinessType>> = {
  * CME/Cboe share a broad code that covers both brokers and exchanges.
  */
 /**
- * Which reading of the industry codes a stored company was built under.
+ * Which reading of the filings a stored company was built under.
  *
  * A dataset carries the classification it was normalized with, and a change
  * here does not reach one already in the store: Aon would have gone on being
@@ -39,8 +39,13 @@ const VERIFIED_TYPES_BY_CIK: Readonly<Record<string, BusinessType>> = {
  * c2: the sixties are no longer financial by default — asset managers,
  *     insurance brokers, property companies, real-estate agencies and royalty
  *     trusts are read as the operating businesses they are.
+ * c3: a property company's buildings and an oil company's acreage are read as
+ *     its capital expenditure, which eleven companies had none of.
+ *
+ * It covers what a company *is* and how its filings are read, because both
+ * change what a stored dataset says and neither reaches one already stored.
  */
-export const CLASSIFICATION_VERSION = "c2";
+export const CLASSIFICATION_VERSION = "c3";
 
 /**
  * What a filer is, from the industry code it files under.
