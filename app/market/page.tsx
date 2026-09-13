@@ -4,6 +4,7 @@ import { MarketPage } from "@/components/MarketPage";
 import { MacroSnapshot } from "@/components/io/MacroSnapshot";
 import { Bonds } from "@/components/io/Bonds";
 import { Commodities } from "@/components/io/Commodities";
+import { Internals } from "@/components/io/Internals";
 import { MarketNews } from "@/components/io/MarketNews";
 import { MarketPerformance } from "@/components/io/MarketPerformance";
 import { Shell } from "@/components/io/Shell";
@@ -28,6 +29,16 @@ export default function MarketRoute() {
           * month's inflation print will read are all in the six lines below
           * and in none of the three above.
           */}
+        {/*
+          * What the market did, before what any one thing costs.
+          *
+          * Three index levels say the market rose; they do not say whether it
+          * rose because four hundred companies rose or because five did. That
+          * reading comes from the index table the screener's scheduled run
+          * already prices, so it costs this page nothing and it is the first
+          * thing a reader wants after the charts.
+          */}
+        <Internals />
         <Commodities />
         {/*
           * And the rate both of the rows above are discounted by.

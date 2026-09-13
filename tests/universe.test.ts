@@ -159,7 +159,7 @@ describe("which companies the next run reads", () => {
   it("stores the table under the dataset version and the digest shape", () => {
     // A table built from digests under older semantics must never be read back
     // as though it were built under these.
-    expect(universeKey()).toMatch(/^universe:u1\.v\d+\.s\d+$/);
+    expect(universeKey()).toMatch(/^universe:u\d+\.v\d+\.s\d+$/);
   });
 
   it("asks Yahoo for no more symbols than it will answer for", () => {

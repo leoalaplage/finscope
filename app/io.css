@@ -605,6 +605,35 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  */
 .filings-note { margin: calc(var(--u) * -2) 0 calc(var(--u) * 4); color: var(--ink-3); font: var(--fs-xs)/1.5 var(--mono); }
 
+/*
+ * What the market did: a table of industries beside the two extremes.
+ *
+ * Two columns on a wide screen because they answer the same question from
+ * different ends — which industries moved, and which names moved most — and a
+ * reader scans both before reading either.
+ */
+.internals-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: calc(var(--u) * 5); margin-top: calc(var(--u) * 4); }
+.internals-grid h3 { margin-bottom: calc(var(--u) * 2); }
+.internals-sheet th.key small { color: var(--ink-3); font-size: var(--fs-micro); }
+.internals-ends { display: grid; gap: calc(var(--u) * 5); align-content: start; }
+.internals-list { border: 1px solid var(--line); border-radius: var(--radius); }
+.internals-list li {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: calc(var(--u) * 3); align-items: baseline;
+  padding: 6px 12px; font-family: var(--mono); font-size: var(--fs-xs);
+}
+.internals-list li + li { border-top: 1px solid var(--line); }
+.internals-list a { font-weight: 600; }
+.internals-list .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The day's move, in the one highlighter this site allows itself. */
+.internals .day-mark[data-dir] {
+  display: inline-block; padding: 2px 5px; margin: -2px -5px;
+  border-radius: var(--radius); color: var(--ink); font-weight: 550;
+}
+.internals .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }
+.internals .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
+
+@media (max-width: 900px) { .internals-grid { grid-template-columns: 1fr; } }
+
 /* The evidence line under the grade: a paragraph, so it wraps like one. */
 .score-evidence { margin-top: calc(var(--u) * 3); max-width: 92ch; line-height: 1.6; }
 

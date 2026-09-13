@@ -35,8 +35,10 @@ import type { WatchlistSummary } from "./watchlist-summary";
  * It carries the dataset version and the digest shape too: a table built from
  * digests under older semantics must never be read back as though it were
  * built under these.
+ *
+ * u2 carries each company's move on the day, which the market page reads.
  */
-export const UNIVERSE_SHAPE = "u1";
+export const UNIVERSE_SHAPE = "u2";
 export const universeKey = () => `universe:${UNIVERSE_SHAPE}.${KEY_VERSION}.${SUMMARY_SHAPE}`;
 
 /**
@@ -80,8 +82,14 @@ export interface UniverseTable {
   builtAt: string;
   members: number;
   rows: UniverseRow[];
-  /** Prices, kept beside the rows so one request carries both. */
-  prices: Record<string, { price: number | null; currency: string | null; asOf: string | null }>;
+  /**
+   * Prices, kept beside the rows so one request carries both.
+   *
+   * With the day's move, which costs nothing — the quote endpoint states it —
+   * and is what lets a market page say what five hundred companies did rather
+   * than what the reader's own two dozen did.
+   */
+  prices: Record<string, { price: number | null; currency: string | null; asOf: string | null; changePercent: number | null }>;
   /** Companies the index lists that have no digest yet, named rather than hidden. */
   pending: string[];
 }
@@ -194,7 +202,7 @@ export async function buildUniverseSlice(origin: string, limit = BUILD_PER_RUN):
   const quotes = await fetchQuotes(UNIVERSE.map((member) => member.ticker));
   const prices: UniverseTable["prices"] = {};
   for (const [ticker, quote] of quotes) {
-    prices[ticker] = { price: quote.price, currency: quote.currency, asOf: quote.asOf };
+    prices[ticker] = { price: quote.price, currency: quote.currency, asOf: quote.asOf, changePercent: quote.changePercent };
   }
 
   const next: UniverseTable = {

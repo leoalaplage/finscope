@@ -15,9 +15,14 @@ import { z } from "zod";
  * Five hundred prices is twenty-five requests and about two seconds, which is
  * a thing a scheduled job can do and a browser should not.
  *
- * The last close and the currency it is quoted in, and nothing else. The
+ * The last close, the currency it is quoted in, and what the day did. The
  * valuation columns need a price and need to refuse one quoted in a currency
  * the statements are not kept in; neither needs a chart.
+ *
+ * The day's move rides along because the endpoint states it. Five hundred
+ * companies' moves are what a market page needs to say anything about the
+ * market rather than about the reader's own list, and asking for them
+ * separately would be five hundred requests for a number already in hand.
  */
 
 const SparkSchema = z.object({
@@ -29,6 +34,8 @@ const SparkSchema = z.object({
           currency: z.string().nullable().optional(),
           regularMarketPrice: z.number().nullable().optional(),
           regularMarketTime: z.number().nullable().optional(),
+          regularMarketChangePercent: z.number().nullable().optional(),
+          chartPreviousClose: z.number().nullable().optional(),
         }),
       })).min(1),
     })).nullable(),
@@ -45,6 +52,10 @@ export interface SparkQuote {
   currency: string | null;
   /** The session the price belongs to, in exchange-agnostic UTC. */
   asOf: string | null;
+  /** What the day has done, in per cent, as the exchange states it. */
+  changePercent: number | null;
+  /** Yesterday's close, so a move can be redrawn rather than only read. */
+  previousClose: number | null;
 }
 
 const BASE_URLS = () => ["https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"];
@@ -70,6 +81,8 @@ async function batch(symbols: string[]): Promise<SparkQuote[]> {
         price: meta.regularMarketPrice ?? null,
         currency: meta.currency ?? null,
         asOf: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1_000).toISOString().slice(0, 10) : null,
+        changePercent: meta.regularMarketChangePercent ?? null,
+        previousClose: meta.chartPreviousClose ?? null,
       };
     });
   }
