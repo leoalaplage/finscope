@@ -163,7 +163,7 @@ function Row({ row, open, onOpen }: { row: MarketRow; open: boolean; onOpen: () 
   const day = move(row);
   const first = row.spark[0], last = row.spark.at(-1);
   return (
-    <tr data-selected={open}>
+    <tr data-selected={open} title={row.note ? `${row.label} — ${row.note}` : row.label}>
       <th className="key" scope="row">
         <button type="button" className="key-open" aria-pressed={open} onClick={onOpen}>{row.label}</button>
       </th>
