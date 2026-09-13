@@ -616,6 +616,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * instrument, columns aligned so the eye reads down one kind of number, the
  * colour confined to the day, and a month of closes as a line at the end.
  */
+.markets-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(var(--u) * 5); align-items: start; }
+@media (max-width: 1100px) { .markets-grid { grid-template-columns: 1fr; } }
 .markets-sheet table { table-layout: auto; }
 /*
  * Tighter than the statement tables, because this one is read by scanning.

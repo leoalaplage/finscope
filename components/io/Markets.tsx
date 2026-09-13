@@ -106,34 +106,51 @@ export function Markets() {
       </div>
 
       {state.kind === "loading" ? (
-        <div className="sheet"><div className="skeleton" style={{ height: 620 }}/></div>
+        <div className="markets-grid">
+          <div className="sheet"><div className="skeleton" style={{ height: 300 }}/></div>
+          <div className="sheet"><div className="skeleton" style={{ height: 300 }}/></div>
+        </div>
       ) : (
-        <div className="sheet markets-sheet">
-          <table>
-            <thead>
-              <tr>
-                <th className="key" scope="col">Market</th>
-                <th scope="col">Last</th>
-                <th scope="col">Day</th>
-                <th scope="col">Month</th>
-                <th scope="col">&nbsp;</th>
-              </tr>
-            </thead>
-            {GROUPS.map((group) => {
-              const rows = state.answer.rows.filter((row) => row.group === group.id && row.last != null);
-              if (!rows.length) return null;
-              return (
-                <tbody key={group.id}>
-                  {/* The group is a row of the same table, not a section of
-                      its own: that is what lets the eye compare across them. */}
-                  <tr className="markets-group">
-                    <th className="key" scope="rowgroup" colSpan={5}>{group.label}</th>
+        /*
+         * Two tables side by side on a wide screen, one under the other on a
+         * narrow one.
+         *
+         * A monitor is read by scanning a column of numbers, and thirty rows
+         * in a single column is a screen and a half of scrolling for a table
+         * that needs six hundred pixels of width. Two of them put every market
+         * on one screen and keep each column's figures aligned, which is the
+         * thing worth protecting.
+         */
+        <div className="markets-grid">
+          {[GROUPS.slice(0, 2), GROUPS.slice(2)].map((half, index) => (
+            <div className="sheet markets-sheet" key={index}>
+              <table>
+                <thead>
+                  <tr>
+                    <th className="key" scope="col">Market</th>
+                    <th scope="col">Last</th>
+                    <th scope="col">Day</th>
+                    <th scope="col">Month</th>
+                    <th scope="col">&nbsp;</th>
                   </tr>
-                  {rows.map((row) => <Row key={row.id} row={row} open={open.includes(row.id)} onOpen={() => setOpen((current) => toggleOpen(current, row.id))}/>)}
-                </tbody>
-              );
-            })}
-          </table>
+                </thead>
+                {half.map((group) => {
+                  const rows = state.answer.rows.filter((row) => row.group === group.id && row.last != null);
+                  if (!rows.length) return null;
+                  return (
+                    <tbody key={group.id}>
+                      {/* The group is a row of the table, not a heading above
+                          it: that is what keeps one set of columns. */}
+                      <tr className="markets-group">
+                        <th className="key" scope="rowgroup" colSpan={5}>{group.label}</th>
+                      </tr>
+                      {rows.map((row) => <Row key={row.id} row={row} open={open.includes(row.id)} onOpen={() => setOpen((current) => toggleOpen(current, row.id))}/>)}
+                    </tbody>
+                  );
+                })}
+              </table>
+            </div>
+          ))}
         </div>
       )}
 
