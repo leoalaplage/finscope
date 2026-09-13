@@ -26,7 +26,8 @@ import { CURRENCIES, WORLD_INDICES } from "@/lib/strips";
  * the bond strip.
  */
 const TTL_SECONDS = 300;
-const SHAPE = "v1";
+/** v2: a note only where the row is ambiguous without one. */
+const SHAPE = "v2";
 
 const headers = {
   "Content-Type": "application/json",
