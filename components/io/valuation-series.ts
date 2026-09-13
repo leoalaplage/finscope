@@ -59,6 +59,8 @@ export const isValuationMetric = (key: string): key is HistoricalValuationMetric
 export const valuationUsable = (period: IoPeriod) => period.valuationBasis != null;
 
 export interface ValuationHistoryState {
+  /** The company the rest of this state is about, so a panel can name it. */
+  ticker: string;
   /** The periods the multiples could be struck for, newest last. */
   periods: IoPeriod[];
   /** One point per filing date, in date order. */
@@ -145,6 +147,7 @@ export function useValuationHistory(view: IoCompanyView | null, quote: IoQuote |
     : null;
 
   return {
+    ticker,
     periods,
     history,
     current: newest && live ? historicalValuationPoint(newest, live) : null,

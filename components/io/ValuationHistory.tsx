@@ -4,6 +4,7 @@ import { useState } from "react";
 import { historicalValuationRange, type HistoricalValuationRange } from "@/lib/io/valuation-range";
 import { ABSENT, percent, ratio } from "./format";
 import { VALUATION_METRICS, type ValuationHistoryState } from "./valuation-series";
+import { Peers } from "./Peers";
 
 const write = (value: number | null, asPercent: boolean) => value == null
   ? ABSENT
@@ -180,6 +181,17 @@ export function ValuationHistory({
             <h3 className="label">What it returns</h3>
             <ul className="range-list">{rows("return")}</ul>
           </div>
+          {/*
+            * And what the same business costs elsewhere.
+            *
+            * Third, because the two questions above are about this company —
+            * what it costs against its own decade, what it hands back — and
+            * this one is the only place on the page where another company is
+            * allowed to say anything. A multiple against its own history and a
+            * multiple against its industry are the two halves of "expensive",
+            * and the page has only ever had the first.
+            */}
+          <Peers ticker={state.ticker}/>
         </>
       )}
     </section>
