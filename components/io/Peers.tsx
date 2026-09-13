@@ -60,6 +60,15 @@ export function Peers({ ticker }: { ticker: string }) {
   }, [ticker]);
 
   if (!answer) return null;
+  /*
+   * A sector with no priced multiple in it is not a sector this panel can say
+   * anything about. Banks, brokers and insurers have no enterprise value —
+   * their balance sheet is the business, and every measure struck on one is
+   * withheld from them everywhere else on this site. A table of dashes under a
+   * heading about price is noise wearing the shape of information.
+   */
+  const priced = answer.medians.evFcf != null || answer.medians.evEbit != null || answer.medians.fcfYield != null;
+  if (!priced) return null;
 
   /*
    * The companies nearest this one in size, rather than the top of the sector.
@@ -82,10 +91,8 @@ export function Peers({ ticker }: { ticker: string }) {
     <div className="range-group peers">
       <h3 className="label">What its industry costs</h3>
       <p className="stat-note">
-        {sentence
-          ? `The middle of ${answer.sector.toLowerCase()} is priced at ${sentence}.`
-          : `${answer.sector} carries no priced multiple to take a middle of.`}
-        {" "}{answer.peers.length} companies in the {answer.index}, membership of {answer.asOf}.
+        The middle of {answer.sector.toLowerCase()} is priced at {sentence}.{" "}
+        {answer.peers.length} companies in the {answer.index}, membership of {answer.asOf}.
       </p>
       <div className="sheet">
         <table>
