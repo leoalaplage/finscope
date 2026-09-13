@@ -627,7 +627,15 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * win an argument about density. A monitor's row is the height of its text.
  */
 .markets-sheet th, .markets-sheet td { padding-block: 3px; padding-inline: 8px; }
-.markets-sheet th.key { text-align: left; }
+/*
+ * The name column is a name, not a statement line.
+ *
+ * The sheet reserves 264px for its first column because a financial statement
+ * line reads "Cash and cash equivalents, end of period". "Euro Stoxx 50" needs
+ * a third of that, and the 264 was the whole of why two tables of six hundred
+ * pixels would not fit in five hundred and thirty-six.
+ */
+.markets-sheet th.key { text-align: left; min-width: 0; width: 40%; }
 .markets-sheet .key-open { color: var(--ink); font: inherit; }
 .markets-sheet .key-open:hover { color: var(--ink-2); }
 /* The group is a row of the table, not a heading above it. */
