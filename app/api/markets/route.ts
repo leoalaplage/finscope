@@ -26,8 +26,8 @@ import { CURRENCIES, WORLD_INDICES } from "@/lib/strips";
  * the bond strip.
  */
 const TTL_SECONDS = 300;
-/** v2: a note only where the row is ambiguous without one. */
-const SHAPE = "v2";
+/** v3: a note only where the row is ambiguous — and the day only on a yield. */
+const SHAPE = "v3";
 
 const headers = {
   "Content-Type": "application/json",
@@ -132,7 +132,16 @@ export async function GET() {
            */
           changeBasisPoints: yieldRow && quote?.price != null && quote.previousClose != null
             ? (quote.price - quote.previousClose) * 100 : null,
-          note: each.note || (quote?.asOf ?? ""),
+          /*
+           * The day belongs to a yield and to nothing else here.
+           *
+           * A published curve is struck once and carries the morning it was
+           * struck on; an index and a currency are quoted continuously and
+           * saying "Sep 11" beside them is the noise this column was just
+           * emptied of. The fallback used to apply to everything and refilled
+           * it within five minutes of the change.
+           */
+          note: yieldRow ? quote?.asOf ?? "" : each.note,
           spark: series.get(each.symbol.toUpperCase()) ?? [],
         };
       });
