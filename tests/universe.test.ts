@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { SPARK_BATCH, yahooSymbol } from "../lib/adapters/spark";
+import { ALL_STRIP_QUOTES, CURRENCIES, WORLD_INDICES, stripQuoteById } from "../lib/strips";
+import { commodityById as commodityLookup } from "../lib/commodities";
+import { bondById as bondLookup } from "../lib/bonds";
 import { COMPANIES } from "../lib/company-registry";
 import { KNOWN_SUCCESSORS, UNIVERSE, UNIVERSE_AS_OF, UNIVERSE_NAME, UNIVERSE_TICKERS, universeMember } from "../lib/universe";
 import { BUILD_PER_RUN, STALE_AFTER_HOURS, nextToBuild, universeKey, type UniverseRow, type UniverseTable } from "../lib/universe-build";
@@ -165,5 +168,52 @@ describe("which companies the next run reads", () => {
   it("asks Yahoo for no more symbols than it will answer for", () => {
     // Measured against the endpoint: twenty is answered, fifty is refused.
     expect(SPARK_BATCH).toBe(20);
+  });
+});
+
+/**
+ * The two rows that finish the market page.
+ *
+ * A page called "Market" that shows three American indices is a page about one
+ * country, and it already prices Japanese and British government debt two rows
+ * below; and a site that quotes oil in dollars, a gilt in sterling and a Bund
+ * in euros said nothing about what those are worth against each other.
+ */
+describe("the world and currency rows", () => {
+  it("carries six of each, named and described", () => {
+    expect(WORLD_INDICES).toHaveLength(6);
+    expect(CURRENCIES).toHaveLength(6);
+    for (const quote of ALL_STRIP_QUOTES) {
+      expect(quote.description.length, quote.id).toBeGreaterThan(15);
+      expect(quote.note.length, quote.id).toBeGreaterThan(2);
+    }
+  });
+
+  it("keeps Yahoo's own symbols intact, full stops and all", () => {
+    /*
+     * The dollar index is `DX-Y.NYB`. The rule that turns this site's BRK.B
+     * into Yahoo's BRK-B would turn that full stop into a hyphen and ask for
+     * an instrument that does not exist, so these symbols are passed through
+     * untranslated — which is what the second argument to `fetchQuotes` is for.
+     */
+    expect(stripQuoteById("DXY")?.symbol).toBe("DX-Y.NYB");
+    expect(yahooSymbol("DX-Y.NYB")).not.toBe("DX-Y.NYB");
+  });
+
+  it("shares no identifier with anything else the quote route resolves", () => {
+    // `/api/quote/[id]` looks in four registries now. A collision would draw
+    // one thing under another's name.
+    for (const quote of ALL_STRIP_QUOTES) {
+      expect(commodityLookup(quote.id), quote.id).toBeNull();
+      expect(bondLookup(quote.id), quote.id).toBeNull();
+    }
+    expect(new Set(ALL_STRIP_QUOTES.map((quote) => quote.id)).size).toBe(ALL_STRIP_QUOTES.length);
+  });
+
+  it("quotes a currency finely enough to be read", () => {
+    // Four decimals on a euro, because a cent of a euro is a large move and
+    // two decimals would round most days to nothing.
+    expect(stripQuoteById("EURUSD")?.places).toBe(4);
+    expect(stripQuoteById("SX5E")?.places).toBe(2);
   });
 });

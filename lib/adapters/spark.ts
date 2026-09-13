@@ -101,11 +101,22 @@ async function batch(symbols: string[]): Promise<SparkQuote[]> {
  * eighty: a screener over most of the index is worth having, and a screener
  * that refuses to load because one request timed out is not.
  */
-export async function fetchQuotes(tickers: string[]): Promise<Map<string, SparkQuote>> {
+export async function fetchQuotes(
+  tickers: string[],
+  /*
+   * How a name of ours becomes a name of Yahoo's.
+   *
+   * A company ticker needs translating — this site writes BRK.B where Yahoo
+   * writes BRK-B. A symbol that is already Yahoo's must not be: the dollar
+   * index is `DX-Y.NYB`, and running it through that rule turns the full stop
+   * into a hyphen and asks for an instrument that does not exist.
+   */
+  symbolOf: (ticker: string) => string = yahooSymbol,
+): Promise<Map<string, SparkQuote>> {
   const found = new Map<string, SparkQuote>();
   for (let at = 0; at < tickers.length; at += SPARK_BATCH) {
     const slice = tickers.slice(at, at + SPARK_BATCH);
-    const asked = new Map(slice.map((ticker) => [yahooSymbol(ticker), ticker]));
+    const asked = new Map(slice.map((ticker) => [symbolOf(ticker), ticker]));
     try {
       for (const quote of await batch([...asked.keys()])) {
         const ticker = asked.get(quote.symbol.toUpperCase());

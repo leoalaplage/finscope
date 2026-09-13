@@ -3,6 +3,7 @@ import { DAILY_NO_INTRADAY, dailyWindow, drawsDaily } from "@/lib/adapters/daily
 import { fetchMarketWindow, MARKET_RANGES, type MarketRange, type MarketWindow } from "@/lib/adapters/intraday";
 import { bondById } from "@/lib/bonds";
 import { commodityById } from "@/lib/commodities";
+import { stripQuoteById } from "@/lib/strips";
 import { dailyYields } from "@/lib/daily-yield-store";
 import { cachedJson } from "@/lib/market-cache";
 
@@ -60,11 +61,19 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   const bond = bondById(id);
   const commodity = bond ? null : commodityById(id);
-  if (!bond && !commodity) {
+  /*
+   * Then the world indices and the currency pairs.
+   *
+   * They behave exactly as a commodity does — a level quoted continuously by
+   * an exchange — so they take the same path, and only the description they
+   * carry differs.
+   */
+  const quoted = bond || commodity ? null : stripQuoteById(id);
+  if (!bond && !commodity && !quoted) {
     return NextResponse.json({ error: `Nothing on this site is quoted under “${id}”.` }, { status: 404, headers: { ...headers, "Cache-Control": "no-store" } });
   }
 
-  const named = bond ?? commodity!;
+  const named = bond ?? commodity ?? quoted!;
   /*
    * A window this series does not exist at is refused before it is fetched.
    *
@@ -89,14 +98,16 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
           ? bond.feed.kind === "yahoo"
             ? await fetchMarketWindow(bond.feed.symbol, bond.label, range)
             : dailyWindow(await dailyYields(bond.id, bond.feed), bond.label, range, bond.id)
-          : await fetchMarketWindow(commodity!.symbol, commodity!.label, range);
+          : await fetchMarketWindow((commodity ?? quoted!).symbol, named.label, range);
         return {
           ...window,
           // The label this site chose, not the contract month Yahoo answered
           // with: "Brent crude" is the subject, "BZ=F Nov 26" is the roll.
           name: named.label,
           id: named.id,
-          description: bond ? bond.description : `${commodity!.label}, front-month futures, quoted for ${commodity!.unit}.`,
+          description: bond ? bond.description
+            : commodity ? `${commodity.label}, front-month futures, quoted for ${commodity.unit}.`
+            : quoted!.description,
           measure: bond ? "yield" : "level",
         };
       },

@@ -5,6 +5,7 @@ import { MacroSnapshot } from "@/components/io/MacroSnapshot";
 import { Bonds } from "@/components/io/Bonds";
 import { Commodities } from "@/components/io/Commodities";
 import { Internals } from "@/components/io/Internals";
+import { Strip } from "@/components/io/Strip";
 import { MarketNews } from "@/components/io/MarketNews";
 import { MarketPerformance } from "@/components/io/MarketPerformance";
 import { Shell } from "@/components/io/Shell";
@@ -39,6 +40,14 @@ export default function MarketRoute() {
           * thing a reader wants after the charts.
           */}
         <Internals />
+        {/*
+          * The rest of the world's equities, under America's.
+          *
+          * A page called "Market" showing three US indices is a page about one
+          * country, and the government bonds two rows below already price
+          * Tokyo and London.
+          */}
+        <Strip set="world" title="World indices" aside="Local currency" label="index"/>
         <Commodities />
         {/*
           * And the rate both of the rows above are discounted by.
@@ -53,6 +62,14 @@ export default function MarketRoute() {
           * filling the gap with a monthly average a month behind.
           */}
         <Bonds />
+        {/*
+          * And what the currencies those are quoted in are worth.
+          *
+          * Oil in dollars, a gilt in sterling, a Bund in euros — the page
+          * priced all three and said nothing about what they are worth
+          * against each other.
+          */}
+        <Strip set="currencies" title="Currencies" aside="Spot rates" label="currency"/>
         {/*
           * The reader's own list, directly under the indices.
           *
