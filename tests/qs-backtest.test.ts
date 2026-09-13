@@ -27,6 +27,21 @@ import type { CompanyDataset } from "../lib/types";
  * score would have marked down — so the bias runs *against* the hypothesis. A
  * positive result under it is worth something; a null result proves nothing.
  *
+ * What it says over the whole index — 501 companies, seven cohorts, scored on
+ * filings alone, each figure the chance of a strict shuffle doing as well:
+ *
+ *   1 year   rank correlation 0.07   0.0%
+ *   3 years  rank correlation 0.09   0.1%
+ *   5 years  rank correlation 0.12   0.1%
+ *
+ * All three beat the shuffle, which the same measurement over thirty-five
+ * companies could not show at three or five years: that null was a want of
+ * companies rather than a want of signal. The effect is small and it is not
+ * uniform — the top quartile beat the bottom by about three points a year over
+ * five years, positive in all five cohorts, while the companies scored at the
+ * end of 2021 went on to underperform by twenty-two points over the year that
+ * followed. A ranking, then, not a promise.
+ *
  * It needs whole normalized datasets, four megabytes each, so it skips itself
  * when they are absent. To run it:
  *
@@ -312,5 +327,11 @@ describe.skipIf(!available)("the quality score against the years after it", () =
     }
     // The point of the exercise: the numbers, printed, whatever they say.
     console.log(`\n${lines.join("\n")}\n`);
-  });
+    /*
+     * Ten minutes, because the measurement this exists for takes forty seconds
+     * over five hundred companies — two gigabytes of filings parsed, seven
+     * cohorts scored and four thousand shuffles — and vitest's default five
+     * seconds failed a run that had already printed its answer.
+     */
+  }, 600_000);
 });
