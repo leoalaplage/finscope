@@ -3,6 +3,7 @@ import { SPARK_BATCH, yahooSymbol } from "../lib/adapters/spark";
 import { COMPANIES } from "../lib/company-registry";
 import { KNOWN_SUCCESSORS, UNIVERSE, UNIVERSE_AS_OF, UNIVERSE_NAME, UNIVERSE_TICKERS, universeMember } from "../lib/universe";
 import { BUILD_PER_RUN, STALE_AFTER_HOURS, nextToBuild, universeKey, type UniverseRow, type UniverseTable } from "../lib/universe-build";
+import { CLASSIFICATION_VERSION } from "../lib/business-type";
 
 /**
  * The list a screener is allowed to look through.
@@ -92,7 +93,7 @@ describe("the universe", () => {
 describe("which companies the next run reads", () => {
   const table = (rows: Array<[string, string]>): UniverseTable => ({
     name: UNIVERSE_NAME, asOf: UNIVERSE_AS_OF, builtAt: "2026-09-12T00:00:00.000Z", members: UNIVERSE.length,
-    rows: rows.map(([ticker, retrievedAt]) => ({ ticker, name: ticker, qs: {}, qsPrice: {}, retrievedAt } as unknown as UniverseRow)),
+    rows: rows.map(([ticker, retrievedAt]) => ({ ticker, name: ticker, qs: {}, qsPrice: {}, retrievedAt, read: CLASSIFICATION_VERSION } as unknown as UniverseRow)),
     prices: {}, pending: [],
   });
 
@@ -125,6 +126,21 @@ describe("which companies the next run reads", () => {
     const fresh = UNIVERSE.map((member) => [member.ticker, "2026-09-12T06:00:00.000Z"] as [string, string]);
     expect(nextToBuild(table(fresh), 100, now)).toEqual([]);
     expect(STALE_AFTER_HOURS).toBe(72);
+  });
+
+  it("reads again what was built under a classification since corrected", () => {
+    /*
+     * A dataset carries the classification it was normalized with, and
+     * correcting what a filer *is* does not reach one already in the store.
+     * Forty-six companies in the index were read as banks and had every
+     * measure withheld; without this they keep their blank grades until their
+     * stored copies expire a week later.
+     */
+    const now = new Date("2026-09-13T12:00:00.000Z");
+    const current = table(UNIVERSE.map((member) => [member.ticker, "2026-09-13T06:00:00.000Z"] as [string, string]));
+    expect(nextToBuild(current, 100, now)).toEqual([]);
+    current.rows[4] = { ...current.rows[4], read: "c1" };
+    expect(nextToBuild(current, 100, now)).toEqual([UNIVERSE[4].ticker]);
   });
 
   it("reads again what nobody has read in three days", () => {

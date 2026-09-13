@@ -28,6 +28,28 @@ const VERIFIED_TYPES_BY_CIK: Readonly<Record<string, BusinessType>> = {
  * Berkshire carries an insurance SIC but is analysed as a holding company, and
  * CME/Cboe share a broad code that covers both brokers and exchanges.
  */
+/**
+ * Which reading of the industry codes a stored company was built under.
+ *
+ * A dataset carries the classification it was normalized with, and a change
+ * here does not reach one already in the store: Aon would have gone on being
+ * read as a bank until its copy expired a week later. Anything built under an
+ * older reading is rebuilt by the index rotation rather than waited out.
+ *
+ * c2: the sixties are no longer financial by default — asset managers,
+ *     insurance brokers, property companies, real-estate agencies and royalty
+ *     trusts are read as the operating businesses they are.
+ */
+export const CLASSIFICATION_VERSION = "c2";
+
+/**
+ * What a filer is, from the industry code it files under.
+ *
+ * Only the codes where the answer is definite. A code this does not name is
+ * not "financial by default" — it is a company this function has nothing to
+ * say about, which leaves it read as the operating business it almost always
+ * is.
+ */
 export function businessTypeFromSic(sic: number | string | null | undefined): BusinessType | undefined {
   const code = typeof sic === "string" ? Number.parseInt(sic, 10) : sic;
   if (code == null || !Number.isInteger(code)) return undefined;
@@ -35,7 +57,33 @@ export function businessTypeFromSic(sic: number | string | null | undefined): Bu
   if (code === 6211 || code === 6221) return "broker";
   if (code >= 6300 && code <= 6399) return "insurer";
   if (code === 6719) return "holding";
-  if (code >= 6000 && code <= 6799) return "financial";
+  if (code === 6200) return "exchange";
+  /*
+   * Lenders and funds, where the balance sheet really is the business.
+   *
+   * Credit agencies (6111-6199) lend their own money; investment offices and
+   * closed-end funds (6726) hold securities as their inventory. Both belong
+   * with the banks.
+   */
+  if (code >= 6100 && code <= 6199) return "financial";
+  if (code === 6726) return "financial";
+  /*
+   * And everything else in the sixties is an operating business, whatever the
+   * range suggests.
+   *
+   * This used to end with "6000 to 6799 is financial", which is a range, not a
+   * judgement — and it quietly withheld every measure from forty-six companies
+   * in the index. An asset manager charges a fee on other people's money: it
+   * has revenue, an operating margin and free cash flow, and its own balance
+   * sheet is small. An insurance broker sells policies it does not underwrite.
+   * A property company owns buildings. A real-estate agency collects
+   * commissions. Texas Pacific Land collects royalties on oil.
+   *
+   * None of them is a bank, and calling them one cost Aon, American Tower,
+   * Franklin Resources and CBRE their grade entirely — measured, before and
+   * after: seventeen of the forty-six became scoreable on figures that had
+   * been in their filings the whole time.
+   */
   return undefined;
 }
 

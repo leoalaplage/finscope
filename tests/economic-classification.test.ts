@@ -34,8 +34,28 @@ describe("verified economic classification", () => {
     expect(businessTypeFromSic("6211")).toBe("broker");
     expect(businessTypeFromSic(6331)).toBe("insurer");
     expect(businessTypeFromSic(6719)).toBe("holding");
-    expect(businessTypeFromSic(6798)).toBe("financial");
+    expect(businessTypeFromSic(6141)).toBe("financial");
+    expect(businessTypeFromSic(6726)).toBe("financial");
+    expect(businessTypeFromSic(6200)).toBe("exchange");
     expect(businessTypeFromSic(7372)).toBeUndefined();
+
+    /*
+     * And the codes in the sixties that are not financial businesses at all.
+     *
+     * This used to end with "6000 to 6799 is financial", which is a range
+     * rather than a judgement, and it withheld every measure from forty-six
+     * companies in the index: property companies, asset managers, insurance
+     * brokers, a real-estate agency and an oil-royalty trust. An asset manager
+     * charges a fee on other people's money and has an operating margin and
+     * free cash flow of its own; a REIT owns buildings. Seventeen of the
+     * forty-six became scoreable on figures that had been in their filings all
+     * along.
+     */
+    expect(businessTypeFromSic(6798), "REIT").toBeUndefined();
+    expect(businessTypeFromSic(6282), "asset manager").toBeUndefined();
+    expect(businessTypeFromSic(6411), "insurance broker").toBeUndefined();
+    expect(businessTypeFromSic(6531), "real-estate agency").toBeUndefined();
+    expect(businessTypeFromSic(6792), "oil royalties").toBeUndefined();
 
     expect(classifyBusiness({ ...profile("BAC", "0000070858"), sic: 6021 }).businessType).toBe("bank");
     // The verified CIK remains more precise than a broad industry code.

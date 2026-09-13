@@ -41,7 +41,7 @@ import { datasetCache } from "./runtime-env";
  * both spelled out of `VIEW_SHAPE` and `KEY_VERSION` is what makes a bump to
  * either carry to both.
  */
-const viewKey = (ticker: string) => `view:${VIEW_SHAPE}.${KEY_VERSION}:${ticker.toUpperCase()}`;
+export const viewKey = (ticker: string) => `view:${VIEW_SHAPE}.${KEY_VERSION}:${ticker.toUpperCase()}`;
 
 /** The forms that carry statements. An 8-K is news; the figures come later. */
 const WATCHED_FORMS = new Set(["10-K", "10-Q", "10-K/A", "10-Q/A", "20-F", "40-F"]);

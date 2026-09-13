@@ -1,4 +1,6 @@
 import { fetchQuotes } from "./adapters/spark";
+import { CLASSIFICATION_VERSION } from "./business-type";
+import { viewKey } from "./filing-watch";
 import { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
 import { requestCompany, summaryKey } from "./dataset-cache";
 import { datasetCache } from "./runtime-env";
@@ -59,6 +61,15 @@ export interface UniverseRow {
   qsPrice: WatchlistSummary["qsPrice"];
   /** When the filings behind this row were read. */
   retrievedAt: string;
+  /**
+   * Which reading of the industry codes it was built under.
+   *
+   * Carried so that correcting what a filer *is* reaches the companies already
+   * in the table. Forty-six of them were read as banks and had every measure
+   * withheld; without this they would have kept their blank grades until their
+   * stored copies expired a week later.
+   */
+  read: string;
 }
 
 export interface UniverseTable {
@@ -81,6 +92,7 @@ const row = (member: UniverseMember, digest: WatchlistSummary): UniverseRow => (
   qs: digest.qs,
   qsPrice: digest.qsPrice,
   retrievedAt: digest.retrievedAt,
+  read: CLASSIFICATION_VERSION,
 });
 
 export async function readUniverse(): Promise<UniverseTable | null> {
@@ -117,14 +129,15 @@ export const STALE_AFTER_HOURS = 72;
  * nothing, which is the state it should spend most of its life in.
  */
 export function nextToBuild(table: UniverseTable | null, limit = BUILD_PER_RUN, now = new Date()): string[] {
-  const held = new Map((table?.rows ?? []).map((each) => [each.ticker, each.retrievedAt]));
+  const held = new Map((table?.rows ?? []).map((each) => [each.ticker, each]));
   const missing = UNIVERSE.filter((member) => !held.has(member.ticker)).map((member) => member.ticker);
   if (missing.length >= limit) return missing.slice(0, limit);
   const cutoff = new Date(now.getTime() - STALE_AFTER_HOURS * 3_600_000).toISOString();
-  const stale = [...held.entries()]
-    .filter(([, retrievedAt]) => retrievedAt < cutoff)
-    .sort((left, right) => left[1].localeCompare(right[1]))
-    .map(([ticker]) => ticker);
+  const stale = [...held.values()]
+    // Old by the clock, or read under a classification since corrected.
+    .filter((row) => row.retrievedAt < cutoff || row.read !== CLASSIFICATION_VERSION)
+    .sort((left, right) => left.retrievedAt.localeCompare(right.retrievedAt))
+    .map((row) => row.ticker);
   return [...missing, ...stale].slice(0, limit);
 }
 
@@ -159,10 +172,19 @@ export async function buildUniverseSlice(origin: string, limit = BUILD_PER_RUN):
        * already judged old reach the second form, so the expensive path runs
        * on the few and never on the five hundred.
        */
-      const response = await requestCompany(origin, ticker, rows.has(ticker));
+      const rebuild = rows.has(ticker);
+      const response = await requestCompany(origin, ticker, rebuild);
       await response.body?.cancel();
       const digest = (await cache.get(summaryKey(ticker), "json")) as WatchlistSummary | null;
       if (digest?.qs) rows.set(ticker, row(member, digest));
+      /*
+       * A rebuilt dataset is not a rebuilt page. The company view is derived
+       * once and kept for a day under its own key, so a company whose figures
+       * were just corrected would go on showing the withheld ones to anyone
+       * opening its page. Dropping the view costs the next reader one
+       * derivation.
+       */
+      if (rebuild) { try { await cache.delete(viewKey(ticker)); } catch { /* Expires on its own within a day. */ } }
     } catch {
       // Left where it was: an unbuilt company stays pending, and a built one
       // keeps the row it had rather than being dropped for one bad minute.
