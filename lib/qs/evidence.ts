@@ -2,10 +2,14 @@
  * What the score has been shown to be worth, in one place.
  *
  * The site has always asserted that a quality grade means something. This is
- * the measurement behind the claim, and it lives here rather than in the
- * sentence that states it so that the sentence cannot drift from the figures:
- * `tests/qs-backtest.test.ts` recomputes all of this from filings and prices
- * and fails if what is published no longer matches what was measured.
+ * the measurement behind the claim, kept in the repository and checked:
+ * `tests/qs-backtest.test.ts` recomputes all of it from filings and prices
+ * over the same index and fails if these figures no longer match what it
+ * measures.
+ *
+ * It was shown on the company page for a day, under the grade, and taken back
+ * off. Nothing reads it on screen now — it is the record of what was measured,
+ * not a claim being made to a reader.
  *
  * How it was measured, in one paragraph. Every company in the index was scored
  * on the last business day of each year from 2016 to 2022, using only periods
