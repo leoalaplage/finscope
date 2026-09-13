@@ -480,7 +480,16 @@ export function MarketPage({ watchlist = [], indicesOnly = false }: { watchlist?
       <div>
         <h1>Market</h1>
         <p>
-          The three US indices, measured from {BASELINE_NOTE[range]} — the dashed line.
+          {/*
+            * What this page is, which stopped being true when it grew.
+            *
+            * It said "the three US indices" while the rows below it priced the
+            * world's other exchanges, six currencies, six commodities and
+            * twelve government yields. A heading that describes a page the
+            * reader is no longer looking at is worse than no heading.
+            */}
+          The three US indices, measured from {BASELINE_NOTE[range]} — the dashed line. World markets, currencies,
+          commodities and government yields follow.
           {dated && range === "1D" && ` Session of ${sessionLabel(dated.sessionDate)}.`}
         </p>
       </div>
