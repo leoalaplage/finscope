@@ -1,6 +1,6 @@
 import { fetchQuotes } from "./adapters/spark";
 import { CLASSIFICATION_VERSION } from "./business-type";
-import { viewKey } from "./filing-watch";
+import { ioViewKey } from "./io/view-version";
 import { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
 import { requestCompany, summaryKey } from "./dataset-cache";
 import { datasetCache } from "./runtime-env";
@@ -184,7 +184,7 @@ export async function buildUniverseSlice(origin: string, limit = BUILD_PER_RUN):
        * opening its page. Dropping the view costs the next reader one
        * derivation.
        */
-      if (rebuild) { try { await cache.delete(viewKey(ticker)); } catch { /* Expires on its own within a day. */ } }
+      if (rebuild) { try { await cache.delete(ioViewKey(ticker)); } catch { /* Expires on its own within a day. */ } }
     } catch {
       // Left where it was: an unbuilt company stays pending, and a built one
       // keeps the row it had rather than being dropped for one bad minute.

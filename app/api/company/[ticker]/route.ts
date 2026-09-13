@@ -3,6 +3,7 @@ import { fetchSecCompany } from "@/lib/adapters/sec";
 import { CACHE_SECONDS, claimKey, datasetKey, digestIsCurrent, fallbackDatasetKeys, readWithin, requestCompany, summaryKey } from "@/lib/dataset-cache";
 import { summariseDataset } from "@/lib/watchlist-summary";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
+import { ioViewKey } from "@/lib/io/view-version";
 
 
 /**
@@ -142,6 +143,9 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       await Promise.all([
         cache?.put(key, body, { expirationTtl: CACHE_SECONDS }),
         summary ? cache?.put(summaryKey(symbol), JSON.stringify(summary), { expirationTtl: CACHE_SECONDS }) : undefined,
+        // A view is derived from this dataset. Retaining it after replacing
+        // the source would keep yesterday's figures visible for another day.
+        cache?.delete(ioViewKey(symbol)),
       ]);
     } catch {
       // Storing is best-effort; the reader still gets their answer.

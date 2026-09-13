@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { coveredFilings, givenUp, parseCurrentFilings, withNewFilings, type Watches } from "../lib/filing-watch";
 import { DEFAULT_WATCHLIST } from "../lib/company-registry";
+import { ioViewKey, VIEW_SHAPE } from "../lib/io/view-version";
+import { KEY_VERSION } from "../lib/data-version";
 
 /**
  * Putting a filing on screen in half an hour rather than in a day.
@@ -112,12 +114,20 @@ describe("the outstanding list", () => {
  */
 describe("the page's own copy", () => {
   it("is dropped by the same key the endpoint writes it under", () => {
+    /*
+     * One definition, in `lib/io/view-version.ts`, used by everything that
+     * writes or drops this key. It was written out twice while two pieces of
+     * work were in flight, and a key spelled twice is a key that will one day
+     * be spelled differently.
+     */
+    expect(ioViewKey("orcl")).toBe(`view:${VIEW_SHAPE}.${KEY_VERSION}:ORCL`);
     const watcher = readFileSync("lib/filing-watch.ts", "utf8");
-    const route = readFileSync("app/api/io/[ticker]/route.ts", "utf8");
-    const key = /`view:\$\{VIEW_SHAPE\}\.\$\{KEY_VERSION\}:\$\{ticker\.toUpperCase\(\)\}`/;
-    expect(watcher).toMatch(key);
-    // The endpoint writes it, here or through a helper spelled the same way.
-    expect(route.includes("view:${VIEW_SHAPE}.${KEY_VERSION}") || /ioViewKey/.test(route)).toBe(true);
-    expect(watcher).toMatch(/cache\?\.delete\(viewKey\(ticker\)\)/);
+    const route = readFileSync("app/api/company/[ticker]/route.ts", "utf8");
+    const view = readFileSync("app/api/io/[ticker]/route.ts", "utf8");
+    for (const [name, source] of [["the watcher", watcher], ["the company route", route], ["the view route", view]] as const) {
+      expect(source, `${name} uses the shared key`).toMatch(/ioViewKey|view:\$\{VIEW_SHAPE\}\.\$\{KEY_VERSION\}/);
+    }
+    // And the company route drops it whenever it replaces the dataset beneath.
+    expect(route).toMatch(/delete\(ioViewKey\(symbol\)\)/);
   });
 });

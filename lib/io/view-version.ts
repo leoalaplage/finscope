@@ -31,3 +31,6 @@ export const VIEW_SHAPE = "iov9";
 
 /** The token a reader's request carries: the shape, then the figures. */
 export const IO_VIEW = `${VIEW_SHAPE}.${KEY_VERSION}`;
+
+/** The KV object derived from one normalized dataset. */
+export const ioViewKey = (ticker: string) => `view:${VIEW_SHAPE}.${KEY_VERSION}:${ticker.toUpperCase()}`;
