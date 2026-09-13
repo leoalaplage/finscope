@@ -605,6 +605,42 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  */
 .filings-note { margin: calc(var(--u) * -2) 0 calc(var(--u) * 4); color: var(--ink-3); font: var(--fs-xs)/1.5 var(--mono); }
 
+/* The line above either wire: what it is and what day it covers. */
+.wire-caption { margin-bottom: calc(var(--u) * 3); }
+
+/*
+ * Every market as one table, which is what every terminal converged on.
+ *
+ * Four grids of six cells said nothing about which mattered and put the oil
+ * price six hundred pixels from the dollar it is quoted in. A row an
+ * instrument, columns aligned so the eye reads down one kind of number, the
+ * colour confined to the day, and a month of closes as a line at the end.
+ */
+.markets-sheet table { table-layout: auto; }
+.markets-sheet th.key { text-align: left; }
+.markets-sheet .key-open { color: var(--ink); font: inherit; }
+.markets-sheet .key-open:hover { color: var(--ink-2); }
+/* The group is a row of the table, not a heading above it. */
+.markets-group th {
+  padding-top: 14px; color: var(--ink-3); font-weight: 500;
+  text-transform: uppercase; letter-spacing: var(--track-label); font-size: var(--fs-micro);
+  border-bottom: 1px solid var(--line);
+}
+.markets-sheet tbody:first-of-type .markets-group th { padding-top: 6px; }
+.markets-sheet .day-mark[data-dir] {
+  display: inline-block; padding: 2px 5px; margin: -2px -5px;
+  border-radius: var(--radius); color: var(--ink); font-weight: 550;
+}
+.markets-sheet .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }
+.markets-sheet .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
+.markets-spark-cell { width: 90px; padding-block: 2px; }
+.market-spark { display: block; margin-left: auto; }
+.market-spark path { fill: none; stroke-width: 1.25; stroke-linejoin: round; stroke-linecap: round; }
+.market-spark.up path { stroke: var(--gain); }
+.market-spark.down path { stroke: var(--loss); }
+.markets-note { color: var(--ink-3); font-size: var(--fs-micro); letter-spacing: var(--track-label); }
+@media (max-width: 720px) { .markets-spark-cell, .markets-note { display: none; } }
+
 /*
  * What the market did: a table of industries beside the two extremes.
  *

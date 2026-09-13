@@ -2,11 +2,9 @@ import type { Metadata } from "next";
 import "@/app/io.css";
 import { MarketPage } from "@/components/MarketPage";
 import { MacroSnapshot } from "@/components/io/MacroSnapshot";
-import { Bonds } from "@/components/io/Bonds";
-import { Commodities } from "@/components/io/Commodities";
 import { Internals } from "@/components/io/Internals";
-import { Strip } from "@/components/io/Strip";
-import { Filings } from "@/components/io/Filings";
+import { Markets } from "@/components/io/Markets";
+import { Wire } from "@/components/io/Wire";
 import { MarketPerformance } from "@/components/io/MarketPerformance";
 import { Shell } from "@/components/io/Shell";
 
@@ -41,35 +39,14 @@ export default function MarketRoute() {
           */}
         <Internals />
         {/*
-          * The rest of the world's equities, under America's.
+          * Every other market, as one table rather than four grids.
           *
-          * A page called "Market" showing three US indices is a page about one
-          * country, and the government bonds two rows below already price
-          * Tokyo and London.
+          * The grids were identical in shape and said nothing about which
+          * mattered; a row an instrument, with the columns aligned, is what a
+          * reader can actually compare down. Clicking one still opens the
+          * panel the indices are drawn in.
           */}
-        <Strip set="world" title="World indices" aside="Local currency" label="index"/>
-        <Commodities />
-        {/*
-          * And the rate both of the rows above are discounted by.
-          *
-          * Every valuation on this site starts from what a government pays to
-          * borrow; this is where that number comes from. The four US tenors are
-          * quoted like any instrument; every other yield is struck once a
-          * business day by the central bank or ministry that publishes it, and
-          * an arrow turns from the US and euro curves to the other large
-          * markets. France and Italy are absent because their daily figures are
-          * Euronext's to license — which `lib/bonds.ts` says in full rather than
-          * filling the gap with a monthly average a month behind.
-          */}
-        <Bonds />
-        {/*
-          * And what the currencies those are quoted in are worth.
-          *
-          * Oil in dollars, a gilt in sterling, a Bund in euros — the page
-          * priced all three and said nothing about what they are worth
-          * against each other.
-          */}
-        <Strip set="currencies" title="Currencies" aside="Spot rates" label="currency"/>
+        <Markets />
         {/*
           * The reader's own list, directly under the indices.
           *
@@ -86,9 +63,10 @@ export default function MarketRoute() {
           * political, six were about wars, one was a Formula One result and
           * one was about a company. This is the same material every figure on
           * this site comes from — EDGAR's index of what was accepted today,
-          * filtered to the forms that say something about a business.
+          * filtered to the forms that say something about a business. The wire
+          * is still there, behind the second tab, for a reader who wants it.
           */}
-        <Filings />
+        <Wire />
         <MacroSnapshot />
       </main>
     </Shell>

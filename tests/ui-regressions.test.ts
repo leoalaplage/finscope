@@ -612,7 +612,15 @@ describe("the redesign", () => {
      * the material every other figure on this site comes from.
      */
     expect(page).not.toContain("<MarketNews />");
-    expect(page.indexOf("<Filings />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
+    expect(page.indexOf("<Wire />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
+    /*
+     * The wire is a tab and not a section: it is somebody else's newsroom and
+     * it is general, so it is available to a reader who asks for it and not
+     * put in front of one who does not. The filings are the default.
+     */
+    const wire = readFileSync(new URL("../components/io/Wire.tsx", import.meta.url), "utf8");
+    expect(wire).toContain('useState<Tab>("filings")');
+    expect(wire.indexOf("Filed today")).toBeLessThan(wire.indexOf(">News<"));
     // The form name is the news: nothing is summarised, and nothing is ranked
     // by importance — importance is a judgement, a form is a fact.
     expect(filings).not.toContain("dangerouslySetInnerHTML");
@@ -777,8 +785,8 @@ describe("the redesign", () => {
      * personal thing on the page — keeps its place at the foot.
      */
     expect(page.indexOf("<MarketPerformance />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
-    expect(page.indexOf("<Filings />")).toBeGreaterThan(page.indexOf("<MarketPerformance />"));
-    expect(page.indexOf("<MacroSnapshot />")).toBeGreaterThan(page.indexOf("<Filings />"));
+    expect(page.indexOf("<Wire />")).toBeGreaterThan(page.indexOf("<MarketPerformance />"));
+    expect(page.indexOf("<MacroSnapshot />")).toBeGreaterThan(page.indexOf("<Wire />"));
     expect(macro).toContain('aria-label="Select a macro geography"');
     expect(macro).toContain("latest available data");
     expect(macro).toContain("Published observations only");

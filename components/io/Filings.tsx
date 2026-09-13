@@ -62,7 +62,7 @@ function dayLabel(iso: string) {
     : parsed.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 }
 
-export function Filings() {
+export function FilingsList() {
   const [state, setState] = useState<State>({ kind: "loading" });
 
   useEffect(() => {
@@ -80,17 +80,15 @@ export function Filings() {
     return () => controller.abort();
   }, []);
 
-  if (state.kind === "absent") return null;
+  if (state.kind === "absent") return <p className="stat-note wire-caption">EDGAR could not be read just now.</p>;
 
   return (
-    <section className="section filings" aria-labelledby="filings-title">
-      <div className="section-head">
-        <h2 className="label" id="filings-title">Filed today</h2>
-        <span className="label">
-          {state.kind === "ready" ? `${state.answer.items.length} from the index · ${dayLabel(state.answer.date)}` : "Reading EDGAR"}
-        </span>
-      </div>
-
+    <>
+      <p className="stat-note wire-caption">
+        {state.kind === "ready"
+          ? `${state.answer.items.length} filings from the index · ${dayLabel(state.answer.date)}`
+          : "Reading EDGAR"}
+      </p>
       {state.kind === "loading" ? (
         <div className="filings-list">
           {[0, 1, 2, 3].map((row) => <div className="news-item skeleton" key={row} style={{ height: 34 }}/>)}
@@ -100,7 +98,7 @@ export function Filings() {
           {state.answer.items.map((item) => <Row key={`${item.accession}${item.form}`} item={item}/>)}
         </div>
       )}
-    </section>
+    </>
   );
 }
 
