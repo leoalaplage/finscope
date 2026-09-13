@@ -676,7 +676,9 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  */
 .markets-note {
   max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  color: var(--ink-3); font-size: var(--fs-micro); letter-spacing: var(--track-label);
+  /* Not the label face: capitals and letter-spacing turn "Sep 11" into
+     "SEP …" in sixty-four pixels, which is the column saying nothing twice. */
+  color: var(--ink-3); font-size: var(--fs-micro);
 }
 @media (max-width: 720px) { .markets-spark-cell, .markets-note { display: none; } }
 

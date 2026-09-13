@@ -181,7 +181,7 @@ function Row({ row, open, onOpen }: { row: MarketRow; open: boolean; onOpen: () 
         <Spark points={row.spark} rising={first != null && last != null ? last >= first : true}/>
       </td>
       {/* Said once, in the quietest ink: what the figure is of. */}
-      <td className="markets-note label">{shortDate(row.note)}</td>
+      <td className="markets-note">{shortDate(row.note)}</td>
     </tr>
   );
 }
