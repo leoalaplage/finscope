@@ -665,22 +665,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .market-spark path { fill: none; stroke-width: 1.25; stroke-linejoin: round; stroke-linecap: round; }
 .market-spark.up path { stroke: var(--gain); }
 .market-spark.down path { stroke: var(--loss); }
-/*
- * What the figure is of, in the width that is left over.
- *
- * Two tables side by side leave about seven hundred pixels each, and "united
- * kingdom" against a six-figure index level pushed the table wider than its
- * frame — so the sheet scrolled sideways and the column was cut mid-word. It
- * is the least important thing in the row: it gets the remainder, it truncates,
- * and the whole of it is on the row's own title.
- */
-.markets-note {
-  max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  /* Not the label face: capitals and letter-spacing turn "Sep 11" into
-     "SEP …" in sixty-four pixels, which is the column saying nothing twice. */
-  color: var(--ink-3); font-size: var(--fs-micro);
-}
-@media (max-width: 720px) { .markets-spark-cell, .markets-note { display: none; } }
+@media (max-width: 720px) { .markets-spark-cell { display: none; } }
 
 /*
  * What the market did: a table of industries beside the two extremes.

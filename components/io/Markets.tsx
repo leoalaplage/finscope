@@ -43,14 +43,6 @@ function figure(row: MarketRow): string {
   return row.last.toLocaleString("en-US", { minimumFractionDigits: row.places, maximumFractionDigits: row.places });
 }
 
-/** A published curve's date, in the width a column has: "Sep 11". */
-function shortDate(note: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(note)) return note;
-  const parsed = new Date(`${note}T12:00:00Z`);
-  return Number.isNaN(parsed.getTime()) ? note
-    : parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-}
-
 /** The day: per cent for anything priced, basis points for a yield. */
 function move(row: MarketRow): { text: string; direction: string | undefined } {
   const value = row.measure === "yield" ? row.changeBasisPoints : row.changePercent;
@@ -139,7 +131,6 @@ export function Markets() {
                     <th scope="col">Last</th>
                     <th scope="col">Day</th>
                     <th scope="col">Month</th>
-                    <th scope="col">&nbsp;</th>
                   </tr>
                 </thead>
                 {half.map((group) => {
@@ -150,7 +141,7 @@ export function Markets() {
                       {/* The group is a row of the table, not a heading above
                           it: that is what keeps one set of columns. */}
                       <tr className="markets-group">
-                        <th className="key" scope="rowgroup" colSpan={5}>{group.label}</th>
+                        <th className="key" scope="rowgroup" colSpan={4}>{group.label}</th>
                       </tr>
                       {rows.map((row) => <Row key={row.id} row={row} open={open.includes(row.id)} onOpen={() => setOpen((current) => toggleOpen(current, row.id))}/>)}
                     </tbody>
@@ -170,6 +161,11 @@ export function Markets() {
 function Row({ row, open, onOpen }: { row: MarketRow; open: boolean; onOpen: () => void }) {
   const day = move(row);
   const first = row.spark[0], last = row.spark.at(-1);
+  /*
+   * What the figure is of — an ounce against a pound, the morning a published
+   * curve was struck — stays on the row's title. As a column it was four
+   * abbreviations repeating what the name already said, truncated.
+   */
   return (
     <tr data-selected={open} title={row.note ? `${row.label} — ${row.note}` : row.label}>
       <th className="key" scope="row">
@@ -180,8 +176,6 @@ function Row({ row, open, onOpen }: { row: MarketRow; open: boolean; onOpen: () 
       <td className="markets-spark-cell">
         <Spark points={row.spark} rising={first != null && last != null ? last >= first : true}/>
       </td>
-      {/* Said once, in the quietest ink: what the figure is of. */}
-      <td className="markets-note">{shortDate(row.note)}</td>
     </tr>
   );
 }
