@@ -617,12 +617,20 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  * colour confined to the day, and a month of closes as a line at the end.
  */
 .markets-sheet table { table-layout: auto; }
+/*
+ * Tighter than the statement tables, because this one is read by scanning.
+ *
+ * Thirty instruments at the sheet's ordinary spacing ran to twelve hundred
+ * pixels — taller than the four grids it replaced, which is a strange way to
+ * win an argument about density. A monitor's row is the height of its text.
+ */
+.markets-sheet th, .markets-sheet td { padding-block: 3px; }
 .markets-sheet th.key { text-align: left; }
 .markets-sheet .key-open { color: var(--ink); font: inherit; }
 .markets-sheet .key-open:hover { color: var(--ink-2); }
 /* The group is a row of the table, not a heading above it. */
 .markets-group th {
-  padding-top: 14px; color: var(--ink-3); font-weight: 500;
+  padding-top: 11px; color: var(--ink-3); font-weight: 500;
   text-transform: uppercase; letter-spacing: var(--track-label); font-size: var(--fs-micro);
   border-bottom: 1px solid var(--line);
 }
@@ -633,8 +641,9 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 }
 .markets-sheet .day-mark[data-dir="up"] { background: color-mix(in srgb, var(--gain) 30%, transparent); }
 .markets-sheet .day-mark[data-dir="down"] { background: color-mix(in srgb, var(--loss) 30%, transparent); }
-.markets-spark-cell { width: 90px; padding-block: 2px; }
+.markets-spark-cell { width: 90px; padding-block: 1px; }
 .market-spark { display: block; margin-left: auto; }
+.markets-sheet .market-spark { height: 16px; }
 .market-spark path { fill: none; stroke-width: 1.25; stroke-linejoin: round; stroke-linecap: round; }
 .market-spark.up path { stroke: var(--gain); }
 .market-spark.down path { stroke: var(--loss); }

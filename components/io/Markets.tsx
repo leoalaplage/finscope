@@ -71,7 +71,7 @@ function Spark({ points, rising }: { points: number[]; rising: boolean }) {
   }, [points]);
   if (!path) return <span className="market-spark"/>;
   return (
-    <svg className={rising ? "market-spark up" : "market-spark down"} width="78" height="20" viewBox="0 0 78 20" role="img" aria-hidden="true">
+    <svg className={rising ? "market-spark up" : "market-spark down"} width="78" height="16" viewBox="0 0 78 20" preserveAspectRatio="none" role="img" aria-hidden="true">
       <path d={`M${path}`}/>
     </svg>
   );
