@@ -88,6 +88,16 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
    * real estate "and real estate joint ventures" are an insurer's portfolio
    * rather than its plant, and reading them as capital expenditure would
    * subtract an investment from operating cash flow.
+   *
+   * Nor can a missing year be rebuilt from the quarterlies, which looks
+   * obvious and is not. CMS reports capital expenditure in every 10-Q and in
+   * no 10-K, so the figures are there — as year-to-date cumulatives that stop
+   * at nine months, because the fourth quarter appears only in the annual
+   * report, which is the filing that does not tag it. Checked across all
+   * forty-nine companies in the index with no annual figure: not one fiscal
+   * year is reconstructible, and the same holds for the interest expense Apple
+   * stopped tagging and the operating income a REIT never tags. Where a
+   * concept is missing from the year it is missing from the quarters too.
    */
   capitalExpenditures: { namespace: "us-gaap", tags: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForProceedsFromProductiveAssets", "PaymentsForSoftware", "PaymentsToAcquireOtherPropertyPlantAndEquipment", "PaymentsForCapitalImprovements", "PaymentsToDevelopRealEstateAssets", "PaymentsToAcquireRealEstate", "PaymentsToAcquireOilAndGasProperty", "PaymentsToAcquireMachineryAndEquipment"], unit: "currency" },
   acquisitions: { namespace: "us-gaap", tags: ["PaymentsToAcquireBusinessesNetOfCashAcquired", "PaymentsToAcquireBusinessesGross"], unit: "currency" },
