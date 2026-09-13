@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { datasetAsOf, hasHistoryOn, publishedOn } from "../lib/qs/as-of";
 import { qsRow, qsTable } from "../lib/qs-export";
 import { screen, type ScoredCompany } from "../lib/qs/screener";
+import { evidenceFor, QS_EVIDENCE } from "../lib/qs/evidence";
 import type { CompanyDataset } from "../lib/types";
 
 /**
@@ -274,6 +275,8 @@ describe.skipIf(!available)("the quality score against the years after it", () =
 
     expect(observations.length, "scored companies with a forward return").toBeGreaterThan(20);
 
+    /** Kept so the published claim can be checked against what was just measured. */
+    const measurements: Array<{ years: number; rho: number | null; spreads: number[] }> = [];
     const lines: string[] = [];
     lines.push(`${companies} companies, ${cohorts.length} cohorts, ${observations.length} scored observations`);
     lines.push(scoredPerCohort.map((each) => `${each.cohort.slice(0, 4)}: ${each.scored}`).join("  "));
@@ -324,9 +327,36 @@ describe.skipIf(!available)("the quality score against the years after it", () =
       for (const row of perCohort) {
         lines.push(`  ${row.cohort}  n=${String(row.n).padStart(2)}  rho=${row.rho == null ? "—" : row.rho.toFixed(2).padStart(5)}  top quartile − bottom quartile: ${pct(row.spread)}`);
       }
+      measurements.push({ years, rho: overall, spreads: perCohort.map((row) => row.spread ?? 0) });
     }
     // The point of the exercise: the numbers, printed, whatever they say.
     console.log(`\n${lines.join("\n")}\n`);
+
+    /*
+     * And the published claim, checked against them.
+     *
+     * A company page now tells the reader what this grade has been shown to be
+     * worth. That sentence reads its figures from `lib/qs/evidence.ts`, and
+     * this is what stops the two drifting apart: rerun the measurement over the
+     * same index and the published numbers have to still be the measured ones,
+     * or the run fails and says which.
+     *
+     * Only when the fixtures are the index the claim was measured on. A run
+     * over thirty-five companies is a different measurement, and it should
+     * print its answer rather than fail against a claim it is not testing.
+     */
+    if (companies >= QS_EVIDENCE.companies - 10) {
+      for (const measured of measurements) {
+        const published = evidenceFor(measured.years);
+        expect(published, `${measured.years}-year evidence is published`).not.toBeNull();
+        if (!published) continue;
+        expect(published.rho, `${measured.years}-year rank correlation`).toBeCloseTo(measured.rho ?? 0, 2);
+        expect(published.spreads.length, `${measured.years}-year cohorts`).toBe(measured.spreads.length);
+        measured.spreads.forEach((spread, index) => {
+          expect(published.spreads[index], `${measured.years}-year cohort ${index + 1} spread`).toBeCloseTo(spread, 3);
+        });
+      }
+    }
     /*
      * Ten minutes, because the measurement this exists for takes forty seconds
      * over five hundred companies — two gigabytes of filings parsed, seven

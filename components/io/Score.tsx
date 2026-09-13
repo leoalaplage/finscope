@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { SUMMARY_SHAPE } from "@/lib/data-version";
 import { QS_MODEL_VERSION } from "@/lib/qs/insight";
 import { QS_COVERAGE_FLOOR } from "@/lib/qs/screener";
+import { averageSpread, evidenceFor, QS_EVIDENCE } from "@/lib/qs/evidence";
 import { ABSENT, percent } from "./format";
 
 /**
@@ -110,6 +111,41 @@ export function useCompanyScore(ticker: string): ScoreState {
   return state.ticker === ticker ? state : { kind: "loading", ticker };
 }
 
+/**
+ * What this grade has been shown to be worth, under the grade itself.
+ *
+ * The site has asserted since the first version that a quality score means
+ * something, and never showed that it does. It now has: the score struck on
+ * past filings alone, against the total return of the years that followed,
+ * over the whole index. The result is small, it fails in some years, and it
+ * belongs on screen precisely because of that — a page that shows a grade and
+ * hides what the grade is worth is asking to be taken on faith.
+ *
+ * Every figure comes from `lib/qs/evidence.ts`, which the backtest recomputes
+ * and checks, so this sentence cannot drift away from the measurement it
+ * reports.
+ */
+function Evidence() {
+  const five = evidenceFor(5);
+  const one = evidenceFor(1);
+  if (!five || !one) return null;
+  const held = one.spreads.filter((spread) => spread > 0).length;
+  const worst = Math.min(...one.spreads);
+  const runs = Math.max(1, Math.round(five.chance * 1_000));
+
+  return (
+    <p className="stat-note score-evidence">
+      <span className="label">Measured</span>{" "}
+      Across {QS_EVIDENCE.companies} companies scored on their filings alone at each year end since 2016, the top
+      quarter of this score beat the bottom quarter by {percent(averageSpread(five))} a year over the five years that
+      followed — in every one of those years, where shuffling the same companies did as well in {runs} run
+      {runs === 1 ? "" : "s"} in a thousand. Over a single year it held in {held} years of {one.spreads.length}; the
+      companies scored at the end of 2021 trailed by {percent(Math.abs(worst))} over the year after. A ranking, not a
+      promise.
+    </p>
+  );
+}
+
 export function Score({ ticker, state }: { ticker: string; state: ScoreState }) {
   const [open, setOpen] = useState(false);
 
@@ -168,6 +204,7 @@ export function Score({ ticker, state }: { ticker: string; state: ScoreState }) 
       {score.alerts.length ? (
         <p className="stat-note" style={{ marginTop: 6 }}><span className="label">Alerts</span> {score.alerts.join(" · ")}</p>
       ) : null}
+      <Evidence />
       {open ? <ScoreDetail ticker={ticker} score={score} /> : null}
     </section>
   );
