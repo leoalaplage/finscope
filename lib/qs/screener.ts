@@ -17,6 +17,7 @@
 import * as cfg from "./qs-config.js";
 import { chargerTableau } from "./qs-parse.js";
 import { analyser, trier, CRITERES_TRI, PILIERS } from "./qs-engine.js";
+import { growthYield } from "../io/growth-yield";
 
 export type PillarName = "Quality" | "Health" | "Growth" | "Value";
 
@@ -201,7 +202,18 @@ const LOCAL_CRITERIA: Record<string, Criterion> = {
    * pillar and the stars follow it.
    */
   etoiles: { valeur: (row) => row.piliers.Value, sens: -1 },
+  growthYield: { valeur: (row) => rowGrowthYield(row), sens: -1 },
 };
+
+/**
+ * The growth yield of a scored row, from the two columns the engine already
+ * holds — its free-cash-flow yield and five-year revenue-per-share growth, both
+ * in per cent — under the one definition the company page uses.
+ */
+export function rowGrowthYield(row: ScoredCompany): number | null {
+  const percent = (value: number | null | undefined) => (value == null ? null : value / 100);
+  return growthYield(percent(row.brut.FCFYield), percent(row.brut.RevPS5)).value;
+}
 
 const criterionFor = (key: string): Criterion | null =>
   LOCAL_CRITERIA[key] ?? ((CRITERES_TRI as Record<string, Criterion>)[key] ?? null);

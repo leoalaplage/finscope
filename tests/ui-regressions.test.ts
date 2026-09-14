@@ -773,7 +773,7 @@ describe("the redesign", () => {
       expect(at, tag).toBeGreaterThan(0);
       return folds.some(([start, end]) => at > start && at < end);
     };
-    for (const open of ["<PriceSection", "<Stats ", "<Score ", "<Health ", "<FcfShareGrowth ", "<Multiples ", "<Growth "]) {
+    for (const open of ["<PriceSection", "<Stats ", "<Score ", "<GrowthYield ", "<Health ", "<FcfShareGrowth ", "<Multiples ", "<Growth "]) {
       expect(folded(open), `${open} is open`).toBe(false);
     }
     for (const shut of ["<ValuationHistory ", "<Statements ", "<Insiders ", "<Holders ", "<CompanyNews "]) {

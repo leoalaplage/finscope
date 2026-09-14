@@ -5,7 +5,7 @@ import { QS_COLUMNS, qsTable, qsValuationColumns, type QsPriceInputs, type QsRow
 import {
   naturalDirection, QS_ALERT_PENALTY, QS_ALERT_RULES, QS_ANCHORS, QS_COVERAGE_FLOOR,
   QS_GRADE_BANDS, QS_METRIC_NAMES, QS_METRIC_NOTES, QS_METRICS, QS_PILLARS, QS_PRESETS,
-  QS_STAR_BANDS, QS_STARS, screen, sortRowsBy, valuationStars,
+  QS_STAR_BANDS, QS_STARS, rowGrowthYield, screen, sortRowsBy, valuationStars,
   type PillarName, type PresetName, type ScoredCompany, type SortDirection,
 } from "@/lib/qs/screener";
 import type { PricePoint } from "@/lib/types";
@@ -123,6 +123,18 @@ const COLUMNS: Column[] = [
     drawn: true,
   })),
   { sort: "etoiles", label: "Valuation", read: (row) => <Stars row={row} />, empty: (row) => row.piliers.Value == null, drawn: true },
+  /*
+   * FinScope's own reading of the price against the growth: the cash yield
+   * plus five years of revenue growth per share (lib/io/growth-yield.ts). Not
+   * part of the Quality Score and not shown over a pasted table, which is
+   * scored exactly as it was pasted.
+   */
+  {
+    sort: "growthYield",
+    label: "Growth yield",
+    read: (row) => { const value = rowGrowthYield(row); return value == null ? ABSENT : percent(value, 1); },
+    empty: (row) => rowGrowthYield(row) == null,
+  },
   { sort: "couverture", label: "Coverage", read: (row) => percent(row.couverture, 0), empty: () => false },
   { sort: "alertes", label: "Alerts", read: (row) => String(row.alertes), empty: (row) => row.alertes === 0 },
   { sort: "cap", label: "Market cap", read: (row) => (row.Cap == null ? ABSENT : money(row.Cap * 1e9, "USD")), empty: (row) => row.Cap == null },
@@ -595,6 +607,7 @@ function ScoreTable({
   onSort: (key: string) => void;
 }) {
   if (!rows.length) return <div className="state"><p>No company in this list could be scored.</p></div>;
+  const columns = feed.source === "pasted" ? COLUMNS.filter((column) => column.sort !== "growthYield") : COLUMNS;
 
   const header = (key: string, label: string, drawn?: boolean) => (
     <th
@@ -622,7 +635,7 @@ function ScoreTable({
                   <span className="sort-mark" aria-hidden="true">{sortKey === "ticker" ? (direction === "asc" ? "↑" : "↓") : ""}</span>
                 </button>
               </th>
-              {COLUMNS.map((column) => header(column.sort, column.label, column.drawn))}
+              {columns.map((column) => header(column.sort, column.label, column.drawn))}
             </tr>
           </thead>
           <tbody>
@@ -638,7 +651,7 @@ function ScoreTable({
                     <span className="screener-sector">{stated(row.Secteur)}</span>
                   </a>
                 </th>
-                {COLUMNS.map((column) => (
+                {columns.map((column) => (
                   <td key={column.sort} data-empty={column.empty(row)} data-drawn={column.drawn || undefined}>{column.read(row)}</td>
                 ))}
               </tr>

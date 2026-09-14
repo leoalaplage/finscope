@@ -10,6 +10,7 @@ import { Score, useCompanyScore } from "./Score";
 import { Health } from "./Health";
 import { Multiples } from "./Multiples";
 import { Fold } from "./Fold";
+import { GrowthYield } from "./GrowthYield";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
 import { toggleMetric } from "./selection";
 import { CompanyNews } from "./CompanyNews";
@@ -399,6 +400,7 @@ export function Company({ ticker }: { ticker: string }) {
       <Stats view={view} quote={quote} />
 
       <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} />
+      <GrowthYield view={view} quote={quote} />
       <Health view={view} />
       <FcfShareGrowth view={view} />
       {/*
