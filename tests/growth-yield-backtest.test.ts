@@ -65,6 +65,7 @@ const VARIANTS: Array<{ name: string; score: (x: Inputs) => number | null }> = [
   { name: "V5 V4, growth capped at 15%", score: (x) => plus(x.fcfYield, capped(blend(x.revenuePerShare5, x.revenuePerShare10), .15)) },
   { name: "V6 V4, growth capped at 20%", score: (x) => plus(x.fcfYield, capped(blend(x.revenuePerShare5, x.revenuePerShare10), .20)) },
   { name: "V7 V4, growth capped at 25%", score: (x) => plus(x.fcfYield, capped(blend(x.revenuePerShare5, x.revenuePerShare10), .25)) },
+  { name: "G  revenue/share 5Y·10Y alone", score: (x) => blend(x.revenuePerShare5, x.revenuePerShare10) },
   {
     name: "PEG-FCF (classic, inverted)",
     score: (x) => x.priceToFcf != null && x.priceToFcf > 0 && x.fcfPerShare5 != null && x.fcfPerShare5 > 0
@@ -172,6 +173,31 @@ describe.skipIf(!available)("a price against the growth behind it", () => {
         const own = measure(eligible, variant);
         const shared = measure(common, variant);
         lines.push(`  ${variant.name.padEnd(34)} ${String(own.n).padStart(5)} ${fmt(own.rho).padStart(6)} ${(own.p == null ? "—" : `${(own.p * 100).toFixed(1)}%`).padStart(9)} ${(own.spread == null ? "—" : `${(own.spread * 100).toFixed(1)}%`).padStart(11)} | ${fmt(shared.rho).padStart(10)} ${(shared.p == null ? "—" : `${(shared.p * 100).toFixed(1)}%`).padStart(6)}`);
+      }
+    }
+    // Year by year: a pooled correlation can be one good year carrying six flat ones.
+    const steady = VARIANTS.filter((variant) => /^(V0|V4|V7|G )/.test(variant.name));
+    for (const years of horizons) {
+      lines.push("");
+      lines.push(`${years}-year forward total return, cohort by cohort — rho / top−bottom quartile a year`);
+      lines.push(`  ${"cohort".padEnd(12)}${steady.map((variant) => variant.name.slice(0, 2).trim().padStart(18)).join("")}`);
+      for (const cohort of cohorts) {
+        const inCohort = rows.filter((row) => row.cohort === cohort && row.returns.has(years));
+        if (!inCohort.length) continue;
+        const cells = steady.map((variant) => {
+          const scored = inCohort.flatMap((row) => {
+            const score = variant.score(row.inputs);
+            return score == null ? [] : [{ score, ret: row.returns.get(years)! }];
+          });
+          if (scored.length < 12) return "—".padStart(18);
+          const rho = spearman(scored.map((each) => [each.score, each.ret] as [number, number]));
+          const ordered = [...scored].sort((a, b) => b.score - a.score);
+          const quarter = Math.floor(ordered.length / 4);
+          const mean = (group: typeof ordered) => group.reduce((sum, each) => sum + each.ret, 0) / group.length;
+          const spread = mean(ordered.slice(0, quarter)) - mean(ordered.slice(-quarter));
+          return `${(rho ?? 0).toFixed(2)} / ${(spread * 100).toFixed(1)}% (${scored.length})`.padStart(18);
+        });
+        lines.push(`  ${cohort.padEnd(12)}${cells.join("")}`);
       }
     }
     console.log(`\n${lines.join("\n")}\n`);
