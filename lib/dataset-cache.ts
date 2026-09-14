@@ -32,7 +32,15 @@ import { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
  * The cost is the familiar one: cards read
  * "Building financials…" until the warm-up has been round the watchlist.
  */
-const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [];
+const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [
+  // v32 mostly recovers TTM flow observations v31 left blank. It moves 98 of
+  // 100,780 cash-flow figures, at five filers whose older capital expenditure
+  // was the parts of a total (see data-version.ts), and only upwards to the
+  // filer's own total. Serving those few understated figures for the hours a
+  // rebuild takes is judged better than blank companies for everyone; readers
+  // who get the v31 copy also start the v32 build.
+  { version: "v31", shape: "s13" },
+];
 
 /**
  * The same key under a version we are willing to serve from while rebuilding.
@@ -45,6 +53,11 @@ const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [];
  * emptied the watchlist whether or not the previous copy was safe to show. The
  * shape a version was written under is now recorded beside it.
  */
+/** The versions that may stand in, for stores keyed on a version other than a company's. */
+export function serveableWhileBuilding(): ReadonlyArray<{ version: string; shape: string }> {
+  return SERVEABLE_WHILE_BUILDING;
+}
+
 export function fallbackDatasetKeys(ticker: string) {
   return SERVEABLE_WHILE_BUILDING.map(({ version }) => `company:${version}:${ticker.toUpperCase()}`);
 }

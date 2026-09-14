@@ -367,38 +367,134 @@ function extractFacts(
     // Insert fallbacks first so the first (preferred) taxonomy concept wins
     // when filing date and period end are otherwise identical.
     for (const { space, tag } of candidates.reverse()) {
-      const namespace = namespaces[space] ?? {};
-      const node = namespace[tag];
-      if (!node) continue;
-      const unitKey = spec.unit === "shares" ? "shares" : spec.unit === "perShare" ? `${currency}/shares` : currency;
-      const unitFacts: SecUnit[] = node.units[unitKey] ?? [];
-      for (const fact of unitFacts) {
-        // A foreign private issuer files a 20-F rather than a 10-K, and no
-        // quarterly report at all. Reading only the domestic pair meant ASML —
-        // 623 US GAAP concepts, every one of them on Form 20-F — normalized to
-        // nothing and was served as an empty company with a 200 status.
-        const fiscalPeriod = fact.fp === "Q4" && isAnnualForm(fact.form) ? "FY" : fact.fp;
-        /*
-         * Some annual filings label the whole filing — including its annual
-         * fact and the comparative quarters inside it — `fp: "Q4"` rather
-         * than `fp: "FY"`. Mastercard's 2019 10-K does exactly that for the
-         * restated 2017 revenue quarters. Dropping Q4 therefore removed two
-         * reported quarters and five trailing windows even though the values
-         * were present in Company Facts. Within an annual form Q4 has the same
-         * filing-context role as FY; duration still distinguishes a quarter
-         * from a full year later in the normalizer.
-         */
-        if ((fact.form !== "10-Q" && !isAnnualForm(fact.form)) || fact.fy == null || !["Q1", "Q2", "Q3", "FY"].includes(fiscalPeriod ?? "")) continue;
-        output.push({
-          metric, value: fact.val, currency, unit: spec.unit === "perShare" ? "currency" : spec.unit, start: fact.start, end: fact.end,
-          filed: fact.filed, accession: fact.accn, fiscalYear: fact.fy,
-          fiscalPeriod: fiscalPeriod as RawFinancialFact["fiscalPeriod"], form: fact.form as RawFinancialFact["form"],
-          concept: `${space}:${tag}`, sourceUrl: sourceUrl(cik, fact.accn), retrievedAt,
-        });
-      }
+      output.push(...factsUnder(namespaces, space, tag, metric, spec.unit, cik, currency, retrievedAt));
     }
   }
+  const capex = SEC_CONCEPTS.capitalExpenditures;
+  const read = (tag: string) => factsUnder(namespaces, "us-gaap", tag, "capitalExpenditures", capex.unit, cik, currency, retrievedAt);
+  output.push(...capexFromComponents(CAPEX_TOTALS.flatMap(read), CAPEX_COMPONENTS.flatMap(read)));
   return anchorCoverPageShares(output);
+}
+
+/** Every usable fact filed under one concept, in the shape the normalizer reads. */
+function factsUnder(
+  namespaces: z.infer<typeof SecResponseSchema>["facts"],
+  space: string,
+  tag: string,
+  metric: RawFinancialFact["metric"],
+  unit: ConceptSpec["unit"],
+  cik: string,
+  currency: string,
+  retrievedAt: string,
+): RawFinancialFact[] {
+  const node = (namespaces[space] ?? {})[tag];
+  if (!node) return [];
+  const unitKey = unit === "shares" ? "shares" : unit === "perShare" ? `${currency}/shares` : currency;
+  const unitFacts: SecUnit[] = node.units[unitKey] ?? [];
+  const output: RawFinancialFact[] = [];
+  for (const fact of unitFacts) {
+    // A foreign private issuer files a 20-F rather than a 10-K, and no
+    // quarterly report at all. Reading only the domestic pair meant ASML —
+    // 623 US GAAP concepts, every one of them on Form 20-F — normalized to
+    // nothing and was served as an empty company with a 200 status.
+    const fiscalPeriod = fact.fp === "Q4" && isAnnualForm(fact.form) ? "FY" : fact.fp;
+    /*
+     * Some annual filings label the whole filing — including its annual
+     * fact and the comparative quarters inside it — `fp: "Q4"` rather
+     * than `fp: "FY"`. Mastercard's 2019 10-K does exactly that for the
+     * restated 2017 revenue quarters. Dropping Q4 therefore removed two
+     * reported quarters and five trailing windows even though the values
+     * were present in Company Facts. Within an annual form Q4 has the same
+     * filing-context role as FY; duration still distinguishes a quarter
+     * from a full year later in the normalizer.
+     */
+    if ((fact.form !== "10-Q" && !isAnnualForm(fact.form)) || fact.fy == null || !["Q1", "Q2", "Q3", "FY"].includes(fiscalPeriod ?? "")) continue;
+    output.push({
+      metric, value: fact.val, currency, unit: unit === "perShare" ? "currency" : unit, start: fact.start, end: fact.end,
+      filed: fact.filed, accession: fact.accn, fiscalYear: fact.fy,
+      fiscalPeriod: fiscalPeriod as RawFinancialFact["fiscalPeriod"], form: fact.form as RawFinancialFact["form"],
+      concept: `${space}:${tag}`, sourceUrl: sourceUrl(cik, fact.accn), retrievedAt,
+    });
+  }
+  return output;
+}
+
+/** The capital-expenditure totals a filer may tag, and the lines that can add up to one. */
+export const CAPEX_TOTALS = ["PaymentsToAcquireProductiveAssets", "PaymentsToAcquirePropertyPlantAndEquipment"];
+export const CAPEX_COMPONENTS = [
+  "PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsForSoftware", "PaymentsToDevelopSoftware",
+  "PaymentsToAcquireOtherProductiveAssets", "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+  "PaymentsForCapitalImprovements", "PaymentsToAcquireMachineryAndEquipment",
+];
+
+/**
+ * Capital expenditure where a filer tags only its parts, summed on the filer's own proof.
+ *
+ * Hims & Hers tagged its 2022 and 2023 quarters as two lines — software and
+ * other productive assets — and its annual reports as one total. The quarters
+ * are built from the year's concept, so every quarter had no capital
+ * expenditure, and with it no free cash flow and no trailing window: eleven of
+ * twenty-three trailing periods were blank for a company that published every
+ * figure.
+ *
+ * The parts are added only in the way the filer itself adds them. A recipe is
+ * learned from a filing that tags the total and its parts together and where
+ * the parts sum to the total — Hims's 2022 report: 4.5m of software and 2.7m of
+ * other assets against 7.2m of productive assets, and 9.3m and 17.2m against
+ * 26.5m the year after — and is applied only to a period that tags every one of
+ * those parts and no total. A filer that never reconciles its lines gets
+ * nothing summed; an absent part is never read as zero.
+ */
+export function capexFromComponents(totals: RawFinancialFact[], components: RawFinancialFact[]): RawFinancialFact[] {
+  const name = (fact: RawFinancialFact) => fact.concept.replace(/^us-gaap:/, "");
+  const context = (fact: RawFinancialFact) => `${fact.start ?? ""}|${fact.end}|${fact.accession}`;
+  const byContext = new Map<string, RawFinancialFact[]>();
+  for (const fact of [...totals, ...components]) {
+    if (!fact.start) continue;
+    byContext.set(context(fact), [...(byContext.get(context(fact)) ?? []), fact]);
+  }
+  const partsIn = (facts: RawFinancialFact[], exclude: string) => {
+    const seen = new Map<string, RawFinancialFact>();
+    for (const fact of facts) if (CAPEX_COMPONENTS.includes(name(fact)) && name(fact) !== exclude && !seen.has(name(fact))) seen.set(name(fact), fact);
+    return [...seen.values()];
+  };
+  const sum = (facts: RawFinancialFact[]) => facts.reduce((total, fact) => total + Math.abs(fact.value), 0);
+
+  const recipes = new Map<string, { total: string; parts: string[]; proof: string }>();
+  for (const facts of byContext.values()) {
+    for (const total of facts.filter((fact) => CAPEX_TOTALS.includes(name(fact)))) {
+      const parts = partsIn(facts, name(total));
+      if (parts.length < 2 || Math.abs(total.value) === 0) continue;
+      if (Math.abs(sum(parts) - Math.abs(total.value)) > Math.max(0.005 * Math.abs(total.value), 1)) continue;
+      const names = parts.map(name).sort();
+      const key = `${name(total)}=${names.join("+")}`;
+      if (!recipes.has(key)) recipes.set(key, { total: name(total), parts: names, proof: total.accession });
+    }
+  }
+  if (!recipes.size) return [];
+
+  const output: RawFinancialFact[] = [];
+  for (const facts of byContext.values()) {
+    for (const recipe of [...recipes.values()].sort((left, right) => right.parts.length - left.parts.length)) {
+      if (facts.some((fact) => name(fact) === recipe.total)) continue;
+      if (output.some((fact) => context(fact) === context(facts[0]) && name(fact) === recipe.total)) continue;
+      const parts = recipe.parts.map((part) => facts.find((fact) => name(fact) === part));
+      if (parts.some((part) => !part)) continue;
+      const found = parts as RawFinancialFact[];
+      const present = partsIn(facts, recipe.total).map(name);
+      // A period tagging a part the recipe does not add would be understated by it.
+      if (present.some((part) => !recipe.parts.includes(part))) continue;
+      output.push({
+        ...found[0],
+        metric: "capitalExpenditures",
+        value: sum(found),
+        concept: `us-gaap:${recipe.total}`,
+        summedFrom: found.map((fact) => fact.concept),
+        normalizationNote: `No ${recipe.total} is tagged for this period; its parts ${recipe.parts.join(" + ")} are summed, as the filer's own report ${recipe.proof} sums them to that total.`,
+      });
+    }
+  }
+  return output;
 }
 
 /** The cover-page count, which is dated the day the report was filed. */
@@ -1243,7 +1339,7 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
   const stockSplits = [...(company.stockSplits ?? []), ...unverified].sort((left, right) => left.date.localeCompare(right.date));
   const annual = adjustPeriodsForSplits(verifiedAnnual, unverified);
   const quarterly = adjustPeriodsForSplits(verifiedQuarterly, unverified);
-  const ttm = buildTtmPeriods(quarterly, company.currency);
+  const ttm = buildTtmPeriods(quarterly, company.currency, annual);
   const identityKey = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const payloadIdentityMismatch = identityKey(parsed.entityName) !== identityKey(company.name);
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { adjustPeriodsForSplits, buildTtmPeriods, dedupeFacts, normalizeAnnualPeriods, normalizeQuarterlyPeriods, normalizeShareUnitScales, relabelFiscalYears } from "../lib/periods";
 import { normalizeSecPayload } from "../lib/adapters/sec";
-import type { MetricKey, RawFinancialFact } from "../lib/types";
+import type { FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "../lib/types";
 
 function raw(metric: MetricKey, value: number, start: string | undefined, end: string, fiscalPeriod: RawFinancialFact["fiscalPeriod"], fiscalYear = 2025, filed = "2025-11-01"): RawFinancialFact {
   return { metric, value, start, end, fiscalPeriod, fiscalYear, filed, accession: `acc-${fiscalPeriod}-${filed}`, form: fiscalPeriod === "FY" ? "10-K" : "10-Q", concept: `us-gaap:${metric}`, currency: "USD", unit: metric.includes("Shares") || ["basicShares", "dilutedShares", "sharesOutstanding"].includes(metric) ? "shares" : "currency", sourceUrl: "https://sec.test/filing", retrievedAt: "2026-08-13" };
@@ -105,6 +105,55 @@ describe("TTM construction", () => {
     const quarters = normalizeQuarterlyPeriods(standardYear(), "USD");
     quarters[2].periodStart = "2025-08-01";
     expect(buildTtmPeriods(quarters, "USD")).toHaveLength(0);
+  });
+
+  it("bridges TTM cash flows from filed FY and YTD totals when Q4 cannot be isolated", () => {
+    const fact = (metric: MetricKey, value: number, fiscalYear: number, quarter: "Q1" | "Q2" | "Q3" | "Q4" | null, start: string, end: string): NormalizedFact => ({
+      metric, value, currency: "USD", unit: "currency", periodStart: start, periodEnd: end,
+      periodicity: quarter ? "quarterly" : "annual", fiscalYear, fiscalQuarter: quarter ?? undefined,
+      provenance: {
+        provider: metric === "revenue" ? "SEC" : "Calculated", sourceUrl: "https://sec.test/filing",
+        accession: `${fiscalYear}-${quarter ?? "FY"}`, filingDate: `${fiscalYear}-09-01`, retrievedAt: "2026-09-12",
+        concept: metric === "capitalExpenditures" ? "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment" : "us-gaap:Revenues",
+        status: metric === "revenue" ? "reported" : "calculated",
+      },
+    });
+    const makeQuarter = (fiscalYear: number, quarter: "Q1" | "Q2" | "Q3" | "Q4", capex: number | null) => {
+      const position = { Q1: 1, Q2: 2, Q3: 3, Q4: 4 }[quarter];
+      const calendarYear = fiscalYear - 1 + (position === 4 ? 1 : 0);
+      const end = position === 1 ? `${fiscalYear - 1}-10-31`
+        : position === 2 ? `${fiscalYear}-01-31`
+        : position === 3 ? `${fiscalYear}-04-30`
+        : `${fiscalYear}-07-31`;
+      const start = position === 1 ? `${fiscalYear - 1}-08-01`
+        : position === 2 ? `${fiscalYear - 1}-11-01`
+        : position === 3 ? `${fiscalYear}-02-01`
+        : `${fiscalYear}-05-01`;
+      return {
+        label: `${quarter} FY${fiscalYear}`, fiscalYear, fiscalQuarter: quarter, periodStart: start, periodEnd: end,
+        periodicity: "quarterly" as const, filingDate: `${calendarYear}-09-01`, accession: `q-${fiscalYear}-${quarter}`,
+        currency: "USD", durationDays: 92,
+        facts: {
+          revenue: fact("revenue", 100, fiscalYear, quarter, start, end),
+          ...(capex == null ? {} : { capitalExpenditures: fact("capitalExpenditures", capex, fiscalYear, quarter, start, end) }),
+        },
+      } satisfies FinancialPeriod;
+    };
+    const quarters = [
+      makeQuarter(2024, "Q1", 40), makeQuarter(2024, "Q2", 40), makeQuarter(2024, "Q3", 30), makeQuarter(2024, "Q4", null),
+      makeQuarter(2025, "Q1", 30), makeQuarter(2025, "Q2", 40), makeQuarter(2025, "Q3", 30), makeQuarter(2025, "Q4", null),
+    ];
+    const makeAnnual = (fiscalYear: number, capex: number) => {
+      const start = `${fiscalYear - 1}-08-01`; const end = `${fiscalYear}-07-31`;
+      return { label:`FY ${fiscalYear}`, fiscalYear, periodStart:start, periodEnd:end, periodicity:"annual" as const, filingDate:`${fiscalYear}-09-01`, accession:`fy-${fiscalYear}`, currency:"USD", durationDays:365, facts:{capitalExpenditures:fact("capitalExpenditures",capex,fiscalYear,null,start,end)} } satisfies FinancialPeriod;
+    };
+    const trailing = buildTtmPeriods(quarters, "USD", [makeAnnual(2024, 90), makeAnnual(2025, 120)]);
+
+    expect(trailing.map((period) => period.facts.capitalExpenditures?.value)).toEqual([90, 80, 80, 80, 120]);
+    expect(trailing[1].facts.capitalExpenditures?.provenance.formula).toContain("current fiscal YTD");
+    expect(trailing[1].facts.capitalExpenditures?.provenance.note).toContain("no standalone fourth quarter");
+    // The impossible Q4 remains absent; only the independently valid TTM is recovered.
+    expect(quarters[3].facts.capitalExpenditures).toBeUndefined();
   });
 
   it("makes historical share counts comparable across subsequent stock splits", () => {

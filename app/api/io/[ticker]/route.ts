@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { searchSecCompanies } from "@/lib/adapters/sec";
 import { companyByTicker } from "@/lib/company-registry";
 import { companyView } from "@/lib/io/view";
-import { VIEW_SHAPE } from "@/lib/io/view-version";
-import { CACHE_SECONDS, KEY_VERSION, claimKey, datasetKey, fallbackDatasetKeys, readWithin, requestCompany } from "@/lib/dataset-cache";
+import { ioViewKey } from "@/lib/io/view-version";
+import { CACHE_SECONDS, claimKey, datasetKey, fallbackDatasetKeys, readWithin, requestCompany } from "@/lib/dataset-cache";
 import { TICKER_PATTERN } from "@/lib/market-profile";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
 import type { CompanyDataset } from "@/lib/types";
@@ -26,8 +26,6 @@ import type { CompanyDataset } from "@/lib/types";
 // two can never drift apart. Never serve an older shape to a client that asked
 // for this one.
 const VIEW_SECONDS = 86_400;
-
-const viewKey = (ticker: string) => `view:${VIEW_SHAPE}.${KEY_VERSION}:${ticker.toUpperCase()}`;
 
 /**
  * A symbol the SEC registry does not list, remembered so it is looked up once.
@@ -68,7 +66,7 @@ async function listedWithSec(symbol: string): Promise<boolean> {
 
 const headers = {
   "Content-Type": "application/json",
-  "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+  "Cache-Control": "public, s-maxage=300, stale-while-revalidate=900",
 };
 
 export async function GET(request: Request, context: { params: Promise<{ ticker: string }> }) {
@@ -83,7 +81,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
     try {
       // Given a ceiling, because a read that never settles used to hold the
       // invocation open until the reader gave up. See `readWithin`.
-      const warm = await readWithin(cache.get(viewKey(symbol), "stream"));
+      const warm = await readWithin(cache.get(ioViewKey(symbol), "stream"));
       if (warm.value) return new Response(warm.value, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
       /*
        * A store that did not answer is not a company that is not there.
@@ -113,13 +111,15 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
    * here, and the reader is told it is being prepared.
    */
   let stored: string | null = null;
+  /** Read from the previous version's copy, which stands in while this one is built. */
+  let bridged = false;
   if (cache) {
     try {
       stored = (await readWithin(cache.get(datasetKey(symbol), "text"))).value;
       if (!stored) {
         for (const previous of fallbackDatasetKeys(symbol)) {
           stored = (await readWithin(cache.get(previous, "text"))).value;
-          if (stored) break;
+          if (stored) { bridged = true; break; }
         }
       }
     } catch {
@@ -160,8 +160,23 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       );
     }
     const body = JSON.stringify(view);
+    /*
+     * A view of the previous version's copy is served and not kept.
+     *
+     * Kept, it would stand under this version's key for a day after the new
+     * dataset landed. And the build is started here, because nothing else asks
+     * for a company that already has something on screen.
+     */
+    if (bridged) {
+      const claim = cache ? await cache.get(claimKey(symbol), "text").catch(() => null) : null;
+      if (!claim) {
+        await cache?.put(claimKey(symbol), "1", { expirationTtl: 60 }).catch(() => undefined);
+        keepAlive(requestCompany(new URL(request.url).origin, symbol));
+      }
+      return new Response(body, { headers: { ...headers, "Cache-Control": "public, s-maxage=60", "X-FinScope-Cache": "previous-version" } });
+    }
     try {
-      await cache?.put(viewKey(symbol), body, { expirationTtl: Math.min(VIEW_SECONDS, CACHE_SECONDS) });
+      await cache?.put(ioViewKey(symbol), body, { expirationTtl: Math.min(VIEW_SECONDS, CACHE_SECONDS) });
     } catch {
       // Storing is best-effort; the reader still gets their answer.
     }

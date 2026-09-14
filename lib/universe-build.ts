@@ -2,7 +2,7 @@ import { fetchQuotes } from "./adapters/spark";
 import { CLASSIFICATION_VERSION } from "./business-type";
 import { ioViewKey } from "./io/view-version";
 import { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
-import { requestCompany, summaryKey } from "./dataset-cache";
+import { requestCompany, serveableWhileBuilding, summaryKey } from "./dataset-cache";
 import { datasetCache } from "./runtime-env";
 import { UNIVERSE, UNIVERSE_AS_OF, UNIVERSE_NAME, type UniverseMember } from "./universe";
 import type { WatchlistSummary } from "./watchlist-summary";
@@ -109,6 +109,42 @@ export async function readUniverse(): Promise<UniverseTable | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * The table a reader is shown, which during a version change is two tables.
+ *
+ * A dataset version is part of the table's key, so every bump starts the index
+ * again from nothing and fills it a hundred companies a run — two and a half
+ * hours of a screener saying "building" and a market page without breadth.
+ * Where the previous version is declared safe to stand in, its rows fill the
+ * gaps and each company's row is the newest one there is; the prices are
+ * always this run's. The rotation itself reads only the current table, so it
+ * still builds every company again.
+ */
+export async function readServedUniverse(): Promise<UniverseTable | null> {
+  const current = await readUniverse();
+  if (current && current.rows.length >= current.members) return current;
+  const cache = datasetCache();
+  for (const { version, shape } of serveableWhileBuilding()) {
+    try {
+      const previous = (await cache?.get(`universe:${UNIVERSE_SHAPE}.${version}.${shape}`, "json")) as UniverseTable | null;
+      if (!previous?.rows?.length) continue;
+      const fresh = new Map((current?.rows ?? []).map((each) => [each.ticker, each]));
+      const old = new Map(previous.rows.map((each) => [each.ticker, each]));
+      const rows = UNIVERSE.map((member) => fresh.get(member.ticker) ?? old.get(member.ticker)).filter((each): each is UniverseRow => each != null);
+      if (rows.length <= (current?.rows.length ?? 0)) return current;
+      return {
+        ...(current ?? previous),
+        rows,
+        prices: current?.prices ?? previous.prices,
+        pending: UNIVERSE.filter((member) => !fresh.has(member.ticker) && !old.has(member.ticker)).map((member) => member.ticker),
+      };
+    } catch {
+      // A previous table that cannot be read is simply not there.
+    }
+  }
+  return current;
 }
 
 /**

@@ -63,7 +63,7 @@ export function dedupeFacts(facts: RawFinancialFact[]) {
       firstFiled,
       restated: group.length > 1 && distinct.length > 1,
       sourceConflictValues: conflict ? conflictValues : undefined,
-      normalizationNote: conflict ? (group.find((fact)=>fact.normalizationNote)?.normalizationNote ?? `Conflicting SEC magnitudes (${distinct.join(", ")}); selected the magnitude consistent with the SEC shares unit before split adjustment.`) : undefined,
+      normalizationNote: conflict ? (group.find((fact)=>fact.normalizationNote)?.normalizationNote ?? `Conflicting SEC magnitudes (${distinct.join(", ")}); selected the magnitude consistent with the SEC shares unit before split adjustment.`) : selected.summedFrom ? selected.normalizationNote : undefined,
     };
   }).sort((a, b) => a.end.localeCompare(b.end));
 }
@@ -193,9 +193,10 @@ function normalized(raw: RawFinancialFact, periodicity: "annual" | "quarterly", 
     metric: raw.metric, value, currency: raw.currency, unit: raw.unit,
     periodStart: raw.start, periodEnd: raw.end, periodicity, fiscalYear: raw.fiscalYear, fiscalQuarter,
     provenance: {
-      provider: "SEC", sourceUrl: raw.sourceUrl, accession: raw.accession, filingDate: raw.filed,
+      provider: raw.summedFrom ? "Calculated" : "SEC", sourceUrl: raw.sourceUrl, accession: raw.accession, filingDate: raw.filed,
       firstFiled: raw.firstFiled ?? raw.filed,
-      retrievedAt: raw.retrievedAt, concept: raw.concept, status: raw.restated ? "restated" : "reported",
+      retrievedAt: raw.retrievedAt, concept: raw.concept, status: raw.summedFrom ? "calculated" : raw.restated ? "restated" : "reported",
+      ...(raw.summedFrom ? { formula: raw.summedFrom.map((concept) => concept.replace(/^us-gaap:/, "")).join(" + ") } : {}),
       note: raw.normalizationNote ?? (signChanged ? "Raw cash outflow sign normalized to the FinScope positive-outflow convention; raw value retained." : raw.restated ? "Latest filing selected for a duplicated SEC context with a changed value." : "Directly reported standardized XBRL fact."),
     },
     validation: raw.sourceConflictValues || signChanged ? {
@@ -711,7 +712,82 @@ function consecutive(window: FinancialPeriod[]) {
   return total >= 330 && total <= 380;
 }
 
-export function buildTtmPeriods(quarters: FinancialPeriod[], currency: string) {
+const QUARTER_POSITION: Record<NonNullable<FinancialPeriod["fiscalQuarter"]>, number> = { Q1: 1, Q2: 2, Q3: 3, Q4: 4 };
+
+/**
+ * A trailing flow reconstructed without inventing a missing fourth quarter.
+ *
+ * Some filers publish an annual cash-flow total below the nine-month total
+ * they published before it. Intuit does this for capital expenditure in every
+ * year from 2013 through 2025. Subtracting Q1-Q3 would create a negative Q4,
+ * which is correctly rejected for a positive-outflow measure — but requiring
+ * that rejected quarter also erased every following TTM window.
+ *
+ * A TTM total does not require a standalone Q4. For Q1-Q3 it is exactly:
+ *
+ *   prior fiscal year + current fiscal YTD - prior-year fiscal YTD
+ *
+ * and at Q4 it is the filed fiscal year itself. Every input remains a filed or
+ * mechanically isolated fact. Concepts and units must agree, the requested
+ * fiscal quarters must all exist, and an impossible result still stays absent.
+ */
+function annualBridgeFlow(
+  metric: MetricKey,
+  latestQuarter: FinancialPeriod,
+  quarters: FinancialPeriod[],
+  annual: FinancialPeriod[],
+  windowStart: string | undefined,
+): NormalizedFact | null {
+  const position = latestQuarter.fiscalQuarter ? QUARTER_POSITION[latestQuarter.fiscalQuarter] : 0;
+  if (!position) return null;
+  const annualPeriod = annual.find((period) => period.fiscalYear === (position === 4 ? latestQuarter.fiscalYear : latestQuarter.fiscalYear - 1));
+  const annualFact = annualPeriod?.facts[metric];
+  if (annualFact?.value == null || !annualPeriod) return null;
+
+  let sources: NormalizedFact[] = [annualFact];
+  let value = annualFact.value;
+  let formula = "Filed fiscal-year total used as trailing twelve months";
+  let note = "The fiscal-year TTM is the filed annual fact; no standalone fourth quarter is estimated.";
+
+  if (position < 4) {
+    const through = (fiscalYear: number) => quarters
+      .filter((period) => period.fiscalYear === fiscalYear
+        && period.fiscalQuarter != null
+        && QUARTER_POSITION[period.fiscalQuarter] <= position)
+      .sort((left, right) => QUARTER_POSITION[left.fiscalQuarter!] - QUARTER_POSITION[right.fiscalQuarter!]);
+    const current = through(latestQuarter.fiscalYear);
+    const prior = through(latestQuarter.fiscalYear - 1);
+    if (current.length !== position || prior.length !== position) return null;
+    const currentFacts = current.map((period) => period.facts[metric]);
+    const priorFacts = prior.map((period) => period.facts[metric]);
+    if ([...currentFacts, ...priorFacts].some((fact) => fact?.value == null)) return null;
+    sources = [annualFact, ...currentFacts as NormalizedFact[], ...priorFacts as NormalizedFact[]];
+    value += currentFacts.reduce((sum, fact) => sum + fact!.value!, 0)
+      - priorFacts.reduce((sum, fact) => sum + fact!.value!, 0);
+    formula = "TTM = prior fiscal year + current fiscal YTD − prior-year fiscal YTD";
+    note = "Reconstructed from filed annual and fiscal year-to-date facts; no standalone fourth quarter is estimated.";
+  }
+
+  const concepts = new Set(sources.map((fact) => fact.provenance.concept));
+  const units = new Set(sources.map((fact) => fact.unit));
+  const currencies = new Set(sources.map((fact) => fact.currency));
+  if (concepts.size !== 1 || units.size !== 1 || currencies.size !== 1 || implausible(metric, value)) return null;
+  const newest = sources.reduce((best, fact) =>
+    (fact.provenance.filingDate ?? "") > (best.provenance.filingDate ?? "") ? fact : best);
+  return {
+    metric, value, currency: annualFact.currency, unit: annualFact.unit, periodStart: windowStart,
+    periodEnd: latestQuarter.periodEnd, periodicity: "ttm", fiscalYear: latestQuarter.fiscalYear, fiscalQuarter: latestQuarter.fiscalQuarter,
+    provenance: {
+      provider: "Calculated", sourceUrl: newest.provenance.sourceUrl, retrievedAt: newest.provenance.retrievedAt,
+      accession: latestQuarter.accession, filingDate: latestQuarter.filingDate,
+      concept: annualFact.provenance.concept, status: "calculated", formula,
+      sourceAccessions: [...new Set(sources.flatMap((fact) => fact.provenance.sourceAccessions ?? [fact.provenance.accession ?? ""]).filter(Boolean))],
+      note,
+    },
+  };
+}
+
+export function buildTtmPeriods(quarters: FinancialPeriod[], currency: string, annual: FinancialPeriod[] = []) {
   const ordered = [...quarters].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
   const periods: FinancialPeriod[] = [];
   for (let index = 3; index < ordered.length; index++) {
@@ -721,7 +797,11 @@ export function buildTtmPeriods(quarters: FinancialPeriod[], currency: string) {
     const facts: FinancialPeriod["facts"] = {};
     for (const metric of FLOW_METRICS) {
       const sourceFacts = window.map((period) => period.facts[metric]);
-      if (sourceFacts.some((fact) => fact?.value == null)) continue;
+      if (sourceFacts.some((fact) => fact?.value == null)) {
+        const bridged = annualBridgeFlow(metric, latestQuarter, ordered, annual, window[0].periodStart);
+        if (bridged) facts[metric] = bridged;
+        continue;
+      }
       const value = sourceFacts.reduce((sum, fact) => sum + (fact!.value ?? 0), 0);
       facts[metric] = {
         metric, value, currency, unit: sourceFacts[0]!.unit, periodStart: window[0].periodStart,

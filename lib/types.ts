@@ -281,6 +281,11 @@ export interface RawFinancialFact {
    */
   form: "10-Q" | "10-K" | "20-F" | "40-F";
   concept: string;
+  /**
+   * The filed lines this figure adds up, where the filer tags only the parts of
+   * a total it reconciles elsewhere. See `capexFromComponents`.
+   */
+  summedFrom?: string[];
   sourceUrl: string;
   retrievedAt: string;
   restated?: boolean;

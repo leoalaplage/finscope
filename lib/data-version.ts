@@ -105,6 +105,26 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v32: a TTM cash-flow measure may bridge a missing fourth quarter from the
+ * filed fiscal year and comparable year-to-date facts. Intuit publishes annual
+ * capital expenditure below its nine-month total from 2013 through 2025; the
+ * implied standalone Q4 is correctly rejected as a positive outflow, but that
+ * rejection used to erase every rolling FCF window for thirteen years. The
+ * bridge uses FY + current YTD − prior YTD, requires one concept/currency/unit
+ * throughout and never publishes the impossible quarter itself. Eli Lilly and
+ * Nvidia carry the same long-lived shape. Stored TTM histories must be rebuilt.
+ *
+ *     And capital expenditure is summed from its parts where a filer tags only
+ *     the parts of a total it reconciles in another report. Hims & Hers had
+ *     eleven of twenty-three trailing periods without free cash flow for want
+ *     of it, and has none now. Measured over the 501 companies of the S&P 500
+ *     from their raw Company Facts: trailing periods without free cash flow
+ *     fall from 2,273 to 1,644, and companies whose latest trailing period has
+ *     none from 40 to 34. Of 100,780 cash-flow figures present before and after,
+ *     98 move, at five filers whose earlier years tagged the parts of the total
+ *     they tag later — Ecolab, FIS, Alliant Energy, United Rentals and Valero —
+ *     each now read under the filer's own definition of the total.
+ *
  * v31: depreciation is read under the spelling most filers use.
  * `DepreciationAndAmortization` was not in the map — only the depletion-bearing
  * variants, which are the extractive industries' — so Visa and Mastercard had
@@ -199,7 +219,7 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v31";
+export const KEY_VERSION = "v32";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

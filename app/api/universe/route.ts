@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { KEY_VERSION, SUMMARY_SHAPE } from "@/lib/data-version";
-import { readUniverse } from "@/lib/universe-build";
+import { readServedUniverse } from "@/lib/universe-build";
 import { UNIVERSE, UNIVERSE_AS_OF, UNIVERSE_NAME } from "@/lib/universe";
 
 /**
@@ -24,7 +24,7 @@ const headers = {
 };
 
 export async function GET() {
-  const table = await readUniverse();
+  const table = await readServedUniverse();
   if (!table) {
     return NextResponse.json(
       {

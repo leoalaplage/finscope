@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { qsTable, qsValuationColumns, type QsRow } from "@/lib/qs-export";
 import { screen, type ScoredCompany } from "@/lib/qs/screener";
-import { readUniverse } from "@/lib/universe-build";
+import { readServedUniverse } from "@/lib/universe-build";
 import { TICKER_PATTERN } from "@/lib/market-profile";
 
 /**
@@ -67,7 +67,7 @@ export async function GET(_request: Request, context: { params: Promise<{ ticker
     return NextResponse.json({ error: "That is not a usable exchange symbol." }, { status: 400 });
   }
 
-  const table = await readUniverse();
+  const table = await readServedUniverse();
   if (!table) {
     return NextResponse.json({ error: "The index has not been read yet." }, { status: 202, headers: { ...headers, "Cache-Control": "no-store" } });
   }

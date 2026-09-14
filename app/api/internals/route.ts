@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readUniverse } from "@/lib/universe-build";
+import { readServedUniverse } from "@/lib/universe-build";
 
 /**
  * What five hundred companies did today, rather than what yours did.
@@ -52,7 +52,7 @@ const median = (values: number[]): number => {
 };
 
 export async function GET() {
-  const table = await readUniverse();
+  const table = await readServedUniverse();
   if (!table) {
     return NextResponse.json({ building: true }, { status: 202, headers: { ...headers, "Cache-Control": "no-store" } });
   }

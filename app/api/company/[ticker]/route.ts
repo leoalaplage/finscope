@@ -87,9 +87,25 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
        * versions declared safe to stand in are read, and the answer is cached
        * for minutes rather than hours so the new build replaces it promptly.
        */
-      for (const previous of fallbackDatasetKeys(symbol)) {
+      /*
+       * Only to a reader, and never instead of the build.
+       *
+       * A request from this Worker's own timers is the build: the universe
+       * rotation and the warm ask for a company precisely because the current
+       * version is missing, and answering them with the previous copy wrote no
+       * new dataset and no new digest — so under a version bump the index table
+       * would have waited a week, until the old copies expired, for rows it was
+       * never going to get. A reader is served the old copy and the build is
+       * started behind them.
+       */
+      for (const previous of warming ? [] : fallbackDatasetKeys(symbol)) {
         const stale = cache ? (await readWithin(cache.get(previous, "stream"))).value : null;
         if (stale) {
+          const claim = cache ? await cache.get(claimKey(symbol), "text").catch(() => null) : null;
+          if (!claim) {
+            await cache?.put(claimKey(symbol), "1", { expirationTtl: 60 }).catch(() => undefined);
+            keepAlive(requestCompany(new URL(request.url).origin, symbol));
+          }
           return new Response(stale, { headers: {
             ...headers,
             "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
