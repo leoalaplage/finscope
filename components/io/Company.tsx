@@ -133,11 +133,6 @@ export function Company({ ticker }: { ticker: string }) {
   );
   const [rebased, setRebased] = useState(opening.rebased);
   const [withPrice, setWithPrice] = useState(opening.withPrice);
-  /*
-   * Whether the chart is open. It is the one fold opened from elsewhere:
-   * choosing a measure from a table below is asking to see it drawn.
-   */
-  const [chartOpen, setChartOpen] = useState(false);
 
   const state: State = loaded.ticker === ticker ? loaded : { kind: "loading", ticker, progress: 6 };
   const quote = quoted?.ticker === ticker ? quoted : null;
@@ -197,7 +192,6 @@ export function Company({ ticker }: { ticker: string }) {
     if (metric == null) { setSelection({ ticker, metrics: [] }); return; }
     const next = toggleMetric(selectedMetrics, metric, unitOf);
     setSelection({ ticker, metrics: next });
-    if (next.length) setChartOpen(true);
     if (selectedMetrics.length || !next.length) return;
     setRange("MAX");
     setOverride({ range: "MAX", frequency: "ttm" });
@@ -371,38 +365,38 @@ export function Company({ ticker }: { ticker: string }) {
       {/*
         * One company, one document.
         *
-        * Five readings open, everything else a line to open.
+        * The chart and its statistics, five readings, then a line to open.
         *
         * This page once folded its statements away and the fold was taken out,
         * because a reader should not have to know a section exists to find it.
         * It came back at the reader's own request, for the opposite reason: a
         * company page that says everything at once is a wall at first sight.
-        * So what a reader comes for stays open — the grade, the balance sheet,
-        * free cash flow per share, the trailing figures and growth — and the
-        * rest is a named fold, which still says what the page holds and costs
-        * nothing until it is opened.
+        * So what a reader comes for stays open — the price chart and the key
+        * statistics under it, then the grade, the balance sheet, free cash flow
+        * per share, the trailing figures and growth — and the rest is a named
+        * fold, which still says what the page holds and costs nothing until it
+        * is opened.
         *
-        * The chart is the first fold, and the one opened from elsewhere:
-        * choosing a measure below opens it and brings it to the reader.
+        * The chart was folded for a day and came back open: it is the top of a
+        * company, and a measure chosen below has to have somewhere to be drawn.
         */}
-      <Fold title="Chart" open={chartOpen} onToggle={setChartOpen}>
-        <PriceSection
-          ticker={company.ticker}
-          currency={quote?.currency ?? company.currency}
-          view={view}
-          metricKeys={selectedMetrics}
-          onClearMetric={() => selectMetric(null)}
-          range={range}
-          onRange={setRange}
-          frequency={frequency}
-          onFrequency={chooseFrequency}
-          rebased={rebased}
-          onRebased={setRebased}
-          withPrice={withPrice}
-          onWithPrice={setWithPrice}
-          valuation={valuation}
-        />
-      </Fold>
+      <PriceSection
+        ticker={company.ticker}
+        currency={quote?.currency ?? company.currency}
+        view={view}
+        metricKeys={selectedMetrics}
+        onClearMetric={() => selectMetric(null)}
+        range={range}
+        onRange={setRange}
+        frequency={frequency}
+        onFrequency={chooseFrequency}
+        rebased={rebased}
+        onRebased={setRebased}
+        withPrice={withPrice}
+        onWithPrice={setWithPrice}
+        valuation={valuation}
+      />
+      <Stats view={view} quote={quote} />
 
       <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} />
       <Health view={view} />
@@ -417,7 +411,6 @@ export function Company({ ticker }: { ticker: string }) {
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range="MAX" frequency="ttm" />
       <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
 
-      <Fold title="Key statistics"><Stats view={view} quote={quote} /></Fold>
       <Fold title="Valuation and capital returned">
         <ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />
       </Fold>

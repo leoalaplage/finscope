@@ -757,7 +757,7 @@ describe("the redesign", () => {
     expect(market).toContain("const top = shared ? fromPercent(shared.high) : high + pad;");
   });
 
-  it("opens five readings on a company page and folds the rest", () => {
+  it("opens the chart, its statistics and five readings on a company page, and folds the rest", () => {
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     /*
      * What a reader comes for stays open; everything else is a named fold.
@@ -773,15 +773,15 @@ describe("the redesign", () => {
       expect(at, tag).toBeGreaterThan(0);
       return folds.some(([start, end]) => at > start && at < end);
     };
-    for (const open of ["<Score ", "<Health ", "<FcfShareGrowth ", "<Multiples ", "<Growth "]) {
+    for (const open of ["<PriceSection", "<Stats ", "<Score ", "<Health ", "<FcfShareGrowth ", "<Multiples ", "<Growth "]) {
       expect(folded(open), `${open} is open`).toBe(false);
     }
-    for (const shut of ["<PriceSection", "<Stats ", "<ValuationHistory ", "<Statements ", "<Insiders ", "<Holders ", "<CompanyNews "]) {
+    for (const shut of ["<ValuationHistory ", "<Statements ", "<Insiders ", "<Holders ", "<CompanyNews "]) {
       expect(folded(shut), `${shut} is folded`).toBe(true);
     }
-    // Choosing a measure opens the chart, the one fold opened from elsewhere.
-    expect(company).toContain('<Fold title="Chart" open={chartOpen} onToggle={setChartOpen}>');
-    expect(company).toContain("if (next.length) setChartOpen(true);");
+    // The chart is the top of a company and the statistics sit under it.
+    expect(company.indexOf("<Stats ")).toBeGreaterThan(company.indexOf("<PriceSection"));
+    expect(company.indexOf("<Score ")).toBeGreaterThan(company.indexOf("<Stats "));
     /*
      * The trailing figures are the whole history, always. They followed the
      * chart's window, so a reader who moved the chart redrew every panel under
