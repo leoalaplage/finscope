@@ -160,6 +160,22 @@ export function balanceSheetIsTheBusiness(type: BusinessType | undefined): boole
   return type === "bank" || type === "broker" || type === "insurer" || type === "financial";
 }
 
+/**
+ * Whether operating cash flow is the movement of the balance sheet itself.
+ *
+ * Narrower again. A bank's operating cash flow is its loans and deposits moving
+ * — JPMorgan's 2025 is minus 148 billion — and a broker's is its customers'
+ * balances, so a free cash flow struck from either is noise. An insurer is
+ * different: its operating cash flow is premiums collected less claims and
+ * costs paid, with the investing of the float on the investing line where it
+ * belongs. That is a cash flow a reader of Travelers or Progressive uses, and
+ * every other financial site shows it; withholding it left insurers' pages
+ * without the one cash measure they have.
+ */
+export function cashFlowIsTheBalanceSheet(type: BusinessType | string | null | undefined): boolean {
+  return type === "bank" || type === "broker" || type === "financial";
+}
+
 export function businessTypeLabel(type: BusinessType | undefined): string {
   switch (type) {
     case "bank": return "bank";

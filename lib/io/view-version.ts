@@ -25,9 +25,12 @@ import { KEY_VERSION } from "../data-version";
  * historical valuation never prices old fundamentals with today's balance.
  * iov9 carries the day each period was first published beside the day it was
  * last filed, so a historical multiple is priced on the day its figures became
- * news rather than on the day the next year's report repeated them.
+ * news rather than on the day the next year's report repeated them. iov10
+ * gives insurers their free cash flow — their operating cash flow where they
+ * file no capital expenditure, said on the figure — and keeps withholding it
+ * only for banks and brokers.
  */
-export const VIEW_SHAPE = "iov9";
+export const VIEW_SHAPE = "iov10";
 
 /** The token a reader's request carries: the shape, then the figures. */
 export const IO_VIEW = `${VIEW_SHAPE}.${KEY_VERSION}`;

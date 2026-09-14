@@ -46,7 +46,7 @@ const view = {
   ttm: null,
   basis: null,
   basisReason: null,
-  withheldReason: null,
+  withheldReason: null, fcfNote: null,
   warnings: [],
 } satisfies IoCompanyView;
 

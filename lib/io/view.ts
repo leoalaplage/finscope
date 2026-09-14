@@ -1,4 +1,4 @@
-import { balanceSheetIsTheBusiness } from "../business-type";
+import { balanceSheetIsTheBusiness, cashFlowIsTheBalanceSheet } from "../business-type";
 import { validatedDerivedValue } from "../data-quality";
 import { currentDatasetPeriod } from "../current-period";
 import { reportedDebt, valueOf } from "../finance";
@@ -109,6 +109,8 @@ export interface IoCompanyView {
   basisReason: string | null;
   /** Why some measures are absent for this filer, when they are. */
   withheldReason: string | null;
+  /** How free cash flow was struck, where it is not operating cash flow less capital expenditure. */
+  fcfNote: string | null;
   warnings: string[];
 }
 
@@ -135,6 +137,24 @@ const NOT_FOR_FINANCIALS = new Set([
   "netDebt", "roic", "cashReturnOnCapital", "returnOnCapitalEmployed",
   "investedCapital", "nopat", "capitalIntensity",
 ]);
+
+/**
+ * What an insurer is not given, which is less.
+ *
+ * Its free cash flow is kept (see `cashFlowIsTheBalanceSheet`). Net debt and
+ * every return on invested capital are still withheld: an insurer's borrowings
+ * sit beside the premiums and reserves it invests, so neither is its leverage
+ * or the capital it employs.
+ */
+const NOT_FOR_INSURERS = new Set([
+  "netDebt", "roic", "cashReturnOnCapital", "returnOnCapitalEmployed",
+  "investedCapital", "nopat", "capitalIntensity",
+]);
+
+const WITHHELD_REASON = {
+  balanceSheet: "Free cash flow, net debt and returns on invested capital are not stated for this filer: its operating cash flow is the movement of its own loans and deposits, and its borrowings are its raw material rather than its leverage.",
+  insurer: "Net debt and returns on invested capital are not stated for this insurer: its borrowings sit beside the premiums and reserves it invests, so neither measures its leverage or the capital it employs.",
+};
 
 /**
  * How far back the page goes.
@@ -180,9 +200,27 @@ function metricCatalogue(periods: IoPeriod[]): IoMetric[] {
     });
 }
 
-function projectPeriod(dataset: CompanyDataset, period: FinancialPeriod, withheld: ReadonlySet<string>): IoPeriod {
+function projectPeriod(dataset: CompanyDataset, period: FinancialPeriod, withheld: ReadonlySet<string>, cashIsFree = false): IoPeriod {
   const values: Record<string, number | null> = {};
   for (const key of IO_METRIC_KEYS) values[key] = withheld.has(key) ? null : validatedDerivedValue(period, key, "validated");
+  /*
+   * An insurer that files no capital expenditure at all.
+   *
+   * Travelers, Chubb, MetLife and six other insurers in the index publish no
+   * capital-expenditure line in any filing: what they spend on property and
+   * equipment is inside "other investing". Everywhere else on this site an
+   * absent figure is not a zero, and it still is not here — but for these
+   * filers the alternative is no cash measure at all, which is what every
+   * other research site shows them with. Free cash flow is their operating
+   * cash flow, and the page says so on the figure (`fcfNote`).
+   */
+  if (cashIsFree && values.operatingCashFlow != null) {
+    values.freeCashFlow = values.operatingCashFlow;
+    values.freeCashFlowPerShare = values.operatingCashFlowPerShare;
+    values.freeCashFlowMargin = values.operatingCashFlowMargin;
+    const sbc = values.stockBasedCompensation;
+    values.freeCashFlowAfterSbc = sbc == null ? null : values.operatingCashFlow - Math.abs(sbc);
+  }
   const counted = shareCount(period);
   const borrowed = withheld.has("netDebt") ? null : reportedDebt(dataset.periods, period);
   const cash = valueOf(period, "cashAndEquivalents");
@@ -249,8 +287,13 @@ function valuationBasis(dataset: CompanyDataset, withheld: ReadonlySet<string>):
 
 export function companyView(dataset: CompanyDataset): IoCompanyView {
   const current = currentDatasetPeriod(dataset);
-  const withheld = balanceSheetIsTheBusiness(dataset.company.businessType) ? NOT_FOR_FINANCIALS : new Set<string>();
-  const project = (period: FinancialPeriod) => projectPeriod(dataset, period, withheld);
+  const type = dataset.company.businessType;
+  const insurer = type === "insurer";
+  const withheld = cashFlowIsTheBalanceSheet(type) || (balanceSheetIsTheBusiness(type) && !insurer)
+    ? NOT_FOR_FINANCIALS
+    : insurer ? NOT_FOR_INSURERS : new Set<string>();
+  const filesNoCapex = insurer && !dataset.periods.some((period) => period.facts.capitalExpenditures?.value != null);
+  const project = (period: FinancialPeriod) => projectPeriod(dataset, period, withheld, filesNoCapex);
   const trailing = ordered(dataset.periods, "ttm", TTM_LIMIT).map(project);
   const annual = ordered(dataset.periods, "annual", ANNUAL_LIMIT).map(project);
   const quarterly = ordered(dataset.periods, "quarterly", QUARTERLY_LIMIT).map(project);
@@ -279,8 +322,9 @@ export function companyView(dataset: CompanyDataset): IoCompanyView {
     ttm,
     basis,
     basisReason: reason,
-    withheldReason: withheld.size
-      ? "Free cash flow, net debt and returns on invested capital are not stated for this filer: its operating cash flow is the movement of its own loans and deposits, and its borrowings are its raw material rather than its leverage."
+    withheldReason: withheld === NOT_FOR_FINANCIALS ? WITHHELD_REASON.balanceSheet : withheld === NOT_FOR_INSURERS ? WITHHELD_REASON.insurer : null,
+    fcfNote: filesNoCapex
+      ? `${dataset.company.name} files no capital-expenditure line, so its free cash flow is shown as its operating cash flow: what it spends on property and equipment is not separately disclosed.`
       : null,
     warnings: dataset.warnings.slice(0, 4),
   };

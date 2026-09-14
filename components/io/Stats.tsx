@@ -1,5 +1,6 @@
 "use client";
 
+import { cashFlowIsTheBalanceSheet } from "@/lib/business-type";
 import { multipleOf } from "@/lib/market-basis";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import type { IoQuote } from "./quote";
@@ -71,16 +72,44 @@ export function Stats({ view, quote }: { view: IoCompanyView; quote: IoQuote | n
   const evEbitda = multipleOf(enterpriseValue, ebitda.value);
   const fcfYield = multipleOf(freeCashFlow.value, marketCap);
 
-  const rows: Array<{ label: string; value: number | null; write: (value: number) => string }> = [
-    { label: "Market cap", value: marketCap, write: (value) => money(value, currency) },
-    { label: "EV", value: enterpriseValue, write: (value) => money(value, currency) },
-    { label: "P / E", value: pe, write: (value) => ratio(value, 1) },
-    { label: "P / S", value: ps, write: (value) => ratio(value, 1) },
-    { label: "P / FCF", value: pfcf, write: (value) => ratio(value, 1) },
-    { label: "EV / EBITDA", value: evEbitda, write: (value) => ratio(value, 1) },
-    { label: "FCF yield", value: fcfYield, write: (value) => percent(value, 2) },
-    { label: "Net debt", value: basis?.netDebt ?? null, write: (value) => money(value, currency) },
-  ];
+  /*
+   * A bank's statistics, and an insurer's, are not an industrial company's.
+   *
+   * An enterprise value and a net debt are withheld for both, so the strip used
+   * to open on four dashes for every bank and insurer in the index — a page
+   * that looked broken for a company whose own measures were all there. What a
+   * reader of a bank or an insurer reads is its price against its book, its
+   * return on that book and what it pays out.
+   */
+  const type = view.company.businessType;
+  const equity = latest(view, "totalEquity");
+  const dividends = latest(view, "dividendsPaid");
+  const roe = latest(view, "returnOnEquity");
+  const pb = multipleOf(marketCap, equity.value);
+  const bookPerShare = basis && equity.value != null && equity.value > 0 ? equity.value / basis.shares : null;
+  const dividendYield = multipleOf(dividends.value == null ? null : Math.abs(dividends.value), marketCap);
+
+  type Row = { label: string; value: number | null; write: (value: number) => string };
+  const common: Record<string, Row> = {
+    cap: { label: "Market cap", value: marketCap, write: (value) => money(value, currency) },
+    ev: { label: "EV", value: enterpriseValue, write: (value) => money(value, currency) },
+    pe: { label: "P / E", value: pe, write: (value) => ratio(value, 1) },
+    ps: { label: "P / S", value: ps, write: (value) => ratio(value, 1) },
+    pfcf: { label: "P / FCF", value: pfcf, write: (value) => ratio(value, 1) },
+    evEbitda: { label: "EV / EBITDA", value: evEbitda, write: (value) => ratio(value, 1) },
+    fcfYield: { label: "FCF yield", value: fcfYield, write: (value) => percent(value, 2) },
+    netDebt: { label: "Net debt", value: basis?.netDebt ?? null, write: (value) => money(value, currency) },
+    pb: { label: "P / B", value: pb, write: (value) => ratio(value, 2) },
+    book: { label: "Book value / share", value: bookPerShare, write: (value) => money(value, currency) },
+    roe: { label: "ROE", value: roe.value, write: (value) => percent(value, 1) },
+    dividend: { label: "Dividend yield", value: dividendYield, write: (value) => percent(value, 2) },
+  };
+  const layout = cashFlowIsTheBalanceSheet(type)
+    ? ["cap", "pe", "pb", "ps", "book", "roe", "dividend"]
+    : type === "insurer"
+      ? ["cap", "pe", "pb", "pfcf", "fcfYield", "roe", "dividend", "book"]
+      : ["cap", "ev", "pe", "ps", "pfcf", "evEbitda", "fcfYield", "netDebt"];
+  const rows: Row[] = layout.map((key) => common[key]);
 
   /*
    * Why a figure is missing, on the strip that is missing it.
@@ -103,6 +132,7 @@ export function Stats({ view, quote }: { view: IoCompanyView; quote: IoQuote | n
       : null,
     !mismatch && !basis ? view.basisReason : null,
     view.withheldReason,
+    view.fcfNote,
     debtless && !view.withheldReason && period?.values.totalDebt == null
       ? "No enterprise value: the filer tags no borrowing balance at this date, and an absent balance is not a zero one."
       : debtless && !view.withheldReason
@@ -120,7 +150,7 @@ export function Stats({ view, quote }: { view: IoCompanyView; quote: IoQuote | n
 
   return (
     <section className="section" id="valuation" style={{ borderTop: 0, paddingTop: 0 }}>
-      <div className="grid-ruled stats">
+      <div className={rows.length === 7 ? "grid-ruled stats stats-seven" : "grid-ruled stats"}>
         {rows.map((row) => (
           <div className="stat" key={row.label}>
             <div className="label">{row.label}</div>

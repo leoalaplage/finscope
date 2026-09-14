@@ -65,6 +65,31 @@ describe("measures a bank has no boundary for", () => {
     expect(latest.values.netMargin).toBeCloseTo(0.3, 6);
   });
 
+  it("gives an insurer its free cash flow and withholds only its leverage", () => {
+    const insurer = companyView(dataset("insurer"));
+    const latest = insurer.annual.at(-1)!;
+    // Operating cash flow less capital expenditure, as for any company.
+    expect(latest.values.freeCashFlow).toBe(-162_000_000_000);
+    expect(latest.values.netDebt).toBeNull();
+    expect(latest.values.roic).toBeNull();
+    expect(insurer.basis?.netDebt).toBeNull();
+    expect(insurer.withheldReason).toContain("insurer");
+    expect(insurer.fcfNote).toBeNull();
+  });
+
+  it("reads an insurer that files no capital expenditure at all as its operating cash flow, and says so", () => {
+    // Travelers: no capital-expenditure line in any filing.
+    const travelers = dataset("insurer");
+    delete travelers.periods[0].facts.capitalExpenditures;
+    const view = companyView(travelers);
+    expect(view.annual.at(-1)!.values.freeCashFlow).toBe(-160_000_000_000);
+    expect(view.fcfNote).toContain("files no capital-expenditure line");
+    // A bank without the line still gets nothing.
+    const bank = dataset("bank");
+    delete bank.periods[0].facts.capitalExpenditures;
+    expect(companyView(bank).annual.at(-1)!.values.freeCashFlow).toBeNull();
+  });
+
   it("leaves an operating company alone", () => {
     const operating = companyView(dataset("operating"));
     const latest = operating.annual.at(-1)!;

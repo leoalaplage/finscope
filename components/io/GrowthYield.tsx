@@ -1,4 +1,4 @@
-import { balanceSheetIsTheBusiness } from "@/lib/business-type";
+import { cashFlowIsTheBalanceSheet } from "@/lib/business-type";
 import {
   annualRate, GROWTH_YIELD_ANCHORS, GROWTH_YIELD_CEILING, GROWTH_YIELD_YEARS,
   growthYield, growthYieldScore, growthYieldVerdict,
@@ -18,11 +18,11 @@ import { ABSENT, percent } from "./format";
  * same currency or nothing — and the free cash flow is the newest period that
  * reports one, so the yield here is the yield printed there.
  *
- * Withheld for a bank, a broker or an insurer, whose free cash flow is not a
- * measure of anything a shareholder is paid from.
+ * Withheld for a bank or a broker, whose operating cash flow is its balance
+ * sheet moving. An insurer is read like any other company.
  */
 export function GrowthYield({ view, quote }: { view: IoCompanyView; quote: IoQuote | null }) {
-  if (balanceSheetIsTheBusiness((view.company.businessType ?? undefined) as Parameters<typeof balanceSheetIsTheBusiness>[0])) return null;
+  if (cashFlowIsTheBalanceSheet(view.company.businessType)) return null;
 
   const basis = view.basis;
   const price = quote?.price ?? null;
