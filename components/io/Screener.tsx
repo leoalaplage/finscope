@@ -353,7 +353,7 @@ export function Screener() {
   const universeState = useMemo<State | null>(() => {
     if (!universe) return universeBuilding ? { kind: "building", followed, ready: universeBuilding.ready, asked: universeBuilding.asked } : null;
     try {
-      const result = screen(universe.table, { preset });
+      const result = screen(universe.table, { preset, modele: "finscope" });
       return { kind: "ready", feed: { rows: result.all, missing: result.missing, warnings: result.warnings, asked: universe.asked, answered: universe.answered, source: "universe" } };
     } catch (error) {
       return { kind: "failed", followed, message: error instanceof Error ? error.message : "The index could not be scored." };
@@ -364,7 +364,7 @@ export function Screener() {
   const watchlistState = useMemo<State | null>(() => {
     if (!built || built.followed !== followed) return null;
     try {
-      const result = screen(built.table, { preset });
+      const result = screen(built.table, { preset, modele: "finscope" });
       return { kind: "ready", feed: { rows: result.all, missing: result.missing, warnings: result.warnings, asked: built.asked, answered: built.answered, source: "watchlist" } };
     } catch (error) {
       return { kind: "failed", message: error instanceof Error ? error.message : "The screener could not be built." };

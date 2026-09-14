@@ -92,7 +92,7 @@ export async function GET(_request: Request, context: { params: Promise<{ ticker
     };
   });
 
-  const scored = new Map((screen(qsTable(rows), {}).all as ScoredCompany[]).map((company) => [company.Ticker, company]));
+  const scored = new Map((screen(qsTable(rows), { modele: "finscope" }).all as ScoredCompany[]).map((company) => [company.Ticker, company]));
   const named = new Map(cohort.map((row) => [row.ticker, row.name]));
   const peers: PeerRow[] = rows.map((row) => {
     const company = scored.get(row.ticker);

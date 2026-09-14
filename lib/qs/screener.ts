@@ -59,6 +59,13 @@ export interface ScoredCompany {
 
 export interface ScreenerFilters {
   preset?: PresetName;
+  /**
+   * "finscope" scores under FinScope's own model — a bad measure costs points
+   * and a cheap price cannot carry a weak business (`MODELE_FINSCOPE`). Only
+   * the application's own SEC rows ask for it; a pasted table never does, so
+   * an imported reference is scored exactly as it always was.
+   */
+  modele?: "finscope";
   classerPar?: string;
   top?: number | "";
   minScore?: number | "";

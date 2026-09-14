@@ -265,6 +265,46 @@ export const MALUS_ALERTE = 2.5;
  * change ce qui arrivera a la prochaine mesure ajoutee au modele.
  */
 export const SEUIL_COUVERTURE = 0.70;
+
+/*
+ * Le modele propre a FinScope, applique a ses seules donnees SEC.
+ *
+ * Une table collee — une exportation Fiscal.ai en particulier — reste notee
+ * exactement comme avant : elle sert de reference, et une reference qui bouge
+ * avec le modele ne prouve plus rien.
+ *
+ * Deux defauts du modele de reference, que la note FinScope corrige.
+ *
+ * Une mesure mauvaise ne coutait rien. L'echelle s'arretait a zero : un ROIC
+ * de -30 % valait autant qu'un ROIC de 5 %, et une marge operationnelle
+ * negative autant qu'une marge de 3 %. Quatre societes notees sur cinq ont au
+ * moins une mesure collee a ce plancher, et leurs bonnes mesures portaient la
+ * note sans que la mauvaise la retienne. La droite continue donc sous l'ancre
+ * zero, au meme rythme, jusqu'a -50 : une mesure catastrophique retire des
+ * points au pilier au lieu de simplement ne pas en ajouter. Le pilier, lui,
+ * ne descend pas sous zero.
+ *
+ * Pour les mesures de qualite seulement, et c'est mesure. Sur 501 societes
+ * notees a chaque fin d'annee de 2016 a 2022, le plancher etendu a tous les
+ * piliers classait moins bien les rendements qui ont suivi (0,112 contre
+ * 0,122 a cinq ans) : une croissance negative est le plus souvent un creux de
+ * cycle, et ce sont ces societes-la qui rebondissent ; un bilan tendu est
+ * souvent celui d'une societe qui rachete ses actions. Limite a la qualite, il
+ * classe comme avant (0,074 / 0,093 / 0,117 contre 0,073 / 0,094 / 0,122) et
+ * fait tomber les memes societes mediocres.
+ *
+ * Un prix bas rachetait une entreprise mediocre. Ford notait B avec un pilier
+ * Quality a 23 parce que son pilier Value etait a 100, et Dollar Tree B+ avec
+ * une croissance a 21. Le pas cher reste une information — il fait monter les
+ * etoiles — mais il ne peut plus hisser la note plus de cinq points au-dessus
+ * de ce que valent l'entreprise, son bilan et sa croissance. Une valorisation
+ * chere, elle, continue de la tirer vers le bas.
+ */
+export const MODELE_FINSCOPE = {
+  plancherMetrique: -50,
+  piliersPlancher: ["Quality"],
+  primeValeurMax: 5,
+};
 export const SEUIL_FORCE = 70;
 export const SEUIL_FAIBLESSE = 30;
 export const NB_FORCES = 3;

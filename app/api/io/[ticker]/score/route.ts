@@ -74,7 +74,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       values: { ...summary.qs, ...qsValuationColumns(summary.qsPrice, quote?.price ?? null, quote?.currency ?? null) },
       period: null,
     };
-    const result = screen(qsTable([row]));
+    const result = screen(qsTable([row]), { modele: "finscope" });
     const scored = result.all[0] ?? null;
     if (!scored) return NextResponse.json({ error: `${symbol} could not be scored.` }, { status: 422, headers: { "Cache-Control": "no-store" } });
 

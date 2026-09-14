@@ -58,18 +58,20 @@ function segment(valeur, a, b, sa, sb) {
  * lisible sans connaitre les autres societes. Une ancre a deux bornes reste
  * acceptee : son point median est alors le milieu du segment.
  */
-function scoreAbsolu(cle, valeur) {
+function scoreAbsolu(cle, valeur, plancher = 0.0) {
   if (valeur === null || valeur === undefined || !Number.isFinite(valeur)) return null;
   const ancre = cfg.ANCRES_ABSOLUES[cle];
   if (!ancre) return null;
-  if (cfg.NEGATIF_PIRE.has(cle) && valeur <= 0) return 0.0;   // multiple negatif = absurde
+  if (cfg.NEGATIF_PIRE.has(cle) && valeur <= 0) return plancher;   // multiple negatif = absurde
   const [v0, v50, v100] = ancre.length >= 3
     ? ancre
     : [ancre[0], (ancre[0] + ancre[1]) / 2, ancre[1]];
   if (v100 === v0) return 50.0;
   const monte = v100 > v0;               // "plus haut = mieux" ou son inverse
   const auDela = (x, borne) => (monte ? x >= borne : x <= borne);
-  if (auDela(v0, valeur) && valeur !== v0) return 0.0;
+  // Sous l'ancre zero, le modele de reference s'arrete ; celui de FinScope
+  // prolonge le premier segment jusqu'a son plancher (voir MODELE_FINSCOPE).
+  if (auDela(v0, valeur) && valeur !== v0) return Math.max(plancher, Math.min(0.0, segment(valeur, v0, v50, 0.0, 50.0)));
   if (auDela(valeur, v100)) return 100.0;
   const score = auDela(v50, valeur)
     ? segment(valeur, v0, v50, 0.0, 50.0)
@@ -136,15 +138,16 @@ function percentilesGroupe(groupe, cleCible, winsoriser) {
  *
  * null = donnee absente (renormalisee). Multiple de valo <= 0 = pire (0).
  */
-function melangeScores(t) {
+function melangeScores(t, modele = null) {
   t.score_metrique = {};
   const src = (cfg.PERCENTILE_SECTORIEL && t.pct_sect) ? t.pct_sect : t.pct;
   for (const m of cfg.METRIQUES) {
     const cle = m.cle;
+    const plancher = modele && (modele.piliersPlancher ?? []).includes(m.pilier) ? modele.plancherMetrique : 0.0;
     const brut = t.brut[cle];
     if (brut === null || brut === undefined) { t.score_metrique[cle] = null; continue; }
-    if (cfg.NEGATIF_PIRE.has(cle) && brut <= 0) { t.score_metrique[cle] = 0.0; continue; }
-    const absv = scoreAbsolu(cle, brut);
+    if (cfg.NEGATIF_PIRE.has(cle) && brut <= 0) { t.score_metrique[cle] = plancher; continue; }
+    const absv = scoreAbsolu(cle, brut, plancher);
     const rel = src?.[cle];
     const relDispo = rel !== undefined && rel !== null;
     // Sans ancre, le percentile reste le seul jugement possible ; sans
@@ -172,7 +175,7 @@ function melangeScores(t) {
  * sortait des societes completes en NR. Quand une exportation qui les contient
  * est collee, tout le monde les a et elles comptent de nouveau.
  */
-function calculPiliers(t, clePct, poidsPiliers, horsPortee = new Set()) {
+function calculPiliers(t, clePct, poidsPiliers, horsPortee = new Set(), modele = null) {
   const metrParPilier = {};
   for (const m of cfg.METRIQUES) (metrParPilier[m.pilier] ||= []).push(m);
 
@@ -191,12 +194,21 @@ function calculPiliers(t, clePct, poidsPiliers, horsPortee = new Set()) {
         poidsDispo += w * poidsPiliers[pilier];
       }
     }
-    piliers[pilier] = den > 0 ? num / den : null;
+    // Une mesure sous zero tire son pilier vers le bas ; le pilier ne passe pas sous zero.
+    piliers[pilier] = den > 0 ? Math.max(0.0, num / den) : null;
   }
 
+  const moyenne = (entrees) => {
+    const sp = entrees.reduce((a, [p]) => a + poidsPiliers[p], 0);
+    return sp ? entrees.reduce((a, [p, v]) => a + v * poidsPiliers[p], 0) / sp : null;
+  };
   const pilOk = Object.entries(piliers).filter(([, v]) => v !== null);
-  const sp = pilOk.reduce((a, [p]) => a + poidsPiliers[p], 0);
-  const total = sp ? pilOk.reduce((a, [p, v]) => a + v * poidsPiliers[p], 0) / sp : null;
+  let total = moyenne(pilOk);
+  // Le prix ne rachete pas l'entreprise : voir MODELE_FINSCOPE.primeValeurMax.
+  if (total !== null && modele?.primeValeurMax !== undefined && modele?.primeValeurMax !== null) {
+    const entreprise = moyenne(pilOk.filter(([p]) => p !== "Value"));
+    if (entreprise !== null) total = Math.min(total, entreprise + modele.primeValeurMax);
+  }
   const couverture = poidsTot ? poidsDispo / poidsTot : 0.0;
   return { piliers, total, couverture };
 }
@@ -244,7 +256,7 @@ function alertesDe(t) {
 // ---------------------------------------------------------------------
 // Pipeline complet
 // ---------------------------------------------------------------------
-export function calculerScores(titres, poidsPiliers, winsoriser = true, horsPorteeDeclare = null) {
+export function calculerScores(titres, poidsPiliers, winsoriser = true, horsPorteeDeclare = null, modele = null) {
   const n = titres.length;
 
   // 1) percentiles : univers complet, puis intra-secteur si assez de pairs
@@ -269,8 +281,8 @@ export function calculerScores(titres, poidsPiliers, winsoriser = true, horsPort
         .map((m) => m.cle),
     );
   for (const t of titres) {
-    melangeScores(t);
-    const { piliers, total, couverture } = calculPiliers(t, "score_metrique", poidsPiliers, horsPortee);
+    melangeScores(t, modele);
+    const { piliers, total, couverture } = calculPiliers(t, "score_metrique", poidsPiliers, horsPortee, modele);
     t.piliers = piliers;
     t.total = total;
     t.couverture = couverture;
@@ -417,7 +429,9 @@ export function analyser(titres, options = {}) {
   const poids = options.preset && cfg.PRESETS[options.preset]
     ? { ...cfg.PRESETS[options.preset] }
     : { ...cfg.POIDS_PILIERS };
-  calculerScores(titres, poids, options.winsoriser !== false, options.horsPortee ?? null);
+  // Le modele FinScope ne s'applique qu'a qui le demande ; une table collee ne le demande pas.
+  const modele = options.modele === "finscope" ? cfg.MODELE_FINSCOPE : null;
+  calculerScores(titres, poids, options.winsoriser !== false, options.horsPortee ?? null, modele);
   const retenus = appliquerFiltres(titres, options);
   return { titres, retenus, poids, preset: options.preset || null };
 }

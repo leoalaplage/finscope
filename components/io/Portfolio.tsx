@@ -260,7 +260,7 @@ export function Portfolio() {
     if (!rows.length) return {} as Record<string, ScoredCompany | undefined>;
     try {
       const scored: Record<string, ScoredCompany | undefined> = {};
-      for (const row of screen(qsTable(rows)).all) scored[row.Ticker.toUpperCase()] = row;
+      for (const row of screen(qsTable(rows), { modele: "finscope" }).all) scored[row.Ticker.toUpperCase()] = row;
       return scored;
     } catch {
       return {} as Record<string, ScoredCompany | undefined>;
