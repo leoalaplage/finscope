@@ -117,10 +117,14 @@
  *     And capital expenditure is summed from its parts where a filer tags only
  *     the parts of a total it reconciles in another report. Hims & Hers had
  *     eleven of twenty-three trailing periods without free cash flow for want
- *     of it, and has none now. Measured over the 501 companies of the S&P 500
- *     from their raw Company Facts: trailing periods without free cash flow
- *     fall from 2,273 to 1,644, and companies whose latest trailing period has
- *     none from 40 to 34. Of 100,780 cash-flow figures present before and after,
+ *     of it, and has none now. So is capital expenditure filed under two
+ *     names that agree wherever both are tagged (Arista, Rockwell, McCormick),
+ *     and under "other productive assets" where that has become the filer's
+ *     only line (Verizon since 2011, Roper, Incyte). Measured over the 501
+ *     companies of the S&P 500 from their raw Company Facts: trailing periods
+ *     without free cash flow fall from 2,273 to 1,521, years without it
+ *     from 146 to 129, and companies whose latest trailing period has
+ *     none from 40 to 26. Of 100,780 cash-flow figures present before and after,
  *     98 move, at five filers whose earlier years tagged the parts of the total
  *     they tag later — Ecolab, FIS, Alliant Energy, United Rentals and Valero —
  *     each now read under the filer's own definition of the total.

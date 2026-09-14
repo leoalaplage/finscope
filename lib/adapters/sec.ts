@@ -372,8 +372,91 @@ function extractFacts(
   }
   const capex = SEC_CONCEPTS.capitalExpenditures;
   const read = (tag: string) => factsUnder(namespaces, "us-gaap", tag, "capitalExpenditures", capex.unit, cik, currency, retrievedAt);
-  output.push(...capexFromComponents(CAPEX_TOTALS.flatMap(read), CAPEX_COMPONENTS.flatMap(read)));
+  const isCapex = (fact: RawFinancialFact) => fact.metric === "capitalExpenditures";
+  const aliases = capexUnderEitherName(output.filter(isCapex));
+  output.push(...aliases);
+  output.push(...capexFromComponents([...CAPEX_TOTALS.flatMap(read), ...aliases], CAPEX_COMPONENTS.flatMap(read)));
+  output.push(...capexFromOtherProductiveAssets(output.filter(isCapex), read("PaymentsToAcquireOtherProductiveAssets")));
   return anchorCoverPageShares(output);
+}
+
+const PPE_PAYMENTS = "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment";
+const PRODUCTIVE_ASSET_PAYMENTS = "us-gaap:PaymentsToAcquireProductiveAssets";
+const span = (fact: RawFinancialFact) => `${fact.start ?? ""}|${fact.end}`;
+
+/**
+ * One capital expenditure filed under two names, read under both.
+ *
+ * Arista tags its quarters as payments for property, plant and equipment and
+ * its 2025 annual report as payments for productive assets. A year's quarters
+ * are built from the year's own concept, so none of them was, and the latest
+ * trailing period had no free cash flow. Rockwell and McCormick do the same.
+ *
+ * The two names are treated as one measure only on the filer's own evidence:
+ * it must have tagged both for at least one period, and wherever it did, the
+ * two must agree — Arista's 2018 and 2019 reports carry both at the same
+ * figure. A filer whose "productive assets" is a wider total than its
+ * property, plant and equipment shows it by disagreeing, and nothing is copied.
+ *
+ * And only into a year that needs it: one whose annual figure is filed under
+ * one name alone and whose quarters are filed only under the other. Copying
+ * every period across was measured to do harm. Fortive and Republic Services
+ * tag complete years under one name and older, differently restated quarters
+ * under the other, and the copies mixed the two: Fortive's trailing capital
+ * expenditure at the end of 2024 read 99.8 million against 86 million filed.
+ */
+export function capexUnderEitherName(facts: RawFinancialFact[]): RawFinancialFact[] {
+  const named = facts.filter((fact) => fact.start && (fact.concept === PPE_PAYMENTS || fact.concept === PRODUCTIVE_ASSET_PAYMENTS));
+  const byName = (concept: string) => new Map(named.filter((fact) => fact.concept === concept).map((fact) => [span(fact), fact]));
+  const ppe = byName(PPE_PAYMENTS), productive = byName(PRODUCTIVE_ASSET_PAYMENTS);
+  const shared = [...ppe.keys()].filter((key) => productive.has(key));
+  if (!shared.length) return [];
+  const agree = shared.every((key) => {
+    const left = Math.abs(ppe.get(key)!.value), right = Math.abs(productive.get(key)!.value);
+    return Math.abs(left - right) <= Math.max(1, 0.005 * right);
+  });
+  if (!agree) return [];
+  const copy = (fact: RawFinancialFact, concept: string): RawFinancialFact => ({
+    ...fact,
+    concept,
+    summedFrom: [fact.concept],
+    normalizationNote: `Tagged as ${fact.concept.replace("us-gaap:", "")} for this period and read under ${concept.replace("us-gaap:", "")}, the name of its fiscal year's own figure: the filer tags both names at the same figure wherever it tags both.`,
+  });
+  const days = (fact: RawFinancialFact) => (Date.parse(fact.end) - Date.parse(fact.start!)) / 86_400_000;
+  const output: RawFinancialFact[] = [];
+  for (const [concept, own, other] of [[PRODUCTIVE_ASSET_PAYMENTS, productive, ppe], [PPE_PAYMENTS, ppe, productive]] as const) {
+    for (const year of own.values()) {
+      if (days(year) < 300 || other.has(span(year))) continue;
+      const inside = (fact: RawFinancialFact) => fact.start! >= year.start! && fact.end < year.end;
+      if ([...own.values()].some(inside)) continue;
+      output.push(...named.filter((fact) => fact.concept !== concept && inside(fact)).map((fact) => copy(fact, concept)));
+    }
+  }
+  return output;
+}
+
+/**
+ * Capital expenditure a filer tags only as "other productive assets".
+ *
+ * Verizon's capital expenditure — seventeen billion dollars in 2025 — is filed
+ * under that name and no other, so Verizon had no free cash flow anywhere on
+ * this site. Roper, Incyte and Robinhood file the same way.
+ *
+ * Read only where it has become the filer's sole capital-expenditure line:
+ * after the last period it shares with another one, and only once a whole
+ * fiscal year stands on it alone. Verizon filed it as a part of a wider total
+ * in 2009 and 2010 and as the whole of its capital expenditure ever since.
+ * Delta still files it beside its productive-assets total — 978 million
+ * against 4,499 million — and a half-year whose total is missing is not read
+ * off the part: that would understate the period fivefold.
+ */
+export function capexFromOtherProductiveAssets(capex: RawFinancialFact[], other: RawFinancialFact[]): RawFinancialFact[] {
+  if (!other.length) return [];
+  const taken = new Set(capex.filter((fact) => fact.start).map(span));
+  const lastShared = other.filter((fact) => taken.has(span(fact))).map((fact) => fact.end).sort().at(-1) ?? "";
+  const alone = other.filter((fact) => fact.start && fact.end > lastShared && !taken.has(span(fact)));
+  const aYear = alone.some((fact) => (Date.parse(fact.end) - Date.parse(fact.start!)) / 86_400_000 >= 300);
+  return aYear ? alone : [];
 }
 
 /** Every usable fact filed under one concept, in the shape the normalizer reads. */
