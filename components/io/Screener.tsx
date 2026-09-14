@@ -12,6 +12,7 @@ import type { PricePoint } from "@/lib/types";
 import { KEY_VERSION, SUMMARY_SHAPE } from "@/lib/data-version";
 import { stated } from "@/lib/sector";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
+import { growthYieldScore } from "@/lib/io/growth-yield";
 import { useStoredWatchlist } from "./watchlist";
 import { ABSENT, money, percent } from "./format";
 
@@ -131,8 +132,12 @@ const COLUMNS: Column[] = [
    */
   {
     sort: "growthYield",
-    label: "Growth yield",
-    read: (row) => { const value = rowGrowthYield(row); return value == null ? ABSENT : percent(value, 1); },
+    label: "Price / growth",
+    read: (row) => {
+      const value = rowGrowthYield(row);
+      const score = growthYieldScore(value);
+      return score == null ? ABSENT : <span title={`Growth yield ${percent(value, 1)}`}>{score}</span>;
+    },
     empty: (row) => rowGrowthYield(row) == null,
   },
   { sort: "couverture", label: "Coverage", read: (row) => percent(row.couverture, 0), empty: () => false },

@@ -1,17 +1,22 @@
 import { balanceSheetIsTheBusiness } from "@/lib/business-type";
-import { annualRate, GROWTH_YIELD_CEILING, GROWTH_YIELD_YEARS, growthYield } from "@/lib/io/growth-yield";
+import {
+  annualRate, GROWTH_YIELD_ANCHORS, GROWTH_YIELD_CEILING, GROWTH_YIELD_YEARS,
+  growthYield, growthYieldScore, growthYieldVerdict,
+} from "@/lib/io/growth-yield";
 import type { IoCompanyView } from "@/lib/io/view";
 import type { IoQuote } from "./quote";
 import { ABSENT, percent } from "./format";
 
 /**
- * Whether the price is dear for the growth behind it, in one rate.
+ * Whether the price is dear for the growth behind it, as a mark out of 100.
  *
  * The arithmetic and the reason for it are in `lib/io/growth-yield.ts`. The
- * market capitalisation is struck exactly as the statistics above strike it —
- * the engine's share count, today's price, the same currency or nothing — and
- * the free cash flow is the newest period that reports one, so the yield here
- * is the yield printed there.
+ * mark comes first, because it is what a reader glances at; the rate it is
+ * struck from and that rate's two halves follow, so the mark is never a number
+ * without its working. The market capitalisation is struck exactly as the
+ * statistics above strike it — the engine's share count, today's price, the
+ * same currency or nothing — and the free cash flow is the newest period that
+ * reports one, so the yield here is the yield printed there.
  *
  * Withheld for a bank, a broker or an insurer, whose free cash flow is not a
  * measure of anything a shareholder is paid from.
@@ -31,17 +36,27 @@ export function GrowthYield({ view, quote }: { view: IoCompanyView; quote: IoQuo
   const rate = annualRate(view.annual, "revenuePerShare", GROWTH_YIELD_YEARS);
   const reading = growthYield(fcfYield, rate.value);
   if (reading.fcfYield == null && reading.growth == null) return null;
+  const score = growthYieldScore(reading.value);
+  const verdict = growthYieldVerdict(score);
 
   const growthTitle = rate.reason ?? `${rate.startDate} to ${rate.endDate}${reading.capped ? ` · counted at ${percent(GROWTH_YIELD_CEILING, 0)}` : ""}`;
   const yieldTitle = cash ? `Free cash flow ${cash.label} over today's market capitalisation` : "No period reports a free cash flow";
+  const [low, middle, high] = GROWTH_YIELD_ANCHORS;
 
   return (
     <section className="section growth-yield" id="growth-yield">
       <div className="section-head">
         <h2 className="label">Price against growth</h2>
-        <span className="label">FCF yield + revenue / share {GROWTH_YIELD_YEARS}Y CAGR</span>
+        <span className="label">Out of 100 · higher is cheaper for the growth</span>
       </div>
       <div className="grid-ruled growth-yield-grid">
+        <div className="stat growth-yield-headline" title={`A growth yield of ${percent(low, 0)} scores 0, ${percent(middle, 0)} scores 50, ${percent(high, 0)} or more scores 100`}>
+          <div className="label">Score</div>
+          <div className="stat-value" data-empty={score == null}>
+            {score == null ? ABSENT : <>{score}<span className="dim"> / 100</span></>}
+          </div>
+          {verdict ? <div className="health-meaning">{verdict}</div> : null}
+        </div>
         <div className="stat" title="What a buyer earns at today's price if the business goes on growing as it has">
           <div className="label">Growth yield</div>
           <div className="stat-value" data-empty={reading.value == null}>{reading.value == null ? ABSENT : percent(reading.value, 1)}</div>
@@ -59,8 +74,9 @@ export function GrowthYield({ view, quote }: { view: IoCompanyView; quote: IoQuo
         </div>
       </div>
       <p className="stat-note">
-        The return at today&apos;s price if the business goes on as it has: its cash yield plus five years of revenue growth per
-        share, counted at no more than {percent(GROWTH_YIELD_CEILING, 0)} a year. Higher is cheaper for the growth.
+        The growth yield is the return at today&apos;s price if the business goes on as it has: its cash yield plus five years
+        of revenue growth per share, counted at no more than {percent(GROWTH_YIELD_CEILING, 0)} a year. It scores 50 at
+        {" "}{percent(middle, 0)}, about the S&amp;P 500&apos;s median, and 100 from {percent(high, 0)}.
       </p>
     </section>
   );

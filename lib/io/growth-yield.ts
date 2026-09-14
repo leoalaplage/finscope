@@ -45,6 +45,32 @@ export function growthYield(fcfYield: number | null | undefined, growth: number 
   };
 }
 
+/**
+ * The rate as a mark out of 100, to be read at a glance.
+ *
+ * A fixed scale, as the Quality Score's is, not a rank: a company's mark moves
+ * when its price or its filings do, never because the rest of the index did.
+ * The anchors sit on the S&P 500 as it read in September 2026 — a growth yield
+ * of nought scores 0, the index's median of about 14% scores 50, and 28%, where
+ * its top twentieth begins, scores 100 — so a quarter of the index reads under
+ * 35 and a quarter over 67. Between two anchors the mark is interpolated.
+ */
+export const GROWTH_YIELD_ANCHORS: readonly [number, number, number] = [0, 0.14, 0.28];
+
+export function growthYieldScore(rate: number | null | undefined): number | null {
+  if (rate == null || !Number.isFinite(rate)) return null;
+  const [low, middle, high] = GROWTH_YIELD_ANCHORS;
+  if (rate <= low) return 0;
+  if (rate >= high) return 100;
+  return Math.round(rate <= middle ? (50 * (rate - low)) / (middle - low) : 50 + (50 * (rate - middle)) / (high - middle));
+}
+
+/** Three words for the mark, on the Quality Score's own band edges. */
+export function growthYieldVerdict(score: number | null): string | null {
+  if (score == null) return null;
+  return score >= 67 ? "Cheap for its growth" : score >= 40 ? "Fairly priced" : "Dear for its growth";
+}
+
 export interface DatedRate { value: number | null; startDate: string | null; endDate: string | null; reason: string | null }
 
 const YEAR_MS = 365.2425 * 86_400_000;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { annualRate, GROWTH_YIELD_CEILING, growthYield } from "../lib/io/growth-yield";
+import { annualRate, GROWTH_YIELD_CEILING, growthYield, growthYieldScore, growthYieldVerdict } from "../lib/io/growth-yield";
 import type { IoPeriod } from "../lib/io/view";
 
 const year = (end: string, revenuePerShare: number | null) =>
@@ -21,6 +21,18 @@ describe("growth yield", () => {
   it("states nothing when either half is unknown", () => {
     expect(growthYield(null, 0.1).value).toBeNull();
     expect(growthYield(0.03, Number.NaN).value).toBeNull();
+  });
+
+  it("marks the rate out of 100 on a fixed scale, clamped at both ends", () => {
+    expect(growthYieldScore(-0.1)).toBe(0);
+    expect(growthYieldScore(0.07)).toBe(25);
+    expect(growthYieldScore(0.14)).toBe(50);
+    expect(growthYieldScore(0.21)).toBe(75);
+    expect(growthYieldScore(0.5)).toBe(100);
+    expect(growthYieldScore(null)).toBeNull();
+    expect(growthYieldVerdict(80)).toBe("Cheap for its growth");
+    expect(growthYieldVerdict(50)).toBe("Fairly priced");
+    expect(growthYieldVerdict(20)).toBe("Dear for its growth");
   });
 
   it("strikes the rate between the newest year and the one nearest five years before it", () => {
