@@ -284,14 +284,16 @@ export const SEUIL_COUVERTURE = 0.70;
  * points au pilier au lieu de simplement ne pas en ajouter. Le pilier, lui,
  * ne descend pas sous zero.
  *
- * Pour les mesures de qualite seulement, et c'est mesure. Sur 501 societes
- * notees a chaque fin d'annee de 2016 a 2022, le plancher etendu a tous les
- * piliers classait moins bien les rendements qui ont suivi (0,112 contre
- * 0,122 a cinq ans) : une croissance negative est le plus souvent un creux de
- * cycle, et ce sont ces societes-la qui rebondissent ; un bilan tendu est
- * souvent celui d'une societe qui rachete ses actions. Limite a la qualite, il
- * classe comme avant (0,074 / 0,093 / 0,117 contre 0,073 / 0,094 / 0,122) et
- * fait tomber les memes societes mediocres.
+ * Pour les trois piliers de l'entreprise — qualite, bilan, croissance — et
+ * pas pour le prix, a la demande du lecteur et en connaissance de la mesure.
+ * Sur 501 societes notees a chaque fin d'annee de 2016 a 2022, le plancher
+ * limite a la qualite classait les rendements qui ont suivi comme avant
+ * (0,074 / 0,093 / 0,117 contre 0,073 / 0,094 / 0,122) ; etendu au bilan et a
+ * la croissance il les classe un peu moins bien a long terme (autour de 0,115
+ * a cinq ans). Une croissance negative est souvent un creux de cycle dont la
+ * societe sort, un bilan tendu celui d'une societe qui rachete ses actions :
+ * la note dit desormais que ces societes vont mal aujourd'hui, ce qui est
+ * vrai, meme quand leur cours s'en remet ensuite.
  *
  * Un prix bas rachetait une entreprise mediocre. Ford notait B avec un pilier
  * Quality a 23 parce que son pilier Value etait a 100, et Dollar Tree B+ avec
@@ -302,7 +304,7 @@ export const SEUIL_COUVERTURE = 0.70;
  */
 export const MODELE_FINSCOPE = {
   plancherMetrique: -50,
-  piliersPlancher: ["Quality"],
+  piliersPlancher: ["Quality", "Health", "Growth"],
   primeValeurMax: 5,
 };
 export const SEUIL_FORCE = 70;
