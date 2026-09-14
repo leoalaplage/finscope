@@ -9,6 +9,7 @@ import { Growth } from "./Growth";
 import { Score, useCompanyScore } from "./Score";
 import { Health } from "./Health";
 import { Multiples } from "./Multiples";
+import { Fold } from "./Fold";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
 import { toggleMetric } from "./selection";
 import { CompanyNews } from "./CompanyNews";
@@ -132,6 +133,11 @@ export function Company({ ticker }: { ticker: string }) {
   );
   const [rebased, setRebased] = useState(opening.rebased);
   const [withPrice, setWithPrice] = useState(opening.withPrice);
+  /*
+   * Whether the chart is open. It is the one fold opened from elsewhere:
+   * choosing a measure from a table below is asking to see it drawn.
+   */
+  const [chartOpen, setChartOpen] = useState(false);
 
   const state: State = loaded.ticker === ticker ? loaded : { kind: "loading", ticker, progress: 6 };
   const quote = quoted?.ticker === ticker ? quoted : null;
@@ -191,6 +197,7 @@ export function Company({ ticker }: { ticker: string }) {
     if (metric == null) { setSelection({ ticker, metrics: [] }); return; }
     const next = toggleMetric(selectedMetrics, metric, unitOf);
     setSelection({ ticker, metrics: next });
+    if (next.length) setChartOpen(true);
     if (selectedMetrics.length || !next.length) return;
     setRange("MAX");
     setOverride({ range: "MAX", frequency: "ttm" });
@@ -364,53 +371,70 @@ export function Company({ ticker }: { ticker: string }) {
       {/*
         * One company, one document.
         *
-        * The page carried a sub-navigation and four collapsible groups for a
-        * while, three of them shut. A reader who wants the statements should
-        * not have to know they exist and click to find out: the whole of what
-        * this site knows about a filer reads top to bottom, and the browser's
-        * own find already searches every word of it, which no closed section
-        * can say.
+        * Five readings open, everything else a line to open.
+        *
+        * This page once folded its statements away and the fold was taken out,
+        * because a reader should not have to know a section exists to find it.
+        * It came back at the reader's own request, for the opposite reason: a
+        * company page that says everything at once is a wall at first sight.
+        * So what a reader comes for stays open — the grade, the balance sheet,
+        * free cash flow per share, the trailing figures and growth — and the
+        * rest is a named fold, which still says what the page holds and costs
+        * nothing until it is opened.
+        *
+        * The chart is the first fold, and the one opened from elsewhere:
+        * choosing a measure below opens it and brings it to the reader.
         */}
-      <PriceSection
-        ticker={company.ticker}
-        currency={quote?.currency ?? company.currency}
-        view={view}
-        metricKeys={selectedMetrics}
-        onClearMetric={() => selectMetric(null)}
-        range={range}
-        onRange={setRange}
-        frequency={frequency}
-        onFrequency={chooseFrequency}
-        rebased={rebased}
-        onRebased={setRebased}
-        withPrice={withPrice}
-        onWithPrice={setWithPrice}
-        valuation={valuation}
-      />
-      <Stats view={view} quote={quote} />
+      <Fold title="Chart" open={chartOpen} onToggle={setChartOpen}>
+        <PriceSection
+          ticker={company.ticker}
+          currency={quote?.currency ?? company.currency}
+          view={view}
+          metricKeys={selectedMetrics}
+          onClearMetric={() => selectMetric(null)}
+          range={range}
+          onRange={setRange}
+          frequency={frequency}
+          onFrequency={chooseFrequency}
+          rebased={rebased}
+          onRebased={setRebased}
+          withPrice={withPrice}
+          onWithPrice={setWithPrice}
+          valuation={valuation}
+        />
+      </Fold>
+
       <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} />
       <Health view={view} />
       <FcfShareGrowth view={view} />
-      <ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />
-      <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range={range} frequency={frequency} />
-      <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
-      <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
-
       {/*
-        * Below the statements, because it is about the people rather than the
-        * business. Keyed by the company, so moving from one to another starts
-        * the panel over rather than leaving the first filer's insiders under
-        * the second one's name while the request is out. The key is prefixed
-        * because the score above is keyed by the company too, and two siblings
-        * under one key is a collision React resolves by dropping one of them.
+        * Always the whole trailing history, whatever the chart shows.
+        *
+        * The figures followed the chart's window, so moving the chart to five
+        * years redrew every panel under it and a reader comparing two visits
+        * saw two different tables. They are a record, not a view of the chart.
         */}
-      <Insiders key={`insiders-${company.ticker}`} state={insiderState} />
-      {/* Beside the insiders, and for the same reason: it is about who holds
-          the company rather than what the company did. */}
-      <Holders key={`holders-${company.ticker}`} ticker={company.ticker} view={view} />
-      {/* Last of the filings, because it is the only thing on this page the
-          company did not file: what it has said since. */}
-      <CompanyNews key={company.ticker} ticker={company.ticker} />
+      <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range="MAX" frequency="ttm" />
+      <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
+
+      <Fold title="Key statistics"><Stats view={view} quote={quote} /></Fold>
+      <Fold title="Valuation and capital returned">
+        <ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />
+      </Fold>
+      <Fold title="Statements">
+        <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
+      </Fold>
+      {/*
+        * Below the statements, because they are about the people rather than
+        * the business, and last of all what the company has said since. Each
+        * is keyed by the company, so moving to another starts it over rather
+        * than leaving one filer's insiders under another's name; the keys are
+        * prefixed because two siblings under one key is a collision React
+        * resolves by dropping one of them.
+        */}
+      <Fold title="Insider dealing"><Insiders key={`insiders-${company.ticker}`} state={insiderState} /></Fold>
+      <Fold title="Institutional holders"><Holders key={`holders-${company.ticker}`} ticker={company.ticker} view={view} /></Fold>
+      <Fold title="Newsroom"><CompanyNews key={company.ticker} ticker={company.ticker} /></Fold>
 
       <footer className="foot">
         <span className="label">Source</span>

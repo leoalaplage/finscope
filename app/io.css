@@ -605,6 +605,27 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
  */
 .filings-note { margin: calc(var(--u) * -2) 0 calc(var(--u) * 4); color: var(--ink-3); font: var(--fs-xs)/1.5 var(--mono); }
 
+/*
+ * A section a reader opens.
+ *
+ * The line is the section's name and a mark, set like every section head, so
+ * a closed page reads as a list of what it holds. Once open, the section's own
+ * frame and its own title give way to the fold's — one rule, one name — and
+ * its controls stay where they were.
+ */
+.fold { border-top: 1px solid var(--line); }
+.fold-head {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  padding-block: calc(var(--u) * 5); background: none; border: 0; cursor: pointer;
+  color: var(--ink-2); font: inherit; text-align: left;
+}
+.fold-head:hover, .fold-open > .fold-head { color: var(--ink); }
+.fold-mark { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-3); }
+.fold-body > .section { border-top: 0; padding-top: 0; }
+.fold-body > .section > .section-head > h2 { display: none; }
+.fold-body > .section > .section-head { justify-content: flex-end; }
+.fold-body > .section > .section-head:not(:has(> :not(h2))) { display: none; }
+
 /* The line above either wire: what it is and what day it covers. */
 .wire-caption { margin-bottom: calc(var(--u) * 3); }
 

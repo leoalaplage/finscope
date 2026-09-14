@@ -1,42 +1,36 @@
 "use client";
 
-import { useState } from "react";
 import { FilingsList } from "./Filings";
 import { NewsList } from "./MarketNews";
 
 /**
- * What happened, from the two places it can be read.
+ * The two things that happened today, as two sections rather than two tabs.
  *
- * The filings are first and are the default, because they are the only ones
- * this site can vouch for: EDGAR's index of what was accepted today, where the
- * form name is the news and both ends of every line are documents.
- *
- * The wire is the second tab rather than a second section. It is somebody
- * else's newsroom and it is general — counted on an ordinary day, of eighteen
- * headlines ten were political, six were about wars, one was a Formula One
- * result and one was about a company — so it is available to a reader who
- * wants it and not put in front of one who does not. Nothing from it is
- * followed: no link, no byline, no summary, only the line itself.
- *
- * Two tabs rather than two sections, because they answer the same question and
- * a reader wants one of the answers, not both stacked.
+ * They were tabs, with the filings first. The news is what a reader opening
+ * this page looks for, so it is open by default and the filings — the only one
+ * of the two this site can vouch for, and the one a reader has to know to want
+ * — sit in a fold beneath it. Two sections, because a fold opens a section and
+ * a tab inside a fold is a menu inside a menu.
  */
 
-type Tab = "filings" | "news";
-
-export function Wire() {
-  const [tab, setTab] = useState<Tab>("filings");
-
+export function NewsSection() {
   return (
-    <section className="section wire" aria-labelledby="wire-title">
+    <section className="section wire" aria-labelledby="news-title">
       <div className="section-head">
-        <h2 className="label" id="wire-title">What happened</h2>
-        <div className="seg" role="group" aria-label="Which wire to read">
-          <button type="button" aria-pressed={tab === "filings"} onClick={() => setTab("filings")}>Filed today</button>
-          <button type="button" aria-pressed={tab === "news"} onClick={() => setTab("news")}>News</button>
-        </div>
+        <h2 className="label" id="news-title">Latest news</h2>
       </div>
-      {tab === "filings" ? <FilingsList/> : <NewsList/>}
+      <NewsList/>
+    </section>
+  );
+}
+
+export function FilingsSection() {
+  return (
+    <section className="section filings" aria-labelledby="filings-title">
+      <div className="section-head">
+        <h2 className="label" id="filings-title">Filed today</h2>
+      </div>
+      <FilingsList/>
     </section>
   );
 }

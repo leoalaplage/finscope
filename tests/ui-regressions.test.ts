@@ -612,15 +612,15 @@ describe("the redesign", () => {
      * the material every other figure on this site comes from.
      */
     expect(page).not.toContain("<MarketNews />");
-    expect(page.indexOf("<Wire />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
     /*
-     * The wire is a tab and not a section: it is somebody else's newsroom and
-     * it is general, so it is available to a reader who asks for it and not
-     * put in front of one who does not. The filings are the default.
+     * The news is open and the filings are a fold beneath it. A reader opening
+     * this page looks for the news; the filings are the one of the two this
+     * site can vouch for, and the one a reader has to know to want.
      */
-    const wire = readFileSync(new URL("../components/io/Wire.tsx", import.meta.url), "utf8");
-    expect(wire).toContain('useState<Tab>("filings")');
-    expect(wire.indexOf("Filed today")).toBeLessThan(wire.indexOf(">News<"));
+    const firstFold = page.indexOf("<Fold ");
+    expect(page.indexOf("<NewsSection />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
+    expect(page.indexOf("<NewsSection />")).toBeLessThan(firstFold);
+    expect(page).toContain('<Fold title="Filed today"><FilingsSection /></Fold>');
     // The form name is the news: nothing is summarised, and nothing is ranked
     // by importance — importance is a judgement, a form is a fact.
     expect(filings).not.toContain("dangerouslySetInnerHTML");
@@ -757,6 +757,39 @@ describe("the redesign", () => {
     expect(market).toContain("const top = shared ? fromPercent(shared.high) : high + pad;");
   });
 
+  it("opens five readings on a company page and folds the rest", () => {
+    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    /*
+     * What a reader comes for stays open; everything else is a named fold.
+     * A fold is found by its opening tag and its closing tag, and an open
+     * reading is one that sits inside none of them.
+     */
+    const folds: Array<[number, number]> = [];
+    for (let at = company.indexOf("<Fold "); at >= 0; at = company.indexOf("<Fold ", at + 1)) {
+      folds.push([at, company.indexOf("</Fold>", at)]);
+    }
+    const folded = (tag: string) => {
+      const at = company.indexOf(tag);
+      expect(at, tag).toBeGreaterThan(0);
+      return folds.some(([start, end]) => at > start && at < end);
+    };
+    for (const open of ["<Score ", "<Health ", "<FcfShareGrowth ", "<Multiples ", "<Growth "]) {
+      expect(folded(open), `${open} is open`).toBe(false);
+    }
+    for (const shut of ["<PriceSection", "<Stats ", "<ValuationHistory ", "<Statements ", "<Insiders ", "<Holders ", "<CompanyNews "]) {
+      expect(folded(shut), `${shut} is folded`).toBe(true);
+    }
+    // Choosing a measure opens the chart, the one fold opened from elsewhere.
+    expect(company).toContain('<Fold title="Chart" open={chartOpen} onToggle={setChartOpen}>');
+    expect(company).toContain("if (next.length) setChartOpen(true);");
+    /*
+     * The trailing figures are the whole history, always. They followed the
+     * chart's window, so a reader who moved the chart redrew every panel under
+     * it and two visits showed two different tables.
+     */
+    expect(company).toContain('<Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range="MAX" frequency="ttm" />');
+  });
+
   it("puts the company's own newsroom last on its page, under everything it filed", () => {
     const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
     const news = readFileSync(new URL("../components/io/CompanyNews.tsx", import.meta.url), "utf8");
@@ -785,8 +818,13 @@ describe("the redesign", () => {
      * personal thing on the page — keeps its place at the foot.
      */
     expect(page.indexOf("<MarketPerformance />")).toBeGreaterThan(page.indexOf("<MarketPage indicesOnly />"));
-    expect(page.indexOf("<Wire />")).toBeGreaterThan(page.indexOf("<MarketPerformance />"));
-    expect(page.indexOf("<MacroSnapshot />")).toBeGreaterThan(page.indexOf("<Wire />"));
+    expect(page.indexOf("<NewsSection />")).toBeGreaterThan(page.indexOf("<MarketPerformance />"));
+    expect(page.indexOf("<MacroSnapshot />")).toBeGreaterThan(page.indexOf("<NewsSection />"));
+    // Open by default: the indices, the reader's own list, the news. The rest
+    // is a fold, and nothing inside a fold is mounted until it is opened.
+    expect(page.indexOf("<MarketPerformance />")).toBeLessThan(page.indexOf("<Fold "));
+    expect(page).toContain('<Fold title="Macro"><MacroSnapshot /></Fold>');
+    expect(page).toContain('<Fold title="Markets"><Markets /></Fold>');
     expect(macro).toContain('aria-label="Select a macro geography"');
     expect(macro).toContain("latest available data");
     expect(macro).toContain("Published observations only");
