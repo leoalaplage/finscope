@@ -151,6 +151,15 @@ const NOT_FOR_INSURERS = new Set([
   "investedCapital", "nopat", "capitalIntensity",
 ]);
 
+const NOTHING_WITHHELD: ReadonlySet<string> = new Set<string>();
+
+/** The measures this site withholds by design from a filer of this type. */
+export function withheldMeasures(type: string | null | undefined): ReadonlySet<string> {
+  const insurer = type === "insurer";
+  if (cashFlowIsTheBalanceSheet(type) || (balanceSheetIsTheBusiness((type ?? undefined) as Parameters<typeof balanceSheetIsTheBusiness>[0]) && !insurer)) return NOT_FOR_FINANCIALS;
+  return insurer ? NOT_FOR_INSURERS : NOTHING_WITHHELD;
+}
+
 const WITHHELD_REASON = {
   balanceSheet: "Free cash flow, net debt and returns on invested capital are not stated for this filer: its operating cash flow is the movement of its own loans and deposits, and its borrowings are its raw material rather than its leverage.",
   insurer: "Net debt and returns on invested capital are not stated for this insurer: its borrowings sit beside the premiums and reserves it invests, so neither measures its leverage or the capital it employs.",
@@ -289,9 +298,7 @@ export function companyView(dataset: CompanyDataset): IoCompanyView {
   const current = currentDatasetPeriod(dataset);
   const type = dataset.company.businessType;
   const insurer = type === "insurer";
-  const withheld = cashFlowIsTheBalanceSheet(type) || (balanceSheetIsTheBusiness(type) && !insurer)
-    ? NOT_FOR_FINANCIALS
-    : insurer ? NOT_FOR_INSURERS : new Set<string>();
+  const withheld = withheldMeasures(type);
   const filesNoCapex = insurer && !dataset.periods.some((period) => period.facts.capitalExpenditures?.value != null);
   const project = (period: FinancialPeriod) => projectPeriod(dataset, period, withheld, filesNoCapex);
   const trailing = ordered(dataset.periods, "ttm", TTM_LIMIT).map(project);

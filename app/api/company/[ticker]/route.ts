@@ -4,6 +4,8 @@ import { CACHE_SECONDS, claimKey, datasetKey, digestIsCurrent, fallbackDatasetKe
 import { summariseDataset } from "@/lib/watchlist-summary";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
 import { ioViewKey } from "@/lib/io/view-version";
+import { companyView } from "@/lib/io/view";
+import { auditCompany, auditKey, type CompanyAudit } from "@/lib/coverage-audit";
 
 
 /**
@@ -156,9 +158,18 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       // The digest is written from the same object in the same breath, so the
       // watchlist can never show a figure the company page disagrees with.
       const summary = summariseDataset(dataset);
+      // The day's audit reads this check rather than the dataset (see lib/coverage-audit.ts).
+      let audit: CompanyAudit | null = null;
+      try {
+        const previous = cache ? await cache.get<CompanyAudit>(auditKey(symbol), "json").catch(() => null) : null;
+        audit = auditCompany(companyView(dataset), previous);
+      } catch {
+        audit = null;
+      }
       await Promise.all([
         cache?.put(key, body, { expirationTtl: CACHE_SECONDS }),
         summary ? cache?.put(summaryKey(symbol), JSON.stringify(summary), { expirationTtl: CACHE_SECONDS }) : undefined,
+        audit ? cache?.put(auditKey(symbol), JSON.stringify(audit), { expirationTtl: CACHE_SECONDS }) : undefined,
         // A view is derived from this dataset. Retaining it after replacing
         // the source would keep yesterday's figures visible for another day.
         cache?.delete(ioViewKey(symbol)),

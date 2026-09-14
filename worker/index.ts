@@ -4,6 +4,7 @@ import handler from "vinext/server/app-router-entry";
 import { warmWatchlist, warmSomeMissing, requestedTickers } from "../lib/dataset-cache";
 import { chaseFilings } from "../lib/filing-watch";
 import { buildUniverseSlice } from "../lib/universe-build";
+import { refreshAuditReport } from "../lib/coverage-audit";
 import { COVERED_TICKERS } from "../lib/company-registry";
 import { setRuntimeBindings } from "../lib/runtime-env";
 
@@ -129,6 +130,17 @@ const worker = {
         const universe = await buildUniverseSlice(origin);
         if (universe) {
           console.log(`[universe] ${universe.rows.length}/${universe.members} scored, ${universe.pending.length} pending`);
+        }
+        /*
+         * And once a day, what the site holds, checked against what was filed.
+         *
+         * Last, because it is the least urgent and the only part that can take
+         * a couple of minutes; it does nothing on the other forty-seven runs.
+         */
+        const audit = await refreshAuditReport();
+        if (audit) {
+          console.log(`[audit] ${audit.checked}/${audit.members} checked; ${audit.totals.missingFcfLatest} without latest FCF, ${audit.totals.stale} behind a filing` +
+            (audit.regressions.length ? `; worse than yesterday: ${audit.regressions.join(", ")}` : ""));
         }
       })().catch((error) => {
         console.log(`[filing watch] ${error instanceof Error ? error.message : String(error)}`);
