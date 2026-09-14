@@ -44,11 +44,13 @@ const VERIFIED_TYPES_BY_CIK: Readonly<Record<string, BusinessType>> = {
  * c4: a company that has never borrowed owes nought rather than an unknown,
  *     and a score falls back to the last year reported where no trailing
  *     window carries an operating income.
+ * c5: health plans (SIC 6324) are operating companies, not insurers, and keep
+ *     their free cash flow, balance-sheet health and grade.
  *
  * It covers what a company *is* and how its filings are read, because both
  * change what a stored dataset says and neither reaches one already stored.
  */
-export const CLASSIFICATION_VERSION = "c4";
+export const CLASSIFICATION_VERSION = "c5";
 
 /**
  * What a filer is, from the industry code it files under.
@@ -63,6 +65,18 @@ export function businessTypeFromSic(sic: number | string | null | undefined): Bu
   if (code == null || !Number.isInteger(code)) return undefined;
   if (code >= 6000 && code <= 6099) return "bank";
   if (code === 6211 || code === 6221) return "broker";
+  /*
+   * Health plans are not read as insurers.
+   *
+   * 6324 is "hospital and medical service plans": UnitedHealth, Elevance,
+   * Cigna, Humana, Centene. They underwrite medical cover, and they also run
+   * pharmacies, clinics and software — UnitedHealth spent 3.6 billion on
+   * capital expenditure in 2025 out of 19.7 billion of operating cash flow. Their
+   * cash flow is not an insurer's float, their free cash flow is what every
+   * reader of them uses, and withholding it left the largest health companies
+   * in the index without it.
+   */
+  if (code === 6324) return undefined;
   if (code >= 6300 && code <= 6399) return "insurer";
   if (code === 6719) return "holding";
   if (code === 6200) return "exchange";

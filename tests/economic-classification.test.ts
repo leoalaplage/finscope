@@ -33,6 +33,9 @@ describe("verified economic classification", () => {
     expect(businessTypeFromSic(6021)).toBe("bank");
     expect(businessTypeFromSic("6211")).toBe("broker");
     expect(businessTypeFromSic(6331)).toBe("insurer");
+    expect(businessTypeFromSic(6311)).toBe("insurer");
+    // Health plans — UnitedHealth, Elevance, Cigna, Humana, Centene — are operating companies.
+    expect(businessTypeFromSic(6324)).toBeUndefined();
     expect(businessTypeFromSic(6719)).toBe("holding");
     expect(businessTypeFromSic(6141)).toBe("financial");
     expect(businessTypeFromSic(6726)).toBe("financial");
