@@ -41,7 +41,23 @@ export function Health({ view }: { view: IoCompanyView }) {
   // Withheld for a bank, a broker or an insurer: every question below is asked
   // of a boundary such a filer does not have. Saying nothing is the honest
   // outcome, and the score above already says why there is no grade.
-  if (!health) return null;
+  /*
+   * Said, not skipped. For a bank, a broker or an insurer every question below
+   * is asked of a boundary the company does not have, and a page where the
+   * section silently disappears reads as a page that failed to load it.
+   */
+  if (!health) {
+    if (!view.withheldReason) return null;
+    return (
+      <section className="section health" id="health">
+        <div className="section-head"><h2 className="label">Financial health</h2></div>
+        <p className="stat-note">
+          Not assessed for this company. Its questions — borrowing against earnings, interest cover, cash runway,
+          liquidity — are struck on a boundary a bank, a broker or an insurer does not have. {view.withheldReason}
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="section health" id="health">

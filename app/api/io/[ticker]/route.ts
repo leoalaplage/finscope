@@ -3,6 +3,7 @@ import { searchSecCompanies } from "@/lib/adapters/sec";
 import { companyByTicker } from "@/lib/company-registry";
 import { companyView } from "@/lib/io/view";
 import { ioViewKey } from "@/lib/io/view-version";
+import { rememberOpened } from "@/lib/warm-extra";
 import { CACHE_SECONDS, claimKey, datasetKey, fallbackDatasetKeys, readWithin, requestCompany } from "@/lib/dataset-cache";
 import { TICKER_PATTERN } from "@/lib/market-profile";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
@@ -147,6 +148,8 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       // build; the claim expires on its own if that build never lands.
       await cache?.put(claimKey(symbol), "1", { expirationTtl: 60 }).catch(() => undefined);
       keepAlive(requestCompany(new URL(request.url).origin, symbol));
+      // A company a reader had to wait for is kept ready from now on (lib/warm-extra.ts).
+      keepAlive(rememberOpened(symbol));
     }
     return NextResponse.json({ building: true, ticker: symbol }, { status: 202, headers: { "Cache-Control": "no-store" } });
   }

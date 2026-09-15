@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchQuotes } from "@/lib/adapters/quotes";
+import { sharesPerReceipt } from "@/lib/adr";
 import { datasetKey, fallbackSummaryKeys, requestCompany, summaryKey } from "@/lib/dataset-cache";
 import { qsTable, qsValuationColumns, type QsRow } from "@/lib/qs-export";
 import { screen } from "@/lib/qs/screener";
@@ -69,9 +70,29 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
 
   try {
     const [quote] = await fetchQuotes([summary.ticker]);
+    /*
+     * The price per ordinary share, in the statements' currency.
+     *
+     * The same conversion the company page makes (components/io/quote.ts): a
+     * receipt divided into the ordinary shares the statements count, and a
+     * foreign price converted at today's rate — or left unconverted, so the
+     * valuation columns stay empty, where the receipt's ratio is not known.
+     */
+    const ratio = sharesPerReceipt(summary.ticker);
+    let price = quote?.price ?? null;
+    let priceCurrency = quote?.currency ?? null;
+    const statementCurrency = summary.qsPrice.currency;
+    if (price != null && ratio != null) {
+      if (priceCurrency && statementCurrency && priceCurrency !== statementCurrency) {
+        const [pair] = await fetchQuotes([`${priceCurrency}${statementCurrency}=X`]).catch(() => []);
+        if (pair?.price) { price = (price / ratio) * pair.price; priceCurrency = statementCurrency; }
+      } else {
+        price = price / ratio;
+      }
+    }
     const row: QsRow = {
       ticker: summary.ticker,
-      values: { ...summary.qs, ...qsValuationColumns(summary.qsPrice, quote?.price ?? null, quote?.currency ?? null) },
+      values: { ...summary.qs, ...qsValuationColumns(summary.qsPrice, price, priceCurrency) },
       period: null,
     };
     const result = screen(qsTable([row]), { modele: "finscope" });

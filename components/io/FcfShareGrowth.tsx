@@ -1,3 +1,4 @@
+import { absenceOf } from "@/lib/io/absence";
 import { fcfShareGrowthProfile, type FcfShareReading } from "@/lib/io/fcf-share-growth";
 import type { IoCompanyView } from "@/lib/io/view";
 import { ABSENT, percent } from "./format";
@@ -22,7 +23,15 @@ function Reading({ label, reading, format }: {
 export function FcfShareGrowth({ view }: { view: IoCompanyView }) {
   const profile = fcfShareGrowthProfile(view.annual);
   const hasHistory = view.annual.some((period) => period.values.freeCashFlowPerShare != null);
-  if (!hasHistory) return null;
+  // Said, not skipped: a section that vanishes reads as one that failed to load.
+  if (!hasHistory) {
+    return (
+      <section className="section fcf-share-history" id="fcf-share-history">
+        <div className="section-head"><h2 className="label">FCF / share</h2></div>
+        <p className="stat-note">{absenceOf(view, "freeCashFlowPerShare", "Free cash flow per share").text}</p>
+      </section>
+    );
+  }
   return (
     <section className="section fcf-share-history" id="fcf-share-history">
       <div className="section-head">

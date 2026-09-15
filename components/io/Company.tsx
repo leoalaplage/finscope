@@ -20,7 +20,8 @@ import { Holders } from "./Holders";
 import { Insiders, useInsiders } from "./Insiders";
 import { ValuationHistory } from "./ValuationHistory";
 import { useValuationHistory, VALUATION_METRICS } from "./valuation-series";
-import type { IoQuote } from "./quote";
+import { priceForStatements, type IoQuote } from "./quote";
+import { sharesPerReceipt } from "@/lib/adr";
 import { fundamentalWindow, RANGES, type Frequency, type Range } from "./ranges";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "./format";
 import { rememberCompany } from "@/lib/io/last-company";
@@ -280,6 +281,32 @@ export function Company({ ticker }: { ticker: string }) {
     return () => { controller.abort(); if (timer) clearTimeout(timer); };
   }, [ticker]);
 
+  /*
+   * The price the statements can be valued at.
+   *
+   * A foreign company's quote may be in another currency than its accounts, for
+   * a receipt that is not one ordinary share. Today's rate is asked for only
+   * when the currencies differ; the price per ordinary share goes to the
+   * statistics and the price-against-growth reading, and the header keeps the
+   * quote as it trades (components/io/quote.ts).
+   */
+  const statementCurrency = state.kind === "ready" ? state.view.basis?.currency ?? null : null;
+  const fxPair = quote?.currency && statementCurrency && quote.currency !== statementCurrency ? `${quote.currency}${statementCurrency}` : null;
+  const [fx, setFx] = useState<{ pair: string; rate: number; asOf: string | null } | null>(null);
+  useEffect(() => {
+    if (!fxPair) return;
+    const controller = new AbortController();
+    fetch(`/api/fx?from=${fxPair.slice(0, 3)}&to=${fxPair.slice(3)}`, { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() as Promise<{ rate?: number; asOf?: string | null }> : null))
+      .then((body) => { if (body?.rate && !controller.signal.aborted) setFx({ pair: fxPair, rate: body.rate, asOf: body.asOf ?? null }); })
+      .catch(() => { /* Without a rate the valuation stays withheld, and says why. */ });
+    return () => controller.abort();
+  }, [fxPair]);
+  const valuationQuote = useMemo(
+    () => priceForStatements(quote, statementCurrency, fx?.pair === fxPair ? fx : null, sharesPerReceipt(ticker)),
+    [quote, statementCurrency, fx, fxPair, ticker],
+  );
+
   if (state.kind === "failed") {
     return (
       <main className="wrap" id="main-content" tabIndex={-1}>
@@ -397,10 +424,10 @@ export function Company({ ticker }: { ticker: string }) {
         onWithPrice={setWithPrice}
         valuation={valuation}
       />
-      <Stats view={view} quote={quote} />
+      <Stats view={view} quote={valuationQuote} />
 
       <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} />
-      <GrowthYield view={view} quote={quote} />
+      <GrowthYield view={view} quote={valuationQuote} />
       <Health view={view} />
       <FcfShareGrowth view={view} />
       {/*

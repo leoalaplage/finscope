@@ -1,4 +1,5 @@
 import { cashFlowIsTheBalanceSheet } from "@/lib/business-type";
+import { absenceOf } from "@/lib/io/absence";
 import {
   annualRate, GROWTH_YIELD_ANCHORS, GROWTH_YIELD_CEILING, GROWTH_YIELD_YEARS,
   growthYield, growthYieldScore, growthYieldVerdict,
@@ -22,7 +23,16 @@ import { ABSENT, percent } from "./format";
  * sheet moving. An insurer is read like any other company.
  */
 export function GrowthYield({ view, quote }: { view: IoCompanyView; quote: IoQuote | null }) {
-  if (cashFlowIsTheBalanceSheet(view.company.businessType)) return null;
+  // Said, not skipped: a section that vanishes reads as one that failed to load.
+  const unavailable = (text: string) => (
+    <section className="section growth-yield" id="growth-yield">
+      <div className="section-head"><h2 className="label">Price against growth</h2></div>
+      <p className="stat-note">{text}</p>
+    </section>
+  );
+  if (cashFlowIsTheBalanceSheet(view.company.businessType)) {
+    return unavailable("Not computed for a bank or a broker: its operating cash flow is its balance sheet moving, so there is no free cash flow for a price to yield.");
+  }
 
   const basis = view.basis;
   const price = quote?.price ?? null;
@@ -35,7 +45,12 @@ export function GrowthYield({ view, quote }: { view: IoCompanyView; quote: IoQuo
 
   const rate = annualRate(view.annual, "revenuePerShare", GROWTH_YIELD_YEARS);
   const reading = growthYield(fcfYield, rate.value);
-  if (reading.fcfYield == null && reading.growth == null) return null;
+  if (reading.fcfYield == null && reading.growth == null) {
+    return unavailable(`Not computed: ${[
+      marketCap == null ? "no price can be set against this company's share count" : cash ? null : absenceOf(view, "freeCashFlow", "Free cash flow").text,
+      rate.reason ? `revenue per share over five years — ${rate.reason.toLowerCase()}` : null,
+    ].filter(Boolean).join("; ")}.`);
+  }
   const score = growthYieldScore(reading.value);
   const verdict = growthYieldVerdict(score);
 

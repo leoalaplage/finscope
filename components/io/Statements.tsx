@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { IO_SECTIONS } from "@/lib/io/sections";
 import { ABSENT, formatUnit, shortDate, type Unit } from "./format";
+import { absenceOf } from "@/lib/io/absence";
 
 /**
  * The statements, as filed, with nothing folded away.
@@ -109,6 +110,7 @@ export function Statements({
                 metrics={metrics}
                 selected={selected}
                 onSelect={onSelect}
+                view={view}
               />
             ))}
           </tbody>
@@ -125,6 +127,7 @@ function SectionRows({
   metrics,
   selected,
   onSelect,
+  view,
 }: {
   label: string;
   keys: string[];
@@ -132,6 +135,7 @@ function SectionRows({
   metrics: Map<string, IoCompanyView["metrics"][number]>;
   selected: string[];
   onSelect: (metric: string) => void;
+  view: IoCompanyView;
 }) {
   // A metric no period in view carries is left out rather than drawn as a row
   // of em dashes: a bank has no free cash flow here, and eleven empty lines
@@ -165,8 +169,10 @@ function SectionRows({
             {columns.map((period) => {
               const value = period.values[key];
               const text = value == null ? ABSENT : formatUnit(value, metric.unit as Unit, period.currency);
+              // A dash says why it is a dash (lib/io/absence.ts).
+              const why = value == null ? absenceOf(view, key, metric.label).text : undefined;
               return (
-                <td key={`${key}-${period.end}-${period.label}`} data-empty={value == null}>{text}</td>
+                <td key={`${key}-${period.end}-${period.label}`} data-empty={value == null} title={why}>{text}</td>
               );
             })}
           </tr>

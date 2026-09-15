@@ -5,6 +5,7 @@ import { warmWatchlist, warmSomeMissing, requestedTickers } from "../lib/dataset
 import { chaseFilings } from "../lib/filing-watch";
 import { buildUniverseSlice } from "../lib/universe-build";
 import { refreshAuditReport } from "../lib/coverage-audit";
+import { warmExtraSlice } from "../lib/warm-extra";
 import { COVERED_TICKERS } from "../lib/company-registry";
 import { setRuntimeBindings } from "../lib/runtime-env";
 
@@ -137,6 +138,15 @@ const worker = {
          * Last, because it is the least urgent and the only part that can take
          * a couple of minutes; it does nothing on the other forty-seven runs.
          */
+        /*
+         * Then more companies than the index: the mid-caps and every company a
+         * reader has opened, forty a run, so a search outside the S&P 500
+         * answers from the cache rather than from a build (lib/warm-extra.ts).
+         */
+        const extra = await warmExtraSlice(origin);
+        if (extra && (extra.built.length || extra.rebuilt.length || extra.failed.length)) {
+          console.log(`[warm extra] built ${extra.built.join(",") || "none"}; rebuilt ${extra.rebuilt.length}; failed ${extra.failed.join(",") || "none"}; ${extra.next}/${extra.size}`);
+        }
         const audit = await refreshAuditReport();
         if (audit) {
           console.log(`[audit] ${audit.checked}/${audit.members} checked; ${audit.totals.missingFcfLatest} without latest FCF, ${audit.totals.stale} behind a filing` +
