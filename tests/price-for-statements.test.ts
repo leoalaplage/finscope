@@ -15,10 +15,16 @@ describe("a foreign company's price, per ordinary share in its statements' curre
     expect(priced?.conversion).toEqual({ from: "USD", rate: 32, asOf: "2026-09-15", sharesPerReceipt: 5 });
   });
 
-  it("doubles AstraZeneca's half-share receipt though its statements are in dollars", () => {
-    const priced = priceForStatements(quote("AZN", 75), "USD", null, sharesPerReceipt("AZN"));
+  it("doubles a half-share receipt though the statements are in the quote's currency", () => {
+    const priced = priceForStatements(quote("HALF", 75), "USD", null, 0.5);
     expect(priced?.price).toBe(150);
     expect(priced?.conversion?.rate).toBeNull();
+  });
+
+  it("leaves AstraZeneca's price alone: it lists its ordinary shares in New York, not receipts", () => {
+    expect(sharesPerReceipt("AZN")).toBeNull();
+    const azn = quote("AZN", 162.23);
+    expect(priceForStatements(azn, "USD", null, sharesPerReceipt("AZN"))).toBe(azn);
   });
 
   it("converts ASML's one-for-one receipt from dollars into euros", () => {
