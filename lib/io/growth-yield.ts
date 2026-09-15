@@ -1,4 +1,4 @@
-import type { IoPeriod } from "./view";
+import type { IoCompanyView, IoPeriod } from "./view";
 
 /**
  * What a company's price asks for its growth, as one rate.
@@ -98,4 +98,36 @@ export function annualRate(periods: IoPeriod[], key: string, years: number): Dat
   if (start.value <= 0 || end.value <= 0) return { value: null, startDate: start.date, endDate: end.date, reason: "Not meaningful with a zero or negative endpoint" };
   const elapsed = (Date.parse(end.date) - Date.parse(start.date)) / YEAR_MS;
   return { value: (end.value / start.value) ** (1 / elapsed) - 1, startDate: start.date, endDate: end.date, reason: null };
+}
+
+/** The growth yield of a company page: its price, its latest free cash flow and its revenue per share. */
+export interface ViewGrowthYield {
+  reading: GrowthYield;
+  score: number | null;
+  verdict: string | null;
+  rate: DatedRate;
+  marketCap: number | null;
+  /** The newest period that reports a free cash flow, which the yield is struck on. */
+  cash: IoPeriod | null;
+}
+
+/**
+ * The same arithmetic the company page and the comparison both show.
+ *
+ * The market capitalisation is struck as the statistics strike it — the
+ * engine's share count, a price in the statements' currency or nothing — and
+ * the free cash flow is the newest period that reports one.
+ */
+export function growthYieldOfView(view: IoCompanyView, quote: { price: number | null; currency?: string | null } | null): ViewGrowthYield {
+  const basis = view.basis;
+  const price = quote?.price ?? null;
+  const sameCurrency = !quote?.currency || !basis || quote.currency === basis.currency;
+  const marketCap = basis && sameCurrency && price != null && Number.isFinite(price) && price > 0 ? price * basis.shares : null;
+  const series = [...view.annual, ...view.trailing].sort((left, right) => left.end.localeCompare(right.end));
+  const cash = [...series].reverse().find((period) => period.values.freeCashFlow != null && Number.isFinite(period.values.freeCashFlow)) ?? null;
+  const fcfYield = marketCap && cash ? cash.values.freeCashFlow! / marketCap : null;
+  const rate = annualRate(view.annual, "revenuePerShare", GROWTH_YIELD_YEARS);
+  const reading = growthYield(fcfYield, rate.value);
+  const score = growthYieldScore(reading.value);
+  return { reading, score, verdict: growthYieldVerdict(score), rate, marketCap, cash };
 }

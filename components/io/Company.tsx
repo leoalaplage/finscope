@@ -11,6 +11,7 @@ import { Health } from "./Health";
 import { Multiples } from "./Multiples";
 import { Fold } from "./Fold";
 import { GrowthYield } from "./GrowthYield";
+import { Verdict } from "./Verdict";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
 import { toggleMetric } from "./selection";
 import { CompanyNews } from "./CompanyNews";
@@ -426,10 +427,24 @@ export function Company({ ticker }: { ticker: string }) {
       />
       <Stats view={view} quote={valuationQuote} />
 
-      <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} />
-      <GrowthYield view={view} quote={valuationQuote} />
-      <Health view={view} />
-      <FcfShareGrowth view={view} />
+      {/*
+        * Four answers in one line, and the four readings behind them in one fold.
+        *
+        * Quality, health, price against growth and free cash flow per share were
+        * four open sections, and a reader had to read four panels to learn four
+        * things. The line answers them at a glance (components/io/Verdict.tsx);
+        * the sections stay whole, one click away, inside a group so each keeps
+        * its own title.
+        */}
+      <Verdict view={view} quote={valuationQuote} score={scoreState.kind === "ready" ? scoreState.score : null} scoreLoading={scoreState.kind === "loading"} />
+      <Fold title="Quality, health, valuation and growth in detail">
+        <div className="fold-group">
+          <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} />
+          <GrowthYield view={view} quote={valuationQuote} />
+          <Health view={view} />
+          <FcfShareGrowth view={view} />
+        </div>
+      </Fold>
       {/*
         * Always the whole trailing history, whatever the chart shows.
         *

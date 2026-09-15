@@ -1,9 +1,6 @@
 import { cashFlowIsTheBalanceSheet } from "@/lib/business-type";
 import { absenceOf } from "@/lib/io/absence";
-import {
-  annualRate, GROWTH_YIELD_ANCHORS, GROWTH_YIELD_CEILING, GROWTH_YIELD_YEARS,
-  growthYield, growthYieldScore, growthYieldVerdict,
-} from "@/lib/io/growth-yield";
+import { GROWTH_YIELD_ANCHORS, GROWTH_YIELD_CEILING, GROWTH_YIELD_YEARS, growthYieldOfView } from "@/lib/io/growth-yield";
 import type { IoCompanyView } from "@/lib/io/view";
 import type { IoQuote } from "./quote";
 import { ABSENT, percent } from "./format";
@@ -34,26 +31,13 @@ export function GrowthYield({ view, quote }: { view: IoCompanyView; quote: IoQuo
     return unavailable("Not computed for a bank or a broker: its operating cash flow is its balance sheet moving, so there is no free cash flow for a price to yield.");
   }
 
-  const basis = view.basis;
-  const price = quote?.price ?? null;
-  const sameCurrency = !quote?.currency || !basis || quote.currency === basis.currency;
-  const marketCap = basis && sameCurrency && price != null && Number.isFinite(price) && price > 0 ? price * basis.shares : null;
-
-  const series = [...view.annual, ...view.trailing].sort((left, right) => left.end.localeCompare(right.end));
-  const cash = [...series].reverse().find((period) => period.values.freeCashFlow != null && Number.isFinite(period.values.freeCashFlow));
-  const fcfYield = marketCap && cash ? cash.values.freeCashFlow! / marketCap : null;
-
-  const rate = annualRate(view.annual, "revenuePerShare", GROWTH_YIELD_YEARS);
-  const reading = growthYield(fcfYield, rate.value);
+  const { reading, score, verdict, rate, marketCap, cash } = growthYieldOfView(view, quote);
   if (reading.fcfYield == null && reading.growth == null) {
     return unavailable(`Not computed: ${[
       marketCap == null ? "no price can be set against this company's share count" : cash ? null : absenceOf(view, "freeCashFlow", "Free cash flow").text,
       rate.reason ? `revenue per share over five years — ${rate.reason.toLowerCase()}` : null,
     ].filter(Boolean).join("; ")}.`);
   }
-  const score = growthYieldScore(reading.value);
-  const verdict = growthYieldVerdict(score);
-
   const growthTitle = rate.reason ?? `${rate.startDate} to ${rate.endDate}${reading.capped ? ` · counted at ${percent(GROWTH_YIELD_CEILING, 0)}` : ""}`;
   const yieldTitle = cash ? `Free cash flow ${cash.label} over today's market capitalisation` : "No period reports a free cash flow";
   const [low, middle, high] = GROWTH_YIELD_ANCHORS;

@@ -773,15 +773,15 @@ describe("the redesign", () => {
       expect(at, tag).toBeGreaterThan(0);
       return folds.some(([start, end]) => at > start && at < end);
     };
-    for (const open of ["<PriceSection", "<Stats ", "<Score ", "<GrowthYield ", "<Health ", "<FcfShareGrowth ", "<Multiples ", "<Growth "]) {
+    for (const open of ["<PriceSection", "<Stats ", "<Verdict ", "<Multiples ", "<Growth "]) {
       expect(folded(open), `${open} is open`).toBe(false);
     }
-    for (const shut of ["<ValuationHistory ", "<Statements ", "<Insiders ", "<Holders ", "<CompanyNews "]) {
+    for (const shut of ["<Score ", "<GrowthYield ", "<Health ", "<FcfShareGrowth ", "<ValuationHistory ", "<Statements ", "<Insiders ", "<Holders ", "<CompanyNews "]) {
       expect(folded(shut), `${shut} is folded`).toBe(true);
     }
     // The chart is the top of a company and the statistics sit under it.
     expect(company.indexOf("<Stats ")).toBeGreaterThan(company.indexOf("<PriceSection"));
-    expect(company.indexOf("<Score ")).toBeGreaterThan(company.indexOf("<Stats "));
+    expect(company.indexOf("<Verdict ")).toBeGreaterThan(company.indexOf("<Stats "));
     /*
      * The trailing figures are the whole history, always. They followed the
      * chart's window, so a reader who moved the chart redrew every panel under

@@ -1759,6 +1759,14 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .fcf-share-growth { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .growth-yield-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .growth-yield .stat-note { margin-top: 10px; }
+/* The four answers at a glance (components/io/Verdict.tsx). */
+.verdict-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.verdict-value { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.verdict-words { font-size: var(--fs-md); color: var(--ink-3); font-weight: 400; }
+.verdict-value[data-tone="good"] { color: var(--gain); }
+.verdict-value[data-tone="bad"] { color: var(--loss); }
+.fold-group > .section:first-child { border-top: 0; padding-top: 0; }
+@media (max-width: 720px) { .verdict-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .compare-fcf-share { margin-bottom: calc(var(--u) * 7); }
 .compare-table-head { margin-bottom: calc(var(--u) * 3); }
 /*

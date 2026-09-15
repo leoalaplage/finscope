@@ -11,7 +11,12 @@ import { Search } from "./Search";
 import { COMPARE_RANGES, fundamentalWindow, offersFrequency, withinYears, type Frequency, type Range } from "./ranges";
 import { growthOver } from "./Growth";
 import { ABSENT, delta, formatUnit, money, percent, price as writePrice, ratio, shortDate, type Unit } from "./format";
-import type { IoQuote } from "./quote";
+import { priceForStatements, type IoQuote } from "./quote";
+import { sharesPerReceipt } from "@/lib/adr";
+import { SUMMARY_SHAPE } from "@/lib/data-version";
+import { QS_MODEL_VERSION } from "@/lib/qs/insight";
+import { verdictOf, type ScoreSummary } from "@/lib/io/verdict";
+import { verdictCells } from "./Verdict";
 
 /**
  * Several companies, one screen, the same figures.
@@ -70,7 +75,7 @@ const FEATURED = [
   "netIncomePerShare", "roic", "dilutedShares", "netDebt",
 ];
 
-interface Loaded { ticker: string; view: IoCompanyView | null; quote: IoQuote | null; error: string | null }
+interface Loaded { ticker: string; view: IoCompanyView | null; quote: IoQuote | null; error: string | null; score?: ScoreSummary | null; scoreLoading?: boolean }
 
 /**
  * The list of companies is the address, and the address is the state.
@@ -158,7 +163,11 @@ export function Compare({ initial }: { initial: string[] }) {
           }
           const view = await viewResponse.json() as IoCompanyView;
           const quote = quoteResponse.ok ? await quoteResponse.json() as IoQuote : null;
-          settle({ view, quote, error: null });
+          settle({ view, quote, error: null, score: null, scoreLoading: true });
+          // The grade arrives on its own clock, as it does on a company page.
+          const scoreResponse = await fetch(`/api/io/${encodeURIComponent(ticker)}/score?v=${QS_MODEL_VERSION}.${SUMMARY_SHAPE}`, { signal: controller.signal }).catch(() => null);
+          const score = scoreResponse?.ok && scoreResponse.status === 200 ? await scoreResponse.json().catch(() => null) as ScoreSummary | null : null;
+          settle({ view, quote, error: null, score, scoreLoading: false });
         } catch {
           if (controller.signal.aborted) return;
           started.current.delete(ticker);
@@ -278,6 +287,7 @@ function CompareTable({ columns, range }: { columns: Loaded[]; range: Range }) {
     : DEFAULT_GROWTH_KEYS.flatMap((key) => { const row = byKey.get(key); return row ? [row] : []; });
   return (
     <>
+      <VerdictComparison columns={columns} />
       <FcfShareComparison columns={columns} />
       <div className="section-head compare-table-head">
         <h2 className="label">Company comparison</h2>
@@ -355,6 +365,60 @@ function readingTitle(reading: FcfShareReading | null) {
   if (!reading) return "Company data is not ready";
   return reading.reason
     ?? `${reading.observations} annual observations · ${reading.startDate} to ${reading.endDate}`;
+}
+
+/**
+ * The four answers of a company page, a company to a column.
+ *
+ * The same verdicts, from the same functions, as the line at the top of each
+ * company's page (lib/io/verdict.ts): quality business, financial health, price
+ * against growth and historic growth. A foreign receipt is divided into its
+ * ordinary shares; a price in another currency than the statements leaves the
+ * valuation empty here, where the page converts it.
+ */
+function VerdictComparison({ columns }: { columns: Loaded[] }) {
+  const cells = Object.fromEntries(columns.map((column) => [
+    column.ticker,
+    column.view
+      ? verdictCells(verdictOf(column.view, priceForStatements(column.quote, column.view.basis?.currency, null, sharesPerReceipt(column.ticker)), column.score ?? null, column.scoreLoading ?? false))
+      : null,
+  ]));
+  const rows = ["quality", "health", "valuation", "growth"];
+  const labels: Record<string, string> = { quality: "Quality business", health: "Financial health", valuation: "Price against growth", growth: "Historic growth" };
+  return (
+    <div className="compare-verdict">
+      <div className="section-head">
+        <h2 className="label">At a glance</h2>
+        <span className="label">The same four answers as each company page</span>
+      </div>
+      <div className="sheet">
+        <table>
+          <thead>
+            <tr>
+              <th className="key" scope="col">Verdict</th>
+              {columns.map((column) => <th key={column.ticker} scope="col">{column.ticker}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((key) => (
+              <tr key={key}>
+                <th className="key" scope="row">{labels[key]}</th>
+                {columns.map((column) => {
+                  const cell = cells[column.ticker]?.find((each) => each.key === key) ?? null;
+                  return (
+                    <td key={column.ticker} data-empty={cell?.value == null} title={cell?.note ?? "Company data is not ready"}>
+                      <span className="verdict-value" data-tone={cell?.tone ?? undefined}>{cell?.value ?? ABSENT}</span>
+                      {cell?.words ? <span className="dim"> {cell.words}</span> : null}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 /** A deliberately separate comparison of FCF/share growth and regularity. */
