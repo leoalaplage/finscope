@@ -5,6 +5,8 @@ import { validateCompanyDataset } from "../data-quality";
 import { businessTypeFromSic, classifyBusiness, isFinancialBusiness, verifiedBusinessType } from "../business-type";
 import { companySector } from "../sector";
 import type { BusinessType, CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "../types";
+import { KNOWN_SUCCESSORS } from "../universe";
+import { filingIsAhead, instanceDocument, mergeFactTrees, parseXbrlInstance, type FactTree } from "./xbrl-instance";
 
 const SecUnitSchema = z.object({
   start: z.string().optional(), end: z.string(), val: z.number(), accn: z.string(),
@@ -1484,7 +1486,60 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
     next: { revalidate: 21_600 },
   });
   if (!response.ok) throw new Error(`SEC returned ${response.status}.`);
-  return normalizeSecPayload(await response.json(), ticker, retrievedAt, company);
+  const payload = await response.json() as { entityName: string; facts: FactTree };
+  const notes: string[] = [];
+
+  /*
+   * A company that files under two identifiers, read under both.
+   *
+   * ExxonMobil's history is under Exxon Mobil Corporation and its reports since
+   * the reorganisation are under ExxonMobil Holdings Corp, so reading only the
+   * first left its June 2026 quarter off the page. Both are read and merged;
+   * the normalizer's own de-duplication keeps a figure filed twice once.
+   */
+  const successor = KNOWN_SUCCESSORS[company.ticker.toUpperCase()];
+  let facts = payload.facts;
+  if (successor && successor.reads === company.cik) {
+    try {
+      const listed = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${successor.listed}.json`, {
+        headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com", Accept: "application/json" },
+      });
+      if (listed.ok) facts = mergeFactTrees(facts, ((await listed.json()) as { facts: FactTree }).facts);
+    } catch { /* The history alone is still the company. */ }
+  }
+
+  /*
+   * A report Company Facts has not carried yet, read from the filing itself.
+   *
+   * See lib/adapters/xbrl-instance.ts. One request tells whether the company
+   * has filed for a later period than the feed holds; only then is the filing's
+   * own XBRL fetched. Anything failing here leaves the feed's figures as they
+   * were: this can add a quarter, never take one away.
+   */
+  try {
+    const filing = await fetchLatestFiling(successor?.listed ?? company.cik);
+    if (filing?.accession && filingIsAhead(facts, filing)) {
+      const filer = Number(successor?.listed ?? company.cik);
+      const folder = `https://www.sec.gov/Archives/edgar/data/${filer}/${filing.accession.replaceAll("-", "")}`;
+      const listing = await fetch(`${folder}/index.json`, { headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" } });
+      const names = listing.ok ? ((await listing.json()) as { directory: { item: Array<{ name: string }> } }).directory.item.map((item) => item.name) : [];
+      const instance = instanceDocument(names);
+      if (instance) {
+        const document = await fetch(`${folder}/${instance}`, { headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" } });
+        if (document.ok) {
+          const extra = parseXbrlInstance(await document.text(), { accession: filing.accession, form: filing.form, filed: filing.filingDate });
+          if (Object.keys(extra).length) {
+            facts = mergeFactTrees(facts, extra);
+            notes.push(`The ${filing.form} for the period ended ${filing.reportDate}, filed ${filing.filingDate}, is read from the filing itself: SEC Company Facts had not yet carried it.`);
+          }
+        }
+      }
+    }
+  } catch { /* The feed's figures stand. */ }
+
+  const dataset = normalizeSecPayload({ ...payload, facts }, ticker, retrievedAt, company);
+  if (notes.length) dataset.warnings = [...notes, ...dataset.warnings];
+  return dataset;
 }
 
 interface SecTickerEntry { cik_str: number; ticker: string; title: string }

@@ -46,11 +46,14 @@ const VERIFIED_TYPES_BY_CIK: Readonly<Record<string, BusinessType>> = {
  *     window carries an operating income.
  * c5: health plans (SIC 6324) are operating companies, not insurers, and keep
  *     their free cash flow, balance-sheet health and grade.
+ * c6: a report SEC Company Facts has not carried yet is read from the filing's
+ *     own XBRL, and ExxonMobil is read under both of its identifiers. The
+ *     audit found thirty-nine of 298 companies a quarter behind their filings.
  *
  * It covers what a company *is* and how its filings are read, because both
  * change what a stored dataset says and neither reaches one already stored.
  */
-export const CLASSIFICATION_VERSION = "c5";
+export const CLASSIFICATION_VERSION = "c6";
 
 /**
  * What a filer is, from the industry code it files under.
