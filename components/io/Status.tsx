@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AuditEntry, AuditReport, AuditTotals, MoveEntry, StaleEntry } from "@/lib/coverage-audit";
+import type { AuditEntry, AuditReport, AuditTotals, Disagreement, MoveEntry, StaleEntry } from "@/lib/coverage-audit";
 import { ABSENT, shortDate } from "./format";
 
 /**
@@ -20,6 +20,7 @@ const MEASURE_NAMES: Record<string, string> = {
 const COUNTS: Array<{ key: keyof AuditTotals; label: string; note: string }> = [
   { key: "missingFcfLatest", label: "Latest period without FCF", note: "Free cash flow absent from the newest trailing period (or year, for annual-only filers), where the site does not withhold it by design." },
   { key: "stale", label: "Behind the SEC", note: "The company has filed a 10-K or 10-Q for a later period than any the site holds, more than two days ago." },
+  { key: "disagree", label: "Disagrees with the SEC", note: "A latest-year revenue, net income or operating cash flow more than 2% away from the same company's figure in the SEC's own frames." },
   { key: "missingTtm", label: "Latest TTM missing a measure", note: "Revenue, net income, operating cash flow, capital expenditure, free cash flow or diluted shares absent from the newest trailing period." },
   { key: "missingAnnual", label: "Latest year missing a measure", note: "The same six measures, on the newest annual period." },
   { key: "recentTtmGaps", label: "FCF gaps, last two years", note: "At least one of the last eight trailing periods without free cash flow." },
@@ -74,9 +75,9 @@ function Report({ report }: { report: AuditReport }) {
   return (
     <>
       <section className="section" style={{ borderTop: 0 }}>
-        <div className="grid-ruled stats stats-seven">
+        <div className="grid-ruled stats">
           {COUNTS.map(({ key, label, note }) => {
-            const today = report.totals[key];
+            const today = report.totals[key] ?? 0;
             const before = report.previousTotals?.[key];
             const change = before == null ? null : today - before;
             return (
@@ -100,6 +101,7 @@ function Report({ report }: { report: AuditReport }) {
 
       <Entries title="Latest period without FCF" entries={report.issues.missingFcfLatest} />
       <Stale entries={report.issues.stale} />
+      <Disagreements entries={report.issues.disagreements ?? []} compared={report.compared ?? 0} />
       <Moves entries={report.issues.moved} />
       <Entries title="Latest TTM missing a measure" entries={report.issues.missingTtm} />
       <Entries title="Latest year missing a measure" entries={report.issues.missingAnnual} />
@@ -161,6 +163,43 @@ function Stale({ entries }: { entries: StaleEntry[] }) {
           </tbody>
         </table>
       </div>
+    </section>
+  );
+}
+
+function Disagreements({ entries, compared }: { entries: Disagreement[]; compared: number }) {
+  if (!compared) return null;
+  const write = (value: number) => `${(value / 1e9).toFixed(3)}bn`;
+  return (
+    <section className="section">
+      <div className="section-head">
+        <h2 className="label">Disagrees with the SEC</h2>
+        <span className="label">{entries.filter((entry) => !entry.scale && !entry.otherFiling).length} read differently from the same filing · {entries.length} listed · {compared} figures checked</span>
+      </div>
+      {entries.length ? (
+        <div className="sheet">
+          <table>
+            <thead><tr><th className="key" scope="col">Company</th><th scope="col">Measure</th><th scope="col">Period</th><th scope="col">FinScope</th><th scope="col">SEC frame</th><th scope="col">Gap</th></tr></thead>
+            <tbody>
+              {entries.map((entry) => (
+                <tr key={`${entry.ticker}-${entry.measure}`}>
+                  <th className="key" scope="row"><a className="key-open" href={`/s/${encodeURIComponent(entry.ticker)}`}>{entry.ticker}</a></th>
+                  <td>{MEASURE_NAMES[entry.measure] ?? entry.measure}</td>
+                  <td>{entry.period}</td>
+                  <td>{write(entry.ours)}</td>
+                  <td title={`${entry.concept} · ${entry.accession}`}>{write(entry.filed)}</td>
+                  <td>
+                    {entry.filed === 0 ? ABSENT : `${(((entry.ours - entry.filed) / Math.abs(entry.filed)) * 100).toFixed(1)}%`}
+                    {entry.scale ? <span className="dim"> · frame in the wrong scale</span> : entry.otherFiling ? <span className="dim"> · frame reads another filing</span> : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="stat-note">Every latest-year revenue, net income and operating cash flow checked agrees with the SEC&apos;s frames to within 2%.</p>
+      )}
     </section>
   );
 }

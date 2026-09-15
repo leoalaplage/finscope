@@ -5,7 +5,7 @@ import { summariseDataset } from "@/lib/watchlist-summary";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
 import { ioViewKey } from "@/lib/io/view-version";
 import { companyView } from "@/lib/io/view";
-import { auditCompany, auditKey, type CompanyAudit } from "@/lib/coverage-audit";
+import { auditCompany, auditKey, sourcedFigures, type CompanyAudit } from "@/lib/coverage-audit";
 
 
 /**
@@ -162,7 +162,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       let audit: CompanyAudit | null = null;
       try {
         const previous = cache ? await cache.get<CompanyAudit>(auditKey(symbol), "json").catch(() => null) : null;
-        audit = auditCompany(companyView(dataset), previous);
+        audit = auditCompany(companyView(dataset), previous, new Date().toISOString(), sourcedFigures(dataset));
       } catch {
         audit = null;
       }

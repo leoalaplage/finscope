@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { auditCompany, summariseAudits, type AuditReport, type CompanyAudit } from "../lib/coverage-audit";
+import { auditCompany, compareWithFrames, framesNeeded, summariseAudits, type AuditReport, type CompanyAudit } from "../lib/coverage-audit";
 import type { IoCompanyView, IoPeriod } from "../lib/io/view";
 
 const period = (label: string, end: string, values: Record<string, number | null>): IoPeriod =>
@@ -73,5 +73,55 @@ describe("the day's report", () => {
     const today = summariseAudits([{ ticker: "AAA" }], new Map([["AAA", audit("AAA", "2026-06-30", ["freeCashFlow"])]]), new Map(), yesterday as AuditReport, now);
     expect(today.regressions).toContain("missingFcfLatest");
     expect(today.history.map((entry) => entry.date)).toEqual(["2026-09-13", "2026-09-14"]);
+  });
+});
+
+describe("the latest year against the SEC's own frames", () => {
+  const checked = (ticker: string, cik: string, figures: Array<Partial<import("../lib/coverage-audit").SourcedFigure>>): CompanyAudit => ({
+    ticker, cik, name: ticker, businessType: "operating", checkedAt: "2026-09-15T00:00:00Z", annual: null, ttm: null,
+    missingAnnual: [], missingTtm: [], recentTtmWithoutFcf: 0, values: {}, moved: [],
+    sourced: figures.map((figure) => ({ measure: "revenue", label: "FY 2025", start: "2025-01-01", end: "2025-12-31", value: 0, concept: "us-gaap:Revenues", accession: null, ...figure })),
+  });
+
+  it("asks for the calendar year a fiscal year ends in and the one before", () => {
+    expect(framesNeeded([checked("KO", "0000021344", [{ end: "2025-12-31" }, { measure: "netIncome", concept: "us-gaap:NetIncomeLoss", end: "2026-06-30" }])])).toEqual([
+      "NetIncomeLoss|CY2025", "NetIncomeLoss|CY2026", "Revenues|CY2024", "Revenues|CY2025",
+    ]);
+  });
+
+  it("matches the same company and period, and names a figure more than 2% away", () => {
+    const frames = new Map([["Revenues|CY2025", [
+      { cik: 21344, start: "2025-01-01", end: "2025-12-31", val: 47_941_000_000, accn: "0001628280-26-010047" },
+      { cik: 2969, start: "2024-10-01", end: "2025-09-30", val: 12_037_300_000, accn: "0000002969-25-000055" },
+    ]]]);
+    const agreeing = checked("KO", "0000021344", [{ value: 47_941_000_000 }]);
+    const wrong = checked("APD", "0000002969", [{ start: "2024-10-01", end: "2025-09-30", value: 11_000_000_000 }]);
+    const unmatched = checked("ZZZ", "0000000001", [{ value: 5 }]);
+    const result = compareWithFrames([agreeing, wrong, unmatched], frames);
+    expect(result.compared).toBe(2);
+    expect(result.disagreements).toEqual([
+      { ticker: "APD", measure: "revenue", period: "FY 2025", ours: 11_000_000_000, filed: 12_037_300_000, concept: "us-gaap:Revenues", accession: "0000002969-25-000055" },
+    ]);
+    const report = summariseAudits([{ ticker: "KO" }, { ticker: "APD" }], new Map([["KO", agreeing], ["APD", wrong]]), new Map(), null, new Date("2026-09-15T12:00:00Z"), result);
+    expect(report.totals.disagree).toBe(1);
+    expect(report.compared).toBe(2);
+  });
+
+  it("does not count a frame read out of a later, different filing as this site's error", () => {
+    // DaVita: the frame's 2025 net income comes from its proxy statement, not its 10-K.
+    const frames = new Map([["NetIncomeLoss|CY2025", [{ cik: 927066, start: "2025-01-01", end: "2025-12-31", val: 1_079_000_000, accn: "0000927066-26-000053" }]]]);
+    const davita = checked("DVA", "0000927066", [{ measure: "netIncome", concept: "us-gaap:NetIncomeLoss", value: 747_000_000, accession: "0000927066-26-000012" }]);
+    const result = compareWithFrames([davita], frames);
+    expect(result.disagreements[0].otherFiling).toBe(true);
+    expect(summariseAudits([{ ticker: "DVA" }], new Map([["DVA", davita]]), new Map(), null, new Date("2026-09-15T12:00:00Z"), result).totals.disagree).toBe(0);
+  });
+
+  it("does not count a frame filed in the wrong scale as this site's error", () => {
+    // Arista's 2025 net income sits in the SEC frame at 3.5 thousand dollars.
+    const frames = new Map([["NetIncomeLoss|CY2025", [{ cik: 1596532, start: "2025-01-01", end: "2025-12-31", val: 3_511_000, accn: "x" }]]]);
+    const arista = checked("ANET", "0001596532", [{ measure: "netIncome", concept: "us-gaap:NetIncomeLoss", value: 3_511_000_000 }]);
+    const result = compareWithFrames([arista], frames);
+    expect(result.disagreements[0].scale).toBe(true);
+    expect(summariseAudits([{ ticker: "ANET" }], new Map([["ANET", arista]]), new Map(), null, new Date("2026-09-15T12:00:00Z"), result).totals.disagree).toBe(0);
   });
 });
