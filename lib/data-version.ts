@@ -105,6 +105,22 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v33: capital expenditure is read under one definition per company. Where a
+ * filer tags both payments for property, plant and equipment and payments for
+ * productive assets for the same year, at different values, each year takes
+ * the name the company's latest annual figure uses — it used to take whichever
+ * was filed last, so Valero's excluded turnarounds for 2011–2015 and included
+ * them after, and Ecolab's flipped between equipment alone and equipment with
+ * software. Between those two names only: applied to every capital-expenditure
+ * name it replaced Camden's 497 million of development with 5 million of
+ * "other property". Measured over the S&P 500 from raw Company Facts: 414
+ * capital-expenditure figures move at twelve companies, the large ones mending
+ * figures that were plainly wrong — Devon's 2013 from 256 million to 6,502
+ * million (its free cash flow from +5.2 billion to −1.1 billion), United
+ * Rentals' 2013 from 104 million to 1,684 million with its rental fleet,
+ * Xcel's 2008 from nought to 2,114 million — and 59 more trailing periods
+ * carry a free cash flow.
+ *
  * v32: a TTM cash-flow measure may bridge a missing fourth quarter from the
  * filed fiscal year and comparable year-to-date facts. Intuit publishes annual
  * capital expenditure below its nine-month total from 2013 through 2025; the
@@ -223,7 +239,7 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v32";
+export const KEY_VERSION = "v33";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

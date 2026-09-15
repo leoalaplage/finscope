@@ -33,13 +33,13 @@ import { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
  * "Building financials…" until the warm-up has been round the watchlist.
  */
 const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [
-  // v32 mostly recovers TTM flow observations v31 left blank. It moves 98 of
-  // 100,780 cash-flow figures, at five filers whose older capital expenditure
-  // was the parts of a total (see data-version.ts), and only upwards to the
-  // filer's own total. Serving those few understated figures for the hours a
-  // rebuild takes is judged better than blank companies for everyone; readers
-  // who get the v31 copy also start the v32 build.
-  { version: "v31", shape: "s13" },
+  // v33 reads capital expenditure under one definition per company. It moves
+  // only the capital expenditure — and the free cash flow built on it — of the
+  // years where a filer tagged a second, different line (see data-version.ts);
+  // every other figure is v32's. Serving those years under the older choice
+  // for the hours a rebuild takes is judged better than blank companies for
+  // everyone; readers who get the v32 copy also start the v33 build.
+  { version: "v32", shape: "s13" },
 ];
 
 /**

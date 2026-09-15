@@ -114,25 +114,22 @@ describe("the repairs, held on the companies they were made for", () => {
     expect(viewOf("HIMS").trailing.every((each) => each.values.freeCashFlow != null)).toBe(true);
   });
 
-  it("reads Ecolab's 2015 capital expenditure under its own later total: equipment 771.0m plus software 44.2m", () => {
-    expect(billions(period(viewOf("ECL"), "FY 2015")?.values.capitalExpenditures)).toBeCloseTo(0.8152, 3);
+  it("reads Valero's and Ecolab's capital expenditure under one definition, the one each uses today", () => {
+    /*
+     * Both file two capital-expenditure lines for many years. The normalizer
+     * used to take whichever was filed last, so Valero left out turnarounds for
+     * 2011–2015 and included them after. Each company is now read under the
+     * name its latest annual figure uses, wherever it filed that name.
+     */
+    // Valero today reports payments for productive assets, turnarounds included.
+    expect(billions(period(viewOf("VLO"), "FY 2013")?.values.capitalExpenditures)).toBeCloseTo(2.755, 2);
+    expect(billions(period(viewOf("VLO"), "FY 2015")?.values.capitalExpenditures)).toBeCloseTo(2.350, 2);
+    expect(billions(period(viewOf("VLO"), "FY 2017")?.values.capitalExpenditures)).toBeCloseTo(1.948, 2);
+    // Ecolab today reports payments for property, plant and equipment, software apart.
+    expect(billions(period(viewOf("ECL"), "FY 2012")?.values.capitalExpenditures)).toBeCloseTo(0.575, 2);
+    expect(billions(period(viewOf("ECL"), "FY 2015")?.values.capitalExpenditures)).toBeCloseTo(0.771, 2);
+    expect(billions(period(viewOf("ECL"), "FY 2017")?.values.capitalExpenditures)).toBeCloseTo(0.869, 2);
   });
-
-  /*
-   * Not held, because it is not yet right.
-   *
-   * Valero files two capital-expenditure lines for most years — property,
-   * plant and equipment, and productive assets, which adds turnarounds — and
-   * the normalizer takes whichever was filed last for each year: the narrower
-   * figure for 2011–2015 (2,121m for 2013 against 2,757m), the wider for
-   * 2016–2019. Ecolab flips between equipment alone and equipment with
-   * software the same way. Fifty-two companies in the index file both lines
-   * at different values, and "productive assets" is not always the wider:
-   * McDonald's files 541m under it against 2,394m of equipment for 2019. The
-   * rule that should choose is a decision about what capital expenditure means,
-   * and this marks the question rather than freezing either answer.
-   */
-  it.todo("reads Valero's and Ecolab's capital expenditure under one definition across every year");
 
   it("reads Verizon's capital expenditure, filed only as other productive assets", () => {
     expect(billions(period(viewOf("VZ"), "FY 2024")?.values.capitalExpenditures)).toBeCloseTo(17.09, 2);

@@ -385,6 +385,51 @@ export function preferTotalRevenue(candidates: RawFinancialFact[], chosen: RawFi
 }
 
 /**
+ * Measures read under one definition across a company's whole history.
+ *
+ * Capital expenditure is filed under more than one name, and fifty-two
+ * companies in the S&P 500 file two of them at different values for the same
+ * year: payments for property, plant and equipment, and payments for
+ * productive assets, which may add software, turnarounds or development — or,
+ * for McDonald's, be a minor line of 541 million beside 2,394 million of
+ * equipment. Choosing the latest-filed of the two each year made the
+ * definition flip inside one company's history: Valero's capital expenditure
+ * left out turnarounds for 2011–2015 and included them for 2016–2019, and its
+ * free cash flow changed meaning halfway down the page.
+ *
+ * So a year is read under the name the company's most recent annual figure
+ * uses — its own current definition — wherever it filed that name.
+ *
+ * Between those two names only. Measured over the index, applying it to every
+ * capital-expenditure name did harm: a property company's latest year can be
+ * tagged under a minor line, and Camden's development spending of 497 million
+ * for 2014 was replaced by 5 million of "other property"; Weyerhaeuser's 354
+ * million of equipment by 41 million of improvements; Veeva's 27 million by
+ * nought of software. The rule arbitrates only where the year's usual choice is
+ * one of the pair and the current definition is the other.
+ */
+const ONE_DEFINITION = new Set<MetricKey>(["capitalExpenditures"]);
+const SAME_MEASURE_NAMES = new Set(["us-gaap:PaymentsToAcquirePropertyPlantAndEquipment", "us-gaap:PaymentsToAcquireProductiveAssets"]);
+const currentConcepts = new WeakMap<FactIndex, Map<MetricKey, string | undefined>>();
+
+function currentConcept(index: FactIndex, metric: MetricKey): string | undefined {
+  let cache = currentConcepts.get(index);
+  if (!cache) { cache = new Map(); currentConcepts.set(index, cache); }
+  if (cache.has(metric)) return cache.get(metric);
+  const years = [...index.keys()]
+    .filter((key) => key.startsWith(`${metric}|`) && key.endsWith("|FY"))
+    .map((key) => Number(key.split("|")[1]))
+    .sort((left, right) => right - left);
+  let concept: string | undefined;
+  for (const fy of years) {
+    const chosen = selectAnnual(contexts(index, metric, fy, "FY"));
+    if (chosen) { concept = chosen.concept; break; }
+  }
+  cache.set(metric, concept);
+  return concept;
+}
+
+/**
  * The annual fact a year is published under, after that reconciliation.
  *
  * Used both to build the annual period and to choose the concept its quarters
@@ -398,6 +443,14 @@ function publishedAnnual(index: FactIndex, metric: MetricKey, fy: number) {
   // statement line. It must not erase a positive annual revenue for the same
   // fiscal year merely because its filing date is later.
   const positive = metric === "revenue" ? all.filter((fact) => fact.value > 0) : all;
+  if (ONE_DEFINITION.has(metric)) {
+    const concept = currentConcept(index, metric);
+    const usual = selectAnnual(positive.length ? positive : all);
+    if (concept && usual && usual.concept !== concept && SAME_MEASURE_NAMES.has(concept) && SAME_MEASURE_NAMES.has(usual.concept)) {
+      const own = selectAnnual(sameConcept(all, concept));
+      if (own) return own;
+    }
+  }
   if (metric !== "revenue") return selectAnnual(positive.length ? positive : all);
   /*
    * `Revenues` is tested as a total, not allowed to win merely because it was
