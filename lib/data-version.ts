@@ -105,6 +105,29 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v34: what the latest trailing periods were still missing, measured company by
+ * company. A 53-week year that closes in the first days of January is the
+ * year before (Textron's fiscal 2025 closed on 3 January 2026 and was filed on
+ * top of its fiscal 2026), and a quarter no reported year contains is dated by
+ * the company's latest fiscal calendar rather than its most common one
+ * (L3Harris kept Harris's June years). Operating cash flow is the total where a
+ * filing states only continuing and discontinued parts — for a period no
+ * filing states a total for — so AT&T's 2022 is 35,812 million less 3,789
+ * million, and Air Products' and Becton Dickinson's quarters join their years.
+ * Capital expenditure is read from Delta's flight equipment, Consolidated
+ * Edison's construction in process and APA's oil and gas development; across
+ * both names within a year in progress (Cboe); and, when Company Facts lacks
+ * it, from the filing's own XBRL — a standard line, or a company's single own
+ * line its calculation linkbase adds into investing activities
+ * (ConocoPhillips, Phillips 66), refused where it is under half the company's
+ * last standard figure (United Rentals). Over the S&P 500 from raw Company
+ * Facts: trailing periods without free cash flow 1,462 → 1,205, companies
+ * with a gap in their last eight 34 → 24, latest trailing period without it
+ * 26 → 16 before the filing reads. 2,077 figures move at 91 companies, the
+ * large ones operating cash flow becoming the filed total; six companies lose
+ * one to four trailing windows from 2010–2013, where a first reported year
+ * meets a 53-week calendar.
+ *
  * v33: capital expenditure is read under one definition per company. Where a
  * filer tags both payments for property, plant and equipment and payments for
  * productive assets for the same year, at different values, each year takes
@@ -239,7 +262,7 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v33";
+export const KEY_VERSION = "v34";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

@@ -2,11 +2,84 @@ import { z } from "zod";
 import { COMPANIES } from "../company-registry";
 import { adjustPeriodsForSplits, buildTtmPeriods, isAnnualForm, normalizeAnnualPeriods, normalizeQuarterlyPeriods } from "../periods";
 import { validateCompanyDataset } from "../data-quality";
-import { businessTypeFromSic, classifyBusiness, isFinancialBusiness, verifiedBusinessType } from "../business-type";
+import { businessTypeFromSic, cashFlowIsTheBalanceSheet, classifyBusiness, isFinancialBusiness, verifiedBusinessType } from "../business-type";
 import { companySector } from "../sector";
 import type { BusinessType, CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "../types";
 import { KNOWN_SUCCESSORS } from "../universe";
-import { filingIsAhead, instanceDocument, mergeFactTrees, parseXbrlInstance, type FactTree } from "./xbrl-instance";
+import { companyCapexLine, filingIsAhead, instanceDocument, investingLines, mergeFactTrees, parseXbrlInstance, type FactTree, type FilingFact } from "./xbrl-instance";
+
+type FilingFactLike = FilingFact;
+
+/** The tag a company's own capital-expenditure line is read under, in the "company" taxonomy. */
+const COMPANY_CAPEX_TAG = "CapitalExpenditures";
+const SEC_HEADERS = () => ({ "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" });
+
+const STANDARD_CAPEX_TAGS = [
+  "PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForProceedsFromProductiveAssets",
+  "PaymentsForSoftware", "PaymentsToAcquireOtherPropertyPlantAndEquipment", "PaymentsForCapitalImprovements", "PaymentsToDevelopRealEstateAssets",
+  "PaymentsToAcquireRealEstate", "PaymentsToAcquireOilAndGasProperty", "PaymentsToAcquireMachineryAndEquipment", "PaymentsToAcquireOtherProductiveAssets",
+  "PaymentsForConstructionInProcess", "PaymentsToExploreAndDevelopOilAndGasProperties", "PaymentsForFlightEquipment",
+];
+
+const isYear = (fact: { start?: string; end: string }) => Boolean(fact.start) && (Date.parse(fact.end) - Date.parse(fact.start!)) / 86_400_000 >= 300;
+
+/**
+ * Whether a company's own line is plausibly its whole capital expenditure.
+ *
+ * Compared with the largest standard annual capital expenditure it filed in
+ * the three years before the line's latest year: under half of that, the line
+ * is a part of the total under another name. With no such standard figure
+ * there is nothing to compare, and the line stands.
+ */
+export function plausibleCompanyCapex(tree: FactTree, units: Record<string, Array<{ start?: string; end: string; val: number }>>): boolean {
+  const ownYears = Object.values(units).flat().filter(isYear).sort((left, right) => left.end.localeCompare(right.end));
+  const latest = ownYears.at(-1);
+  if (!latest) return true;
+  const since = new Date(Date.parse(latest.end) - 3 * 366 * 86_400_000).toISOString().slice(0, 10);
+  let standard = 0;
+  for (const tag of STANDARD_CAPEX_TAGS) {
+    for (const facts of Object.values(tree["us-gaap"]?.[tag]?.units ?? {})) {
+      for (const fact of facts) if (isYear(fact) && fact.end >= since && fact.end < latest.end) standard = Math.max(standard, Math.abs(fact.val));
+    }
+  }
+  return standard === 0 || Math.abs(latest.val) >= 0.5 * standard;
+}
+
+/**
+ * Whether the feed's newest annual capital expenditure is older than its newest annual operating cash flow.
+ *
+ * Ralph Lauren's and CMS Energy's latest annual reports are in Company Facts
+ * with their operating cash flow and without their capital expenditure, while
+ * every quarter has both — so the newest of each agrees and only the year is
+ * missing, which is the figure every trailing window after it is built from.
+ */
+export function annualCapexBehindCashFlow(tree: FactTree): boolean {
+  const newestYear = (tags: string[]) => {
+    let end = "";
+    for (const tag of tags) for (const facts of Object.values(tree["us-gaap"]?.[tag]?.units ?? {})) for (const fact of facts) if (isYear(fact) && fact.end > end) end = fact.end;
+    return end;
+  };
+  const cash = newestYear(["NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"]);
+  const capex = newestYear(STANDARD_CAPEX_TAGS);
+  return cash !== "" && capex !== "" && capex < cash;
+}
+
+/** Whether the feed's newest capital expenditure is older than its newest operating cash flow. */
+export function capexBehindCashFlow(tree: FactTree): boolean {
+  const newest = (tags: string[]) => {
+    let end = "";
+    for (const tag of tags) for (const facts of Object.values(tree["us-gaap"]?.[tag]?.units ?? {})) for (const fact of facts) if (fact.start && fact.end > end) end = fact.end;
+    return end;
+  };
+  const cash = newest(["NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"]);
+  const capex = newest([
+    "PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForProceedsFromProductiveAssets",
+    "PaymentsForSoftware", "PaymentsToAcquireOtherPropertyPlantAndEquipment", "PaymentsForCapitalImprovements", "PaymentsToDevelopRealEstateAssets",
+    "PaymentsToAcquireRealEstate", "PaymentsToAcquireOilAndGasProperty", "PaymentsToAcquireMachineryAndEquipment", "PaymentsToAcquireOtherProductiveAssets",
+    "PaymentsForConstructionInProcess", "PaymentsToExploreAndDevelopOilAndGasProperties", "PaymentsForFlightEquipment",
+  ]);
+  return cash !== "" && capex < cash;
+}
 
 const SecUnitSchema = z.object({
   start: z.string().optional(), end: z.string(), val: z.number(), accn: z.string(),
@@ -20,7 +93,8 @@ const SecResponseSchema = z.object({
 });
 
 type SecUnit = z.infer<typeof SecUnitSchema>;
-type Taxonomy = "us-gaap" | "dei" | "ifrs-full";
+/** "company" holds a filer's own line read from its filing's XBRL (see `companyCapexLine`). */
+type Taxonomy = "us-gaap" | "dei" | "ifrs-full" | "company";
 type ConceptSpec = {
   namespace: Taxonomy; tags: string[]; unit: "currency" | "shares" | "perShare";
   /** Further taxonomies to try, in preference order after `tags`. */
@@ -346,7 +420,11 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
   Object.fromEntries(
     (Object.entries(US_GAAP_CONCEPTS) as Array<[keyof typeof US_GAAP_CONCEPTS, ConceptSpec]>).map(([metric, spec]) => {
       const ifrs = IFRS_CONCEPTS[metric];
-      return [metric, ifrs ? { ...spec, also: [...(spec.also ?? []), { namespace: "ifrs-full" as const, tags: ifrs }] } : spec];
+      const withIfrs = ifrs ? { ...spec, also: [...(spec.also ?? []), { namespace: "ifrs-full" as const, tags: ifrs }] } : spec;
+      // A company's own capital-expenditure line, last of all: read only where no standard one is filed.
+      return [metric, metric === "capitalExpenditures"
+        ? { ...withIfrs, also: [...(withIfrs.also ?? []), { namespace: "company" as const, tags: [COMPANY_CAPEX_TAG] }] }
+        : withIfrs];
     }),
   ) as Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepurchases">, ConceptSpec>;
 
@@ -378,8 +456,76 @@ function extractFacts(
   const aliases = capexUnderEitherName(output.filter(isCapex));
   output.push(...aliases);
   output.push(...capexFromComponents([...CAPEX_TOTALS.flatMap(read), ...aliases], CAPEX_COMPONENTS.flatMap(read)));
-  output.push(...capexFromOtherProductiveAssets(output.filter(isCapex), read("PaymentsToAcquireOtherProductiveAssets")));
+  /*
+   * Lines that are a company's whole capital expenditure only where they are its
+   * only one: Verizon's other productive assets, Consolidated Edison's
+   * construction in process, APA's exploration and development of oil and gas
+   * properties. Each is read on the same rule (see `capexFromOtherProductiveAssets`).
+   */
+  for (const tag of SOLE_CAPEX_LINES) output.push(...capexFromOtherProductiveAssets(output.filter(isCapex), read(tag)));
+  const cashFlow = (tag: string) => factsUnder(namespaces, "us-gaap", tag, "operatingCashFlow", SEC_CONCEPTS.operatingCashFlow.unit, cik, currency, retrievedAt);
+  output.push(...operatingCashFlowTotals(
+    cashFlow("NetCashProvidedByUsedInOperatingActivities"),
+    cashFlow("NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"),
+    cashFlow("CashProvidedByUsedInOperatingActivitiesDiscontinuedOperations"),
+  ));
   return anchorCoverPageShares(output);
+}
+
+const TOTAL_OPERATING_CASH_FLOW = "us-gaap:NetCashProvidedByUsedInOperatingActivities";
+
+/**
+ * The whole operating cash flow, where a filing states only its continuing part.
+ *
+ * Air Products' and Becton Dickinson's annual reports tag operating cash flow
+ * from continuing operations, and their quarterly reports tag the total. A
+ * year's quarters are built from the year's concept, so none of them was, and
+ * every trailing window after the last annual report lost its operating cash
+ * flow — and with it its free cash flow.
+ *
+ * The total is the continuing part plus the discontinued part, where the same
+ * context tags both; and the continuing part alone, where the filing tags no
+ * discontinued operations for any period at all, because then there is
+ * nothing to add. A filing that splits out discontinued operations elsewhere
+ * but not for this context is left alone: the missing part is not a zero.
+ */
+export function operatingCashFlowTotals(totals: RawFinancialFact[], continuing: RawFinancialFact[], discontinued: RawFinancialFact[]): RawFinancialFact[] {
+  const context = (fact: RawFinancialFact) => `${fact.start ?? ""}|${fact.end}|${fact.accession}`;
+  /*
+   * Only a period no filing states a total for.
+   *
+   * Measured over the index, reconstructing a total wherever one filing lacked
+   * it moved 2,307 figures at 98 companies: a later report that restates old
+   * years under the continuing-operations name would outrank the total the
+   * annual report itself filed — Apple's fiscal 2016 operating cash flow moved
+   * from the 65,824 million of its 10-K. A total filed for the period, in any
+   * report, stands.
+   */
+  const period = (fact: RawFinancialFact) => `${fact.start ?? ""}|${fact.end}`;
+  const filedPeriods = new Set(totals.map(period));
+  const stated = { has: (key: string) => filedPeriods.has(key.split("|").slice(0, 2).join("|")) };
+  const parts = new Map(discontinued.map((fact) => [context(fact), fact]));
+  const splitFilings = new Set(discontinued.map((fact) => fact.accession));
+  const seen = new Set<string>();
+  const output: RawFinancialFact[] = [];
+  for (const fact of continuing) {
+    const key = context(fact);
+    if (!fact.start || stated.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    const part = parts.get(key);
+    if (part) {
+      output.push({
+        ...fact, value: fact.value + part.value, concept: TOTAL_OPERATING_CASH_FLOW, summedFrom: [fact.concept, part.concept],
+        normalizationNote: "Operating cash flow from continuing operations plus that of discontinued operations, as the filing states both and no total.",
+      });
+    } else if (!splitFilings.has(fact.accession)) {
+      output.push({
+        ...fact, concept: TOTAL_OPERATING_CASH_FLOW, summedFrom: [fact.concept],
+        normalizationNote: "The filing states operating cash flow from continuing operations and reports no discontinued operations, so it is the whole operating cash flow.",
+      });
+    }
+  }
+  return output;
 }
 
 const PPE_PAYMENTS = "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment";
@@ -433,6 +579,20 @@ export function capexUnderEitherName(facts: RawFinancialFact[]): RawFinancialFac
       if ([...own.values()].some(inside)) continue;
       output.push(...named.filter((fact) => fact.concept !== concept && inside(fact)).map((fact) => copy(fact, concept)));
     }
+  }
+  /*
+   * And the year in progress, which has no annual figure to be named after.
+   *
+   * Cboe tagged its March 2026 quarter as property, plant and equipment and
+   * its six months to June as productive assets; CRH the same way. With no
+   * 2026 annual figure yet, neither name had a whole year of quarters, and the
+   * latest trailing window had no capital expenditure. After the latest year
+   * either name files, each period under one name only is read under both.
+   */
+  const lastYearEnd = named.filter((fact) => days(fact) >= 300).map((fact) => fact.end).sort().at(-1) ?? "";
+  for (const fact of named.filter((each) => days(each) < 300 && each.end > lastYearEnd)) {
+    if (fact.concept === PPE_PAYMENTS && !productive.has(span(fact))) output.push(copy(fact, PRODUCTIVE_ASSET_PAYMENTS));
+    if (fact.concept === PRODUCTIVE_ASSET_PAYMENTS && !ppe.has(span(fact))) output.push(copy(fact, PPE_PAYMENTS));
   }
   return output;
 }
@@ -510,7 +670,12 @@ export const CAPEX_COMPONENTS = [
   "PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsForSoftware", "PaymentsToDevelopSoftware",
   "PaymentsToAcquireOtherProductiveAssets", "PaymentsToAcquireOtherPropertyPlantAndEquipment",
   "PaymentsForCapitalImprovements", "PaymentsToAcquireMachineryAndEquipment",
+  // Delta's aircraft: with its other productive assets, the total it files as productive assets.
+  "PaymentsForFlightEquipment",
 ];
+
+/** Standard lines read as the whole capital expenditure only where the company files no other. */
+export const SOLE_CAPEX_LINES = ["PaymentsToAcquireOtherProductiveAssets", "PaymentsForConstructionInProcess", "PaymentsToExploreAndDevelopOilAndGasProperties"];
 
 /**
  * Capital expenditure where a filer tags only its parts, summed on the filer's own proof.
@@ -1537,6 +1702,94 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
     }
   } catch { /* The feed's figures stand. */ }
 
+  /*
+   * A capital expenditure the SEC's standard feed does not carry, read from the
+   * company's own line (see `companyCapexLine`).
+   *
+   * Only where the feed's latest capital expenditure is older than its latest
+   * operating cash flow — the company kept reporting, under a name of its own —
+   * and only from the latest annual report onwards, which is what the latest
+   * year and trailing window need. One linkbase and one instance per filing;
+   * anything failing leaves the figures as they were.
+   */
+  try {
+    if (!cashFlowIsTheBalanceSheet(company.businessType) && (capexBehindCashFlow(facts) || annualCapexBehindCashFlow(facts))) {
+      const filer = successor?.listed ?? company.cik;
+      const filings = await fetchPeriodicFilings(filer, 8);
+      const annual = filings.findIndex((filing) => filing.form === "10-K" || filing.form === "20-F" || filing.form === "40-F");
+      const recent = annual < 0 ? filings.slice(0, 4) : filings.slice(0, annual + 1).slice(0, 4);
+      const read: string[] = [];
+      const standardRead: string[] = [];
+      // The company's own line, gathered across the filings and judged once, as a whole, before it is used.
+      let ownLine: { prefix: string; name: string } | null = null;
+      const ownUnits: Record<string, FilingFactLike[]> = {};
+      // Gently: a burst of index, linkbase and instance requests is what the SEC refuses.
+      const paced = async (url: string) => { await new Promise((resolve) => setTimeout(resolve, 150)); return fetch(url, { headers: SEC_HEADERS() }); };
+      for (const filing of recent) {
+        if (!filing.accession) continue;
+        const folder = `https://www.sec.gov/Archives/edgar/data/${Number(filer)}/${filing.accession.replaceAll("-", "")}`;
+        const listing = await paced(`${folder}/index.json`);
+        if (!listing.ok) continue;
+        const names = ((await listing.json()) as { directory: { item: Array<{ name: string }> } }).directory.item.map((item) => item.name);
+        const calculation = names.find((name) => name.endsWith("_cal.xml"));
+        const instance = instanceDocument(names);
+        if (!calculation || !instance) continue;
+        const linkbase = await paced(`${folder}/${calculation}`);
+        if (!linkbase.ok) continue;
+        const lines = investingLines(await linkbase.text());
+        /*
+         * Standard lines first. Valero's and Freeport's 2026 reports add US GAAP
+         * capital-expenditure lines into investing activities that Company Facts
+         * has not carried — the same lag the latest-filing read answers for a
+         * whole report, here for one line. Those are read under their own
+         * names, and every rule above applies to them as to any other fact.
+         * A company's own line is the fallback where the filing has none.
+         */
+        const standard = lines.filter((each) => each.prefix === "us-gaap" && each.weight < 0 && STANDARD_CAPEX_TAGS.includes(each.name));
+        const line = standard.length ? null : companyCapexLine(lines);
+        if (!standard.length && !line) continue;
+        const document = await paced(`${folder}/${instance}`);
+        if (!document.ok) continue;
+        const xml = await document.text();
+        const filed = { accession: filing.accession, form: filing.form, filed: filing.filingDate };
+        if (standard.length) {
+          const parsed = parseXbrlInstance(xml, filed, "us-gaap");
+          const picked: FactTree = { "us-gaap": {} };
+          for (const each of standard) { const node = parsed["us-gaap"]?.[each.name]; if (node) picked["us-gaap"][each.name] = node; }
+          if (Object.keys(picked["us-gaap"]).length) {
+            facts = mergeFactTrees(facts, picked);
+            standardRead.push(`${filing.form} ${filing.reportDate}`);
+          }
+          continue;
+        }
+        const own = parseXbrlInstance(xml, filed, line!.prefix.replace(/[^\w-]/g, ""));
+        const units = own[line!.prefix]?.[line!.name]?.units;
+        if (!units) continue;
+        if (ownLine && (ownLine.prefix !== line!.prefix || ownLine.name !== line!.name)) continue;
+        ownLine = { prefix: line!.prefix, name: line!.name };
+        for (const [unit, list] of Object.entries(units)) (ownUnits[unit] ??= []).push(...list);
+        read.push(`${filing.form} ${filing.reportDate}`);
+      }
+      /*
+       * Not a narrower line than the company's own last standard figure.
+       *
+       * United Rentals' single own line is its non-rental property and software
+       * — 0.36 billion over a year in which it bought billions of rental
+       * equipment under another name — and reading it as the capital expenditure
+       * made its free cash flow 5.4 billion. Judged once, on everything gathered:
+       * judged filing by filing, its quarterly reports, which carry no annual
+       * figure to compare, slipped through while the annual one was refused.
+       */
+      if (ownLine && read.length && plausibleCompanyCapex(facts, ownUnits)) {
+        facts = mergeFactTrees(facts, { company: { [COMPANY_CAPEX_TAG]: { units: ownUnits as Record<string, FilingFact[]> } } });
+        notes.push(`Capital expenditure is read from the company's own line ${ownLine.prefix}:${ownLine.name}, which its filings add into cash used in investing activities; the SEC's standard feed does not carry it. Read from ${read.join(", ")}.`);
+      }
+      if (standardRead.length) {
+        notes.push(`Capital expenditure for ${standardRead.join(", ")} is read from the filings themselves: SEC Company Facts had not yet carried it.`);
+      }
+    }
+  } catch { /* The feed's figures stand. */ }
+
   const dataset = normalizeSecPayload({ ...payload, facts }, ticker, retrievedAt, company);
   if (notes.length) dataset.warnings = [...notes, ...dataset.warnings];
   return dataset;
@@ -1643,6 +1896,21 @@ export interface LatestFiling {
  * date and the period each report covers, so the comparison is against the
  * company's own calendar rather than against a clock.
  */
+/** A company's recent periodic reports, newest first. */
+export async function fetchPeriodicFilings(cik: string, limit = 8): Promise<LatestFiling[]> {
+  const response = await fetch(`https://data.sec.gov/submissions/CIK${cik.padStart(10, "0")}.json`, {
+    headers: { ...SEC_HEADERS(), Accept: "application/json" },
+  });
+  if (!response.ok) throw new Error(`SEC returned ${response.status}.`);
+  const recent = SubmissionsSchema.parse(await response.json()).filings.recent;
+  const filings: LatestFiling[] = [];
+  for (let index = 0; index < recent.form.length; index++) {
+    if (!PERIODIC.has(recent.form[index])) continue;
+    filings.push({ form: recent.form[index], filingDate: recent.filingDate[index], reportDate: recent.reportDate[index], accession: recent.accessionNumber?.[index] });
+  }
+  return filings.sort((left, right) => right.reportDate.localeCompare(left.reportDate) || right.filingDate.localeCompare(left.filingDate)).slice(0, limit);
+}
+
 export async function fetchLatestFiling(cik: string): Promise<LatestFiling | null> {
   const padded = cik.padStart(10, "0");
   const response = await fetch(`https://data.sec.gov/submissions/CIK${padded}.json`, {

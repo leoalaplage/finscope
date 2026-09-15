@@ -30,7 +30,15 @@ describe("quarterly SEC normalization", () => {
   it("matches quarters to reported annual windows when a 52-week fiscal end drifts",()=>{
     const annual=raw("revenue",100,"2016-01-04","2017-01-01","FY",2018,"2018-02-01");
     const quarter=raw("revenue",20,"2016-01-04","2016-04-03","FY",2018,"2018-02-01");
-    expect(relabelFiscalYears([annual,quarter]).map((fact)=>fact.fiscalYear)).toEqual([2017,2017]);
+    // A year ending on 1 January 2017 is the filer's fiscal 2016 — Johnson & Johnson's name for it.
+    expect(relabelFiscalYears([annual,quarter]).map((fact)=>fact.fiscalYear)).toEqual([2016,2016]);
+  });
+  it("dates a 53-week year ending in the first week of January as the year before",()=>{
+    // Textron's fiscal 2025 closed on 3 January 2026; its fiscal 2026 first quarter ends on 4 April 2026.
+    const year2025=raw("revenue",100,"2024-12-29","2026-01-03","FY",2025,"2026-02-10");
+    const quarter2026=raw("revenue",30,"2026-01-04","2026-04-04","Q1",2026,"2026-04-30");
+    const juneWithoutYear=raw("revenue",30,"2026-04-05","2026-07-04","Q2",2026,"2026-07-30");
+    expect(relabelFiscalYears([year2025,quarter2026,juneWithoutYear]).map((fact)=>fact.fiscalYear)).toEqual([2025,2026,2026]);
   });
   it("resolves thousand-versus-unit source conflicts by corroborated magnitude",()=>{const facts=[raw("dilutedShares",131_230,"2013-08-01","2014-07-31","FY",2014,"2014-09-01"),raw("dilutedShares",131_230_000,"2013-08-01","2014-07-31","FY",2015,"2015-09-01"),raw("dilutedShares",131_230_000,"2013-08-01","2014-07-31","FY",2016,"2016-09-01")];const selected=dedupeFacts(relabelFiscalYears(facts))[0];expect(selected.value).toBe(131_230_000);expect(selected.sourceConflictValues).toContain(131_230)});
   it("detects a one-million share-unit mismatch without deleting the raw value",()=>{const tiny=raw("dilutedShares",100,"2023-01-01","2023-12-31","FY",2023);const normal=raw("dilutedShares",100_000_000,"2024-01-01","2024-12-31","FY",2024);const normalized=normalizeShareUnitScales([tiny,normal]);expect(normalized[0].value).toBe(100_000_000);expect(normalized[0].sourceConflictValues).toContain(100)});

@@ -35,7 +35,7 @@ export type FactTree = Record<string, Record<string, { units: Record<string, Fil
 const READ = "us-gaap|dei|ifrs-full|srt";
 const PREFIX = "(?:[\\w-]+:)?";
 
-export function parseXbrlInstance(xml: string, filing: { accession: string; form: string; filed: string }): FactTree {
+export function parseXbrlInstance(xml: string, filing: { accession: string; form: string; filed: string }, namespaces = READ): FactTree {
   const contexts = new Map<string, { start?: string; end: string }>();
   for (const match of xml.matchAll(new RegExp(`<${PREFIX}context\\b[^>]*\\bid="([^"]+)"[^>]*>([\\s\\S]*?)</${PREFIX}context>`, "g"))) {
     const body = match[2];
@@ -62,7 +62,7 @@ export function parseXbrlInstance(xml: string, filing: { accession: string; form
   const fp = cover("DocumentFiscalPeriodFocus");
 
   const tree: FactTree = {};
-  for (const match of xml.matchAll(new RegExp(`<(${READ}):([A-Za-z0-9_]+)\\b([^>]*?)>([^<]*)</\\1:\\2>`, "g"))) {
+  for (const match of xml.matchAll(new RegExp(`<(${namespaces}):([A-Za-z0-9_]+)\\b([^>]*?)>([^<]*)</\\1:\\2>`, "g"))) {
     const [, namespace, concept, attributes, content] = match;
     if (/xsi:nil="true"/.test(attributes)) continue;
     const context = contexts.get(attributes.match(/\bcontextRef="([^"]+)"/)?.[1] ?? "");
@@ -124,4 +124,55 @@ export function instanceDocument(names: string[]): string | null {
   return names.find((name) => name.endsWith("_htm.xml"))
     ?? names.find((name) => name.endsWith(".xml") && !/(_cal|_def|_lab|_pre)\.xml$/.test(name) && !/^FilingSummary\.xml$/i.test(name))
     ?? null;
+}
+
+/** A line a filing's calculation linkbase adds into cash from investing activities. */
+export interface InvestingLine { concept: string; prefix: string; name: string; weight: number }
+
+/**
+ * The lines a filing adds up into its cash used in investing activities.
+ *
+ * Read from the calculation linkbase, `*_cal.xml`, where the filer states which
+ * facts sum to which total and with what sign. This is how a company's own
+ * name for a line can be read without guessing at what the name means: the
+ * filing itself says the line is an outflow inside investing activities.
+ */
+export function investingLines(calculation: string): InvestingLine[] {
+  const locators = new Map<string, string>();
+  for (const match of calculation.matchAll(/<(?:[\w-]+:)?loc\b([^>]*)\/?>/g)) {
+    const label = match[1].match(/xlink:label="([^"]+)"/)?.[1];
+    const href = match[1].match(/xlink:href="[^"#]*#([^"]+)"/)?.[1];
+    if (label && href) locators.set(label, href);
+  }
+  const lines = new Map<string, InvestingLine>();
+  for (const match of calculation.matchAll(/<(?:[\w-]+:)?calculationArc\b([^>]*)\/?>/g)) {
+    const from = locators.get(match[1].match(/xlink:from="([^"]+)"/)?.[1] ?? "");
+    const to = locators.get(match[1].match(/xlink:to="([^"]+)"/)?.[1] ?? "");
+    const weight = Number(match[1].match(/weight="([^"]+)"/)?.[1]);
+    if (!from || !to || !/_NetCashProvidedByUsedInInvestingActivities(ContinuingOperations)?$/.test(from)) continue;
+    const cut = to.indexOf("_");
+    if (cut < 0) continue;
+    lines.set(to, { concept: to, prefix: to.slice(0, cut), name: to.slice(cut + 1), weight });
+  }
+  return [...lines.values()];
+}
+
+/**
+ * The company's own capital-expenditure line, where it is the only one.
+ *
+ * ConocoPhillips files its capital expenditure as
+ * `cop:PaymentToAcquireProductiveAssetsAndInvestments` — the "capital
+ * expenditures and investments" line of its cash-flow statement — and no US
+ * GAAP concept, so the SEC's standard feed carries no capital expenditure for
+ * it since 2025. The line is accepted when the filing adds it into investing
+ * activities as an outflow, its name says capital expenditure, and it is the
+ * only such line. NextEra files three — its utility's, its consolidated
+ * group's and its independent-power investments — and a sum of lines that may
+ * restate one another is not read.
+ */
+export function companyCapexLine(lines: InvestingLine[]): InvestingLine | null {
+  const candidates = lines.filter((line) => line.prefix !== "us-gaap" && line.weight < 0
+    && /Acquire\w*ProductiveAssets|CapitalExpenditure|AdditionsToProperty|PurchasesOfProperty|PropertyPlantAndEquipment/i.test(line.name)
+    && !/Proceeds|Sale|Disposal|Accrual|IncurredButNotYetPaid|IncreaseDecrease/i.test(line.name));
+  return candidates.length === 1 ? candidates[0] : null;
 }

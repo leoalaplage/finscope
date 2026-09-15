@@ -103,7 +103,20 @@ export function relabelFiscalYears(input: RawFinancialFact[]) {
   const annualFacts = input.filter((fact) => fact.start && fact.fiscalPeriod === "FY" && isAnnualForm(fact.form)
     && daysBetween(fact.start, fact.end) >= 300 && daysBetween(fact.start, fact.end) <= 400);
   const annualEnds = annualFacts.map((fact) => fact.end.slice(5));
-  const fiscalEnd = [...new Set(annualEnds)].sort((left,right)=>annualEnds.filter((item)=>item===right).length-annualEnds.filter((item)=>item===left).length)[0] ?? "12-31";
+  /*
+   * The company's current fiscal calendar, for a fact no reported year contains.
+   *
+   * That is almost always a quarter after the latest annual report, so it is
+   * the latest year's end that decides — not the most common one across the
+   * whole history. L3Harris is Harris, whose years ended in late June until
+   * 2019: comparing its June 2026 quarter with the June end most of its history
+   * carries dated that quarter a year late. A year that ends in the first week
+   * of January is a December year (see `fiscalYearOfEnd`).
+   */
+  const latestEnd = [...annualFacts].sort((left, right) => left.end.localeCompare(right.end)).at(-1)?.end.slice(5)
+    ?? [...new Set(annualEnds)].sort((left,right)=>annualEnds.filter((item)=>item===right).length-annualEnds.filter((item)=>item===left).length)[0]
+    ?? "12-31";
+  const fiscalEnd = latestEnd.startsWith("01-") && Number(latestEnd.slice(3)) <= 7 ? "12-31" : latestEnd;
   /*
    * Match a short-duration or instant fact to an actual reported fiscal year
    * before falling back to a month/day rule. A 52/53-week filer does not have
@@ -113,7 +126,7 @@ export function relabelFiscalYears(input: RawFinancialFact[]) {
    * the annual window containing them was present in the same payload.
    */
   const annualWindows = [...new Map(annualFacts.map((fact) => [`${fact.start}|${fact.end}`, {
-    start: fact.start!, end: fact.end, fiscalYear: Number(fact.end.slice(0, 4)),
+    start: fact.start!, end: fact.end, fiscalYear: fiscalYearOfEnd(fact.end),
   }])).values()];
   const DAY = 86_400_000;
   return input.map((fact) => {
@@ -138,10 +151,28 @@ export function relabelFiscalYears(input: RawFinancialFact[]) {
         return factStart >= start - 7 * DAY && factEnd <= end && factEnd >= start - 7 * DAY && end - factEnd <= 370 * DAY;
       })
       .sort((left, right) => Date.parse(left.end) - Date.parse(right.end))[0];
-    const fiscalYear = containing?.fiscalYear ?? (fact.fiscalPeriod === "FY" && spansTheYear ? calendarYear
+    const fiscalYear = containing?.fiscalYear ?? (fact.fiscalPeriod === "FY" && spansTheYear ? fiscalYearOfEnd(fact.end)
       : endMonthDay > fiscalEnd ? calendarYear + 1 : calendarYear);
     return { ...fact, fiscalYear };
   });
+}
+
+/**
+ * The fiscal year a year ending on this date is.
+ *
+ * The calendar year of its end, except for a 52- or 53-week year that runs a
+ * few days into January. Textron's fiscal 2025 closed on 3 January 2026, and
+ * dating it 2026 put it on top of Textron's real fiscal 2026: two quarters of
+ * 2025 were filed under a year that already had them, dropped, and every
+ * trailing window across them lost its operating cash flow — Snap-on and
+ * L3Harris the same. A year that ends in the first week of January is the
+ * year before. A retailer whose year ends at the end of January or early
+ * February keeps the calendar year of its end, which is the fiscal year it
+ * names itself by.
+ */
+export function fiscalYearOfEnd(end: string): number {
+  const year = Number(end.slice(0, 4));
+  return end.slice(5, 7) === "01" && Number(end.slice(8, 10)) <= 7 ? year - 1 : year;
 }
 
 export function adjustPeriodsForSplits(periods: FinancialPeriod[], splits: Array<{ date: string; ratio: number }> = []) {

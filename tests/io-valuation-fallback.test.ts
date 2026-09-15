@@ -26,7 +26,21 @@ describe("a denominator the newest period does not report", () => {
      * price-to-free-cash-flow and the free-cash-flow yield vanished for a
      * company whose free cash flow was sitting one quarter back, complete.
      */
-    const view = companyView(normalizeSecPayload(JSON.parse(readFileSync(new URL("./fixtures/cboe-facts.json", import.meta.url), "utf8")), "CBOE", new Date().toISOString(), CBOE));
+    const payload = JSON.parse(readFileSync(new URL("./fixtures/cboe-facts.json", import.meta.url), "utf8"));
+    /*
+     * The premise, rebuilt. Cboe's newest quarter did carry capital expenditure
+     * all along, under a second name — property, plant and equipment for the
+     * quarter, productive assets for the half year — which the normalizer now
+     * reads. What this test holds is the page's fallback when a newest period
+     * has none, so the newest period's capital expenditure is taken out here.
+     */
+    const us = payload.facts["us-gaap"];
+    const ends = (Object.values(us.NetCashProvidedByUsedInOperatingActivities.units) as Array<Array<{ end: string }>>).flat().map((fact) => fact.end).sort();
+    const newest = ends.at(-1);
+    for (const tag of ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"]) {
+      for (const facts of Object.values(us[tag]?.units ?? {}) as Array<Array<{ end: string }>>) facts.splice(0, facts.length, ...facts.filter((fact) => fact.end !== newest));
+    }
+    const view = companyView(normalizeSecPayload(payload, "CBOE", new Date().toISOString(), CBOE));
     expect(view.ttm?.values.freeCashFlow).toBeNull();
     const carried = [...view.trailing].reverse().find((period) => period.values.freeCashFlow != null);
     expect(carried).toBeDefined();

@@ -55,7 +55,8 @@ const GOLDEN: Record<string, Case> = {
   PLD: { cik: "0001045609", year: "FY 2024", revenue: 8.202, netIncome: 3.732, operatingCashFlow: 4.912, capex: 3.206, fcf: 1.706, latest: "TTM Q1 FY2026", maxTtmGaps: 2 },
   ASML: { cik: "0000937966", currency: "EUR", year: "FY 2024", revenue: 28.263, netIncome: 7.572, operatingCashFlow: 11.166, capex: 2.067, fcf: 9.099, latest: "FY 2025", maxTtmGaps: 0 },
   TSM: { cik: "0001046179", currency: "TWD", year: "FY 2024", revenue: 2894.308, netIncome: 1158.380, operatingCashFlow: 1826.177, capex: 956.006, fcf: 870.171, latest: "FY 2024", maxTtmGaps: 0 },
-  COST: { cik: "0000909832", year: "FY 2024", revenue: 254.453, netIncome: 7.367, operatingCashFlow: 11.339, capex: 4.710, fcf: 6.629, latest: "TTM Q3 FY2026", maxTtmGaps: 1 },
+  // Three: the first trailing windows of fiscal 2011, at the fixture's 2010 cut-off. The full history has none.
+  COST: { cik: "0000909832", year: "FY 2024", revenue: 254.453, netIncome: 7.367, operatingCashFlow: 11.339, capex: 4.710, fcf: 6.629, latest: "TTM Q3 FY2026", maxTtmGaps: 3 },
   CPRT: { cik: "0000900075", year: "FY 2024", revenue: 4.237, netIncome: 1.363, operatingCashFlow: 1.473, capex: 0.511, fcf: 0.962, latest: "TTM Q3 FY2026", maxTtmGaps: 3 },
   KO: { cik: "0000021344", year: "FY 2024", revenue: 47.061, netIncome: 10.631, operatingCashFlow: 6.805, capex: 2.064, fcf: 4.741, latest: "TTM Q1 FY2026", maxTtmGaps: 5 },
   BKNG: { cik: "0001075531", year: "FY 2024", revenue: 23.739, netIncome: 5.882, operatingCashFlow: 8.323, capex: 0.429, fcf: 7.894, latest: "TTM Q2 FY2026", maxTtmGaps: 0 },
