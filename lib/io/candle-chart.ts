@@ -60,7 +60,7 @@ export interface DateLabel { index: number; text: string }
  */
 export function dateLabels(times: number[], interval: CandleInterval, maxLabels = 8): DateLabel[] {
   const every = interval === "1d" ? 1 : interval === "1wk" ? 3 : 12;
-  const labels: DateLabel[] = [];
+  const found: Array<DateLabel & { month: number }> = [];
   let previous: number | null = null;
   times.forEach((time, index) => {
     const date = new Date(time * 1000);
@@ -68,15 +68,18 @@ export function dateLabels(times: number[], interval: CandleInterval, maxLabels 
     const bucket = Math.floor(month / every);
     if (previous !== null && bucket !== previous) {
       const m = date.getUTCMonth();
-      const text = interval === "1mo" || m === 0 ? String(date.getUTCFullYear()) : MONTHS[m];
-      labels.push({ index, text });
+      found.push({ index, month, text: interval === "1mo" || m === 0 ? String(date.getUTCFullYear()) : MONTHS[m] });
     }
     previous = bucket;
   });
-  if (labels.length <= maxLabels) return labels;
-  // Too many: keep an evenly spread subset, preferring the years.
-  const stride = Math.ceil(labels.length / maxLabels);
-  return labels.filter((label, position) => position % stride === 0);
+  /*
+   * Too many: keep every second, third… label, counted in months from
+   * January, so the thinned row still carries every year it can — "Jan, Jul"
+   * rather than "Oct, Apr".
+   */
+  const steps = [1, 2, 3, 4, 6, 12, 24, 36, 60, 120].filter((months) => months % every === 0);
+  const step = steps.find((months) => found.filter((label) => label.month % months === 0).length <= maxLabels) ?? steps[steps.length - 1];
+  return found.filter((label) => label.month % step === 0).map(({ index, text }) => ({ index, text }));
 }
 
 export function dateText(time: number, interval: CandleInterval): string {

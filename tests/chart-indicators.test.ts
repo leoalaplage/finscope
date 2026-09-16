@@ -50,6 +50,9 @@ describe("the candle chart", () => {
     const months = [day(2024, 11, 1), day(2025, 0, 1), day(2025, 1, 1)];
     expect(dateLabels(months, "1mo")).toEqual([{ index: 1, text: "2025" }]);
     expect(dateLabels(Array.from({ length: 400 }, (_, index) => day(2000, index, 1)), "1d", 8).length).toBeLessThanOrEqual(8);
+    // Three years of weeks thin to January and July, never to October and April.
+    const threeYears = Array.from({ length: 156 }, (_, index) => Date.UTC(2023, 8, 18) / 1000 + index * 7 * 86_400);
+    expect(dateLabels(threeYears, "1wk").map((label) => label.text)).toEqual(["2024", "Jul", "2025", "Jul", "2026", "Jul"]);
     expect(dateText(day(2026, 8, 14), "1wk")).toBe("Week of 14 Sep 2026");
     expect(dateText(day(2026, 8, 1), "1mo")).toBe("Sep 2026");
   });
