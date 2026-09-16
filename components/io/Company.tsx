@@ -11,7 +11,7 @@ import { Health } from "./Health";
 import { Multiples } from "./Multiples";
 import { Fold } from "./Fold";
 import { GrowthYield } from "./GrowthYield";
-import { Verdict } from "./Verdict";
+import { Verdict, type VerdictKey } from "./Verdict";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
 import { toggleMetric } from "./selection";
 import { CompanyNews } from "./CompanyNews";
@@ -136,6 +136,9 @@ export function Company({ ticker }: { ticker: string }) {
   );
   const [rebased, setRebased] = useState(opening.rebased);
   const [withPrice, setWithPrice] = useState(opening.withPrice);
+  // Which answer of the line at a glance is open, for this company only.
+  const [detail, setDetail] = useState<{ ticker: string; key: VerdictKey | null }>({ ticker, key: null });
+  const openDetail = detail.ticker === ticker ? detail.key : null;
 
   const state: State = loaded.ticker === ticker ? loaded : { kind: "loading", ticker, progress: 6 };
   const quote = quoted?.ticker === ticker ? quoted : null;
@@ -428,23 +431,25 @@ export function Company({ ticker }: { ticker: string }) {
       <Stats view={view} quote={valuationQuote} />
 
       {/*
-        * Four answers in one line, and the four readings behind them in one fold.
+        * Four answers in one line, each opening its own reading.
         *
         * Quality, health, price against growth and free cash flow per share were
-        * four open sections, and a reader had to read four panels to learn four
-        * things. The line answers them at a glance (components/io/Verdict.tsx);
-        * the sections stay whole, one click away, inside a group so each keeps
-        * its own title.
+        * four open sections, then one fold holding all four. A reader who wants
+        * the reason behind one answer now presses that answer and gets that
+        * reading, beneath the line (components/io/Verdict.tsx); pressing it again
+        * closes it.
         */}
-      <Verdict view={view} quote={valuationQuote} score={scoreState.kind === "ready" ? scoreState.score : null} scoreLoading={scoreState.kind === "loading"} />
-      <Fold title="Quality, health, valuation and growth in detail">
-        <div className="fold-group">
-          <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} />
-          <GrowthYield view={view} quote={valuationQuote} />
-          <Health view={view} />
-          <FcfShareGrowth view={view} />
-        </div>
-      </Fold>
+      <Verdict view={view}
+        quote={valuationQuote}
+        score={scoreState.kind === "ready" ? scoreState.score : null}
+        scoreLoading={scoreState.kind === "loading"}
+        open={openDetail}
+        onToggle={(key) => setDetail({ ticker, key: openDetail === key ? null : key })}
+      />
+      {openDetail === "quality" ? <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} /> : null}
+      {openDetail === "health" ? <Health view={view} /> : null}
+      {openDetail === "valuation" ? <GrowthYield view={view} quote={valuationQuote} /> : null}
+      {openDetail === "growth" ? <FcfShareGrowth view={view} /> : null}
       {/*
         * Always the whole trailing history, whatever the chart shows.
         *

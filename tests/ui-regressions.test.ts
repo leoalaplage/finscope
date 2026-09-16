@@ -776,7 +776,11 @@ describe("the redesign", () => {
     for (const open of ["<PriceSection", "<Stats ", "<Verdict ", "<Multiples ", "<Growth "]) {
       expect(folded(open), `${open} is open`).toBe(false);
     }
-    for (const shut of ["<Score ", "<GrowthYield ", "<Health ", "<FcfShareGrowth ", "<ValuationHistory ", "<Statements ", "<Insiders ", "<Holders ", "<CompanyNews "]) {
+    for (const key of ["quality", "health", "valuation", "growth"]) {
+      // Each answer at a glance opens its own reading, and only that one.
+      expect(company).toContain(`openDetail === "${key}" ?`);
+    }
+    for (const shut of ["<ValuationHistory ", "<Statements ", "<Insiders ", "<Holders ", "<CompanyNews "]) {
       expect(folded(shut), `${shut} is folded`).toBe(true);
     }
     // The chart is the top of a company and the statistics sit under it.

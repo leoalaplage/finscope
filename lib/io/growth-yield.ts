@@ -131,3 +131,8 @@ export function growthYieldOfView(view: IoCompanyView, quote: { price: number | 
   const score = growthYieldScore(reading.value);
   return { reading, score, verdict: growthYieldVerdict(score), rate, marketCap, cash };
 }
+
+/** The mark as it is shown: out of ten, whole. */
+export function growthYieldOutOfTen(score: number): number {
+  return Math.round(score / 10);
+}

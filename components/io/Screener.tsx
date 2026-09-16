@@ -12,7 +12,7 @@ import type { PricePoint } from "@/lib/types";
 import { KEY_VERSION, SUMMARY_SHAPE } from "@/lib/data-version";
 import { stated } from "@/lib/sector";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
-import { growthYieldScore } from "@/lib/io/growth-yield";
+import { growthYieldOutOfTen, growthYieldScore } from "@/lib/io/growth-yield";
 import { useStoredWatchlist } from "./watchlist";
 import { ABSENT, money, percent } from "./format";
 
@@ -136,7 +136,7 @@ const COLUMNS: Column[] = [
     read: (row) => {
       const value = rowGrowthYield(row);
       const score = growthYieldScore(value);
-      return score == null ? ABSENT : <span title={`Growth yield ${percent(value, 1)}`}>{score}</span>;
+      return score == null ? ABSENT : <span title={`Growth yield ${percent(value, 1)}`}>{growthYieldOutOfTen(score)}/10</span>;
     },
     empty: (row) => rowGrowthYield(row) == null,
   },

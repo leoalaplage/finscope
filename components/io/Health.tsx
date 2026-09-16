@@ -93,20 +93,6 @@ export function Health({ view }: { view: IoCompanyView }) {
         ))}
       </div>
 
-      {/*
-        * The facts that are worth stating and worth not scoring.
-        *
-        * Negative equity is the one this section exists to get right. Every
-        * panel that prints a debt-to-equity ratio reports Booking as more
-        * leveraged than a company in default, because its denominator is
-        * below zero — so the fact is stated with the cause behind it and the
-        * ratio built on it is withheld.
-        */}
-      {health.notes.length ? (
-        <div className="score-lists health-notes">
-          {health.notes.map((note) => <p className="stat-note" key={note.key}>{note.text}</p>)}
-        </div>
-      ) : null}
 
       {open ? <HealthDetail ticker={view.company.ticker} health={health} /> : null}
     </section>

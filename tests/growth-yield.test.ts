@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { annualRate, GROWTH_YIELD_CEILING, growthYield, growthYieldScore, growthYieldVerdict } from "../lib/io/growth-yield";
+import { annualRate, GROWTH_YIELD_CEILING, growthYield, growthYieldOutOfTen, growthYieldScore, growthYieldVerdict } from "../lib/io/growth-yield";
 import type { IoPeriod } from "../lib/io/view";
 
 const year = (end: string, revenuePerShare: number | null) =>
@@ -31,6 +31,8 @@ describe("growth yield", () => {
     expect(growthYieldScore(0.5)).toBe(100);
     expect(growthYieldScore(null)).toBeNull();
     expect(growthYieldVerdict(80)).toBe("Cheap for its growth");
+    expect(growthYieldOutOfTen(60)).toBe(6);
+    expect(growthYieldOutOfTen(98)).toBe(10);
     expect(growthYieldVerdict(50)).toBe("Fairly priced");
     expect(growthYieldVerdict(20)).toBe("Dear for its growth");
   });
