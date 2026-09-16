@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import type { CandleInterval } from "@/lib/adapters/candles";
+import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { axisExtents, Figure, MultiAxis, pointAt, type AxisSeries, type PricePoint } from "./Plot";
 import { axesFor, fromBase } from "./selection";
 import { daysBetween, overlayWindow, positions, priceSeries, type Bar } from "./overlay";
 import { fundamentalWindow, METRIC_RANGES, metricRange, offersFrequency, priceWindow, RANGES, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate, type Unit } from "./format";
+import { CandleChart, IntervalPicker, lastMoveOf, useCandles } from "./CandleChart";
 import { isValuationMetric, VALUATION_METRICS, valuationPoints, type ValuationHistoryState } from "./valuation-series";
 
 /**
@@ -101,6 +104,42 @@ function RangePicker({ range, onRange, offered = RANGES }: { range: Range; onRan
   );
 }
 
+/**
+ * How the price is drawn: the area the page has always shown, or candles.
+ *
+ * Kept on the device like the theme, so a reader who prefers candles gets them
+ * on every company they open, and subscribed to rather than copied into state.
+ */
+type PriceStyle = "area" | "candles";
+const PRICE_STYLE_KEY = "finscope.price.style";
+const PRICE_STYLE_EVENT = "finscope:price-style";
+const CANDLE_STUDIES = new Set(["ema"] as const);
+
+function subscribePriceStyle(notify: () => void) {
+  window.addEventListener("storage", notify);
+  window.addEventListener(PRICE_STYLE_EVENT, notify);
+  return () => { window.removeEventListener("storage", notify); window.removeEventListener(PRICE_STYLE_EVENT, notify); };
+}
+function readPriceStyle(): PriceStyle {
+  try { return localStorage.getItem(PRICE_STYLE_KEY) === "candles" ? "candles" : "area"; } catch { return "area"; }
+}
+function writePriceStyle(style: PriceStyle) {
+  try { localStorage.setItem(PRICE_STYLE_KEY, style); } catch { /* this visit only */ }
+  window.dispatchEvent(new Event(PRICE_STYLE_EVENT));
+}
+
+function StylePicker({ style }: { style: PriceStyle }) {
+  return (
+    <div className="seg" role="group" aria-label="Chart style">
+      {(["area", "candles"] as const).map((entry) => (
+        <button key={entry} type="button" aria-pressed={style === entry} onClick={() => writePriceStyle(entry)}>
+          {entry === "area" ? "Area" : "Candles"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function MarketPriceSection({
   ticker,
   currency,
@@ -114,6 +153,10 @@ function MarketPriceSection({
 }) {
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [hover, setHover] = useState<number | null>(null);
+  const style = useSyncExternalStore(subscribePriceStyle, readPriceStyle, () => "area" as PriceStyle);
+  const [interval, setCandleInterval] = useState<CandleInterval>("1d");
+  const candles = useCandles(ticker, interval, style === "candles");
+  const latest = lastMoveOf(candles.candles);
   const key = `${ticker}|${range}`;
   const current = answer?.key === key ? answer : null;
   const failed = current != null && current.bars == null;
@@ -146,6 +189,29 @@ function MarketPriceSection({
     return { high: Math.max(...values), low: Math.min(...values) };
   }, [points]);
 
+  if (style === "candles") {
+    return (
+      <section className="section" style={{ borderTop: 0 }}>
+        <div className="section-head">
+          <div className="readout">
+            <span className="v">{latest ? writePrice(latest.close, currency) : ABSENT}</span>
+            <span className="d">{INTERVAL_TITLES[interval]}</span>
+            {latest?.move != null && latest.base ? <span className="readout-change">{delta(latest.move / latest.base)} last candle</span> : null}
+          </div>
+          <div className="price-controls">
+            <StylePicker style={style} />
+            <IntervalPicker interval={interval} onInterval={setCandleInterval} />
+          </div>
+        </div>
+        <CandleChart
+          candles={candles.candles} interval={interval} loading={candles.loading} error={candles.error} studies={CANDLE_STUDIES}
+          label={`${ticker}, ${INTERVAL_TITLES[interval].toLowerCase()} candles`}
+        />
+        <p className="price-chart-link"><a href={`/chart?s=${encodeURIComponent(ticker)}&i=${interval === "1d" ? "d" : interval === "1wk" ? "w" : "m"}`}>Open in Chart, with technical analysis →</a></p>
+      </section>
+    );
+  }
+
   return (
     <section className="section" style={{ borderTop: 0 }}>
       <div className="section-head">
@@ -155,7 +221,10 @@ function MarketPriceSection({
           {move != null ? <span className="readout-change">{delta(move)} {range}</span> : null}
           {cagr != null ? <span className="readout-cagr">{delta(cagr)} CAGR</span> : null}
         </div>
-        <RangePicker range={range} onRange={onRange} />
+        <div className="price-controls">
+          <StylePicker style={style} />
+          <RangePicker range={range} onRange={onRange} />
+        </div>
       </div>
 
       {points.length > 1 ? (

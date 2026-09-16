@@ -2,6 +2,7 @@ import "./io.css";
 import { Shell } from "@/components/io/Shell";
 import { Search } from "@/components/io/Search";
 import { HomeWatchlist } from "@/components/io/HomeWatchlist";
+import { HomeCharts } from "@/components/io/HomeCharts";
 
 /**
  * Prerendered and served straight from the asset store.
@@ -28,6 +29,7 @@ export default function Home() {
         </div>
 
         <HomeWatchlist />
+        <HomeCharts />
       </main>
     </Shell>
   );

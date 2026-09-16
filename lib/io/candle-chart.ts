@@ -15,8 +15,8 @@ export const CANDLES_SHOWN: Record<CandleInterval, number> = { "1d": 220, "1wk":
 /** Narrower than this a candle is a line, so a narrow screen shows fewer of them. */
 export const MIN_CANDLE_PX = 4;
 
-export function candlesToShow(interval: CandleInterval, available: number, widthPx: number | null): number {
-  const fit = widthPx ? Math.floor(widthPx / MIN_CANDLE_PX) : Infinity;
+export function candlesToShow(interval: CandleInterval, available: number, widthPx: number | null, minPx = MIN_CANDLE_PX): number {
+  const fit = widthPx ? Math.floor(widthPx / minPx) : Infinity;
   return Math.max(0, Math.min(CANDLES_SHOWN[interval], available, Math.max(20, fit)));
 }
 
