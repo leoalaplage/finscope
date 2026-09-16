@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from "react";
 import { CANDLE_INTERVALS, type Candles, type CandleInterval } from "@/lib/adapters/candles";
 import { candlesToShow, dateLabels, dateText, INTERVAL_NAMES, INTERVAL_TITLES, priceScale } from "@/lib/io/candle-chart";
 import { CHART_EMAS, ema, type Line } from "@/lib/io/indicators";
+import {
+  averageTrueRange, fairValueGaps, fibonacci, PIVOT_SPAN, pivots, priceOnLine, readStudies, STUDIES, STUDY_NAMES,
+  supportResistance, trendLines, type Study,
+} from "@/lib/io/technicals";
 import { useRememberedCompany } from "./remembered";
 import { Search } from "./Search";
 
@@ -16,6 +20,10 @@ import { Search } from "./Search";
  * panning, no tools — with the 20, 50 and 200-period exponential averages
  * already on it, because those are what a reader looks for next to a candle.
  * Pointing at a candle reads it out.
+ *
+ * Over the candles, the analysis the chart does by itself — Fibonacci, fair
+ * value gaps, trend lines, support and resistance (lib/io/technicals.ts) —
+ * each switched on or off by the reader, and remembered on this device.
  */
 
 const W = 1000;
@@ -26,6 +34,25 @@ const EMA_COLORS: Record<(typeof CHART_EMAS)[number], string> = { 20: "#e8a33d",
 const PARAM_OF: Record<CandleInterval, string> = { "1d": "d", "1wk": "w", "1mo": "m" };
 const INTERVAL_OF: Record<string, CandleInterval> = { d: "1d", w: "1wk", m: "1mo" };
 const ADDRESS_EVENT = "finscope:chart-address";
+const STUDIES_KEY = "finscope.chart.studies";
+const STUDIES_EVENT = "finscope:chart-studies";
+
+const FIB_COLOR = "#d9a441";
+const EXTENSION_COLOR = "#2bb3a3";
+
+function subscribeStudies(notify: () => void) {
+  window.addEventListener("storage", notify);
+  window.addEventListener(STUDIES_EVENT, notify);
+  return () => { window.removeEventListener("storage", notify); window.removeEventListener(STUDIES_EVENT, notify); };
+}
+function readStoredStudies() {
+  try { return localStorage.getItem(STUDIES_KEY); } catch { return null; }
+}
+function writeStudies(next: Set<Study>) {
+  try { localStorage.setItem(STUDIES_KEY, JSON.stringify([...next])); } catch { /* this visit only */ }
+  window.dispatchEvent(new Event(STUDIES_EVENT));
+}
+const ratioText = (ratio: number) => `${(ratio * 100).toFixed(1).replace(/\.0$/, "")}%`;
 
 function subscribeAddress(notify: () => void) {
   window.addEventListener("popstate", notify);
@@ -55,6 +82,15 @@ export function ChartPage({ initial }: { initial: string }) {
   const remembered = useRememberedCompany();
   const symbol = asked || remembered || initial;
   const interval = INTERVAL_OF[address.get("i") ?? ""] ?? "1d";
+  const storedStudies = useSyncExternalStore(subscribeStudies, readStoredStudies, () => null);
+  const studies = useMemo(() => readStudies(storedStudies), [storedStudies]);
+  const on = (study: Study) => studies.has(study);
+  const toggle = (study: Study) => {
+    const next = new Set(studies);
+    if (next.has(study)) next.delete(study); else next.add(study);
+    writeStudies(next);
+  };
+  const clipId = `candle-clip-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   const key = `${symbol}:${interval}`;
   const [load, setLoad] = useState<Load>({ key: "", candles: null, error: null });
@@ -92,6 +128,9 @@ export function ChartPage({ initial }: { initial: string }) {
     () => CHART_EMAS.map((period) => ({ period, line: candles ? ema(candles.c, period) : ([] as Line) })),
     [candles],
   );
+  const ranges = useMemo(() => (candles ? averageTrueRange(candles) : []), [candles]);
+  const showEma = studies.has("ema");
+  const showExtension = studies.has("fibExtension");
 
   /* The candles on screen, and everything positioned from them. */
   const view = useMemo(() => {
@@ -102,13 +141,37 @@ export function ChartPage({ initial }: { initial: string }) {
     const from = total - count;
     const t = candles.t.slice(from), o = candles.o.slice(from), h = candles.h.slice(from), l = candles.l.slice(from), c = candles.c.slice(from);
     const lines = averages.map((average) => ({ period: average.period, values: average.line.slice(from) }));
-    const scale = priceScale([...h, ...l, ...lines.flatMap((line) => line.values.filter((value): value is number => value != null))]);
+
+    // The analysis reads the candles on screen, with tolerances in average ranges.
+    const series = { t, o, h, l, c };
+    const atrs = ranges.slice(from);
+    const atr = [...atrs].reverse().find((value): value is number => value != null) ?? (Math.max(...h) - Math.min(...l)) / 20;
+    const found = pivots(series, PIVOT_SPAN[interval]);
+    const analysis = {
+      fib: fibonacci(series, PIVOT_SPAN[interval]),
+      gaps: fairValueGaps(series, atrs),
+      trends: trendLines(series, found, atr),
+      levels: supportResistance(series, found, atr),
+    };
+
+    const scale = priceScale([
+      ...h, ...l,
+      ...(showEma ? lines.flatMap((line) => line.values.filter((value): value is number => value != null)) : []),
+      ...(showExtension && analysis.fib ? analysis.fib.extension.map((level) => level.price) : []),
+    ]);
     if (!scale) return null;
     const slot = W / count;
     const x = (index: number) => (index + 0.5) * slot;
     const y = (value: number) => H - ((value - scale.min) / (scale.max - scale.min)) * H;
-    return { t, o, h, l, c, lines, scale, slot, x, y, count, previous: from > 0 ? candles.c[from - 1] : null };
-  }, [candles, averages, interval, width]);
+    return { t, o, h, l, c, lines, analysis, scale, slot, x, y, count, previous: from > 0 ? candles.c[from - 1] : null };
+  }, [candles, averages, ranges, interval, width, showEma, showExtension]);
+
+  /* Where each study's words sit over the plot, as fractions of it. */
+  const pct = (value: number, of: number) => `${Math.min(100, Math.max(0, (value / of) * 100))}%`;
+  // A label that would run off the right edge is written leftwards from its line's start instead.
+  const noteAt = (x: number, y: number) => ({ left: pct(x, W), top: pct(y, H) });
+  const noteSide = (x: number) => (x / W > 0.72 ? "study-note-flip" : undefined);
+  const fib = view?.analysis.fib ?? null;
 
   const [hover, setHover] = useState<number | null>(null);
   const onPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -154,7 +217,7 @@ export function ChartPage({ initial }: { initial: string }) {
             </button>
           ))}
         </div>
-        <ul className="chart-emas" aria-label="Exponential moving averages">
+        {showEma ? <ul className="chart-emas" aria-label="Exponential moving averages">
           {CHART_EMAS.map((period, index) => (
             <li key={period}>
               <i style={{ background: EMA_COLORS[period] }} aria-hidden="true" />
@@ -162,7 +225,15 @@ export function ChartPage({ initial }: { initial: string }) {
               <b>{view && at != null ? price(view.lines[index].values[at]) : "—"}</b>
             </li>
           ))}
-        </ul>
+        </ul> : null}
+      </div>
+
+      <div className="chart-studies" role="group" aria-label="Analysis on the chart">
+        {STUDIES.map((study) => (
+          <button type="button" key={study} aria-pressed={on(study)} onClick={() => toggle(study)}>
+            <span aria-hidden="true">{on(study) ? "✓" : "+"}</span> {STUDY_NAMES[study]}
+          </button>
+        ))}
       </div>
 
       <figure className="candle-chart" aria-label={`${symbol}, ${INTERVAL_TITLES[interval].toLowerCase()} candles`}>
@@ -189,7 +260,19 @@ export function ChartPage({ initial }: { initial: string }) {
                 {hover != null && hover < view.count ? (
                   <line className="candle-cursor" x1={view.x(hover)} x2={view.x(hover)} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
                 ) : null}
+                <defs><clipPath id={clipId}><rect x={0} y={0} width={W} height={H} /></clipPath></defs>
                 <line className="candle-last" x1={0} x2={W} y1={view.y(view.c[last])} y2={view.y(view.c[last])} vectorEffect="non-scaling-stroke" />
+                {on("fvg") ? (
+                  <g clipPath={`url(#${clipId})`}>
+                    {view.analysis.gaps.map((gap) => (
+                      <rect
+                        key={`${gap.kind}-${gap.index}`} className={`study-gap study-gap-${gap.kind}`}
+                        x={view.x(gap.index) - view.slot / 2} width={W - view.x(gap.index) + view.slot / 2}
+                        y={view.y(gap.top)} height={Math.max(view.y(gap.bottom) - view.y(gap.top), 0.8)}
+                      />
+                    ))}
+                  </g>
+                ) : null}
                 {view.c.map((close, index) => {
                   const open = view.o[index];
                   const top = view.y(Math.max(open, close));
@@ -202,7 +285,37 @@ export function ChartPage({ initial }: { initial: string }) {
                     </g>
                   );
                 })}
-                {view.lines.map((line) => {
+                <g clipPath={`url(#${clipId})`}>
+                  {on("levels") ? view.analysis.levels.map((level) => (
+                    <line key={`level-${level.price}`} className={`study-level study-${level.kind}`} x1={0} x2={W} y1={view.y(level.price)} y2={view.y(level.price)} vectorEffect="non-scaling-stroke" />
+                  )) : null}
+                  {on("fibRetracement") && fib ? (
+                    <>
+                      <line className="study-fib-swing" x1={view.x(fib.from.index)} y1={view.y(fib.from.price)} x2={view.x(fib.to.index)} y2={view.y(fib.to.price)} vectorEffect="non-scaling-stroke" />
+                      {fib.retracement.map((level) => (
+                        <line
+                          key={`fib-${level.ratio}`} className="study-fib" data-key={level.ratio === 0.5 || level.ratio === 0.618 ? "" : undefined}
+                          style={{ stroke: FIB_COLOR }} x1={view.x(Math.min(fib.from.index, fib.to.index))} x2={W}
+                          y1={view.y(level.price)} y2={view.y(level.price)} vectorEffect="non-scaling-stroke"
+                        />
+                      ))}
+                    </>
+                  ) : null}
+                  {on("fibExtension") && fib ? fib.extension.map((level) => (
+                    <line
+                      key={`ext-${level.ratio}`} className="study-fib" style={{ stroke: EXTENSION_COLOR }}
+                      x1={view.x((fib.pullback ?? fib.to).index)} x2={W} y1={view.y(level.price)} y2={view.y(level.price)} vectorEffect="non-scaling-stroke"
+                    />
+                  )) : null}
+                  {on("trendLines") ? view.analysis.trends.map((line) => (
+                    <line
+                      key={`${line.kind}-${line.a.index}-${line.b.index}`} className={`study-trend study-${line.kind}`}
+                      x1={view.x(line.a.index)} y1={view.y(line.a.price)} x2={W} y2={view.y(priceOnLine(line, view.count - 0.5))}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  )) : null}
+                </g>
+                {showEma ? view.lines.map((line) => {
                   let path = "";
                   let open = false;
                   line.values.forEach((value, index) => {
@@ -213,8 +326,27 @@ export function ChartPage({ initial }: { initial: string }) {
                   return path ? (
                     <path key={line.period} className="candle-ema" d={path} style={{ stroke: EMA_COLORS[line.period] }} vectorEffect="non-scaling-stroke" />
                   ) : null;
-                })}
+                }) : null}
               </svg>
+            ) : null}
+            {view ? (
+              <div className="study-notes" aria-hidden="true">
+                {on("fibRetracement") && fib ? fib.retracement.map((level) => (
+                  <span key={`fib-${level.ratio}`} className={noteSide(view.x(Math.min(fib.from.index, fib.to.index)))} style={{ ...noteAt(view.x(Math.min(fib.from.index, fib.to.index)), view.y(level.price)), color: FIB_COLOR }}>
+                    {ratioText(level.ratio)} {price(level.price)}
+                  </span>
+                )) : null}
+                {on("fibExtension") && fib ? fib.extension.map((level) => (
+                  <span key={`ext-${level.ratio}`} className={noteSide(view.x((fib.pullback ?? fib.to).index))} style={{ ...noteAt(view.x((fib.pullback ?? fib.to).index), view.y(level.price)), color: EXTENSION_COLOR }}>
+                    Ext {ratioText(level.ratio)} {price(level.price)}
+                  </span>
+                )) : null}
+                {on("levels") ? view.analysis.levels.map((level) => (
+                  <span key={`level-${level.price}`} className="study-note-right" data-tone={level.kind === "support" ? "good" : "bad"} style={{ top: pct(view.y(level.price), H) }}>
+                    {level.kind === "support" ? "S" : "R"} {price(level.price)} · {level.touches}×
+                  </span>
+                )) : null}
+              </div>
             ) : null}
             {loading || load.error || (!view && candles) ? (
               <div className="candle-state">{loading ? `Loading ${symbol}…` : load.error ?? "Not enough history to draw."}</div>
