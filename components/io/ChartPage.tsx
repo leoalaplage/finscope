@@ -242,10 +242,6 @@ export function ChartPage({ initial }: { initial: string }) {
         </div>
       </figure>
 
-      <p className="stat-note chart-note">
-        {candles ? `${[candles.exchange, candles.currency].filter(Boolean).join(" · ")} · ` : ""}
-        Split-adjusted prices from Yahoo Finance. Research information only, not investment advice.
-      </p>
     </main>
   );
 }

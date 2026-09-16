@@ -1989,7 +1989,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-axis .candle-tag[data-tone="bad"] { background: var(--loss); color: #fff; }
 .candle-dates { position: relative; height: 22px; margin-right: 64px; }
 .candle-dates span { position: absolute; top: 6px; transform: translateX(-50%); white-space: nowrap; font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-3); }
-.chart-note { margin-top: calc(var(--u) * 4); }
 
 @media (max-width: 720px) {
   .chart-search { margin-left: 0; width: 100%; }

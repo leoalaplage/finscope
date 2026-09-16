@@ -9,8 +9,8 @@ import type { CandleInterval } from "../adapters/candles";
 export const INTERVAL_NAMES: Record<CandleInterval, string> = { "1d": "D", "1wk": "W", "1mo": "M" };
 export const INTERVAL_TITLES: Record<CandleInterval, string> = { "1d": "Daily", "1wk": "Weekly", "1mo": "Monthly" };
 
-/** A year of days, three years of weeks, ten years of months. */
-export const CANDLES_SHOWN: Record<CandleInterval, number> = { "1d": 252, "1wk": 156, "1mo": 120 };
+/** About ten and a half months of sessions, four years of weeks, fifteen years of months. */
+export const CANDLES_SHOWN: Record<CandleInterval, number> = { "1d": 220, "1wk": 208, "1mo": 180 };
 
 /** Narrower than this a candle is a line, so a narrow screen shows fewer of them. */
 export const MIN_CANDLE_PX = 4;

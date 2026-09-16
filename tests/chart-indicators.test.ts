@@ -24,12 +24,13 @@ describe("exponential moving average", () => {
 });
 
 describe("the candle chart", () => {
-  it("shows a year of days, three years of weeks and ten years of months, fewer on a narrow screen", () => {
-    expect(candlesToShow("1d", 700, 1100)).toBe(252);
-    expect(candlesToShow("1wk", 700, 1100)).toBe(156);
+  it("shows ten and a half months of days, four years of weeks and fifteen years of months, fewer on a narrow screen", () => {
+    expect(candlesToShow("1d", 700, 1100)).toBe(220);
+    expect(candlesToShow("1wk", 700, 1100)).toBe(208);
+    expect(candlesToShow("1mo", 700, 1100)).toBe(180);
     expect(candlesToShow("1mo", 60, 1100)).toBe(60);
     expect(candlesToShow("1d", 700, 300)).toBe(75);
-    expect(candlesToShow("1d", 700, null)).toBe(252);
+    expect(candlesToShow("1d", 700, null)).toBe(220);
   });
 
   it("puts round ticks inside a padded scale", () => {

@@ -18,8 +18,8 @@ export type CandleInterval = (typeof CANDLE_INTERVALS)[number];
 /**
  * How much history each interval is asked for, in days.
  *
- * The chart shows a year of days, three years of weeks and ten years of
- * months; the rest is there so a 200-period average is already settled on the
+ * The chart shows ten and a half months of days, four years of weeks and
+ * fifteen years of months; the rest is there so a 200-period average is already settled on the
  * first candle shown. Asked for by dates, never as `range=max`, which Yahoo
  * quietly answers with quarterly bars whatever interval was requested.
  */
