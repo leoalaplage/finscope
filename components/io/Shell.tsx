@@ -88,6 +88,7 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
 
   const compareHref = onCompany("/compare", held);
   const dcfHref = onCompany("/dcf", held);
+  const chartHref = onCompany("/chart", held);
 
   return (
     <div className="io">
@@ -108,6 +109,7 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
           <nav className="bar-nav" aria-label="Primary navigation">
             <a href="/market" aria-current={isCurrent("/market") ? "page" : undefined}>Market</a>
             <a href="/company" aria-current={isCurrent("/company") ? "page" : undefined}>Company</a>
+            <a href={chartHref} aria-current={isCurrent("/chart") ? "page" : undefined}>Chart</a>
             <a href={compareHref} aria-current={isCurrent("/compare") ? "page" : undefined}>Compare</a>
             <a href="/screener" aria-current={isCurrent("/screener") ? "page" : undefined}>Screener</a>
             <a href={dcfHref} aria-current={isCurrent("/dcf") ? "page" : undefined}>DCF</a>
@@ -132,13 +134,14 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
               type="button"
               aria-expanded={moreOpen}
               aria-controls={moreId}
-              data-active={isCurrent("/compare") || isCurrent("/dcf")}
+              data-active={isCurrent("/chart") || isCurrent("/compare") || isCurrent("/dcf")}
               onClick={() => setMoreOpen((open) => !open)}
             >
               More <span aria-hidden="true">{moreOpen ? "−" : "+"}</span>
             </button>
             {moreOpen ? (
               <div className="mobile-more-panel" id={moreId}>
+                <a href={chartHref} aria-current={isCurrent("/chart") ? "page" : undefined}>Chart</a>
                 <a href={compareHref} aria-current={isCurrent("/compare") ? "page" : undefined}>Compare</a>
                 <a href={dcfHref} aria-current={isCurrent("/dcf") ? "page" : undefined}>DCF</a>
                   </div>
