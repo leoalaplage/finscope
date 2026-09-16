@@ -175,13 +175,22 @@ export function ChartPage({ initial }: { initial: string }) {
   const noteSide = (x: number) => (x / W > 0.72 ? "study-note-flip" : undefined);
   const fib = view?.analysis.fib ?? null;
 
-  const [hover, setHover] = useState<number | null>(null);
+  /*
+   * The crosshair: the candle under the pointer, which the vertical line snaps
+   * to, and the pointer's own height, which the horizontal line follows
+   * exactly — a price is read off the axis wherever the pointer is, not only
+   * at a candle's close.
+   */
+  const [pointer, setPointer] = useState<{ index: number; y: number } | null>(null);
   const onPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!view) return;
     const box = event.currentTarget.getBoundingClientRect();
     const index = Math.floor(((event.clientX - box.left) / box.width) * view.count);
-    setHover(index >= 0 && index < view.count ? index : null);
+    const y = (event.clientY - box.top) / box.height;
+    setPointer(index >= 0 && index < view.count && y >= 0 && y <= 1 ? { index, y } : null);
   };
+  const hover = pointer && view && pointer.index < view.count ? pointer.index : null;
+  const pointerPrice = pointer && view ? view.scale.max - pointer.y * (view.scale.max - view.scale.min) : null;
 
   const at = view ? Math.min(hover ?? view.count - 1, view.count - 1) : null;
   const baseOf = (index: number) => (!view ? null : index > 0 ? view.c[index - 1] : view.previous);
@@ -253,14 +262,17 @@ export function ChartPage({ initial }: { initial: string }) {
         </div>
 
         <div className="candle-body">
-          <div className="candle-plot" ref={plotRef} onPointerMove={onPointer} onPointerLeave={() => setHover(null)}>
+          <div className="candle-plot" ref={plotRef} onPointerMove={onPointer} onPointerLeave={() => setPointer(null)}>
             {view ? (
               <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
                 {view.scale.ticks.map((tick) => (
                   <line key={tick} className="candle-grid" x1={0} x2={W} y1={view.y(tick)} y2={view.y(tick)} vectorEffect="non-scaling-stroke" />
                 ))}
-                {hover != null && hover < view.count ? (
-                  <line className="candle-cursor" x1={view.x(hover)} x2={view.x(hover)} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
+                {hover != null && pointer ? (
+                  <>
+                    <line className="candle-cursor" x1={view.x(hover)} x2={view.x(hover)} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
+                    <line className="candle-cursor" x1={0} x2={W} y1={pointer.y * H} y2={pointer.y * H} vectorEffect="non-scaling-stroke" />
+                  </>
                 ) : null}
                 <defs><clipPath id={clipId}><rect x={0} y={0} width={W} height={H} /></clipPath></defs>
                 <line className="candle-last" x1={0} x2={W} y1={view.y(view.c[last])} y2={view.y(view.c[last])} vectorEffect="non-scaling-stroke" />
@@ -399,6 +411,9 @@ export function ChartPage({ initial }: { initial: string }) {
                 <span className="candle-tag" data-tone={tone(lastMove)} style={{ top: `${(view.y(view.c[last]) / H) * 100}%` }}>
                   {price(view.c[last])}
                 </span>
+                {pointer && pointerPrice != null ? (
+                  <span className="candle-tag candle-cross" style={{ top: `${pointer.y * 100}%` }}>{price(pointerPrice)}</span>
+                ) : null}
               </>
             ) : null}
           </div>
@@ -408,6 +423,9 @@ export function ChartPage({ initial }: { initial: string }) {
           {view ? dateLabels(view.t, interval).map((label) => (
             <span key={label.index} style={{ left: `${((label.index + 0.5) / view.count) * 100}%` }}>{label.text}</span>
           )) : null}
+          {view && hover != null ? (
+            <span className="candle-cross" style={{ left: `${((hover + 0.5) / view.count) * 100}%` }}>{dateText(view.t[hover], interval).replace("Week of ", "")}</span>
+          ) : null}
         </div>
       </figure>
 

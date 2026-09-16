@@ -1987,6 +1987,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-axis .candle-tag { left: 4px; padding: 1px 4px; border-radius: 2px; background: var(--ink); color: var(--inverse); }
 .candle-axis .candle-tag[data-tone="good"] { background: var(--gain); color: #fff; }
 .candle-axis .candle-tag[data-tone="bad"] { background: var(--loss); color: #fff; }
+.candle-axis .candle-cross, .candle-dates .candle-cross { z-index: 2; padding: 1px 5px; border-radius: 2px; background: var(--ink); color: var(--inverse); }
+.candle-dates .candle-cross { top: 3px; }
 .candle-dates { position: relative; height: 22px; margin-right: 64px; }
 .candle-dates span { position: absolute; top: 6px; transform: translateX(-50%); white-space: nowrap; font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-3); }
 
