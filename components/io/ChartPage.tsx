@@ -5,7 +5,7 @@ import { CANDLE_INTERVALS, type Candles, type CandleInterval } from "@/lib/adapt
 import { candlesToShow, dateLabels, dateText, INTERVAL_NAMES, INTERVAL_TITLES, priceScale } from "@/lib/io/candle-chart";
 import { CHART_EMAS, ema, type Line } from "@/lib/io/indicators";
 import {
-  averageTrueRange, fairValueGaps, fibonacci, PIVOT_SPAN, pivots, priceOnLine, readStudies, STUDIES, STUDY_NAMES,
+  averageTrueRange, fairValueGaps, fibonacci, marketStructure, PIVOT_SPAN, pivots, priceOnLine, readStudies, STUDIES, STUDY_NAMES,
   supportResistance, trendLines, type Study,
 } from "@/lib/io/technicals";
 import { useRememberedCompany } from "./remembered";
@@ -22,7 +22,8 @@ import { Search } from "./Search";
  * Pointing at a candle reads it out.
  *
  * Over the candles, the analysis the chart does by itself — Fibonacci, fair
- * value gaps, trend lines, support and resistance (lib/io/technicals.ts) —
+ * value gaps, trend lines, support and resistance, breaks of structure and
+ * order blocks (lib/io/technicals.ts) —
  * each switched on or off by the reader, and remembered on this device.
  */
 
@@ -152,6 +153,7 @@ export function ChartPage({ initial }: { initial: string }) {
       gaps: fairValueGaps(series, atrs),
       trends: trendLines(series, found, atr),
       levels: supportResistance(series, found, atr),
+      structure: marketStructure(series, PIVOT_SPAN[interval]),
     };
 
     const scale = priceScale([
@@ -230,8 +232,8 @@ export function ChartPage({ initial }: { initial: string }) {
 
       <div className="chart-studies" role="group" aria-label="Analysis on the chart">
         {STUDIES.map((study) => (
-          <button type="button" key={study} aria-pressed={on(study)} onClick={() => toggle(study)}>
-            <span aria-hidden="true">{on(study) ? "✓" : "+"}</span> {STUDY_NAMES[study]}
+          <button type="button" className="metric-toggle" key={study} aria-pressed={on(study)} onClick={() => toggle(study)}>
+            {STUDY_NAMES[study]}
           </button>
         ))}
       </div>
@@ -273,6 +275,18 @@ export function ChartPage({ initial }: { initial: string }) {
                     ))}
                   </g>
                 ) : null}
+                {on("orderBlocks") ? (
+                  <g clipPath={`url(#${clipId})`}>
+                    {view.analysis.structure.blocks.map((block) => (
+                      <rect
+                        key={`ob-${block.index}`} className={`study-block study-block-${block.direction}`}
+                        x={view.x(block.index) - view.slot / 2} width={W - view.x(block.index) + view.slot / 2}
+                        y={view.y(block.top)} height={Math.max(view.y(block.bottom) - view.y(block.top), 0.8)}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
+                  </g>
+                ) : null}
                 {view.c.map((close, index) => {
                   const open = view.o[index];
                   const top = view.y(Math.max(open, close));
@@ -286,6 +300,13 @@ export function ChartPage({ initial }: { initial: string }) {
                   );
                 })}
                 <g clipPath={`url(#${clipId})`}>
+                  {on("structure") ? view.analysis.structure.breaks.map((item) => (
+                    <line
+                      key={`break-${item.index}`} className={`study-break study-${item.direction === "bullish" ? "support" : "resistance"}`}
+                      x1={view.x(item.swing.index)} x2={view.x(item.index)} y1={view.y(item.swing.price)} y2={view.y(item.swing.price)}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  )) : null}
                   {on("levels") ? view.analysis.levels.map((level) => (
                     <line key={`level-${level.price}`} className={`study-level study-${level.kind}`} x1={0} x2={W} y1={view.y(level.price)} y2={view.y(level.price)} vectorEffect="non-scaling-stroke" />
                   )) : null}
@@ -339,6 +360,22 @@ export function ChartPage({ initial }: { initial: string }) {
                 {on("fibExtension") && fib ? fib.extension.map((level) => (
                   <span key={`ext-${level.ratio}`} className={noteSide(view.x((fib.pullback ?? fib.to).index))} style={{ ...noteAt(view.x((fib.pullback ?? fib.to).index), view.y(level.price)), color: EXTENSION_COLOR }}>
                     Ext {ratioText(level.ratio)} {price(level.price)}
+                  </span>
+                )) : null}
+                {on("structure") ? view.analysis.structure.breaks.map((item) => (
+                  <span
+                    key={`break-${item.index}`} className="study-note-centre" data-tone={item.direction === "bullish" ? "good" : "bad"}
+                    style={noteAt((view.x(item.swing.index) + view.x(item.index)) / 2, view.y(item.swing.price))}
+                  >
+                    {item.kind}
+                  </span>
+                )) : null}
+                {on("orderBlocks") ? view.analysis.structure.blocks.map((block) => (
+                  <span
+                    key={`ob-${block.index}`} className={noteSide(view.x(block.index))} data-tone={block.direction === "bullish" ? "good" : "bad"}
+                    style={noteAt(view.x(block.index) - view.slot / 2, view.y(block.top))}
+                  >
+                    {block.direction === "bullish" ? "Bull OB" : "Bear OB"}
                   </span>
                 )) : null}
                 {on("levels") ? view.analysis.levels.map((level) => (

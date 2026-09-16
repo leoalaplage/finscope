@@ -23,6 +23,11 @@ import type { CandleInterval } from "../adapters/candles";
  *   has broken.
  * - A support or resistance level is a price that at least two pivots came
  *   back to.
+ * - A break of structure (BOS) is a close beyond the last swing in the
+ *   direction of the trend; a change of character (CHoCH) is the first close
+ *   beyond one against it.
+ * - An order block is the last candle against the move before a break, kept
+ *   until a close goes through it.
  */
 
 export interface Series { t: number[]; o: number[]; h: number[]; l: number[]; c: number[] }
@@ -285,9 +290,106 @@ export function supportResistance(series: Series, found: Pivot[], atr: number, p
   return [...above.reverse(), ...below];
 }
 
+/* ---- Market structure and order blocks --------------------------------------- */
+
+export interface StructureBreak {
+  kind: "BOS" | "CHoCH";
+  direction: "bullish" | "bearish";
+  /** The swing that was broken. */
+  swing: Point;
+  /** The candle whose close broke it. */
+  index: number;
+}
+
+export interface OrderBlock {
+  direction: "bullish" | "bearish";
+  index: number;
+  top: number;
+  bottom: number;
+}
+
+/**
+ * Breaks of structure, changes of character and the order blocks behind them.
+ *
+ * Candles are read in order, and a swing is only known once its `span`
+ * candles to the right have printed — the chart never uses a pivot before the
+ * market could have seen it. A close above the latest swing high is a break;
+ * it is a BOS when the trend was already up (or not yet known) and a CHoCH when
+ * it was down. The swing is then spent, and the trend is the break's.
+ *
+ * The order block of a bullish break is the last down candle at or before the
+ * lowest point between the broken swing and the break — where the move that
+ * broke it started. It is dropped once a close falls below it. Bearish breaks
+ * mirror all of this. The newest `limit` breaks and `blocksPerSide` open blocks
+ * on each side are returned, overlapping blocks counted once.
+ */
+export function marketStructure(series: Series, span: number, limit = 6, blocksPerSide = 2): { breaks: StructureBreak[]; blocks: OrderBlock[] } {
+  const n = series.c.length;
+  const found = pivots(series, span);
+  const breaks: StructureBreak[] = [];
+  const blocks: Array<OrderBlock & { from: number }> = [];
+  let high: Pivot | null = null;
+  let low: Pivot | null = null;
+  let trend: "bullish" | "bearish" | null = null;
+  let next = 0;
+
+  const blockFor = (direction: "bullish" | "bearish", start: number, end: number): OrderBlock | null => {
+    // The extreme the move started from…
+    let origin = start;
+    for (let index = start; index <= end; index++) {
+      if (direction === "bullish" ? series.l[index] < series.l[origin] : series.h[index] > series.h[origin]) origin = index;
+    }
+    // …and the last candle against the move at or before it.
+    for (let index = origin; index >= start; index--) {
+      const against = direction === "bullish" ? series.c[index] < series.o[index] : series.c[index] > series.o[index];
+      if (against) return { direction, index, top: series.h[index], bottom: series.l[index] };
+    }
+    return { direction, index: origin, top: series.h[origin], bottom: series.l[origin] };
+  };
+
+  for (let index = 0; index < n; index++) {
+    while (next < found.length && found[next].index + span <= index) {
+      const pivot = found[next++];
+      if (pivot.kind === "high") high = pivot; else low = pivot;
+    }
+    const close = series.c[index];
+    if (high && close > high.price) {
+      breaks.push({ kind: trend === "bearish" ? "CHoCH" : "BOS", direction: "bullish", swing: { index: high.index, price: high.price }, index });
+      const block = blockFor("bullish", high.index, index);
+      if (block) blocks.push({ ...block, from: index });
+      trend = "bullish";
+      high = null;
+    } else if (low && close < low.price) {
+      breaks.push({ kind: trend === "bullish" ? "CHoCH" : "BOS", direction: "bearish", swing: { index: low.index, price: low.price }, index });
+      const block = blockFor("bearish", low.index, index);
+      if (block) blocks.push({ ...block, from: index });
+      trend = "bearish";
+      low = null;
+    }
+  }
+
+  const open = blocks.filter((block) => {
+    for (let index = block.from + 1; index < n; index++) {
+      if (block.direction === "bullish" ? series.c[index] < block.bottom : series.c[index] > block.top) return false;
+    }
+    return true;
+  });
+  // Newest first, and a block overlapping a newer one on the same side is the same zone drawn twice.
+  const newest = (direction: "bullish" | "bearish") => {
+    const kept: OrderBlock[] = [];
+    for (const block of open.filter((item) => item.direction === direction).reverse()) {
+      if (kept.length >= blocksPerSide) break;
+      if (kept.some((other) => block.bottom <= other.top && block.top >= other.bottom)) continue;
+      kept.push({ direction: block.direction, index: block.index, top: block.top, bottom: block.bottom });
+    }
+    return kept.reverse();
+  };
+  return { breaks: breaks.slice(-limit), blocks: [...newest("bullish"), ...newest("bearish")] };
+}
+
 /* ---- What the reader switches on and off ----------------------------------- */
 
-export const STUDIES = ["ema", "fibRetracement", "fibExtension", "fvg", "trendLines", "levels"] as const;
+export const STUDIES = ["ema", "fibRetracement", "fibExtension", "fvg", "trendLines", "levels", "structure", "orderBlocks"] as const;
 export type Study = (typeof STUDIES)[number];
 
 export const STUDY_NAMES: Record<Study, string> = {
@@ -297,6 +399,8 @@ export const STUDY_NAMES: Record<Study, string> = {
   fvg: "Fair value gaps",
   trendLines: "Trend lines",
   levels: "Support & resistance",
+  structure: "BOS / CHoCH",
+  orderBlocks: "Order blocks",
 };
 
 export const DEFAULT_STUDIES: ReadonlySet<Study> = new Set<Study>(["ema", "fibRetracement", "trendLines"]);

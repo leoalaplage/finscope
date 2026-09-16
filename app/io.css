@@ -1992,13 +1992,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 /* Automatic analysis on the chart. */
 .chart-studies { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: calc(var(--u) * 3); }
-.chart-studies button {
-  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px;
-  background: var(--bg); color: var(--ink-3); font-size: var(--fs-xs); cursor: pointer; transition: color .12s ease, border-color .12s ease, background .12s ease;
-}
-.chart-studies button:hover { color: var(--ink); border-color: var(--line-strong); }
-.chart-studies button[aria-pressed="true"] { color: var(--ink); border-color: var(--ink-3); background: var(--fill); }
-.chart-studies button span { font-family: var(--mono); width: 10px; text-align: center; }
 .study-gap-bullish { fill: var(--gain); fill-opacity: .13; }
 .study-gap-bearish { fill: var(--loss); fill-opacity: .13; }
 .study-fib { stroke-width: 1; stroke-opacity: .55; }
@@ -2008,6 +2001,11 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .study-level { stroke-width: 1; stroke-dasharray: 6 4; stroke-opacity: .8; }
 .study-support { stroke: var(--gain); }
 .study-resistance { stroke: var(--loss); }
+.study-block { stroke-width: 1; stroke-opacity: .6; fill-opacity: .09; }
+.study-block-bullish { fill: var(--gain); stroke: var(--gain); }
+.study-block-bearish { fill: var(--loss); stroke: var(--loss); }
+.study-break { stroke-width: 1; stroke-dasharray: 4 3; }
+.study-notes .study-note-centre { transform: translate(-50%, -100%); }
 .study-notes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .study-notes span {
   position: absolute; transform: translate(4px, -100%); padding-bottom: 1px; white-space: nowrap;

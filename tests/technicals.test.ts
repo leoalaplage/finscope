@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  averageTrueRange, fairValueGaps, fibonacci, pivots, priceOnLine, readStudies, supportResistance, trendLines, type Series,
+  averageTrueRange, fairValueGaps, fibonacci, marketStructure, pivots, priceOnLine, readStudies, supportResistance, trendLines, type Series,
 } from "../lib/io/technicals";
 
 /** Candles from (open, high, low, close) rows. */
@@ -138,6 +138,53 @@ describe("support and resistance", () => {
       ["resistance", 110.1, 2],
       ["support", 99.95, 2],
     ]);
+  });
+});
+
+describe("market structure", () => {
+  // Up to a high at 3, down to a low at 7, a close above the high (a break up),
+  // then a fall through the low after it (a change of character).
+  const closes = [10, 12, 14, 13, 11, 9, 8, 7, 9, 11, 13, 15, 16, 14, 12, 10, 8, 6, 5];
+  const rows = (): Array<[number, number, number, number]> => closes.map((close, index) => {
+    const open = index ? closes[index - 1] : close;
+    return [open, Math.max(open, close) + 0.2, Math.min(open, close) - 0.2, close];
+  });
+
+  it("reads a first break as a BOS and a break against the trend as a CHoCH", () => {
+    const { breaks } = marketStructure(series(rows()), 2);
+    expect(breaks.map((item) => [item.kind, item.direction])).toEqual([["BOS", "bullish"], ["CHoCH", "bearish"]]);
+    const up = breaks[0];
+    expect(up.swing.index).toBe(2);
+    expect(closes[up.index]).toBeGreaterThan(up.swing.price);
+    expect(closes[up.index - 1]).toBeLessThanOrEqual(up.swing.price);
+  });
+
+  it("never uses a swing before the candles that confirm it", () => {
+    // Cut before the low at 7 is confirmed: the fall through it cannot be seen.
+    const early = marketStructure(series(rows().slice(0, 9)), 2);
+    expect(early.breaks).toEqual([]);
+  });
+
+  it("puts the bullish order block on the last down candle at the move's low, and drops it once closed through", () => {
+    const whole = marketStructure(series(rows()), 2);
+    expect(whole.blocks.some((block) => block.direction === "bullish")).toBe(false);
+    const { blocks } = marketStructure(series(rows().slice(0, 13)), 2);
+    const bull = blocks.find((block) => block.direction === "bullish")!;
+    expect(bull.index).toBe(7);
+    expect(bull.bottom).toBeCloseTo(6.8);
+  });
+
+  it("counts overlapping blocks on one side once", () => {
+    // Two breaks up from the same low leave two blocks on the same candles' range.
+    const twice = [10, 12, 14, 13, 11, 9, 8, 7, 9, 11, 13, 15, 14, 13, 12, 13, 15, 17, 18];
+    const candles = series(twice.map((close, index) => {
+      const open = index ? twice[index - 1] : close;
+      return [open, Math.max(open, close) + 0.2, Math.min(open, close) - 0.2, close];
+    }));
+    const bulls = marketStructure(candles, 2).blocks.filter((block) => block.direction === "bullish");
+    for (const [position, block] of bulls.entries()) {
+      for (const other of bulls.slice(position + 1)) expect(block.bottom > other.top || block.top < other.bottom).toBe(true);
+    }
   });
 });
 
