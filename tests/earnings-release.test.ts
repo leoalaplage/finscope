@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { latestEarningsRelease, parsePreliminaryEarnings } from "../lib/adapters/earnings";
+import { earningsReleaseDates, expectedNextRelease, latestEarningsRelease, parsePreliminaryEarnings } from "../lib/adapters/earnings";
 
 describe("SEC earnings-release detection", () => {
   it("takes item 2.02 rather than a newer unrelated 8-K", () => {
@@ -65,5 +65,29 @@ describe("SEC earnings-release detection", () => {
       annual: { label: "FY2026", revenue: 4_666_209_000, netIncome: 1_484_270_000, dilutedEps: 1.55 },
     });
     expect(result?.annual?.freeCashFlow).toBe(1_267_129_000);
+  });
+});
+
+describe("the earnings calendar", () => {
+  const recent = {
+    form: ["8-K", "10-Q", "8-K", "8-K", "8-K", "8-K", "4"],
+    filingDate: ["2026-07-30", "2026-08-01", "2026-05-01", "2026-04-30", "2026-01-29", "2025-10-30", "2025-10-01"],
+    reportDate: ["", "", "", "", "", "", ""],
+    accessionNumber: ["a", "b", "c", "d", "e", "f", "g"],
+    items: ["2.02,9.01", "", "5.02", "2.02,9.01", "2.02", "2.02,9.01", ""],
+  };
+
+  it("lists only the releases, newest first", () => {
+    expect(earningsReleaseDates(recent)).toEqual(["2026-07-30", "2026-04-30", "2026-01-29", "2025-10-30"]);
+  });
+
+  it("expects the next one a median gap after the last, with a week either side", () => {
+    const next = expectedNextRelease(["2026-07-30", "2026-04-30", "2026-01-29", "2025-10-30"]);
+    expect(next).toEqual({ date: "2026-10-29", from: "2026-10-22", to: "2026-11-05", gapDays: 91 });
+  });
+
+  it("says nothing for a filer that does not report quarterly, or has too little history", () => {
+    expect(expectedNextRelease(["2026-03-01", "2025-03-01", "2024-03-01"])).toBeNull();
+    expect(expectedNextRelease(["2026-07-30", "2026-04-30"])).toBeNull();
   });
 });

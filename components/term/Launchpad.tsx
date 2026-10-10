@@ -5,17 +5,25 @@
 
 import { useStoredWatchlist } from "@/components/io/watchlist";
 import { delta, price } from "@/components/io/format";
+import { MacroSnapshot } from "@/components/io/MacroSnapshot";
+import { FilingsSection, NewsSection } from "@/components/io/Wire";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
+import { EarningsCalendar } from "./EarningsCalendar";
+import { Heatmap } from "./Heatmap";
+import { Indices } from "./Indices";
 import { Panel } from "./Panel";
 import { useTape } from "./quotes";
 
 const SECTORS = new Map(DEFAULT_WATCHLIST.map((company) => [company.ticker, company.sector]));
 
 /**
- * The first screen: the reader's list, and how to drive the line above it.
+ * The first screen: the market, the reader's list, and what is coming.
  *
- * The list reads the same tape as the ticker strip, so opening the terminal
- * costs one request for both.
+ * Left, the averages, the watchlist with today's move and the calendar of its
+ * next earnings; right, the heat map of the largest names over the wire and
+ * what reached EDGAR today; macro last, full width. Every panel
+ * is a function a reader can type (WEI, W, IMAP, EVTS, N, FIL, ECO), and every
+ * panel reads an endpoint the document site already serves.
  */
 export function Launchpad() {
   const tickers = useStoredWatchlist();
@@ -24,43 +32,56 @@ export function Launchpad() {
 
   return (
     <div className="t-grid t-launch">
-      <Panel code="W" title="Watchlist" area="wl" actions={<a href="/">Edit on the classic site</a>}>
-        <div className="sheet t-watch">
-          <table>
-            <thead>
-              <tr>
-                <th className="key">Ticker</th>
-                <th className="key">Sector</th>
-                <th>Last</th>
-                <th>Chg %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tickers.map((ticker) => {
-                const quote = quotes.get(ticker);
-                const move = quote?.changePercent ?? null;
-                return (
-                  <tr key={ticker}>
-                    <td className="key"><a href={`/t/s/${encodeURIComponent(ticker)}`}>{ticker}</a></td>
-                    <td className="key t-dim">{SECTORS.get(ticker) ?? quote?.sector ?? ""}</td>
-                    <td>{quote?.price == null ? "—" : price(quote.price, null)}</td>
-                    <td data-dir={move == null ? undefined : move < 0 ? "down" : "up"}>{delta(move)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
+      <div className="t-col" style={{ gridArea: "left" }}>
+        <Panel code="WEI" title="Indices">
+          <Indices />
+        </Panel>
+        <Panel code="W" title="Watchlist" actions={<a href="/">Edit on the classic site</a>}>
+          <div className="sheet t-watch">
+            <table>
+              <thead>
+                <tr>
+                  <th className="key">Ticker</th>
+                  <th>Last</th>
+                  <th>Chg %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tickers.map((ticker) => {
+                  const quote = quotes.get(ticker);
+                  const move = quote?.changePercent ?? null;
+                  return (
+                    <tr key={ticker} title={SECTORS.get(ticker) ?? quote?.sector ?? undefined}>
+                      <td className="key"><a href={`/t/s/${encodeURIComponent(ticker)}`}>{ticker}</a></td>
+                      <td>{quote?.price == null ? "—" : price(quote.price, null)}</td>
+                      <td data-dir={move == null ? undefined : move < 0 ? "down" : "up"}>{delta(move)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+        <Panel code="EVTS" title="Earnings · watchlist">
+          <EarningsCalendar tickers={tickers} />
+        </Panel>
+      </div>
 
-      <Panel code="HELP" title="Driving the terminal" area="how" className="t-how">
-        <div className="t-panel-pad">
-          <p>Type anywhere. The line at the top takes a security, then a function.</p>
-          <p><code>AAPL</code> opens Apple. <code>AAPL GP</code> goes straight to its price graph, <code>NVDA FA</code> to Nvidia&apos;s figures.</p>
-          <p>A function on its own applies to the security on screen: <code>HDS</code>, <code>CN</code>, <code>DCF</code>.</p>
-          <p>A name works too: <code>coca cola</code>. <code>TAB</code> completes, <code>ESC</code> clears, <code>⌥1</code>–<code>⌥0</code> are the function keys.</p>
-          <p><code>HELP</code> lists every command.</p>
+      <div className="t-col" style={{ gridArea: "right" }}>
+        <Panel code="IMAP" title="Today's moves">
+          <Heatmap />
+        </Panel>
+        <div className="t-pair">
+          <Panel code="N">
+            <NewsSection />
+          </Panel>
+          <Panel code="FIL">
+            <FilingsSection />
+          </Panel>
         </div>
+      </div>
+      <Panel code="ECO" area="eco">
+        <MacroSnapshot />
       </Panel>
     </div>
   );

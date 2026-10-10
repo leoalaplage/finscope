@@ -27,6 +27,11 @@ describe("parseCommand", () => {
     expect(parseCommand("?")).toEqual({ kind: "global", fn: "HELP" });
   });
 
+  it("opens the launchpad's panels by their codes", () => {
+    expect(parseCommand("evts")).toEqual({ kind: "global", fn: "HOME", panel: "evts" });
+    expect(hrefFor(parseCommand("IMAP"))).toBe("/t#imap");
+  });
+
   it("keeps dotted share classes", () => {
     expect(parseCommand("BRK.B DES")).toEqual({ kind: "company", ticker: "BRK.B", fn: "DES" });
   });

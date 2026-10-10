@@ -54,12 +54,25 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
   NEWS: "CN", N: "CN",
   COMPARE: "COMP", RV: "COMP",
   MAIN: "HOME", LP: "HOME",
-  MARKET: "MKT", WEI: "MKT", IMAP: "MKT",
+  MARKET: "MKT",
   EQS: "SCRN", SCREEN: "SCRN",
   PRT: "PORT", PORTFOLIO: "PORT",
   GRAPH: "CHART",
   "?": "HELP",
 };
+
+/**
+ * The launchpad's own panels, each a code a reader can type from anywhere:
+ * the averages, the heat map, the earnings calendar, today's filings, macro.
+ */
+export const LAUNCHPAD_PANELS: FunctionSpec<string>[] = [
+  { code: "WEI", name: "World equity indices" },
+  { code: "IMAP", name: "Heat map" },
+  { code: "EVTS", name: "Earnings calendar" },
+  { code: "FIL", name: "Filed today" },
+  { code: "ECO", name: "Macro" },
+];
+const PANEL_CODES = new Set(LAUNCHPAD_PANELS.map((spec) => spec.code));
 
 /** Words a terminal user types between the security and the function. */
 const NOISE = new Set(["US", "EQUITY", "EQ", "<GO>", "GO"]);
@@ -71,8 +84,11 @@ const GLOBAL_CODES = new Set<string>(GLOBAL_FUNCTIONS.map((spec) => spec.code));
 
 export type Command =
   | { kind: "company"; ticker: string; fn: CompanyFunction }
-  /** CHART alone carries the security it should open on, when there is one. */
-  | { kind: "global"; fn: GlobalFunction; ticker?: string }
+  /**
+   * CHART carries the security it should open on, when there is one; HOME
+   * carries the launchpad panel a code like EVTS names.
+   */
+  | { kind: "global"; fn: GlobalFunction; ticker?: string; panel?: string }
   /** Text that is not a command: a company name, to be looked up. */
   | { kind: "search"; query: string }
   | { kind: "empty" }
@@ -100,6 +116,7 @@ export function parseCommand(input: string, current: string | null = null): Comm
 
   if (tokens.length === 1) {
     if (first === "CHART" && current) return { kind: "global", fn: "CHART", ticker: current };
+    if (PANEL_CODES.has(first)) return { kind: "global", fn: "HOME", panel: first.toLowerCase() };
     if (GLOBAL_CODES.has(first)) return { kind: "global", fn: first as GlobalFunction };
     if (COMPANY_CODES.has(first)) {
       return current ? { kind: "company", ticker: current, fn: first as CompanyFunction } : { kind: "needs-ticker", fn: first as CompanyFunction };
@@ -139,7 +156,7 @@ export function hrefFor(command: Command): string | null {
     }
     case "global":
       switch (command.fn) {
-        case "HOME": return "/t";
+        case "HOME": return command.panel ? `/t#${command.panel}` : "/t";
         case "MKT": return "/market";
         case "SCRN": return "/screener";
         case "PORT": return "/portfolio";
@@ -174,7 +191,7 @@ export function suggestFunctions(input: string, current: string | null): { code:
   // A lone partial word: global functions, and company ones if a company is on screen.
   if (tokens.length === 1 && !endsWithSpace) {
     const partial = tokens[0];
-    const globals = GLOBAL_FUNCTIONS.filter((spec) => spec.code.startsWith(partial))
+    const globals = [...GLOBAL_FUNCTIONS, ...LAUNCHPAD_PANELS].filter((spec) => spec.code.startsWith(partial))
       .map((spec) => ({ code: spec.code, name: spec.name, command: spec.code }));
     const local = current
       ? COMPANY_FUNCTIONS.filter((spec) => spec.code.startsWith(partial))

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { COMPANY_FUNCTIONS, GLOBAL_FUNCTIONS, hrefFor } from "@/lib/term/command";
+import { COMPANY_FUNCTIONS, GLOBAL_FUNCTIONS, hrefFor, LAUNCHPAD_PANELS } from "@/lib/term/command";
 import { marketState, newYorkTime } from "@/lib/term/market-clock";
 import { useStoredWatchlist } from "@/components/io/watchlist";
 import { delta, price } from "@/components/io/format";
@@ -138,6 +138,10 @@ function Help({ open, onClose }: { open: boolean; onClose: () => void }) {
           <h3>A security, then a function</h3>
           <dl>
             {COMPANY_FUNCTIONS.map((spec) => <Fragment key={spec.code}><dt>{spec.code}</dt><dd>{spec.name}</dd></Fragment>)}
+          </dl>
+          <h3 style={{ marginTop: 12 }}>Launchpad panels</h3>
+          <dl>
+            {LAUNCHPAD_PANELS.map((spec) => <Fragment key={spec.code}><dt>{spec.code}</dt><dd>{spec.name}</dd></Fragment>)}
           </dl>
         </section>
         <section>

@@ -248,3 +248,50 @@ export async function fetchLatestEarningsRelease(cik: string): Promise<EarningsR
   if (!filing) return null;
   return { ...filing, preliminary: await fetchPreliminaryEarnings(filing).catch(() => null) };
 }
+
+/** Every earnings release in a filer's recent index, newest first, as filing dates. */
+export function earningsReleaseDates(recent: RecentSubmissions): string[] {
+  const dates = new Set<string>();
+  for (let index = 0; index < recent.form.length; index += 1) {
+    const form = recent.form[index];
+    if ((form === "8-K" || form === "8-K/A") && earningsItem(recent.items?.[index]) && recent.filingDate[index]) {
+      dates.add(recent.filingDate[index]);
+    }
+  }
+  return [...dates].sort().reverse();
+}
+
+export interface ExpectedRelease { date: string; from: string; to: string; gapDays: number }
+
+const DAY_MS = 86_400_000;
+const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+/**
+ * When the next release should come, from when the last ones did.
+ *
+ * Not a date anyone announced, and not an analyst's: the median gap between a
+ * filer's last few earnings 8-Ks, added to the latest one, with a window of a
+ * week either side. A company that reports quarterly lands within a few days
+ * of the same week every year, which is all a calendar of the reader's own list
+ * needs to say. Anything that does not look quarterly — two releases, or gaps
+ * outside two to four months — gets no expectation rather than a wrong one.
+ */
+export function expectedNextRelease(dates: string[]): ExpectedRelease | null {
+  const times = dates.slice(0, 5).map((date) => Date.parse(`${date}T12:00:00Z`)).filter(Number.isFinite);
+  if (times.length < 3) return null;
+  const gaps = times.slice(0, -1).map((time, index) => (time - times[index + 1]) / DAY_MS).sort((a, b) => a - b);
+  const gap = gaps[Math.floor(gaps.length / 2)];
+  if (gap < 60 || gap > 125) return null;
+  const expected = times[0] + gap * DAY_MS;
+  return { date: isoDay(expected), from: isoDay(expected - 7 * DAY_MS), to: isoDay(expected + 7 * DAY_MS), gapDays: Math.round(gap) };
+}
+
+/** The filing dates of a filer's earnings releases, from its SEC submissions index. */
+export async function fetchEarningsDates(cik: string): Promise<string[]> {
+  const padded = cik.padStart(10, "0");
+  const response = await fetch(`https://data.sec.gov/submissions/CIK${padded}.json`, {
+    headers: { "User-Agent": SEC_AGENT(), Accept: "application/json" },
+  });
+  if (!response.ok) throw new Error(`SEC returned ${response.status}.`);
+  return earningsReleaseDates(EarningsSubmissionsSchema.parse(await response.json()).filings.recent);
+}
