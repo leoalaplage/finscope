@@ -2,6 +2,16 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { IO_SECTIONS } from "../lib/io/sections";
 
+/**
+ * The company page's own code: the component and the two hooks it reads its
+ * figures and its chart state through, which the terminal shares.
+ */
+function companyPage() {
+  return ["Company.tsx", "use-company.ts", "use-company-chart.ts"]
+    .map((file) => readFileSync(new URL(`../components/io/${file}`, import.meta.url), "utf8"))
+    .join("\n");
+}
+
 describe("UI regressions", () => {
   it("keeps the primary navigation intentionally limited", () => {
     const source = readFileSync(new URL("../components/FinanceApp.tsx", import.meta.url), "utf8");
@@ -266,7 +276,7 @@ describe("the front page must not cost Worker CPU", () => {
 
 describe("the redesign", () => {
   it("opens a plain company page on five years while preserving explicit ranges", () => {
-    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const company = companyPage();
     expect(company).toContain('const empty: Address = { metrics: [], range: "5Y"');
     expect(company).toContain('state.range !== "5Y"');
   });
@@ -289,7 +299,7 @@ describe("the redesign", () => {
     const watchlist = readFileSync(new URL("../components/io/HomeWatchlist.tsx", import.meta.url), "utf8");
     const search = readFileSync(new URL("../components/io/Search.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
-    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const company = companyPage();
     expect(page).toContain("<HomeWatchlist />");
     expect(watchlist).toContain('href={`/s/${encodeURIComponent(ticker)}`}');
     // The list still persists to the reader's own device; the definition moved
@@ -336,7 +346,7 @@ describe("the redesign", () => {
   });
 
   it("drops the resolver's placeholders from a company header", () => {
-    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const company = companyPage();
     // One definition of what a placeholder is, in lib/sector.ts, read by the
     // page that shows a profile and by the digest the home page reads.
     expect(company).toContain("[company.exchange, company.sector].map(stated)");
@@ -358,7 +368,7 @@ describe("the redesign", () => {
 
   it("offers the share price beside a filed measure on the one big chart", () => {
     const section = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
-    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const company = companyPage();
     const css = readFileSync(new URL("../app/io.css", import.meta.url), "utf8");
     // The overlay is told where the measures on screen open, not just which
     // periods they came from: the two have to start on the same day.
@@ -518,7 +528,7 @@ describe("the redesign", () => {
      */
     // The two screens are one reading: each links to the other's company.
     expect(dcf).toContain("rememberCompany(ticker)");
-    const company2 = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const company2 = companyPage();
     expect(company2).toContain('href={`/dcf?s=${encodeURIComponent(company.ticker)}`}');
     // A company nobody has opened is waited for rather than refused.
     expect(dcf).toContain("timer = setTimeout(load, POLL_MS)");
@@ -526,7 +536,7 @@ describe("the redesign", () => {
 
   it("draws what it is worth against what it costs, and nothing else", () => {
     const dcfSource = readFileSync(new URL("../components/io/Dcf.tsx", import.meta.url), "utf8");
-    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const company = companyPage();
     // The model lives on its own page. A reader deep in a company's statements
     // is not the reader asking what its price implies.
     expect(company).not.toContain("<ImpliedExpectations");
@@ -660,7 +670,7 @@ describe("the redesign", () => {
   });
 
   it("draws today's multiple against the window the reader chose", () => {
-    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const company = companyPage();
     const history = readFileSync(new URL("../components/io/ValuationHistory.tsx", import.meta.url), "utf8");
     const series = readFileSync(new URL("../components/io/valuation-series.ts", import.meta.url), "utf8");
     // One read for the page: the table states the ranges and the chart draws
@@ -681,7 +691,7 @@ describe("the redesign", () => {
 
   it("lets the big chart draw a multiple it struck itself", () => {
     const section = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
-    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const company = companyPage();
     // A filer publishes free cash flow and a share count, not what the market
     // charged for them, so these three are not in `view.metrics`. Everything
     // that decides what a chart can carry has to know them anyway.
@@ -693,7 +703,7 @@ describe("the redesign", () => {
   });
 
   it("shows FCF per-share growth and consistency beside valuation history", () => {
-    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const company = companyPage();
     const growth = readFileSync(new URL("../components/io/FcfShareGrowth.tsx", import.meta.url), "utf8");
     expect(company).toContain("<FcfShareGrowth view={view} />");
     expect(growth).toContain("5Y CAGR");
@@ -758,7 +768,7 @@ describe("the redesign", () => {
   });
 
   it("opens the chart, its statistics and five readings on a company page, and folds the rest", () => {
-    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const company = companyPage();
     /*
      * What a reader comes for stays open; everything else is a named fold.
      * A fold is found by its opening tag and its closing tag, and an open
@@ -795,7 +805,7 @@ describe("the redesign", () => {
   });
 
   it("puts the company's own newsroom last on its page, under everything it filed", () => {
-    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const company = companyPage();
     const news = readFileSync(new URL("../components/io/CompanyNews.tsx", import.meta.url), "utf8");
     // Under the statements: the page is what the company filed, and this is
     // the one section that is what it said since.
@@ -893,7 +903,7 @@ describe("the redesign", () => {
 
   it("returns to the last valid company, or to the watchlist without one", () => {
     const shell = readFileSync(new URL("../components/io/Shell.tsx", import.meta.url), "utf8");
-    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const company = companyPage();
     const shortcut = readFileSync(new URL("../components/io/CompanyReturn.tsx", import.meta.url), "utf8");
     const page = readFileSync(new URL("../app/company/page.tsx", import.meta.url), "utf8");
     expect(shell).toContain('href="/company" aria-current={isCurrent("/company") ? "page" : undefined}>Company</a>');
@@ -997,7 +1007,7 @@ describe("the redesign", () => {
   });
 
   it("lets every available TTM metric replace and then restore the price chart", () => {
-    const company = readFileSync(new URL("../components/io/Company.tsx", import.meta.url), "utf8");
+    const company = companyPage();
     const multiples = readFileSync(new URL("../components/io/Multiples.tsx", import.meta.url), "utf8");
     const price = readFileSync(new URL("../components/io/PriceSection.tsx", import.meta.url), "utf8");
     // Up to three measures at once now, on at most two scales.

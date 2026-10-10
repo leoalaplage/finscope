@@ -1,0 +1,347 @@
+/*
+ * FinScope terminal — the same figures, read the way a desk reads them.
+ *
+ * This sheet is loaded after io.css and only on the terminal's own routes
+ * (/t…). It redefines io.css's tokens under `.io.term` rather than restyling
+ * every component, so the panels the terminal borrows from the document site —
+ * the chart, the statements, the growth table — take the terminal's look
+ * without a second copy of themselves. Three rules, each the opposite of the
+ * document site's on purpose.
+ *
+ * Colour carries meaning. Amber is the terminal itself: its commands, its
+ * labels, the code of every panel. Green and red are a rise and a fall, and
+ * nothing else is green or red. Cyan marks the one figure a panel wants read
+ * first. Everything else is grey on black.
+ *
+ * Density over air. Eleven-pixel monospace, two-pixel gutters, hairlines
+ * between panels. A screen is a set of panels, each headed by its function
+ * code, and as much of the company as fits is on it at once.
+ *
+ * Dark only. A terminal has no daylight setting; the reader's saved theme for
+ * the document site is left alone and simply not consulted here.
+ */
+
+:root body .io.term {
+  --sans: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Cascadia Mono", Consolas, monospace;
+  --mono: var(--sans);
+
+  --fs-micro: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 11px;
+  --fs-md: 12px;
+  --fs-lg: 13px;
+  --fs-xl: 16px;
+  --fs-hero: 22px;
+  --track-label: .06em;
+
+  --gutter: 8px;
+  --page: none;
+  --radius: 0;
+
+  --bg: #050608;
+  --raise: #0c0e11;
+  --fill: #14171c;
+  --line: #1b1f25;
+  --line-strong: #2b313a;
+  --ink: #e4e6ea;
+  --ink-2: #a3a9b2;
+  --ink-3: #6f7782;
+  --inverse: #050608;
+  --plot: #ffa028;
+  --plot-soft: rgba(255, 160, 40, .12);
+  --shade: rgba(255, 160, 40, .06);
+  --gain: #2ed47d;
+  --loss: #ff5149;
+
+  --amber: #ffa028;
+  --amber-ink: #1a0f00;
+  --amber-dim: rgba(255, 160, 40, .55);
+  --cyan: #5ec8ff;
+  --head: #101318;
+
+  color-scheme: dark;
+  font-size: var(--fs-md);
+  line-height: 1.35;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The page behind the page, whatever the document site's theme says. */
+:root:has(.io.term), :root[data-theme]:has(.io.term) { background: #050608; }
+body:has(.io.term) { background: #050608; }
+
+.term ::selection { background: var(--amber); color: var(--amber-ink); }
+.term :focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; border-radius: 0; }
+.term .label { color: var(--amber-dim); }
+.term a:hover { color: var(--amber); }
+
+/* --- Frame: command bar, tape, function keys, status --------------------- */
+
+.t-top {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--bg); border-bottom: 1px solid var(--line-strong);
+}
+.t-bar { display: flex; align-items: stretch; gap: 0; height: 34px; }
+.t-brand {
+  display: flex; align-items: center; padding-inline: 10px;
+  background: var(--amber); color: var(--amber-ink); font-weight: 700; letter-spacing: .08em;
+}
+.term a.t-brand:hover { color: var(--amber-ink); }
+.t-bar-right { display: flex; align-items: center; gap: 12px; padding-inline: 10px; border-left: 1px solid var(--line); white-space: nowrap; }
+.t-bar-right a { color: var(--ink-3); }
+
+.t-cmd { position: relative; flex: 1 1 auto; min-width: 0; display: flex; }
+.t-cmd form { flex: 1; display: flex; align-items: center; gap: 8px; padding-inline: 10px; background: #000; border-inline: 1px solid var(--line); }
+.t-cmd form:focus-within { box-shadow: inset 0 0 0 1px var(--amber); }
+.t-cmd-prompt { color: var(--amber); flex: none; }
+.t-cmd input {
+  flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent;
+  color: var(--amber); font: inherit; font-size: var(--fs-lg); text-transform: uppercase; caret-color: var(--amber);
+}
+.t-cmd input::placeholder { color: var(--ink-3); text-transform: none; }
+.t-cmd-go { flex: none; color: var(--ink-3); font-size: var(--fs-micro); }
+.t-cmd-go kbd { color: var(--amber); font: inherit; }
+.t-cmd-error { flex: none; color: var(--loss); font-size: var(--fs-xs); }
+.t-cmd-list {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 50; padding: 2px 0;
+  background: var(--raise); border: 1px solid var(--amber); border-top: 0; max-height: 60vh; overflow: auto;
+}
+.t-cmd-list [role="option"] { width: 100%; text-align: left; display: grid; grid-template-columns: 9ch minmax(0, 1fr) auto; gap: 12px; padding: 3px 10px; cursor: pointer; }
+.t-cmd-list [aria-selected="true"] { background: var(--amber); color: var(--amber-ink); }
+.t-cmd-list [aria-selected="true"] span { color: inherit; }
+.t-cmd-list .t-sug-code { color: var(--amber); }
+.t-cmd-list .t-sug-name { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-cmd-list .t-sug-kind { color: var(--ink-3); font-size: var(--fs-micro); }
+
+.t-tape { position: relative; overflow: hidden; height: 22px; border-top: 1px solid var(--line); background: var(--raise); }
+.t-tape-track { display: flex; width: max-content; animation: t-tape 90s linear infinite; }
+.t-tape:hover .t-tape-track { animation-play-state: paused; }
+.t-tape-run { display: flex; }
+.t-tape a { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding-inline: 12px; border-right: 1px solid var(--line); white-space: nowrap; }
+.t-tape b { color: var(--ink); font-weight: 600; }
+.t-tape-empty { padding: 3px 12px; color: var(--ink-3); }
+@keyframes t-tape { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .t-tape { overflow-x: auto; }
+  .t-tape-track { animation: none; }
+}
+
+.t-fn { display: flex; flex-wrap: wrap; border-top: 1px solid var(--line); background: var(--head); }
+.t-fn a, .t-fn button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-right: 1px solid var(--line);
+  color: var(--ink-2); white-space: nowrap;
+}
+.t-fn a:hover, .t-fn button:hover { background: var(--fill); color: var(--amber); }
+.t-fn a[aria-current="true"] { color: var(--amber); box-shadow: inset 0 -2px 0 var(--amber); }
+.t-fn kbd { font: inherit; font-size: var(--fs-micro); color: var(--amber-ink); background: var(--amber); padding: 0 4px; }
+.t-fn-sec { color: var(--amber); padding: 3px 10px; border-right: 1px solid var(--line); font-weight: 700; white-space: nowrap; }
+.t-fn-end { margin-left: auto; }
+
+.t-main { flex: 1 0 auto; padding: 2px; }
+
+.t-status {
+  position: sticky; bottom: 0; z-index: 30;
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 0; overflow: hidden;
+  background: var(--head); border-top: 1px solid var(--line-strong); color: var(--ink-3); font-size: var(--fs-micro);
+}
+.t-status > * { padding: 3px 10px; border-right: 1px solid var(--line); white-space: nowrap; }
+.t-status-state[data-state="OPEN"] { color: var(--gain); }
+.t-status-state[data-state="PRE"], .t-status-state[data-state="POST"] { color: var(--amber); }
+.t-status-state[data-state="CLOSED"] { color: var(--loss); }
+.t-status-state::before { content: "● "; }
+.t-status-clock { color: var(--ink); }
+.t-status-legal { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; border-right: 0; border-left: 1px solid var(--line); }
+
+/* --- Panels ------------------------------------------------------------- */
+
+.t-grid { display: grid; gap: 2px; grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
+
+.t-panel {
+  min-width: 0; background: var(--bg); border: 1px solid var(--line);
+  scroll-margin-top: 90px; transition: border-color .4s ease;
+}
+.t-panel[data-focus="true"] { border-color: var(--amber); }
+/* A borrowed section with nothing to say renders nothing; so does its panel. */
+.t-panel:has(> .t-panel-body:empty) { display: none; }
+.t-panel-head {
+  display: flex; align-items: center; gap: 8px; min-height: 22px; padding: 2px 8px;
+  background: var(--head); border-bottom: 1px solid var(--line);
+}
+.t-panel-head h2 { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--amber); }
+.t-panel-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--ink-3); font-size: var(--fs-micro); }
+.t-code {
+  flex: none; font-size: var(--fs-micro); font-weight: 700; letter-spacing: .04em;
+  color: var(--amber-ink); background: var(--amber); padding: 0 4px;
+}
+.t-panel-body { min-width: 0; }
+.t-panel-pad { padding: 6px 8px; }
+.t-empty { padding: 8px; color: var(--ink-3); }
+
+/*
+ * A borrowed section becomes a panel.
+ *
+ * The document site's sections are a heading row and a body. Inside a panel the
+ * heading row is the panel's header — the code in amber ahead of it, taken from
+ * the panel's --t-code — and the body is indented to the panel's gutter.
+ */
+.term .t-panel .section { padding: 0 0 6px; border-top: 0; }
+.term .t-panel .section + .section { border-top: 1px solid var(--line); }
+.term .t-panel .section-head {
+  margin: 0 0 6px; min-height: 22px; padding: 2px 8px; gap: 8px; flex-wrap: wrap;
+  background: var(--head); border-bottom: 1px solid var(--line);
+}
+.term .t-panel .t-panel-body > .section > .section-head::before {
+  content: var(--t-code); font-size: var(--fs-micro); font-weight: 700; letter-spacing: .04em;
+  color: var(--amber-ink); background: var(--amber); padding: 0 4px;
+}
+.term .t-panel .section-head { justify-content: flex-start; }
+.term .t-panel .section-head > h2.label { color: var(--amber); font-size: var(--fs-xs); font-weight: 600; margin-right: auto; }
+.term .t-panel .section-head > :last-child:not(h2) { margin-left: auto; }
+.term .t-panel .section > :not(.section-head) { margin-inline: 8px; }
+.term .t-panel .t-panel-body > .section:first-child { border-top: 0; }
+
+/* --- Borrowed components, retuned for density --------------------------- */
+
+.term .seg { background: var(--line); border-color: var(--line-strong); }
+.term .seg button { padding: 1px 7px; font-size: var(--fs-micro); color: var(--ink-3); background: var(--bg); }
+.term .seg button:hover { color: var(--amber); }
+.term .seg button[aria-pressed="true"] { background: var(--amber); color: var(--amber-ink); }
+
+.term .grid-ruled { border-color: var(--line); background: var(--line); }
+.term .stat { padding: 5px 8px; }
+.term .stat-value { font-size: var(--fs-md); }
+
+.term .sheet { border-color: var(--line); }
+.term .sheet th, .term .sheet td { padding: 2px 8px; font-size: var(--fs-xs); }
+.term .sheet thead th { background: var(--head); color: var(--amber-dim); padding-block: 3px; }
+.term .sheet tbody tr:nth-child(even) td, .term .sheet tbody tr:nth-child(even) th.key { background: var(--raise); }
+.term .sheet tbody tr:hover td, .term .sheet tbody tr:hover th.key { background: var(--fill); }
+.term .sheet tr[data-selected="true"] th.key { box-shadow: inset 2px 0 0 var(--amber); }
+.term .sheet td[data-dir="up"] { color: var(--gain); }
+.term .sheet td[data-dir="down"] { color: var(--loss); }
+
+.term .readout .v { color: var(--cyan); }
+.term .price-change[data-dir="up"], .term .t-up { color: var(--gain); }
+.term .price-change[data-dir="down"], .term .t-down { color: var(--loss); }
+.term .t-hi { color: var(--cyan); }
+.term .t-amber { color: var(--amber); }
+.term .t-dim { color: var(--ink-3); }
+
+.term .candle-body { height: clamp(300px, 48vh, 560px); }
+.term .candle-grid { stroke: var(--line); }
+.term .candle-last { stroke: var(--amber-dim); }
+.term .candle-tag { font-size: var(--fs-micro); }
+.term .price-chart-link { margin-top: 4px; font-size: var(--fs-micro); }
+.term .price-chart-link a { color: var(--amber-dim); }
+
+.term .fold-body, .term .news-list { font-size: var(--fs-xs); }
+
+/* --- Company screen ----------------------------------------------------- */
+
+.t-head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 6px 10px; margin-bottom: 2px;
+  background: var(--raise); border: 1px solid var(--line);
+}
+.t-head-ticker { font-size: var(--fs-hero); font-weight: 700; color: var(--amber); letter-spacing: .02em; }
+.t-head-name { font-size: var(--fs-lg); color: var(--ink); }
+.t-head-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--ink-3); font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-head-price { margin-left: auto; display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
+.t-head-last { font-size: var(--fs-hero); font-weight: 600; color: var(--ink); }
+.t-head-move { font-size: var(--fs-lg); }
+.t-head-move[data-dir="up"] { color: var(--gain); }
+.t-head-move[data-dir="down"] { color: var(--loss); }
+.t-head-move[data-dir="up"]::before { content: "▲ "; font-size: 9px; vertical-align: 1px; }
+.t-head-move[data-dir="down"]::before { content: "▼ "; font-size: 9px; vertical-align: 1px; }
+
+.t-company { grid-template-areas:
+  "gp gp gp gp gp gp gp gp side side side side"
+  "ee ee ee ee ee ee ee ee ee ee ee ee"
+  "dt dt dt dt dt dt dt dt dt dt dt dt"
+  "fa fa fa fa fa fa gr gr gr gr gr gr"
+  "st st st st st st st st st st st st"
+  "val val val val val val val val val val val val"
+  "ins ins ins ins ins ins hds hds hds hds hds hds"
+  "cn cn cn cn cn cn cn cn cn cn cn cn"
+  "src src src src src src src src src src src src";
+}
+
+.t-col { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+/* The side column states figures as a list, label left and value right. */
+.term .t-side .stats { grid-template-columns: minmax(0, 1fr); border: 0; background: transparent; }
+.term .t-side .stats > * { outline: 0; }
+.term .t-side .stat { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 2px 8px; }
+.term .t-side .stat:nth-child(even) { background: var(--raise); }
+.term .t-side .stat .label { color: var(--ink-3); }
+.term .t-side .stat-value { margin: 0; font-size: var(--fs-md); color: var(--ink); }
+.term .t-side .section { padding-bottom: 4px; }
+.term .t-side .section > :not(.section-head) { margin-inline: 0; }
+.term .t-side .verdict-grid { grid-template-columns: minmax(0, 1fr); border: 0; }
+.term .t-side .verdict-cell { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; width: 100%; text-align: left; padding: 3px 8px; }
+.term .t-side .verdict-cell:nth-child(even) { background: var(--raise); }
+.term .t-side .verdict-cell .label { color: var(--ink-3); white-space: nowrap; }
+.term .t-side .verdict-cell .score-trigger-value { display: flex; align-items: baseline; gap: 8px; }
+.term .t-side .verdict-cell:hover .label, .term .t-side .verdict-cell[aria-expanded="true"] .label { color: var(--amber); }
+.term .t-side .stat-note { padding-inline: 8px; }
+
+.t-src { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 4px 8px; color: var(--ink-3); font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-src a { color: var(--amber-dim); }
+
+.t-loading { padding: 24px 12px; }
+.t-loading p { color: var(--amber); }
+.t-loading .t-dim { margin-top: 4px; }
+.t-bar-track { margin-top: 8px; height: 2px; background: var(--line); max-width: 420px; }
+.t-bar-track span { display: block; height: 100%; background: var(--amber); }
+
+/* Help, opened by HELP or "?" */
+.t-help { width: min(720px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--amber); background: var(--raise); color: var(--ink); }
+.t-help::backdrop { background: rgba(0, 0, 0, .7); }
+.t-help-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; padding: 10px 12px; }
+.t-help dl { margin: 0; display: grid; grid-template-columns: 7ch minmax(0, 1fr); gap: 2px 10px; }
+.t-help dt { color: var(--amber); }
+.t-help dd { margin: 0; color: var(--ink-2); }
+.t-help h3 { grid-column: 1 / -1; color: var(--amber-dim); font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: var(--track-label); margin-bottom: 4px; }
+.t-help-close { color: var(--ink-3); }
+
+/* Launchpad */
+.t-launch { grid-template-areas: "wl wl wl wl wl wl wl wl how how how how"; }
+.t-watch td:first-child a { color: var(--amber); font-weight: 600; }
+.t-how p { color: var(--ink-2); margin-bottom: 6px; }
+.t-how code { color: var(--amber); font: inherit; }
+
+/* --- Narrower screens ---------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .t-company { grid-template-areas:
+    "gp gp gp gp gp gp gp gp gp gp gp gp"
+    "side side side side side side side side side side side side"
+    "ee ee ee ee ee ee ee ee ee ee ee ee"
+    "dt dt dt dt dt dt dt dt dt dt dt dt"
+    "fa fa fa fa fa fa fa fa fa fa fa fa"
+    "gr gr gr gr gr gr gr gr gr gr gr gr"
+    "st st st st st st st st st st st st"
+    "val val val val val val val val val val val val"
+    "ins ins ins ins ins ins ins ins ins ins ins ins"
+    "hds hds hds hds hds hds hds hds hds hds hds hds"
+    "cn cn cn cn cn cn cn cn cn cn cn cn"
+    "src src src src src src src src src src src src";
+  }
+  .t-launch { grid-template-areas: "wl wl wl wl wl wl wl wl wl wl wl wl" "how how how how how how how how how how how how"; }
+  .t-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+
+@media (max-width: 720px) {
+  .t-grid { grid-template-columns: minmax(0, 1fr); }
+  .t-company, .t-launch { grid-template-areas: none; }
+  .t-company > *, .t-launch > * { grid-area: auto !important; }
+  .t-col { grid-template-columns: minmax(0, 1fr); }
+  .t-bar { height: auto; flex-wrap: wrap; }
+  .t-cmd { order: 3; flex-basis: 100%; height: 38px; border-top: 1px solid var(--line); }
+  .t-bar-right { margin-left: auto; }
+  /* A phone has no height to spare for a pinned line: it ends the page instead. */
+  .t-status { position: static; flex-wrap: wrap; }
+  .t-status-src { display: none; }
+  .t-status-legal { margin-left: 0; border-left: 0; white-space: normal; }
+  .t-head-price { margin-left: 0; }
+  .t-fn { flex-wrap: nowrap; overflow-x: auto; }
+}

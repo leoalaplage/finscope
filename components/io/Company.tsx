@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { IoCompanyView } from "@/lib/io/view";
-import { IO_VIEW } from "@/lib/io/view-version";
+import { useEffect, useState } from "react";
 import { stated } from "@/lib/sector";
 import { FcfShareGrowth } from "./FcfShareGrowth";
 import { Growth } from "./Growth";
@@ -13,198 +11,33 @@ import { Fold } from "./Fold";
 import { GrowthYield } from "./GrowthYield";
 import { Verdict, type VerdictKey } from "./Verdict";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
-import { toggleMetric } from "./selection";
 import { CompanyNews } from "./CompanyNews";
 import { Statements } from "./Statements";
 import { Stats } from "./Stats";
 import { Holders } from "./Holders";
 import { Insiders, useInsiders } from "./Insiders";
 import { ValuationHistory } from "./ValuationHistory";
-import { useValuationHistory, VALUATION_METRICS } from "./valuation-series";
-import { priceForStatements, type IoQuote } from "./quote";
-import { sharesPerReceipt } from "@/lib/adr";
-import { fundamentalWindow, RANGES, type Frequency, type Range } from "./ranges";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "./format";
-import { rememberCompany } from "@/lib/io/last-company";
+import { PendingEarnings } from "./PendingEarnings";
+import { useCompany } from "./use-company";
+import { useCompanyChart } from "./use-company-chart";
 
 /**
- * One company, one screen.
- *
- * The two halves arrive separately and on purpose. Filings are settled for a
- * quarter and cached for a day; a price is settled for no time at all and
- * cached for five minutes. Waiting for both would mean the slower one decides
- * when the page appears, so the statements draw as soon as they land and the
- * headline price fills in beside them.
- *
- * A company nobody has opened here before has to be normalized from raw XBRL
- * first, which is far too expensive to do inside a reader's request — so the
- * endpoint answers "being prepared" and hands the work to a second invocation.
- * This polls for it rather than pretending the wait is not happening.
+ * One company, one screen. Its figures and price come from useCompany
+ * (components/io/use-company.ts), which the terminal reads as well.
  */
-
-interface Address { metrics: string[]; range: Range; frequency: Frequency | null; rebased: boolean; withPrice: boolean }
-
-/** What the query string says the page should be showing, if it says anything. */
-function readAddress(): Address {
-  const empty: Address = { metrics: [], range: "5Y", frequency: null, rebased: false, withPrice: false };
-  if (typeof window === "undefined") return empty;
-  const asked = new URLSearchParams(window.location.search);
-  const range = asked.get("r") as Range | null;
-  const frequency = asked.get("f");
-  return {
-    metrics: (asked.get("m") ?? "").split(",").filter(Boolean).slice(0, 3),
-    range: range && RANGES.concat(["3Y", "10Y"]).includes(range) ? range : "5Y",
-    frequency: frequency === "ttm" || frequency === "annual" ? frequency : null,
-    rebased: asked.get("b") === "1",
-    withPrice: asked.get("p") === "1",
-  };
-}
-
-/**
- * The address follows the page, and says nothing it does not have to.
- *
- * A share price on its default window is the plain company URL — the one worth
- * sharing when there is nothing to say beyond "this company" — so every default
- * is left out rather than written down.
- */
-function writeAddress(state: Address) {
-  if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  const set = (key: string, value: string | null) => {
-    if (value == null) url.searchParams.delete(key);
-    else url.searchParams.set(key, value);
-  };
-  set("m", state.metrics.length ? state.metrics.join(",") : null);
-  set("r", state.metrics.length || state.range !== "5Y" ? state.range : null);
-  set("f", state.metrics.length && state.frequency !== fundamentalWindow(state.range).frequency ? state.frequency : null);
-  set("b", state.rebased ? "1" : null);
-  // The overlay is part of the picture, so a link to a measure held against the
-  // share price opens on the measure held against the share price.
-  set("p", state.metrics.length && state.withPrice ? "1" : null);
-  if (url.toString() !== window.location.href) window.history.replaceState(null, "", url);
-}
-
-const POLL_MS = 2_000;
-const POLL_LIMIT = 30;
-
-/**
- * Every state names the company it is about.
- *
- * A reader moving from one company to the next keeps this component mounted, so
- * without that name the previous company's statements would stay on screen
- * under the new company's ticker until the fetch landed. Clearing them in an
- * effect would work and would cost a second render of the stale page first;
- * carrying the ticker means the stale state simply is not this ticker's, and
- * the loading view is what renders.
- */
-type State =
-  | { kind: "loading"; ticker: string; progress: number }
-  | { kind: "building"; ticker: string; progress: number }
-  | { kind: "failed"; ticker: string; message: string }
-  | { kind: "ready"; ticker: string; view: IoCompanyView };
 
 export function Company({ ticker }: { ticker: string }) {
-  const [loaded, setLoaded] = useState<State>({ kind: "loading", ticker, progress: 6 });
-  const [quoted, setQuoted] = useState<IoQuote | null>(null);
+  const { state, quote, valuationQuote } = useCompany(ticker);
   const scoreState = useCompanyScore(ticker);
   const insiderState = useInsiders(ticker);
-  /*
-   * The page is an address, the way a comparison already is.
-   *
-   * A reader who has put free cash flow per share on the chart over its whole
-   * history has made a thing worth sending, and until now the link they sent
-   * opened the share price over one year. The measures, the window and the
-   * series are read from the query string on arrival and written back to it as
-   * they change — with `replaceState`, so the back button still leaves the
-   * company rather than walking through every click made on it.
-   */
-  const opening = readAddress();
-  const [selection, setSelection] = useState<{ ticker: string; metrics: string[] }>({ ticker, metrics: opening.metrics });
-  const [range, setRange] = useState<Range>(opening.range);
-  /*
-   * A frequency the reader asked for, and the range they asked for it on.
-   *
-   * The range already implies one — MAX means the annual series, because MAX
-   * drawn from trailing figures is six years and a reader asking for everything
-   * should get everything. The reader can override that, and moving the range
-   * drops the override rather than carrying it somewhere it was never chosen:
-   * the override simply is not this range's, so the implied frequency answers
-   * again. No effect resets anything.
-   */
-  const [override, setOverride] = useState<{ range: Range; frequency: Frequency } | null>(
-    opening.frequency ? { range: opening.range, frequency: opening.frequency } : null,
-  );
-  const [rebased, setRebased] = useState(opening.rebased);
-  const [withPrice, setWithPrice] = useState(opening.withPrice);
   // Which answer of the line at a glance is open, for this company only.
   const [detail, setDetail] = useState<{ ticker: string; key: VerdictKey | null }>({ ticker, key: null });
   const openDetail = detail.ticker === ticker ? detail.key : null;
-
-  const state: State = loaded.ticker === ticker ? loaded : { kind: "loading", ticker, progress: 6 };
-  const quote = quoted?.ticker === ticker ? quoted : null;
-  // Memoised because the empty case is a fresh array otherwise, and an effect
-  // that writes the address would then run on every render.
-  const selectedMetrics = useMemo(
-    () => (selection.ticker === ticker ? selection.metrics : []),
-    [selection, ticker],
-  );
-  /*
-   * A measure opens on its whole history, in trailing figures.
-   *
-   * The range is shared with the price chart above, and the window a reader was
-   * looking at a share price over is not the window they want a business
-   * measure over: a month of revenue does not exist, and five years of it is a
-   * cycle rather than a record. Picking a measure therefore asks for all of it,
-   * and asks for it as trailing figures — MAX would otherwise fall to the
-   * annual series, which is the right default for a reader who chose MAX and
-   * the wrong one for a reader who chose a measure.
-   */
-  /*
-   * The valuation multiples, read once for the page.
-   *
-   * The table below the chart states their ranges and the chart draws them, and
-   * both are looking at this one series. Read here rather than inside either,
-   * because two readers of the same figures making two requests for the same
-   * prices is how two answers to one question get onto one page.
-   */
-  const valuation = useValuationHistory(state.kind === "ready" ? state.view : null, quote);
-
-  /*
-   * The unit a measure is read in, filed or struck.
-   *
-   * `toggleMetric` and `axesFor` both count distinct units to decide what a
-   * chart can carry, so a measure whose unit is unknown is a measure they place
-   * wherever the code happened to. The three valuation multiples are not in
-   * `view.metrics` — a company files free cash flow and a share count, not what
-   * the market charged for them — so they are named beside it.
-   */
-  const unitOf = (key: string) =>
-    VALUATION_METRICS.find((metric) => metric.key === key)?.unit
-    ?? (state.kind === "ready" ? state.view.metrics.find((metric) => metric.key === key)?.unit ?? null : null);
-
-  /*
-   * A measure opens on its whole history, in trailing figures.
-   *
-   * The range is shared with the price chart above, and the window a reader was
-   * looking at a share price over is not the window they want a business
-   * measure over: a month of revenue does not exist, and five years of it is a
-   * cycle rather than a record. Picking the first measure therefore asks for
-   * all of it, as trailing figures — MAX would otherwise fall to the annual
-   * series, which is right for a reader who chose MAX and wrong for one who
-   * chose a measure. Adding a second measure leaves the window alone: they
-   * chose it.
-   */
-  const selectMetric = (metric: string | null) => {
-    if (metric == null) { setSelection({ ticker, metrics: [] }); return; }
-    const next = toggleMetric(selectedMetrics, metric, unitOf);
-    setSelection({ ticker, metrics: next });
-    if (selectedMetrics.length || !next.length) return;
-    setRange("MAX");
-    setOverride({ range: "MAX", frequency: "ttm" });
-  };
-
-  const frequency: Frequency = override?.range === range ? override.frequency : fundamentalWindow(range).frequency;
-  const chooseFrequency = (next: Frequency) => setOverride({ range, frequency: next });
+  const {
+    selectedMetrics, selectMetric, range, setRange, frequency, chooseFrequency,
+    rebased, setRebased, withPrice, setWithPrice, valuation,
+  } = useCompanyChart(ticker, state, quote);
 
   /*
    * A measure chosen from a statement row brings the chart to the reader.
@@ -223,93 +56,11 @@ export function Company({ ticker }: { ticker: string }) {
    * wondering what their click did.
    */
   useEffect(() => {
-    writeAddress({ metrics: selectedMetrics, range, frequency, rebased, withPrice });
-  }, [selectedMetrics, range, frequency, rebased, withPrice]);
-
-  useEffect(() => {
     if (!selectedMetrics.length) return;
     const chart = document.getElementById(CHART_ANCHOR);
     if (!chart || chart.getBoundingClientRect().top >= 0) return;
     chart.scrollIntoView({ behavior: "auto", block: "start" });
   }, [selectedMetrics.length]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let attempts = 0;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    const load = async () => {
-      try {
-        // The answer is cached by URL — at the edge and in the reader's own
-        // browser — as well as keyed in KV. The token carries both the shape
-        // the page draws and the version the figures were built under, so a
-        // deployment can never pair a new client with an older answer.
-        const response = await fetch(`/api/io/${encodeURIComponent(ticker)}?view=${IO_VIEW}`, { signal: controller.signal });
-        if (response.status === 202) {
-          attempts += 1;
-          if (attempts <= POLL_LIMIT) {
-            // Cloudflare exposes readiness, not byte-level build progress. The
-            // percentage therefore follows the bounded polling window and is
-            // explicitly labelled as an estimate; it never claims completion
-            // before a real dataset arrives.
-            const progress = Math.min(95, 12 + Math.round((attempts / POLL_LIMIT) * 83));
-            setLoaded({ kind: "building", ticker, progress });
-            timer = setTimeout(load, POLL_MS);
-          } else {
-            setLoaded({ kind: "failed", ticker, message: "This company is taking longer than expected to prepare. Ask for it again in a minute." });
-          }
-          return;
-        }
-        const body = await response.json() as Record<string, unknown>;
-        if (!response.ok) {
-          const stated = body?.error;
-          setLoaded({ kind: "failed", ticker, message: typeof stated === "string" ? stated : `${ticker} could not be loaded.` });
-          return;
-        }
-        const view = body as unknown as IoCompanyView;
-        rememberCompany(view.company.ticker);
-        setLoaded({ kind: "ready", ticker, view });
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        setLoaded({ kind: "failed", ticker, message: error instanceof Error ? error.message : "Unreachable." });
-      }
-    };
-
-    load();
-
-    fetch(`/api/io/${encodeURIComponent(ticker)}/quote`, { signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((body) => { if (body && !controller.signal.aborted) setQuoted(body as IoQuote); })
-      .catch(() => { /* The page states a price when there is one and nothing when there is not. */ });
-
-    return () => { controller.abort(); if (timer) clearTimeout(timer); };
-  }, [ticker]);
-
-  /*
-   * The price the statements can be valued at.
-   *
-   * A foreign company's quote may be in another currency than its accounts, for
-   * a receipt that is not one ordinary share. Today's rate is asked for only
-   * when the currencies differ; the price per ordinary share goes to the
-   * statistics and the price-against-growth reading, and the header keeps the
-   * quote as it trades (components/io/quote.ts).
-   */
-  const statementCurrency = state.kind === "ready" ? state.view.basis?.currency ?? null : null;
-  const fxPair = quote?.currency && statementCurrency && quote.currency !== statementCurrency ? `${quote.currency}${statementCurrency}` : null;
-  const [fx, setFx] = useState<{ pair: string; rate: number; asOf: string | null } | null>(null);
-  useEffect(() => {
-    if (!fxPair) return;
-    const controller = new AbortController();
-    fetch(`/api/fx?from=${fxPair.slice(0, 3)}&to=${fxPair.slice(3)}`, { signal: controller.signal })
-      .then((response) => (response.ok ? response.json() as Promise<{ rate?: number; asOf?: string | null }> : null))
-      .then((body) => { if (body?.rate && !controller.signal.aborted) setFx({ pair: fxPair, rate: body.rate, asOf: body.asOf ?? null }); })
-      .catch(() => { /* Without a rate the valuation stays withheld, and says why. */ });
-    return () => controller.abort();
-  }, [fxPair]);
-  const valuationQuote = useMemo(
-    () => priceForStatements(quote, statementCurrency, fx?.pair === fxPair ? fx : null, sharesPerReceipt(ticker)),
-    [quote, statementCurrency, fx, fxPair, ticker],
-  );
 
   if (state.kind === "failed") {
     return (
@@ -393,6 +144,8 @@ export function Company({ ticker }: { ticker: string }) {
           </div>
         </div>
       </header>
+
+      <PendingEarnings view={view} />
 
       {/*
         * One company, one document.

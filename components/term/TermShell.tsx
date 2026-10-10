@@ -1,0 +1,224 @@
+"use client";
+
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { COMPANY_FUNCTIONS, GLOBAL_FUNCTIONS, hrefFor } from "@/lib/term/command";
+import { marketState, newYorkTime } from "@/lib/term/market-clock";
+import { useStoredWatchlist } from "@/components/io/watchlist";
+import { delta, price } from "@/components/io/format";
+import { CommandLine } from "./CommandLine";
+import { useTape } from "./quotes";
+
+/**
+ * The frame every terminal screen sits in.
+ *
+ * Top to bottom: the command line, the tape, the function keys for the security
+ * on screen, the screen itself, and a status line that says whether New York is
+ * trading and how old the prices are. The legal line the document site carries
+ * in its footer is on the status line, so it is on screen at all times rather
+ * than at the bottom of a page nobody scrolls to.
+ */
+
+/** Seconds since the epoch, ticking once a second; zero on the server. */
+function subscribeSecond(notify: () => void) {
+  const timer = setInterval(notify, 1_000);
+  return () => clearInterval(timer);
+}
+const nowSecond = () => Math.floor(Date.now() / 1_000);
+const serverSecond = () => 0;
+
+function useSecond() {
+  return useSyncExternalStore(subscribeSecond, nowSecond, serverSecond);
+}
+
+function Tape() {
+  const tickers = useStoredWatchlist();
+  const tape = useTape(tickers);
+  const quotes = tape?.quotes ?? [];
+  if (!quotes.length) {
+    return <div className="t-tape"><div className="t-tape-empty">{tape?.failed ? "Tape unavailable" : "Loading tape…"}</div></div>;
+  }
+  // Drawn twice and moved by half its width, so the loop has no seam.
+  const run = (copy: number) => (
+    <div className="t-tape-run" aria-hidden={copy === 1 ? true : undefined}>
+      {quotes.map((quote) => (
+        <a
+          key={`${copy}-${quote.kind}-${quote.symbol}`}
+          href={quote.kind === "index" ? "/market" : `/t/s/${encodeURIComponent(quote.symbol)}`}
+          tabIndex={copy === 1 ? -1 : undefined}
+        >
+          <b>{quote.label}</b>
+          <span>{quote.price == null ? "—" : price(quote.price, null)}</span>
+          <span className={quote.changePercent == null ? "t-dim" : quote.changePercent < 0 ? "t-down" : "t-up"}>
+            {delta(quote.changePercent)}
+          </span>
+        </a>
+      ))}
+    </div>
+  );
+  return (
+    <div className="t-tape" aria-label="Indices and watchlist, today's move">
+      <div className="t-tape-track">{run(0)}{run(1)}</div>
+    </div>
+  );
+}
+
+function FunctionKeys({ ticker }: { ticker: string | null }) {
+  /*
+   * ⌥1 to ⌥0, the function keys of a keyboard that has none to spare.
+   *
+   * The F-keys a real terminal uses are the browser's — F5 reloads, F11 and F12
+   * belong to the window — and on a Mac they are the volume and brightness keys
+   * before they are anything else. Option and a digit is free everywhere.
+   */
+  const functions = ticker ? COMPANY_FUNCTIONS : GLOBAL_FUNCTIONS.filter((spec) => spec.code !== "HELP");
+  const hrefs = functions.map((spec) => (ticker
+    ? hrefFor({ kind: "company", ticker, fn: spec.code as never })
+    : hrefFor({ kind: "global", fn: spec.code as never })));
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!event.altKey || event.metaKey || event.ctrlKey) return;
+      const digit = /^Digit(\d)$/.exec(event.code)?.[1];
+      if (digit == null) return;
+      const index = digit === "0" ? 9 : Number(digit) - 1;
+      const href = hrefs[index];
+      if (!href) return;
+      event.preventDefault();
+      window.location.assign(href);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [hrefs]);
+
+  return (
+    <nav className="t-fn" aria-label={ticker ? `${ticker} functions` : "Functions"}>
+      {ticker ? <span className="t-fn-sec">{ticker} US</span> : null}
+      {functions.map((spec, index) => (
+        <a key={spec.code} href={hrefs[index] ?? "#"} title={`${spec.name} · ⌥${(index + 1) % 10}`}>
+          <kbd>{(index + 1) % 10}</kbd>{spec.code}
+        </a>
+      ))}
+      <a className="t-fn-end" href={ticker ? `/s/${encodeURIComponent(ticker)}` : "/"} title="The same page on the document site">Classic view</a>
+    </nav>
+  );
+}
+
+function StatusLine() {
+  const second = useSecond();
+  const at = second ? new Date(second * 1_000) : null;
+  const state = at ? marketState(at) : null;
+  return (
+    <footer className="t-status">
+      <span className="t-status-state" data-state={state ?? undefined}>NYSE {state ?? "—"}</span>
+      <span className="t-status-clock">{at ? `${newYorkTime(at).clock} ET` : "--:--:-- ET"}</span>
+      <span className="t-status-src">Filings · SEC EDGAR</span>
+      <span className="t-status-src">Prices · Yahoo Finance, may be delayed</span>
+      <span className="t-status-legal">Research information only · not investment advice · no analyst estimates</span>
+    </footer>
+  );
+}
+
+function Help({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const element = dialog.current;
+    if (!element) return;
+    if (open && !element.open) element.showModal();
+    if (!open && element.open) element.close();
+  }, [open]);
+  return (
+    <dialog ref={dialog} className="t-help" onClose={onClose} aria-labelledby="t-help-title">
+      <header className="t-panel-head">
+        <span className="t-code">HELP</span>
+        <h2 id="t-help-title">Commands</h2>
+        <div className="t-panel-actions"><button type="button" className="t-help-close" onClick={onClose}>ESC ✕</button></div>
+      </header>
+      <div className="t-help-body">
+        <section>
+          <h3>A security, then a function</h3>
+          <dl>
+            {COMPANY_FUNCTIONS.map((spec) => <Fragment key={spec.code}><dt>{spec.code}</dt><dd>{spec.name}</dd></Fragment>)}
+          </dl>
+        </section>
+        <section>
+          <h3>On their own</h3>
+          <dl>
+            {GLOBAL_FUNCTIONS.map((spec) => <Fragment key={spec.code}><dt>{spec.code}</dt><dd>{spec.name}</dd></Fragment>)}
+          </dl>
+          <h3 style={{ marginTop: 12 }}>Keys</h3>
+          <dl>
+            <dt>A–Z</dt><dd>Type anywhere to command</dd>
+            <dt>/ ⌘K</dt><dd>Command line</dd>
+            <dt>⌥1–⌥0</dt><dd>Function keys</dd>
+            <dt>TAB</dt><dd>Complete</dd>
+            <dt>ESC</dt><dd>Close, clear</dd>
+          </dl>
+          <h3 style={{ marginTop: 12 }}>Examples</h3>
+          <dl>
+            <dt>AAPL</dt><dd>Apple</dd>
+            <dt>NVDA GP</dt><dd>Nvidia price graph</dd>
+            <dt>FA</dt><dd>Financials of the security on screen</dd>
+            <dt>COCA</dt><dd>Search by name</dd>
+          </dl>
+        </section>
+      </div>
+    </dialog>
+  );
+}
+
+/**
+ * The panel a function code names, brought into view and lit for a moment.
+ *
+ * `AAPL HDS` is `/t/s/AAPL#hds`; arriving on it, or moving the hash on a screen
+ * already open, scrolls that panel under the frame and outlines it in amber so
+ * the eye lands where the command said.
+ */
+function useFocusedPanel() {
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let tries = 0;
+    const focus = () => {
+      const id = decodeURIComponent(window.location.hash.slice(1));
+      if (!id) return;
+      const panel = document.getElementById(id);
+      // Panels draw once the company has loaded; wait for them a little.
+      if (!panel) {
+        if (tries++ < 40) timer = setTimeout(focus, 250);
+        return;
+      }
+      tries = 0;
+      panel.scrollIntoView({ block: "start" });
+      panel.dataset.focus = "true";
+      timer = setTimeout(() => { delete panel.dataset.focus; }, 1_600);
+    };
+    focus();
+    const onHash = () => { tries = 0; focus(); };
+    window.addEventListener("hashchange", onHash);
+    return () => { window.removeEventListener("hashchange", onHash); if (timer) clearTimeout(timer); };
+  }, []);
+}
+
+export function TermShell({ ticker = null, children }: { ticker?: string | null; children: React.ReactNode }) {
+  const [helpOpen, setHelpOpen] = useState(false);
+  useFocusedPanel();
+  return (
+    <div className="io term">
+      <a className="skip-link" href="#main-content">Skip to main content</a>
+      <div className="t-top">
+        <div className="t-bar">
+          <a className="t-brand" href="/t">FINSCOPE</a>
+          <CommandLine current={ticker} onHelp={() => setHelpOpen(true)} />
+          <div className="t-bar-right">
+            <button type="button" onClick={() => setHelpOpen(true)} className="t-amber">HELP</button>
+            <a href="/settings">SET</a>
+          </div>
+        </div>
+        <Tape />
+        <FunctionKeys ticker={ticker} />
+      </div>
+      <main className="t-main" id="main-content" tabIndex={-1}>{children}</main>
+      <StatusLine />
+      <Help open={helpOpen} onClose={() => setHelpOpen(false)} />
+    </div>
+  );
+}

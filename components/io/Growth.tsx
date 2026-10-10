@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
 import { withinYears } from "./ranges";
-import { ABSENT, datedCagrOf, delta, type Unit } from "./format";
+import { ABSENT, datedCagrOf, delta, direction, type Unit } from "./format";
 
 /**
  * What compounded, and over how long.
@@ -95,7 +95,9 @@ export function Growth({
                 {HORIZONS.map((horizon) => {
                   const rate = growthOver(view.annual, metric.key, metric.unit as Unit, horizon.years);
                   return (
-                    <td key={horizon.id} data-empty={rate == null}>
+                    // The direction is stated for the terminal, which colours it;
+                    // the document site's one ink reads it as nothing.
+                    <td key={horizon.id} data-empty={rate == null} data-dir={rate == null ? undefined : direction(rate)}>
                       {rate == null ? ABSENT : delta(rate, 1)}
                     </td>
                   );
