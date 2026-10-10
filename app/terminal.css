@@ -468,14 +468,50 @@ body:has(.io.term) { background: #050608; }
   .t-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
 }
 
+.t-brand-short { display: none; }
+
+/*
+ * A touch screen has no ⌥ key to show: the function bar keeps the codes and
+ * drops the shortcut digits.
+ */
+@media (hover: none) {
+  .t-fn kbd { display: none; }
+}
+
 @media (max-width: 720px) {
+  /* One row of frame: the short mark, the command line, nothing else. */
+  .t-brand { padding-inline: 8px; }
+  .t-brand-long, .t-bar-right a { display: none; }
+  .t-brand-short { display: inline; }
+  .t-bar { height: 38px; }
+  .t-cmd input { font-size: 16px; }
+  .t-cmd-go { display: none; }
+  .t-bar-right { padding-inline: 8px; }
+
+  /* The launchpad in reading order: market, heat map, list, calendar, wire. */
+  .t-launch .t-col, .t-launch .t-pair { display: contents; }
+  .t-launch #wei { order: 1; }
+  .t-launch #imap { order: 2; }
+  .t-launch #w { order: 3; }
+  .t-launch #evts { order: 4; }
+  .t-launch #n { order: 5; }
+  .t-launch #fil { order: 6; }
+  .t-launch #eco { order: 7; }
+  .t-launch #w .sheet { max-height: 60vh; overflow-y: auto; }
+
+  /* Controls a thumb can hit without taking the screen. */
+  .term .seg button { min-height: 32px; padding-inline: 10px; }
+  .t-chart-toolbar { gap: 6px; }
+  .t-chart-toolbar .label { display: none; }
+  .t-text-button { min-height: 32px; }
+  .t-layouts select, .t-layouts input { min-height: 32px; }
+
+  .t-help-body { grid-template-columns: minmax(0, 1fr); }
+  .t-head-ticker, .t-head-last { font-size: 20px; }
   .t-grid { grid-template-columns: minmax(0, 1fr); }
   .t-company, .t-launch { grid-template-areas: none; }
   .t-company > *, .t-launch > * { grid-area: auto !important; }
   .t-col, .t-pair { grid-template-columns: minmax(0, 1fr); }
-  .t-bar { height: auto; flex-wrap: wrap; }
-  .t-cmd { order: 3; flex-basis: 100%; height: 38px; border-top: 1px solid var(--line); }
-  .t-bar-right { margin-left: auto; }
   /* A phone has no height to spare for a pinned line: it ends the page instead. */
   .t-status { position: static; flex-wrap: wrap; }
   .t-status-src { display: none; }
@@ -503,3 +539,11 @@ body:has(.io.term) { background: #050608; }
 .term .macro-country { padding: 1px 7px; font-size: var(--fs-micro); }
 @media (max-width: 1100px) { .term .macro-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 720px) { .term .macro-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* The figures' small multiples, tighter everywhere and two across on a phone. */
+.term .multiple { min-height: 0; padding: 6px 8px 4px; }
+.term .multiple .plot { height: 64px; }
+@media (max-width: 720px) {
+  .term .multiples { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .term .multiple-value { font-size: var(--fs-md); }
+}
