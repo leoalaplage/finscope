@@ -36,7 +36,7 @@ export function Launchpad() {
         <Panel code="WEI" title="Indices">
           <Indices />
         </Panel>
-        <Panel code="W" title="Watchlist" actions={<a href="/">Edit on the classic site</a>}>
+        <Panel code="W" title="Watchlist" actions={<a href="/" data-classic>Edit on the classic site</a>}>
           <div className="sheet t-watch">
             <table>
               <thead>

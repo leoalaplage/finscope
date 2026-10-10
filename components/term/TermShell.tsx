@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { COMPANY_FUNCTIONS, GLOBAL_FUNCTIONS, hrefFor, LAUNCHPAD_PANELS } from "@/lib/term/command";
+import { COMPANY_FUNCTIONS, GLOBAL_FUNCTIONS, hrefFor, LAUNCHPAD_PANELS, terminalHref } from "@/lib/term/command";
 import { marketState, newYorkTime } from "@/lib/term/market-clock";
 import { useStoredWatchlist } from "@/components/io/watchlist";
 import { delta, price } from "@/components/io/format";
@@ -98,7 +98,7 @@ function FunctionKeys({ ticker }: { ticker: string | null }) {
           <kbd>{(index + 1) % 10}</kbd>{spec.code}
         </a>
       ))}
-      <a className="t-fn-end" href={ticker ? `/s/${encodeURIComponent(ticker)}` : "/"} title="The same page on the document site">Classic view</a>
+      <a className="t-fn-end" data-classic href={ticker ? `/s/${encodeURIComponent(ticker)}` : "/"} title="The same page on the document site">Classic view</a>
     </nav>
   );
 }
@@ -155,6 +155,7 @@ function Help({ open, onClose }: { open: boolean; onClose: () => void }) {
             <dt>/ ⌘K</dt><dd>Command line</dd>
             <dt>⌥1–⌥0</dt><dd>Function keys</dd>
             <dt>TAB</dt><dd>Complete</dd>
+            <dt>↑ ↓ ⏎</dt><dd>Walk a table, open the row</dd>
             <dt>ESC</dt><dd>Close, clear</dd>
           </dl>
           <h3 style={{ marginTop: 12 }}>Examples</h3>
@@ -202,9 +203,94 @@ function useFocusedPanel() {
   }, []);
 }
 
-export function TermShell({ ticker = null, children }: { ticker?: string | null; children: React.ReactNode }) {
+/**
+ * Links stay in the terminal.
+ *
+ * The screens borrowed from the document site link to /s/AAPL and /compare;
+ * a click on one is sent to the terminal's twin instead (terminalHref), unless
+ * the link says it means the document site (`data-classic`) or the reader asked
+ * for a new tab.
+ */
+function useTerminalLinks() {
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!(anchor instanceof HTMLAnchorElement) || anchor.hasAttribute("data-classic") || anchor.target === "_blank") return;
+      const url = new URL(anchor.href);
+      if (url.origin !== window.location.origin) return;
+      const twin = terminalHref(`${url.pathname}${url.search}${url.hash}`);
+      if (!twin) return;
+      event.preventDefault();
+      window.location.assign(twin);
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, []);
+}
+
+/**
+ * ↑ and ↓ walk the rows of a table, ⏎ opens the row.
+ *
+ * The table is the one the reader last clicked in, or else the first one on
+ * screen. The row under the cursor is outlined in amber and kept in view; ⏎
+ * follows its first link, or presses its first button — the same thing a click
+ * on the row's name does. Letters stay the command line's.
+ */
+function useTableKeys() {
+  useEffect(() => {
+    let table: HTMLTableElement | null = null;
+    let row = -1;
+    const rowsOf = (of: HTMLTableElement) => [...of.tBodies].flatMap((body) => [...body.rows]).filter((item) => item.offsetParent != null);
+    const visibleTable = () => [...document.querySelectorAll<HTMLTableElement>(".t-main table")].find((item) => {
+      const box = item.getBoundingClientRect();
+      return box.bottom > 120 && box.top < window.innerHeight - 40 && item.offsetParent != null;
+    }) ?? null;
+    const mark = (next: HTMLTableRowElement | null) => {
+      document.querySelectorAll("tr[data-cursor]").forEach((item) => item.removeAttribute("data-cursor"));
+      if (next) { next.dataset.cursor = "true"; next.scrollIntoView({ block: "nearest" }); }
+    };
+    const onPointer = (event: PointerEvent) => {
+      const found = event.target instanceof Element ? event.target.closest(".t-main table") : null;
+      if (found instanceof HTMLTableElement) { table = found; row = -1; mark(null); }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("input, textarea, select, [contenteditable='true'], dialog")) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Enter") return;
+      if (!table || !table.isConnected) { table = visibleTable(); row = -1; }
+      if (!table) return;
+      const rows = rowsOf(table);
+      if (!rows.length) return;
+      if (event.key === "Enter") {
+        if (row < 0 || !rows[row]) return;
+        const action = rows[row].querySelector<HTMLElement>("a[href], button");
+        if (!action) return;
+        event.preventDefault();
+        action.click();
+        return;
+      }
+      event.preventDefault();
+      row = event.key === "ArrowDown" ? Math.min(rows.length - 1, row + 1) : Math.max(0, row - 1);
+      mark(rows[row]);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    window.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("pointerdown", onPointer); window.removeEventListener("keydown", onKey); };
+  }, []);
+}
+
+export function TermShell({ ticker = null, bare = false, children }: {
+  ticker?: string | null;
+  /** The screen brings its own <main> — a page borrowed whole from the document site. */
+  bare?: boolean;
+  children: React.ReactNode;
+}) {
   const [helpOpen, setHelpOpen] = useState(false);
   useFocusedPanel();
+  useTerminalLinks();
+  useTableKeys();
   return (
     <div className="io term">
       <a className="skip-link" href="#main-content">Skip to main content</a>
@@ -220,7 +306,7 @@ export function TermShell({ ticker = null, children }: { ticker?: string | null;
         <Tape />
         <FunctionKeys ticker={ticker} />
       </div>
-      <main className="t-main" id="main-content" tabIndex={-1}>{children}</main>
+      {bare ? <div className="t-main">{children}</div> : <main className="t-main" id="main-content" tabIndex={-1}>{children}</main>}
       <StatusLine />
       <Help open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>

@@ -384,6 +384,62 @@ body:has(.io.term) { background: #050608; }
 .t-study input { accent-color: var(--amber); margin: 0; }
 .t-study-note { padding: 6px 8px; color: var(--ink-3); font-size: var(--fs-micro); }
 
+/* --- Borrowed pages (TermPage): screener, compare, DCF, portfolio, market -- */
+
+.t-page > main.wrap, .t-page > .wrap { max-width: none; padding: 0; }
+.t-page .head {
+  display: block; padding: 6px 10px; margin-bottom: 2px;
+  background: var(--raise); border: 1px solid var(--line);
+}
+.t-page .head-ticker { font-size: var(--fs-hero); color: var(--amber); letter-spacing: .02em; }
+.t-page .head-ticker::before {
+  content: var(--t-code); margin-right: 10px; vertical-align: 4px; padding: 0 4px;
+  font-size: var(--fs-micro); font-weight: 700; color: var(--amber-ink); background: var(--amber);
+}
+.t-page .head-name, .t-page .head-note { color: var(--ink-2); }
+
+/* Every section is a panel, its heading row the panel header. */
+.t-page .section {
+  margin-bottom: 2px; padding: 0 0 6px; border: 1px solid var(--line); background: var(--bg);
+}
+.t-page .section .section { border: 0; border-top: 1px solid var(--line); margin: 0; }
+.t-page .section-head {
+  margin: 0 0 6px; min-height: 22px; padding: 2px 8px; gap: 8px; flex-wrap: wrap; justify-content: flex-start;
+  background: var(--head); border-bottom: 1px solid var(--line);
+}
+.t-page .section-head::before {
+  content: var(--t-code); font-size: var(--fs-micro); font-weight: 700; letter-spacing: .04em;
+  color: var(--amber-ink); background: var(--amber); padding: 0 4px;
+}
+.t-page .section-head h2.label, .t-page .section-head .label:first-child { color: var(--amber); font-size: var(--fs-xs); font-weight: 600; }
+.t-page .section-head > :last-child:not(:first-child) { margin-left: auto; }
+.t-page .section > :not(.section-head) { margin-inline: 8px; }
+.t-page .fold, .t-page details { border: 1px solid var(--line); margin-bottom: 2px; }
+
+.t-page input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .t-page select, .t-page textarea {
+  font: inherit; color: var(--amber); background: #000; border: 1px solid var(--line-strong); border-radius: 0;
+}
+.t-page input:focus, .t-page select:focus, .t-page textarea:focus { outline: none; border-color: var(--amber); }
+.t-page input[type="checkbox"], .t-page input[type="radio"], .t-page input[type="range"] { accent-color: var(--amber); }
+.t-page .search input { color: var(--amber); }
+
+/* The market page's index strip, which predates sections. */
+.t-page .market-page { margin-bottom: 2px; padding-bottom: 6px; border: 1px solid var(--line); }
+.t-page .market-page .page-heading { padding: 3px 8px; margin: 0 0 6px; background: var(--head); border-bottom: 1px solid var(--line); }
+.t-page .market-page .page-heading h1 { display: inline; font-size: var(--fs-xs); color: var(--amber); text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-page .market-page .page-heading h1::before {
+  content: var(--t-code); margin-right: 8px; padding: 0 4px; font-size: var(--fs-micro); color: var(--amber-ink); background: var(--amber);
+}
+.t-page .market-page .page-heading p { color: var(--ink-3); font-size: var(--fs-micro); }
+.t-page .market-page > :not(.page-heading) { margin-inline: 8px; }
+.t-page .index-panel { background: var(--raise); border-color: var(--line); padding: 6px 8px; }
+.t-page .segmented button { padding: 1px 7px; font-size: var(--fs-micro); }
+.t-page .segmented button.active { background: var(--amber); color: var(--amber-ink); }
+
+/* The row the keyboard is on (TermShell's ↑ ↓ ⏎). */
+.term tr[data-cursor] td, .term tr[data-cursor] th { background: rgba(255, 160, 40, .14) !important; }
+.term tr[data-cursor] td:first-child, .term tr[data-cursor] th:first-child { box-shadow: inset 2px 0 0 var(--amber); }
+
 /* --- Narrower screens ---------------------------------------------------- */
 
 @media (max-width: 1100px) {

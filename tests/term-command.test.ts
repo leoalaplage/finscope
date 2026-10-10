@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hrefFor, parseCommand, suggestFunctions } from "@/lib/term/command";
+import { hrefFor, parseCommand, suggestFunctions, terminalHref } from "@/lib/term/command";
 import { marketState, newYorkTime } from "@/lib/term/market-clock";
 
 describe("parseCommand", () => {
@@ -51,9 +51,9 @@ describe("hrefFor", () => {
   it("sends panels to the terminal company page and screens to their own pages", () => {
     expect(hrefFor({ kind: "company", ticker: "AAPL", fn: "DES" })).toBe("/t/s/AAPL");
     expect(hrefFor({ kind: "company", ticker: "AAPL", fn: "HDS" })).toBe("/t/s/AAPL#hds");
-    expect(hrefFor({ kind: "company", ticker: "AAPL", fn: "DCF" })).toBe("/dcf?s=AAPL");
-    expect(hrefFor({ kind: "company", ticker: "BRK.B", fn: "COMP" })).toBe("/compare?s=BRK.B");
-    expect(hrefFor({ kind: "global", fn: "SCRN" })).toBe("/screener");
+    expect(hrefFor({ kind: "company", ticker: "AAPL", fn: "DCF" })).toBe("/t/dcf?s=AAPL");
+    expect(hrefFor({ kind: "company", ticker: "BRK.B", fn: "COMP" })).toBe("/t/compare?s=BRK.B");
+    expect(hrefFor({ kind: "global", fn: "SCRN" })).toBe("/t/screener");
     expect(hrefFor({ kind: "global", fn: "HELP" })).toBeNull();
   });
 });
@@ -90,5 +90,22 @@ describe("marketState", () => {
 
   it("reads the time in New York, not the reader's zone", () => {
     expect(newYorkTime(new Date("2026-10-09T13:30:05Z")).clock).toBe("09:30:05");
+  });
+});
+
+describe("terminalHref", () => {
+  it("keeps the document site's links inside the terminal", () => {
+    expect(terminalHref("/s/AAPL")).toBe("/t/s/AAPL");
+    expect(terminalHref("/s/BRK.B?r=MAX#fa")).toBe("/t/s/BRK.B?r=MAX#fa");
+    expect(terminalHref("/compare?s=AAPL,MSFT")).toBe("/t/compare?s=AAPL,MSFT");
+    expect(terminalHref("/dcf")).toBe("/t/dcf");
+  });
+
+  it("leaves everything else alone", () => {
+    expect(terminalHref("/")).toBeNull();
+    expect(terminalHref("/settings")).toBeNull();
+    expect(terminalHref("/t/s/AAPL")).toBeNull();
+    expect(terminalHref("/research")).toBeNull();
+    expect(terminalHref("/s/AAPL/extra")).toBeNull();
   });
 });

@@ -144,22 +144,22 @@ export function parseCommand(input: string, current: string | null = null): Comm
   return { kind: "search", query: input.trim() };
 }
 
-/** The site's own pages for a function, while the terminal does not draw them yet. */
+/** Where a function lives on the terminal. */
 export function hrefFor(command: Command): string | null {
   switch (command.kind) {
     case "company": {
       const ticker = encodeURIComponent(command.ticker);
-      if (command.fn === "DCF") return `/dcf?s=${ticker}`;
-      if (command.fn === "COMP") return `/compare?s=${ticker}`;
+      if (command.fn === "DCF") return `/t/dcf?s=${ticker}`;
+      if (command.fn === "COMP") return `/t/compare?s=${ticker}`;
       if (command.fn === "DES") return `/t/s/${ticker}`;
       return `/t/s/${ticker}#${command.fn.toLowerCase()}`;
     }
     case "global":
       switch (command.fn) {
         case "HOME": return command.panel ? `/t#${command.panel}` : "/t";
-        case "MKT": return "/market";
-        case "SCRN": return "/screener";
-        case "PORT": return "/portfolio";
+        case "MKT": return "/t/market";
+        case "SCRN": return "/t/screener";
+        case "PORT": return "/t/portfolio";
         case "CHART": return command.ticker ? `/t/chart?s=${encodeURIComponent(command.ticker)}` : "/t/chart";
         case "HELP": return null;
       }
@@ -201,4 +201,21 @@ export function suggestFunctions(input: string, current: string | null): { code:
   }
 
   return [];
+}
+
+/**
+ * The terminal's page for a document-site address, or null when it has none.
+ *
+ * The screens the terminal borrows (the screener, compare, the DCF, the
+ * portfolio, the market page) link the way the document site links — to /s/AAPL,
+ * to /compare. Inside the terminal those links should stay inside it, so the
+ * shell passes every link through this and follows the terminal's twin.
+ */
+const TWINS = ["/chart", "/screener", "/compare", "/dcf", "/portfolio", "/market"];
+export function terminalHref(path: string): string | null {
+  const pathname = path.split(/[?#]/)[0];
+  const tail = path.slice(pathname.length);
+  if (/^\/s\/[^/]+\/?$/.test(pathname)) return `/t${pathname}${tail}`;
+  if (TWINS.includes(pathname)) return `/t${pathname}${tail}`;
+  return null;
 }
