@@ -71,7 +71,8 @@ const GLOBAL_CODES = new Set<string>(GLOBAL_FUNCTIONS.map((spec) => spec.code));
 
 export type Command =
   | { kind: "company"; ticker: string; fn: CompanyFunction }
-  | { kind: "global"; fn: GlobalFunction }
+  /** CHART alone carries the security it should open on, when there is one. */
+  | { kind: "global"; fn: GlobalFunction; ticker?: string }
   /** Text that is not a command: a company name, to be looked up. */
   | { kind: "search"; query: string }
   | { kind: "empty" }
@@ -98,6 +99,7 @@ export function parseCommand(input: string, current: string | null = null): Comm
   const [first, second] = words;
 
   if (tokens.length === 1) {
+    if (first === "CHART" && current) return { kind: "global", fn: "CHART", ticker: current };
     if (GLOBAL_CODES.has(first)) return { kind: "global", fn: first as GlobalFunction };
     if (COMPANY_CODES.has(first)) {
       return current ? { kind: "company", ticker: current, fn: first as CompanyFunction } : { kind: "needs-ticker", fn: first as CompanyFunction };
@@ -107,6 +109,9 @@ export function parseCommand(input: string, current: string | null = null): Comm
   }
 
   if (tokens.length === 2) {
+    // The chart workspace takes a security either side of its own name.
+    if (second === "CHART" && SYMBOL.test(tokens[0])) return { kind: "global", fn: "CHART", ticker: tokens[0] };
+    if (first === "CHART" && SYMBOL.test(tokens[1])) return { kind: "global", fn: "CHART", ticker: tokens[1] };
     // Security first, the way it is written on every terminal.
     if (COMPANY_CODES.has(second) && SYMBOL.test(tokens[0])) {
       return { kind: "company", ticker: tokens[0], fn: second as CompanyFunction };
@@ -138,7 +143,7 @@ export function hrefFor(command: Command): string | null {
         case "MKT": return "/market";
         case "SCRN": return "/screener";
         case "PORT": return "/portfolio";
-        case "CHART": return "/chart";
+        case "CHART": return command.ticker ? `/t/chart?s=${encodeURIComponent(command.ticker)}` : "/t/chart";
         case "HELP": return null;
       }
       return null;

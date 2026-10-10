@@ -125,6 +125,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
             withPrice={withPrice}
             onWithPrice={setWithPrice}
             valuation={valuation}
+            chartPage="/t/chart"
           />
         </Panel>
 

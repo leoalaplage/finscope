@@ -26,7 +26,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
   const seconds = TODAY_SECONDS;
   try {
     const { body, hit } = await cachedJson(
-      `candles:v5:${symbol}:${interval}`,
+      `candles:v6:${symbol}:${interval}`,
       seconds,
       async () => ({ ...(await fetchCandles(symbol, interval)), ticker: company?.ticker ?? requested }),
       (answer) => (answer.t.length ? "full" : "empty"),

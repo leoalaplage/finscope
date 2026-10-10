@@ -389,11 +389,19 @@ export function marketStructure(series: Series, span: number, limit = 6, blocksP
 
 /* ---- What the reader switches on and off ----------------------------------- */
 
-export const STUDIES = ["ema", "fibRetracement", "fibExtension", "fvg", "trendLines", "levels", "structure", "orderBlocks"] as const;
+export const STUDIES = [
+  "ema", "sma", "bollinger", "fibRetracement", "fibExtension", "fvg", "trendLines", "levels", "structure", "orderBlocks",
+  "volume", "rsi", "macd",
+] as const;
 export type Study = (typeof STUDIES)[number];
 
 export const STUDY_NAMES: Record<Study, string> = {
   ema: "EMA 20 · 50 · 200",
+  sma: "SMA 50 · 200",
+  bollinger: "Bollinger 20 · 2",
+  volume: "Volume",
+  rsi: "RSI 14",
+  macd: "MACD 12 · 26 · 9",
   fibRetracement: "Fibonacci retracement",
   fibExtension: "Fibonacci extension",
   fvg: "Fair value gaps",
@@ -402,6 +410,17 @@ export const STUDY_NAMES: Record<Study, string> = {
   structure: "BOS / CHoCH",
   orderBlocks: "Order blocks",
 };
+
+/**
+ * The studies as a chart's side panel lists them: what is drawn over the
+ * candles, what the chart finds in them by itself, and what gets a pane of its
+ * own underneath.
+ */
+export const STUDY_GROUPS: { name: string; studies: Study[] }[] = [
+  { name: "Overlays", studies: ["ema", "sma", "bollinger"] },
+  { name: "Auto analysis", studies: ["fibRetracement", "fibExtension", "trendLines", "levels", "fvg", "structure", "orderBlocks"] },
+  { name: "Lower panes", studies: ["volume", "rsi", "macd"] },
+];
 
 export const DEFAULT_STUDIES: ReadonlySet<Study> = new Set<Study>(["ema", "fibRetracement", "trendLines"]);
 

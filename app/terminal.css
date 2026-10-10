@@ -309,6 +309,53 @@ body:has(.io.term) { background: #050608; }
 .t-how p { color: var(--ink-2); margin-bottom: 6px; }
 .t-how code { color: var(--amber); font: inherit; }
 
+/* --- Chart workspace (GP) ----------------------------------------------- */
+
+.term { --draw: var(--cyan); }
+.t-chartspace { display: flex; flex-direction: column; gap: 2px; }
+.t-chart-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 3px 8px;
+  background: var(--head); border: 1px solid var(--line);
+}
+.t-tools button { min-width: 26px; font-size: var(--fs-md); }
+.t-text-button { color: var(--ink-2); padding: 1px 6px; border: 1px solid var(--line-strong); background: var(--bg); }
+.t-text-button:hover:not(:disabled) { color: var(--amber); border-color: var(--amber); }
+.t-text-button:disabled { opacity: .4; cursor: default; }
+.t-layouts { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.t-layouts form { display: flex; gap: 4px; }
+.t-layouts input, .t-layouts select, .t-symbol input {
+  font: inherit; font-size: var(--fs-xs); color: var(--amber); background: #000; border: 1px solid var(--line-strong); padding: 1px 6px; border-radius: 0;
+}
+.t-layouts select { color: var(--ink-2); }
+.t-layouts input:focus, .t-symbol input:focus { outline: none; border-color: var(--amber); }
+
+.t-chart-body { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 2px; align-items: start; }
+.t-charts { display: grid; gap: 2px; grid-template-columns: minmax(0, 1fr); }
+.t-charts[data-layout="2"], .t-charts[data-layout="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.t-chart-cell { min-width: 0; background: var(--bg); border: 1px solid var(--line); }
+.t-chart-cell[data-active="true"] { border-color: var(--amber); }
+.t-chart-cell .t-panel-head { flex-wrap: wrap; }
+.t-symbol input { width: 9ch; font-weight: 700; text-transform: uppercase; }
+.t-chart-name { color: var(--ink-3); font-size: var(--fs-micro); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 24ch; }
+.t-chart-last { color: var(--ink); font-variant-numeric: tabular-nums; }
+.t-chart-last em { font-style: normal; }
+.t-chart-last em[data-tone="good"] { color: var(--gain); }
+.t-chart-last em[data-tone="bad"] { color: var(--loss); }
+.t-chart-cell .candle-chart { padding: 4px 4px 0; }
+/* The candles take the height the open panes leave, so a screen of studies still fits the window. */
+.t-charts[data-layout="1"] .candle-body, .t-charts[data-layout="2"] .candle-body { height: clamp(240px, calc(100vh - 300px - var(--panes, 0) * 92px), 760px); }
+.t-charts[data-layout="4"] .candle-body { height: clamp(140px, calc(50vh - 190px - var(--panes, 0) * 60px), 380px); }
+.t-charts[data-layout="4"] .candle-pane { height: 60px; }
+
+.t-studies { position: sticky; top: 92px; background: var(--bg); border: 1px solid var(--line); }
+.t-study-group { padding: 4px 8px 6px; border-bottom: 1px solid var(--line); }
+.t-study-group h3 { margin-bottom: 3px; color: var(--amber-dim); font-size: var(--fs-micro); font-weight: 500; text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-study { display: flex; align-items: center; gap: 6px; padding: 1px 0; color: var(--ink-2); cursor: pointer; }
+.t-study:hover { color: var(--amber); }
+.t-study input { accent-color: var(--amber); margin: 0; }
+.t-study-note { padding: 6px 8px; color: var(--ink-3); font-size: var(--fs-micro); }
+
 /* --- Narrower screens ---------------------------------------------------- */
 
 @media (max-width: 1100px) {
@@ -327,6 +374,9 @@ body:has(.io.term) { background: #050608; }
     "src src src src src src src src src src src src";
   }
   .t-launch { grid-template-areas: "wl wl wl wl wl wl wl wl wl wl wl wl" "how how how how how how how how how how how how"; }
+  .t-chart-body { grid-template-columns: minmax(0, 1fr); }
+  .t-studies { position: static; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .t-studies > header, .t-study-note { grid-column: 1 / -1; }
   .t-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
 }
 
@@ -344,4 +394,9 @@ body:has(.io.term) { background: #050608; }
   .t-status-legal { margin-left: 0; border-left: 0; white-space: normal; }
   .t-head-price { margin-left: 0; }
   .t-fn { flex-wrap: nowrap; overflow-x: auto; }
+  /* One chart at a time on a phone, whatever the layout says. */
+  .t-charts[data-layout] { grid-template-columns: minmax(0, 1fr); }
+  .t-charts[data-layout] .candle-body { height: clamp(260px, 55vh, 420px); }
+  .t-studies { grid-template-columns: minmax(0, 1fr); }
+  .t-layouts { margin-left: 0; }
 }

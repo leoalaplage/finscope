@@ -51,6 +51,7 @@ const ChartSchema = z.object({
           high: z.array(z.number().nullable()).optional(),
           low: z.array(z.number().nullable()).optional(),
           close: z.array(z.number().nullable()).optional(),
+          volume: z.array(z.number().nullable()).optional(),
         })),
       }),
     })).nullable(),
@@ -74,6 +75,13 @@ export interface Candles {
   h: number[];
   l: number[];
   c: number[];
+  /**
+   * Shares traded in each bar, where the exchange reports it; zero where it
+   * does not, which an index's monthly bar sometimes is. Optional because an
+   * answer cached before it was read has none, and the chart then draws no
+   * volume rather than a row of zeros.
+   */
+  v?: number[];
   last: number | null;
   previousClose: number | null;
 }
@@ -98,6 +106,7 @@ export function candlesFromChart(payload: unknown, interval: CandleInterval): Ca
   if (!result) return null;
   const quote = result.indicators.quote[0] ?? {};
   const offset = result.meta.gmtoffset ?? 0;
+  const volumes: number[] = [];
   const out: Candles = {
     symbol: result.meta.symbol,
     name: result.meta.longName ?? result.meta.shortName ?? result.meta.symbol,
@@ -105,13 +114,14 @@ export function candlesFromChart(payload: unknown, interval: CandleInterval): Ca
     exchange: result.meta.exchangeName ?? null,
     timezone: result.meta.exchangeTimezoneName ?? null,
     interval,
-    t: [], o: [], h: [], l: [], c: [],
+    t: [], o: [], h: [], l: [], c: [], v: volumes,
     last: result.meta.regularMarketPrice ?? null,
     previousClose: result.meta.previousClose ?? result.meta.chartPreviousClose ?? null,
   };
   const stamps = result.timestamp ?? [];
   for (let index = 0; index < stamps.length; index++) {
     const open = quote.open?.[index], high = quote.high?.[index], low = quote.low?.[index], close = quote.close?.[index];
+    const volume = quote.volume?.[index] ?? 0;
     if (open == null || high == null || low == null || close == null) continue;
     const time = periodStart(stamps[index] + offset, interval);
     const previous = out.t.length - 1;
@@ -123,6 +133,9 @@ export function candlesFromChart(payload: unknown, interval: CandleInterval): Ca
       out.h[previous] = round(Math.max(out.h[previous], high, open, close));
       out.l[previous] = round(Math.min(out.l[previous], low, open, close));
       out.c[previous] = round(close);
+      // The repeated row for the running period carries that period's volume
+      // to date, not one more session of it.
+      volumes[previous] = Math.max(volumes[previous], volume);
       continue;
     }
     out.t.push(time);
@@ -130,6 +143,7 @@ export function candlesFromChart(payload: unknown, interval: CandleInterval): Ca
     out.h.push(round(Math.max(high, open, close)));
     out.l.push(round(Math.min(low, open, close)));
     out.c.push(round(close));
+    volumes.push(volume);
   }
   return out;
 }

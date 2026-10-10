@@ -41,6 +41,7 @@ export function PriceSection({
   withPrice,
   onWithPrice,
   valuation,
+  chartPage = "/chart",
 }: {
   ticker: string;
   currency: string;
@@ -56,6 +57,8 @@ export function PriceSection({
   withPrice: boolean;
   onWithPrice: (withPrice: boolean) => void;
   valuation: ValuationHistoryState;
+  /** Where "open in chart" goes: the document site's chart, or the terminal's workspace. */
+  chartPage?: string;
 }) {
   /*
    * The anchor sits on a wrapper that outlives the swap.
@@ -87,7 +90,7 @@ export function PriceSection({
             valuation={valuation}
           />
         )
-        : <MarketPriceSection ticker={ticker} currency={currency} range={range} onRange={onRange} />}
+        : <MarketPriceSection ticker={ticker} currency={currency} range={range} onRange={onRange} chartPage={chartPage} />}
     </div>
   );
 }
@@ -145,11 +148,13 @@ function MarketPriceSection({
   currency,
   range,
   onRange,
+  chartPage,
 }: {
   ticker: string;
   currency: string;
   range: Range;
   onRange: (range: Range) => void;
+  chartPage: string;
 }) {
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -207,7 +212,7 @@ function MarketPriceSection({
           candles={candles.candles} interval={interval} loading={candles.loading} error={candles.error} studies={CANDLE_STUDIES}
           label={`${ticker}, ${INTERVAL_TITLES[interval].toLowerCase()} candles`}
         />
-        <p className="price-chart-link"><a href={`/chart?s=${encodeURIComponent(ticker)}&i=${interval === "1d" ? "d" : interval === "1wk" ? "w" : "m"}`}>Open in Chart, with technical analysis →</a></p>
+        <p className="price-chart-link"><a href={`${chartPage}?s=${encodeURIComponent(ticker)}&i=${interval === "1d" ? "d" : interval === "1wk" ? "w" : "m"}`}>Open in Chart, with technical analysis →</a></p>
       </section>
     );
   }
