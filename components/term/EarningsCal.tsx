@@ -156,7 +156,7 @@ export function EarningsCal() {
         </div>
       </Panel>
 
-      <Panel code="ECAL" title="This week, in detail" area="list">
+      <Panel code="ECAL" id="ecal-list" title="This week, in detail" area="list">
         {weekRows.length ? (
           <div className="sheet t-ecal-list">
             <table>

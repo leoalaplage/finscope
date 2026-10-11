@@ -8,7 +8,7 @@
  */
 
 export type CompanyFunction = "DES" | "GP" | "FA" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "CN" | "DCF" | "COMP";
-export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "SCAN" | "BT" | "ECAL" | "HELP";
+export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "SCAN" | "BT" | "ECAL" | "SET" | "HELP";
 
 export interface FunctionSpec<Code extends string> { code: Code; name: string }
 
@@ -43,6 +43,7 @@ export const GLOBAL_FUNCTIONS: FunctionSpec<GlobalFunction>[] = [
   { code: "SCAN", name: "Technical scanner" },
   { code: "BT", name: "Backtest" },
   { code: "ECAL", name: "Earnings calendar" },
+  { code: "SET", name: "Settings and what this device keeps" },
   { code: "HELP", name: "Commands" },
 ];
 
@@ -67,6 +68,7 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
   SCANNER: "SCAN", TS: "SCAN",
   BACKTEST: "BT", BTST: "BT",
   EARNINGS: "ECAL", CALENDAR: "ECAL",
+  SETTINGS: "SET", PREFS: "SET",
   "?": "HELP",
 };
 
@@ -173,6 +175,7 @@ export function hrefFor(command: Command): string | null {
         case "CHART": return command.ticker ? `/t/chart?s=${encodeURIComponent(command.ticker)}` : "/t/chart";
         case "SCAN": return "/t/scan";
         case "ECAL": return "/t/ecal";
+        case "SET": return "/t/settings";
         case "BT": return command.ticker ? `/t/backtest?s=${encodeURIComponent(command.ticker)}` : "/t/backtest";
         case "HELP": return null;
       }
@@ -224,7 +227,7 @@ export function suggestFunctions(input: string, current: string | null): { code:
  * to /compare. Inside the terminal those links should stay inside it, so the
  * shell passes every link through this and follows the terminal's twin.
  */
-const TWINS = ["/chart", "/screener", "/compare", "/dcf", "/portfolio", "/market"];
+const TWINS = ["/chart", "/screener", "/compare", "/dcf", "/portfolio", "/market", "/settings"];
 export function terminalHref(path: string): string | null {
   const pathname = path.split(/[?#]/)[0];
   const tail = path.slice(pathname.length);

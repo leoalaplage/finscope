@@ -175,7 +175,7 @@ export function Scanner() {
         </div>
       </Panel>
 
-      <Panel code="SCAN" title={`Matches · ${matches.length} of ${universeRows.length}${loading && total ? ` · reading ${stored.universe === "sp500" ? "" : `${list.done}/${total}`}` : ""}`} area="hits">
+      <Panel code="SCAN" id="scan-matches" title={`Matches · ${matches.length} of ${universeRows.length}${loading && total ? ` · reading ${stored.universe === "sp500" ? "" : `${list.done}/${total}`}` : ""}`} area="hits">
         {stored.universe === "sp500" && index?.building ? (
           <p className="t-empty">Reading the index: {index.rows.length} of {index.members} companies so far. Matches appear as they are read.</p>
         ) : null}

@@ -48,5 +48,7 @@ describe("opening the chart workspace from the command line", () => {
     expect(hrefFor(parseCommand("bt", "MSFT"))).toBe("/t/backtest?s=MSFT");
     expect(hrefFor(parseCommand("SCAN"))).toBe("/t/scan");
     expect(hrefFor(parseCommand("backtest"))).toBe("/t/backtest");
+    expect(hrefFor(parseCommand("set"))).toBe("/t/settings");
+    expect(hrefFor(parseCommand("ECAL"))).toBe("/t/ecal");
   });
 });

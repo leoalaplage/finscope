@@ -1,9 +1,8 @@
 "use client";
 
-/* eslint-disable @next/next/no-html-link-for-pages -- Native navigation, as in
-   components/io/Shell.tsx: vinext's production RSC link bridge fails to hydrate. */
-
+import { useState } from "react";
 import { useStoredWatchlist } from "@/components/io/watchlist";
+import { WatchlistEditor } from "@/components/io/WatchlistEditor";
 import { delta, price } from "@/components/io/format";
 import { MacroSnapshot } from "@/components/io/MacroSnapshot";
 import { FilingsSection, NewsSection } from "@/components/io/Wire";
@@ -27,6 +26,7 @@ const SECTORS = new Map(DEFAULT_WATCHLIST.map((company) => [company.ticker, comp
  */
 export function Launchpad() {
   const tickers = useStoredWatchlist();
+  const [editing, setEditing] = useState(false);
   const tape = useTape(tickers);
   const quotes = new Map((tape?.quotes ?? []).filter((quote) => quote.kind === "equity").map((quote) => [quote.symbol, quote]));
 
@@ -36,7 +36,7 @@ export function Launchpad() {
         <Panel code="WEI" title="Indices">
           <Indices />
         </Panel>
-        <Panel code="W" title="Watchlist" actions={<a href="/" data-classic>Edit on the classic site</a>}>
+        <Panel code="W" title="Watchlist" actions={<button type="button" className="t-chip" onClick={() => setEditing(true)}>Edit</button>}>
           <div className="sheet t-watch">
             <table>
               <thead>
@@ -83,6 +83,7 @@ export function Launchpad() {
       <Panel code="ECO" area="eco">
         <MacroSnapshot />
       </Panel>
+      {editing ? <WatchlistEditor tickers={tickers} onClose={() => setEditing(false)} /> : null}
     </div>
   );
 }

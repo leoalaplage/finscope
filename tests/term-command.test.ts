@@ -103,7 +103,7 @@ describe("terminalHref", () => {
 
   it("leaves everything else alone", () => {
     expect(terminalHref("/")).toBeNull();
-    expect(terminalHref("/settings")).toBeNull();
+    expect(terminalHref("/settings")).toBe("/t/settings");
     expect(terminalHref("/t/s/AAPL")).toBeNull();
     expect(terminalHref("/research")).toBeNull();
     expect(terminalHref("/s/AAPL/extra")).toBeNull();

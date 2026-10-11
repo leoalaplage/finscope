@@ -10,10 +10,12 @@ import type { CSSProperties, ReactNode } from "react";
  * front of it (app/terminal.css), so a borrowed section is never headed twice.
  *
  * `id` is the code in lower case, so `AAPL HDS` lands on `#hds` and the shell
- * can bring that panel into view.
+ * can bring that panel into view. A screen with two panels under one code
+ * names the second itself, so no two elements share an id.
  */
 export function Panel({
   code,
+  id,
   title,
   area,
   actions,
@@ -21,6 +23,8 @@ export function Panel({
   children,
 }: {
   code: string;
+  /** For a second panel under the same code on one screen. */
+  id?: string;
   title?: string;
   /** The grid area this panel occupies on its screen. */
   area?: string;
@@ -30,7 +34,7 @@ export function Panel({
 }) {
   const style = { "--t-code": JSON.stringify(code), gridArea: area } as CSSProperties;
   return (
-    <section className={className ? `t-panel ${className}` : "t-panel"} id={code.toLowerCase()} style={style} aria-label={title}>
+    <section className={className ? `t-panel ${className}` : "t-panel"} id={id ?? code.toLowerCase()} style={style} aria-label={title}>
       {title ? (
         <header className="t-panel-head">
           <span className="t-code">{code}</span>

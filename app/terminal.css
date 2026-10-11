@@ -838,3 +838,49 @@ body:has(.io.term) { background: #050608; }
 .t-ecal-list td:nth-child(4) { max-width: 24ch; overflow: hidden; text-overflow: ellipsis; }
 /* The statements' wide first column is not this table's: every column sizes to its content. */
 .t-ecal-list th.key, .t-ecal-list td.key { min-width: 0; width: auto; }
+
+/* --- Settings (SET) ------------------------------------------------------- */
+
+.t-settings { grid-template-areas: "kept kept kept kept kept kept kept kept about about about about"; }
+.t-kept th.key { color: var(--ink); font-weight: 600; white-space: nowrap; }
+.t-kept td.key { white-space: normal; min-width: 0; }
+.t-kept td.t-row-links { white-space: nowrap; }
+.t-chip:disabled { opacity: .35; cursor: default; }
+.t-about p { color: var(--ink-2); margin-bottom: 8px; }
+.t-about code { color: var(--amber); font: inherit; }
+.t-about a { color: var(--amber); }
+@media (max-width: 1100px) { .t-settings { grid-template-areas: "kept" "about"; grid-template-columns: minmax(0, 1fr); } }
+
+/*
+ * A finger is not a pointer: on a touch screen the tape, the function keys,
+ * table rows and chips grow to a size a thumb can hit, and the density goes
+ * where it can be afforded.
+ */
+@media (hover: none) {
+  .t-tape { height: 32px; }
+  .t-tape a { height: 32px; padding-inline: 14px; }
+  .t-fn a, .t-fn button, .t-fn-sec { padding-block: 8px; }
+  .term .sheet th, .term .sheet td { padding-block: 7px; }
+  .t-chip { padding: 5px 9px; }
+  .t-ecal-co { padding: 5px 7px; }
+  .t-cmd-list [role="option"] { padding-block: 9px; }
+  .t-movers td { padding-block: 6px; }
+  .t-wei-pick { min-height: 28px; align-items: center; }
+}
+
+/* Every field in the terminal reads the same — amber on black, square — unless a component says otherwise. */
+.term :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select) {
+  font: inherit; color: var(--amber); background: #000; border: 1px solid var(--line-strong); border-radius: 0;
+}
+.term :where(input, textarea, select):focus { outline: none; border-color: var(--amber); }
+
+/*
+ * The document site gives every button a 44px floor on a phone. A sector's
+ * name strip on the market map is a button drawn to an exact height the
+ * tiles are laid out under, so it keeps that height; it is still the width
+ * of its sector to tap.
+ */
+.term .t-heat-sector-name { min-height: 0; min-width: 0; }
+@media (hover: none) {
+  .term .filings-ticker, .term .filings-source { display: inline-flex; align-items: center; min-height: 28px; }
+}

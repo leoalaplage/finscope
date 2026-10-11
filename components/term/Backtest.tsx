@@ -230,7 +230,7 @@ export function Backtest() {
         </div>
       </Panel>
 
-      <Panel code="BT" title={result ? `Result · ${stored.symbol} · ${span}` : "Result"} area="result">
+      <Panel code="BT" id="bt-result" title={result ? `Result · ${stored.symbol} · ${span}` : "Result"} area="result">
         {!candles ? <p className="t-empty">{loaded?.error ?? "Loading twenty-five years of prices…"}</p> : null}
         {candles && !result ? <p className="t-empty">The rule never has the history it needs on these bars. Try daily bars or shorter averages.</p> : null}
         {result && candles ? (
@@ -255,7 +255,7 @@ export function Backtest() {
       </Panel>
 
       {result && candles && result.trades.length ? (
-        <Panel code="BT" title={`Trades · ${result.trades.length}`} area="trades">
+        <Panel code="BT" id="bt-trades" title={`Trades · ${result.trades.length}`} area="trades">
           <div className="sheet t-bt-trades">
             <table>
               <thead>

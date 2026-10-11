@@ -78,6 +78,8 @@ function FunctionKeys({ ticker }: { ticker: string | null }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!event.altKey || event.metaKey || event.ctrlKey) return;
+      // ⌥ and a digit in a field is a character on a Mac keyboard, not a function key.
+      if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
       const digit = /^Digit(\d)$/.exec(event.code)?.[1];
       if (digit == null) return;
       const index = digit === "0" ? 9 : Number(digit) - 1;
@@ -300,7 +302,7 @@ export function TermShell({ ticker = null, bare = false, children }: {
           <CommandLine current={ticker} onHelp={() => setHelpOpen(true)} />
           <div className="t-bar-right">
             <button type="button" onClick={() => setHelpOpen(true)} className="t-amber">HELP</button>
-            <a href="/settings">SET</a>
+            <a href="/t/settings" title="Settings and what this device keeps">SET</a>
           </div>
         </div>
         <Tape />

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CandleChart, IntervalPicker, useCandles } from "@/components/io/CandleChart";
 import { MarketPerformance } from "@/components/io/MarketPerformance";
+import { shortDate } from "@/components/io/format";
 import type { CandleInterval } from "@/lib/adapters/candles";
 import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import type { Study } from "@/lib/io/technicals";
@@ -238,7 +239,7 @@ export function MarketBoard() {
         <Panel code="WEI" title="World indices">
           <div className="sheet t-wei">
             <table>
-              <thead><tr><th className="key">Index</th><th>Last</th><th>Chg %</th><th>Session</th></tr></thead>
+              <thead><tr><th className="key">Index</th><th>Last</th><th>Chg %</th><th title="US averages: today's session. Other indices, futures and coins: the last month of closes.">Trend</th></tr></thead>
               <tbody>
                 {board.map((row) => (
                   <tr key={row.id} data-selected={row.id === chart.id || undefined}>
@@ -257,7 +258,7 @@ export function MarketBoard() {
           </div>
           {!board.length ? <p className="t-empty">Loading…</p> : null}
         </Panel>
-        <Panel code="BRDTH" title="S&P 500 breadth" actions={extras?.asOf ? <span>Close {extras.asOf}</span> : null}>
+        <Panel code="BRDTH" title="S&P 500 breadth" actions={extras?.asOf ? <span>Close {shortDate(extras.asOf)}</span> : null}>
           <div className="t-panel-pad t-breadth">
             {breadth ? (
               <div className="t-ad">
