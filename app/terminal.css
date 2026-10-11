@@ -270,6 +270,7 @@ body:has(.io.term) { background: #050608; }
 .t-company { grid-template-areas:
   "gp gp gp gp gp gp gp gp side side side side"
   "ee ee ee ee ee ee ee ee ee ee ee ee"
+  "gf gf gf gf gf gf gf gf gf gf gf gf"
   "erx erx erx erx erx erx seas seas seas seas seas seas"
   "dt dt dt dt dt dt dt dt dt dt dt dt"
   "fa fa fa fa fa fa gr gr gr gr gr gr"
@@ -566,6 +567,7 @@ body:has(.io.term) { background: #050608; }
     "gp gp gp gp gp gp gp gp gp gp gp gp"
     "side side side side side side side side side side side side"
     "ee ee ee ee ee ee ee ee ee ee ee ee"
+    "gf gf gf gf gf gf gf gf gf gf gf gf"
     "erx erx erx erx erx erx erx erx erx erx erx erx"
     "seas seas seas seas seas seas seas seas seas seas seas seas"
     "dt dt dt dt dt dt dt dt dt dt dt dt"
@@ -822,6 +824,36 @@ body:has(.io.term) { background: #050608; }
 .t-rrg-list { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
 .t-rrg-list td { padding: 2px 4px; white-space: nowrap; }
 .t-rrg-list td i { display: inline-block; width: 8px; height: 8px; margin-right: 6px; }
+
+/* GF: the gallery of fundamental charts, two or three to a row. */
+.t-gf-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 8px; font-size: var(--fs-micro); }
+.t-gf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: 2px; padding: 0 2px 2px; }
+.t-gf-card { margin: 0; min-width: 0; padding: 6px 8px 8px; background: var(--raise); border: 1px solid var(--line); }
+.t-gf-card[data-wide] { grid-column: 1 / -1; }
+.t-gf-card figcaption { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.t-gf-card h3 { flex: 1; margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); letter-spacing: .01em; }
+.t-gf-plot { position: relative; width: 100%; }
+.t-gf-plot svg { display: block; overflow: visible; }
+.t-gf-rule { stroke: #262a32; stroke-dasharray: 3 4; }
+.t-gf-zero { stroke: var(--ink-3); stroke-width: 1; }
+.t-gf-negative { fill: rgba(255, 81, 73, .08); }
+.t-gf-hover { fill: rgba(255, 255, 255, .05); }
+.t-gf-catch { fill: transparent; cursor: crosshair; touch-action: pan-y; }
+.t-gf-tick { fill: var(--ink-3); font: 10px var(--mono); font-variant-numeric: tabular-nums; }
+.t-gf-tip {
+  position: absolute; top: 6px; z-index: 2; display: grid; gap: 2px; min-width: 170px; padding: 5px 8px; pointer-events: none;
+  background: #14171c; border: 1px solid var(--line-strong); font-size: var(--fs-micro); box-shadow: 0 4px 14px rgba(0, 0, 0, .5);
+}
+.t-gf-tip b { color: var(--amber); font-weight: 600; }
+.t-gf-tip span { display: flex; align-items: center; gap: 6px; color: var(--ink-2); white-space: nowrap; }
+.t-gf-tip i { width: 8px; height: 8px; flex: none; }
+.t-gf-tip em { margin-left: auto; padding-left: 10px; font-style: normal; color: var(--ink); font-variant-numeric: tabular-nums; }
+.t-gf-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin: 4px 0 0; padding: 0; list-style: none; font-size: var(--fs-micro); color: var(--ink-2); }
+.t-gf-legend li { display: flex; align-items: center; gap: 6px; }
+.t-gf-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--key); }
+.t-gf-legend li[data-kind="line"] i { width: 16px; height: 2px; border-radius: 0; position: relative; }
+.t-gf-legend li[data-kind="line"] i::after { content: ""; position: absolute; left: 5px; top: -2.5px; width: 6px; height: 6px; border-radius: 50%; background: var(--key); }
+.t-gf-note { margin: 4px 0 0; color: var(--ink-3); font-size: var(--fs-micro); text-align: center; }
 .t-rrg-list tr[data-focus] td { background: var(--fill); }
 .t-rrg-list td[data-quadrant="leading"] { color: var(--gain); }
 .t-rrg-list td[data-quadrant="weakening"] { color: #facc15; }
@@ -884,3 +916,5 @@ body:has(.io.term) { background: #050608; }
 @media (hover: none) {
   .term .filings-ticker, .term .filings-source { display: inline-flex; align-items: center; min-height: 28px; }
 }
+.term .t-gf-card .t-chip { min-height: 24px; min-width: 24px; padding: 2px 7px; }
+@media (hover: none) { .term .t-gf-card .t-chip { min-height: 28px; min-width: 28px; } }

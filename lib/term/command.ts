@@ -7,7 +7,7 @@
  * where to go, this decides what was meant.
  */
 
-export type CompanyFunction = "DES" | "GP" | "FA" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "CN" | "DCF" | "COMP";
+export type CompanyFunction = "DES" | "GP" | "FA" | "GF" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "CN" | "DCF" | "COMP";
 export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "SCAN" | "BT" | "ECAL" | "SET" | "HELP";
 
 export interface FunctionSpec<Code extends string> { code: Code; name: string }
@@ -30,6 +30,7 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   { code: "DCF", name: "Discounted cash flow" },
   { code: "COMP", name: "Compare" },
   // Past ⌥0: typed, or picked from the function bar.
+  { code: "GF", name: "Fundamental charts" },
   { code: "ERX", name: "Earnings reaction" },
   { code: "SEAS", name: "Seasonality" },
 ];

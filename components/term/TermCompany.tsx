@@ -21,6 +21,7 @@ import { CompanyNews } from "@/components/io/CompanyNews";
 import { PendingEarnings } from "@/components/io/PendingEarnings";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "@/components/io/format";
 import { EarningsReaction } from "./EarningsReaction";
+import { FundamentalCharts } from "./FundamentalCharts";
 import { Panel } from "./Panel";
 import { Seasonality } from "./Seasonality";
 
@@ -161,6 +162,10 @@ export function TermCompany({ ticker }: { ticker: string }) {
               </p>
             }
           />
+        </Panel>
+
+        <Panel code="GF" title="Fundamental charts" area="gf">
+          <FundamentalCharts key={`gf-${company.ticker}`} view={view} />
         </Panel>
 
         <Panel code="ERX" title="Earnings reaction · last 12 releases" area="erx">
