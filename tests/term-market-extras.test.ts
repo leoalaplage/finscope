@@ -26,6 +26,9 @@ describe("market breadth from the snapshot", () => {
 
   it("ranks sectors by their median month", () => {
     expect(sectorRuns(rows).map((run) => [run.sector, run.companies, run.d20])).toEqual([["Tech", 2, 4], ["Energy", 2, 3]]);
+    const lone = row("Z", "Shipping", { close: [1, 1], chg20: [50, 0] });
+    const three = ["E", "F", "G"].map((ticker) => row(ticker, "Retail", { close: [1, 1], chg20: [1, 0] }));
+    expect(sectorRuns([lone, ...three]).map((run) => run.sector)).toEqual(["Retail", "Shipping"]);
     expect(median([3, 1, 2])).toBe(2);
     expect(median([])).toBeNull();
   });

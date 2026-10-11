@@ -61,7 +61,11 @@ export function breadthOf(rows: ExtrasRow[]): Breadth {
   };
 }
 
-/** Each sector's median return over a week, a month and a quarter of sessions, best month first. */
+/**
+ * Each sector's median return over a week, a month and a quarter of sessions,
+ * best month first — except that a "sector" of one or two companies is one
+ * company's chart, not a sector's, and goes to the bottom whatever it did.
+ */
 export function sectorRuns(rows: ExtrasRow[]): SectorRun[] {
   const bySector = new Map<string, ExtrasRow[]>();
   for (const row of rows) bySector.set(row.sector, [...(bySector.get(row.sector) ?? []), row]);
@@ -69,7 +73,7 @@ export function sectorRuns(rows: ExtrasRow[]): SectorRun[] {
     median(members.map((row) => value(row, field)).filter((item): item is number => item != null));
   return [...bySector].map(([sector, members]) => ({
     sector, companies: members.length, d5: medianOf(members, "chg5"), d20: medianOf(members, "chg20"), d60: medianOf(members, "chg60"),
-  })).sort((a, b) => (b.d20 ?? -Infinity) - (a.d20 ?? -Infinity));
+  })).sort((a, b) => Number(b.companies >= 3) - Number(a.companies >= 3) || (b.d20 ?? -Infinity) - (a.d20 ?? -Infinity));
 }
 
 /** The members trading the most shares against their own twenty-session average. */
