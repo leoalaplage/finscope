@@ -50,6 +50,12 @@ export function Multiples({
   const panels = order.map((metric) => {
     const values = periods.map((period) => period.values[metric.key] ?? null);
     if (!values.some((value) => value != null)) return null;
+    // A measure the company stopped reporting years ago is not one of its
+    // current figures: American Express's operating income ends in 2010, and a
+    // card reading "2009–2026" beside it said otherwise.
+    const lastKnown = periods[values.length - 1 - [...values].reverse().findIndex((value) => value != null)];
+    const newest = periods.at(-1);
+    if (lastKnown && newest && (Date.parse(newest.end) - Date.parse(lastKnown.end)) / 86_400_000 > 2 * 366) return null;
     return { key: metric.key, metric: metrics.get(metric.key) ?? metric, values };
   }).filter((panel): panel is NonNullable<typeof panel> => panel != null);
 

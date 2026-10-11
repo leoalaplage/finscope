@@ -26,4 +26,12 @@ describe("a company in four answers", () => {
     expect(valuationOf(bank, null).note).toMatch(/bank/);
     expect(growthOf(bank).five).toBeNull();
   });
+
+  it("reads a bank's growth from its earnings per share, since its free cash flow is not stated", () => {
+    const eps = (end: string, netIncomePerShare: number) => ({ label: `FY ${end.slice(0, 4)}`, end, values: { netIncomePerShare, freeCashFlowPerShare: null } });
+    const bank = { company: { businessType: "bank" }, annual: [eps("2020-12-31", 3.9), eps("2021-12-31", 10.2), eps("2022-12-31", 10), eps("2023-12-31", 11.4), eps("2024-12-31", 14.2), eps("2025-12-31", 15.6)] } as unknown as IoCompanyView;
+    const growth = growthOf(bank);
+    expect(growth.five).toBeCloseTo((15.6 / 3.9) ** (1 / 5) - 1, 3);
+    expect(growth.note).toMatch(/^EPS/);
+  });
 });

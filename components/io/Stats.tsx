@@ -37,9 +37,19 @@ interface Denominator { value: number | null; label: string | null }
  * figure is what a reader means by "the trailing twelve months"; which period
  * that was is stated under the strip rather than quietly assumed.
  */
+/*
+ * A figure carried forward only from the last two years. American Express last
+ * tagged an operating income in 2010, and its EV / EBITDA was struck on that
+ * sixteen-year-old figure beside today's price; past two years a carried value
+ * is history, not the company's current figure, and the multiple is left out.
+ */
+const CARRY_DAYS = 2 * 366;
+
 function latest(view: IoCompanyView, key: string): Denominator {
   const series = [...view.annual, ...view.trailing].sort((left, right) => left.end.localeCompare(right.end));
+  const newest = series.at(-1)?.end;
   for (let index = series.length - 1; index >= 0; index--) {
+    if (newest && (Date.parse(newest) - Date.parse(series[index].end)) / 86_400_000 > CARRY_DAYS) break;
     const value = series[index].values[key];
     if (value != null && Number.isFinite(value)) return { value, label: series[index].label };
   }

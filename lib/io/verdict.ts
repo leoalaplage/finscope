@@ -59,8 +59,9 @@ export function valuationOf(view: IoCompanyView, quote: { price: number | null; 
 }
 
 export function growthOf(view: IoCompanyView): Verdict["growth"] {
-  if (cashFlowIsTheBalanceSheet(view.company.businessType)) return { five: null, ten: null, steadiness: null, words: null, note: "Free cash flow not stated for this kind of company" };
-  const profile = fcfShareGrowthProfile(view.annual);
+  // A lender compounds its earnings per share; its free cash flow is not stated.
+  const lender = cashFlowIsTheBalanceSheet(view.company.businessType);
+  const profile = fcfShareGrowthProfile(view.annual, lender ? "netIncomePerShare" : "freeCashFlowPerShare");
   const five = profile.fiveYearCagr.value;
   const ten = profile.tenYearCagr.value;
   const steadiness = profile.fiveYearRSquared.value;
@@ -69,7 +70,7 @@ export function growthOf(view: IoCompanyView): Verdict["growth"] {
     ten == null ? null : `10Y ${ten >= 0 ? "+" : "−"}${Math.abs(ten * 100).toFixed(1)}%`,
     steadiness == null ? null : `R² ${steadiness.toFixed(2)}`,
   ].filter(Boolean);
-  return { five, ten, steadiness, words, note: five == null ? profile.fiveYearCagr.reason ?? "No five-year history" : `FCF / share, 5Y${parts.length ? ` · ${parts.join(" · ")}` : ""}` };
+  return { five, ten, steadiness, words, note: five == null ? profile.fiveYearCagr.reason ?? "No five-year history" : `${lender ? "EPS" : "FCF / share"}, 5Y${parts.length ? ` · ${parts.join(" · ")}` : ""}` };
 }
 
 export function verdictOf(view: IoCompanyView, quote: { price: number | null; currency?: string | null } | null, score: ScoreSummary | null, scoreLoading = false): Verdict {

@@ -33,6 +33,9 @@ import { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
  * "Building financials…" until the warm-up has been round the watchlist.
  */
 const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [
+  // v36 corrects revenue at lenders and card issuers and recovers restated
+  // fourth quarters; a v35 copy is what was on screen until now.
+  { version: "v35", shape: "s13" },
   // v35 corrects splits, implausible quarters and bank revenue (see
   // data-version.ts). A v34 copy is no worse than what was on screen before
   // it, and its ratios are recomputed on the way out under the new limits, so

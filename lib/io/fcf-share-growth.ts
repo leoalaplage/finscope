@@ -20,10 +20,10 @@ interface Point { date: string; value: number }
 
 const YEARS_IN_MS = 365.2425 * 86_400_000;
 
-function points(periods: IoPeriod[]): Point[] {
+function points(periods: IoPeriod[], measure: string): Point[] {
   return periods
     .flatMap((period) => {
-      const value = period.values.freeCashFlowPerShare;
+      const value = period.values[measure];
       return value != null && Number.isFinite(value) ? [{ date: period.end, value }] : [];
     })
     .sort((left, right) => left.date.localeCompare(right.date));
@@ -111,8 +111,13 @@ function consistency(history: Point[], targetYears: 5 | 10): FcfShareReading {
 }
 
 /** FCF/share growth and regularity from the validated annual series only. */
-export function fcfShareGrowthProfile(periods: IoPeriod[]): FcfShareGrowthProfile {
-  const history = points(periods);
+/**
+ * `measure` is free cash flow per share everywhere but at a lender, whose cash
+ * flow is the movement of its loans: there the same reading is taken of
+ * diluted earnings per share, the figure a bank is valued on.
+ */
+export function fcfShareGrowthProfile(periods: IoPeriod[], measure = "freeCashFlowPerShare"): FcfShareGrowthProfile {
+  const history = points(periods, measure);
   return {
     fiveYearCagr: cagr(history, 5),
     tenYearCagr: cagr(history, 10),

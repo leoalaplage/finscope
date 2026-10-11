@@ -105,6 +105,15 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v36: a lender's or card issuer's revenue is its total net of interest
+ * expense where that is larger than the line chosen. American Express tags
+ * 41.3 billion of contract revenue — merchant discount and fees — beside 72.2
+ * billion of total revenues net of interest expense for 2025, and its page
+ * showed the first, with a trailing year mixing the two. Interest expense is
+ * also read under its operating-section name, which is where a lender files it.
+ * And a fourth quarter is derived from the year on its quarters' basis where a
+ * later report restated the year (Kimberly-Clark's 2023: 1.7 → 4.97 billion).
+ *
  * v35: what an audit of every company in the index found wrong, by class.
  * Splits a filer proved by restating its history are applied before the
  * ratios it declared, so a declared ratio dated a day before a filing still on
@@ -274,7 +283,7 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v35";
+export const KEY_VERSION = "v36";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

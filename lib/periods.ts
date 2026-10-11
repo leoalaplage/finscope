@@ -412,12 +412,25 @@ const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFra
  * The reconciliation travels with the fact: the drawer states both figures and
  * their difference rather than silently swapping one for the other.
  */
+/*
+ * A lender's or card issuer's total is its revenue net of interest expense:
+ * American Express tags 41.3 billion of contract revenue — the discount it
+ * charges merchants and its fees — and 72.2 billion of total revenues net of
+ * interest expense, which is the line its income statement and every analyst
+ * calls revenue. The same rule applies: the total wins only where it is larger.
+ */
+const REVENUE_TOTALS = new Set([TOTAL_REVENUE, "us-gaap:RevenuesNetOfInterestExpense"]);
+
 export function preferTotalRevenue(candidates: RawFinancialFact[], chosen: RawFinancialFact | undefined) {
-  if (!chosen || chosen.concept === TOTAL_REVENUE) return chosen;
-  const total = latest(candidates.filter((fact) =>
-    fact.concept === TOTAL_REVENUE && fact.end === chosen.end && fact.start === chosen.start && fact.currency === chosen.currency));
+  if (!chosen) return chosen;
+  const totals = candidates.filter((fact) =>
+    REVENUE_TOTALS.has(fact.concept) && fact.concept !== chosen.concept && fact.end === chosen.end && fact.start === chosen.start && fact.currency === chosen.currency);
+  const total = [...REVENUE_TOTALS].map((concept) => latest(totals.filter((fact) => fact.concept === concept)))
+    .filter((fact): fact is RawFinancialFact => fact != null)
+    .sort((left, right) => right.value - left.value)[0];
   if (!total || total.value <= chosen.value * 1.001) return chosen;
-  const note = `Reconciled to the filer's total: ${compact.format(chosen.value)} tagged as ${chosen.concept.replace("us-gaap:", "")} and ${compact.format(total.value)} as Revenues, a difference of ${compact.format(total.value - chosen.value)} earned outside contracts with customers. The total is the income-statement line and is the figure reported here.`;
+  const name = total.concept.replace("us-gaap:", "");
+  const note = `Reconciled to the filer's total: ${compact.format(chosen.value)} tagged as ${chosen.concept.replace("us-gaap:", "")} and ${compact.format(total.value)} as ${name}, a difference of ${compact.format(total.value - chosen.value)} ${chosen.concept.includes("ContractWithCustomer") ? "earned outside contracts with customers" : "outside the narrower line"}. The total is the income-statement line and is the figure reported here.`;
   return { ...total, normalizationNote: total.normalizationNote ? `${total.normalizationNote} ${note}` : note };
 }
 

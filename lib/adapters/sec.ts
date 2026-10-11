@@ -282,7 +282,7 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
   intangibleAssets: { namespace: "us-gaap", tags: ["IntangibleAssetsNetExcludingGoodwill", "FiniteLivedIntangibleAssetsNet"], unit: "currency" },
   // Deliberately not InterestIncomeExpenseNet: a net figure nets interest
   // earned against interest paid, and coverage asks what the debt costs.
-  interestExpense: { namespace: "us-gaap", tags: ["InterestExpense", "InterestExpenseDebt", "InterestExpenseNonoperating"], unit: "currency" },
+  interestExpense: { namespace: "us-gaap", tags: ["InterestExpense", "InterestExpenseDebt", "InterestExpenseNonoperating", "InterestExpenseOperating"], unit: "currency" },
   // Kept distinct from accrued interest expense. It is nevertheless an exact
   // fallback for the Quality Score's burden ratio when a debt-free filer puts
   // only the cash payment in its statement of cash flows.
