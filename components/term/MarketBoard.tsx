@@ -342,7 +342,7 @@ export function MarketBoard() {
       </div>
 
       <Panel code="W" area="perf"><MarketPerformance /></Panel>
-      <Panel code="IMAP" title="Today's moves" area="imap"><Heatmap /></Panel>
+      <Panel code="IMAP" title="S&P 500 map · sized by market value" area="imap"><Heatmap height={640} /></Panel>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { fetchCandles } from "@/lib/adapters/candles";
 import { companyByTicker } from "@/lib/company-registry";
-import { datasetCache } from "@/lib/runtime-env";
+import { datasetCache, keepAlive } from "@/lib/runtime-env";
 import { UNIVERSE } from "@/lib/universe";
 import { computeSeries, snapshotOf, type Snapshot } from "./rules";
 
@@ -18,6 +18,13 @@ import { computeSeries, snapshotOf, type Snapshot } from "./rules";
  */
 
 export const TECH_KEY = "technicals:v1";
+/**
+ * The shape of a row's values. A row of an older shape keeps serving until it
+ * is read again — first in line, ahead of merely stale ones — so a new field
+ * fills in without the scanner ever going empty. 2 added the one-year and
+ * year-to-date returns the heat map reads.
+ */
+export const ROW_SHAPE = 2;
 export const TECH_PER_RUN = 100;
 export const TECH_STALE_HOURS = 6;
 const AT_ONCE = 6;
@@ -29,6 +36,7 @@ export interface TechRow {
   asOf: number;
   builtAt: string;
   values: Snapshot;
+  shape?: number;
 }
 
 export interface TechTable {
@@ -53,7 +61,9 @@ export function setAside(table: TechTable | null, now = new Date()): Set<string>
 
 /** Every member read, or set aside as unreadable. */
 export const isWhole = (table: TechTable | null, now = new Date()) =>
-  table != null && table.rows.length + [...setAside(table, now)].filter((ticker) => !table.rows.some((row) => row.ticker === ticker)).length >= table.members;
+  table != null
+  && table.rows.filter((row) => row.shape === ROW_SHAPE).length
+    + [...setAside(table, now)].filter((ticker) => !table.rows.some((row) => row.ticker === ticker)).length >= table.members;
 
 export async function readTechTable(): Promise<TechTable | null> {
   try {
@@ -69,10 +79,12 @@ export function nextTechnicals(table: TechTable | null, limit = TECH_PER_RUN, no
   const stale = now.getTime() - TECH_STALE_HOURS * 3_600_000;
   const aside = setAside(table, now);
   const missing = UNIVERSE.filter((member) => !built.has(member.ticker) && !aside.has(member.ticker)).map((member) => member.ticker);
-  const old = UNIVERSE.filter((member) => (built.get(member.ticker) ?? Infinity) < stale)
+  const shapes = new Map((table?.rows ?? []).map((row) => [row.ticker, row.shape]));
+  const outdated = UNIVERSE.filter((member) => built.has(member.ticker) && shapes.get(member.ticker) !== ROW_SHAPE).map((member) => member.ticker);
+  const old = UNIVERSE.filter((member) => shapes.get(member.ticker) === ROW_SHAPE && (built.get(member.ticker) ?? Infinity) < stale)
     .sort((a, b) => built.get(a.ticker)! - built.get(b.ticker)!)
     .map((member) => member.ticker);
-  return [...missing, ...old].slice(0, limit);
+  return [...missing, ...outdated, ...old].slice(0, limit);
 }
 
 /** Yahoo writes a share class with a dash where the SEC and this site write a dot. */
@@ -102,7 +114,7 @@ export async function buildTechnicalSlice(limit = TECH_PER_RUN): Promise<{ read:
         delete unreadable[ticker];
         rows.set(ticker, {
           ticker, name: names.get(ticker) ?? ticker, asOf: candles.t[candles.t.length - 1], builtAt: new Date().toISOString(),
-          values: snapshotOf(computeSeries(candles)),
+          values: snapshotOf(computeSeries(candles)), shape: ROW_SHAPE,
         });
         read++;
       } catch {
@@ -124,4 +136,26 @@ export async function buildTechnicalSlice(limit = TECH_PER_RUN): Promise<{ read:
     // The run is lost and the next one reads the same members again.
   }
   return { read, failed, rows: next.rows.length };
+}
+
+const FILL_LOCK = "technicals:filling";
+const ON_DEMAND = 50;
+
+/**
+ * While the snapshot is not whole — the first day, or after its version
+ * changes — a reader's visit starts a slice in the background, one at a time
+ * under a short lock, so the screens that read it fill in minutes rather than
+ * over an afternoon of half-hourly runs.
+ */
+export async function fillOnDemand(table: TechTable | null) {
+  if (isWhole(table)) return;
+  const cache = datasetCache();
+  if (!cache) return;
+  try {
+    if (await cache.get(FILL_LOCK)) return;
+    await cache.put(FILL_LOCK, "1", { expirationTtl: 90 });
+  } catch {
+    return;
+  }
+  keepAlive(buildTechnicalSlice(ON_DEMAND).finally(() => cache.delete(FILL_LOCK).catch(() => undefined)));
 }

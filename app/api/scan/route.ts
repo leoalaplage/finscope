@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { datasetCache, keepAlive } from "@/lib/runtime-env";
-import { buildTechnicalSlice, isWhole, readTechTable } from "@/lib/term/tech-universe";
+import { fillOnDemand, isWhole, readTechTable } from "@/lib/term/tech-universe";
 import { UNIVERSE, UNIVERSE_AS_OF, UNIVERSE_NAME } from "@/lib/universe";
 
 /**
@@ -17,26 +16,11 @@ import { UNIVERSE, UNIVERSE_AS_OF, UNIVERSE_NAME } from "@/lib/universe";
  * the page asks again.
  */
 
-const LOCK = "technicals:filling";
-const ON_DEMAND = 50;
-
-async function startFill() {
-  const cache = datasetCache();
-  if (!cache) return;
-  try {
-    if (await cache.get(LOCK)) return;
-    await cache.put(LOCK, "1", { expirationTtl: 90 });
-  } catch {
-    return;
-  }
-  keepAlive(buildTechnicalSlice(ON_DEMAND).finally(() => cache.delete(LOCK).catch(() => undefined)));
-}
-
 export async function GET() {
   const table = await readTechTable();
   const rows = table?.rows ?? [];
   const whole = isWhole(table);
-  if (!whole) await startFill();
+  await fillOnDemand(table);
   return NextResponse.json(
     {
       name: UNIVERSE_NAME, asOf: UNIVERSE_AS_OF, members: UNIVERSE.length, builtAt: table?.builtAt ?? null, rows, building: !whole,

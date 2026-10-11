@@ -320,19 +320,49 @@ body:has(.io.term) { background: #050608; }
 .t-spark-down { stroke: var(--loss); }
 .t-spark-base { stroke: var(--line-strong); stroke-dasharray: 2 2; }
 
-.t-heat-bar { display: flex; align-items: center; gap: 12px; padding: 4px 8px; font-size: var(--fs-micro); }
-.t-heat-map { position: relative; margin: 0 8px 8px; overflow: hidden; }
+.t-heat-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 8px; font-size: var(--fs-micro); }
+.t-heat-count { margin-left: auto; }
+/* The map: dark gutters between tiles, as on the maps traders read. */
+.t-heat-map { position: relative; margin: 0 8px 4px; overflow: hidden; background: #262931; user-select: none; }
+.t-heat-sector { position: absolute; }
+.t-heat-sector-name {
+  position: absolute; left: 0; top: 0; right: 0; z-index: 2; display: flex; align-items: center; padding: 0 5px;
+  font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; text-align: left;
+  color: #d8dce4; background: #1c1f26; border: 1px solid #262931; white-space: nowrap; overflow: hidden;
+}
+.term .t-heat-sector-name:hover { color: var(--amber); }
+.t-heat-industry {
+  position: absolute; z-index: 1; padding: 0 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: 9px; line-height: 12px; letter-spacing: .03em; text-transform: uppercase; color: #aab0bc; background: #22252d;
+  border: 1px solid #262931; pointer-events: none;
+}
 .t-heat-tile {
-  position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-  border: 1px solid #050608; color: #fff; overflow: hidden; line-height: 1.1;
+  position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 1px solid #262931; color: #fff; overflow: hidden; line-height: 1.05; text-shadow: 0 1px 1px rgba(0, 0, 0, .35);
 }
-.t-heat-tile b { font-size: var(--fs-xs); }
-.t-heat-tile span { font-size: var(--fs-micro); opacity: .9; }
-.term .t-heat-tile:hover { color: #fff; outline: 1px solid var(--amber); z-index: 2; }
-.t-heat-sector {
-  position: absolute; z-index: 1; padding: 0 4px; font-size: 9px; letter-spacing: .06em; text-transform: uppercase;
-  color: rgba(255, 255, 255, .7); background: rgba(5, 6, 8, .55); pointer-events: none;
+.t-heat-tile b { font-weight: 700; letter-spacing: .01em; }
+.t-heat-tile span { opacity: .92; font-variant-numeric: tabular-nums; }
+.term .t-heat-tile:hover, .t-heat-tile[data-hover] { color: #fff; border-color: #fff; z-index: 3; }
+
+.t-heat-tip {
+  position: absolute; z-index: 10; width: 260px; pointer-events: none;
+  background: #14161b; border: 1px solid #3a3f4a; box-shadow: 0 6px 18px rgba(0, 0, 0, .55); font-size: var(--fs-xs);
 }
+.t-heat-tip-path { padding: 3px 8px; color: var(--amber); font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: .05em; background: #1c1f26; }
+.t-heat-tip-main { display: flex; align-items: baseline; gap: 10px; padding: 6px 8px; color: #fff; font-variant-numeric: tabular-nums; }
+.t-heat-tip-main b { font-size: 20px; margin-right: auto; }
+.t-heat-tip-name { padding: 3px 8px; color: var(--ink-2); border-bottom: 1px solid #262931; }
+.t-heat-tip table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.t-heat-tip td { padding: 1px 8px; }
+.t-heat-tip td:nth-child(n+2) { text-align: right; }
+.t-heat-tip td i { display: inline-block; width: 8px; height: 8px; margin-right: 6px; vertical-align: 0; }
+.t-heat-tip tr[data-current] td { background: rgba(255, 255, 255, .08); font-weight: 700; }
+.t-heat-tip td[data-dir="up"] { color: var(--gain); }
+.t-heat-tip td[data-dir="down"] { color: var(--loss); }
+
+.t-heat-legend { display: flex; justify-content: center; gap: 0; padding: 0 8px 8px; }
+.t-heat-legend span { min-width: 52px; padding: 2px 6px; text-align: center; color: #fff; font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
+
 .t-calendar tr[data-state="due"] td { background: rgba(255, 160, 40, .08); }
 .t-calendar td.key a { color: var(--amber); font-weight: 600; }
 .t-watch td:first-child a { color: var(--amber); font-weight: 600; }

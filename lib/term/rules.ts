@@ -23,7 +23,7 @@ export type Field =
   | "rsi14" | "macd" | "macdSignal" | "macdHist" | "stochK" | "stochD"
   | "atr14" | "atrPct"
   | "volume" | "volume20" | "volumeRatio"
-  | "chg1" | "chg5" | "chg20" | "chg60"
+  | "chg1" | "chg5" | "chg20" | "chg60" | "chg252" | "chgYtd"
   | "high52" | "low52" | "fromHigh52" | "fromLow52" | "fromEma200" | "fromSma50"
   | Pattern;
 
@@ -59,6 +59,8 @@ export const FIELDS: FieldSpec[] = [
   { key: "chg5", name: "Change, 5 bars %", group: "Returns", unit: "percent" },
   { key: "chg20", name: "Change, 20 bars %", group: "Returns", unit: "percent" },
   { key: "chg60", name: "Change, 60 bars %", group: "Returns", unit: "percent" },
+  { key: "chg252", name: "Change, 252 bars (1 year on days) %", group: "Returns", unit: "percent" },
+  { key: "chgYtd", name: "Change, year to date %", group: "Returns", unit: "percent" },
   { key: "high52", name: "52-week high", group: "Range", unit: "price" },
   { key: "low52", name: "52-week low", group: "Range", unit: "price" },
   { key: "fromHigh52", name: "From 52-week high %", group: "Range", unit: "percent" },
@@ -91,6 +93,20 @@ const rolling = (values: number[], period: number, pick: (a: number, b: number) 
     return found;
   });
 
+/** The move since the last close of the previous calendar year, on every bar. */
+function sinceYearStart(bars: Bars): Line {
+  let base: number | null = null;
+  let year = -1;
+  return bars.c.map((close, index) => {
+    const at = new Date(bars.t[index] * 1000).getUTCFullYear();
+    if (at !== year) {
+      base = index > 0 ? bars.c[index - 1] : null;
+      year = at;
+    }
+    return base ? (close / base - 1) * 100 : null;
+  });
+}
+
 const ratio = (a: Line, b: Line, minus = 1): Line => a.map((value, index) => (value == null || !b[index] ? null : (value / b[index]! - minus) * (minus ? 100 : 1)));
 
 /** Every field over every bar, aligned with the bars by index. */
@@ -117,7 +133,8 @@ export function computeSeries(bars: Bars): Record<Field, Line> {
     stochK: stoch.k, stochD: stoch.d,
     atr14: atr, atrPct: atr.map((value, index) => (value == null ? null : (value / c[index]) * 100)),
     volume, volume20, volumeRatio: ratio(volume, volume20, 0),
-    chg1: change(c, 1), chg5: change(c, 5), chg20: change(c, 20), chg60: change(c, 60),
+    chg1: change(c, 1), chg5: change(c, 5), chg20: change(c, 20), chg60: change(c, 60), chg252: change(c, YEAR),
+    chgYtd: sinceYearStart(bars),
     high52, low52,
     fromHigh52: ratio(c, high52), fromLow52: ratio(c, low52), fromEma200: ratio(c, ema200), fromSma50: ratio(c, sma50),
   } as Record<Field, Line>;

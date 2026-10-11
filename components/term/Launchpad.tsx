@@ -69,7 +69,7 @@ export function Launchpad() {
 
       <div className="t-col" style={{ gridArea: "right" }}>
         <Panel code="IMAP" title="Today's moves">
-          <Heatmap />
+          <Heatmap height={380} compact />
         </Panel>
         <div className="t-pair">
           <Panel code="N">
