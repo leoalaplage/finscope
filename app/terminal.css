@@ -1060,3 +1060,50 @@ body:has(.io.term) { background: #050608; }
 /* Window, basis and sort controls wrap under the title on a narrow screen. */
 .t-port .t-panel-head { flex-wrap: wrap; }
 .t-port .t-panel-actions { flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+/* With dated trades: the money put in, and the trades themselves, under the holdings. */
+.t-port[data-dated] { grid-template-areas:
+  "perf perf perf perf perf perf perf perf kpi kpi kpi kpi"
+  "hold hold hold hold hold hold hold hold hold hold hold hold"
+  "cap cap cap cap cap cap cap trds trds trds trds trds"
+  "map map map map map map map map sect sect sect sect"
+  "contrib contrib contrib contrib contrib contrib risk risk risk risk risk risk"
+  "corr corr corr corr corr corr mret mret mret mret mret mret"
+  "inc inc inc inc evts evts evts evts stress stress stress stress"
+  "rbal rbal rbal rbal rbal rbal rbal rbal rbal rbal rbal rbal";
+}
+@media (max-width: 1100px) {
+  .t-port[data-dated] { grid-template-areas:
+    "perf perf perf perf perf perf perf perf perf perf perf perf"
+    "kpi kpi kpi kpi kpi kpi kpi kpi kpi kpi kpi kpi"
+    "hold hold hold hold hold hold hold hold hold hold hold hold"
+    "cap cap cap cap cap cap cap cap cap cap cap cap"
+    "trds trds trds trds trds trds trds trds trds trds trds trds"
+    "map map map map map map map map map map map map"
+    "sect sect sect sect sect sect sect sect sect sect sect sect"
+    "contrib contrib contrib contrib contrib contrib contrib contrib contrib contrib contrib contrib"
+    "risk risk risk risk risk risk risk risk risk risk risk risk"
+    "corr corr corr corr corr corr corr corr corr corr corr corr"
+    "mret mret mret mret mret mret mret mret mret mret mret mret"
+    "inc inc inc inc inc inc inc inc inc inc inc inc"
+    "evts evts evts evts evts evts evts evts evts evts evts evts"
+    "stress stress stress stress stress stress stress stress stress stress stress stress"
+    "rbal rbal rbal rbal rbal rbal rbal rbal rbal rbal rbal rbal";
+  }
+}
+@media (max-width: 720px) { .t-port[data-dated] { grid-template-areas: none; } }
+.t-pf-trades { max-height: 290px; overflow-y: auto; }
+.t-pf-trades thead th { position: sticky; top: 0; z-index: 1; background: var(--head); }
+.t-pf-key-invested { background: var(--amber); }
+.t-pf-invested { fill: none; stroke: var(--amber); stroke-width: 1.6; }
+.t-pf-mark-buy { fill: var(--gain); }
+.t-pf-mark-sell { fill: var(--loss); }
+
+/* The book editor: three ways in, and a preview of a broker's file before it is saved. */
+.t-book-editor { width: min(760px, calc(100vw - 32px)); }
+.t-book-tabs { margin: 0 0 10px; flex-wrap: wrap; }
+.t-book-import { display: grid; gap: 10px; }
+.t-book-file { display: grid; gap: 8px; font-size: var(--fs-sm); color: var(--ink-2); }
+.t-book-preview { display: grid; gap: 8px; font-size: var(--fs-sm); }
+.t-book-preview .sheet { max-height: 220px; overflow: auto; }
+.t-book-preview details { color: var(--ink-3); font-size: var(--fs-micro); }
+.t-book-preview ul { margin: 4px 0 0 16px; max-height: 120px; overflow: auto; }

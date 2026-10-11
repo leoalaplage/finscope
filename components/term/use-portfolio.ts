@@ -37,14 +37,22 @@ const WEEKLY_YEARS = 10;
 
 const EMPTY: PortfolioFeed = { summaries: {}, quotes: {}, pending: [], daily: null, weekly: null, earnings: null };
 
-export function usePortfolioFeed(positions: Position[]): PortfolioFeed {
-  const book = positions.map((position) => position.ticker).join(",");
+/**
+ * `traded` are the tickers whose prices the history needs: with dated trades,
+ * every company ever held, including those since sold.
+ */
+export function usePortfolioFeed(positions: Position[], traded: string[] = []): PortfolioFeed {
+  const held = positions.map((position) => position.ticker).join(",");
+  const historic = [...new Set([...positions.map((position) => position.ticker), ...traded])].join(",");
+  const book = `${held}|${historic}`;
   const [state, setState] = useState<{ book: string; feed: PortfolioFeed }>({ book: "", feed: EMPTY });
 
   useEffect(() => {
     if (!book) return;
     const controller = new AbortController();
-    const tickers = book.split(",");
+    const [heldPart, historicPart] = book.split("|");
+    const tickers = heldPart ? heldPart.split(",") : [];
+    const everTraded = historicPart ? historicPart.split(",") : tickers;
     const merge = (part: Partial<PortfolioFeed>) => {
       if (controller.signal.aborted) return;
       setState((current) => ({ book, feed: { ...(current.book === book ? current.feed : EMPTY), ...part } }));
@@ -58,7 +66,7 @@ export function usePortfolioFeed(positions: Position[]): PortfolioFeed {
 
     // Digests and quotes: what the table needs.
     (async () => {
-      const payload = await json<{ summaries?: WatchlistSummary[]; pending?: string[] }>(`/api/watchlist?tickers=${encodeURIComponent(book)}&v=${KEY_VERSION}.${SUMMARY_SHAPE}`);
+      const payload = tickers.length ? await json<{ summaries?: WatchlistSummary[]; pending?: string[] }>(`/api/watchlist?tickers=${encodeURIComponent(heldPart)}&v=${KEY_VERSION}.${SUMMARY_SHAPE}`) : { summaries: [], pending: [] };
       const summaries: Record<string, WatchlistSummary> = {};
       for (const summary of payload?.summaries ?? []) summaries[summary.ticker.toUpperCase()] = summary;
       const quotes: Record<string, IoQuote> = {};
@@ -81,8 +89,8 @@ export function usePortfolioFeed(positions: Position[]): PortfolioFeed {
           : []));
       };
       const load = async (query: string): Promise<Histories> => {
-        const [index, ...series] = await Promise.all([read(BENCHMARK.symbol, query), ...tickers.map((ticker) => read(ticker, query))]);
-        return { index, holdings: Object.fromEntries(tickers.map((ticker, at) => [ticker, series[at]])) };
+        const [index, ...series] = await Promise.all([read(BENCHMARK.symbol, query), ...everTraded.map((ticker) => read(ticker, query))]);
+        return { index, holdings: Object.fromEntries(everTraded.map((ticker, at) => [ticker, series[at]])) };
       };
       const daily = await load(`frequency=daily&start=${day(DAILY_DAYS)}&end=${end}`);
       merge({ daily });
@@ -94,10 +102,10 @@ export function usePortfolioFeed(positions: Position[]): PortfolioFeed {
     (async () => {
       const from = new Date().toISOString().slice(0, 10);
       const body = await json<{ days?: Array<{ date: string; rows: Array<{ ticker: string; name: string; time: ReportTime; consensusEps: number | null }> }> }>(`/api/earnings-days?from=${from}&days=15&v=${EARNINGS_DAY_SHAPE}`);
-      const held = new Set(tickers);
+      const owned = new Set(tickers);
       merge({
         earnings: (body?.days ?? []).flatMap((entry) => entry.rows
-          .filter((row) => held.has(row.ticker))
+          .filter((row) => owned.has(row.ticker))
           .map((row) => ({ ticker: row.ticker, name: row.name, date: entry.date, time: row.time, consensusEps: row.consensusEps }))),
       });
     })();

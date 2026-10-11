@@ -2,9 +2,12 @@
 
 import { useMemo, useState } from "react";
 import {
-  concentration, portfolioQuality, portfolioSeries, rebasePair, valuePortfolio, weightBy,
-  type Position, type SeriesPoint, type ValuedPosition,
+  concentration, holdingsSeries, portfolioQuality, portfolioSeries, rebasePair, timeWeightedSeries, valuePortfolio, weightBy,
+  type SeriesPoint, type ValuedPosition,
 } from "@/lib/portfolio";
+import {
+  buildLots, firstTradeDate, flowsByDate, investedTimeline, ledger, positionsFromTransactions, shareTimeline, tradedContribution, xirr,
+} from "@/lib/transactions";
 import { qsTable, qsValuationColumns, type QsRow } from "@/lib/qs-export";
 import { gradeForScore, QS_COVERAGE_FLOOR, screen, type ScoredCompany } from "@/lib/qs/screener";
 import { stated } from "@/lib/sector";
@@ -13,11 +16,13 @@ import {
   DAILY, RISK_FREE, SCENARIOS, aligned, beta, commonReturns, contributions, correlation, maxDrawdown, monthlyReturns,
   rebalance, returnsOf, riskContributions, sharpe, sortino, underwater, valueAtRisk, volatility, WEEKLY,
 } from "@/lib/term/portfolio-risk";
-import { Editor, Empty } from "@/components/io/Portfolio";
-import { parseHoldings, saveHoldings, useStoredHoldings, writeHoldings } from "@/components/io/holdings";
+import { Empty } from "@/components/io/Portfolio";
+import { saveTrades, useStoredHoldings, useStoredTrades } from "@/components/io/holdings";
+import { parseTrades } from "@/lib/transactions";
+import { BookEditor } from "./BookEditor";
 import { ABSENT, money, price as writePrice, shortDate } from "@/components/io/format";
 import { Panel } from "./Panel";
-import { Bars, CorrelationMatrix, HoldingsMap, MonthlyReturns, PerfChart, Spark, type PerfPoint } from "./PortfolioCharts";
+import { Bars, CapitalChart, CorrelationMatrix, HoldingsMap, MonthlyReturns, PerfChart, Spark, type PerfPoint, type TradeMark } from "./PortfolioCharts";
 import { BENCHMARK, usePortfolioFeed, type Bar } from "./use-portfolio";
 
 /**
@@ -63,11 +68,20 @@ type SortKey = "value" | "ticker" | "day" | "gain" | "year" | "risk";
 
 export function TermPortfolio() {
   const held = useStoredHoldings();
-  const [session, setSession] = useState<Position[] | null>(null);
-  const positions = session ?? held;
-  const feed = usePortfolioFeed(positions);
+  const trades = useStoredTrades();
+  /*
+   * Dated trades, where the reader has given them, are the book: what is held
+   * is what they leave, and every figure that depends on time — the return,
+   * the drawdown, the risk, what each holding added — is struck on the book
+   * as it actually stood on each date, with deposits taken out of the return.
+   * Undated holdings are priced back as though always held, and say so.
+   */
+  const dated = trades.length > 0;
+  const positions = useMemo(() => (dated ? positionsFromTransactions(trades) : held), [dated, trades, held]);
+  const lots = useMemo(() => (dated ? buildLots(trades) : {}), [dated, trades]);
+  const everTraded = useMemo(() => Object.keys(lots), [lots]);
+  const feed = usePortfolioFeed(positions, everTraded);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
   const [span, setSpan] = useState<Span>("1Y");
   const [total, setTotal] = useState(true);
   const [sort, setSort] = useState<SortKey>("value");
@@ -101,16 +115,25 @@ export function TermPortfolio() {
 
   /* The book through time: shares held today at every close. */
   const series = useMemo(() => {
+    const timeline = dated ? shareTimeline(trades) : null;
+    const flows = dated ? flowsByDate(trades) : null;
+    const start = dated ? firstTradeDate(trades) : null;
     const read = (source: typeof feed.daily, adjusted: boolean) => {
       if (!source) return null;
       const histories = Object.fromEntries(Object.entries(source.holdings).map(([ticker, bars]) => [ticker, points(bars, adjusted)]));
-      return { book: portfolioSeries(positions, histories), index: points(source.index, adjusted), histories };
+      if (timeline && flows) {
+        // The book as it stood each day, and its return with the trades' cash taken out.
+        const values = holdingsSeries(timeline, histories, start);
+        return { book: timeWeightedSeries(values, flows), values, index: points(source.index, adjusted), histories };
+      }
+      const values = portfolioSeries(positions, histories);
+      return { book: values, values, index: points(source.index, adjusted), histories };
     };
     return {
       daily: read(feed.daily, total), weekly: read(feed.weekly, total),
       dailyAdjusted: read(feed.daily, true), weeklyAdjusted: read(feed.weekly, true),
     };
-  }, [feed, positions, total]);
+  }, [feed, positions, total, dated, trades]);
 
   const perf = useMemo(() => {
     const source = DAILY_SPANS.has(span) ? series.daily : series.weekly;
@@ -123,17 +146,26 @@ export function TermPortfolio() {
     const drawn: PerfPoint[] = paired.map((point) => ({ date: point.date, book: point.portfolio, index: point.benchmark, under: water.get(point.date) ?? 0 }));
     const last = drawn.at(-1)!;
     const years = (Date.parse(last.date) - Date.parse(drawn[0].date)) / (365.25 * 86_400_000);
-    const contrib = contributions(positions, source.histories, drawn[0].date)
+    const startValue = since(source.values, drawn[0].date)[0]?.value ?? 0;
+    const contrib = (dated
+      ? everTraded.flatMap((ticker) => {
+        const money = tradedContribution(trades, ticker, source.histories[ticker] ?? [], drawn[0].date);
+        return money == null || Math.abs(money) < 0.005 ? [] : [{ ticker, money, share: startValue > 0 ? money / startValue : 0, ret: null as number | null }];
+      })
+      : contributions(positions, source.histories, drawn[0].date))
       .sort((left, right) => right.money - left.money);
+    const marks: TradeMark[] = dated ? trades.filter((entry) => entry.date >= drawn[0].date).map((entry) => ({
+      date: entry.date, kind: entry.kind, label: `${entry.date} · ${entry.kind === "buy" ? "Bought" : "Sold"} ${entry.shares} ${entry.ticker} @ ${entry.price.toFixed(2)}`,
+    })) : [];
     return {
       drawn, from: drawn[0].date, years,
       book: last.book / 100 - 1, index: last.index / 100 - 1,
       cagr: years >= 1 ? (last.book / 100) ** (1 / years) - 1 : null,
-      drawdown: maxDrawdown(book), contrib,
+      drawdown: maxDrawdown(book), contrib, marks,
       // A book younger than the window starts where its youngest holding does.
       short: paired[0].date > (since(source.index, from)[0]?.date ?? paired[0].date),
     };
-  }, [series, span, positions]);
+  }, [series, span, positions, dated, trades, everTraded]);
 
   /* Risk over the last year of sessions, on total-return closes. */
   const risk = useMemo(() => {
@@ -232,7 +264,7 @@ export function TermPortfolio() {
     return { ...scenario, money: loss, share: valued.value > 0 ? loss / valued.value : null, assumed };
   }), [valued, risk]);
 
-  const trades = useMemo(() => {
+  const orders = useMemo(() => {
     const priced = valued.positions.filter((position) => position.price != null);
     const equal = priced.length ? 100 / priced.length : 0;
     return rebalance(priced.map((position) => {
@@ -255,11 +287,23 @@ export function TermPortfolio() {
     return [...valued.positions].sort((left, right) => (sort === "ticker" ? left.ticker.localeCompare(right.ticker) : value(right) - value(left)));
   }, [valued, sort, day, risk]);
 
-  const openEditor = () => { setDraft(writeHoldings(positions)); setEditing(true); };
-  const save = () => { const parsed = parseHoldings(draft); setSession(parsed); saveHoldings(parsed); setEditing(false); };
-  const example = () => { const sample = parseHoldings("AAPL 40 @ 150\nMSFT 20 @ 300\nNVDA 30 @ 90\nCOST 6 @ 700\nJPM 25 @ 160\nKO 60 @ 58\nXOM 30 @ 105\nLLY 8 @ 600"); setSession(sample); saveHoldings(sample); };
+  const openEditor = () => setEditing(true);
+  // A dated example, so every time-aware figure has something to show.
+  const example = () => saveTrades(parseTrades([
+    "2022-01-10 BUY AAPL 40 @ 172", "2022-03-15 BUY MSFT 20 @ 288", "2022-06-16 BUY JPM 25 @ 112", "2022-10-13 BUY NVDA 60 @ 11.9",
+    "2023-02-02 BUY COST 6 @ 505", "2023-05-11 BUY KO 60 @ 63", "2023-09-20 BUY XOM 30 @ 115", "2024-02-08 BUY LLY 8 @ 740",
+    "2024-06-18 SELL NVDA 20 @ 135", "2024-11-05 BUY AAPL 10 @ 222", "2025-04-08 BUY MSFT 5 @ 355", "2025-08-01 SELL XOM 10 @ 108",
+  ].join("\n")));
 
-  const editor = editing ? <Editor draft={draft} onDraft={setDraft} onClose={() => setEditing(false)} onSave={save} /> : null;
+  const editor = editing ? <BookEditor trades={trades} positions={held} onClose={() => setEditing(false)} /> : null;
+
+  /* With dated trades: what was banked, what went in, and the investor's own rate. */
+  const realised = Object.values(lots).reduce((sum, lot) => sum + lot.realised, 0);
+  const invested = dated ? investedTimeline(trades).at(-1)?.value ?? 0 : null;
+  const today = new Date().toISOString().slice(0, 10);
+  const moneyWeighted = dated && valued.value > 0 ? xirr(trades, valued.value, today) : null;
+  const sinceStart = dated ? firstTradeDate(trades) : null;
+  const book = dated ? ledger(trades).reverse() : [];
 
   if (!positions.length) {
     return (
@@ -277,8 +321,8 @@ export function TermPortfolio() {
       <div>
         <p className="t-head-name">Portfolio · {positions.length} {positions.length === 1 ? "holding" : "holdings"}</p>
         <div className="t-head-meta">
-          <span>Kept on this device</span>
-          <button type="button" className="t-chip" onClick={openEditor}>Edit holdings</button>
+          <span>{dated ? `${trades.length} dated trades since ${shortDate(sinceStart)}` : "Undated holdings"} · kept on this device</span>
+          <button type="button" className="t-chip" onClick={openEditor}>Edit · import CSV</button>
         </div>
       </div>
       <div className="t-head-price">
@@ -292,8 +336,13 @@ export function TermPortfolio() {
     { label: "Value", value: valued.value > 0 ? money(valued.value, BASE) : ABSENT },
     { label: "Cost", value: valued.cost > 0 ? money(valued.cost, BASE) : ABSENT },
     { label: "Unrealised gain", value: valued.profit == null ? ABSENT : `${signedMoney(valued.profit)} · ${pct(valued.profitPercent)}`, tone: dir(valued.profit) },
+    ...(dated ? [
+      { label: "Realised gain", value: signedMoney(realised), tone: dir(realised), note: "Banked by sales, at average cost" },
+      { label: "Total gain", value: signedMoney((valued.profit ?? 0) + realised), tone: dir((valued.profit ?? 0) + realised), note: `Net invested ${invested == null ? ABSENT : money(invested, BASE)}` },
+      { label: "Money-weighted · XIRR", value: moneyWeighted == null ? ABSENT : `${pct(moneyWeighted)}/yr`, tone: dir(moneyWeighted), note: `Your return, timing included · since ${shortDate(sinceStart)}` },
+    ] : []),
     { label: "Today", value: day ? `${signedMoney(day.moved)} · ${pct(day.percent, 2)}` : ABSENT, tone: dir(day?.moved) },
-    { label: `Return · ${span}`, value: perf ? pct(perf.book) : ABSENT, tone: dir(perf?.book) },
+    { label: `${dated ? "Time-weighted" : "Return"} · ${span}`, value: perf ? pct(perf.book) : ABSENT, tone: dir(perf?.book), note: dated ? "Deposits and sales taken out" : undefined },
     { label: `${BENCHMARK.label} · ${span}`, value: perf ? pct(perf.index) : ABSENT, tone: dir(perf?.index) },
     { label: "Excess return", value: perf ? pct(perf.book - perf.index) : ABSENT, tone: dir(perf ? perf.book - perf.index : null) },
     { label: "Annualised", value: perf?.cagr != null ? pct(perf.cagr) : ABSENT, note: "Over windows of a year or more" },
@@ -314,7 +363,7 @@ export function TermPortfolio() {
   return (
     <>
       {header}
-      <div className="t-grid t-port">
+      <div className="t-grid t-port" data-dated={dated || undefined}>
         <Panel code="PERF" title={`Performance against the ${BENCHMARK.label}`} area="perf" actions={
           <>
             <div className="seg" role="group" aria-label="Returns">
@@ -326,10 +375,14 @@ export function TermPortfolio() {
             </div>
           </>
         }>
-          <PerfChart points={perf?.drawn ?? []} label={BENCHMARK.label} />
+          {/* Taller beside the longer column of figures a dated book has. */}
+          <PerfChart points={perf?.drawn ?? []} label={BENCHMARK.label} marks={perf?.marks ?? []} height={dated ? 430 : 300} />
           <p className="t-study-note">
-            The shares held today, priced back through every {DAILY_SPANS.has(span) ? "session" : "week"} of the window — not a record of trades. {total ? "Dividends reinvested on both lines." : "Price only, on both lines."}
-            {perf?.short ? ` The line starts on ${shortDate(perf.from)}, where the youngest holding's prices begin.` : ""}
+            {dated
+              ? <>The book as it stood on each {DAILY_SPANS.has(span) ? "session" : "week"}, from your dated trades, as a time-weighted return: a deposit is not a gain, so each trade&apos;s cash is taken out before the day&apos;s return is chained. ▲ buys, ▼ sales. </>
+              : <>The shares held today, priced back through every {DAILY_SPANS.has(span) ? "session" : "week"} of the window — not a record of trades; add dated trades or import a broker CSV for the book as it really was. </>}
+            {total ? "Dividends reinvested on both lines." : "Price only, on both lines."}
+            {perf?.short ? ` The line starts on ${shortDate(perf.from)}, where ${dated ? "the first trade" : "the youngest holding's prices"} begin${dated ? "s" : ""}.` : ""}
           </p>
         </Panel>
 
@@ -355,7 +408,7 @@ export function TermPortfolio() {
               <thead>
                 <tr>
                   <th className="key">Holding</th><th>Shares</th><th>Price</th><th>Day</th><th>Value</th><th>Weight</th>
-                  <th>Cost / sh</th><th>Gain</th><th>Gain %</th><th>1Y</th><th>3M</th><th>Vol</th><th>Beta</th><th>Div yld</th><th title="Share of the book's variance">Risk</th><th>Grade</th>
+                  <th>Cost / sh</th><th>Gain</th><th>Gain %</th>{dated ? <><th>Realised</th><th>Since</th></> : null}<th>1Y</th><th>3M</th><th>Vol</th><th>Beta</th><th>Div yld</th><th title="Share of the book's variance">Risk</th><th>Grade</th>
                 </tr>
               </thead>
               <tbody>
@@ -378,6 +431,10 @@ export function TermPortfolio() {
                       <td>{row.costBasis == null ? ABSENT : writePrice(row.costBasis / row.shares, BASE)}</td>
                       <td data-dir={dir(row.profit)}>{signedMoney(row.profit)}</td>
                       <td data-dir={dir(row.profitPercent)}>{pct(row.profitPercent)}</td>
+                      {dated ? <>
+                        <td data-dir={dir(lots[row.ticker]?.realised)}>{lots[row.ticker]?.realised ? signedMoney(lots[row.ticker].realised) : ABSENT}</td>
+                        <td>{lots[row.ticker] ? shortDate(lots[row.ticker].firstDate) : ABSENT}</td>
+                      </> : null}
                       <td data-dir={dir(metrics?.ret)}>{pct(metrics?.ret)}</td>
                       <td className="t-spark-cell"><Spark values={metrics?.spark ?? []} /></td>
                       <td>{plain(metrics?.vol, 0)}</td>
@@ -480,6 +537,40 @@ export function TermPortfolio() {
           <p className="t-study-note">Each holding moves by its one-year beta times the market&apos;s move{stress[0]?.assumed ? `; ${money(stress[0].assumed, BASE)} without a beta is taken at 1` : ""}. A sketch of sensitivity, not a forecast: in a real crash correlations rise.</p>
         </Panel>
 
+        {dated ? (
+          <Panel code="CAP" title="Value against money put in" area="cap">
+            <CapitalChart
+              values={(series.weekly?.values ?? []).filter((point) => !sinceStart || point.date >= sinceStart)}
+              invested={investedTimeline(trades)}
+              marks={trades.map((entry) => ({ date: entry.date, kind: entry.kind, label: `${entry.date} · ${entry.kind === "buy" ? "Bought" : "Sold"} ${entry.shares} ${entry.ticker} @ ${entry.price.toFixed(2)}` }))}
+            />
+            <p className="t-study-note">The book&apos;s weekly value against what was paid in net of sales. The gap is the gain, realised and not; each step is a trade.</p>
+          </Panel>
+        ) : null}
+        {dated ? (
+          <Panel code="TRDS" title={`Trades · ${trades.length}`} area="trds">
+            <div className="sheet t-pf-trades">
+              <table>
+                <thead><tr><th className="key">Date</th><th className="key">Side</th><th className="key">Holding</th><th>Shares</th><th>Price</th><th>Amount</th><th>Held after</th><th>Realised</th></tr></thead>
+                <tbody>
+                  {book.map((entry) => (
+                    <tr key={entry.id}>
+                      <td className="key">{shortDate(entry.date)}</td>
+                      <td className="key" data-dir={entry.kind === "buy" ? "up" : "down"}>{entry.kind === "buy" ? "▲ Buy" : "▼ Sell"}</td>
+                      <td className="key"><a href={`/t/s/${encodeURIComponent(entry.ticker)}`}>{entry.ticker}</a></td>
+                      <td>{entry.shares.toLocaleString("en-US", { maximumFractionDigits: 4 })}</td>
+                      <td>{writePrice(entry.price, BASE)}</td>
+                      <td>{money(entry.amount, BASE)}</td>
+                      <td>{entry.after.toLocaleString("en-US", { maximumFractionDigits: 4 })}</td>
+                      <td data-dir={dir(entry.realised)}>{entry.realised == null ? ABSENT : signedMoney(entry.realised)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        ) : null}
+
         <Panel code="RBAL" title="Rebalance · trades to target weights" area="rbal" actions={
           <button type="button" className="t-chip" onClick={() => setTargets({})}>Equal weight</button>
         }>
@@ -487,9 +578,9 @@ export function TermPortfolio() {
             <table>
               <thead><tr><th className="key">Holding</th><th>Now</th><th>Target %</th><th>Target value</th><th>Trade</th><th>Shares</th></tr></thead>
               <tbody>
-                {trades.map((trade) => {
+                {orders.map((trade) => {
                   const now = valued.value > 0 ? trade.value / valued.value : null;
-                  const equal = trades.length ? (100 / trades.length).toFixed(1) : "";
+                  const equal = orders.length ? (100 / orders.length).toFixed(1) : "";
                   return (
                     <tr key={trade.ticker}>
                       <td className="key"><a href={`/t/s/${encodeURIComponent(trade.ticker)}`}>{trade.ticker}</a></td>

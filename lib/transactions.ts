@@ -217,3 +217,115 @@ export function transactionsFromPositions(positions: Position[], date: string): 
       migrated: true,
     }));
 }
+
+/**
+ * Trades typed one a line, the way a contract note reads.
+ *
+ * `2024-03-01 BUY AAPL 10 @ 150.25 fee 1` — a date, a side, a ticker, a share
+ * count, the price, and optionally a fee. The side may be written buy, b,
+ * achat, sell, s or vente; the date as `YYYY-MM-DD` or `DD/MM/YYYY`. A line
+ * that is not yet complete is skipped in silence: this runs on every
+ * keystroke.
+ */
+export function parseTrades(text: string): Transaction[] {
+  const trades: Transaction[] = [];
+  for (const [index, line] of text.split(/\n+/).entries()) {
+    const match = line.trim().match(/^(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})\s+(buy|b|achat|acheter|sell|s|vente|vendre)\s+([A-Za-z][A-Za-z0-9.-]{0,11})\s+([\d.,]+)\s*(?:@|at|à|x)?\s*\$?([\d.,]+)(?:\s+(?:fee|frais|comm)?\s*\$?([\d.,]+))?/i);
+    if (!match) continue;
+    const date = match[1].includes("/")
+      ? (() => { const [day, month, year] = match[1].split("/").map(Number); return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`; })()
+      : match[1];
+    const number = (text: string | undefined) => (text == null ? null : Number(text.replace(/,(?=\d{3}\b)/g, "").replace(",", ".")));
+    const shares = number(match[4]); const price = number(match[5]); const fee = number(match[6]);
+    const entry = {
+      id: `typed-${index}-${match[3].toUpperCase()}-${match[1]}`, ticker: match[3].toUpperCase(), date,
+      kind: /^(sell|s|vente|vendre)$/i.test(match[2]) ? "sell" as const : "buy" as const,
+      shares: shares ?? 0, price: price ?? -1, ...(fee ? { fee } : {}),
+    };
+    if (isValidTransaction(entry)) trades.push(entry);
+  }
+  return trades;
+}
+
+/** The trades back into the lines `parseTrades` reads, oldest first. */
+export function writeTrades(transactions: Transaction[]): string {
+  return sortTransactions(transactions.filter(isValidTransaction)).map((entry) =>
+    `${entry.date} ${entry.kind.toUpperCase()} ${entry.ticker} ${entry.shares} @ ${Number(entry.price.toFixed(4))}${entry.fee ? ` fee ${entry.fee}` : ""}`).join("\n");
+}
+
+/**
+ * The money-weighted return: the one annual rate at which every amount paid in
+ * and taken out, and what is held today, net to nothing. Unlike the
+ * time-weighted return it rewards putting more in before a rise — it is the
+ * investor's own return, timing and all.
+ */
+export function xirr(transactions: Transaction[], value: number, today: string): number | null {
+  const flows = sortTransactions(transactions.filter(isValidTransaction)).map((entry) => {
+    const fee = entry.fee ?? 0;
+    return { date: entry.date, amount: entry.kind === "buy" ? -(entry.shares * entry.price + fee) : entry.shares * entry.price - fee };
+  });
+  flows.push({ date: today, amount: value });
+  if (!flows.some((flow) => flow.amount < 0) || !flows.some((flow) => flow.amount > 0)) return null;
+  const start = Date.parse(flows[0].date);
+  const years = flows.map((flow) => (Date.parse(flow.date) - start) / (365.25 * 86_400_000));
+  if (years.at(-1)! < 1 / 52) return null;
+  const npv = (rate: number) => flows.reduce((sum, flow, index) => sum + flow.amount / (1 + rate) ** years[index], 0);
+  // Bisection between −99% and +1,000% a year: slow, and never diverges.
+  let low = -0.99; let high = 10;
+  if (npv(low) * npv(high) > 0) return null;
+  for (let step = 0; step < 200; step++) {
+    const middle = (low + high) / 2;
+    if (npv(low) * npv(middle) <= 0) high = middle; else low = middle;
+    if (high - low < 1e-7) break;
+  }
+  return (low + high) / 2;
+}
+
+/** Money put in, net of money taken out, at every date it changed. */
+export function investedTimeline(transactions: Transaction[]): Array<{ date: string; value: number }> {
+  let running = 0;
+  const out: Array<{ date: string; value: number }> = [];
+  for (const [date, amount] of [...flowsByDate(transactions).entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    running += amount;
+    out.push({ date, value: running });
+  }
+  return out;
+}
+
+/** What a ticker added over a window: its value at the end, less its value at the start, less what was paid in. */
+export function tradedContribution(
+  transactions: Transaction[],
+  ticker: string,
+  closes: Array<{ date: string; value: number }>,
+  from: string,
+): number | null {
+  if (!closes.length) return null;
+  const at = (date: string) => { let found: number | null = null; for (const point of closes) { if (point.date > date) break; found = point.value; } return found; };
+  const start = at(from) ?? 0;
+  const end = closes[closes.length - 1].value;
+  const startShares = sharesOn(transactions, ticker, from);
+  const endShares = sharesOn(transactions, ticker, closes[closes.length - 1].date);
+  const flows = sortTransactions(transactions.filter(isValidTransaction))
+    .filter((entry) => entry.ticker.toUpperCase() === ticker.toUpperCase() && entry.date > from)
+    .reduce((sum, entry) => sum + (entry.kind === "buy" ? entry.shares * entry.price + (entry.fee ?? 0) : -(entry.shares * entry.price - (entry.fee ?? 0))), 0);
+  return endShares * end - startShares * start - flows;
+}
+
+/** Every trade with what it did: the amount, the position after it, and a sale's realised gain. */
+export function ledger(transactions: Transaction[]): Array<Transaction & { amount: number; after: number; realised: number | null }> {
+  const held: Record<string, { shares: number; cost: number }> = {};
+  return sortTransactions(transactions.filter(isValidTransaction)).map((entry) => {
+    const ticker = entry.ticker.toUpperCase();
+    const lot = held[ticker] ?? (held[ticker] = { shares: 0, cost: 0 });
+    const fee = entry.fee ?? 0;
+    let realised: number | null = null;
+    if (entry.kind === "buy") { lot.cost += entry.shares * entry.price + fee; lot.shares += entry.shares; }
+    else {
+      const sold = Math.min(entry.shares, lot.shares);
+      const average = lot.shares > 0 ? lot.cost / lot.shares : 0;
+      realised = sold * entry.price - fee - average * sold;
+      lot.cost = Math.max(0, lot.cost - average * sold); lot.shares -= sold;
+    }
+    return { ...entry, amount: entry.shares * entry.price + (entry.kind === "buy" ? fee : -fee), after: lot.shares, realised };
+  });
+}

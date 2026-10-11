@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { Position } from "@/lib/portfolio";
+import { isValidTransaction, positionsFromTransactions, type Transaction } from "@/lib/transactions";
 
 /**
  * What a reader holds, kept in their own browser.
@@ -139,9 +140,50 @@ export function useStoredHoldings(): Position[] {
   }
 }
 
+/**
+ * An undated book replaces a dated one: the trades no longer describe what is
+ * held, so they are cleared rather than left to disagree with it.
+ */
 export function saveHoldings(positions: Position[]) {
   try {
     localStorage.setItem(HOLDINGS_KEY, JSON.stringify(positions));
+    localStorage.removeItem(TRADES_KEY);
+    window.dispatchEvent(new Event(HOLDINGS_EVENT));
+  } catch { /* The in-memory edit still works. */ }
+}
+
+/**
+ * The book as dated trades, where the reader has given them.
+ *
+ * Kept beside the holdings rather than instead of them: the holdings they add
+ * up to are written to the holdings key as well, so every screen that reads a
+ * book of positions — the classic page, the launchpad — sees what the trades
+ * leave held, and only the screens that understand time read the trades.
+ */
+export const TRADES_KEY = "finscope.io.portfolio.trades.v1";
+const EMPTY_TRADES: Transaction[] = [];
+const readTrades = () => {
+  try { return localStorage.getItem(TRADES_KEY); } catch { return null; }
+};
+
+export function useStoredTrades(): Transaction[] {
+  const stored = useSyncExternalStore(subscribe, readTrades, () => null);
+  try {
+    const value = JSON.parse(stored ?? "null") as unknown;
+    if (!Array.isArray(value)) return EMPTY_TRADES;
+    const trades = value.filter((entry): entry is Transaction => typeof entry === "object" && entry != null && isValidTransaction(entry as Partial<Transaction>));
+    return trades.length ? trades : EMPTY_TRADES;
+  } catch {
+    return EMPTY_TRADES;
+  }
+}
+
+export function saveTrades(trades: Transaction[]) {
+  try {
+    const valid = trades.filter(isValidTransaction);
+    if (valid.length) localStorage.setItem(TRADES_KEY, JSON.stringify(valid));
+    else localStorage.removeItem(TRADES_KEY);
+    localStorage.setItem(HOLDINGS_KEY, JSON.stringify(positionsFromTransactions(valid).slice(0, HOLDINGS_LIMIT)));
     window.dispatchEvent(new Event(HOLDINGS_EVENT));
   } catch { /* The in-memory edit still works. */ }
 }
