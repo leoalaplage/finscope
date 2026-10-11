@@ -295,6 +295,12 @@ export interface RawFinancialFact {
    * to (see `annualOnQuartersBasis`).
    */
   versions?: Array<{ value: number; filed: string; accession: string }>;
+  /**
+   * Where the concept stands in the metric's order of preference, nought
+   * first. A balance is read under the most preferred concept filed for its
+   * date (see `preferredInstant`); absent on figures this application builds.
+   */
+  rank?: number;
   sourceUrl: string;
   retrievedAt: string;
   restated?: boolean;

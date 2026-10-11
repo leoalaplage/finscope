@@ -448,8 +448,8 @@ function extractFacts(
       .flatMap((source) => source.tags.map((tag) => ({ space: source.namespace, tag })));
     // Insert fallbacks first so the first (preferred) taxonomy concept wins
     // when filing date and period end are otherwise identical.
-    for (const { space, tag } of candidates.reverse()) {
-      output.push(...factsUnder(namespaces, space, tag, metric, spec.unit, cik, currency, retrievedAt));
+    for (const [rank, { space, tag }] of [...candidates.entries()].reverse()) {
+      output.push(...factsUnder(namespaces, space, tag, metric, spec.unit, cik, currency, retrievedAt).map((fact) => ({ ...fact, rank })));
     }
   }
   const capex = SEC_CONCEPTS.capitalExpenditures;

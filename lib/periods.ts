@@ -25,6 +25,25 @@ export function daysBetween(start?: string, end?: string) {
   return Math.round((Date.parse(end) - Date.parse(start)) / 86_400_000) + 1;
 }
 
+/**
+ * A balance at a date, under the most preferred concept the filer used for it.
+ *
+ * Every concept filed for the date used to compete on filing date alone, so
+ * whichever was filed last won. Agilent's 2025 annual report tagged a single
+ * component line under the concept for equity including minority interests —
+ * minus 327 million — and that, being newest, replaced the 5,845 million of
+ * stockholders' equity its balance sheet states for October 2023, which sent
+ * its return on capital to 180%. The concept order in the SEC map is the
+ * order of preference; within the preferred concept the latest filing still
+ * wins, and figures this application builds itself (no rank) compete as before.
+ */
+export function preferredInstant(facts: RawFinancialFact[]) {
+  const ranked = facts.filter((fact) => fact.rank != null);
+  if (!ranked.length) return latest(facts);
+  const best = Math.min(...ranked.map((fact) => fact.rank!));
+  return latest(facts.filter((fact) => fact.rank == null || fact.rank === best));
+}
+
 function latest<T extends { filed: string; end?: string }>(facts: T[]) {
   return [...facts].sort((a, b) => a.filed.localeCompare(b.filed) || (a.end ?? "").localeCompare(b.end ?? "")).at(-1);
 }
@@ -781,7 +800,7 @@ function instantFact(endIndex: EndIndex, metric: MetricKey, fy: number, quarter:
   // The same balance is routinely repeated under FY, Q1 and Q2 contexts in
   // later filings; restricting it to the flow anchor's context manufactured
   // gaps in shares, cash and debt even when an exact-date fact was available.
-  const raw = latest(endIndex.get(`${metric}|${end}`) ?? []);
+  const raw = preferredInstant(endIndex.get(`${metric}|${end}`) ?? []);
   return raw ? normalized(raw, "quarterly", quarter) : undefined;
 }
 
@@ -802,7 +821,7 @@ export function normalizeAnnualPeriods(input: RawFinancialFact[], currency: stri
     }
     if (!anchor) return null;
     for (const metric of POINT_METRICS) {
-      const raw = latest(endIndex.get(`${metric}|${anchor.end}`) ?? []);
+      const raw = preferredInstant(endIndex.get(`${metric}|${anchor.end}`) ?? []);
       if (raw) annualFacts[metric] = normalized(raw, "annual");
     }
     if (annualFacts.shareRepurchases || annualFacts.shareIssuance) {

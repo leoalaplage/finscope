@@ -105,6 +105,15 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v37: a balance is read under the most preferred concept filed for its date
+ * rather than whichever concept was filed last. Agilent's 2025 report tagged
+ * one component under equity-including-minority-interests (−327 million), and
+ * being newest it replaced the 5,845 million of stockholders' equity for
+ * October 2023, sending return on capital to 180%. Across a hundred-company
+ * sample the moves are the intended definitions: equity attributable to the
+ * parent (Walmart 85.6 → 76.9 billion), cash without restricted or client
+ * funds (Marsh McLennan 12.1 → 1.4 billion, Interactive Brokers 40.2 → 3.6).
+ *
  * v36: a lender's or card issuer's revenue is its total net of interest
  * expense where that is larger than the line chosen. American Express tags
  * 41.3 billion of contract revenue — merchant discount and fees — beside 72.2
@@ -283,7 +292,7 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v36";
+export const KEY_VERSION = "v37";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

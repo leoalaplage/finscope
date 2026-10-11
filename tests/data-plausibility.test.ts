@@ -101,3 +101,21 @@ describe("plausibility findings", () => {
     expect(plausibilityFindings(view({ quarterly, annual, trailing, ttm: trailing[0] }))).toEqual([]);
   });
 });
+
+describe("a balance under its preferred concept", () => {
+  const fact = (concept: string, rank: number | undefined, value: number, filed: string) =>
+    ({ metric: "totalEquity", value, concept, rank, filed, end: "2023-10-31" } as unknown as import("@/lib/types").RawFinancialFact);
+  it("keeps stockholders' equity over a later-filed equity-including-minority line (Agilent 2023)", async () => {
+    const { preferredInstant } = await import("@/lib/periods");
+    const chosen = preferredInstant([
+      fact("us-gaap:StockholdersEquity", 0, 5_845e6, "2024-12-20"),
+      fact("us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", 1, -327e6, "2025-12-22"),
+    ]);
+    expect(chosen?.value).toBe(5_845e6);
+  });
+  it("still takes the latest filing within the preferred concept, and lets built figures compete", async () => {
+    const { preferredInstant } = await import("@/lib/periods");
+    expect(preferredInstant([fact("a", 0, 1, "2024-01-01"), fact("a", 0, 2, "2025-01-01")])?.value).toBe(2);
+    expect(preferredInstant([fact("a", 0, 1, "2024-01-01"), fact("built", undefined, 3, "2025-01-01")])?.value).toBe(3);
+  });
+});

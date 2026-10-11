@@ -33,6 +33,8 @@ import { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
  * "Building financials…" until the warm-up has been round the watchlist.
  */
 const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [
+  // v37 reads balances under the preferred concept; v36 is what was on screen.
+  { version: "v36", shape: "s13" },
   // v36 corrects revenue at lenders and card issuers and recovers restated
   // fourth quarters; a v35 copy is what was on screen until now.
   { version: "v35", shape: "s13" },
