@@ -67,7 +67,7 @@ describe("suggestFunctions", () => {
   it("offers global functions, and the on-screen company's, for a partial word", () => {
     const codes = suggestFunctions("d", "MSFT").map((s) => s.command);
     expect(codes).toEqual(["MSFT DES", "MSFT DCF"]);
-    expect(suggestFunctions("sc", null).map((s) => s.code)).toEqual(["SCRN"]);
+    expect(suggestFunctions("sc", null).map((s) => s.code)).toEqual(["SCRN", "SCAN"]);
   });
 });
 

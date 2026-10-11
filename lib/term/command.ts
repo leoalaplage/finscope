@@ -8,7 +8,7 @@
  */
 
 export type CompanyFunction = "DES" | "GP" | "FA" | "EE" | "VAL" | "HDS" | "INS" | "CN" | "DCF" | "COMP";
-export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "HELP";
+export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "SCAN" | "BT" | "HELP";
 
 export interface FunctionSpec<Code extends string> { code: Code; name: string }
 
@@ -37,6 +37,8 @@ export const GLOBAL_FUNCTIONS: FunctionSpec<GlobalFunction>[] = [
   { code: "SCRN", name: "Screener" },
   { code: "PORT", name: "Portfolio" },
   { code: "CHART", name: "Chart workspace" },
+  { code: "SCAN", name: "Technical scanner" },
+  { code: "BT", name: "Backtest" },
   { code: "HELP", name: "Commands" },
 ];
 
@@ -58,6 +60,8 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
   EQS: "SCRN", SCREEN: "SCRN",
   PRT: "PORT", PORTFOLIO: "PORT",
   GRAPH: "CHART",
+  SCANNER: "SCAN", TS: "SCAN",
+  BACKTEST: "BT", BTST: "BT",
   "?": "HELP",
 };
 
@@ -115,7 +119,7 @@ export function parseCommand(input: string, current: string | null = null): Comm
   const [first, second] = words;
 
   if (tokens.length === 1) {
-    if (first === "CHART" && current) return { kind: "global", fn: "CHART", ticker: current };
+    if ((first === "CHART" || first === "BT") && current) return { kind: "global", fn: first, ticker: current };
     if (PANEL_CODES.has(first)) return { kind: "global", fn: "HOME", panel: first.toLowerCase() };
     if (GLOBAL_CODES.has(first)) return { kind: "global", fn: first as GlobalFunction };
     if (COMPANY_CODES.has(first)) {
@@ -127,8 +131,9 @@ export function parseCommand(input: string, current: string | null = null): Comm
 
   if (tokens.length === 2) {
     // The chart workspace takes a security either side of its own name.
-    if (second === "CHART" && SYMBOL.test(tokens[0])) return { kind: "global", fn: "CHART", ticker: tokens[0] };
-    if (first === "CHART" && SYMBOL.test(tokens[1])) return { kind: "global", fn: "CHART", ticker: tokens[1] };
+    // The chart workspace and the backtester take a security either side of their name.
+    if ((second === "CHART" || second === "BT") && SYMBOL.test(tokens[0])) return { kind: "global", fn: second, ticker: tokens[0] };
+    if ((first === "CHART" || first === "BT") && SYMBOL.test(tokens[1])) return { kind: "global", fn: first, ticker: tokens[1] };
     // Security first, the way it is written on every terminal.
     if (COMPANY_CODES.has(second) && SYMBOL.test(tokens[0])) {
       return { kind: "company", ticker: tokens[0], fn: second as CompanyFunction };
@@ -161,6 +166,8 @@ export function hrefFor(command: Command): string | null {
         case "SCRN": return "/t/screener";
         case "PORT": return "/t/portfolio";
         case "CHART": return command.ticker ? `/t/chart?s=${encodeURIComponent(command.ticker)}` : "/t/chart";
+        case "SCAN": return "/t/scan";
+        case "BT": return command.ticker ? `/t/backtest?s=${encodeURIComponent(command.ticker)}` : "/t/backtest";
         case "HELP": return null;
       }
       return null;

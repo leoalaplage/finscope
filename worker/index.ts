@@ -4,6 +4,7 @@ import handler from "vinext/server/app-router-entry";
 import { warmWatchlist, warmSomeMissing, requestedTickers } from "../lib/dataset-cache";
 import { chaseFilings } from "../lib/filing-watch";
 import { buildUniverseSlice } from "../lib/universe-build";
+import { buildTechnicalSlice } from "../lib/term/tech-universe";
 import { refreshAuditReport } from "../lib/coverage-audit";
 import { warmExtraSlice } from "../lib/warm-extra";
 import { COVERED_TICKERS } from "../lib/company-registry";
@@ -146,6 +147,14 @@ const worker = {
         const extra = await warmExtraSlice(origin);
         if (extra && (extra.built.length || extra.rebuilt.length || extra.failed.length)) {
           console.log(`[warm extra] built ${extra.built.join(",") || "none"}; rebuilt ${extra.rebuilt.length}; failed ${extra.failed.join(",") || "none"}; ${extra.next}/${extra.size}`);
+        }
+        /*
+         * And a hundred members' price histories, for the terminal's scanner: the
+         * fields its rules read, on the last two daily bars (lib/term/tech-universe.ts).
+         */
+        const technicals = await buildTechnicalSlice();
+        if (technicals && (technicals.read || technicals.failed.length)) {
+          console.log(`[technicals] read ${technicals.read}; ${technicals.rows} rows` + (technicals.failed.length ? `; failed ${technicals.failed.join(",")}` : ""));
         }
         const audit = await refreshAuditReport();
         if (audit) {
