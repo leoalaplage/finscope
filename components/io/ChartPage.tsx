@@ -16,8 +16,8 @@ import { Search } from "./Search";
  * by the reader and remembered on this device.
  */
 
-const PARAM_OF: Record<CandleInterval, string> = { "1d": "d", "1wk": "w", "1mo": "m" };
-const INTERVAL_OF: Record<string, CandleInterval> = { d: "1d", w: "1wk", m: "1mo" };
+const PARAM_OF: Record<CandleInterval, string> = { "5m": "5", "15m": "15", "1h": "h", "1d": "d", "1wk": "w", "1mo": "m" };
+const INTERVAL_OF: Record<string, CandleInterval> = { 5: "5m", 15: "15m", h: "1h", d: "1d", w: "1wk", m: "1mo" };
 const ADDRESS_EVENT = "finscope:chart-address";
 const STUDIES_KEY = "finscope.chart.studies";
 const STUDIES_EVENT = "finscope:chart-studies";

@@ -1,14 +1,40 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { CandleChart, IntervalPicker, lastMoveOf, percent, price, tone, useCandles } from "@/components/io/CandleChart";
+import { CandleChart, IntervalPicker, lastMoveOf, percent, price, tone, useCandles, type CompareSeries } from "@/components/io/CandleChart";
+import type { Candles, CandleInterval } from "@/lib/adapters/candles";
 import { chooseSymbol } from "@/components/io/choose-symbol";
 import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import { STUDY_GROUPS, STUDY_NAMES, type Study } from "@/lib/io/technicals";
 import { readDrawings, TOOLS, type Drawing, type Tool } from "@/lib/term/drawings";
 import {
-  LAYOUTS, readWorkspaceStore, saveLayout, withSymbol, type ChartCell, type Layout, type WorkspaceStore,
+  COMPARE_LIMIT, LAYOUTS, readWorkspaceStore, saveLayout, withSymbol, type ChartCell, type Layout, type WorkspaceStore,
 } from "@/lib/term/workspace";
+
+const COMPARE_COLORS = ["#22d3ee", "#f472b6", "#a3e635"];
+
+/** The candles of every compared symbol at the chart's interval, in one effect. */
+function useCompared(symbols: string[], interval: CandleInterval): CompareSeries[] {
+  const key = `${symbols.join(",")}:${interval}`;
+  const [loaded, setLoaded] = useState<{ key: string; series: Record<string, Candles | null> }>({ key: "", series: {} });
+  useEffect(() => {
+    if (!symbols.length) return;
+    const controller = new AbortController();
+    Promise.all(symbols.map((symbol) => fetch(`/api/candles/${encodeURIComponent(symbol)}?interval=${interval}`, { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() as Promise<Candles> : null))
+      .catch(() => null)))
+      .then((answers) => {
+        if (controller.signal.aborted) return;
+        setLoaded({ key, series: Object.fromEntries(symbols.map((symbol, index) => [symbol, answers[index]])) });
+      });
+    return () => controller.abort();
+    // `key` carries both inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return symbols.map((symbol, index) => ({
+    symbol, color: COMPARE_COLORS[index % COMPARE_COLORS.length], candles: loaded.key === key ? loaded.series[symbol] ?? null : null,
+  }));
+}
 
 /**
  * The chart workspace: one, two or four charts, the studies of the one in
@@ -86,6 +112,8 @@ function ChartCellView({
   onDrawings: (next: Drawing[]) => void;
 }) {
   const { candles, error, loading } = useCandles(cell.symbol, cell.interval);
+  const compared = useCompared(cell.compare, cell.interval);
+  const [adding, setAdding] = useState<string | null>(null);
   const latest = lastMoveOf(candles);
   const studies = useMemo(() => new Set<Study>(cell.studies), [cell.studies]);
   const company = !cell.symbol.startsWith("^");
@@ -102,6 +130,41 @@ function ChartCellView({
           </span>
         ) : null}
         <div className="t-panel-actions">
+          {cell.compare.map((symbol, position) => (
+            <button
+              key={symbol} type="button" className="t-chip" style={{ borderColor: COMPARE_COLORS[position % COMPARE_COLORS.length] }}
+              title={`Stop comparing ${symbol}`} onClick={() => onChange({ ...cell, compare: cell.compare.filter((item) => item !== symbol) })}
+            >
+              {symbol} ✕
+            </button>
+          ))}
+          {cell.compare.length < COMPARE_LIMIT ? (
+            adding == null ? (
+              <button type="button" className="t-chip" title="Draw another symbol over this one" onClick={() => setAdding("")}>+ CMP</button>
+            ) : (
+              <form onSubmit={(event) => {
+                event.preventDefault();
+                const symbol = adding.trim().toUpperCase();
+                if (symbol && symbol !== cell.symbol && !cell.compare.includes(symbol)) onChange({ ...cell, compare: [...cell.compare, symbol] });
+                setAdding(null);
+              }}>
+                <input
+                  className="t-chip-input"
+                  // The field the reader just asked for.
+                  // eslint-disable-next-line jsx-a11y/no-autofocus
+                  autoFocus value={adding} onChange={(event) => setAdding(event.target.value)} onBlur={() => setAdding(null)}
+                  onKeyDown={(event) => { if (event.key === "Escape") setAdding(null); }}
+                  placeholder="^GSPC" aria-label="Symbol to compare" spellCheck={false}
+                />
+              </form>
+            )
+          ) : null}
+          <button
+            type="button" className="t-chip" aria-pressed={cell.log} title="Logarithmic price axis"
+            onClick={() => onChange({ ...cell, log: !cell.log })}
+          >
+            LOG
+          </button>
           <IntervalPicker interval={cell.interval} onInterval={(interval) => onChange({ ...cell, interval })} />
           {company ? <a href={`/t/s/${encodeURIComponent(cell.symbol)}`} title="Company screen">DES</a> : null}
         </div>
@@ -110,6 +173,7 @@ function ChartCellView({
         candles={candles} interval={cell.interval} loading={loading} error={error} studies={studies} compact={compact}
         label={`${cell.symbol}, ${INTERVAL_TITLES[cell.interval].toLowerCase()} candles`}
         drawings={drawings} tool={tool} onDrawingsChange={onDrawings}
+        zoomable logScale={cell.log} compare={compared}
       />
     </section>
   );
@@ -275,7 +339,8 @@ export function ChartWorkspace() {
             </div>
           ))}
           <p className="t-study-note">
-            Drawings stay on the symbol across D, W and M and across layouts. {drawn[activeCell.symbol]?.length ?? 0} on {activeCell.symbol}.
+            Wheel to zoom, drag to pan, double-click for the latest candles. Drawings stay on the symbol across intervals
+            and layouts: {drawn[activeCell.symbol]?.length ?? 0} on {activeCell.symbol}.
           </p>
         </aside>
       </div>

@@ -1,4 +1,4 @@
-import type { CandleInterval } from "../adapters/candles";
+import { isIntraday, type CandleInterval } from "../adapters/candles";
 
 /**
  * The arithmetic of the chart page, kept apart from the drawing so it can be
@@ -6,11 +6,13 @@ import type { CandleInterval } from "../adapters/candles";
  * written under it.
  */
 
-export const INTERVAL_NAMES: Record<CandleInterval, string> = { "1d": "D", "1wk": "W", "1mo": "M" };
-export const INTERVAL_TITLES: Record<CandleInterval, string> = { "1d": "Daily", "1wk": "Weekly", "1mo": "Monthly" };
+export const INTERVAL_NAMES: Record<CandleInterval, string> = { "5m": "5m", "15m": "15m", "1h": "1H", "1d": "D", "1wk": "W", "1mo": "M" };
+export const INTERVAL_TITLES: Record<CandleInterval, string> = {
+  "5m": "5-minute", "15m": "15-minute", "1h": "Hourly", "1d": "Daily", "1wk": "Weekly", "1mo": "Monthly",
+};
 
 /** About ten and a half months of sessions, four years of weeks, fifteen years of months. */
-export const CANDLES_SHOWN: Record<CandleInterval, number> = { "1d": 220, "1wk": 208, "1mo": 180 };
+export const CANDLES_SHOWN: Record<CandleInterval, number> = { "5m": 234, "15m": 260, "1h": 280, "1d": 220, "1wk": 208, "1mo": 180 };
 
 /** Narrower than this a candle is a line, so a narrow screen shows fewer of them. */
 export const MIN_CANDLE_PX = 4;
@@ -59,6 +61,7 @@ export interface DateLabel { index: number; text: string }
  * previous one are dropped.
  */
 export function dateLabels(times: number[], interval: CandleInterval, maxLabels = 8): DateLabel[] {
+  if (isIntraday(interval)) return sessionLabels(times, interval, maxLabels);
   const every = interval === "1d" ? 1 : interval === "1wk" ? 3 : 12;
   const found: Array<DateLabel & { month: number }> = [];
   let previous: number | null = null;
@@ -82,9 +85,44 @@ export function dateLabels(times: number[], interval: CandleInterval, maxLabels 
   return found.filter((label) => label.month % step === 0).map(({ index, text }) => ({ index, text }));
 }
 
+/**
+ * Under intraday bars: each new session by its date, and the hours between
+ * when there is room — every hour for five-minute bars, every other for
+ * fifteen. Thinned evenly, sessions kept before hours.
+ */
+function sessionLabels(times: number[], interval: CandleInterval, maxLabels: number): DateLabel[] {
+  const days: DateLabel[] = [];
+  const hours: DateLabel[] = [];
+  const hourStep = interval === "5m" ? 1 : 2;
+  times.forEach((time, index) => {
+    const date = new Date(time * 1000);
+    const previous = index > 0 ? new Date(times[index - 1] * 1000) : null;
+    if (!previous || previous.getUTCDate() !== date.getUTCDate()) {
+      if (index > 0) days.push({ index, text: `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}` });
+      return;
+    }
+    if (interval !== "1h" && date.getUTCMinutes() === 0 && date.getUTCHours() % hourStep === 0) {
+      hours.push({ index, text: `${String(date.getUTCHours()).padStart(2, "0")}:00` });
+    }
+  });
+  const thin = (labels: DateLabel[], room: number) => {
+    if (labels.length <= room) return labels;
+    const step = Math.ceil(labels.length / Math.max(1, room));
+    return labels.filter((_, position) => position % step === 0);
+  };
+  const keptDays = thin(days, maxLabels);
+  const room = maxLabels - keptDays.length;
+  // Hours only where they do not crowd a date.
+  const keptHours = room > 0 ? thin(hours, room).filter((hour) => keptDays.every((day) => Math.abs(day.index - hour.index) > times.length / (maxLabels * 2))) : [];
+  return [...keptDays, ...keptHours].sort((a, b) => a.index - b.index);
+}
+
 export function dateText(time: number, interval: CandleInterval): string {
   const date = new Date(time * 1000);
   const month = MONTHS[date.getUTCMonth()];
+  if (isIntraday(interval)) {
+    return `${date.getUTCDate()} ${month} ${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;
+  }
   if (interval === "1mo") return `${month} ${date.getUTCFullYear()}`;
   const prefix = interval === "1wk" ? "Week of " : "";
   return `${prefix}${date.getUTCDate()} ${month} ${date.getUTCFullYear()}`;

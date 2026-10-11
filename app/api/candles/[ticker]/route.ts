@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { CANDLE_INTERVALS, fetchCandles, type CandleInterval } from "@/lib/adapters/candles";
+import { CANDLE_INTERVALS, fetchCandles, isIntraday, type CandleInterval } from "@/lib/adapters/candles";
 import { cachedJson, TODAY_SECONDS } from "@/lib/market-cache";
 import { resolveMarketProfile } from "@/lib/market-profile";
 
@@ -23,12 +23,17 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
   if (!CANDLE_INTERVALS.includes(interval)) {
     return NextResponse.json({ error: `The interval must be one of ${CANDLE_INTERVALS.join(", ")}.` }, { status: 400 });
   }
-  const seconds = TODAY_SECONDS;
+  /*
+   * A minute for bars inside the session, five for the rest; an hour for a
+   * long history, which is asked for by a backtest and moves by one bar a day.
+   */
+  const long = new URL(request.url).searchParams.get("span") === "max" && !isIntraday(interval);
+  const seconds = isIntraday(interval) ? 60 : long ? 3600 : TODAY_SECONDS;
   try {
     const { body, hit } = await cachedJson(
-      `candles:v6:${symbol}:${interval}`,
+      `candles:v6:${symbol}:${interval}${long ? ":max" : ""}`,
       seconds,
-      async () => ({ ...(await fetchCandles(symbol, interval)), ticker: company?.ticker ?? requested }),
+      async () => ({ ...(await fetchCandles(symbol, interval, long)), ticker: company?.ticker ?? requested }),
       (answer) => (answer.t.length ? "full" : "empty"),
     );
     return new Response(body, {

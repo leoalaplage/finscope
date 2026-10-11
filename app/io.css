@@ -2099,3 +2099,20 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-pane .pane-guide { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
 .candle-pane .pane-zone { fill: var(--shade); }
 @media (max-width: 720px) { .candle-pane { grid-template-columns: minmax(0, 1fr) 52px; height: 76px; } }
+
+/* Ichimoku, VWAP, compared symbols, the volume profile and candle patterns. */
+.study-cloud-fill { fill-opacity: .08; stroke: none; }
+.study-cloud-edge { fill: none; stroke-width: 1; stroke-opacity: .7; }
+.study-vwap { stroke-dasharray: 5 3; }
+.study-compare { stroke-width: 1.6; }
+.study-profile rect { fill: var(--ink-3); fill-opacity: .18; }
+.study-profile .study-profile-poc { fill: #e8a33d; fill-opacity: .35; }
+.study-notes .study-pattern {
+  transform: translate(-50%, -100%); padding: 0 2px; font-size: 9px; font-weight: 600; line-height: 1.1;
+  color: var(--ink-2); background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+.study-notes .study-pattern-below { transform: translate(-50%, 0); }
+.study-notes .study-pattern[data-tone="good"] { color: var(--gain); }
+.study-notes .study-pattern[data-tone="bad"] { color: var(--loss); }
+.candle-plot[data-zoomable] { cursor: grab; touch-action: pan-y; }
+.candle-plot[data-zoomable]:active { cursor: grabbing; }

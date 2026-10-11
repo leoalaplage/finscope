@@ -33,7 +33,7 @@ import type { CandleInterval } from "../adapters/candles";
 export interface Series { t: number[]; o: number[]; h: number[]; l: number[]; c: number[] }
 export interface Point { index: number; price: number }
 
-export const PIVOT_SPAN: Record<CandleInterval, number> = { "1d": 5, "1wk": 3, "1mo": 3 };
+export const PIVOT_SPAN: Record<CandleInterval, number> = { "5m": 5, "15m": 5, "1h": 5, "1d": 5, "1wk": 3, "1mo": 3 };
 
 export interface Pivot extends Point { kind: "high" | "low" }
 
@@ -390,8 +390,9 @@ export function marketStructure(series: Series, span: number, limit = 6, blocksP
 /* ---- What the reader switches on and off ----------------------------------- */
 
 export const STUDIES = [
-  "ema", "sma", "bollinger", "fibRetracement", "fibExtension", "fvg", "trendLines", "levels", "structure", "orderBlocks",
-  "volume", "rsi", "macd",
+  "ema", "sma", "bollinger", "ichimoku", "vwap", "vprofile",
+  "fibRetracement", "fibExtension", "fvg", "trendLines", "levels", "structure", "orderBlocks", "patterns",
+  "volume", "rsi", "macd", "stoch", "atr",
 ] as const;
 export type Study = (typeof STUDIES)[number];
 
@@ -399,6 +400,12 @@ export const STUDY_NAMES: Record<Study, string> = {
   ema: "EMA 20 · 50 · 200",
   sma: "SMA 50 · 200",
   bollinger: "Bollinger 20 · 2",
+  ichimoku: "Ichimoku 9 · 26 · 52",
+  vwap: "VWAP (anchored on D/W/M)",
+  vprofile: "Volume profile",
+  patterns: "Candle patterns",
+  stoch: "Stochastic 14 · 3 · 3",
+  atr: "ATR 14",
   volume: "Volume",
   rsi: "RSI 14",
   macd: "MACD 12 · 26 · 9",
@@ -417,9 +424,9 @@ export const STUDY_NAMES: Record<Study, string> = {
  * own underneath.
  */
 export const STUDY_GROUPS: { name: string; studies: Study[] }[] = [
-  { name: "Overlays", studies: ["ema", "sma", "bollinger"] },
-  { name: "Auto analysis", studies: ["fibRetracement", "fibExtension", "trendLines", "levels", "fvg", "structure", "orderBlocks"] },
-  { name: "Lower panes", studies: ["volume", "rsi", "macd"] },
+  { name: "Overlays", studies: ["ema", "sma", "bollinger", "ichimoku", "vwap", "vprofile"] },
+  { name: "Auto analysis", studies: ["patterns", "fibRetracement", "fibExtension", "trendLines", "levels", "fvg", "structure", "orderBlocks"] },
+  { name: "Lower panes", studies: ["volume", "rsi", "macd", "stoch", "atr"] },
 ];
 
 export const DEFAULT_STUDIES: ReadonlySet<Study> = new Set<Study>(["ema", "fibRetracement", "trendLines"]);

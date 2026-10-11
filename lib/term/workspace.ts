@@ -13,7 +13,17 @@ import { DEFAULT_STUDIES, STUDIES, type Study } from "@/lib/io/technicals";
 export const LAYOUTS = [1, 2, 4] as const;
 export type Layout = (typeof LAYOUTS)[number];
 
-export interface ChartCell { symbol: string; interval: CandleInterval; studies: Study[] }
+export interface ChartCell {
+  symbol: string;
+  interval: CandleInterval;
+  studies: Study[];
+  /** Prices on a logarithmic axis. */
+  log: boolean;
+  /** Other symbols drawn over this one, rebased to it; three at most. */
+  compare: string[];
+}
+
+export const COMPARE_LIMIT = 3;
 export interface Workspace { layout: Layout; cells: ChartCell[]; active: number }
 export interface SavedLayout { name: string; workspace: Workspace }
 export interface WorkspaceStore { current: Workspace; saved: SavedLayout[] }
@@ -26,7 +36,7 @@ export const SAVED_LIMIT = 20;
 const DEFAULT_SYMBOLS = ["AAPL", "NVDA", "MSFT", "^GSPC"];
 
 export function defaultCell(symbol: string): ChartCell {
-  return { symbol, interval: "1d", studies: [...DEFAULT_STUDIES, "volume"] };
+  return { symbol, interval: "1d", studies: [...DEFAULT_STUDIES, "volume"], log: false, compare: [] };
 }
 
 export function defaultWorkspace(first?: string | null): Workspace {
@@ -40,7 +50,12 @@ function cleanCell(value: unknown, fallback: ChartCell): ChartCell {
   const symbol = typeof cell.symbol === "string" && SYMBOL.test(cell.symbol.toUpperCase()) ? cell.symbol.toUpperCase() : fallback.symbol;
   const interval = CANDLE_INTERVALS.includes(cell.interval as CandleInterval) ? cell.interval as CandleInterval : fallback.interval;
   const studies = Array.isArray(cell.studies) ? STUDIES.filter((study) => (cell.studies as unknown[]).includes(study)) : fallback.studies;
-  return { symbol, interval, studies };
+  const log = cell.log === true;
+  const compare = Array.isArray(cell.compare)
+    ? [...new Set(cell.compare.filter((item): item is string => typeof item === "string").map((item) => item.toUpperCase()))]
+      .filter((item) => SYMBOL.test(item) && item !== symbol).slice(0, COMPARE_LIMIT)
+    : [];
+  return { symbol, interval, studies, log, compare };
 }
 
 export function cleanWorkspace(value: unknown): Workspace {

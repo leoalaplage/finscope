@@ -12,8 +12,15 @@ import { z } from "zod";
  * five field names eleven thousand times.
  */
 
-export const CANDLE_INTERVALS = ["1d", "1wk", "1mo"] as const;
+export const CANDLE_INTERVALS = ["5m", "15m", "1h", "1d", "1wk", "1mo"] as const;
 export type CandleInterval = (typeof CANDLE_INTERVALS)[number];
+
+/** Bars inside one session: their time is the bar's own minute, not a date. */
+export const INTRADAY: ReadonlySet<CandleInterval> = new Set(["5m", "15m", "1h"]);
+export const isIntraday = (interval: CandleInterval) => INTRADAY.has(interval);
+
+/** Yahoo's name for each interval; it calls an hour sixty minutes. */
+const YAHOO_INTERVAL: Record<CandleInterval, string> = { "5m": "5m", "15m": "15m", "1h": "60m", "1d": "1d", "1wk": "1wk", "1mo": "1mo" };
 
 /**
  * How much history each interval is asked for, in days.
@@ -24,6 +31,11 @@ export type CandleInterval = (typeof CANDLE_INTERVALS)[number];
  * quietly answers with quarterly bars whatever interval was requested.
  */
 const LOOKBACK_DAYS: Record<CandleInterval, number | null> = {
+  // Inside what Yahoo serves at each: sixty days of five- and fifteen-minute
+  // bars, two years of hourly ones.
+  "5m": 30,
+  "15m": 59,
+  "1h": 365,
   "1d": 3 * 366,
   "1wk": 10 * 366,
   "1mo": null,
@@ -91,8 +103,13 @@ const DAY = 86_400;
 /** Four places: Yahoo's floats carry noise in the tenth, which is a third of the payload. */
 const round = (value: number) => Math.round(value * 1e4) / 1e4;
 
-/** Midnight UTC of the session date, moved back to the Monday or the first of the month for weeks and months. */
+/**
+ * Midnight UTC of the session date, moved back to the Monday or the first of
+ * the month for weeks and months; for a bar inside the session, its own
+ * minute, on the same exchange-clock-as-UTC convention.
+ */
 export function periodStart(localSeconds: number, interval: CandleInterval): number {
+  if (isIntraday(interval)) return localSeconds - (((localSeconds % 60) + 60) % 60);
   const day = localSeconds - (((localSeconds % DAY) + DAY) % DAY);
   if (interval === "1d") return day;
   const date = new Date(day * 1000);
@@ -150,11 +167,14 @@ export function candlesFromChart(payload: unknown, interval: CandleInterval): Ca
 
 const BASE_URLS = () => [process.env.YAHOO_FINANCE_BASE_URL || "https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"];
 
-export async function fetchCandles(symbol: string, interval: CandleInterval): Promise<Candles> {
+/** How far back a long history goes, for a backtest: twenty-five years of days or weeks. */
+const LONG_DAYS = 25 * 366;
+
+export async function fetchCandles(symbol: string, interval: CandleInterval, long = false): Promise<Candles> {
   const now = Math.floor(Date.now() / 1000);
-  const days = LOOKBACK_DAYS[interval];
+  const days = long && !isIntraday(interval) ? LONG_DAYS : LOOKBACK_DAYS[interval];
   const start = days == null ? 0 : now - days * DAY;
-  const path = `/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${start}&period2=${now}&interval=${interval}&includePrePost=false`;
+  const path = `/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${start}&period2=${now}&interval=${YAHOO_INTERVAL[interval]}&includePrePost=false`;
   let lastStatus = 0;
   for (const base of BASE_URLS()) {
     const response = await fetch(`${base}${path}`, { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 FinScope/1.0" } });
