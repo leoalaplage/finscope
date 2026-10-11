@@ -117,7 +117,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
       </header>
 
       <div className="t-grid t-company">
-        <Panel code="GP" area="gp">
+        <Panel code="GP" area="gp" className="t-fill t-gp">
           <PriceSection
             ticker={company.ticker}
             currency={quote?.currency ?? company.currency}
@@ -137,8 +137,13 @@ export function TermCompany({ ticker }: { ticker: string }) {
           />
         </Panel>
 
-        {/* One column, so the grade sits under the statistics however tall the graph is. */}
-        <div className="t-col" style={{ gridArea: "side" }}>
+        {/*
+          * One column beside the graph, and the two always the same height: the
+          * column's last panel takes what the graph leaves, and the graph grows
+          * when the column is the taller — which it is while an answer of the
+          * line at a glance is open, right under that line.
+          */}
+        <div className="t-col t-mcol" style={{ gridArea: "side" }}>
           <Panel code="DES" title="Key statistics" className="t-side"
             actions={view.current ? <span>{view.current.label}</span> : null}
           >
@@ -155,47 +160,60 @@ export function TermCompany({ ticker }: { ticker: string }) {
               onToggle={(key) => setDetail({ ticker, key: openDetail === key ? null : key })}
             />
           </Panel>
-        </div>
 
-        <Panel code="EE" title="Earnings release" area="ee">
-          <PendingEarnings
-            view={view}
-            empty={
-              <p className="t-panel-pad t-dim">
-                No release newer than the filed figures.
-                {lastFiled ? <> Last filed: <span className="t-amber">{lastFiled.label}</span> on {shortDate(lastFiled.filingDate)}.</> : null}
-              </p>
-            }
-          />
-        </Panel>
+          {openDetail ? (
+            <Panel code={DETAIL_CODES[openDetail]} className="t-side-detail">
+              {lenderDetail(openDetail) ? <LenderReading view={view} quote={valuationQuote} which={openDetail} /> : null}
+              {openDetail === "quality" && !lenderDetail(openDetail) ? <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} /> : null}
+              {openDetail === "health" && !lenderDetail(openDetail) ? <Health view={view} /> : null}
+              {openDetail === "valuation" && !lenderDetail(openDetail) ? <GrowthYield view={view} quote={valuationQuote} /> : null}
+              {openDetail === "growth" && !lenderDetail(openDetail) ? <FcfShareGrowth view={view} /> : null}
+            </Panel>
+          ) : null}
+
+          <Panel code="EE" title="Earnings release">
+            <PendingEarnings
+              view={view}
+              empty={
+                <p className="t-panel-pad t-dim">
+                  No release newer than the filed figures.
+                  {lastFiled ? <> Last filed: <span className="t-amber">{lastFiled.label}</span> on {shortDate(lastFiled.filingDate)}.</> : null}
+                </p>
+              }
+            />
+          </Panel>
+
+          {/* Last, and scrolling inside whatever height the graph leaves. */}
+          <Panel code="CN" className="t-side-news">
+            <CompanyNews key={company.ticker} ticker={company.ticker} />
+          </Panel>
+        </div>
 
         <Panel code="GF" title="Fundamental charts" area="gf">
           <FundamentalCharts key={`gf-${company.ticker}`} view={view} />
         </Panel>
 
-        <Panel code="ERX" title="Earnings reaction · last 12 releases" area="erx">
-          <EarningsReaction key={`erx-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
-        </Panel>
-        <Panel code="SEAS" title="Seasonality · monthly returns" area="seas">
-          <Seasonality key={`seas-${company.ticker}`} symbol={company.ticker} />
-        </Panel>
-
-        {openDetail ? (
-          <Panel code={DETAIL_CODES[openDetail]} area="dt">
-            {lenderDetail(openDetail) ? <LenderReading view={view} quote={valuationQuote} which={openDetail} /> : null}
-            {openDetail === "quality" && !lenderDetail(openDetail) ? <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} /> : null}
-            {openDetail === "health" && !lenderDetail(openDetail) ? <Health view={view} /> : null}
-            {openDetail === "valuation" && !lenderDetail(openDetail) ? <GrowthYield view={view} quote={valuationQuote} /> : null}
-            {openDetail === "growth" && !lenderDetail(openDetail) ? <FcfShareGrowth view={view} /> : null}
+        {/*
+          * Two stacks rather than two rows: a short panel beside a tall one left
+          * a hole under it in each row. Stacked, the heights even out and the
+          * last panel of each stack takes the difference.
+          */}
+        <div className="t-mcol" style={{ gridArea: "left" }}>
+          <Panel code="ERX" title="Earnings reaction · last 12 releases">
+            <EarningsReaction key={`erx-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
           </Panel>
-        ) : null}
-
-        <Panel code="FA" area="fa">
-          <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range="MAX" frequency="ttm" />
-        </Panel>
-        <Panel code="GR" area="gr">
-          <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
-        </Panel>
+          <Panel code="FA">
+            <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range="MAX" frequency="ttm" />
+          </Panel>
+        </div>
+        <div className="t-mcol" style={{ gridArea: "right" }}>
+          <Panel code="SEAS" title="Seasonality · monthly returns">
+            <Seasonality key={`seas-${company.ticker}`} symbol={company.ticker} />
+          </Panel>
+          <Panel code="GR">
+            <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
+          </Panel>
+        </div>
         <Panel code="FS" area="st">
           <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
         </Panel>
@@ -207,9 +225,6 @@ export function TermCompany({ ticker }: { ticker: string }) {
         </Panel>
         <Panel code="HDS" area="hds">
           <Holders key={`holders-${company.ticker}`} ticker={company.ticker} view={view} />
-        </Panel>
-        <Panel code="CN" area="cn">
-          <CompanyNews key={company.ticker} ticker={company.ticker} />
         </Panel>
 
         <div className="t-panel t-src" style={{ gridArea: "src" }}>

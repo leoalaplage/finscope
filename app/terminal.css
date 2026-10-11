@@ -267,19 +267,60 @@ body:has(.io.term) { background: #050608; }
 .t-head-move[data-dir="up"]::before { content: "▲ "; font-size: 9px; vertical-align: 1px; }
 .t-head-move[data-dir="down"]::before { content: "▼ "; font-size: 9px; vertical-align: 1px; }
 
-.t-company { grid-template-areas:
+.t-company { align-items: stretch; grid-template-areas:
   "gp gp gp gp gp gp gp gp side side side side"
-  "ee ee ee ee ee ee ee ee ee ee ee ee"
   "gf gf gf gf gf gf gf gf gf gf gf gf"
-  "erx erx erx erx erx erx seas seas seas seas seas seas"
-  "dt dt dt dt dt dt dt dt dt dt dt dt"
-  "fa fa fa fa fa fa gr gr gr gr gr gr"
+  "left left left left left left right right right right right right"
   "st st st st st st st st st st st st"
   "val val val val val val val val val val val val"
   "ins ins ins ins ins ins hds hds hds hds hds hds"
-  "cn cn cn cn cn cn cn cn cn cn cn cn"
   "src src src src src src src src src src src src";
 }
+
+/*
+ * The graph takes the height of its band. Its own height is the floor; when
+ * the column beside it is taller, the plot grows to meet it.
+ */
+.t-gp > .t-panel-body > div, .t-gp .section { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+.t-gp .price-frame { flex: 1 1 auto; display: flex; flex-direction: column; }
+.t-gp .price-frame .price-chart { flex: 1 1 auto; height: auto; min-height: clamp(200px, 30vw, 300px); }
+.t-gp .candle-chart { flex: 1 1 auto; display: flex; flex-direction: column; }
+.t-gp .candle-body { flex: 1 1 auto; height: auto; min-height: clamp(340px, 58vh, 620px); }
+/* A panel the column stretches keeps its content at the top. */
+.t-mcol > .t-panel:last-child { display: flex; flex-direction: column; }
+/*
+ * The news at the foot of the column asks for no height of its own beyond a
+ * floor, so the graph sets the band, and it scrolls inside what is left.
+ */
+.t-side-news { flex: 1 1 0 !important; min-height: 180px; overflow: hidden; display: flex; flex-direction: column; }
+.t-side-news > .t-panel-body { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+/* Stacked, nothing sets the band: the news takes its own height, up to a limit, and the graph its usual one. */
+@media (max-width: 1100px) {
+  .t-side-news { flex: none !important; max-height: 420px; }
+  .t-side-news > .t-panel-body { flex: 0 1 auto; }
+  .t-gp .candle-body { min-height: clamp(300px, 52vh, 460px); }
+}
+.term .t-side-news .news-list { columns: 1; }
+.term .t-side-news .section { padding-top: 0; }
+/* No news for this company: the panel before it takes the height instead. */
+.t-mcol > .t-panel:has(+ .t-side-news > .t-panel-body:empty) { flex: 1 1 auto; display: flex; flex-direction: column; }
+/* One of the pair with nothing to show: the other takes the row. */
+.t-company:has(> #hds > .t-panel-body:empty) > #ins, .t-company:has(> #ins > .t-panel-body:empty) > #hds { grid-column: 1 / -1 !important; }
+
+/*
+ * The reading behind an answer at a glance, opened under the line in the side
+ * column: the same sections as the full-width ones, set small and narrow.
+ */
+.term .t-side-detail { font-size: var(--fs-sm); }
+.term .t-side-detail .section { padding: 4px 6px 6px; }
+.term .t-side-detail .section-head { flex-wrap: wrap; gap: 2px 8px; }
+.term .t-side-detail .stat-value { font-size: var(--fs-md); }
+.term .t-side-detail .stat-note, .term .t-side-detail p { font-size: var(--fs-micro); line-height: 1.35; }
+.term .t-side-detail :is(.grid-ruled, .stats, .health-grid, .score-grid, .verdict-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+.term .t-side-detail .health-headline { grid-column: 1 / -1; }
+.term .t-side-detail .sheet { overflow-x: auto; }
+.term .t-side-detail table { font-size: var(--fs-micro); }
+.term .t-side-detail .plot, .term .t-side-detail .price-chart { height: 120px; }
 
 .t-col { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
@@ -566,18 +607,13 @@ body:has(.io.term) { background: #050608; }
   .t-company { grid-template-areas:
     "gp gp gp gp gp gp gp gp gp gp gp gp"
     "side side side side side side side side side side side side"
-    "ee ee ee ee ee ee ee ee ee ee ee ee"
     "gf gf gf gf gf gf gf gf gf gf gf gf"
-    "erx erx erx erx erx erx erx erx erx erx erx erx"
-    "seas seas seas seas seas seas seas seas seas seas seas seas"
-    "dt dt dt dt dt dt dt dt dt dt dt dt"
-    "fa fa fa fa fa fa fa fa fa fa fa fa"
-    "gr gr gr gr gr gr gr gr gr gr gr gr"
+    "left left left left left left left left left left left left"
+    "right right right right right right right right right right right right"
     "st st st st st st st st st st st st"
     "val val val val val val val val val val val val"
     "ins ins ins ins ins ins ins ins ins ins ins ins"
     "hds hds hds hds hds hds hds hds hds hds hds hds"
-    "cn cn cn cn cn cn cn cn cn cn cn cn"
     "src src src src src src src src src src src src";
   }
   .t-launch { grid-template-areas:
