@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { secFetch } from "./sec-fetch";
 
 const SEC_AGENT = () => process.env.SEC_USER_AGENT || "FinScope research application contact@example.com";
 
@@ -218,7 +219,7 @@ export function parsePreliminaryEarnings(html: string, sourceUrl: string): Preli
 }
 
 async function fetchPreliminaryEarnings(filing: EarningsReleaseFiling): Promise<PreliminaryEarnings | null> {
-  const indexResponse = await fetch(`${filing.sourceUrl}index.json`, {
+  const indexResponse = await secFetch(`${filing.sourceUrl}index.json`, {
     headers: { "User-Agent": SEC_AGENT(), Accept: "application/json" },
   });
   if (!indexResponse.ok) return null;
@@ -229,7 +230,7 @@ async function fetchPreliminaryEarnings(filing: EarningsReleaseFiling): Promise<
   const exhibit = candidates[0];
   if (!exhibit) return null;
   const sourceUrl = `${filing.sourceUrl}${exhibit.name}`;
-  const response = await fetch(sourceUrl, {
+  const response = await secFetch(sourceUrl, {
     headers: { "User-Agent": SEC_AGENT(), Accept: "text/html" },
   });
   if (!response.ok) return null;
@@ -239,7 +240,7 @@ async function fetchPreliminaryEarnings(filing: EarningsReleaseFiling): Promise<
 /** Read the filing index, not the Company Facts feed that trails the release. */
 export async function fetchLatestEarningsRelease(cik: string): Promise<EarningsReleaseFiling | null> {
   const padded = cik.padStart(10, "0");
-  const response = await fetch(`https://data.sec.gov/submissions/CIK${padded}.json`, {
+  const response = await secFetch(`https://data.sec.gov/submissions/CIK${padded}.json`, {
     headers: { "User-Agent": SEC_AGENT(), Accept: "application/json" },
   });
   if (!response.ok) throw new Error(`SEC returned ${response.status}.`);
@@ -289,7 +290,7 @@ export function expectedNextRelease(dates: string[]): ExpectedRelease | null {
 /** The filing dates of a filer's earnings releases, from its SEC submissions index. */
 export async function fetchEarningsDates(cik: string): Promise<string[]> {
   const padded = cik.padStart(10, "0");
-  const response = await fetch(`https://data.sec.gov/submissions/CIK${padded}.json`, {
+  const response = await secFetch(`https://data.sec.gov/submissions/CIK${padded}.json`, {
     headers: { "User-Agent": SEC_AGENT(), Accept: "application/json" },
   });
   if (!response.ok) throw new Error(`SEC returned ${response.status}.`);

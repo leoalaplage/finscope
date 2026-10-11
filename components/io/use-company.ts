@@ -28,7 +28,12 @@ import { priceForStatements, type IoQuote } from "./quote";
  */
 
 const POLL_MS = 2_000;
-const POLL_LIMIT = 30;
+/*
+ * Three minutes. A company nobody has opened can take a minute and a half to
+ * normalize from raw XBRL, and at sixty seconds the page used to give up and
+ * tell the reader to come back while the build was still on its way.
+ */
+const POLL_LIMIT = 90;
 
 /**
  * Every state names the company it is about.

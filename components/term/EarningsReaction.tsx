@@ -39,6 +39,8 @@ export function EarningsReaction({ ticker, cik }: { ticker: string; cik: string 
   const summary = summarise(rows);
 
   if (!current) return <p className="t-empty">Reading the releases…</p>;
+  // A refused request is not a company without releases, and says so.
+  if (!current.dates || !current.candles) return <p className="t-empty">The SEC index or the prices could not be read just now. Try again in a minute.</p>;
   if (!rows.length) return <p className="t-empty">No earnings 8-K in the filer&apos;s recent index to measure.</p>;
   return (
     <div className="t-erx">

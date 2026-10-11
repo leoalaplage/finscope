@@ -1,3 +1,5 @@
+import { secFetch } from "./sec-fetch";
+
 /**
  * What the people who run a company did with their own shares.
  *
@@ -219,7 +221,7 @@ export async function fetchInsiderTransactions(
   limit = INSIDER_FILING_LIMIT,
 ): Promise<InsiderRecord> {
   const padded = cik.padStart(10, "0");
-  const response = await fetch(`https://data.sec.gov/submissions/CIK${padded}.json`, {
+  const response = await secFetch(`https://data.sec.gov/submissions/CIK${padded}.json`, {
     headers: { "User-Agent": SEC_AGENT(), Accept: "application/json" },
   });
   if (!response.ok) throw new Error(`EDGAR returned ${response.status} for the filing index of ${ticker}.`);
@@ -240,7 +242,7 @@ export async function fetchInsiderTransactions(
     const batch = await Promise.all(wanted.slice(start, start + 5).map(async ({ accession, filedAt, document }) => {
       try {
         const url = form4Url(padded, accession, document);
-        const response = await fetch(url, { headers: { "User-Agent": SEC_AGENT() } });
+        const response = await secFetch(url, { headers: { "User-Agent": SEC_AGENT() } });
         if (!response.ok) return [];
         return parseForm4(await response.text(), accession, filedAt, url);
       } catch {
