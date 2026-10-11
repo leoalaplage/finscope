@@ -5,7 +5,7 @@ import { validateCompanyDataset } from "../data-quality";
 import { businessTypeFromSic, cashFlowIsTheBalanceSheet, classifyBusiness, isFinancialBusiness, verifiedBusinessType } from "../business-type";
 import { companySector } from "../sector";
 import type { BusinessType, CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "../types";
-import { KNOWN_SUCCESSORS } from "../universe";
+import { KNOWN_SUCCESSORS, universeMember } from "../universe";
 import { companyCapexLine, filingIsAhead, instanceDocument, investingLines, mergeFactTrees, parseXbrlInstance, type FactTree, type FilingFact } from "./xbrl-instance";
 
 type FilingFactLike = FilingFact;
@@ -1980,7 +1980,23 @@ async function resolveSecBusinessMetadata(cik: string) {
 export const sameListing = (left: string, right: string) => left.toUpperCase().replace(/-/g, ".") === right.toUpperCase().replace(/-/g, ".");
 
 async function resolveSecCompany(ticker: string) {
-  const results = await searchSecCompanies(ticker); const found = results.find((entry) => sameListing(entry.ticker, ticker));
+  const results = await searchSecCompanies(ticker);
+  /*
+   * The index's own CIK where the SEC's ticker file does not carry the
+   * symbol yet. A company renamed by a merger keeps its CIK and changes its
+   * ticker, and the SEC's file follows days or weeks later: Paramount
+   * Skydance trades as PSKY under CIK 0002041610 while the file still knew
+   * nothing of it, and the company could not be built at all.
+   */
+  const member = universeMember(ticker);
+  const fromIndex = member ? {
+    name: member.name, ticker: member.ticker, cik: member.cik.padStart(10, "0"), regulatoryId: `CIK ${member.cik.padStart(10, "0")}`,
+    exchange: "US listing", currency: "USD", yahooTicker: member.ticker.replace(/\./g, "-"), sector: "Unclassified",
+    description: "Resolved from the S&P 500 membership list by its SEC CIK.", resolutionStatus: "partial" as const,
+    resolutionNote: "The CIK is the one the index membership lists; the SEC's ticker file did not carry this symbol.",
+    businessType: verifiedBusinessType(member.cik.padStart(10, "0")) ?? "operating",
+  } : undefined;
+  const found = results.find((entry) => sameListing(entry.ticker, ticker)) ?? fromIndex;
   // Named as it was asked for, so the page and its cache keep one spelling.
   const exact = found ? { ...found, ticker: ticker.toUpperCase() } : undefined;
   if (!exact) throw new Error("Ticker could not be resolved uniquely in the SEC registry.");
