@@ -1,4 +1,4 @@
-import { cagrForPeriods, derivedValue, reportedDebt, valueOf } from "./finance";
+import { cagrForPeriods, derivedValue, liquidAssets, reportedDebt, valueOf } from "./finance";
 import { shareCount, type SharesBasis } from "./market-basis";
 import { balanceSheetHealth } from "./statement-flows";
 import type { CompanyDataset, FinancialPeriod } from "./types";
@@ -142,7 +142,7 @@ function scoreDebt(dataset: CompanyDataset, current: FinancialPeriod | null): nu
 
 function scoreNetDebt(dataset: CompanyDataset, current: FinancialPeriod | null): number | null {
   const debt = scoreDebt(dataset, current);
-  const cash = current ? valueOf(current, "cashAndEquivalents") : null;
+  const cash = current ? liquidAssets(current) : null;
   return debt == null || cash == null ? null : debt - cash;
 }
 

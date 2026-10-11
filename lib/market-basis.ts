@@ -96,6 +96,9 @@ export function marketBasis(period: FinancialPeriod, point: PricePoint | null | 
   const count = shareCount(period);
   if (!count) return { basis: null, reason: "The filing carries no share count" };
   const debt = netDebt(period);
+  // Minority interest is a claim on the enterprise ahead of the common
+  // shareholder; added where the filer states it.
+  const minority = (valueOf(period, "minorityInterest") ?? 0) + (valueOf(period, "temporaryEquity") ?? 0);
   return {
     reason: undefined,
     basis: {
@@ -103,7 +106,7 @@ export function marketBasis(period: FinancialPeriod, point: PricePoint | null | 
       shares: count.shares, sharesBasis: count.basis, sharesNote: count.note,
       marketCap: price * count.shares,
       netDebt: debt,
-      enterpriseValue: debt == null ? null : price * count.shares + debt,
+      enterpriseValue: debt == null ? null : price * count.shares + debt + (minority != null && minority > 0 ? minority : 0),
       enterpriseValueReason: debt == null
         ? valueOf(period, "totalDebt") == null
           ? "The filing tags no debt concept this adapter reads, and an absent balance is not a zero one"

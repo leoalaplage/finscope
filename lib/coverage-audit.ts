@@ -1,5 +1,6 @@
 import { fetchLatestFiling, type LatestFiling } from "./adapters/sec";
 import { KEY_VERSION } from "./data-version";
+import { runDatasetInvariants } from "./accounting-invariants";
 import { plausibilityFindings, type Finding } from "./io/plausibility";
 import { withheldMeasures, type IoCompanyView, type IoPeriod } from "./io/view";
 import { datasetCache } from "./runtime-env";
@@ -80,6 +81,37 @@ export interface CompanyAudit {
   sourced?: SourcedFigure[];
   /** Figures no business produces, over the last five years (lib/io/plausibility.ts). Absent from checks made before it existed. */
   implausible?: Finding[];
+  /** Accounting identities the filed figures break, over the last five years (lib/accounting-invariants.ts). */
+  identities?: IdentityFailure[];
+}
+
+export interface IdentityFailure { invariant: string; metric: string; period: string; observed: number | null; recalculated: number | null }
+
+/**
+ * The accounting identities a company's own figures break: the balance sheet
+ * that does not balance, a year its quarters do not add up to, a trailing
+ * window that is not its four quarters, earnings per share away from what the
+ * filer reported. Errors only — a gap within rounding or explained by a
+ * classification is a pass — and only the last five years, which are what a
+ * page opens on.
+ */
+export function identityFailures(dataset: CompanyDataset): IdentityFailure[] {
+  const latest = dataset.periods.map((period) => period.periodEnd).sort().at(-1);
+  if (!latest) return [];
+  const since = `${Number(latest.slice(0, 4)) - 5}${latest.slice(4)}`;
+  const labels = new Map(dataset.periods.map((period) => [`${period.periodicity}|${period.periodEnd}`, period.label]));
+  return runDatasetInvariants(dataset)
+    .filter((result) => result.status === "failed" && result.severity === "error" && result.period > since)
+    .map((result) => {
+      // The id is "{ticker}-{periodicity}-{end}-…"; the ticker may itself hold a dash or a dot.
+      const periodicity = result.id.slice(dataset.company.ticker.length + 1).split("-")[0];
+      return {
+        invariant: result.invariant, metric: result.metric,
+        period: labels.get(`${periodicity}|${result.period}`) ?? result.period,
+        observed: result.observed, recalculated: result.recalculated,
+      };
+    })
+    .slice(0, 40);
 }
 
 const mark = (period: IoPeriod | null | undefined): PeriodMark | null =>
@@ -110,7 +142,7 @@ export function sourcedFigures(dataset: CompanyDataset): SourcedFigure[] {
   });
 }
 
-export function auditCompany(view: IoCompanyView, previous: CompanyAudit | null, checkedAt = new Date().toISOString(), sourced?: SourcedFigure[]): CompanyAudit {
+export function auditCompany(view: IoCompanyView, previous: CompanyAudit | null, checkedAt = new Date().toISOString(), sourced?: SourcedFigure[], identities?: IdentityFailure[]): CompanyAudit {
   const withheld = withheldMeasures(view.company.businessType);
   const expected = AUDITED_MEASURES.filter((key) => !withheld.has(key));
   const annual = view.annual.at(-1) ?? null;
@@ -152,6 +184,7 @@ export function auditCompany(view: IoCompanyView, previous: CompanyAudit | null,
     values,
     moved,
     implausible: plausibilityFindings(view),
+    ...(identities ? { identities } : {}),
     ...(sourced ? { sourced } : {}),
   };
 }
@@ -267,6 +300,8 @@ export interface AuditTotals {
   disagree?: number;
   /** Companies carrying a figure no business produces. Absent from reports before it existed. */
   implausible?: number;
+  /** Companies whose figures break an accounting identity. Absent from reports before it existed. */
+  identities?: number;
 }
 
 export interface AuditReport {
@@ -289,6 +324,7 @@ export interface AuditReport {
     moved: MoveEntry[];
     disagreements?: Disagreement[];
     implausible?: Array<Finding & { ticker: string }>;
+    identities?: Array<IdentityFailure & { ticker: string }>;
   };
   history: Array<{ date: string; totals: AuditTotals }>;
 }
@@ -301,7 +337,7 @@ export function summariseAudits(
   now = new Date(),
   checked: { compared: number; disagreements: Disagreement[] } = { compared: 0, disagreements: [] },
 ): AuditReport {
-  const issues: AuditReport["issues"] = { notBuilt: [], missingFcfLatest: [], missingAnnual: [], missingTtm: [], recentTtmGaps: [], stale: [], moved: [], disagreements: checked.disagreements, implausible: [] };
+  const issues: AuditReport["issues"] = { notBuilt: [], missingFcfLatest: [], missingAnnual: [], missingTtm: [], recentTtmGaps: [], stale: [], moved: [], disagreements: checked.disagreements, implausible: [], identities: [] };
   const graceCutoff = new Date(now.getTime() - FILING_GRACE_DAYS * 86_400_000).toISOString().slice(0, 10);
 
   for (const { ticker } of members) {
@@ -330,6 +366,7 @@ export function summariseAudits(
     }
     for (const move of audit.moved) issues.moved.push({ ticker, ...move });
     for (const finding of audit.implausible ?? []) issues.implausible!.push({ ticker, ...finding });
+    for (const failure of audit.identities ?? []) issues.identities!.push({ ticker, ...failure });
   }
 
   const totals: AuditTotals = {
@@ -342,6 +379,7 @@ export function summariseAudits(
     moved: new Set(issues.moved.map((move) => move.ticker)).size,
     disagree: new Set(checked.disagreements.filter((entry) => !entry.scale && !entry.otherFiling).map((entry) => entry.ticker)).size,
     implausible: new Set(issues.implausible!.map((entry) => entry.ticker)).size,
+    identities: new Set(issues.identities!.map((entry) => entry.ticker)).size,
   };
   const date = now.toISOString().slice(0, 10);
   const earlier = (previous?.history ?? []).filter((entry) => entry.date !== date);

@@ -306,6 +306,17 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
   operatingExpenses: { namespace: "us-gaap", tags: ["OperatingExpenses"], unit: "currency" },
   otherIncomeExpense: { namespace: "us-gaap", tags: ["NonoperatingIncomeExpense"], unit: "currency" },
   netInterestIncome: { namespace: "us-gaap", tags: ["InterestIncomeExpenseNet"], unit: "currency" },
+  netIncomeToCommon: { namespace: "us-gaap", tags: ["NetIncomeLossAvailableToCommonStockholdersDiluted", "NetIncomeLossAvailableToCommonStockholdersBasic"], unit: "currency" },
+  // Equity in subsidiaries that belongs to others: a claim on the enterprise
+  // ahead of the common shareholder, and part of its enterprise value.
+  minorityInterest: { namespace: "us-gaap", tags: ["MinorityInterest"], unit: "currency" },
+  // The balance sheet's own total, from which liabilities are struck where the
+  // filer states no liabilities subtotal (McDonald's, Suncor).
+  liabilitiesAndEquity: { namespace: "us-gaap", tags: ["LiabilitiesAndStockholdersEquity"], unit: "currency" },
+  // Equity redeemable for cash — redeemable minority interests, redeemable
+  // preferred — which US GAAP sets between liabilities and equity. S&P Global
+  // carries 3.4 billion of it for CME's stake in its index business.
+  temporaryEquity: { namespace: "us-gaap", tags: ["TemporaryEquityCarryingAmountIncludingPortionAttributableToNoncontrollingInterests", "RedeemableNoncontrollingInterestEquityCarryingAmount", "TemporaryEquityCarryingAmountAttributableToParent"], unit: "currency" },
   noninterestIncome: { namespace: "us-gaap", tags: ["NoninterestIncome"], unit: "currency" },
 };
 
@@ -408,6 +419,9 @@ const IFRS_CONCEPTS: Partial<Record<keyof typeof US_GAAP_CONCEPTS, string[]>> = 
   shortTermBorrowings: ["CurrentBorrowings", "ShorttermBorrowings"],
   longTermDebtNoncurrent: ["NoncurrentPortionOfNoncurrentBorrowings", "NoncurrentBorrowings"],
   totalDebt: ["Borrowings"],
+  netIncomeToCommon: ["ProfitLossAttributableToOrdinaryEquityHoldersOfParentEntity"],
+  minorityInterest: ["NoncontrollingInterests"],
+  liabilitiesAndEquity: ["EquityAndLiabilities"],
 };
 
 /**
@@ -900,6 +914,51 @@ function ambiguousLongTermRole(periods: FinancialPeriod[]): AmbiguousLongTermRol
 }
 
 /**
+ * Total liabilities, where the filer states no liabilities subtotal.
+ *
+ * McDonald's balance sheet lists its liabilities line by line and ends on the
+ * total of liabilities and equity; it never tags a liabilities total, and its
+ * page had none — nor any measure built on one. The total is the balance
+ * sheet's own identity: liabilities and equity, less shareholders' equity,
+ * less minority interest where the filer states one. Where it states none the
+ * subtraction assumes it has none, and the provenance says so: any
+ * temporary (mezzanine) equity a filer carries lands in the result.
+ */
+export function deriveLiabilities(periods: FinancialPeriod[]): FinancialPeriod[] {
+  return periods.map((period) => {
+    if (period.facts.totalLiabilities?.value != null) return period;
+    const total = period.facts.liabilitiesAndEquity;
+    const equity = period.facts.totalEquity;
+    if (total?.value == null || equity?.value == null || total.currency !== equity.currency || total.periodEnd !== equity.periodEnd) return period;
+    const minority = period.facts.minorityInterest;
+    const mezzanine = period.facts.temporaryEquity;
+    const value = total.value - equity.value - (minority?.value != null ? minority.value : 0) - (mezzanine?.value != null ? mezzanine.value : 0);
+    if (!(value > 0)) return period;
+    return {
+      ...period,
+      facts: {
+        ...period.facts,
+        totalLiabilities: {
+          ...total,
+          metric: "totalLiabilities",
+          value,
+          provenance: {
+            ...total.provenance,
+            provider: "Calculated",
+            status: "calculated",
+            concept: [total.provenance.concept, equity.provenance.concept, minority?.provenance.concept].filter(Boolean).join(" − "),
+            formula: `Liabilities and equity − shareholders' equity${minority?.value != null ? " − minority interest" : ""}${mezzanine?.value != null ? " − temporary equity" : ""}`,
+            note: minority?.value != null
+              ? "The filer tags no liabilities total; it is struck from the balance sheet's own totals."
+              : "The filer tags no liabilities total; it is struck from the balance sheet's own totals, and no minority interest is tagged, so none is taken off.",
+          },
+        },
+      },
+    };
+  });
+}
+
+/**
  * A bank's revenue, where it tags no total: net interest income plus
  * noninterest income, which is how every bank states its revenue and how
  * analysts read it.
@@ -910,14 +969,23 @@ function ambiguousLongTermRole(periods: FinancialPeriod[]): AmbiguousLongTermRol
  * struck on it — from then on. Addition of two published facts in one period;
  * never written over a total the bank does tag.
  */
-function deriveBankRevenue(periods: FinancialPeriod[], businessType: BusinessType | undefined): FinancialPeriod[] {
+export function deriveBankRevenue(periods: FinancialPeriod[], businessType: BusinessType | undefined): FinancialPeriod[] {
   if (businessType !== "bank" && businessType !== "financial") return periods;
   return periods.map((period) => {
-    if (period.facts.revenue?.value != null) return period;
     const interest = period.facts.netInterestIncome;
     const other = period.facts.noninterestIncome;
     if (interest?.value == null || other?.value == null) return period;
     if (interest.currency !== other.currency || interest.periodEnd !== other.periodEnd) return period;
+    /*
+     * A bank's contract-revenue line is only its fees within the revenue
+     * standard — Regions tagged 104 million under it for 2021, against 6.4
+     * billion of net interest and noninterest income — so the two lines stand
+     * in for a total that is a contract line or under half their sum. A total
+     * the bank states itself is kept.
+     */
+    const stated = period.facts.revenue;
+    const partial = stated?.value != null && (stated.provenance.concept.includes("ContractWithCustomer") || stated.value < 0.5 * (interest.value + other.value));
+    if (stated?.value != null && !partial) return period;
     return {
       ...period,
       facts: {
@@ -1617,8 +1685,8 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
   // count it produces is on the as-filed basis every other share fact starts
   // from and gets adjusted exactly once.
   const reconciled = reconcileDividendsPerShare(
-    deriveCostOfRevenue(deriveOperatingIncome(deriveBankRevenue(combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.businessType), company.businessType), company.businessType)),
-    deriveCostOfRevenue(deriveOperatingIncome(deriveBankRevenue(combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.businessType), company.businessType), company.businessType)),
+    deriveLiabilities(deriveCostOfRevenue(deriveOperatingIncome(deriveBankRevenue(combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.businessType), company.businessType), company.businessType))),
+    deriveLiabilities(deriveCostOfRevenue(deriveOperatingIncome(deriveBankRevenue(combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.businessType), company.businessType), company.businessType))),
   );
   // The hand-verified splits first; then any the filer declared that still
   // explain a break in what is left, which is what covers a company nobody

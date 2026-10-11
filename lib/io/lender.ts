@@ -166,7 +166,8 @@ export function lenderValuation(view: IoCompanyView, quote: { price: number | nu
   const marketCap = basis && sameCurrency && price != null && Number.isFinite(price) && price > 0 ? price * basis.shares : null;
   const series = [...view.annual, ...view.trailing].sort((left, right) => left.end.localeCompare(right.end));
   const earnings = [...series].reverse().find((period) => value(period, "netIncome") != null) ?? null;
-  const earningsYield = marketCap && earnings ? value(earnings, "netIncome")! / marketCap : null;
+  const earned = earnings ? value(earnings, "netIncomeToCommon") ?? value(earnings, "netIncome") : null;
+  const earningsYield = marketCap && earned != null ? earned / marketCap : null;
   const rate = annualRate(view.annual, "revenuePerShare", GROWTH_YIELD_YEARS);
   const reading = growthYield(earningsYield, rate.value);
   const score = growthYieldScore(reading.value);

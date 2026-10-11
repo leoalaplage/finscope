@@ -30,7 +30,11 @@ import { KEY_VERSION } from "../data-version";
  * file no capital expenditure, said on the figure — and keeps withholding it
  * only for banks and brokers.
  */
-export const VIEW_SHAPE = "iov10";
+/*
+ * iov11: each figure that is not a plain filed fact carries how it was
+ * arrived at (`IoPeriod.basis`), which the statements show on the figure.
+ */
+export const VIEW_SHAPE = "iov11";
 
 /** The token a reader's request carries: the shape, then the figures. */
 export const IO_VIEW = `${VIEW_SHAPE}.${KEY_VERSION}`;

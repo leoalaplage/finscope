@@ -982,7 +982,8 @@ describe("the redesign", () => {
     const qs = readFileSync(new URL("../lib/qs-export.ts", import.meta.url), "utf8");
     // The cash is always this period's; only the borrowings are read back.
     expect(view).toContain("reportedDebt(dataset.periods, period)");
-    expect(view).toContain('const cash = valueOf(period, "cashAndEquivalents");');
+    // Netted as cash and short-term investments, by the one definition in lib/finance.ts.
+    expect(view).toContain("const cash = liquidAssets(period);");
     // And where they came from is on the page, never silently carried.
     expect(stats).toContain("basis?.debtFrom");
     // One definition of the reading: the screener used to hold its own, which

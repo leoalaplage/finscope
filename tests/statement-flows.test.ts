@@ -254,8 +254,9 @@ describe("balance sheet health", () => {
 
   it("reports net cash as a negative leverage reading rather than hiding it", () => {
     const health = balanceSheetHealth(strong);
-    // Debt 400 less cash 300 is 100 of net debt against 400 of EBITDA.
-    expect(health.find((item) => item.key === "netDebtToEbitda")!.value).toBeCloseTo(.25, 6);
+    // Debt 400 less cash 300 and short-term investments 200 is 100 of net cash
+    // against 400 of EBITDA: net debt is struck on both, as everywhere else.
+    expect(health.find((item) => item.key === "netDebtToEbitda")!.value).toBeCloseTo(-.25, 6);
   });
 
   it("states how much of the asset base is the price of past acquisitions", () => {

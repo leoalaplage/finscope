@@ -1,7 +1,7 @@
 import { balanceSheetIsTheBusiness, cashFlowIsTheBalanceSheet } from "../business-type";
 import { validatedDerivedValue } from "../data-quality";
 import { currentDatasetPeriod } from "../current-period";
-import { reportedDebt, valueOf } from "../finance";
+import { liquidAssets, reportedDebt, valueOf } from "../finance";
 import { shareCount } from "../market-basis";
 import { METRICS, type MetricKind } from "../metrics";
 import type { CompanyDataset, FinancialPeriod } from "../types";
@@ -45,6 +45,15 @@ export interface IoPeriod {
   accession: string;
   currency: string;
   values: Record<string, number | null>;
+  /**
+   * How each figure that is not a plain filed fact was arrived at: the
+   * formula for one this application calculated (a fourth quarter from the
+   * year less nine months, a liabilities total from the balance sheet's own
+   * totals), "Restated" for a figure a later filing changed, "Split-adjusted"
+   * for a per-share or share figure moved onto today's basis. A figure absent
+   * here is as filed. The page shows it on the figure.
+   */
+  basis?: Record<string, string>;
   /** The filed basis needed to price this period after it became public. */
   valuationBasis: {
     shares: number;
@@ -82,6 +91,11 @@ export interface IoValuationBasis {
    * zero.
    */
   debtFrom: { label: string; periodEnd: string } | null;
+  /**
+   * Equity in subsidiaries held by others, where filed: a claim ahead of the
+   * common shareholder, added to the enterprise value. Null where not tagged.
+   */
+  minorityInterest?: number | null;
   periodEnd: string;
   periodLabel: string;
 }
@@ -232,8 +246,17 @@ function projectPeriod(dataset: CompanyDataset, period: FinancialPeriod, withhel
   }
   const counted = shareCount(period);
   const borrowed = withheld.has("netDebt") ? null : reportedDebt(dataset.periods, period);
-  const cash = valueOf(period, "cashAndEquivalents");
+  const cash = liquidAssets(period);
   const netDebt = borrowed == null || cash == null ? null : borrowed.value - cash;
+  const basis: Record<string, string> = {};
+  for (const [key, fact] of Object.entries(period.facts)) {
+    if (!fact || values[key] == null) continue;
+    const provenance = fact.provenance;
+    const note = provenance.status === "calculated"
+      ? (provenance.formula ?? "Calculated from filed figures")
+      : provenance.status === "restated" ? "Restated by a later filing" : null;
+    if (note) basis[key] = note.length > 160 ? `${note.slice(0, 157)}…` : note;
+  }
   return {
     label: period.label,
     end: period.periodEnd,
@@ -245,6 +268,7 @@ function projectPeriod(dataset: CompanyDataset, period: FinancialPeriod, withhel
     accession: period.accession,
     currency: period.currency,
     values,
+    ...(Object.keys(basis).length ? { basis } : {}),
     valuationBasis: counted ? {
       shares: counted.shares,
       sharesBasis: counted.basis,
@@ -277,7 +301,7 @@ function valuationBasis(dataset: CompanyDataset, withheld: ReadonlySet<string>):
    * none at all, and the date they came from travels with them.
    */
   const borrowed = withheld.has("netDebt") ? null : reportedDebt(dataset.periods, period);
-  const cash = valueOf(period, "cashAndEquivalents");
+  const cash = liquidAssets(period);
   const netDebt = withheld.has("netDebt") || borrowed == null || cash == null ? null : borrowed.value - cash;
   return {
     reason: null,
@@ -288,6 +312,10 @@ function valuationBasis(dataset: CompanyDataset, withheld: ReadonlySet<string>):
       sharesNote: count.note ?? null,
       netDebt,
       debtFrom: netDebt != null && borrowed?.carried ? { label: borrowed.label, periodEnd: borrowed.periodEnd } : null,
+      // Claims on the enterprise ahead of the common shareholder: minority interest and redeemable (mezzanine) equity.
+      minorityInterest: valueOf(period, "minorityInterest") == null && valueOf(period, "temporaryEquity") == null
+        ? null
+        : Math.max(0, valueOf(period, "minorityInterest") ?? 0) + Math.max(0, valueOf(period, "temporaryEquity") ?? 0),
       periodEnd: period.periodEnd,
       periodLabel: period.label,
     },
