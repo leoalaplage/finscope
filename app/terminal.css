@@ -442,21 +442,34 @@ body:has(.io.term) { background: #050608; }
 
 /* --- Market screen (MKT) ---------------------------------------------- */
 
-.t-market { grid-template-areas:
-  "wei wei wei wei gp gp gp gp gp gp gp gp"
-  "brd brd brd sect sect sect sect sect mov mov mov mov"
-  "fx fx fx fx cmd cmd cmd cmd gc gc gc gc"
-  "perf perf perf perf perf perf perf perf perf perf perf perf"
-  "imap imap imap imap imap imap imap imap imap imap imap imap";
+.t-market {
+  align-items: stretch;
+  grid-template-areas:
+    "c1 c1 c1 c1 gp gp gp gp gp gp gp gp"
+    "c2 c2 c2 c2 sect sect sect sect c3 c3 c3 c3"
+    "perf perf perf perf perf perf perf perf perf perf perf perf"
+    "imap imap imap imap imap imap imap imap imap imap imap imap";
 }
+/* A column of panels with no holes: the last one takes whatever height the band has left. */
+.t-mcol { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.t-mcol > .t-panel:last-child { flex: 1 1 auto; }
+/*
+ * A panel that fills its band: its body grows, and what is inside it — the
+ * chart, the sector table — takes the height instead of setting it.
+ */
+.t-fill { display: flex; flex-direction: column; }
+.t-fill > .t-panel-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .t-wei tr[data-selected] td { background: rgba(255, 160, 40, .1); }
 .t-wei-pick { display: flex; gap: 8px; width: 100%; text-align: left; color: var(--ink); }
 .t-wei-pick:hover { color: var(--amber); }
 .t-wei-region { width: 3ch; color: var(--amber-dim); font-size: var(--fs-micro); }
 .t-spark-cell { width: 68px; padding-block: 0 !important; }
 .t-spark-cell .t-spark { width: 64px; height: 18px; vertical-align: middle; }
-.t-market-chart .candle-body { height: 330px; }
-.t-market-chart .candle-chart { padding: 4px 4px 0; }
+/* The chart's own height is its floor; the band can only add to it. */
+.t-market-chart { flex: 1 1 auto; display: flex; flex-direction: column; }
+.t-market-chart .candle-chart { flex: 1 1 auto; display: flex; flex-direction: column; padding: 4px 4px 0; }
+/* No height of its own beyond the floor: the plot's proportions must not push the band taller. */
+.t-market-chart .candle-body { flex: 1 1 0; height: auto; min-height: 200px; }
 
 .t-breadth { display: flex; flex-direction: column; gap: 6px; }
 .t-ad-bar { display: flex; height: 10px; gap: 1px; background: var(--line); }
@@ -475,8 +488,14 @@ body:has(.io.term) { background: #050608; }
 .t-breadth-crosses a { margin-left: 6px; color: var(--amber); }
 
 .t-sectors td { text-align: right; }
-/* Thirty-odd sectors scroll inside their panel rather than stretching the row. */
-.t-sectors { max-height: 320px; overflow-y: auto; }
+/*
+ * Thirty-odd sectors scroll inside their panel. Beside other columns they take
+ * the height the band has and add none of their own; alone on a narrower
+ * screen they are a fixed window onto the list.
+ */
+.t-fill > .t-panel-body > .t-sectors { flex: 1 1 0; min-height: 160px; overflow-y: auto; border: 0; }
+@media (max-width: 1100px) { .t-fill > .t-panel-body > .t-sectors { flex: 0 0 auto; max-height: 420px; } }
+.t-sectors thead th { position: sticky; top: 0; }
 .t-movers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 4px 8px 8px; }
 .t-movers h3 { margin-bottom: 2px; color: var(--amber-dim); font-size: var(--fs-micro); font-weight: 500; text-transform: uppercase; letter-spacing: var(--track-label); }
 .t-movers table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
@@ -519,14 +538,12 @@ body:has(.io.term) { background: #050608; }
   .t-chart-body { grid-template-columns: minmax(0, 1fr); }
   .t-market { grid-template-areas:
     "gp gp gp gp gp gp gp gp gp gp gp gp"
-    "wei wei wei wei wei wei brd brd brd brd brd brd"
-    "sect sect sect sect sect sect sect sect sect sect sect sect"
-    "mov mov mov mov mov mov mov mov mov mov mov mov"
-    "fx fx fx fx fx fx cmd cmd cmd cmd cmd cmd"
-    "gc gc gc gc gc gc gc gc gc gc gc gc"
+    "c1 c1 c1 c1 c1 c1 sect sect sect sect sect sect"
+    "c2 c2 c2 c2 c2 c2 c3 c3 c3 c3 c3 c3"
     "perf perf perf perf perf perf perf perf perf perf perf perf"
     "imap imap imap imap imap imap imap imap imap imap imap imap";
   }
+  .t-market-chart .candle-body { min-height: 300px; }
   .t-studies { position: static; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .t-studies > header, .t-study-note { grid-column: 1 / -1; }
   .t-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
@@ -576,7 +593,8 @@ body:has(.io.term) { background: #050608; }
   .t-company, .t-launch, .t-market, .t-scan, .t-bt { grid-template-areas: none; }
   .t-market > *, .t-scan > *, .t-bt > * { grid-area: auto !important; }
   .t-movers { grid-template-columns: minmax(0, 1fr); }
-  .t-market-chart .candle-body { height: 260px; }
+  .t-market-chart .candle-body { min-height: 260px; }
+
   .t-company > *, .t-launch > * { grid-area: auto !important; }
   .t-col, .t-pair { grid-template-columns: minmax(0, 1fr); }
   /* A phone has no height to spare for a pinned line: it ends the page instead. */

@@ -221,30 +221,74 @@ export function MarketBoard() {
 
   return (
     <div className="t-grid t-market">
-      <Panel code="WEI" title="World indices" area="wei">
-        <div className="sheet t-wei">
-          <table>
-            <thead><tr><th className="key">Index</th><th>Last</th><th>Chg %</th><th>Session</th></tr></thead>
-            <tbody>
-              {board.map((row) => (
-                <tr key={row.id} data-selected={row.id === chart.id || undefined}>
-                  <td className="key">
-                    <button type="button" className="t-wei-pick" onClick={() => setChart({ ...chart, id: row.id })}>
-                      <span className="t-wei-region">{REGION[row.id] ?? ""}</span>{row.name}
-                    </button>
-                  </td>
-                  <td>{level(row.last)}</td>
-                  <td data-dir={row.id === "VIX" ? tone(row.change == null ? null : -row.change) : tone(row.change)}>{signed(row.change)}</td>
-                  <td className="t-spark-cell"><Spark values={row.spark} baseline={row.baseline} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {!board.length ? <p className="t-empty">Loading…</p> : null}
-      </Panel>
+      {/*
+        * Columns, not rows: a row of panels is as tall as its tallest, and the
+        * short ones left holes under them. Each column stacks its panels with
+        * no gap, its last panel stretches to the bottom of the band, and the
+        * chart and the sector table grow to whatever height the band has.
+        */}
+      <div className="t-mcol" style={{ gridArea: "c1" }}>
+        <Panel code="WEI" title="World indices">
+          <div className="sheet t-wei">
+            <table>
+              <thead><tr><th className="key">Index</th><th>Last</th><th>Chg %</th><th>Session</th></tr></thead>
+              <tbody>
+                {board.map((row) => (
+                  <tr key={row.id} data-selected={row.id === chart.id || undefined}>
+                    <td className="key">
+                      <button type="button" className="t-wei-pick" onClick={() => setChart({ ...chart, id: row.id })}>
+                        <span className="t-wei-region">{REGION[row.id] ?? ""}</span>{row.name}
+                      </button>
+                    </td>
+                    <td>{level(row.last)}</td>
+                    <td data-dir={row.id === "VIX" ? tone(row.change == null ? null : -row.change) : tone(row.change)}>{signed(row.change)}</td>
+                    <td className="t-spark-cell"><Spark values={row.spark} baseline={row.baseline} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {!board.length ? <p className="t-empty">Loading…</p> : null}
+        </Panel>
+        <Panel code="BRDTH" title="S&P 500 breadth" actions={extras?.asOf ? <span>Close {extras.asOf}</span> : null}>
+          <div className="t-panel-pad t-breadth">
+            {breadth ? (
+              <div className="t-ad">
+                <div className="t-ad-bar">
+                  <i data-tone="up" style={{ flex: breadth.up }} />
+                  <i style={{ flex: breadth.flat }} />
+                  <i data-tone="down" style={{ flex: breadth.down }} />
+                </div>
+                <div className="t-ad-legend">
+                  <span className="t-up">{breadth.up} up</span>
+                  <span className="t-dim">median {signed(breadth.median)}</span>
+                  <span className="t-down">{breadth.down} down</span>
+                </div>
+              </div>
+            ) : null}
+            {deep && deep.counted ? (
+              <>
+                <Bar label="Above 50-day" value={deep.aboveSma50} of={deep.counted} tone="up" />
+                <Bar label="Above 200-day" value={deep.aboveSma200} of={deep.counted} tone="up" />
+                <div className="t-breadth-pairs">
+                  <span>52W highs <b className="t-up">{deep.highs52}</b></span>
+                  <span>52W lows <b className="t-down">{deep.lows52}</b></span>
+                  <span>RSI &gt; 70 <b>{deep.overbought}</b></span>
+                  <span>RSI &lt; 30 <b>{deep.oversold}</b></span>
+                </div>
+                {deep.goldenCrosses.length || deep.deathCrosses.length ? (
+                  <p className="t-breadth-crosses">
+                    {deep.goldenCrosses.length ? <span>Golden cross: {deep.goldenCrosses.map((ticker) => <a key={ticker} href={`/t/chart?s=${ticker}`}>{ticker}</a>)}</span> : null}
+                    {deep.deathCrosses.length ? <span>Death cross: {deep.deathCrosses.map((ticker) => <a key={ticker} href={`/t/chart?s=${ticker}`}>{ticker}</a>)}</span> : null}
+                  </p>
+                ) : null}
+              </>
+            ) : <p className="t-dim">Reading the index…</p>}
+          </div>
+        </Panel>
+      </div>
 
-      <Panel code="GP" title={`${chartName} · ${INTERVAL_TITLES[chart.interval]}`} area="gp" actions={
+      <Panel code="GP" title={`${chartName} · ${INTERVAL_TITLES[chart.interval]}`} area="gp" className="t-fill" actions={
         <IntervalPicker interval={chart.interval} onInterval={(interval) => setChart({ ...chart, interval })} />
       }>
         <div className="t-market-chart">
@@ -255,44 +299,15 @@ export function MarketBoard() {
         </div>
       </Panel>
 
-      <Panel code="BRDTH" title="S&P 500 breadth" area="brd" actions={extras?.asOf ? <span>Close {extras.asOf}</span> : null}>
-        <div className="t-panel-pad t-breadth">
-          {breadth ? (
-            <div className="t-ad">
-              <div className="t-ad-bar">
-                <i data-tone="up" style={{ flex: breadth.up }} />
-                <i style={{ flex: breadth.flat }} />
-                <i data-tone="down" style={{ flex: breadth.down }} />
-              </div>
-              <div className="t-ad-legend">
-                <span className="t-up">{breadth.up} up</span>
-                <span className="t-dim">median {signed(breadth.median)}</span>
-                <span className="t-down">{breadth.down} down</span>
-              </div>
-            </div>
-          ) : null}
-          {deep && deep.counted ? (
-            <>
-              <Bar label="Above 50-day" value={deep.aboveSma50} of={deep.counted} tone="up" />
-              <Bar label="Above 200-day" value={deep.aboveSma200} of={deep.counted} tone="up" />
-              <div className="t-breadth-pairs">
-                <span>52W highs <b className="t-up">{deep.highs52}</b></span>
-                <span>52W lows <b className="t-down">{deep.lows52}</b></span>
-                <span>RSI &gt; 70 <b>{deep.overbought}</b></span>
-                <span>RSI &lt; 30 <b>{deep.oversold}</b></span>
-              </div>
-              {deep.goldenCrosses.length || deep.deathCrosses.length ? (
-                <p className="t-breadth-crosses">
-                  {deep.goldenCrosses.length ? <span>Golden cross: {deep.goldenCrosses.map((ticker) => <a key={ticker} href={`/t/chart?s=${ticker}`}>{ticker}</a>)}</span> : null}
-                  {deep.deathCrosses.length ? <span>Death cross: {deep.deathCrosses.map((ticker) => <a key={ticker} href={`/t/chart?s=${ticker}`}>{ticker}</a>)}</span> : null}
-                </p>
-              ) : null}
-            </>
-          ) : <p className="t-dim">Reading the index…</p>}
-        </div>
-      </Panel>
+      <div className="t-mcol" style={{ gridArea: "c2" }}>
+        <Panel code="FX" title="Currencies"><QuoteTable rows={group("currencies")} label="Currencies" /></Panel>
+        <Panel code="CMDTY" title="Commodities"><QuoteTable rows={group("commodities")} label="Commodities" /></Panel>
+        <Panel code="GC" title="US yield curve · today vs yesterday">
+          <YieldCurve rates={group("rates")} />
+        </Panel>
+      </div>
 
-      <Panel code="SECT" title="Sectors · median move" area="sect">
+      <Panel code="SECT" title="Sectors · median move" area="sect" className="t-fill">
         <div className="sheet t-sectors">
           <table>
             <thead><tr><th className="key">Sector</th><th>N</th><th>1D</th><th>5D</th><th>1M</th><th>3M</th><th>A / D</th></tr></thead>
@@ -313,20 +328,18 @@ export function MarketBoard() {
         </div>
       </Panel>
 
-      <Panel code="MOST" title="Movers · S&P 500" area="mov">
-        <div className="t-movers">
-          <MoverList title="Gainers" rows={(internals?.risers ?? []).slice(0, 8).map((row) => ({ ticker: row.ticker, value: signed(row.changePercent), tone: "up" }))} />
-          <MoverList title="Losers" rows={(internals?.fallers ?? []).slice(0, 8).map((row) => ({ ticker: row.ticker, value: signed(row.changePercent), tone: "down" }))} />
-          <MoverList title="Volume vs 20D" rows={(extras?.volume ?? []).slice(0, 8).map((row) => ({ ticker: row.ticker, value: `${row.ratio.toFixed(1)}×`, note: signed(row.change, 1), tone: undefined }))} />
-        </div>
-      </Panel>
-
-      <Panel code="FX" title="Currencies" area="fx"><QuoteTable rows={group("currencies")} label="Currencies" /></Panel>
-      <Panel code="CMDTY" title="Commodities" area="cmd"><QuoteTable rows={group("commodities")} label="Commodities" /></Panel>
-      <Panel code="GC" title="Rates · US curve" area="gc">
-        <YieldCurve rates={group("rates")} />
-        <QuoteTable rows={group("rates")} label="Government yields" />
-      </Panel>
+      <div className="t-mcol" style={{ gridArea: "c3" }}>
+        <Panel code="MOST" title="Movers · S&P 500">
+          <div className="t-movers">
+            <MoverList title="Gainers" rows={(internals?.risers ?? []).slice(0, 8).map((row) => ({ ticker: row.ticker, value: signed(row.changePercent), tone: "up" }))} />
+            <MoverList title="Losers" rows={(internals?.fallers ?? []).slice(0, 8).map((row) => ({ ticker: row.ticker, value: signed(row.changePercent), tone: "down" }))} />
+            <MoverList title="Volume vs 20D" rows={(extras?.volume ?? []).slice(0, 8).map((row) => ({ ticker: row.ticker, value: `${row.ratio.toFixed(1)}×`, note: signed(row.change, 1), tone: undefined }))} />
+          </div>
+        </Panel>
+        <Panel code="YLD" title="Government yields">
+          <QuoteTable rows={group("rates")} label="Government yields" />
+        </Panel>
+      </div>
 
       <Panel code="W" area="perf"><MarketPerformance /></Panel>
       <Panel code="IMAP" title="Today's moves" area="imap"><Heatmap /></Panel>
