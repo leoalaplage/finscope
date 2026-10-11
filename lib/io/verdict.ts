@@ -2,6 +2,7 @@ import { cashFlowIsTheBalanceSheet } from "../business-type";
 import { fcfShareGrowthProfile } from "./fcf-share-growth";
 import { growthYieldOfView } from "./growth-yield";
 import { companyHealth, type HealthPeriod, type HealthState } from "./health";
+import { healthAsLender, lenderHealth, lenderQuality, lenderValuation, readAsLender } from "./lender";
 import type { IoCompanyView } from "./view";
 
 /**
@@ -44,6 +45,7 @@ export function qualityOf(score: ScoreSummary | null, loading = false): Verdict[
 }
 
 export function healthOf(view: IoCompanyView): Verdict["health"] {
+  if (healthAsLender(view)) { const reading = lenderHealth(view); return { state: reading.state, note: reading.note }; }
   const as = (period: IoCompanyView["annual"][number]): HealthPeriod => ({ label: period.label, end: period.end, currency: period.currency, values: period.values });
   const current = view.ttm ?? view.annual.at(-1) ?? null;
   const reading = companyHealth(current ? as(current) : null, view.annual.map(as), view.company.businessType);
@@ -52,7 +54,10 @@ export function healthOf(view: IoCompanyView): Verdict["health"] {
 }
 
 export function valuationOf(view: IoCompanyView, quote: { price: number | null; currency?: string | null } | null): Verdict["valuation"] {
-  if (cashFlowIsTheBalanceSheet(view.company.businessType)) return { score: null, words: null, rate: null, note: "Not computed for a bank or a broker" };
+  if (readAsLender(view)) {
+    const reading = lenderValuation(view, quote);
+    return { score: reading.score, words: reading.verdict, rate: reading.reading.value, note: reading.note };
+  }
   const { reading, score, verdict, marketCap } = growthYieldOfView(view, quote);
   if (score == null) return { score: null, words: null, rate: null, note: marketCap == null ? "No price against the share count" : "Missing free cash flow or growth" };
   return { score, words: verdict, rate: reading.value, note: `Growth yield ${(reading.value! * 100).toFixed(1)}%` };
@@ -73,6 +78,18 @@ export function growthOf(view: IoCompanyView): Verdict["growth"] {
   return { five, ten, steadiness, words, note: five == null ? profile.fiveYearCagr.reason ?? "No five-year history" : `${lender ? "EPS" : "FCF / share"}, 5Y${parts.length ? ` · ${parts.join(" · ")}` : ""}` };
 }
 
+/**
+ * A lender the Quality Score cannot grade — its pillars are struck on free
+ * cash flow and invested capital, which a lender is not given — is read on
+ * five years of return on equity instead (lib/io/lender.ts).
+ */
+export function lenderQualityOf(view: IoCompanyView): Verdict["quality"] {
+  const reading = lenderQuality(view);
+  return { answer: reading.answer, grade: null, pillar: null, note: reading.note };
+}
+
 export function verdictOf(view: IoCompanyView, quote: { price: number | null; currency?: string | null } | null, score: ScoreSummary | null, scoreLoading = false): Verdict {
-  return { quality: qualityOf(score, scoreLoading), health: healthOf(view), valuation: valuationOf(view, quote), growth: growthOf(view) };
+  const graded = score != null && score.grade !== "NR";
+  const quality = readAsLender(view) && !graded && !scoreLoading ? lenderQualityOf(view) : qualityOf(score, scoreLoading);
+  return { quality, health: healthOf(view), valuation: valuationOf(view, quote), growth: growthOf(view) };
 }

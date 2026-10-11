@@ -21,9 +21,9 @@ describe("a company in four answers", () => {
     expect(growthOf(shrinking).words).toBe("Shrinking");
   });
 
-  it("gives a bank no valuation or growth reading, and says why", () => {
+  it("says why a bank with no price or history has no valuation or growth reading", () => {
     const bank = { company: { businessType: "bank" }, annual: [], trailing: [], basis: null } as unknown as IoCompanyView;
-    expect(valuationOf(bank, null).note).toMatch(/bank/);
+    expect(valuationOf(bank, null).note).toMatch(/price/);
     expect(growthOf(bank).five).toBeNull();
   });
 

@@ -19,6 +19,8 @@ import { Insiders, useInsiders } from "@/components/io/Insiders";
 import { Holders } from "@/components/io/Holders";
 import { CompanyNews } from "@/components/io/CompanyNews";
 import { PendingEarnings } from "@/components/io/PendingEarnings";
+import { LenderReading } from "@/components/io/LenderReading";
+import { readsAsLender } from "@/lib/io/lender";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "@/components/io/format";
 import { EarningsReaction } from "./EarningsReaction";
 import { FundamentalCharts } from "./FundamentalCharts";
@@ -83,6 +85,9 @@ export function TermCompany({ ticker }: { ticker: string }) {
 
   const view = state.view;
   const company = view.company;
+  // A lender is read on its own terms (lib/io/lender.ts); the Quality Score keeps the first answer where it grades the company.
+  const graded = scoreState.kind === "ready" && scoreState.score.grade !== "NR";
+  const lenderDetail = (key: VerdictKey) => readsAsLender(view, key, graded);
   const periods = [...view.annual, ...view.quarterly].sort((a, b) => a.filingDate.localeCompare(b.filingDate));
   const lastFiled = periods.at(-1) ?? null;
   const filing = lastFiled ? edgarUrl(company.cik, lastFiled.accession) : null;
@@ -177,10 +182,11 @@ export function TermCompany({ ticker }: { ticker: string }) {
 
         {openDetail ? (
           <Panel code={DETAIL_CODES[openDetail]} area="dt">
-            {openDetail === "quality" ? <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} /> : null}
-            {openDetail === "health" ? <Health view={view} /> : null}
-            {openDetail === "valuation" ? <GrowthYield view={view} quote={valuationQuote} /> : null}
-            {openDetail === "growth" ? <FcfShareGrowth view={view} /> : null}
+            {lenderDetail(openDetail) ? <LenderReading view={view} quote={valuationQuote} which={openDetail} /> : null}
+            {openDetail === "quality" && !lenderDetail(openDetail) ? <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} /> : null}
+            {openDetail === "health" && !lenderDetail(openDetail) ? <Health view={view} /> : null}
+            {openDetail === "valuation" && !lenderDetail(openDetail) ? <GrowthYield view={view} quote={valuationQuote} /> : null}
+            {openDetail === "growth" && !lenderDetail(openDetail) ? <FcfShareGrowth view={view} /> : null}
           </Panel>
         ) : null}
 

@@ -9,6 +9,8 @@ import { Health } from "./Health";
 import { Multiples } from "./Multiples";
 import { Fold } from "./Fold";
 import { GrowthYield } from "./GrowthYield";
+import { LenderReading } from "./LenderReading";
+import { readsAsLender } from "@/lib/io/lender";
 import { Verdict, type VerdictKey } from "./Verdict";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
 import { CompanyNews } from "./CompanyNews";
@@ -199,10 +201,14 @@ export function Company({ ticker }: { ticker: string }) {
         open={openDetail}
         onToggle={(key) => setDetail({ ticker, key: openDetail === key ? null : key })}
       />
-      {openDetail === "quality" ? <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} /> : null}
-      {openDetail === "health" ? <Health view={view} /> : null}
-      {openDetail === "valuation" ? <GrowthYield view={view} quote={valuationQuote} /> : null}
-      {openDetail === "growth" ? <FcfShareGrowth view={view} /> : null}
+      {openDetail && readsAsLender(view, openDetail, scoreState.kind === "ready" && scoreState.score.grade !== "NR")
+        ? <LenderReading view={view} quote={valuationQuote} which={openDetail} />
+        : <>
+          {openDetail === "quality" ? <Score key={`score-${company.ticker}`} ticker={company.ticker} state={scoreState} /> : null}
+          {openDetail === "health" ? <Health view={view} /> : null}
+          {openDetail === "valuation" ? <GrowthYield view={view} quote={valuationQuote} /> : null}
+          {openDetail === "growth" ? <FcfShareGrowth view={view} /> : null}
+        </>}
       {/*
         * Always the whole trailing history, whatever the chart shows.
         *
