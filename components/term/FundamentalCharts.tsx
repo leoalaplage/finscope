@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { useWidth } from "./use-width";
 import type { IoCompanyView } from "@/lib/io/view";
 import { formatUnit, currencySymbol } from "@/components/io/format";
 import {
@@ -121,19 +122,6 @@ function tickText(value: number, unit: AxisUnit, axis: Axis, currency: string): 
       return `${sign}${(size / scale).toFixed(placesFor(step / scale))}${suffix}`;
     }
   }
-}
-
-function useWidth() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const observer = new ResizeObserver(([entry]) => setWidth(Math.floor(entry.contentRect.width)));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  return { ref, width };
 }
 
 function ComboChart({ preset, data, currency, height }: { preset: Preset; data: ChartData; currency: string; height: number }) {

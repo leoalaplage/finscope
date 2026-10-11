@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
 import "@/app/io.css";
 import "@/app/terminal.css";
-import { Portfolio } from "@/components/io/Portfolio";
-import { TermPage } from "@/components/term/TermPage";
+import { TermPortfolio } from "@/components/term/TermPortfolio";
 import { TermShell } from "@/components/term/TermShell";
 
 export const dynamic = "force-static";
 export const metadata: Metadata = { title: "PORT · FinScope Terminal", robots: { index: false, follow: false } };
 
-/** What the reader owns, read through to the businesses, in the terminal's frame. */
+/** The book, as a risk desk reads it (components/term/TermPortfolio.tsx). */
 export default function TerminalPortfolio() {
   return (
-    <TermShell bare>
-      <TermPage code="PORT"><Portfolio /></TermPage>
+    <TermShell>
+      <TermPortfolio />
     </TermShell>
   );
 }

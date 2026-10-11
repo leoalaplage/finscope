@@ -966,3 +966,97 @@ body:has(.io.term) { background: #050608; }
 }
 .term .t-gf-card .t-chip { min-height: 24px; min-width: 24px; padding: 2px 7px; }
 @media (hover: none) { .term .t-gf-card .t-chip { min-height: 28px; min-width: 28px; } }
+
+/* --- Portfolio (PORT) ---------------------------------------------------- */
+
+.t-port { align-items: stretch; grid-template-areas:
+  "perf perf perf perf perf perf perf perf kpi kpi kpi kpi"
+  "hold hold hold hold hold hold hold hold hold hold hold hold"
+  "map map map map map map map map sect sect sect sect"
+  "contrib contrib contrib contrib contrib contrib risk risk risk risk risk risk"
+  "corr corr corr corr corr corr mret mret mret mret mret mret"
+  "inc inc inc inc evts evts evts evts stress stress stress stress"
+  "rbal rbal rbal rbal rbal rbal rbal rbal rbal rbal rbal rbal";
+}
+@media (max-width: 1100px) {
+  .t-port { grid-template-areas:
+    "perf perf perf perf perf perf perf perf perf perf perf perf"
+    "kpi kpi kpi kpi kpi kpi kpi kpi kpi kpi kpi kpi"
+    "hold hold hold hold hold hold hold hold hold hold hold hold"
+    "map map map map map map map map map map map map"
+    "sect sect sect sect sect sect sect sect sect sect sect sect"
+    "contrib contrib contrib contrib contrib contrib contrib contrib contrib contrib contrib contrib"
+    "risk risk risk risk risk risk risk risk risk risk risk risk"
+    "corr corr corr corr corr corr corr corr corr corr corr corr"
+    "mret mret mret mret mret mret mret mret mret mret mret mret"
+    "inc inc inc inc inc inc inc inc inc inc inc inc"
+    "evts evts evts evts evts evts evts evts evts evts evts evts"
+    "stress stress stress stress stress stress stress stress stress stress stress stress"
+    "rbal rbal rbal rbal rbal rbal rbal rbal rbal rbal rbal rbal";
+  }
+}
+@media (max-width: 720px) { .t-port { grid-template-areas: none; } .t-port > * { grid-area: auto !important; } }
+
+.t-pf-perf { padding: 4px 8px 0; }
+.t-pf-readout { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 2px 0 6px; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.t-pf-readout b { font-weight: 600; }
+.t-pf-readout b[data-dir="up"] { color: var(--gain); }
+.t-pf-readout b[data-dir="down"] { color: var(--loss); }
+.t-pf-key { display: inline-block; width: 14px; height: 2px; margin-right: 6px; vertical-align: middle; }
+.t-pf-key-book { background: var(--c1); height: 3px; }
+.t-pf-key-index { background: var(--ink-3); }
+.t-pf-book { fill: none; stroke: var(--c1); stroke-width: 2; stroke-linejoin: round; }
+.t-pf-index { fill: none; stroke: var(--ink-3); stroke-width: 1.4; stroke-dasharray: 4 3; }
+.t-pf-area { fill: rgba(78, 168, 255, .1); }
+.t-pf-under { fill: rgba(255, 81, 73, .28); stroke: var(--loss); stroke-width: 1; }
+.t-pf-cursor { stroke: var(--ink-2); stroke-dasharray: 2 3; }
+
+.t-pf-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); flex: 1 1 auto; }
+.t-pf-kpi { display: flex; flex-direction: column; gap: 1px; padding: 5px 8px; background: var(--bg); min-width: 0; }
+.t-pf-kpi-label { color: var(--ink-3); font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-pf-kpi-value { color: var(--ink); font-size: var(--fs-md); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-pf-kpi-value[data-dir="up"] { color: var(--gain); }
+.t-pf-kpi-value[data-dir="down"] { color: var(--loss); }
+.t-pf-kpi-note { color: var(--ink-3); font-size: var(--fs-micro); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.t-pf-holdings td.key { white-space: nowrap; }
+.t-pf-name { display: inline-block; max-width: 18ch; margin-left: 8px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; color: var(--ink-3); font-size: var(--fs-micro); }
+.t-pf-weight { position: relative; min-width: 90px; }
+.t-pf-weight span { position: absolute; left: 4px; top: 50%; height: 10px; margin-top: -5px; max-width: calc(100% - 8px); background: rgba(78, 168, 255, .35); }
+.t-pf-weight em { position: relative; font-style: normal; }
+.term .t-pf-holdings td[data-dir="up"], .term .t-port td[data-dir="up"] { color: var(--gain); }
+.term .t-pf-holdings td[data-dir="down"], .term .t-port td[data-dir="down"] { color: var(--loss); }
+.t-spark[data-trend="up"] path { stroke: var(--gain); }
+.t-spark[data-trend="down"] path { stroke: var(--loss); }
+
+.t-pf-map { margin: 4px 8px 8px; }
+.t-pf-map-sector { position: absolute; z-index: 1; padding: 0 5px; overflow: hidden; color: var(--ink-2); font-size: 10px; line-height: 16px; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; background: #1c1f26; }
+
+.t-pf-bars { display: grid; gap: 3px; padding: 6px 8px; }
+.t-pf-bar { display: grid; grid-template-columns: minmax(6ch, 16ch) minmax(0, 1fr) 13ch; align-items: center; gap: 8px; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.t-pf-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.t-pf-bar-track { position: relative; height: 12px; background: var(--raise); }
+.t-pf-bars[data-signed] .t-pf-bar-track::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--line-strong); }
+.t-pf-bar-track i { position: absolute; top: 0; bottom: 0; background: var(--c1); }
+.t-pf-bar-track i[data-dir="up"] { background: var(--gain); }
+.t-pf-bar-track i[data-dir="down"] { background: var(--loss); }
+.t-pf-bar-value { text-align: right; color: var(--ink); }
+.t-pf-bar-value[data-dir="up"] { color: var(--gain); }
+.t-pf-bar-value[data-dir="down"] { color: var(--loss); }
+
+.t-pf-corr { overflow-x: auto; padding: 6px 8px; }
+.t-pf-corr table { border-collapse: collapse; font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
+.t-pf-corr th { padding: 2px 4px; color: var(--ink-2); font-weight: 600; white-space: nowrap; }
+.t-pf-corr td { min-width: 36px; padding: 4px; text-align: center; color: var(--ink); border: 1px solid var(--bg); }
+.t-pf-months td { text-align: center; color: #fff; font-size: var(--fs-micro); min-width: 0 !important; }
+.t-pf-months th { min-width: 0 !important; }
+.t-pf-months .t-pf-year { background: var(--raise); font-weight: 600; }
+.t-pf-months .t-pf-year[data-dir="up"] { color: var(--gain); }
+.t-pf-months .t-pf-year[data-dir="down"] { color: var(--loss); }
+.t-pf-target input { width: 7ch; padding: 1px 4px; text-align: right; }
+.t-pf-foot { padding: 6px 2px; }
+/* Key columns keep their content's width here, not the document site's floor. */
+.term .t-port .sheet :is(th, td).key { min-width: 0; }
+/* Window, basis and sort controls wrap under the title on a narrow screen. */
+.t-port .t-panel-head { flex-wrap: wrap; }
+.t-port .t-panel-actions { flex-wrap: wrap; justify-content: flex-end; min-width: 0; }

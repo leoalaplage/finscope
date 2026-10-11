@@ -779,7 +779,7 @@ function Holdings({
   );
 }
 
-function Empty({ onOpen, onExample }: { onOpen: () => void; onExample: () => void }) {
+export function Empty({ onOpen, onExample }: { onOpen: () => void; onExample: () => void }) {
   return (
     <div className="guided-empty portfolio-empty">
       <p className="lead num">See what the portfolio owns underneath the tickers</p>
@@ -799,7 +799,7 @@ function Empty({ onOpen, onExample }: { onOpen: () => void; onExample: () => voi
  * brokerage statement already has and the shape a person types without being
  * taught anything.
  */
-function Editor({
+export function Editor({
   draft, onDraft, onClose, onSave,
 }: {
   draft: string;
