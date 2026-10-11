@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { shortDate } from "@/components/io/format";
+import { EARNINGS_DAY_SHAPE } from "@/lib/adapters/nasdaq-earnings";
 
 /**
  * The reader's list by when each company should next report.
@@ -40,7 +41,7 @@ function useAnnounced() {
   const [announced, setAnnounced] = useState<Map<string, { date: string; time: string }>>(new Map());
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/earnings-days?days=15", { signal: controller.signal })
+    fetch(`/api/earnings-days?days=15&v=${EARNINGS_DAY_SHAPE}`, { signal: controller.signal })
       .then((response) => (response.ok ? response.json() as Promise<{ days?: Array<{ date: string; rows: Array<{ ticker: string; time: string }> }> }> : null))
       .then((body) => {
         const found = new Map<string, { date: string; time: string }>();

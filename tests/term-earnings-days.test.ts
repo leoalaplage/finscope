@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseEarningsDay, weekdaysFrom } from "@/lib/adapters/nasdaq-earnings";
 
 describe("Nasdaq's earnings calendar", () => {
-  it("keeps the date, time, company, value, quarter and last year's figures, and drops the consensus", () => {
+  it("keeps the date, time, company, value, quarter, last year's figures and the consensus", () => {
     const rows = parseEarningsDay({
       data: {
         rows: [
@@ -14,12 +14,19 @@ describe("Nasdaq's earnings calendar", () => {
     });
     expect(rows[0]).toEqual({
       ticker: "JPM", name: "J P Morgan Chase & Co", time: "before", marketCap: 880_976_070_000, quarter: "Sep/2026",
-      lastYearDate: "2025-10-14", lastYearEps: 5.07,
+      lastYearDate: "2025-10-14", lastYearEps: 5.07, consensusEps: 5.94, analysts: 6, reportedEps: null, surprise: null,
     });
     expect(rows[1]).toMatchObject({ ticker: "BRK.B", time: "after", marketCap: null, quarter: null, lastYearDate: null, lastYearEps: -0.12 });
     expect(rows[2].time).toBe("unknown");
-    expect(JSON.stringify(rows)).not.toContain("5.94");
+    expect(rows[1]).toMatchObject({ consensusEps: null, analysts: null });
     expect(parseEarningsDay({ data: { rows: null } })).toEqual([]);
+  });
+
+  it("reads the reported figure and the surprise once the day has passed", () => {
+    const [row] = parseEarningsDay({ data: { rows: [{ eps: "$2.34", surprise: "2.18", time: "time-not-supplied", symbol: "PEP", name: "Pepsico", epsForecast: "$2.29", noOfEsts: "7" }] } });
+    expect(row).toMatchObject({ reportedEps: 2.34, surprise: 2.18, consensusEps: 2.29, analysts: 7 });
+    const [miss] = parseEarningsDay({ data: { rows: [{ eps: "$1.00", surprise: "-4.5", symbol: "X", epsForecast: "$1.05" }] } });
+    expect(miss.surprise).toBe(-4.5);
   });
 
   it("asks only for weekdays", () => {

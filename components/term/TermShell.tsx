@@ -113,7 +113,7 @@ function StatusLine() {
       <span className="t-status-clock">{at ? `${newYorkTime(at).clock} ET` : "--:--:-- ET"}</span>
       <span className="t-status-src">Filings · SEC EDGAR</span>
       <span className="t-status-src">Prices · Yahoo Finance, may be delayed</span>
-      <span className="t-status-legal">Research information only · not investment advice · no analyst estimates</span>
+      <span className="t-status-legal">Research information only · not investment advice · analyst estimates only where labelled</span>
     </footer>
   );
 }

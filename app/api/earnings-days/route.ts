@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchEarningsDay, weekdaysFrom, type EarningsEvent } from "@/lib/adapters/nasdaq-earnings";
+import { EARNINGS_DAY_SHAPE, fetchEarningsDay, weekdaysFrom, type EarningsEvent } from "@/lib/adapters/nasdaq-earnings";
 import { cachedJson } from "@/lib/market-cache";
 import { UNIVERSE } from "@/lib/universe";
 
@@ -27,7 +27,8 @@ export async function GET(request: Request) {
   const answers = await Promise.all(days.map(async (date) => {
     try {
       const { body } = await cachedJson(
-        `earnings-day:v1:${date}`,
+        // v2 carries the consensus, and after the day the reported figure and the surprise.
+        `earnings-day:v${EARNINGS_DAY_SHAPE}:${date}`,
         date < today ? 7 * 86_400 : 6 * 3_600,
         () => fetchEarningsDay(date),
         // An empty day is a real answer on a holiday, but it is also what a

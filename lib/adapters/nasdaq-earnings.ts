@@ -3,13 +3,24 @@
  *
  * The dates a company has announced, and whether it reports before the open
  * or after the close — which nothing filed with the SEC says until the 8-K
- * arrives. Nasdaq's rows also carry an analyst consensus; it is read past and
- * dropped, because this site states filed and calculated figures and no
- * estimates. What is kept: the date and time, the company, its market value,
- * the fiscal quarter, and last year's date and reported earnings per share.
+ * arrives — with its market value, the fiscal quarter, last year's date and
+ * reported earnings per share, and the analysts' consensus forecast for this
+ * quarter with the number of analysts behind it. Once the day has passed,
+ * Nasdaq adds the earnings per share reported and the surprise against the
+ * consensus.
+ *
+ * The consensus is the one figure on this site that is not filed or computed
+ * from filings, so it travels under its own names and the screens that show
+ * it say whose it is.
  */
 
 export type ReportTime = "before" | "after" | "unknown";
+
+/**
+ * The shape of a day's rows, carried in the address the screens ask for, so
+ * an answer cached at the edge in an older shape is never handed to them.
+ */
+export const EARNINGS_DAY_SHAPE = "2";
 
 export interface EarningsEvent {
   ticker: string;
@@ -20,11 +31,17 @@ export interface EarningsEvent {
   quarter: string | null;
   lastYearDate: string | null;
   lastYearEps: number | null;
+  /** Analysts' consensus earnings per share for the quarter, and how many analysts. */
+  consensusEps: number | null;
+  analysts: number | null;
+  /** After the report: earnings per share as reported, and the surprise against the consensus, in per cent. */
+  reportedEps: number | null;
+  surprise: number | null;
 }
 
 interface NasdaqRow {
   time?: string; symbol?: string; name?: string; marketCap?: string; fiscalQuarterEnding?: string;
-  lastYearRptDt?: string; lastYearEPS?: string;
+  lastYearRptDt?: string; lastYearEPS?: string; epsForecast?: string; noOfEsts?: string; eps?: string; surprise?: string;
 }
 
 const money = (text: string | undefined) => {
@@ -54,6 +71,10 @@ export function parseEarningsDay(payload: unknown): EarningsEvent[] {
       quarter: row.fiscalQuarterEnding?.trim() || null,
       lastYearDate: usDate(row.lastYearRptDt),
       lastYearEps: money(row.lastYearEPS),
+      consensusEps: money(row.epsForecast),
+      analysts: row.noOfEsts && /^\d+$/.test(row.noOfEsts.trim()) ? Number(row.noOfEsts) : null,
+      reportedEps: money(row.eps),
+      surprise: money(row.surprise),
     }];
   });
 }

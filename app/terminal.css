@@ -828,3 +828,13 @@ body:has(.io.term) { background: #050608; }
 .t-rrg-list td[data-quadrant="lagging"] { color: var(--loss); }
 .t-rrg-list td[data-quadrant="improving"] { color: var(--c1); }
 @media (max-width: 720px) { .t-rrg-body { grid-template-columns: minmax(0, 1fr); } }
+/* A company that has reported: green for a beat, red for a miss. */
+.t-ecal-co[data-result="beat"] { border-color: var(--gain); background: rgba(46, 212, 125, .1); }
+.t-ecal-co[data-result="miss"] { border-color: var(--loss); background: rgba(255, 81, 73, .1); }
+.t-ecal-co[data-result="beat"] span { color: var(--gain); }
+.t-ecal-co[data-result="miss"] span { color: var(--loss); }
+.t-ecal-list .t-study-note, .t-ecal .t-study-note { padding: 4px 8px 8px; }
+/* The company's name gives way to the figures. */
+.t-ecal-list td:nth-child(4) { max-width: 24ch; overflow: hidden; text-overflow: ellipsis; }
+/* The statements' wide first column is not this table's: every column sizes to its content. */
+.t-ecal-list th.key, .t-ecal-list td.key { min-width: 0; width: auto; }

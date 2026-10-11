@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useStoredWatchlist } from "@/components/io/watchlist";
-import type { ReportTime } from "@/lib/adapters/nasdaq-earnings";
+import { EARNINGS_DAY_SHAPE, type ReportTime } from "@/lib/adapters/nasdaq-earnings";
 import { Panel } from "./Panel";
 
 /**
@@ -12,13 +12,20 @@ import { Panel } from "./Panel";
  * Dates and times are the companies' own, as Nasdaq's calendar lists them
  * (/api/earnings-days). It opens on the S&P 500 and widens to every US company
  * reporting, or narrows to the reader's list; the reader's companies are
- * marked wherever they appear. Last year's date and reported earnings per
- * share are shown beside each — the figures the company filed, not a forecast.
+ * marked wherever they appear.
+ *
+ * Beside each: the analysts' consensus earnings per share for the quarter and
+ * how many analysts make it, labelled as theirs — the only figure on these
+ * screens that is a forecast — and the growth it implies on last year's
+ * reported figure. Once a day has passed, the earnings per share reported and
+ * the surprise against the consensus, and each company is lit green for a
+ * beat or red for a miss.
  */
 
 interface Event {
   ticker: string; name: string; time: ReportTime; marketCap: number | null; quarter: string | null;
   lastYearDate: string | null; lastYearEps: number | null; sp500: boolean;
+  consensusEps: number | null; analysts: number | null; reportedEps: number | null; surprise: number | null;
 }
 interface Day { date: string; rows: Event[]; error?: string }
 
@@ -48,6 +55,14 @@ const cap = (value: number | null) =>
 
 const noSubscription = () => () => {};
 
+const eps = (value: number | null) => (value == null ? "—" : `${value < 0 ? "−" : ""}$${Math.abs(value).toFixed(2)}`);
+const signedPct = (value: number | null) => (value == null ? "—" : `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(1)}%`);
+/** Growth the consensus implies on last year's reported figure; meaningless from a loss, so not given. */
+const impliedGrowth = (row: { consensusEps: number | null; lastYearEps: number | null }) =>
+  row.consensusEps == null || row.lastYearEps == null || row.lastYearEps <= 0 ? null : (row.consensusEps / row.lastYearEps - 1) * 100;
+const resultOf = (row: { surprise: number | null; reportedEps: number | null }) =>
+  row.reportedEps == null || row.surprise == null ? undefined : row.surprise > 0 ? "beat" : row.surprise < 0 ? "miss" : "inline";
+
 const TIMES: Array<{ time: ReportTime; name: string; mark: string }> = [
   { time: "before", name: "Before open", mark: "☀" },
   { time: "after", name: "After close", mark: "☾" },
@@ -73,7 +88,7 @@ export function EarningsCal() {
   useEffect(() => {
     if (!start) return;
     const controller = new AbortController();
-    fetch(`/api/earnings-days?from=${start}&days=5`, { signal: controller.signal })
+    fetch(`/api/earnings-days?from=${start}&days=5&v=${EARNINGS_DAY_SHAPE}`, { signal: controller.signal })
       .then((response) => response.json() as Promise<{ days?: Day[] }>)
       .then((body) => setAnswer({ start, days: body.days ?? [] }))
       .catch(() => { if (!controller.signal.aborted) setAnswer({ start, days: null }); });
@@ -103,7 +118,7 @@ export function EarningsCal() {
             <button type="button" aria-pressed={filter === "watchlist"} onClick={() => setFilter("watchlist")}>Watchlist</button>
           </div>
           <span className="t-dim">
-            {days ? `${weekRows.length} reporting` : "Loading…"} · dates and times as the companies announced them · ☀ before the open · ☾ after the close
+            {days ? `${weekRows.length} reporting` : "Loading…"} · ☀ before the open · ☾ after the close · est = analysts&apos; consensus EPS · green beat, red miss
           </span>
         </div>
         {days === null ? <p className="t-empty">The calendar could not be read just now.</p> : null}
@@ -123,10 +138,12 @@ export function EarningsCal() {
                       {inSlot.map((row) => (
                         <a
                           key={row.ticker} href={`/t/s/${encodeURIComponent(row.ticker)}#ee`} className="t-ecal-co"
-                          data-followed={followed.has(row.ticker) || undefined} data-member={row.sp500 || undefined} title={row.name}
+                          data-followed={followed.has(row.ticker) || undefined} data-member={row.sp500 || undefined}
+                          data-result={resultOf(row)}
+                          title={`${row.name}${row.consensusEps != null ? ` · consensus EPS ${eps(row.consensusEps)}` : ""}${row.reportedEps != null ? ` · reported ${eps(row.reportedEps)} (${signedPct(row.surprise)})` : ""}`}
                         >
                           <b>{row.ticker}</b>
-                          <span>{cap(row.marketCap)}</span>
+                          <span>{row.reportedEps != null ? signedPct(row.surprise) : row.consensusEps != null ? `est ${eps(row.consensusEps)}` : cap(row.marketCap)}</span>
                         </a>
                       ))}
                     </div>
@@ -146,7 +163,10 @@ export function EarningsCal() {
               <thead>
                 <tr>
                   <th className="key">Date</th><th className="key">Time</th><th className="key">Ticker</th><th className="key">Company</th>
-                  <th>Market value</th><th>Quarter</th><th>Last year</th><th>EPS then</th><th />
+                  <th>Market value</th><th>Quarter</th>
+                  <th title="Analysts' consensus earnings per share, via Nasdaq">Consensus EPS</th><th>Analysts</th>
+                  <th title="Growth the consensus implies on last year's reported EPS">vs last year</th>
+                  <th>Reported EPS</th><th>Surprise</th><th>Last year EPS</th><th />
                 </tr>
               </thead>
               <tbody>
@@ -158,8 +178,12 @@ export function EarningsCal() {
                     <td className="key t-dim">{row.name}</td>
                     <td>{cap(row.marketCap)}</td>
                     <td className="t-dim">{row.quarter ?? "—"}</td>
-                    <td className="t-dim">{row.lastYearDate ?? "—"}</td>
-                    <td>{row.lastYearEps == null ? "—" : row.lastYearEps.toFixed(2)}</td>
+                    <td>{eps(row.consensusEps)}</td>
+                    <td className="t-dim">{row.analysts ?? "—"}</td>
+                    <td data-dir={impliedGrowth(row) == null ? undefined : impliedGrowth(row)! < 0 ? "down" : "up"}>{signedPct(impliedGrowth(row))}</td>
+                    <td>{eps(row.reportedEps)}</td>
+                    <td data-dir={row.surprise == null ? undefined : row.surprise < 0 ? "down" : "up"}>{signedPct(row.surprise)}</td>
+                    <td className="t-dim" title={row.lastYearDate ? `Reported ${row.lastYearDate}` : undefined}>{eps(row.lastYearEps)}</td>
                     <td className="t-row-links"><a href={`/t/chart?s=${encodeURIComponent(row.ticker)}`}>GP</a></td>
                   </tr>
                 ))}
@@ -167,6 +191,7 @@ export function EarningsCal() {
             </table>
           </div>
         ) : days ? <p className="t-empty">No company in this selection reports this week.</p> : null}
+        <p className="t-study-note">Consensus EPS and the number of analysts are the analysts&apos; forecasts as Nasdaq publishes them, not figures the companies filed. Reported EPS and the surprise follow once the day has passed.</p>
       </Panel>
     </div>
   );
