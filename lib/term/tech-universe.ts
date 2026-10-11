@@ -31,7 +31,29 @@ export interface TechRow {
   values: Snapshot;
 }
 
-export interface TechTable { builtAt: string; members: number; rows: TechRow[] }
+export interface TechTable {
+  builtAt: string;
+  members: number;
+  rows: TechRow[];
+  /**
+   * Members Yahoo answered with no usable history — a company taken over or
+   * delisted since the index list was dated — and when. They are not asked
+   * for again for a day, and the table counts as whole without them.
+   */
+  unreadable?: Record<string, string>;
+}
+
+const UNREADABLE_HOURS = 24;
+
+/** Members set aside within the last day. */
+export function setAside(table: TechTable | null, now = new Date()): Set<string> {
+  const since = now.getTime() - UNREADABLE_HOURS * 3_600_000;
+  return new Set(Object.entries(table?.unreadable ?? {}).filter(([, at]) => Date.parse(at) > since).map(([ticker]) => ticker));
+}
+
+/** Every member read, or set aside as unreadable. */
+export const isWhole = (table: TechTable | null, now = new Date()) =>
+  table != null && table.rows.length + [...setAside(table, now)].filter((ticker) => !table.rows.some((row) => row.ticker === ticker)).length >= table.members;
 
 export async function readTechTable(): Promise<TechTable | null> {
   try {
@@ -45,7 +67,8 @@ export async function readTechTable(): Promise<TechTable | null> {
 export function nextTechnicals(table: TechTable | null, limit = TECH_PER_RUN, now = new Date()): string[] {
   const built = new Map((table?.rows ?? []).map((row) => [row.ticker, Date.parse(row.builtAt)]));
   const stale = now.getTime() - TECH_STALE_HOURS * 3_600_000;
-  const missing = UNIVERSE.filter((member) => !built.has(member.ticker)).map((member) => member.ticker);
+  const aside = setAside(table, now);
+  const missing = UNIVERSE.filter((member) => !built.has(member.ticker) && !aside.has(member.ticker)).map((member) => member.ticker);
   const old = UNIVERSE.filter((member) => (built.get(member.ticker) ?? Infinity) < stale)
     .sort((a, b) => built.get(a.ticker)! - built.get(b.ticker)!)
     .map((member) => member.ticker);
@@ -63,13 +86,20 @@ export async function buildTechnicalSlice(limit = TECH_PER_RUN): Promise<{ read:
   const names = new Map(UNIVERSE.map((member) => [member.ticker, member.name]));
   const queue = nextTechnicals(table, limit);
   const failed: string[] = [];
+  const unreadable: Record<string, string> = { ...(table?.unreadable ?? {}) };
   let read = 0;
 
   await Promise.all(Array.from({ length: AT_ONCE }, async () => {
     for (let ticker = queue.shift(); ticker; ticker = queue.shift()) {
       try {
         const candles = await fetchCandles(yahooSymbol(ticker), "1d");
-        if (candles.c.length < 2) throw new Error("no history");
+        if (candles.c.length < 2) {
+          // An answer with nothing in it is the company, not the network.
+          unreadable[ticker] = new Date().toISOString();
+          failed.push(ticker);
+          continue;
+        }
+        delete unreadable[ticker];
         rows.set(ticker, {
           ticker, name: names.get(ticker) ?? ticker, asOf: candles.t[candles.t.length - 1], builtAt: new Date().toISOString(),
           values: snapshotOf(computeSeries(candles)),
@@ -86,6 +116,7 @@ export async function buildTechnicalSlice(limit = TECH_PER_RUN): Promise<{ read:
     builtAt: new Date().toISOString(),
     members: UNIVERSE.length,
     rows: UNIVERSE.map((member) => rows.get(member.ticker)).filter((row): row is TechRow => row != null),
+    unreadable,
   };
   try {
     await cache.put(TECH_KEY, JSON.stringify(next));

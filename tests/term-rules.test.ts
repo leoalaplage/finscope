@@ -130,3 +130,18 @@ describe("the scanner's universe", () => {
     expect(yahooSymbol("BF.B")).toBe("BF-B");
   });
 });
+
+describe("members with no history", () => {
+  it("are set aside for a day and do not hold the table open", async () => {
+    const { isWhole, nextTechnicals } = await import("@/lib/term/tech-universe");
+    const { UNIVERSE } = await import("@/lib/universe");
+    const now = new Date("2026-10-11T12:00:00Z");
+    const fresh = now.toISOString();
+    const gone = UNIVERSE[0].ticker;
+    const rows = UNIVERSE.slice(1).map((member) => ({ ticker: member.ticker, name: member.name, asOf: 0, values: {}, builtAt: fresh }));
+    const table = { builtAt: fresh, members: UNIVERSE.length, rows, unreadable: { [gone]: new Date("2026-10-11T08:00:00Z").toISOString() } };
+    expect(isWhole(table, now)).toBe(true);
+    expect(nextTechnicals(table, 5, now)).toEqual([]);
+    expect(isWhole(table, new Date("2026-10-12T12:00:00Z"))).toBe(false);
+  });
+});

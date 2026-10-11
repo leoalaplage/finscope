@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
-import { buildTechnicalSlice, readTechTable } from "@/lib/term/tech-universe";
+import { buildTechnicalSlice, isWhole, readTechTable } from "@/lib/term/tech-universe";
 import { UNIVERSE, UNIVERSE_AS_OF, UNIVERSE_NAME } from "@/lib/universe";
 
 /**
@@ -35,10 +35,13 @@ async function startFill() {
 export async function GET() {
   const table = await readTechTable();
   const rows = table?.rows ?? [];
-  const whole = rows.length >= UNIVERSE.length;
+  const whole = isWhole(table);
   if (!whole) await startFill();
   return NextResponse.json(
-    { name: UNIVERSE_NAME, asOf: UNIVERSE_AS_OF, members: UNIVERSE.length, builtAt: table?.builtAt ?? null, rows, building: !whole },
+    {
+      name: UNIVERSE_NAME, asOf: UNIVERSE_AS_OF, members: UNIVERSE.length, builtAt: table?.builtAt ?? null, rows, building: !whole,
+      unreadable: Object.keys(table?.unreadable ?? {}),
+    },
     { headers: { "Cache-Control": whole ? "public, max-age=60, s-maxage=300, stale-while-revalidate=900" : "no-store" } },
   );
 }
