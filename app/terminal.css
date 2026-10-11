@@ -270,6 +270,7 @@ body:has(.io.term) { background: #050608; }
 .t-company { grid-template-areas:
   "gp gp gp gp gp gp gp gp side side side side"
   "ee ee ee ee ee ee ee ee ee ee ee ee"
+  "erx erx erx erx erx erx seas seas seas seas seas seas"
   "dt dt dt dt dt dt dt dt dt dt dt dt"
   "fa fa fa fa fa fa gr gr gr gr gr gr"
   "st st st st st st st st st st st st"
@@ -491,6 +492,7 @@ body:has(.io.term) { background: #050608; }
   grid-template-areas:
     "c1 c1 c1 c1 gp gp gp gp gp gp gp gp"
     "c2 c2 c2 c2 sect sect sect sect c3 c3 c3 c3"
+    "rrg rrg rrg rrg rrg rrg rrg seas seas seas seas seas"
     "perf perf perf perf perf perf perf perf perf perf perf perf"
     "imap imap imap imap imap imap imap imap imap imap imap imap";
 }
@@ -564,6 +566,8 @@ body:has(.io.term) { background: #050608; }
     "gp gp gp gp gp gp gp gp gp gp gp gp"
     "side side side side side side side side side side side side"
     "ee ee ee ee ee ee ee ee ee ee ee ee"
+    "erx erx erx erx erx erx erx erx erx erx erx erx"
+    "seas seas seas seas seas seas seas seas seas seas seas seas"
     "dt dt dt dt dt dt dt dt dt dt dt dt"
     "fa fa fa fa fa fa fa fa fa fa fa fa"
     "gr gr gr gr gr gr gr gr gr gr gr gr"
@@ -584,6 +588,8 @@ body:has(.io.term) { background: #050608; }
     "gp gp gp gp gp gp gp gp gp gp gp gp"
     "c1 c1 c1 c1 c1 c1 sect sect sect sect sect sect"
     "c2 c2 c2 c2 c2 c2 c3 c3 c3 c3 c3 c3"
+    "rrg rrg rrg rrg rrg rrg rrg rrg rrg rrg rrg rrg"
+    "seas seas seas seas seas seas seas seas seas seas seas seas"
     "perf perf perf perf perf perf perf perf perf perf perf perf"
     "imap imap imap imap imap imap imap imap imap imap imap imap";
   }
@@ -763,3 +769,62 @@ body:has(.io.term) { background: #050608; }
 .term .plot-swatch[data-hue] { border-top-color: var(--plot); border-top-style: solid; width: 14px; }
 .term .multiple .multiple-top .label:first-child { color: var(--plot); }
 .term .multiple[aria-pressed="true"] { box-shadow: inset 0 2px 0 var(--plot); }
+
+/* --- Earnings calendar (ECAL) ------------------------------------------ */
+
+.t-ecal { grid-template-areas: "week week week week week week week week week week week week" "list list list list list list list list list list list list"; }
+.t-ecal-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 4px 8px; font-size: var(--fs-micro); }
+.t-ecal-week { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 0 8px 8px; }
+.t-ecal-day { min-width: 0; background: var(--raise); border: 1px solid var(--line); }
+.t-ecal-day[data-today] { border-color: var(--amber); }
+.t-ecal-day[data-past] { opacity: .7; }
+.t-ecal-day > header { display: flex; gap: 6px; align-items: baseline; padding: 3px 6px; background: var(--head); border-bottom: 1px solid var(--line); }
+.t-ecal-day > header b { color: var(--amber); }
+.t-ecal-day > header .t-dim { margin-left: auto; }
+.t-ecal-slot { padding: 4px 6px; display: flex; flex-wrap: wrap; gap: 3px; border-bottom: 1px solid var(--line); }
+.t-ecal-slot h3 { flex-basis: 100%; color: var(--ink-3); font-size: var(--fs-micro); font-weight: 500; text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-ecal-co { display: inline-flex; flex-direction: column; min-width: 54px; padding: 2px 5px; background: var(--fill); border: 1px solid var(--line-strong); line-height: 1.15; }
+.t-ecal-co b { color: var(--ink); font-size: var(--fs-xs); }
+.t-ecal-co span { color: var(--ink-3); font-size: 9px; }
+.t-ecal-co[data-member] b { color: var(--c1); }
+.t-ecal-co[data-followed] { border-color: var(--amber); }
+.t-ecal-co[data-followed] b { color: var(--amber); }
+.term .t-ecal-co:hover { border-color: var(--cyan); }
+.t-ecal-none { padding: 6px; }
+.t-ecal-list tr[data-followed] td { background: rgba(255, 160, 40, .07); }
+.t-ecal-list td.key a { color: var(--amber); font-weight: 600; }
+@media (max-width: 1100px) { .t-ecal-week { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .t-ecal-week { grid-template-columns: minmax(0, 1fr); } .t-ecal { grid-template-areas: none; } .t-ecal > * { grid-area: auto !important; } }
+
+/* --- Earnings reaction, seasonality, rotation ----------------------------- */
+
+.t-erx-summary { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 4px 8px; color: var(--ink-3); }
+.t-erx-summary b { color: var(--ink); margin-left: 4px; }
+.t-erx .sheet, .t-seas { margin: 0 8px; }
+.t-erx .t-study-note, .t-seas .t-study-note { padding-inline: 0; }
+.t-seas table { table-layout: fixed; }
+.t-seas th, .t-seas td { text-align: center; padding-inline: 2px; font-size: var(--fs-micro); }
+.t-seas th.key { text-align: left; width: 7ch; }
+.t-seas td[data-running] { outline: 1px dashed var(--amber-dim); outline-offset: -2px; }
+.t-seas .t-seas-stat th, .t-seas .t-seas-stat td { border-top: 1px solid var(--line-strong); font-weight: 600; }
+
+.t-rrg-body { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 8px; padding: 0 8px 8px; align-items: start; }
+.t-rrg-plot { width: 100%; height: auto; display: block; }
+.t-rrg-q { stroke: none; }
+.t-rrg-leading { fill: rgba(46, 212, 125, .07); }
+.t-rrg-weakening { fill: rgba(250, 204, 21, .06); }
+.t-rrg-lagging { fill: rgba(255, 81, 73, .07); }
+.t-rrg-improving { fill: rgba(78, 168, 255, .07); }
+.t-rrg-qname { fill: var(--ink-3); font: 600 10px var(--mono); letter-spacing: .08em; }
+.t-rrg-axis { stroke: var(--line-strong); stroke-dasharray: 3 3; }
+.t-rrg-label { fill: var(--ink-3); font: 9px var(--mono); letter-spacing: .06em; }
+.t-rrg-tag { font: 700 10px var(--mono); }
+.t-rrg-list { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+.t-rrg-list td { padding: 2px 4px; white-space: nowrap; }
+.t-rrg-list td i { display: inline-block; width: 8px; height: 8px; margin-right: 6px; }
+.t-rrg-list tr[data-focus] td { background: var(--fill); }
+.t-rrg-list td[data-quadrant="leading"] { color: var(--gain); }
+.t-rrg-list td[data-quadrant="weakening"] { color: #facc15; }
+.t-rrg-list td[data-quadrant="lagging"] { color: var(--loss); }
+.t-rrg-list td[data-quadrant="improving"] { color: var(--c1); }
+@media (max-width: 720px) { .t-rrg-body { grid-template-columns: minmax(0, 1fr); } }

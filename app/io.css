@@ -2116,3 +2116,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .study-notes .study-pattern[data-tone="bad"] { color: var(--loss); }
 .candle-plot[data-zoomable] { cursor: grab; touch-action: pan-y; }
 .candle-plot[data-zoomable]:active { cursor: grabbing; }
+.candle-pane .pane-rs { stroke: #4ea8ff; }
+.candle-pane .pane-rs[data-tone="good"] { stroke: var(--gain); }
+.candle-pane .pane-rs[data-tone="bad"] { stroke: var(--loss); }

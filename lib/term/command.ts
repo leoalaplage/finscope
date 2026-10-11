@@ -7,8 +7,8 @@
  * where to go, this decides what was meant.
  */
 
-export type CompanyFunction = "DES" | "GP" | "FA" | "EE" | "VAL" | "HDS" | "INS" | "CN" | "DCF" | "COMP";
-export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "SCAN" | "BT" | "HELP";
+export type CompanyFunction = "DES" | "GP" | "FA" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "CN" | "DCF" | "COMP";
+export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "SCAN" | "BT" | "ECAL" | "HELP";
 
 export interface FunctionSpec<Code extends string> { code: Code; name: string }
 
@@ -29,6 +29,9 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   { code: "CN", name: "Company news" },
   { code: "DCF", name: "Discounted cash flow" },
   { code: "COMP", name: "Compare" },
+  // Past ⌥0: typed, or picked from the function bar.
+  { code: "ERX", name: "Earnings reaction" },
+  { code: "SEAS", name: "Seasonality" },
 ];
 
 export const GLOBAL_FUNCTIONS: FunctionSpec<GlobalFunction>[] = [
@@ -39,6 +42,7 @@ export const GLOBAL_FUNCTIONS: FunctionSpec<GlobalFunction>[] = [
   { code: "CHART", name: "Chart workspace" },
   { code: "SCAN", name: "Technical scanner" },
   { code: "BT", name: "Backtest" },
+  { code: "ECAL", name: "Earnings calendar" },
   { code: "HELP", name: "Commands" },
 ];
 
@@ -62,6 +66,7 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
   GRAPH: "CHART",
   SCANNER: "SCAN", TS: "SCAN",
   BACKTEST: "BT", BTST: "BT",
+  EARNINGS: "ECAL", CALENDAR: "ECAL",
   "?": "HELP",
 };
 
@@ -167,6 +172,7 @@ export function hrefFor(command: Command): string | null {
         case "PORT": return "/t/portfolio";
         case "CHART": return command.ticker ? `/t/chart?s=${encodeURIComponent(command.ticker)}` : "/t/chart";
         case "SCAN": return "/t/scan";
+        case "ECAL": return "/t/ecal";
         case "BT": return command.ticker ? `/t/backtest?s=${encodeURIComponent(command.ticker)}` : "/t/backtest";
         case "HELP": return null;
       }

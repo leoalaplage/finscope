@@ -43,7 +43,7 @@ function Tape() {
       {quotes.map((quote) => (
         <a
           key={`${copy}-${quote.kind}-${quote.symbol}`}
-          href={quote.kind === "index" ? "/market" : `/t/s/${encodeURIComponent(quote.symbol)}`}
+          href={quote.kind === "index" ? "/t/market" : quote.kind === "future" ? `/t/chart?s=${encodeURIComponent(quote.symbol)}` : `/t/s/${encodeURIComponent(quote.symbol)}`}
           tabIndex={copy === 1 ? -1 : undefined}
         >
           <b>{quote.label}</b>
@@ -94,8 +94,8 @@ function FunctionKeys({ ticker }: { ticker: string | null }) {
     <nav className="t-fn" aria-label={ticker ? `${ticker} functions` : "Functions"}>
       {ticker ? <span className="t-fn-sec">{ticker} US</span> : null}
       {functions.map((spec, index) => (
-        <a key={spec.code} href={hrefs[index] ?? "#"} title={`${spec.name} · ⌥${(index + 1) % 10}`}>
-          <kbd>{(index + 1) % 10}</kbd>{spec.code}
+        <a key={spec.code} href={hrefs[index] ?? "#"} title={index < 10 ? `${spec.name} · ⌥${(index + 1) % 10}` : spec.name}>
+          {index < 10 ? <kbd>{(index + 1) % 10}</kbd> : null}{spec.code}
         </a>
       ))}
       <a className="t-fn-end" data-classic href={ticker ? `/s/${encodeURIComponent(ticker)}` : "/"} title="The same page on the document site">Classic view</a>

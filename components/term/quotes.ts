@@ -17,8 +17,8 @@ export interface TapeQuote {
   label: string;
   price: number | null;
   changePercent: number | null;
-  /** Indices are linked to the market page, companies to their screen. */
-  kind: "index" | "equity";
+  /** Indices are linked to the market page, futures and coins to their chart, companies to their screen. */
+  kind: "index" | "future" | "equity";
   sector?: string | null;
 }
 
@@ -29,14 +29,16 @@ const REFRESH_MS = 60_000;
 const inflight = new Map<string, { at: number; promise: Promise<Tape> }>();
 
 interface IndexAnswer { indices?: Array<{ id: string; name: string; last?: number | null; changePercent?: number | null; error?: string }> }
+interface FuturesAnswer { rows?: Array<{ id: string; label: string; last: number | null; changePercent: number | null }> }
 interface MoversAnswer { watchlist?: Array<{ symbol: string; label: string; sector?: string | null; price: number | null; changePercent: number | null }> }
 
 async function fetchTape(tickers: string[]): Promise<Tape> {
-  const [indices, movers] = await Promise.all([
+  const [indices, movers, futures] = await Promise.all([
     fetch("/api/indices").then((response) => (response.ok ? response.json() as Promise<IndexAnswer> : null)).catch(() => null),
     tickers.length
       ? fetch(`/api/movers?tickers=${encodeURIComponent(tickers.join(","))}`).then((response) => (response.ok ? response.json() as Promise<MoversAnswer> : null)).catch(() => null)
       : Promise.resolve(null),
+    fetch("/api/futures").then((response) => (response.ok ? response.json() as Promise<FuturesAnswer> : null)).catch(() => null),
   ]);
   const averages: TapeQuote[] = (indices?.indices ?? [])
     .filter((index) => !index.error && index.last != null)
@@ -47,7 +49,10 @@ async function fetchTape(tickers: string[]): Promise<Tape> {
     const quote = bySymbol.get(ticker);
     return quote ? [{ symbol: ticker, label: ticker, price: quote.price, changePercent: quote.changePercent, kind: "equity" as const, sector: quote.sector ?? null }] : [];
   });
-  return { quotes: [...averages, ...equities], asOf: Date.now(), failed: indices == null && movers == null };
+  // Futures and coins after the averages: what moves overnight and at weekends.
+  const traded: TapeQuote[] = (futures?.rows ?? []).filter((row) => row.last != null)
+    .map((row) => ({ symbol: row.id, label: row.label, price: row.last, changePercent: row.changePercent == null ? null : row.changePercent / 100, kind: "future" }));
+  return { quotes: [...averages, ...traded, ...equities], asOf: Date.now(), failed: indices == null && movers == null };
 }
 
 function tapeFor(tickers: string[]): Promise<Tape> {

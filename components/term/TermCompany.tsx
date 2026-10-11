@@ -20,7 +20,9 @@ import { Holders } from "@/components/io/Holders";
 import { CompanyNews } from "@/components/io/CompanyNews";
 import { PendingEarnings } from "@/components/io/PendingEarnings";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "@/components/io/format";
+import { EarningsReaction } from "./EarningsReaction";
 import { Panel } from "./Panel";
+import { Seasonality } from "./Seasonality";
 
 /** The reading an answer at a glance opens, under a code of its own. */
 const DETAIL_CODES: Record<VerdictKey, string> = { quality: "QS", health: "HLTH", valuation: "PG", growth: "FCF" };
@@ -159,6 +161,13 @@ export function TermCompany({ ticker }: { ticker: string }) {
               </p>
             }
           />
+        </Panel>
+
+        <Panel code="ERX" title="Earnings reaction · last 12 releases" area="erx">
+          <EarningsReaction key={`erx-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
+        </Panel>
+        <Panel code="SEAS" title="Seasonality · monthly returns" area="seas">
+          <Seasonality key={`seas-${company.ticker}`} symbol={company.ticker} />
         </Panel>
 
         {openDetail ? (

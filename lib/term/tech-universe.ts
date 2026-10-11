@@ -22,9 +22,10 @@ export const TECH_KEY = "technicals:v1";
  * The shape of a row's values. A row of an older shape keeps serving until it
  * is read again — first in line, ahead of merely stale ones — so a new field
  * fills in without the scanner ever going empty. 2 added the one-year and
- * year-to-date returns the heat map reads.
+ * year-to-date returns the heat map reads; 3 the six-month return the RS
+ * rating weighs.
  */
-export const ROW_SHAPE = 2;
+export const ROW_SHAPE = 3;
 export const TECH_PER_RUN = 100;
 export const TECH_STALE_HOURS = 6;
 const AT_ONCE = 6;

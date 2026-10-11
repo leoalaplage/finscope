@@ -113,6 +113,8 @@ function ChartCellView({
 }) {
   const { candles, error, loading } = useCandles(cell.symbol, cell.interval);
   const compared = useCompared(cell.compare, cell.interval);
+  // The market, read only when the relative-strength pane is open.
+  const [market] = useCompared(cell.studies.includes("rs") ? ["^GSPC"] : [], cell.interval);
   const [adding, setAdding] = useState<string | null>(null);
   const latest = lastMoveOf(candles);
   const studies = useMemo(() => new Set<Study>(cell.studies), [cell.studies]);
@@ -173,7 +175,7 @@ function ChartCellView({
         candles={candles} interval={cell.interval} loading={loading} error={error} studies={studies} compact={compact}
         label={`${cell.symbol}, ${INTERVAL_TITLES[cell.interval].toLowerCase()} candles`}
         drawings={drawings} tool={tool} onDrawingsChange={onDrawings}
-        zoomable logScale={cell.log} compare={compared}
+        zoomable logScale={cell.log} compare={compared} benchmark={market?.candles ?? null}
       />
     </section>
   );

@@ -36,8 +36,8 @@ const BAND_COLOR = "#7d8ad6";
 
 /** The lower panes, each in a box of its own height and the chart's width. */
 const PANE_H = 100;
-type Pane = "volume" | "rsi" | "macd" | "stoch" | "atr";
-const PANES: Pane[] = ["volume", "rsi", "macd", "stoch", "atr"];
+type Pane = "volume" | "rsi" | "macd" | "stoch" | "atr" | "rs";
+const PANES: Pane[] = ["volume", "rsi", "macd", "stoch", "atr", "rs"];
 
 const VWAP_COLOR = "#f1f1f1";
 const TENKAN_COLOR = "#4c8dff";
@@ -131,7 +131,7 @@ const NO_STUDIES: ReadonlySet<Study> = new Set();
 
 export function CandleChart({
   candles, interval, loading, error, label, studies = NO_STUDIES, compact = false,
-  drawings, tool = "cursor", onDrawingsChange, zoomable = false, logScale = false, compare,
+  drawings, tool = "cursor", onDrawingsChange, zoomable = false, logScale = false, compare, benchmark,
 }: {
   candles: Candles | null;
   interval: CandleInterval;
@@ -158,6 +158,8 @@ export function CandleChart({
   logScale?: boolean;
   /** Other symbols drawn over this one, rebased to its first candle on screen. */
   compare?: CompareSeries[];
+  /** The market this symbol is measured against in the relative-strength pane. */
+  benchmark?: Candles | null;
 }) {
   const clipId = `candle-clip-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
@@ -242,7 +244,9 @@ export function CandleChart({
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);
   }, [zoomable]);
-  const panes = PANES.filter((pane) => studies.has(pane) && !(pane === "volume" && !candles?.v?.some((value) => value > 0)));
+  const panes = PANES.filter((pane) => studies.has(pane)
+    && !(pane === "volume" && !candles?.v?.some((value) => value > 0))
+    && !(pane === "rs" && !benchmark?.t.length));
 
   /* The candles on screen, and everything positioned from them. */
   const view = useMemo(() => {
@@ -260,7 +264,18 @@ export function CandleChart({
     const bands = indicators ? {
       middle: indicators.bands.middle.slice(from, to), upper: indicators.bands.upper.slice(from, to), lower: indicators.bands.lower.slice(from, to),
     } : null;
+    /*
+     * Relative strength: this symbol over the market, set to 100 on the first
+     * candle both have on screen. Rising, it is beating the market; falling,
+     * trailing it, whatever either did on its own.
+     */
+    const market = benchmark?.t.length ? new Map(benchmark.t.map((time, index) => [time, benchmark.c[index]])) : null;
+    const rsBase = market ? t.findIndex((time) => market.has(time)) : -1;
+    const rsLine: Line = market && rsBase >= 0
+      ? t.map((time, index) => (market.has(time) ? ((c[index] / market.get(time)!) / (c[rsBase] / market.get(t[rsBase])!)) * 100 : null))
+      : t.map(() => null);
     const momentum = indicators ? {
+      rs: rsLine,
       stochK: indicators.stoch.k.slice(from, to), stochD: indicators.stoch.d.slice(from, to),
       atr: ranges.slice(from, to),
       rsi: indicators.rsi.slice(from, to),
@@ -336,7 +351,7 @@ export function CandleChart({
       scale, ticks, priceAt, log, slot, x, y, count, end, from, total, key: seriesKey,
       previous: from > 0 ? candles.c[from - 1] : null,
     };
-  }, [candles, averages, indicators, ranges, interval, width, showEma, showSma, showBands, showCloud, showExtension, compact, windowed, logScale, compare, studies, seriesKey]);
+  }, [candles, averages, indicators, ranges, interval, width, showEma, showSma, showBands, showCloud, showExtension, compact, windowed, logScale, compare, benchmark, studies, seriesKey]);
 
   useEffect(() => {
     latest.current = view ? { key: view.key, count: view.count, end: view.end, total: view.total, from: view.from } : null;
@@ -779,7 +794,7 @@ function bandPath(upper: Line, lower: Line, x: (index: number) => number, y: (va
   return `${top}${bottom}Z`;
 }
 
-const PANE_NAMES: Record<Pane, string> = { volume: "VOL", rsi: "RSI 14", macd: "MACD 12 26 9", stoch: "STOCH 14 3 3", atr: "ATR 14" };
+const PANE_NAMES: Record<Pane, string> = { volume: "VOL", rsi: "RSI 14", macd: "MACD 12 26 9", stoch: "STOCH 14 3 3", atr: "ATR 14", rs: "RS vs S&P 500" };
 
 interface PaneView {
   count: number;
@@ -788,7 +803,7 @@ interface PaneView {
   o: number[];
   c: number[];
   volume: number[] | null;
-  momentum: { rsi: Line; macd: Line; signal: Line; histogram: Line; stochK: Line; stochD: Line; atr: Array<number | null> };
+  momentum: { rsi: Line; macd: Line; signal: Line; histogram: Line; stochK: Line; stochD: Line; atr: Array<number | null>; rs: Line };
 }
 
 const compactNumber = (value: number) =>
@@ -889,6 +904,24 @@ function LowerPane({ pane, view, at, hover }: { pane: Pane; view: PaneView; at: 
         </>
       );
     }
+  }
+
+  if (pane === "rs") {
+    const values = momentum.rs.filter((value): value is number => value != null);
+    const top = Math.max(...values, 100);
+    const bottom = Math.min(...values, 100);
+    y = (value) => PANE_H - ((value - bottom) / (top - bottom || 1)) * PANE_H * 0.86 - PANE_H * 0.07;
+    const path = pathOf(momentum.rs, view.x, y);
+    const last = values.at(-1) ?? null;
+    body = (
+      <>
+        <line className="pane-guide" x1={0} x2={W} y1={y(100)} y2={y(100)} vectorEffect="non-scaling-stroke" />
+        {path ? <path className="pane-line pane-rs" d={path} data-tone={last != null && last >= 100 ? "good" : "bad"} vectorEffect="non-scaling-stroke" /> : null}
+      </>
+    );
+    ticks = [{ value: 100, text: "100" }];
+    const value = at != null ? momentum.rs[at] : null;
+    readout = value != null ? <b data-tone={value >= 100 ? "good" : "bad"}>{(value - 100 >= 0 ? "+" : "−") + Math.abs(value - 100).toFixed(1)}%</b> : null;
   }
 
   if (pane === "atr") {

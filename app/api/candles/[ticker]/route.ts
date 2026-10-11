@@ -12,12 +12,15 @@ import { resolveMarketProfile } from "@/lib/market-profile";
 
 /** Index symbols are not companies but are charted all the same. */
 const INDEX = /^\^[A-Z0-9]{1,10}$/;
+/** Futures (ES=F) and coins (BTC-USD) are charted as Yahoo names them. */
+const FUTURE = /^[A-Z0-9]{1,6}=F$|^[A-Z0-9]{2,6}-USD$/;
 
 export async function GET(request: Request, context: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await context.params;
   const requested = decodeURIComponent(ticker).toUpperCase();
-  const company = INDEX.test(requested) ? null : resolveMarketProfile(requested);
-  if (!company && !INDEX.test(requested)) return NextResponse.json({ error: "That is not a usable exchange symbol." }, { status: 400 });
+  const raw = INDEX.test(requested) || FUTURE.test(requested);
+  const company = raw ? null : resolveMarketProfile(requested);
+  if (!company && !raw) return NextResponse.json({ error: "That is not a usable exchange symbol." }, { status: 400 });
   const symbol = company ? company.yahooTicker ?? company.ticker : requested;
   const interval = new URL(request.url).searchParams.get("interval") as CandleInterval;
   if (!CANDLE_INTERVALS.includes(interval)) {

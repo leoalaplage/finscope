@@ -392,7 +392,7 @@ export function marketStructure(series: Series, span: number, limit = 6, blocksP
 export const STUDIES = [
   "ema", "sma", "bollinger", "ichimoku", "vwap", "vprofile",
   "fibRetracement", "fibExtension", "fvg", "trendLines", "levels", "structure", "orderBlocks", "patterns",
-  "volume", "rsi", "macd", "stoch", "atr",
+  "volume", "rsi", "macd", "stoch", "atr", "rs",
 ] as const;
 export type Study = (typeof STUDIES)[number];
 
@@ -406,6 +406,7 @@ export const STUDY_NAMES: Record<Study, string> = {
   patterns: "Candle patterns",
   stoch: "Stochastic 14 · 3 · 3",
   atr: "ATR 14",
+  rs: "Relative strength vs S&P 500",
   volume: "Volume",
   rsi: "RSI 14",
   macd: "MACD 12 · 26 · 9",
@@ -426,7 +427,7 @@ export const STUDY_NAMES: Record<Study, string> = {
 export const STUDY_GROUPS: { name: string; studies: Study[] }[] = [
   { name: "Overlays", studies: ["ema", "sma", "bollinger", "ichimoku", "vwap", "vprofile"] },
   { name: "Auto analysis", studies: ["patterns", "fibRetracement", "fibExtension", "trendLines", "levels", "fvg", "structure", "orderBlocks"] },
-  { name: "Lower panes", studies: ["volume", "rsi", "macd", "stoch", "atr"] },
+  { name: "Lower panes", studies: ["volume", "rsi", "macd", "stoch", "atr", "rs"] },
 ];
 
 export const DEFAULT_STUDIES: ReadonlySet<Study> = new Set<Study>(["ema", "fibRetracement", "trendLines"]);

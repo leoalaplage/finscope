@@ -8,6 +8,8 @@ import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import type { Study } from "@/lib/io/technicals";
 import { Heatmap } from "./Heatmap";
 import { Panel } from "./Panel";
+import { Rotation } from "./Rotation";
+import { Seasonality } from "./Seasonality";
 
 /**
  * The terminal's market screen: the world's indices and the VIX, a live chart
@@ -193,8 +195,10 @@ export function MarketBoard() {
   const markets = usePolled<{ rows: MarketRow[] }>("/api/markets");
   const internals = usePolled<Internals>("/api/internals");
   const extras = usePolled<Extras>("/api/market-extras");
+  const futures = usePolled<{ rows: Array<{ id: string; label: string; group: string; last: number | null; changePercent: number | null; spark: number[] }> }>("/api/futures");
   const [chart, setChart] = useState<{ id: string; interval: CandleInterval }>({ id: "SPX", interval: "5m" });
-  const candles = useCandles(CHART_SYMBOL[chart.id] ?? "^GSPC", chart.interval);
+  // Futures and coins are charted under their own names; the indices under Yahoo's.
+  const candles = useCandles(CHART_SYMBOL[chart.id] ?? (/=F$|-USD$/.test(chart.id) ? chart.id : "^GSPC"), chart.interval);
 
   const rows = useMemo(() => markets?.rows ?? [], [markets]);
   const group = (name: MarketRow["group"]) => rows.filter((row) => row.group === name);
@@ -207,8 +211,11 @@ export function MarketBoard() {
     const world = rows.filter((row) => row.group === "world").map((row) => ({
       id: row.id, name: row.label, last: row.last, change: row.changePercent, spark: row.spark, baseline: null,
     }));
-    return [...us, ...vix, ...world];
-  }, [indices, extras, rows]);
+    const traded = (futures?.rows ?? []).filter((row) => row.last != null).map((row) => ({
+      id: row.id, name: row.label, last: row.last, change: row.changePercent, spark: row.spark, baseline: null,
+    }));
+    return [...us, ...vix, ...world, ...traded];
+  }, [indices, extras, rows, futures]);
 
   const sectors = useMemo(() => {
     const today = new Map((internals?.sectors ?? []).map((sector) => [sector.sector, sector]));
@@ -237,7 +244,7 @@ export function MarketBoard() {
                   <tr key={row.id} data-selected={row.id === chart.id || undefined}>
                     <td className="key">
                       <button type="button" className="t-wei-pick" onClick={() => setChart({ ...chart, id: row.id })}>
-                        <span className="t-wei-region">{REGION[row.id] ?? ""}</span>{row.name}
+                        <span className="t-wei-region">{REGION[row.id] ?? (row.id.endsWith("=F") ? "FUT" : row.id.endsWith("-USD") ? "CRY" : "")}</span>{row.name}
                       </button>
                     </td>
                     <td>{level(row.last)}</td>
@@ -340,6 +347,9 @@ export function MarketBoard() {
           <QuoteTable rows={group("rates")} label="Government yields" />
         </Panel>
       </div>
+
+      <Panel code="RRG" title="Sector rotation · relative rotation graph" area="rrg"><Rotation /></Panel>
+      <Panel code="SEAS" title="S&P 500 seasonality" area="seas" className="t-fill"><Seasonality symbol="^GSPC" /></Panel>
 
       <Panel code="W" area="perf"><MarketPerformance /></Panel>
       <Panel code="IMAP" title="S&P 500 map · sized by market value" area="imap"><Heatmap height={640} /></Panel>

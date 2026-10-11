@@ -23,7 +23,7 @@ export type Field =
   | "rsi14" | "macd" | "macdSignal" | "macdHist" | "stochK" | "stochD"
   | "atr14" | "atrPct"
   | "volume" | "volume20" | "volumeRatio"
-  | "chg1" | "chg5" | "chg20" | "chg60" | "chg252" | "chgYtd"
+  | "chg1" | "chg5" | "chg20" | "chg60" | "chg126" | "chg252" | "chgYtd" | "rsRating"
   | "high52" | "low52" | "fromHigh52" | "fromLow52" | "fromEma200" | "fromSma50"
   | Pattern;
 
@@ -59,8 +59,10 @@ export const FIELDS: FieldSpec[] = [
   { key: "chg5", name: "Change, 5 bars %", group: "Returns", unit: "percent" },
   { key: "chg20", name: "Change, 20 bars %", group: "Returns", unit: "percent" },
   { key: "chg60", name: "Change, 60 bars %", group: "Returns", unit: "percent" },
+  { key: "chg126", name: "Change, 126 bars (6 months on days) %", group: "Returns", unit: "percent" },
   { key: "chg252", name: "Change, 252 bars (1 year on days) %", group: "Returns", unit: "percent" },
   { key: "chgYtd", name: "Change, year to date %", group: "Returns", unit: "percent" },
+  { key: "rsRating", name: "RS rating 1–99 (S&P 500 scan only)", group: "Returns", unit: "index" },
   { key: "high52", name: "52-week high", group: "Range", unit: "price" },
   { key: "low52", name: "52-week low", group: "Range", unit: "price" },
   { key: "fromHigh52", name: "From 52-week high %", group: "Range", unit: "percent" },
@@ -133,7 +135,9 @@ export function computeSeries(bars: Bars): Record<Field, Line> {
     stochK: stoch.k, stochD: stoch.d,
     atr14: atr, atrPct: atr.map((value, index) => (value == null ? null : (value / c[index]) * 100)),
     volume, volume20, volumeRatio: ratio(volume, volume20, 0),
-    chg1: change(c, 1), chg5: change(c, 5), chg20: change(c, 20), chg60: change(c, 60), chg252: change(c, YEAR),
+    chg1: change(c, 1), chg5: change(c, 5), chg20: change(c, 20), chg60: change(c, 60), chg126: change(c, 126), chg252: change(c, YEAR),
+    // A rank against the rest of the index, so it exists only where the index is scanned (app/api/scan).
+    rsRating: c.map(() => null),
     chgYtd: sinceYearStart(bars),
     high52, low52,
     fromHigh52: ratio(c, high52), fromLow52: ratio(c, low52), fromEma200: ratio(c, ema200), fromSma50: ratio(c, sma50),
@@ -222,6 +226,7 @@ export const SCAN_PRESETS: Preset[] = [
   { name: "Volume surge: twice the 20-bar average, up day", conditions: [{ left: "volumeRatio", op: ">", right: 2 }, { left: "chg1", op: ">", right: 0 }] },
   { name: "Below the lower Bollinger band", conditions: [{ left: "close", op: "<", right: "bbLower" }] },
   { name: "Bullish engulfing above EMA 50", conditions: [{ left: "bullEngulfing", op: "is" }, { left: "close", op: ">", right: "ema50" }] },
+  { name: "Leaders: RS rating 80+, above EMA 50", conditions: [{ left: "rsRating", op: ">", right: 79 }, { left: "close", op: ">", right: "ema50" }] },
 ];
 
 export interface StrategyPreset { name: string; entry: Condition[]; exit: Condition[] }
@@ -397,4 +402,33 @@ export function backtest(bars: Bars, series: Record<Field, Line>, entry: Conditi
     bestTrade: trades.length ? Math.max(...trades.map((trade) => trade.return)) : null,
     worstTrade: trades.length ? Math.min(...trades.map((trade) => trade.return)) : null,
   };
+}
+
+/**
+ * The RS rating: where a member's weighted return over three, six and twelve
+ * months ranks in the index, from 1 to 99 — 99 has beaten 99% of it. The last
+ * quarter weighs most, as in the ratings traders know; a member short of a
+ * year of history is left unrated. Done for the last bar and the one before,
+ * so a rule can ask for a rating that has just crossed a line.
+ */
+export function rsRatings(rows: Array<{ values: Snapshot }>): Array<[number | null, number | null]> {
+  const score = (values: Snapshot, back: 0 | 1) => {
+    const quarter = values.chg60?.[back];
+    const half = values.chg126?.[back];
+    const year = values.chg252?.[back];
+    return quarter == null || half == null || year == null ? null : 0.4 * quarter + 0.3 * half + 0.3 * year;
+  };
+  const rank = (back: 0 | 1) => {
+    const scores = rows.map((row) => score(row.values, back));
+    const known = scores.filter((value): value is number => value != null).sort((a, b) => a - b);
+    return scores.map((value) => {
+      if (value == null || !known.length) return null;
+      let below = 0;
+      while (below < known.length && known[below] < value) below++;
+      return Math.max(1, Math.min(99, Math.round((below / known.length) * 100)));
+    });
+  };
+  const now = rank(0);
+  const before = rank(1);
+  return rows.map((_, index) => [now[index], before[index]]);
 }

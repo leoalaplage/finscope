@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rsRatings } from "@/lib/term/rules";
 import { fillOnDemand, isWhole, readTechTable } from "@/lib/term/tech-universe";
 import { UNIVERSE, UNIVERSE_AS_OF, UNIVERSE_NAME } from "@/lib/universe";
 
@@ -18,7 +19,10 @@ import { UNIVERSE, UNIVERSE_AS_OF, UNIVERSE_NAME } from "@/lib/universe";
 
 export async function GET() {
   const table = await readTechTable();
-  const rows = table?.rows ?? [];
+  // Each member's RS rating, ranked against the rest of the index in this answer.
+  const read = table?.rows ?? [];
+  const ratings = rsRatings(read);
+  const rows = read.map((row, index) => ({ ...row, values: { ...row.values, rsRating: ratings[index] } }));
   const whole = isWhole(table);
   await fillOnDemand(table);
   return NextResponse.json(

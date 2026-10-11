@@ -115,14 +115,14 @@ describe("backtest", () => {
 
 describe("the scanner's universe", () => {
   it("reads members never read first, then the oldest past six hours", async () => {
-    const { nextTechnicals, yahooSymbol } = await import("@/lib/term/tech-universe");
+    const { nextTechnicals, yahooSymbol, ROW_SHAPE } = await import("@/lib/term/tech-universe");
     const now = new Date("2026-10-11T12:00:00Z");
     const fresh = new Date("2026-10-11T10:00:00Z").toISOString();
     const old = new Date("2026-10-11T01:00:00Z").toISOString();
     const older = new Date("2026-10-10T20:00:00Z").toISOString();
     const { UNIVERSE } = await import("@/lib/universe");
     const rows = UNIVERSE.slice(0, UNIVERSE.length).map((member, index) => ({
-      ticker: member.ticker, name: member.name, asOf: 0, values: {}, shape: 2,
+      ticker: member.ticker, name: member.name, asOf: 0, values: {}, shape: ROW_SHAPE,
       builtAt: index === 0 ? old : index === 1 ? older : fresh,
     }));
     const table = { builtAt: fresh, members: UNIVERSE.length, rows: rows.slice(0, -1) };
@@ -133,12 +133,12 @@ describe("the scanner's universe", () => {
 
 describe("members with no history", () => {
   it("are set aside for a day and do not hold the table open", async () => {
-    const { isWhole, nextTechnicals } = await import("@/lib/term/tech-universe");
+    const { isWhole, nextTechnicals, ROW_SHAPE } = await import("@/lib/term/tech-universe");
     const { UNIVERSE } = await import("@/lib/universe");
     const now = new Date("2026-10-11T12:00:00Z");
     const fresh = now.toISOString();
     const gone = UNIVERSE[0].ticker;
-    const rows = UNIVERSE.slice(1).map((member) => ({ ticker: member.ticker, name: member.name, asOf: 0, values: {}, builtAt: fresh, shape: 2 }));
+    const rows = UNIVERSE.slice(1).map((member) => ({ ticker: member.ticker, name: member.name, asOf: 0, values: {}, builtAt: fresh, shape: ROW_SHAPE }));
     const table = { builtAt: fresh, members: UNIVERSE.length, rows, unreadable: { [gone]: new Date("2026-10-11T08:00:00Z").toISOString() } };
     expect(isWhole(table, now)).toBe(true);
     expect(nextTechnicals(table, 5, now)).toEqual([]);
@@ -148,13 +148,13 @@ describe("members with no history", () => {
 
 describe("a new snapshot shape", () => {
   it("reads rows of an older shape again before stale ones, and keeps the table open until they are", async () => {
-    const { isWhole, nextTechnicals } = await import("@/lib/term/tech-universe");
+    const { isWhole, nextTechnicals, ROW_SHAPE } = await import("@/lib/term/tech-universe");
     const { UNIVERSE } = await import("@/lib/universe");
     const now = new Date("2026-10-11T12:00:00Z");
     const rows = UNIVERSE.map((member, index) => ({
       ticker: member.ticker, name: member.name, asOf: 0, values: {},
       builtAt: index === 1 ? new Date("2026-10-10T01:00:00Z").toISOString() : now.toISOString(),
-      shape: index === 0 ? undefined : 2,
+      shape: index === 0 ? undefined : ROW_SHAPE,
     }));
     const table = { builtAt: now.toISOString(), members: UNIVERSE.length, rows };
     expect(nextTechnicals(table, 2, now)).toEqual([UNIVERSE[0].ticker, UNIVERSE[1].ticker]);
@@ -171,5 +171,14 @@ describe("yearly returns", () => {
     expect(series.chgYtd[2]).toBeCloseTo(2);
     expect(series.chgYtd[3]).toBeCloseTo(20);
     expect(series.chgYtd[0]).toBeNull();
+  });
+});
+
+describe("RS rating", () => {
+  it("ranks the weighted three-, six- and twelve-month return across the index, 1 to 99", async () => {
+    const { rsRatings } = await import("@/lib/term/rules");
+    const row = (quarter: number, half: number, year: number) => ({ values: { chg60: [quarter, quarter] as [number, number], chg126: [half, half] as [number, number], chg252: [year, year] as [number, number] } });
+    const ratings = rsRatings([row(-10, -10, -10), row(0, 0, 0), row(10, 10, 10), row(30, 30, 30), { values: {} }]);
+    expect(ratings.map((pair) => pair[0])).toEqual([1, 25, 50, 75, null]);
   });
 });

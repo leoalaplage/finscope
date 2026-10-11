@@ -61,7 +61,7 @@ describe("hrefFor", () => {
 describe("suggestFunctions", () => {
   it("offers a company's functions once the security is typed", () => {
     expect(suggestFunctions("AAPL G", null).map((s) => s.command)).toEqual(["AAPL GP"]);
-    expect(suggestFunctions("AAPL ", null)).toHaveLength(10);
+    expect(suggestFunctions("AAPL ", null)).toHaveLength(12);
   });
 
   it("offers global functions, and the on-screen company's, for a partial word", () => {

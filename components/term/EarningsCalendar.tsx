@@ -35,9 +35,28 @@ function stateOf(row: Row): State {
 }
 const ORDER: Record<State, number> = { due: 0, upcoming: 1, passed: 2, unknown: 3 };
 
+/** Announced dates for the next three weeks, from the earnings calendar (ECAL). */
+function useAnnounced() {
+  const [announced, setAnnounced] = useState<Map<string, { date: string; time: string }>>(new Map());
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/earnings-days?days=15", { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() as Promise<{ days?: Array<{ date: string; rows: Array<{ ticker: string; time: string }> }> }> : null))
+      .then((body) => {
+        const found = new Map<string, { date: string; time: string }>();
+        for (const day of body?.days ?? []) for (const row of day.rows) if (!found.has(row.ticker)) found.set(row.ticker, { date: day.date, time: row.time });
+        setAnnounced(found);
+      })
+      .catch(() => { /* The expected windows stand on their own. */ });
+    return () => controller.abort();
+  }, []);
+  return announced;
+}
+
 export function EarningsCalendar({ tickers }: { tickers: string[] }) {
   const key = tickers.join(",");
   const [answer, setAnswer] = useState<{ key: string; rows: Row[] | null } | null>(null);
+  const announced = useAnnounced();
 
   useEffect(() => {
     if (!key) return;
@@ -65,20 +84,30 @@ export function EarningsCalendar({ tickers }: { tickers: string[] }) {
           </tr>
         </thead>
         <tbody>
-          {[...rows].sort((a, b) => ORDER[stateOf(a)] - ORDER[stateOf(b)]).map((row) => {
-            const state = stateOf(row);
-            const days = row.expected ? daysUntil(row.expected.date) : null;
+          {[...rows].sort((a, b) => {
+            // Announced dates first, soonest first; then the expected windows.
+            const left = announced.get(a.ticker)?.date;
+            const right = announced.get(b.ticker)?.date;
+            if (left || right) return left && right ? left.localeCompare(right) : left ? -1 : 1;
+            return ORDER[stateOf(a)] - ORDER[stateOf(b)];
+          }).map((row) => {
+            const confirmed = announced.get(row.ticker);
+            const days = confirmed ? daysUntil(confirmed.date) : row.expected ? daysUntil(row.expected.date) : null;
+            // An announced date within a week is lit like a window that is due.
+            const state = confirmed ? (days != null && days <= 7 ? "due" : "upcoming") : stateOf(row);
             return (
               <tr key={row.ticker} data-state={state}>
                 <td className="key"><a href={`/t/s/${encodeURIComponent(row.ticker)}#ee`}>{row.ticker}</a></td>
                 <td title={row.expected ? `${shortDate(row.expected.from)} – ${shortDate(row.expected.to)}, every ~${row.expected.gapDays} days` : undefined}>
-                  {row.expected && state !== "passed" ? `~${shortDate(row.expected.date)}` : "—"}
+                  {confirmed
+                    ? <span className="t-amber">{confirmed.time === "before" ? "☀ " : confirmed.time === "after" ? "☾ " : ""}{shortDate(confirmed.date)}</span>
+                    : row.expected && state !== "passed" ? `~${shortDate(row.expected.date)}` : "—"}
                 </td>
                 <td
                   className={state === "due" ? "t-amber" : "t-dim"}
                   title={state === "passed" ? "No earnings 8-K filed since the expected window; the company may have announced another way." : undefined}
                 >
-                  {state === "due" ? "due" : state === "upcoming" ? `${days}d` : state === "passed" ? "no 8-K" : ""}
+                  {confirmed ? (days != null && days <= 0 ? "today" : `${days}d`) : state === "due" ? "due" : state === "upcoming" ? `${days}d` : state === "passed" ? "no 8-K" : ""}
                 </td>
                 <td className="t-dim">{row.last ? shortDate(row.last) : "—"}</td>
               </tr>
@@ -86,7 +115,10 @@ export function EarningsCalendar({ tickers }: { tickers: string[] }) {
           })}
         </tbody>
       </table>
-      <p className="t-study-note">Expected from each filer&apos;s past 8-K releases (item 2.02), ± a week. Not an announced date.</p>
+      <p className="t-study-note">
+        Amber dates are announced (☀ before the open, ☾ after the close); ~dates are expected from each filer&apos;s past 8-K releases, ± a week.
+        Full calendar: <a href="/t/ecal">ECAL</a>.
+      </p>
     </div>
   );
 }

@@ -92,7 +92,8 @@ export function ChartPage({ initial }: { initial: string }) {
       </div>
 
       <div className="chart-studies" role="group" aria-label="Analysis on the chart">
-        {STUDIES.map((study) => (
+        {/* Relative strength needs the market beside the symbol, which the terminal's workspace reads. */}
+        {STUDIES.filter((study) => study !== "rs").map((study) => (
           <button type="button" className="metric-toggle" key={study} aria-pressed={on(study)} onClick={() => toggle(study)}>
             {STUDY_NAMES[study]}
           </button>
