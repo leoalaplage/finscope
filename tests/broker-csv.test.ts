@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { importBrokerCsv, parseDate, parseNumber } from "@/lib/broker-csv";
+import { applyIsins, convertCurrencies, importBrokerCsv, parseDate, parseNumber } from "@/lib/broker-csv";
+import { usListing } from "@/lib/adapters/isin";
 import { ledger, parseTrades, positionsFromTransactions, tradedContribution, writeTrades, xirr } from "@/lib/transactions";
 
 const strip = (result: ReturnType<typeof importBrokerCsv>) => result.transactions.map(({ id, ...rest }) => { void id; return rest; });
@@ -67,14 +68,74 @@ describe("broker CSV import", () => {
     expect(result.positions).toEqual([{ ticker: "AAPL", shares: 40, cost: 150 }]);
   });
 
-  it("leaves out ISINs and says why, and reads a semicolon file with decimal commas", () => {
+  it("reads a semicolon file with decimal commas, day first, an ISIN standing in for its ticker", () => {
     const result = importBrokerCsv([
       "Date;Type;Symbol;Quantity;Price;Fee",
       "05.03.2025;Buy;US0378331005;3;198,50;1,00",
       "06.03.2025;Buy;AAPL;2;199,10;1,00",
     ].join("\n"));
-    expect(strip(result)).toEqual([{ ticker: "AAPL", date: "2025-03-06", kind: "buy", shares: 2, price: 199.1, fee: 1 }]);
-    expect(result.skipped[0].reason).toMatch(/ISIN/);
+    expect(strip(result).map((entry) => [entry.ticker, entry.date, entry.price])).toEqual([["US0378331005", "2025-03-05", 198.5], ["AAPL", "2025-03-06", 199.1]]);
+    expect(result.isins).toEqual([{ isin: "US0378331005", name: null }]);
+  });
+
+  it("reads Degiro's export: ISINs, signed quantities, and the currency beside the price and the fee", () => {
+    const csv = [
+      "Date,Time,Product,ISIN,Reference exchange,Venue,Quantity,Price,,Local value,,Value,,Exchange rate,Transaction and/or third,,Total,,Order ID",
+      "14-03-2025,15:31,APPLE INC. - COMMON ST,US0378331005,NDQ,XNAS,5,213.49,USD,-1067.45,USD,-982.47,EUR,1.0865,-1.00,EUR,-983.47,EUR,abc-1",
+      "02-06-2025,10:05,ASML HOLDING,NL0010273215,EAM,XAMS,-2,612.40,EUR,1224.80,EUR,1224.80,EUR,,-2.00,EUR,1222.80,EUR,abc-2",
+    ].join("\n");
+    const result = importBrokerCsv(csv);
+    expect(result.format).toBe("Degiro");
+    expect(strip(result).map((entry) => [entry.ticker, entry.date, entry.kind, entry.shares, entry.price, entry.fee])).toEqual([
+      ["US0378331005", "2025-03-14", "buy", 5, 213.49, 1], ["NL0010273215", "2025-06-02", "sell", 2, 612.4, 2],
+    ]);
+    // The first trade was dealt in dollars with a fee in euros; the second entirely in euros.
+    expect(Object.values(result.currencies)).toEqual([{ price: "USD", fee: "EUR" }, { price: "EUR" }]);
+    expect(result.isins.map((entry) => entry.name)).toEqual(["APPLE INC. - COMMON ST", "ASML HOLDING"]);
+  });
+
+  it("reads Degiro in French and Trade Republic in German", () => {
+    const french = importBrokerCsv([
+      "Date,Heure,Produit,Code ISIN,Place boursière,Lieu d'exécution,Quantité,Cours,,Valeur locale,,Valeur,,Taux de change,Frais de courtage,,Montant négocié,,ID Ordre",
+      "03-02-2025,09:12,MICROSOFT CORP,US5949181045,NDQ,XNAS,4,410.10,USD,-1640.40,USD,-1580.00,EUR,1.0383,-2.00,EUR,-1582.00,EUR,x",
+    ].join("\n"));
+    expect(french.format).toBe("Degiro");
+    expect(strip(french).map((entry) => [entry.ticker, entry.date, entry.shares, entry.price])).toEqual([["US5949181045", "2025-02-03", 4, 410.1]]);
+    const german = importBrokerCsv([
+      "Datum;Typ;Wertpapier;ISIN;Stück;Kurs;Betrag;Gebühr;Währung",
+      "12.05.2025;Kauf;NVIDIA Corp.;US67066G1040;3,5;102,40;-358,40;1,00;EUR",
+      "20.05.2025;Dividende;NVIDIA Corp.;US67066G1040;;;0,04;;EUR",
+      "01.07.2025;Verkauf;NVIDIA Corp.;US67066G1040;1;135,10;135,10;1,00;EUR",
+    ].join("\n"));
+    expect(german.format).toBe("Trade Republic / ISIN export");
+    expect(strip(german).map((entry) => [entry.date, entry.kind, entry.shares, entry.price])).toEqual([["2025-05-12", "buy", 3.5, 102.4], ["2025-07-01", "sell", 1, 135.1]]);
+    expect(german.skipped).toHaveLength(1);
+    expect(Object.values(german.currencies)).toEqual([{ price: "EUR" }, { price: "EUR" }]);
+  });
+
+  it("maps ISINs to US tickers and lists the ones without a US listing", () => {
+    const result = importBrokerCsv([
+      "Date,Product,ISIN,Quantity,Price",
+      "2025-01-02,APPLE,US0378331005,2,240",
+      "2025-01-03,ASML,NL0010273215,1,700",
+    ].join("\n"));
+    const mapped = applyIsins(result, { US0378331005: { ticker: "AAPL" }, NL0010273215: null });
+    expect(strip(mapped).map((entry) => entry.ticker)).toEqual(["AAPL"]);
+    expect(mapped.skipped[0].reason).toMatch(/ASML \(NL0010273215\): no listing on a US exchange/);
+  });
+
+  it("prices a trade in euros in dollars at its own day's rate", () => {
+    const result = importBrokerCsv("Datum;Typ;ISIN;Stück;Kurs;Gebühr;Währung\n12.05.2025;Kauf;US67066G1040;2;100,00;1,00;EUR");
+    const converted = convertCurrencies(applyIsins(result, { US67066G1040: { ticker: "NVDA" } }), {
+      EUR: [{ date: "2025-05-09", rate: 1.12 }, { date: "2025-05-12", rate: 1.11 }, { date: "2025-05-13", rate: 1.12 }],
+    });
+    expect(strip(converted)).toEqual([{ ticker: "NVDA", date: "2025-05-12", kind: "buy", shares: 2, price: 111.00000000000001, fee: 1.11 }]);
+  });
+
+  it("counts only US exchanges proper, never the OTC market", () => {
+    expect(usListing([{ ticker: "AAPL", exchCode: "UW" }, { ticker: "AAPL", exchCode: "US" }, { ticker: "APC", exchCode: "GR" }])).toEqual({ ticker: "AAPL", name: "AAPL" });
+    expect(usListing([{ ticker: "ASMLF", exchCode: "US" }, { ticker: "ASMLF", exchCode: "UV" }])).toBeNull();
+    expect(usListing([{ ticker: "BRK/B", exchCode: "UN", name: "BERKSHIRE" }])).toEqual({ ticker: "BRK.B", name: "BERKSHIRE" });
   });
 
   it("reads numbers and dates the ways brokers write them", () => {

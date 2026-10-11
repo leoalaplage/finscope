@@ -12,8 +12,11 @@ import { resolveMarketProfile } from "@/lib/market-profile";
 
 /** Index symbols are not companies but are charted all the same. */
 const INDEX = /^\^[A-Z0-9]{1,10}$/;
-/** Futures (ES=F) and coins (BTC-USD) are charted as Yahoo names them. */
-const FUTURE = /^[A-Z0-9]{1,6}=F$|^[A-Z0-9]{2,6}-USD$/;
+/**
+ * Futures (ES=F), coins (BTC-USD) and currency pairs (EURUSD=X) as Yahoo names
+ * them; the pairs convert a trade made in euros at the rate of its own day.
+ */
+const FUTURE = /^[A-Z0-9]{1,6}=F$|^[A-Z0-9]{2,6}-USD$|^[A-Z]{6}=X$/;
 
 export async function GET(request: Request, context: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await context.params;
