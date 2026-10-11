@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { searchSecCompanies } from "@/lib/adapters/sec";
+import { sameListing, searchSecCompanies } from "@/lib/adapters/sec";
 import { companyByTicker } from "@/lib/company-registry";
+import { universeMember } from "@/lib/universe";
 import { companyView } from "@/lib/io/view";
 import { ioViewKey } from "@/lib/io/view-version";
 import { rememberOpened } from "@/lib/warm-extra";
@@ -55,10 +56,10 @@ async function listedWithSec(symbol: string): Promise<boolean> {
   // One that names an instrument we hold no filing feed for cannot be built at
   // all, and calling it listed would trade a one-second refusal for a minute of
   // polling a build that never lands.
-  if (companyByTicker(symbol)?.cik) return true;
+  if (companyByTicker(symbol)?.cik || universeMember(symbol)?.cik) return true;
   try {
     const matches = await searchSecCompanies(symbol);
-    return matches.some((match) => match.ticker.toUpperCase() === symbol);
+    return matches.some((match) => sameListing(match.ticker, symbol));
   } catch {
     // A registry we could not read is not evidence that the company is absent.
     return true;

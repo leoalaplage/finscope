@@ -7,6 +7,9 @@ export const FLOW_METRICS: MetricKey[] = [
   "incomeBeforeTax", "incomeTaxExpense", "depreciationAndAmortization",
   "interestExpense", "interestPaid", "dividendsPerShare",
   "researchAndDevelopment", "sellingGeneralAndAdministrative", "operatingExpenses", "otherIncomeExpense",
+  // A bank's two lines of income, from which its revenue is struck where it
+  // tags no total (see deriveBankRevenue in the SEC adapter).
+  "netInterestIncome", "noninterestIncome",
   // Carried only so a share count can be recovered from it when the filer
   // publishes none; see recoverDilutedShares in the SEC adapter.
   "dilutedEpsReported",
@@ -58,9 +61,12 @@ export function dedupeFacts(facts: RawFinancialFact[]) {
     const firstFiled = considered.map((fact) => fact.filed).sort()[0];
     const inheritedConflicts = group.flatMap((fact)=>fact.sourceConflictValues??[]); const conflictValues=[...new Set([...distinct,...inheritedConflicts])];
     const conflict = hasUnitConflict || inheritedConflicts.length > 0;
+    const versions = [...new Map([...considered].sort((a, b) => a.filed.localeCompare(b.filed))
+      .map((fact) => [fact.value, { value: fact.value, filed: fact.filed, accession: fact.accession }])).values()];
     return {
       ...selected,
       firstFiled,
+      ...(versions.length > 1 ? { versions } : {}),
       restated: group.length > 1 && distinct.length > 1,
       sourceConflictValues: conflict ? conflictValues : undefined,
       normalizationNote: conflict ? (group.find((fact)=>fact.normalizationNote)?.normalizationNote ?? `Conflicting SEC magnitudes (${distinct.join(", ")}); selected the magnitude consistent with the SEC shares unit before split adjustment.`) : selected.summedFrom ? selected.normalizationNote : undefined,
@@ -662,6 +668,36 @@ function quarterFact(index: FactIndex, metric: MetricKey, fy: number, quarter: "
   return { ...found, provenance: { ...found.provenance, note: found.provenance.note ? `${found.provenance.note} ${note}` : note } };
 }
 
+/**
+ * The year as filed on the same basis as the quarters subtracted from it.
+ *
+ * A fourth quarter is the year less nine months. When a later annual report
+ * restates the year — Kimberly-Clark's 2023 moved from 20.4 to 17.1 billion
+ * when its personal-care business went to discontinued operations, Alphabet's
+ * 2021 share count was multiplied by its split — the nine months are still
+ * the originals, and the subtraction gives a quarter of 1.7 billion beside
+ * three of 5.2. The year as it was first reported is the one those quarters
+ * add up to, and it is still in the filings.
+ *
+ * Used only when the latest year gives a quarter outside 2.2 times the
+ * average of the three it is subtracted from, and another filed version of the
+ * same year gives one inside: never a value of our own, only the filer's other
+ * figure for the same window.
+ */
+function annualOnQuartersBasis(annual: RawFinancialFact, candidates: RawFinancialFact[], isolate: (year: number) => number, reference: number): RawFinancialFact {
+  if (!(reference > 0)) return annual;
+  const fits = (year: number) => { const quarter = isolate(year); return quarter > 0 && quarter <= reference * 2.2 && quarter >= reference / 2.2; };
+  if (fits(annual.value)) return annual;
+  const versions = [
+    ...(annual.versions ?? []),
+    ...candidates.filter((fact) => fact !== annual && fact.start === annual.start && fact.end === annual.end)
+      .flatMap((fact) => fact.versions ?? [{ value: fact.value, filed: fact.filed, accession: fact.accession }]),
+  ].filter((version) => version.value !== annual.value && fits(version.value));
+  const distance = (year: number) => Math.abs(Math.log(isolate(year) / reference));
+  const best = versions.sort((left, right) => distance(left.value) - distance(right.value))[0];
+  return best ? { ...annual, value: best.value, filed: best.filed, accession: best.accession } : annual;
+}
+
 function quarterFromConcept(index: FactIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4", candidates: RawFinancialFact[]): NormalizedFact | undefined {
   if (!candidates.length) return undefined;
   // FY contexts can contain later comparative quarter facts carrying fp=FY, so
@@ -677,8 +713,9 @@ function quarterFromConcept(index: FactIndex, metric: MetricKey, fy: number, qua
   if (direct) return normalized(direct, "quarterly", quarter);
 
   if (quarter === "Q1") return undefined;
-  const current = quarter === "Q4" ? annualHere : selectCumulative(candidates);
-  if (!current) return undefined;
+  const selected = quarter === "Q4" ? annualHere : selectCumulative(candidates);
+  if (!selected) return undefined;
+  let current: RawFinancialFact = selected;
   const priorFp = quarter === "Q2" ? "Q1" : quarter === "Q3" ? "Q2" : "Q3";
   const priorCandidates = sameConcept(contexts(index, metric, fy, priorFp), current.concept);
   const prior = quarter === "Q2" ? selectDirectQuarter(priorCandidates) : selectCumulative(priorCandidates);
@@ -687,18 +724,30 @@ function quarterFromConcept(index: FactIndex, metric: MetricKey, fy: number, qua
     if (directQuarters.every((fact): fact is RawFinancialFact => fact != null)) {
       const totalDays = daysBetween(current.start, current.end); const priorDays = directQuarters.reduce((sum, fact) => sum + daysBetween(fact.start, fact.end), 0); const isolatedDays = totalDays - priorDays;
       if (isolatedDays >= 55 && isolatedDays <= 125) {
-        const rawValue = WEIGHTED_SHARE_METRICS.includes(metric)
-          ? (current.value * totalDays - directQuarters.reduce((sum, fact) => sum + fact.value * daysBetween(fact.start, fact.end), 0)) / isolatedDays
-          : current.value - directQuarters.reduce((sum, fact) => sum + fact.value, 0);
+        const weighted = WEIGHTED_SHARE_METRICS.includes(metric);
+        const isolate = (year: number) => weighted
+          ? (year * totalDays - directQuarters.reduce((sum, fact) => sum + fact.value * daysBetween(fact.start, fact.end), 0)) / isolatedDays
+          : year - directQuarters.reduce((sum, fact) => sum + fact.value, 0);
+        const reference = weighted ? directQuarters[2].value : directQuarters.reduce((sum, fact) => sum + fact.value, 0) / 3;
+        const year = annualOnQuartersBasis(current, candidates, isolate, reference);
+        const rawValue = isolate(year.value);
         if (implausible(metric, rawValue)) return undefined;
         const value = rawValue;
         const start = new Date(Date.parse(directQuarters[2].end) + 86_400_000).toISOString().slice(0,10);
-        return { metric, value:normalizeFinancialSign(metric,value), currency: current.currency, unit: current.unit, periodStart:start, periodEnd:current.end, periodicity:"quarterly", fiscalYear:fy, fiscalQuarter:"Q4", provenance:{provider:"Calculated",sourceUrl:current.sourceUrl,accession:current.accession,filingDate:current.filed,firstFiled:current.firstFiled??current.filed,retrievedAt:current.retrievedAt,concept:current.concept,status:"calculated",formula:WEIGHTED_SHARE_METRICS.includes(metric)?"Q4 weighted shares = (annual weighted shares × annual days − Σ(Q1–Q3 weighted shares × quarter days)) / Q4 days":"Q4 = annual − Q1 − Q2 − Q3",sourceAccessions:[...new Set([current.accession,...directQuarters.map((fact)=>fact.accession)])],note:"Q4 isolated from the annual fact and three direct fiscal quarters; no value was imputed; cash outflows use positive normalized magnitudes."} };
+        const original = year !== current ? " The year is taken as first reported, the basis its quarters were filed on; a later report restated it." : "";
+        return { metric, value:normalizeFinancialSign(metric,value), currency: current.currency, unit: current.unit, periodStart:start, periodEnd:current.end, periodicity:"quarterly", fiscalYear:fy, fiscalQuarter:"Q4", provenance:{provider:"Calculated",sourceUrl:current.sourceUrl,accession:year.accession,filingDate:year.filed,firstFiled:current.firstFiled??current.filed,retrievedAt:current.retrievedAt,concept:current.concept,status:"calculated",formula:WEIGHTED_SHARE_METRICS.includes(metric)?"Q4 weighted shares = (annual weighted shares × annual days − Σ(Q1–Q3 weighted shares × quarter days)) / Q4 days":"Q4 = annual − Q1 − Q2 − Q3",sourceAccessions:[...new Set([year.accession,...directQuarters.map((fact)=>fact.accession)])],note:`Q4 isolated from the annual fact and three direct fiscal quarters; no value was imputed; cash outflows use positive normalized magnitudes.${original}`} };
       }
     }
   }
   if (!prior || !current.start || !prior.start || Math.abs(Date.parse(current.start) - Date.parse(prior.start)) > 7 * 86_400_000 || current.end <= prior.end) return undefined;
   const quarterStart = new Date(Date.parse(prior.end) + 86_400_000).toISOString().slice(0, 10);
+  if (quarter === "Q4") {
+    const yearDays = daysBetween(current.start, current.end); const priorDays = daysBetween(prior.start, prior.end); const gap = yearDays - priorDays;
+    const weighted = WEIGHTED_SHARE_METRICS.includes(metric);
+    if (gap > 0) current = annualOnQuartersBasis(current, candidates,
+      (year) => (weighted ? (year * yearDays - prior.value * priorDays) / gap : year - prior.value),
+      weighted ? prior.value : prior.value / 3);
+  }
 
   if (WEIGHTED_SHARE_METRICS.includes(metric)) {
     const currentDays = daysBetween(current.start, current.end);
@@ -869,6 +918,91 @@ function annualBridgeFlow(
       note,
     },
   };
+}
+
+/**
+ * Quarterly figures no business produces, withheld rather than published.
+ *
+ * A fourth quarter is the year less nine months, and a quarter is the
+ * year-to-date less the one before. When a later filing restates one side — a
+ * spin-off moved to discontinued operations, a split applied to the year but
+ * not to the nine months — the subtraction mixes two bases and the quarter is
+ * nonsense: Alphabet's fourth quarter of 2021 came out at 3.8 billion diluted
+ * shares between two quarters of 13.4 billion, Carrier's fourth quarter of
+ * 2022 at 2.0 billion of revenue between 5.5 and 5.3, Johnson & Johnson's
+ * cost of sales at a fifth of its neighbours'. The same shape catches a
+ * filer's own scale slip (Packaging Corporation's share count tagged a
+ * thousand times over in three quarters).
+ *
+ * The test needs witnesses that agree with each other: the quarters either
+ * side, within half again of each other (a quarter for share counts), and the
+ * figure outside 2.2 times their band (1.6 for share counts). A flow must also
+ * be outside that band against the same quarter a year earlier, so a business
+ * that earns most of its year in one quarter — tax software, retail — is never
+ * mistaken for an error. A share count has no season.
+ */
+const SCALE_FLOWS: MetricKey[] = ["revenue", "costOfRevenue", "costsAndExpenses", "operatingExpenses", "researchAndDevelopment", "sellingGeneralAndAdministrative"];
+const SHARE_COUNTS: MetricKey[] = ["dilutedShares", "basicShares", "sharesOutstanding", "sharesIssued"];
+
+export function withholdImplausibleQuarters(quarters: FinancialPeriod[]): { periods: FinancialPeriod[]; withheld: string[] } {
+  const ordered = [...quarters].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+  const withheld: string[] = [];
+  const near = (left: FinancialPeriod | undefined, right: FinancialPeriod | undefined) =>
+    left != null && right != null && Math.abs(daysBetween(left.periodEnd, right.periodEnd)) <= 120;
+  const periods = ordered.map((period, index) => {
+    const before = ordered[index - 1];
+    const after = ordered[index + 1];
+    // Inside the series the witnesses are either side; at its newest end, the
+    // two quarters before it.
+    const witnesses = near(before, period) && near(period, after) ? [before, after]
+      : !after && near(ordered[index - 2], before) && near(before, period) ? [ordered[index - 2], before]
+      : null;
+    const yearAgo = ordered.find((item) => item.fiscalQuarter === period.fiscalQuarter && item.fiscalYear === period.fiscalYear - 1);
+    let facts = period.facts;
+    for (const metric of witnesses ? [...SCALE_FLOWS, ...SHARE_COUNTS] : []) {
+      const shares = SHARE_COUNTS.includes(metric);
+      // A share count at the newest end may be the first on a new basis.
+      if (shares && !after) continue;
+      const value = facts[metric]?.value;
+      const [a, b] = witnesses!.map((item) => item.facts[metric]?.value);
+      if (value == null || a == null || b == null || !(a > 0) || !(b > 0) || !(value > 0)) continue;
+      const low = Math.min(a, b); const high = Math.max(a, b);
+      const agree = shares ? 1.25 : 1.5; const band = shares ? 1.6 : 2.2;
+      if (high / low > agree || (value <= high * band && value >= low / band)) continue;
+      if (!shares) {
+        const last = yearAgo?.facts[metric]?.value;
+        if (last == null || (last > 0 && value <= last * band && value >= last / band)) continue;
+      }
+      if (facts === period.facts) facts = { ...facts };
+      delete facts[metric];
+      withheld.push(`${period.label} ${metric}`);
+    }
+    /*
+     * The weighted count and the count outstanding are the same shares, a few
+     * per cent apart at most. More than two and a half times apart, one of them
+     * is wrong — Waters tagged its 2025 diluted count in thousands of shares
+     * as though they were shares, KLA's newest fourth quarter was subtracted
+     * across its ten-for-one split — and the wrong one is the one that has
+     * also broken with its own previous quarter.
+     */
+    const outstanding = facts.sharesOutstanding?.value;
+    for (const metric of ["dilutedShares", "basicShares"] as const) {
+      const weighted = facts[metric]?.value;
+      if (weighted == null || outstanding == null || !(weighted > 0) || !(outstanding > 0)) continue;
+      if (Math.max(weighted / outstanding, outstanding / weighted) <= 2.5) continue;
+      const jump = (key: MetricKey, figure: number) => {
+        const last = before?.facts[key]?.value;
+        return last != null && last > 0 && near(before, period) ? Math.abs(Math.log(figure / last)) : null;
+      };
+      const weightedJump = jump(metric, weighted); const outstandingJump = jump("sharesOutstanding", outstanding);
+      if (weightedJump == null || outstandingJump == null || weightedJump <= outstandingJump) continue;
+      if (facts === period.facts) facts = { ...facts };
+      delete facts[metric];
+      withheld.push(`${period.label} ${metric}`);
+    }
+    return facts === period.facts ? period : { ...period, facts };
+  });
+  return { periods, withheld };
 }
 
 export function buildTtmPeriods(quarters: FinancialPeriod[], currency: string, annual: FinancialPeriod[] = []) {

@@ -82,7 +82,9 @@ export type MetricKey =
   | "researchAndDevelopment"
   | "sellingGeneralAndAdministrative"
   | "operatingExpenses"
-  | "otherIncomeExpense";
+  | "otherIncomeExpense"
+  | "netInterestIncome"
+  | "noninterestIncome";
 
 export interface Provenance {
   provider: "SEC" | "Yahoo Finance" | "Calculated" | "Demo fixture";
@@ -286,6 +288,13 @@ export interface RawFinancialFact {
    * a total it reconciles elsewhere. See `capexFromComponents`.
    */
   summedFrom?: string[];
+  /**
+   * Every distinct value this context was filed with, each at the latest filing
+   * carrying it, oldest first. A year restated for a divestiture keeps the
+   * figure it was first reported at, which is the one its own quarters add up
+   * to (see `annualOnQuartersBasis`).
+   */
+  versions?: Array<{ value: number; filed: string; accession: string }>;
   sourceUrl: string;
   retrievedAt: string;
   restated?: boolean;

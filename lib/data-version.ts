@@ -105,6 +105,18 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v35: what an audit of every company in the index found wrong, by class.
+ * Splits a filer proved by restating its history are applied before the
+ * ratios it declared, so a declared ratio dated a day before a filing still on
+ * the old basis no longer makes the next restatement look like a second split
+ * (Arista had eight, two of them reverse, for the two it made). A quarterly
+ * figure outside 2.2 times both its agreeing neighbours and its year-ago
+ * quarter — 1.6 times for a share count — is withheld: almost always a fourth
+ * quarter subtracted across a restatement (Alphabet's 2021 diluted count,
+ * Carrier's 2022 revenue) or a filer's scale slip. A bank that tags no revenue
+ * total has it struck as net interest income plus noninterest income, and a
+ * utility's regulated-and-unregulated operating revenue is read as revenue.
+ *
  * v34: what the latest trailing periods were still missing, measured company by
  * company. A 53-week year that closes in the first days of January is the
  * year before (Textron's fiscal 2025 closed on 3 January 2026 and was filed on
@@ -262,7 +274,7 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v34";
+export const KEY_VERSION = "v35";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

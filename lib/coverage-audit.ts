@@ -1,5 +1,6 @@
 import { fetchLatestFiling, type LatestFiling } from "./adapters/sec";
 import { KEY_VERSION } from "./data-version";
+import { plausibilityFindings, type Finding } from "./io/plausibility";
 import { withheldMeasures, type IoCompanyView, type IoPeriod } from "./io/view";
 import { datasetCache } from "./runtime-env";
 import type { CompanyDataset } from "./types";
@@ -77,6 +78,8 @@ export interface CompanyAudit {
   moved: Array<{ measure: string; period: string; from: number; to: number }>;
   /** The latest year's filed figures, to be set against the SEC's frames. */
   sourced?: SourcedFigure[];
+  /** Figures no business produces, over the last five years (lib/io/plausibility.ts). Absent from checks made before it existed. */
+  implausible?: Finding[];
 }
 
 const mark = (period: IoPeriod | null | undefined): PeriodMark | null =>
@@ -148,6 +151,7 @@ export function auditCompany(view: IoCompanyView, previous: CompanyAudit | null,
     recentTtmWithoutFcf: withheld.has("freeCashFlow") ? 0 : view.trailing.slice(-8).filter((period) => period.values.freeCashFlow == null).length,
     values,
     moved,
+    implausible: plausibilityFindings(view),
     ...(sourced ? { sourced } : {}),
   };
 }
@@ -261,6 +265,8 @@ export interface AuditTotals {
   moved: number;
   /** Companies with a latest-year figure disagreeing with the SEC's frame. Absent from reports before it existed. */
   disagree?: number;
+  /** Companies carrying a figure no business produces. Absent from reports before it existed. */
+  implausible?: number;
 }
 
 export interface AuditReport {
@@ -282,6 +288,7 @@ export interface AuditReport {
     stale: StaleEntry[];
     moved: MoveEntry[];
     disagreements?: Disagreement[];
+    implausible?: Array<Finding & { ticker: string }>;
   };
   history: Array<{ date: string; totals: AuditTotals }>;
 }
@@ -294,7 +301,7 @@ export function summariseAudits(
   now = new Date(),
   checked: { compared: number; disagreements: Disagreement[] } = { compared: 0, disagreements: [] },
 ): AuditReport {
-  const issues: AuditReport["issues"] = { notBuilt: [], missingFcfLatest: [], missingAnnual: [], missingTtm: [], recentTtmGaps: [], stale: [], moved: [], disagreements: checked.disagreements };
+  const issues: AuditReport["issues"] = { notBuilt: [], missingFcfLatest: [], missingAnnual: [], missingTtm: [], recentTtmGaps: [], stale: [], moved: [], disagreements: checked.disagreements, implausible: [] };
   const graceCutoff = new Date(now.getTime() - FILING_GRACE_DAYS * 86_400_000).toISOString().slice(0, 10);
 
   for (const { ticker } of members) {
@@ -322,6 +329,7 @@ export function summariseAudits(
       issues.stale.push({ ticker, held: latest?.label ?? null, heldEnd, form: filing.form, reportDate: filing.reportDate, filingDate: filing.filingDate });
     }
     for (const move of audit.moved) issues.moved.push({ ticker, ...move });
+    for (const finding of audit.implausible ?? []) issues.implausible!.push({ ticker, ...finding });
   }
 
   const totals: AuditTotals = {
@@ -333,6 +341,7 @@ export function summariseAudits(
     stale: issues.stale.length,
     moved: new Set(issues.moved.map((move) => move.ticker)).size,
     disagree: new Set(checked.disagreements.filter((entry) => !entry.scale && !entry.otherFiling).map((entry) => entry.ticker)).size,
+    implausible: new Set(issues.implausible!.map((entry) => entry.ticker)).size,
   };
   const date = now.toISOString().slice(0, 10);
   const earlier = (previous?.history ?? []).filter((entry) => entry.date !== date);

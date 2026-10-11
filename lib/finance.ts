@@ -151,8 +151,39 @@ export function freeCashFlow(operatingCashFlow: number | null, capex: number | n
   return operatingCashFlow - Math.abs(capex);
 }
 
+/**
+ * A margin, unless revenue has all but vanished under it.
+ *
+ * Carnival's first quarter of 2021 carried 24 million of revenue against 470
+ * million of cost of sales: a gross margin of −1,958% is arithmetic, not a
+ * margin, and on a chart it flattens every real quarter into a line. Beyond
+ * five times revenue either way the ratio says the denominator is a sliver,
+ * and it is not stated — the convention every terminal marks as NM.
+ */
+export const MARGIN_LIMIT = 5;
 export function margin(value: number | null, revenue: number | null) {
-  return safeDivide(value, revenue);
+  const ratio = safeDivide(value, revenue);
+  return ratio == null || Math.abs(ratio) > MARGIN_LIMIT ? null : ratio;
+}
+
+/**
+ * A return whose base is a meaningful part of the business, or nothing.
+ *
+ * A return on equity divides by book equity, and a company that has bought
+ * back nearly all of it has a base that rounds to nothing. S&P Global's equity
+ * fell to 70 million against 8.5 billion of assets in March 2018, and its
+ * return on equity read 2,445%; its invested capital, net of the cash it was
+ * holding for the IHS Markit merger, fell to 120 million in 2021 and its ROIC
+ * read 2,543%. Both are arithmetic on a sliver and neither is a return. Below
+ * five per cent of total assets the base is not stated against, so the
+ * return is not stated either (NM); where total assets are unknown the base
+ * need only be positive, as before.
+ */
+export const MEANINGFUL_BASE = 0.05;
+export function returnOn(numerator: number | null | undefined, base: number | null | undefined, totalAssets: number | null | undefined) {
+  if (base == null || base <= 0) return null;
+  if (totalAssets != null && totalAssets > 0 && base < totalAssets * MEANINGFUL_BASE) return null;
+  return safeDivide(numerator, base);
 }
 
 export function perShare(value: number | null, dilutedShares: number | null) {
@@ -382,13 +413,13 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     nopat: nopat(period),
     // ROIC has been declared in the metric registry all along without ever
     // being computed, so it rendered as an em dash everywhere it appeared.
-    roic: safeDivide(nopat(period), investedCapital(period)),
+    roic: returnOn(nopat(period), investedCapital(period), valueOf(period, "totalAssets")),
     // The same question as ROIC, asked of cash instead of accounting profit.
     // NOPAT applies an effective tax rate, and falls back to an assumed 21%
     // when the reported one is not usable, so ROIC always carries one
     // assumption. Free cash flow carries none: it is what the business
     // actually produced after paying for its own maintenance.
-    cashReturnOnCapital: safeDivide(fcf, investedCapital(period)),
+    cashReturnOnCapital: returnOn(fcf, investedCapital(period), valueOf(period, "totalAssets")),
     capitalIntensity: capex == null ? null : safeDivide(Math.abs(capex), revenue),
     netDebt: netDebt(period),
     // Working capital excluding cash needs the cash balance as much as it needs
@@ -404,8 +435,10 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     // opening and closing balances. The average is marginally more correct for
     // a year of heavy issuance, but it needs a prior balance sheet, and mixing
     // the two conventions across companies would be worse than either.
-    returnOnEquity: divideByPositive(valueOf(period, "netIncome"), valueOf(period, "totalEquity")),
-    returnOnAssets: safeDivide(valueOf(period, "netIncome"), valueOf(period, "totalAssets")),
+    returnOnEquity: returnOn(valueOf(period, "netIncome"), valueOf(period, "totalEquity"), valueOf(period, "totalAssets")),
+    // No business earns its whole balance sheet in a year: a return on assets
+    // beyond that is a total-assets figure tagged at the wrong scale.
+    returnOnAssets: (() => { const value = safeDivide(valueOf(period, "netIncome"), valueOf(period, "totalAssets")); return value == null || Math.abs(value) > 1 ? null : value; })(),
     returnOnTangibleAssets: safeDivide(valueOf(period, "netIncome"), tangibleAssets(period)),
     returnOnCapitalEmployed: safeDivide(valueOf(period, "operatingIncome"), capitalEmployed(period)),
     debtToEquity: divideByPositive(valueOf(period, "totalDebt"), valueOf(period, "totalEquity")),

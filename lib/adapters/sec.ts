@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { COMPANIES } from "../company-registry";
-import { adjustPeriodsForSplits, buildTtmPeriods, isAnnualForm, normalizeAnnualPeriods, normalizeQuarterlyPeriods } from "../periods";
+import { adjustPeriodsForSplits, buildTtmPeriods, isAnnualForm, normalizeAnnualPeriods, normalizeQuarterlyPeriods, withholdImplausibleQuarters } from "../periods";
 import { validateCompanyDataset } from "../data-quality";
 import { businessTypeFromSic, cashFlowIsTheBalanceSheet, classifyBusiness, isFinancialBusiness, verifiedBusinessType } from "../business-type";
 import { companySector } from "../sector";
@@ -105,7 +105,7 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
   // Financial institutions commonly state the top line net of interest expense
   // rather than under generic Revenues. It is a fallback only: an industrial
   // filer's contract/total revenue concepts retain their existing preference.
-  revenue: { namespace: "us-gaap", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "Revenues", "SalesRevenueNet", "RevenuesNetOfInterestExpense"], unit: "currency" },
+  revenue: { namespace: "us-gaap", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "Revenues", "SalesRevenueNet", "RevenuesNetOfInterestExpense", "RegulatedAndUnregulatedOperatingRevenue"], unit: "currency" },
   grossProfit: { namespace: "us-gaap", tags: ["GrossProfit"], unit: "currency" },
   costOfRevenue: { namespace: "us-gaap", tags: ["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSold"], unit: "currency" },
   // Some service businesses split their direct cost base across two lines.
@@ -305,6 +305,8 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
   sellingGeneralAndAdministrative: { namespace: "us-gaap", tags: ["SellingGeneralAndAdministrativeExpense", "GeneralAndAdministrativeExpense"], unit: "currency" },
   operatingExpenses: { namespace: "us-gaap", tags: ["OperatingExpenses"], unit: "currency" },
   otherIncomeExpense: { namespace: "us-gaap", tags: ["NonoperatingIncomeExpense"], unit: "currency" },
+  netInterestIncome: { namespace: "us-gaap", tags: ["InterestIncomeExpenseNet"], unit: "currency" },
+  noninterestIncome: { namespace: "us-gaap", tags: ["NoninterestIncome"], unit: "currency" },
 };
 
 /**
@@ -895,6 +897,48 @@ function ambiguousLongTermRole(periods: FinancialPeriod[]): AmbiguousLongTermRol
   }
   if (!votes.length) return null;
   return votes.every((vote) => vote === votes[0]) ? votes[0] : null;
+}
+
+/**
+ * A bank's revenue, where it tags no total: net interest income plus
+ * noninterest income, which is how every bank states its revenue and how
+ * analysts read it.
+ *
+ * Truist, Regions, Synchrony, Fifth Third and BNY stopped tagging a revenue
+ * total in 2023 or 2024 while publishing both lines every quarter, and their
+ * pages went blank for revenue — and for every margin and per-share figure
+ * struck on it — from then on. Addition of two published facts in one period;
+ * never written over a total the bank does tag.
+ */
+function deriveBankRevenue(periods: FinancialPeriod[], businessType: BusinessType | undefined): FinancialPeriod[] {
+  if (businessType !== "bank" && businessType !== "financial") return periods;
+  return periods.map((period) => {
+    if (period.facts.revenue?.value != null) return period;
+    const interest = period.facts.netInterestIncome;
+    const other = period.facts.noninterestIncome;
+    if (interest?.value == null || other?.value == null) return period;
+    if (interest.currency !== other.currency || interest.periodEnd !== other.periodEnd) return period;
+    return {
+      ...period,
+      facts: {
+        ...period.facts,
+        revenue: {
+          ...interest,
+          metric: "revenue",
+          value: interest.value + other.value,
+          provenance: {
+            ...interest.provenance,
+            provider: "Calculated",
+            status: "calculated",
+            concept: `${interest.provenance.concept} + ${other.provenance.concept}`,
+            formula: "Net interest income + noninterest income",
+            sourceAccessions: [...new Set([interest.provenance.accession, other.provenance.accession].filter((item): item is string => Boolean(item)))],
+            note: "The bank tags no revenue total for this period. Its revenue is struck as net interest income plus noninterest income, both as filed.",
+          },
+        },
+      },
+    };
+  });
 }
 
 /**
@@ -1573,22 +1617,36 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
   // count it produces is on the as-filed basis every other share fact starts
   // from and gets adjusted exactly once.
   const reconciled = reconcileDividendsPerShare(
-    deriveCostOfRevenue(deriveOperatingIncome(combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.businessType), company.businessType)),
-    deriveCostOfRevenue(deriveOperatingIncome(combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.businessType), company.businessType)),
+    deriveCostOfRevenue(deriveOperatingIncome(deriveBankRevenue(combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.businessType), company.businessType), company.businessType)),
+    deriveCostOfRevenue(deriveOperatingIncome(deriveBankRevenue(combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.businessType), company.businessType), company.businessType)),
   );
   // The hand-verified splits first; then any the filer declared that still
   // explain a break in what is left, which is what covers a company nobody
   // curated a list for.
   const verifiedAnnual = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.annual, reconciled.ratesSeen), company.stockSplits);
   const verifiedQuarterly = adjustPeriodsForSplits(recoverSharesFromDividends(reconciled.quarterly, reconciled.ratesSeen), company.stockSplits);
-  const detected = confirmedStockSplits(filedStockSplits(parsed.facts), verifiedAnnual);
-  // Then the splits nobody declared, proved by the filer restating its own
-  // history — which is the only evidence a company like Booking leaves.
-  const restated = restatedStockSplits(parsed.facts, [...(company.stockSplits ?? []), ...detected]);
-  const unverified = [...detected, ...restated].sort((left, right) => left.date.localeCompare(right.date));
+  /*
+   * Then the splits the filer proved by restating its own history, before the
+   * ratios it declared.
+   *
+   * A restatement is dated by the filing that first shows the new basis, which
+   * is exactly the boundary between facts that need adjusting and facts that do
+   * not. A declared ratio is dated by whatever context the filer hung it on —
+   * Arista's 2021 four-for-one is tagged at 1 November, a day before a 10-Q
+   * still on the old basis — and taking those first made every later
+   * restatement look unexplained: Arista collected eight splits, two of them
+   * reverse, for the two it made, and its 2025 diluted count read 1.3 billion
+   * beside 5.0 billion shares outstanding. The declared ratios now explain only
+   * what the restatements leave.
+   */
+  const restated = restatedStockSplits(parsed.facts, company.stockSplits ?? []);
+  const restatedAnnual = adjustPeriodsForSplits(verifiedAnnual, restated);
+  const detected = confirmedStockSplits(filedStockSplits(parsed.facts), restatedAnnual);
+  const unverified = [...restated, ...detected].sort((left, right) => left.date.localeCompare(right.date));
   const stockSplits = [...(company.stockSplits ?? []), ...unverified].sort((left, right) => left.date.localeCompare(right.date));
-  const annual = adjustPeriodsForSplits(verifiedAnnual, unverified);
-  const quarterly = adjustPeriodsForSplits(verifiedQuarterly, unverified);
+  const annual = adjustPeriodsForSplits(restatedAnnual, detected);
+  // Only once every share count is on one basis can a quarter be told from its neighbours.
+  const { periods: quarterly, withheld } = withholdImplausibleQuarters(adjustPeriodsForSplits(adjustPeriodsForSplits(verifiedQuarterly, restated), detected));
   const ttm = buildTtmPeriods(quarterly, company.currency, annual);
   const identityKey = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const payloadIdentityMismatch = identityKey(parsed.entityName) !== identityKey(company.name);
@@ -1627,6 +1685,7 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
     warnings: [
       ...(payloadIdentityMismatch ? [`SEC identity mismatch: the ticker registry identifies ${company.name}, while Company Facts labels the payload ${parsed.entityName}. FinScope retains the ticker-to-CIK registry identity.`] : []),
       "Quarterly cash-flow facts may be isolated from year-to-date disclosures; every derived quarter is marked calculated with its source accessions.",
+      ...(withheld.length ? [`${withheld.length} quarterly figure${withheld.length === 1 ? " was" : "s were"} withheld as implausible against the quarters either side and a year earlier, most often a fourth quarter subtracted across a restatement: ${withheld.slice(0, 6).join(", ")}${withheld.length > 6 ? "…" : ""}.`] : []),
       ttm.length ? `TTM is available through ${ttm.at(-1)!.periodEnd} from four consecutive fiscal quarters.`
         : quarterly.length ? "TTM unavailable: four consecutive reliable quarters were not found."
         : "This filer publishes an annual report only — a foreign private issuer files no quarterly report with the SEC — so quarterly and trailing-twelve-month views are empty by construction rather than by failure.",
@@ -1803,8 +1862,11 @@ export async function searchSecCompanies(query: string) {
   // The registry is CIK-ordered. Prioritise an exact symbol before applying the
   // display limit, otherwise a one-letter ticker can disappear behind twelve
   // unrelated company names that happen to contain the same letter.
-  return entries.filter((entry) => entry.ticker.includes(needle) || entry.title.toUpperCase().includes(needle))
-    .sort((left, right) => Number(right.ticker === needle) - Number(left.ticker === needle))
+  // The SEC writes a share class with a dash (BF-B) where the index and every
+  // quote write a dot (BF.B); both spellings find it.
+  const dashed = needle.replace(/\./g, "-");
+  return entries.filter((entry) => entry.ticker.includes(needle) || entry.ticker.includes(dashed) || entry.title.toUpperCase().includes(needle))
+    .sort((left, right) => Number(sameListing(right.ticker, needle)) - Number(sameListing(left.ticker, needle)))
     .slice(0, 12).map((entry) => {
     const cik = String(entry.cik_str).padStart(10, "0");
     return { name: entry.title, ticker: entry.ticker, cik, regulatoryId: `CIK ${cik}`, exchange: "US listing", currency: "USD", yahooTicker: entry.ticker, sector: "Unclassified", description: "Dynamically resolved from the SEC company registry.", resolutionStatus: "partial" as const, resolutionNote: "The CIK is verified by the SEC. The exchange listing and the split history are not, so long per-share price series for this company are unadjusted.", businessType: verifiedBusinessType(cik) ?? "operating" };
@@ -1842,8 +1904,17 @@ async function resolveSecBusinessMetadata(cik: string) {
   return { sic, sicDescription: parsed.sicDescription, exchanges: parsed.exchanges };
 }
 
+/**
+ * One symbol however its share class is punctuated: the SEC lists Brown-Forman's
+ * class B as BF-B, the index and every quote as BF.B, and the strict comparison
+ * refused an S&P 500 member outright.
+ */
+export const sameListing = (left: string, right: string) => left.toUpperCase().replace(/-/g, ".") === right.toUpperCase().replace(/-/g, ".");
+
 async function resolveSecCompany(ticker: string) {
-  const results = await searchSecCompanies(ticker); const exact = results.find((entry) => entry.ticker === ticker.toUpperCase());
+  const results = await searchSecCompanies(ticker); const found = results.find((entry) => sameListing(entry.ticker, ticker));
+  // Named as it was asked for, so the page and its cache keep one spelling.
+  const exact = found ? { ...found, ticker: ticker.toUpperCase() } : undefined;
   if (!exact) throw new Error("Ticker could not be resolved uniquely in the SEC registry.");
   // Identity is not enough: defaulting a dynamic ticker to `operating` exposes
   // industrial ROIC and FCFF for a bank or insurer. Classification failure is

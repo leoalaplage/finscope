@@ -68,6 +68,8 @@ export const METRICS: Record<string, MetricDefinition> = {
   researchAndDevelopment: { label: "Research and development", short: "R&D", color: "#A78BFA", kind: "currency" },
   sellingGeneralAndAdministrative: { label: "Selling, general and administrative", short: "SG&A", color: "#F4BC56", kind: "currency" },
   operatingExpenses: { label: "Operating expenses", short: "Opex", color: "#F59E0B", kind: "currency" },
+  netInterestIncome: { label: "Net interest income", short: "Net interest income", color: "#4DA3FF", kind: "currency" },
+  noninterestIncome: { label: "Noninterest income", short: "Noninterest income", color: "#A78BFA", kind: "currency" },
   otherIncomeExpense: { label: "Other income and expense", short: "Other income", color: "#94A3B8", kind: "currency" },
   longTermDebtCurrent: { label: "Long-term debt · current portion", short: "Debt · current", color: "#FF647C", kind: "currency" },
   longTermDebtNoncurrent: { label: "Long-term debt · non-current", short: "Debt · non-current", color: "#FF647C", kind: "currency" },

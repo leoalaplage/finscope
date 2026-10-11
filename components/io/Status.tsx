@@ -24,6 +24,7 @@ const COUNTS: Array<{ key: keyof AuditTotals; label: string; note: string }> = [
   { key: "missingTtm", label: "Latest TTM missing a measure", note: "Revenue, net income, operating cash flow, capital expenditure, free cash flow or diluted shares absent from the newest trailing period." },
   { key: "missingAnnual", label: "Latest year missing a measure", note: "The same six measures, on the newest annual period." },
   { key: "recentTtmGaps", label: "FCF gaps, last two years", note: "At least one of the last eight trailing periods without free cash flow." },
+  { key: "implausible", label: "Implausible figure", note: "Over the last five years: a quarter out of line with both neighbours, a return on a vanishing base, a margin beyond any business, a trailing year disagreeing with its annual report, or recent quarters without revenue." },
   { key: "moved", label: "Moved without a filing", note: "A latest figure that changed by more than 20% on a rebuild of the same period." },
   { key: "notBuilt", label: "Not checked yet", note: "No check on file for the current data version: the company has not been rebuilt since the audit began." },
 ];
@@ -102,6 +103,7 @@ function Report({ report }: { report: AuditReport }) {
       <Entries title="Latest period without FCF" entries={report.issues.missingFcfLatest} />
       <Stale entries={report.issues.stale} />
       <Disagreements entries={report.issues.disagreements ?? []} compared={report.compared ?? 0} />
+      <Implausible entries={report.issues.implausible ?? []} />
       <Moves entries={report.issues.moved} />
       <Entries title="Latest TTM missing a measure" entries={report.issues.missingTtm} />
       <Entries title="Latest year missing a measure" entries={report.issues.missingAnnual} />
@@ -221,6 +223,35 @@ function Moves({ entries }: { entries: MoveEntry[] }) {
                 <td>{entry.period}</td>
                 <td>{write(entry.from)}</td>
                 <td>{write(entry.to)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+const CHECK_NAMES: Record<string, string> = {
+  spike: "Out of line", ratio: "Return on a vanishing base", margin: "Impossible margin",
+  "ttm-vs-annual": "Trailing ≠ annual", "shares-mismatch": "Share counts disagree", "missing-revenue": "Revenue missing",
+};
+
+function Implausible({ entries }: { entries: NonNullable<AuditReport["issues"]["implausible"]> }) {
+  if (!entries.length) return null;
+  return (
+    <section className="section">
+      <div className="section-head"><h2 className="label">Implausible figures</h2><span className="label">{new Set(entries.map((entry) => entry.ticker)).size} companies</span></div>
+      <div className="sheet">
+        <table>
+          <thead><tr><th className="key" scope="col">Company</th><th scope="col">Check</th><th scope="col">Period</th><th scope="col">Detail</th></tr></thead>
+          <tbody>
+            {entries.slice(0, 300).map((entry, index) => (
+              <tr key={`${entry.ticker}-${entry.check}-${entry.period}-${index}`}>
+                <th className="key" scope="row"><a className="key-open" href={`/s/${encodeURIComponent(entry.ticker)}`}>{entry.ticker}</a></th>
+                <td>{CHECK_NAMES[entry.check] ?? entry.check}</td>
+                <td>{entry.period}</td>
+                <td>{entry.detail}</td>
               </tr>
             ))}
           </tbody>
