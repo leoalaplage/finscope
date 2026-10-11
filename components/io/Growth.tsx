@@ -63,7 +63,13 @@ export function Growth({
   onSelect: (metric: string) => void;
 }) {
   const metrics = useMemo(() => new Map(view.metrics.map((metric) => [metric.key, metric])), [view.metrics]);
-  const rows = MEASURES.map((key) => metrics.get(key)).filter((metric): metric is NonNullable<typeof metric> => metric != null);
+  // A measure with no rate over any recent horizon is history, not growth:
+  // American Express's operating income ends in 2010 and its row read dashes
+  // across the board but for a MAX of −29%.
+  const rows = MEASURES.map((key) => metrics.get(key))
+    .filter((metric): metric is NonNullable<typeof metric> => metric != null)
+    .filter((metric) => HORIZONS.some((horizon) => horizon.years != null && growthOver(view.annual, metric.key, metric.unit as Unit, horizon.years) != null)
+      || HORIZONS.every((horizon) => horizon.years == null));
 
   if (!rows.length || view.annual.length < 2) return null;
 
