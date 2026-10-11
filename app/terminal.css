@@ -47,8 +47,22 @@
   --ink-2: #a3a9b2;
   --ink-3: #6f7782;
   --inverse: #050608;
-  --plot: #ffa028;
-  --plot-soft: rgba(255, 160, 40, .12);
+  /*
+   * Charts are not amber: amber is the terminal's own voice, and a screen of
+   * amber plots under amber headings reads as one colour. A plot is blue by
+   * default, a price green or red by which way it went, and the figures each
+   * take a hue of the palette below.
+   */
+  --plot: #4ea8ff;
+  --plot-soft: rgba(78, 168, 255, .14);
+  --c1: #4ea8ff;
+  --c2: #2dd4bf;
+  --c3: #a78bfa;
+  --c4: #f472b6;
+  --c5: #facc15;
+  --c6: #38bdf8;
+  --c7: #e879f9;
+  --c8: #a3e635;
   --shade: rgba(255, 160, 40, .06);
   --gain: #2ed47d;
   --loss: #ff5149;
@@ -537,9 +551,9 @@ body:has(.io.term) { background: #050608; }
 .t-quotes td.key { white-space: nowrap; }
 
 .t-curve { display: block; width: calc(100% - 16px); height: 150px; margin: 4px 8px; }
-.t-curve-now { fill: none; stroke: var(--amber); stroke-width: 2; }
+.t-curve-now { fill: none; stroke: var(--cyan); stroke-width: 2; }
 .t-curve-before { fill: none; stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 4 3; }
-.t-curve-dot { fill: var(--amber); }
+.t-curve-dot { fill: var(--cyan); }
 .t-curve-axis { fill: var(--ink-3); font: 10px var(--mono); }
 .t-curve-value { fill: var(--ink); font: 10px var(--mono); }
 
@@ -704,19 +718,48 @@ body:has(.io.term) { background: #050608; }
 
 .t-equity { margin: 6px 8px 0; }
 .t-equity svg { display: block; width: 100%; height: 260px; }
-.t-equity-strategy { fill: none; stroke: var(--amber); stroke-width: 1.6; }
+.t-equity-strategy { fill: none; stroke: var(--c1); stroke-width: 1.6; }
 .t-equity-hold { fill: none; stroke: var(--ink-3); stroke-width: 1.2; }
 .t-equity-base { stroke: var(--line-strong); stroke-dasharray: 3 3; }
-.t-equity-held { fill: var(--amber); fill-opacity: .06; }
+.t-equity-held { fill: var(--c1); fill-opacity: .07; }
 .t-equity-years { position: relative; height: 16px; }
 .t-equity-years span { position: absolute; transform: translateX(-50%); font-size: var(--fs-micro); color: var(--ink-3); }
 .t-equity-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: var(--fs-micro); color: var(--ink-2); }
 .t-equity-legend i { display: inline-block; width: 12px; height: 2px; margin-right: 4px; vertical-align: 3px; }
-.t-equity-key-strategy { background: var(--amber); }
+.t-equity-key-strategy { background: var(--c1); }
 .t-equity-key-hold { background: var(--ink-3); }
-.t-equity-key-held { height: 8px !important; vertical-align: 0 !important; background: rgba(255, 160, 40, .2); }
+.t-equity-key-held { height: 8px !important; vertical-align: 0 !important; background: rgba(78, 168, 255, .22); }
 
 @media (max-width: 1100px) {
   .t-scan { grid-template-areas: "rule" "hits"; grid-template-columns: minmax(0, 1fr); }
   .t-bt { grid-template-areas: "setup" "result" "trades"; grid-template-columns: minmax(0, 1fr); }
 }
+
+/* --- Colour in the charts -------------------------------------------------- */
+
+/* A price over a window: green when it rose, red when it fell. */
+.term [data-trend="up"] { --plot: var(--gain); --plot-soft: rgba(46, 212, 125, .13); }
+.term [data-trend="down"] { --plot: var(--loss); --plot-soft: rgba(255, 81, 73, .13); }
+.term .plot-area { fill: var(--plot-soft); }
+.term .plot-line { stroke-width: 1.5; }
+
+/*
+ * A hue per measure (lib/io/hue.ts): the small multiple, the big chart's line
+ * and its legend swatch all carry the measure's number, so revenue is the same
+ * blue in all three and on every company. The share price, held against a
+ * measure, is drawn in the page's ink.
+ */
+.term [data-hue="0"] { --plot: var(--ink); }
+.term [data-hue="1"] { --plot: var(--c1); }
+.term [data-hue="2"] { --plot: var(--c2); }
+.term [data-hue="3"] { --plot: var(--c3); }
+.term [data-hue="4"] { --plot: var(--c4); }
+.term [data-hue="5"] { --plot: var(--c5); }
+.term [data-hue="6"] { --plot: var(--c6); }
+.term [data-hue="7"] { --plot: var(--c7); }
+.term [data-hue="8"] { --plot: var(--c8); }
+.term [data-hue] { --plot-soft: color-mix(in srgb, var(--plot) 18%, transparent); }
+.term .plot-line[data-hue] { stroke: var(--plot); stroke-dasharray: none; }
+.term .plot-swatch[data-hue] { border-top-color: var(--plot); border-top-style: solid; width: 14px; }
+.term .multiple .multiple-top .label:first-child { color: var(--plot); }
+.term .multiple[aria-pressed="true"] { box-shadow: inset 0 2px 0 var(--plot); }

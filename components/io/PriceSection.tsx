@@ -11,6 +11,7 @@ import { fundamentalWindow, METRIC_RANGES, metricRange, offersFrequency, priceWi
 import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate, type Unit } from "./format";
 import { CandleChart, IntervalPicker, lastMoveOf, useCandles } from "./CandleChart";
 import { isValuationMetric, VALUATION_METRICS, valuationPoints, type ValuationHistoryState } from "./valuation-series";
+import { hueOf } from "@/lib/io/hue";
 
 /**
  * The chart the page is built around, and the one control that drives it.
@@ -218,7 +219,8 @@ function MarketPriceSection({
   }
 
   return (
-    <section className="section" style={{ borderTop: 0 }}>
+    // Which way the window went, for a stylesheet that colours a rise and a fall (the terminal's).
+    <section className="section" style={{ borderTop: 0 }} data-trend={move == null ? undefined : move >= 0 ? "up" : "down"}>
       <div className="section-head">
         <div className="readout">
           <span className="v">{active ? writePrice(active.value, currency) : ABSENT}</span>
@@ -621,7 +623,7 @@ function MetricSection({
               const point = hover == null ? entry.points.at(-1) : pointAt(series[index], hover);
               return (
                 <span className="compare-value" key={entry.label}>
-                  <span className={`plot-swatch plot-stroke-${index % 5}`} />
+                  <span className={`plot-swatch plot-stroke-${index % 5}`} data-hue={hueOf(entry.label)} />
                   <span className="compare-value-name">{entry.label}</span>
                   <span className="num">{point ? (rebased ? delta(point.value, 1) : writeWith(entry.unit)(point.value)) : ABSENT}</span>
                   <span className="compare-value-date">{point ? shortDate(point.date) : ABSENT}</span>
@@ -667,7 +669,10 @@ function MetricSection({
           ) : null}
         </>
       ) : points.length > 1 ? (
-        <ChartFrame points={points} shape={shapeFor(metric.unit)} bounds={bounds} onHover={setHover} write={write} />
+        // The measure's own colour, where a stylesheet gives measures colours (the terminal's).
+        <div data-hue={hueOf(metric.short)} style={{ display: "contents" }}>
+          <ChartFrame points={points} shape={shapeFor(metric.unit)} bounds={bounds} onHover={setHover} write={write} />
+        </div>
       ) : (
         <p className="price-chart plot-empty num faint">
           {frequency === "annual" ? "Not enough annual history for this measure." : "Not enough TTM history for this measure."}

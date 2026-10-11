@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { hueOf } from "@/lib/io/hue";
 
 /**
  * Every chart on this site, drawn as plainly as the data allows.
@@ -318,6 +319,7 @@ export function MultiLine({
           <path
             key={entry.label}
             className={`plot-line plot-stroke-${index % 5}`}
+            data-hue={hueOf(entry.label)}
             d={segments(placed[index], extent)}
             vectorEffect="non-scaling-stroke"
           />
@@ -336,7 +338,7 @@ export function MultiLine({
               className="plot-name"
               style={{ top: `${((extent.max - last) / (extent.max - extent.min)) * 100}%` }}
             >
-              <span className={`plot-swatch plot-stroke-${index % 5}`} />
+              <span className={`plot-swatch plot-stroke-${index % 5}`} data-hue={hueOf(entry.label)} />
               {entry.label}
             </span>
           );
@@ -447,6 +449,7 @@ export function MultiAxis({
             <path
               key={entry.label}
               className={`plot-line plot-stroke-${index % 5}`}
+              data-hue={hueOf(entry.label)}
               d={segments(entry.points.map((point) => point.value), extent, entry.at)}
               vectorEffect="non-scaling-stroke"
             />

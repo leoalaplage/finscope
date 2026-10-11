@@ -5,6 +5,7 @@ import type { IoCompanyView } from "@/lib/io/view";
 import { Bars, Line } from "./Plot";
 import { fundamentalWindow, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, yearOf, type Unit } from "./format";
+import { hueOf } from "@/lib/io/hue";
 
 /** Business importance first; every remaining available metric follows. */
 const PRIORITY = [
@@ -85,6 +86,7 @@ export function Multiples({
           return (
             <button
               className="multiple"
+              data-hue={hueOf(metric.short)}
               key={key}
               type="button"
               aria-pressed={isSelected}
