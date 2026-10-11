@@ -302,6 +302,18 @@ body:has(.io.term) { background: #050608; }
 }
 .term .t-side-news .news-list { columns: 1; }
 .term .t-side-news .section { padding-top: 0; }
+/*
+ * A reading open at a glance: the column keeps the height it had, so the graph
+ * beside it does not move. The reading takes the news's room, and the column
+ * scrolls only if it needs more than the band has.
+ */
+@media (min-width: 1101px) {
+  .t-col[data-held] { height: var(--held); overflow-y: auto; scrollbar-width: thin; }
+  .t-col[data-held] > .t-panel { flex-shrink: 0; }
+  /* The reading takes the news's room, and the earnings release sits at the foot of the band. */
+  .t-col[data-held] > .t-side-news { display: none; }
+  .t-col[data-held] > .t-side-detail { flex: 1 0 auto; }
+}
 /* No news for this company: the panel before it takes the height instead. */
 .t-mcol > .t-panel:has(+ .t-side-news > .t-panel-body:empty) { flex: 1 1 auto; display: flex; flex-direction: column; }
 /* One of the pair with nothing to show: the other takes the row. */

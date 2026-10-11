@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import { stated } from "@/lib/sector";
 import { useCompany } from "@/components/io/use-company";
 import { useCompanyChart } from "@/components/io/use-company-chart";
@@ -47,7 +47,16 @@ export function TermCompany({ ticker }: { ticker: string }) {
   const { state, quote, valuationQuote } = useCompany(ticker);
   const scoreState = useCompanyScore(ticker);
   const insiderState = useInsiders(ticker);
-  const [detail, setDetail] = useState<{ ticker: string; key: VerdictKey | null }>({ ticker, key: null });
+  /*
+   * Which answer at a glance is open, and the column's height when it opened.
+   *
+   * The graph sets the band and must not move when a reading opens: the
+   * column is held at the height it had, the reading takes the news's room
+   * and pushes the earnings release down, and the column scrolls if the
+   * reading needs more than the band has.
+   */
+  const [detail, setDetail] = useState<{ ticker: string; key: VerdictKey | null; height: number | null }>({ ticker, key: null, height: null });
+  const column = useRef<HTMLDivElement>(null);
   const openDetail = detail.ticker === ticker ? detail.key : null;
   const {
     selectedMetrics, selectMetric, range, setRange, frequency, chooseFrequency,
@@ -143,7 +152,11 @@ export function TermCompany({ ticker }: { ticker: string }) {
           * when the column is the taller — which it is while an answer of the
           * line at a glance is open, right under that line.
           */}
-        <div className="t-col t-mcol" style={{ gridArea: "side" }}>
+        <div
+          className="t-col t-mcol" ref={column}
+          data-held={openDetail && detail.height ? true : undefined}
+          style={{ gridArea: "side", "--held": detail.height ? `${detail.height}px` : undefined } as CSSProperties}
+        >
           <Panel code="DES" title="Key statistics" className="t-side"
             actions={view.current ? <span>{view.current.label}</span> : null}
           >
@@ -157,7 +170,11 @@ export function TermCompany({ ticker }: { ticker: string }) {
               score={scoreState.kind === "ready" ? scoreState.score : null}
               scoreLoading={scoreState.kind === "loading"}
               open={openDetail}
-              onToggle={(key) => setDetail({ ticker, key: openDetail === key ? null : key })}
+              onToggle={(key) => setDetail({
+                ticker,
+                key: openDetail === key ? null : key,
+                height: openDetail === key ? null : openDetail ? detail.height : column.current?.offsetHeight ?? null,
+              })}
             />
           </Panel>
 
