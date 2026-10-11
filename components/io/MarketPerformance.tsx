@@ -78,29 +78,45 @@ export function MarketPerformance() {
     const list = followed.split(",");
     (async () => {
       /*
-       * In batches, and drawn as they land. Sixty companies is sixty sets of a
-       * decade of sessions; asking for them in one request would be one long
-       * wait ending in a timeout rather than a table that fills in.
+       * In batches, and drawn as they land — all of them at once.
+       *
+       * Sixty companies is sixty sets of a decade of sessions, and one request
+       * for all of them would be one long wait ending in a timeout. The
+       * batches used to go one after another, so the table took four round
+       * trips to fill even when every answer was cached at the edge; asked
+       * together they land in about the time of the slowest one.
        */
-      for (let index = 0; index < list.length; index += BATCH) {
+      const batches: string[][] = [];
+      for (let index = 0; index < list.length; index += BATCH) batches.push(list.slice(index, index + BATCH));
+      const priceBatch = async (batch: string[]) => {
         try {
           const response = await fetch(
-            `/api/performance?tickers=${encodeURIComponent(list.slice(index, index + BATCH).join(","))}&v=${PERFORMANCE_SHAPE}`,
+            `/api/performance?tickers=${encodeURIComponent(batch.join(","))}&v=${PERFORMANCE_SHAPE}`,
             { signal: controller.signal },
           );
           if (!response.ok) throw new Error(String(response.status));
           const payload = await response.json() as { rows?: PerformanceRow[] };
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted) return true;
           setAnswer((held) => {
             const next: Rows = held.followed === followed ? { ...held.rows } : {};
             for (const row of payload.rows ?? []) next[row.ticker.toUpperCase()] = row;
             return { followed, rows: next, failed: false };
           });
+          return true;
         } catch {
-          if (!controller.signal.aborted && index === 0) {
-            setAnswer((held) => (held.followed === followed ? { ...held, failed: true } : { followed, rows: {}, failed: true }));
-          }
+          return false;
         }
+      };
+      // Four at a time: enough to fill the table in one or two round trips,
+      // few enough that a cold cache does not ask Yahoo for sixty decades at once.
+      const results: boolean[] = [];
+      const queue = [...batches];
+      await Promise.all(Array.from({ length: Math.min(4, queue.length) }, async () => {
+        for (let batch = queue.shift(); batch; batch = queue.shift()) results.push(await priceBatch(batch));
+      }));
+      // The table says it failed only when nothing at all came back.
+      if (!controller.signal.aborted && !results.some(Boolean)) {
+        setAnswer((held) => (held.followed === followed ? { ...held, failed: true } : { followed, rows: {}, failed: true }));
       }
     })();
     return () => controller.abort();
