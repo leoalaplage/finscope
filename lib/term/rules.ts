@@ -1,5 +1,8 @@
 import { bollinger, ema, macd, patternsAt, rsi, sma, stochastic, type Bars, type Line, type Pattern } from "@/lib/io/indicators";
 import { averageTrueRange } from "@/lib/io/technicals";
+import {
+  adx, aroon, chaikinMoneyFlow, cci, donchian, hullMa, keltner, moneyFlowIndex, parabolicSar, roc, squeeze, stochRsi, supertrend, williamsR,
+} from "@/lib/io/indicators-extra";
 
 /**
  * The terminal's rules: what the scanner looks for and what a backtest trades.
@@ -25,7 +28,14 @@ export type Field =
   | "volume" | "volume20" | "volumeRatio"
   | "chg1" | "chg5" | "chg20" | "chg60" | "chg126" | "chg252" | "chgYtd" | "rsRating"
   | "high52" | "low52" | "fromHigh52" | "fromLow52" | "fromEma200" | "fromSma50"
-  | Pattern;
+  | "adx14" | "plusDi" | "minusDi" | "aroonUp" | "aroonDown" | "hma21" | "supertrend" | "psar"
+  | "kcUpper" | "kcLower" | "dcUpper" | "dcLower"
+  | "cci20" | "willr14" | "roc12" | "stochRsiK" | "stochRsiD" | "mfi14" | "cmf20" | "squeezeMomentum"
+  | Pattern | SignalField;
+
+/** Yes-or-no readings, asked with "appears" like a candle pattern. */
+export type SignalField = "supertrendUp" | "supertrendFlipUp" | "supertrendFlipDown" | "squeezeOn" | "squeezeFired";
+export const SIGNAL_FIELDS: SignalField[] = ["supertrendUp", "supertrendFlipUp", "supertrendFlipDown", "squeezeOn", "squeezeFired"];
 
 export type Unit = "price" | "percent" | "index" | "volume" | "ratio" | "pattern";
 
@@ -69,6 +79,31 @@ export const FIELDS: FieldSpec[] = [
   { key: "fromLow52", name: "From 52-week low %", group: "Range", unit: "percent" },
   { key: "fromEma200", name: "From EMA 200 %", group: "Range", unit: "percent" },
   { key: "fromSma50", name: "From SMA 50 %", group: "Range", unit: "percent" },
+  { key: "adx14", name: "ADX 14", group: "Trend", unit: "index" },
+  { key: "plusDi", name: "+DI 14", group: "Trend", unit: "index" },
+  { key: "minusDi", name: "−DI 14", group: "Trend", unit: "index" },
+  { key: "aroonUp", name: "Aroon up 25", group: "Trend", unit: "index" },
+  { key: "aroonDown", name: "Aroon down 25", group: "Trend", unit: "index" },
+  { key: "hma21", name: "Hull MA 21", group: "Averages", unit: "price" },
+  { key: "supertrend", name: "Supertrend 10 · 3", group: "Trend", unit: "price" },
+  { key: "psar", name: "Parabolic SAR", group: "Trend", unit: "price" },
+  { key: "kcUpper", name: "Keltner upper", group: "Channels", unit: "price" },
+  { key: "kcLower", name: "Keltner lower", group: "Channels", unit: "price" },
+  { key: "dcUpper", name: "Donchian high 20", group: "Channels", unit: "price" },
+  { key: "dcLower", name: "Donchian low 20", group: "Channels", unit: "price" },
+  { key: "cci20", name: "CCI 20", group: "Momentum", unit: "index" },
+  { key: "willr14", name: "Williams %R 14", group: "Momentum", unit: "index" },
+  { key: "roc12", name: "Rate of change 12 %", group: "Momentum", unit: "percent" },
+  { key: "stochRsiK", name: "Stochastic RSI %K", group: "Momentum", unit: "index" },
+  { key: "stochRsiD", name: "Stochastic RSI %D", group: "Momentum", unit: "index" },
+  { key: "mfi14", name: "Money flow index 14", group: "Volume", unit: "index" },
+  { key: "cmf20", name: "Chaikin money flow 20", group: "Volume", unit: "ratio" },
+  { key: "squeezeMomentum", name: "Squeeze momentum", group: "Channels", unit: "price" },
+  { key: "supertrendUp", name: "Supertrend is up", group: "Signals", unit: "pattern" },
+  { key: "supertrendFlipUp", name: "Supertrend turns up", group: "Signals", unit: "pattern" },
+  { key: "supertrendFlipDown", name: "Supertrend turns down", group: "Signals", unit: "pattern" },
+  { key: "squeezeOn", name: "Squeeze is on", group: "Signals", unit: "pattern" },
+  { key: "squeezeFired", name: "Squeeze fires", group: "Signals", unit: "pattern" },
   { key: "bullEngulfing", name: "Bullish engulfing", group: "Patterns", unit: "pattern" },
   { key: "bearEngulfing", name: "Bearish engulfing", group: "Patterns", unit: "pattern" },
   { key: "hammer", name: "Hammer", group: "Patterns", unit: "pattern" },
@@ -143,6 +178,22 @@ export function computeSeries(bars: Bars): Record<Field, Line> {
     fromHigh52: ratio(c, high52), fromLow52: ratio(c, low52), fromEma200: ratio(c, ema200), fromSma50: ratio(c, sma50),
   } as Record<Field, Line>;
   for (const pattern of PATTERN_FIELDS) series[pattern] = patterns.map((found) => (found.has(pattern) ? 1 : 0));
+
+  // The rest of the toolkit (lib/io/indicators-extra.ts).
+  const dmi = adx(bars), arn = aroon(bars), trail = supertrend(bars), sar = parabolicSar(bars);
+  const kc = keltner(bars), dc = donchian(bars), sq = squeeze(bars), srsi = stochRsi(c);
+  Object.assign(series, {
+    adx14: dmi.adx, plusDi: dmi.plus, minusDi: dmi.minus, aroonUp: arn.up, aroonDown: arn.down,
+    hma21: hullMa(c), supertrend: trail.line, psar: sar.line,
+    kcUpper: kc.upper, kcLower: kc.lower, dcUpper: dc.upper, dcLower: dc.lower,
+    cci20: cci(bars), willr14: williamsR(bars), roc12: roc(c), stochRsiK: srsi.k, stochRsiD: srsi.d,
+    mfi14: moneyFlowIndex(bars), cmf20: chaikinMoneyFlow(bars), squeezeMomentum: sq.momentum,
+    supertrendUp: trail.up.map((up) => (up == null ? null : up ? 1 : 0)),
+    supertrendFlipUp: trail.up.map((up, index) => (up == null || trail.up[index - 1] == null ? null : up && !trail.up[index - 1] ? 1 : 0)),
+    supertrendFlipDown: trail.up.map((up, index) => (up == null || trail.up[index - 1] == null ? null : !up && trail.up[index - 1] ? 1 : 0)),
+    squeezeOn: sq.on.map((on) => (on == null ? null : on ? 1 : 0)),
+    squeezeFired: sq.on.map((on, index) => (on == null || sq.on[index - 1] == null ? null : !on && sq.on[index - 1] ? 1 : 0)),
+  });
   return series;
 }
 

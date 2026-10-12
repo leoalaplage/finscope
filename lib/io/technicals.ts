@@ -391,8 +391,10 @@ export function marketStructure(series: Series, span: number, limit = 6, blocksP
 
 export const STUDIES = [
   "ema", "sma", "bollinger", "ichimoku", "vwap", "vprofile",
+  "keltner", "donchian", "supertrend", "psar", "hma", "pivots", "heikinAshi",
   "fibRetracement", "fibExtension", "fvg", "trendLines", "levels", "structure", "orderBlocks", "patterns",
   "volume", "rsi", "macd", "stoch", "atr", "rs",
+  "adx", "obv", "cmf", "mfi", "willr", "cci", "roc", "stochrsi", "aroon", "squeeze",
 ] as const;
 export type Study = (typeof STUDIES)[number];
 
@@ -417,6 +419,23 @@ export const STUDY_NAMES: Record<Study, string> = {
   levels: "Support & resistance",
   structure: "BOS / CHoCH",
   orderBlocks: "Order blocks",
+  keltner: "Keltner channel 20 · 2 ATR",
+  donchian: "Donchian channel 20",
+  supertrend: "Supertrend 10 · 3",
+  psar: "Parabolic SAR 0.02 · 0.2",
+  hma: "Hull MA 21",
+  pivots: "Floor pivots",
+  heikinAshi: "Heikin-Ashi candles",
+  adx: "ADX / DMI 14",
+  obv: "On-balance volume",
+  cmf: "Chaikin money flow 20",
+  mfi: "Money flow index 14",
+  willr: "Williams %R 14",
+  cci: "CCI 20",
+  roc: "Rate of change 12",
+  stochrsi: "Stochastic RSI 14 · 3 · 3",
+  aroon: "Aroon 25",
+  squeeze: "TTM squeeze 20",
 };
 
 /**
@@ -425,9 +444,10 @@ export const STUDY_NAMES: Record<Study, string> = {
  * own underneath.
  */
 export const STUDY_GROUPS: { name: string; studies: Study[] }[] = [
-  { name: "Overlays", studies: ["ema", "sma", "bollinger", "ichimoku", "vwap", "vprofile"] },
+  { name: "Candles", studies: ["heikinAshi"] },
+  { name: "Overlays", studies: ["ema", "sma", "bollinger", "ichimoku", "vwap", "vprofile", "keltner", "donchian", "supertrend", "psar", "hma", "pivots"] },
   { name: "Auto analysis", studies: ["patterns", "fibRetracement", "fibExtension", "trendLines", "levels", "fvg", "structure", "orderBlocks"] },
-  { name: "Lower panes", studies: ["volume", "rsi", "macd", "stoch", "atr", "rs"] },
+  { name: "Lower panes", studies: ["volume", "rsi", "macd", "stoch", "atr", "rs", "adx", "squeeze", "stochrsi", "willr", "cci", "roc", "aroon", "obv", "cmf", "mfi"] },
 ];
 
 export const DEFAULT_STUDIES: ReadonlySet<Study> = new Set<Study>(["ema", "fibRetracement", "trendLines"]);

@@ -25,7 +25,7 @@ export const TECH_KEY = "technicals:v1";
  * year-to-date returns the heat map reads; 3 the six-month return the RS
  * rating weighs.
  */
-export const ROW_SHAPE = 3;
+export const ROW_SHAPE = 4;
 export const TECH_PER_RUN = 100;
 export const TECH_STALE_HOURS = 6;
 const AT_ONCE = 6;

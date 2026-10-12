@@ -25,6 +25,9 @@ const technical: Array<[string, string, ScreenUnit]> = [
   ["macd", "MACD", "price"], ["macdSignal", "MACD signal", "price"], ["volumeRatio", "Relative volume · 20 days", "ratio"],
   ["chg1", "Daily return", "percent"], ["chg20", "Return · 20 sessions", "percent"], ["chg252", "Return · 1 year", "percent"],
   ["fromHigh52", "Distance from 52-week high", "percent"], ["fromEma200", "Distance from EMA 200", "percent"], ["rsRating", "RS rating · S&P 500", "number"],
+  ["adx14", "ADX 14", "number"], ["cci20", "CCI 20", "number"], ["mfi14", "Money flow index 14", "number"], ["willr14", "Williams %R 14", "number"],
+  ["stochRsiK", "Stochastic RSI %K", "number"], ["cmf20", "Chaikin money flow 20", "ratio"], ["supertrendUp", "Supertrend up (1) or down (0)", "number"],
+  ["squeezeOn", "Squeeze on (1) or off (0)", "number"],
 ];
 export const SCREEN_FIELDS: ScreenField[] = [
   ...fundamentals.map(([key, group, unit]): ScreenField => ({ key, label: key, group, unit, source: "fundamental" })),

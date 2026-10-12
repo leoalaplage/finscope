@@ -108,6 +108,12 @@ export const FILTER_TABS: Array<{ id: string; label: string; filters: QuickFilte
     filter("high", "From 52W high", "tech:fromHigh52", [{ label: "Within 5%", op: "gte", value: "-5" }, { label: "Within 10%", op: "gte", value: "-10" }, { label: "20%+ below", op: "lte", value: "-20" }, { label: "30%+ below", op: "lte", value: "-30" }, { label: "50%+ below", op: "lte", value: "-50" }]),
     filter("ema200", "From EMA 200", "tech:fromEma200", [{ label: "Above", op: "gt", value: "0" }, { label: "Below", op: "lt", value: "0" }, over(10, "%"), over(20, "%"), under(-10, "%"), under(-20, "%")]),
     filter("rs", "RS rating", "tech:rsRating", [over(50), over(70), over(80), over(90), under(30)]),
+    filter("adx", "ADX trend strength", "tech:adx14", [{ label: "Trending · over 25", op: "gt", value: "25" }, { label: "Strong · over 40", op: "gt", value: "40" }, { label: "No trend · under 20", op: "lt", value: "20" }]),
+    filter("supertrend", "Supertrend", "tech:supertrendUp", [{ label: "Up", op: "eq", value: "1" }, { label: "Down", op: "eq", value: "0" }]),
+    filter("squeeze", "TTM squeeze", "tech:squeezeOn", [{ label: "On · coiling", op: "eq", value: "1" }, { label: "Off", op: "eq", value: "0" }]),
+    filter("mfi", "Money flow index", "tech:mfi14", [{ label: "Overbought · over 80", op: "gt", value: "80" }, { label: "Oversold · under 20", op: "lt", value: "20" }]),
+    filter("willr", "Williams %R", "tech:willr14", [{ label: "Overbought · over −20", op: "gt", value: "-20" }, { label: "Oversold · under −80", op: "lt", value: "-80" }]),
+    filter("cci", "CCI 20", "tech:cci20", [{ label: "Over 100", op: "gt", value: "100" }, { label: "Under −100", op: "lt", value: "-100" }]),
   ] },
 ];
 
@@ -177,7 +183,7 @@ export const VIEWS: Array<{ id: string; label: string; columns: string[] }> = [
   { id: "growth", label: "Growth", columns: ["Revenue 5Y CAGR", "Revenue 10Y CAGR", "Revenue Per Share 5Y CAGR", "Net Income 5Y CAGR", "FCF Per Share 5Y CAGR", "FCF/Share 5Y R2", "Shares Outstanding 5Y CAGR", "epsGrowth"] },
   { id: "balance", label: "Balance sheet", columns: ["Net Debt / EBITDA", "EBIT / Interest Expense", "Current Ratio", "Long-term Debt to Assets", "OCF/Capex", "OCF", "Capex"] },
   { id: "consensus", label: "Consensus", columns: ["forwardPe", "peg", "epsGrowth", "epsRevision", "targetUpside", "buyShare", "analysts"] },
-  { id: "technical", label: "Technical", columns: ["tech:close", "tech:chg1", "tech:chg20", "tech:chg252", "tech:rsi14", "tech:fromHigh52", "tech:fromEma200", "tech:volumeRatio", "tech:rsRating"] },
+  { id: "technical", label: "Technical", columns: ["tech:close", "tech:chg1", "tech:chg20", "tech:chg252", "tech:rsi14", "tech:fromHigh52", "tech:fromEma200", "tech:volumeRatio", "tech:rsRating", "tech:adx14", "tech:supertrendUp"] },
 ];
 
 /** Short headers for a dense table; the full name is the header's title. */
@@ -193,6 +199,8 @@ export const SHORT: Record<string, string> = {
   OCF: "OCF", Capex: "Capex", "tech:close": "Price", "tech:sma50": "SMA 50", "tech:sma200": "SMA 200", "tech:ema20": "EMA 20", "tech:ema200": "EMA 200",
   "tech:rsi14": "RSI", "tech:macd": "MACD", "tech:macdSignal": "MACD sig", "tech:volumeRatio": "Rel vol", "tech:chg1": "Today",
   "tech:chg20": "1M", "tech:chg252": "1Y", "tech:fromHigh52": "From high", "tech:fromEma200": "vs EMA200", "tech:rsRating": "RS",
+  "tech:adx14": "ADX", "tech:cci20": "CCI", "tech:mfi14": "MFI", "tech:willr14": "W%R", "tech:stochRsiK": "StochRSI", "tech:cmf20": "CMF",
+  "tech:supertrendUp": "ST up", "tech:squeezeOn": "Squeeze",
 };
 
 /** Fields whose sign is the news: coloured green above zero and red below. */

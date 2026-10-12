@@ -2096,6 +2096,17 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-pane .pane-rsi { stroke: #b06cf0; }
 .candle-pane .pane-macd, .candle-pane .pane-macd-text { stroke: #4c8dff; color: #4c8dff !important; }
 .candle-pane .pane-signal, .candle-pane .pane-signal-text { stroke: #e8a33d; color: #e8a33d !important; }
+/* The toolkit's panes and overlays (lib/io/indicators-extra.ts). */
+.candle-pane .pane-rsi-text { color: #b06cf0 !important; }
+.candle-pane .pane-up-line, .candle-pane .pane-up-line-text { stroke: var(--gain); color: var(--gain) !important; }
+.candle-pane .pane-down-line, .candle-pane .pane-down-line-text { stroke: var(--loss); color: var(--loss) !important; }
+.candle-pane .pane-squeeze-on { stroke: var(--loss); stroke-width: 3; }
+.candle-pane .pane-squeeze-off { stroke: var(--gain); stroke-width: 3; }
+.study-trail-up { fill: none; stroke: var(--gain); stroke-width: 1.6; }
+.study-trail-down { fill: none; stroke: var(--loss); stroke-width: 1.6; }
+.study-psar line { stroke-width: 2.5; }
+.study-pivots line { stroke-width: 1; stroke-dasharray: 4 4; opacity: .8; }
+.study-pivots line[data-level="p"] { stroke-dasharray: none; opacity: 1; }
 .candle-pane .pane-guide { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
 .candle-pane .pane-zone { fill: var(--shade); }
 @media (max-width: 720px) { .candle-pane { grid-template-columns: minmax(0, 1fr) 52px; height: 76px; } }
