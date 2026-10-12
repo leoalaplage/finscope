@@ -22,8 +22,12 @@ export const CHART_RANGES: Array<{ id: ChartRange; interval: CandleInterval; tit
 ];
 
 const DAY = 86_400;
-/** The New York date of a candle, which is the session it belongs to. */
-const sessionDay = (time: number) => new Date(time * 1000).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+/**
+ * The date of a candle at the exchange, which is the session it belongs to.
+ * Candle times are already the exchange's clock written as UTC
+ * (lib/adapters/candles.ts), so the UTC date is the exchange's date.
+ */
+const sessionDay = (time: number) => new Date(time * 1000).toISOString().slice(0, 10);
 
 /** How many of the latest candles fall inside the period, counted back from the last one. */
 export function candlesInRange(times: readonly number[], range: ChartRange): number {

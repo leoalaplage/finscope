@@ -25,3 +25,23 @@ export function useWidth<T extends HTMLElement = HTMLDivElement>() {
   }, []);
   return { ref, width };
 }
+
+/** Width and height of a box, for a chart that fills a band of the page's choosing. */
+export function useSize<T extends HTMLElement = HTMLDivElement>() {
+  const ref = useRef<T>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const measure = () => {
+      const box = element.getBoundingClientRect();
+      setSize({ width: Math.floor(box.width), height: Math.floor(box.height) });
+    };
+    queueMicrotask(measure);
+    const observer = new ResizeObserver(([entry]) => setSize({ width: Math.floor(entry.contentRect.width), height: Math.floor(entry.contentRect.height) }));
+    observer.observe(element);
+    window.addEventListener("resize", measure);
+    return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
+  }, []);
+  return { ref, ...size };
+}

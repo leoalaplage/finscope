@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { CandleChart, useCandles } from "@/components/io/CandleChart";
 import { CHART_RANGES, candlesInRange, type ChartRange } from "@/lib/io/chart-ranges";
 import { MarketPerformance } from "@/components/io/MarketPerformance";
 import { shortDate } from "@/components/io/format";
 import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import type { Study } from "@/lib/io/technicals";
+import { AreaPrice } from "./AreaPrice";
 import { Heatmap } from "./Heatmap";
 import { Panel } from "./Panel";
 import { Rotation } from "./Rotation";
@@ -135,6 +136,22 @@ function MoverList({ title, rows }: { title: string; rows: Array<{ ticker: strin
   );
 }
 
+/* How GP draws the index: candles, or the line over its area against the period's open. Kept on the device. */
+type MarketStyle = "candles" | "area";
+const MARKET_STYLE_KEY = "finscope.term.market.style";
+const MARKET_STYLE_EVENT = "finscope:market-style";
+const subscribeMarketStyle = (notify: () => void) => {
+  window.addEventListener("storage", notify); window.addEventListener(MARKET_STYLE_EVENT, notify);
+  return () => { window.removeEventListener("storage", notify); window.removeEventListener(MARKET_STYLE_EVENT, notify); };
+};
+const readMarketStyle = (): MarketStyle => {
+  try { return localStorage.getItem(MARKET_STYLE_KEY) === "area" ? "area" : "candles"; } catch { return "candles"; }
+};
+const writeMarketStyle = (style: MarketStyle) => {
+  try { localStorage.setItem(MARKET_STYLE_KEY, style); } catch { /* this visit only */ }
+  window.dispatchEvent(new Event(MARKET_STYLE_EVENT));
+};
+
 /** Today's US curve, and yesterday's from today's change, so a steepening is a shape. */
 function YieldCurve({ rates }: { rates: MarketRow[] }) {
   const tenors = [["US3M", 0.25, "3M"], ["US5Y", 5, "5Y"], ["US10Y", 10, "10Y"], ["US30Y", 30, "30Y"]] as const;
@@ -202,6 +219,7 @@ export function MarketBoard() {
   // Futures and coins are charted under their own names; the indices under Yahoo's.
   const candles = useCandles(CHART_SYMBOL[chart.id] ?? (/=F$|-USD$/.test(chart.id) ? chart.id : "^GSPC"), period.interval);
   const openOn = candles.candles ? candlesInRange(candles.candles.t, chart.range) : undefined;
+  const style = useSyncExternalStore(subscribeMarketStyle, readMarketStyle, () => "candles" as MarketStyle);
 
   const rows = useMemo(() => markets?.rows ?? [], [markets]);
   const group = (name: MarketRow["group"]) => rows.filter((row) => row.group === name);
@@ -299,17 +317,29 @@ export function MarketBoard() {
       </div>
 
       <Panel code="GP" title={`${chartName} · ${chart.range} · ${INTERVAL_TITLES[period.interval]}`} area="gp" className="t-fill" actions={
-        <div className="seg" role="group" aria-label="Period">
-          {CHART_RANGES.map((entry) => (
-            <button key={entry.id} type="button" aria-pressed={chart.range === entry.id} title={entry.title} onClick={() => setChart({ ...chart, range: entry.id })}>{entry.id}</button>
-          ))}
-        </div>
+        <>
+          <div className="seg" role="group" aria-label="Chart style">
+            <button type="button" aria-pressed={style === "candles"} onClick={() => writeMarketStyle("candles")}>Candles</button>
+            <button type="button" aria-pressed={style === "area"} onClick={() => writeMarketStyle("area")}>Area</button>
+          </div>
+          <div className="seg" role="group" aria-label="Period">
+            {CHART_RANGES.map((entry) => (
+              <button key={entry.id} type="button" aria-pressed={chart.range === entry.id} title={entry.title} onClick={() => setChart({ ...chart, range: entry.id })}>{entry.id}</button>
+            ))}
+          </div>
+        </>
       }>
         <div className="t-market-chart">
-          <CandleChart
-            candles={candles.candles} interval={period.interval} loading={candles.loading} error={candles.error} openOn={openOn || undefined}
-            studies={CHART_STUDIES} zoomable label={`${chartName}, ${period.title.toLowerCase()}`}
-          />
+          {style === "area" ? (
+            candles.candles && openOn ? (
+              <AreaPrice candles={candles.candles} interval={period.interval} count={openOn} label={`${chartName}, ${period.title.toLowerCase()}`} />
+            ) : <p className="t-empty">{candles.error ?? "Reading prices…"}</p>
+          ) : (
+            <CandleChart
+              candles={candles.candles} interval={period.interval} loading={candles.loading} error={candles.error} openOn={openOn || undefined}
+              studies={CHART_STUDIES} zoomable label={`${chartName}, ${period.title.toLowerCase()}`}
+            />
+          )}
         </div>
       </Panel>
 

@@ -10,9 +10,9 @@ describe("chart periods", () => {
     });
   });
 
-  it("open one day on the latest New York session only", () => {
-    // Yesterday's last candle at 15:55 New York, then today's from 09:30.
-    const times = [at("2026-10-09T19:55:00Z"), at("2026-10-12T13:30:00Z"), at("2026-10-12T13:35:00Z"), at("2026-10-12T13:40:00Z")];
+  it("open one day on the latest session only", () => {
+    // Exchange clock written as UTC: Friday's last candle at 15:55, then Monday's from 09:30.
+    const times = [at("2026-10-09T15:55:00Z"), at("2026-10-12T09:30:00Z"), at("2026-10-12T09:35:00Z"), at("2026-10-12T09:40:00Z")];
     expect(candlesInRange(times, "1D")).toBe(3);
   });
 
