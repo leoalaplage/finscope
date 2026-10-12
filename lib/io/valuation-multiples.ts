@@ -17,7 +17,7 @@ import type { IoPeriod } from "./view";
 
 export type MultipleKey =
   | "pe" | "pfcf" | "evFcf" | "evEbitda" | "evEbit" | "ps" | "evSales" | "pb" | "ptb"
-  | "fcfYield" | "earningsYield" | "dividendYield";
+  | "fcfYield" | "earningsYield" | "dividendYield" | "shareholderYield";
 
 export interface MultipleSpec { key: MultipleKey; label: string; short: string; percent: boolean; formula: string }
 
@@ -34,6 +34,7 @@ export const MULTIPLES: MultipleSpec[] = [
   { key: "fcfYield", label: "Free cash flow yield", short: "FCF yield", percent: true, formula: "Trailing free cash flow ÷ market capitalisation" },
   { key: "earningsYield", label: "Earnings yield", short: "Earnings yield", percent: true, formula: "Trailing net income to common ÷ market capitalisation" },
   { key: "dividendYield", label: "Dividend yield", short: "Dividend yield", percent: true, formula: "Trailing dividends paid ÷ market capitalisation" },
+  { key: "shareholderYield", label: "Shareholder yield", short: "Shareholder yield", percent: true, formula: "Trailing dividends plus repurchases net of issuance ÷ market capitalisation; negative where the company issued more stock than it paid out" },
 ];
 
 export interface PricedDate { date: string; price: number; currency: string | null }
@@ -66,6 +67,10 @@ export function multiplesAt(period: IoPeriod, price: number): MultiplePoint["val
     fcfYield: yieldOf(v.freeCashFlow, cap),
     earningsYield: yieldOf(earnings, cap),
     dividendYield: v.dividendsPaid == null ? null : yieldOf(Math.abs(v.dividendsPaid), cap),
+    // Dividends are paid out whatever their sign in the cash-flow statement; net repurchases are signed, so dilution counts against.
+    shareholderYield: v.dividendsPaid == null && v.netShareRepurchases == null
+      ? null
+      : yieldOf(Math.abs(v.dividendsPaid ?? 0) + (v.netShareRepurchases ?? 0), cap),
   };
 }
 

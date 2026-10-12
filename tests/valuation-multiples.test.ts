@@ -24,6 +24,8 @@ describe("valuation multiples", () => {
     expect(m.ptb).toBeCloseTo(1000 / 120);
     expect(m.fcfYield).toBe(0.04);
     expect(m.dividendYield).toBe(0.01);
+    expect(multiplesAt(period("2025-12-31", "2026-02-01", { dividendsPaid: -10, netShareRepurchases: 30 }), 100)!.shareholderYield).toBe(0.04);
+    expect(multiplesAt(period("2025-12-31", "2026-02-01", { dividendsPaid: null, netShareRepurchases: -20 }), 100)!.shareholderYield).toBe(-0.02);
   });
   it("draws no multiple on a loss, and no EV multiple where net debt is withheld", () => {
     const loss = multiplesAt(period("2025-12-31", "2026-02-01", { netIncomeToCommon: -5, revenue: 100 }, null), 100)!;
