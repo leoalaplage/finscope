@@ -8,6 +8,7 @@ import {
   adx, aroon, chaikinMoneyFlow, cci, donchian, floorPivots, heikinAshi, hullMa, keltner, moneyFlowIndex, obv,
   parabolicSar, roc, squeeze, stochRsi, supertrend, williamsR, type Pivots,
 } from "@/lib/io/indicators-extra";
+import { CHART_PATTERN_NAMES, chartPatterns } from "@/lib/io/chart-patterns";
 import { DRAWN_FIB_RATIOS, drawingAt, indexOfTime, timeOfIndex, type Anchor, type Drawing, type Tool } from "@/lib/term/drawings";
 import {
   averageTrueRange, fairValueGaps, fibonacci, marketStructure, PIVOT_SPAN, pivots, priceOnLine,
@@ -404,6 +405,7 @@ export function CandleChart({
       trends: trendLines(series, found, atr),
       levels: supportResistance(series, found, atr),
       structure: marketStructure(series, PIVOT_SPAN[interval]),
+      shapes: studies.has("chartPatterns") ? chartPatterns(series, found, atr) : [],
     };
 
     const scale = priceScale([
@@ -675,6 +677,23 @@ export function CandleChart({
                   x1={view.x((fib.pullback ?? fib.to).index)} x2={W} y1={view.y(level.price)} y2={view.y(level.price)} vectorEffect="non-scaling-stroke"
                 />
               )) : null}
+              {view.analysis.shapes.map((shape) => {
+                const reversal = shape.kind === "doubleTop" || shape.kind === "doubleBottom" || shape.kind === "headAndShoulders" || shape.kind === "inverseHeadAndShoulders";
+                return (
+                  <g key={`shape-${shape.kind}-${shape.start}`} className="study-shape" data-tone={CHART_PATTERN_NAMES[shape.kind].bullish == null ? undefined : CHART_PATTERN_NAMES[shape.kind].bullish ? "good" : "bad"}>
+                    {reversal ? (
+                      <path className="study-shape-swing" d={shape.points.map((point, index) => `${index ? "L" : "M"}${view.x(point.index).toFixed(2)} ${view.y(point.price).toFixed(2)}`).join("")} vectorEffect="non-scaling-stroke" />
+                    ) : null}
+                    {shape.lines.map((line, index) => (
+                      <line key={index} className={reversal ? "study-shape-neck" : "study-shape-line"}
+                        x1={view.x(line.a.index)} y1={view.y(line.a.price)} x2={view.x(line.b.index)} y2={view.y(line.b.price)} vectorEffect="non-scaling-stroke" />
+                    ))}
+                    {shape.target != null ? (
+                      <line className="study-shape-target" x1={view.x(view.count - 1) - W * 0.06} x2={W} y1={view.y(shape.target)} y2={view.y(shape.target)} vectorEffect="non-scaling-stroke" />
+                    ) : null}
+                  </g>
+                );
+              })}
               {on("trendLines") ? view.analysis.trends.map((line) => (
                 <line
                   key={`${line.kind}-${line.a.index}-${line.b.index}`} className={`study-trend study-${line.kind}`}
@@ -839,6 +858,16 @@ export function CandleChart({
                 {level.kind === "support" ? "S" : "R"} {price(level.price)} · {level.touches}×
               </span>
             )) : null}
+            {view.analysis.shapes.map((shape) => {
+              const meaning = CHART_PATTERN_NAMES[shape.kind];
+              const top = Math.min(...shape.lines.flatMap((line) => [view.y(line.a.price), view.y(line.b.price)]), ...shape.points.map((point) => view.y(point.price)));
+              return (
+                <span key={`shape-label-${shape.kind}`} className="study-shape-label" data-tone={meaning.bullish == null ? undefined : meaning.bullish ? "good" : "bad"}
+                  style={{ left: pct(view.x(shape.start), W), top: `calc(${pct(top, H)} - 16px)` }}>
+                  {meaning.name}{shape.breakout ? ` · broke ${shape.breakout}` : ""}{shape.target != null ? ` · target ${price(shape.target)}` : ""}
+                </span>
+              );
+            })}
             {view.patterns ? view.patterns.flatMap((found, index) => found.map((pattern, stack) => {
               const meaning = PATTERN_NAMES[pattern];
               const below = meaning.bullish !== false;

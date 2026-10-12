@@ -392,7 +392,7 @@ export function marketStructure(series: Series, span: number, limit = 6, blocksP
 export const STUDIES = [
   "ema", "sma", "bollinger", "ichimoku", "vwap", "vprofile",
   "keltner", "donchian", "supertrend", "psar", "hma", "pivots", "heikinAshi",
-  "fibRetracement", "fibExtension", "fvg", "trendLines", "levels", "structure", "orderBlocks", "patterns",
+  "fibRetracement", "fibExtension", "fvg", "trendLines", "levels", "structure", "orderBlocks", "patterns", "chartPatterns",
   "volume", "rsi", "macd", "stoch", "atr", "rs",
   "adx", "obv", "cmf", "mfi", "willr", "cci", "roc", "stochrsi", "aroon", "squeeze",
 ] as const;
@@ -406,6 +406,7 @@ export const STUDY_NAMES: Record<Study, string> = {
   vwap: "VWAP (anchored on D/W/M)",
   vprofile: "Volume profile",
   patterns: "Candle patterns",
+  chartPatterns: "Chart patterns (triangles, wedges, channels, double tops, head and shoulders)",
   stoch: "Stochastic 14 · 3 · 3",
   atr: "ATR 14",
   rs: "Relative strength vs S&P 500",
@@ -446,11 +447,11 @@ export const STUDY_NAMES: Record<Study, string> = {
 export const STUDY_GROUPS: { name: string; studies: Study[] }[] = [
   { name: "Candles", studies: ["heikinAshi"] },
   { name: "Overlays", studies: ["ema", "sma", "bollinger", "ichimoku", "vwap", "vprofile", "keltner", "donchian", "supertrend", "psar", "hma", "pivots"] },
-  { name: "Auto analysis", studies: ["patterns", "fibRetracement", "fibExtension", "trendLines", "levels", "fvg", "structure", "orderBlocks"] },
+  { name: "Auto analysis", studies: ["chartPatterns", "patterns", "fibRetracement", "fibExtension", "trendLines", "levels", "fvg", "structure", "orderBlocks"] },
   { name: "Lower panes", studies: ["volume", "rsi", "macd", "stoch", "atr", "rs", "adx", "squeeze", "stochrsi", "willr", "cci", "roc", "aroon", "obv", "cmf", "mfi"] },
 ];
 
-export const DEFAULT_STUDIES: ReadonlySet<Study> = new Set<Study>(["ema", "fibRetracement", "trendLines"]);
+export const DEFAULT_STUDIES: ReadonlySet<Study> = new Set<Study>(["ema", "fibRetracement", "trendLines", "chartPatterns"]);
 
 /** The studies a stored list names, in their own order; the default when nothing usable is stored. */
 export function readStudies(text: string | null): Set<Study> {
