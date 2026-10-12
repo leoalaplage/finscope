@@ -255,7 +255,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
         <Panel code="FS" area="st">
           <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
         </Panel>
-        <Panel code="VAL" area="val">
+        <Panel code="VAL" title="Valuation multiples · through time, against their own range" area="val">
           {/* The multiples through time, each against its own median and range. */}
           <ValuationCharts key={`valc-${company.ticker}`} view={view} quote={valuationQuote} />
         </Panel>
