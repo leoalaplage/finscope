@@ -105,6 +105,16 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v38: the audit of the financial pipeline (FINANCIAL_DATA_AUDIT.md). Net
+ * income to common shareholders is read and earnings per share struck on it
+ * where the filer's own reported EPS confirms it (JPMorgan 20.51 → 20.02, as
+ * reported); minority interest, redeemable (mezzanine) equity and the balance
+ * sheet's own liabilities-and-equity total are read, so a liabilities total is
+ * struck where a filer states none (McDonald's) and the enterprise value
+ * carries the claims ahead of the common shareholder; a bank's contract-revenue
+ * line no longer stands for its revenue (Regions 2021: 104 million → 6.4
+ * billion). Net debt now nets short-term investments with cash, everywhere.
+ *
  * v37: a balance is read under the most preferred concept filed for its date
  * rather than whichever concept was filed last. Agilent's 2025 report tagged
  * one component under equity-including-minority-interests (−327 million), and
@@ -292,7 +302,7 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v37";
+export const KEY_VERSION = "v38";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

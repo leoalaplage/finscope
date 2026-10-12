@@ -10,12 +10,15 @@ export const FLOW_METRICS: MetricKey[] = [
   // A bank's two lines of income, from which its revenue is struck where it
   // tags no total (see deriveBankRevenue in the SEC adapter).
   "netInterestIncome", "noninterestIncome",
+  // Net income less preferred dividends and other claims ahead of the common
+  // shareholder: what earnings per share and the P/E are struck on.
+  "netIncomeToCommon",
   // Carried only so a share count can be recovered from it when the filer
   // publishes none; see recoverDilutedShares in the SEC adapter.
   "dilutedEpsReported",
 ];
 export const WEIGHTED_SHARE_METRICS: MetricKey[] = ["basicShares", "dilutedShares"];
-export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities", "totalEquity", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt", "debtInstrumentCarryingAmount", "shortTermBorrowings", "financeLeaseLiability", "totalLiabilities", "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable", "shortTermInvestments", "longTermInvestments", "retainedEarnings"];
+export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities", "totalEquity", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt", "debtInstrumentCarryingAmount", "shortTermBorrowings", "financeLeaseLiability", "totalLiabilities", "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable", "shortTermInvestments", "longTermInvestments", "retainedEarnings", "minorityInterest", "liabilitiesAndEquity", "temporaryEquity"];
 const SPLIT_ADJUSTED_METRICS: MetricKey[] = [...WEIGHTED_SHARE_METRICS, "sharesOutstanding", "sharesIssued", "treasuryShares"];
 /** Per-share amounts move the other way: a split divides them. */
 const SPLIT_DIVIDED_METRICS: MetricKey[] = ["dilutedEpsReported", "dividendsPerShare"];

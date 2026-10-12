@@ -84,7 +84,11 @@ export type MetricKey =
   | "operatingExpenses"
   | "otherIncomeExpense"
   | "netInterestIncome"
-  | "noninterestIncome";
+  | "noninterestIncome"
+  | "netIncomeToCommon"
+  | "minorityInterest"
+  | "liabilitiesAndEquity"
+  | "temporaryEquity";
 
 export interface Provenance {
   provider: "SEC" | "Yahoo Finance" | "Calculated" | "Demo fixture";

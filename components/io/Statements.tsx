@@ -162,17 +162,20 @@ function SectionRows({
                 * see its shape, and making them scroll back up to hunt for the
                 * same measure among the panels is asking them to find it twice.
                 */}
-              <button type="button" className="key-open" onClick={() => onSelect(key)} aria-pressed={selected.includes(key)}>
+              <button type="button" className="key-open" onClick={() => onSelect(key)} aria-pressed={selected.includes(key)} title={metric.formula ? `${metric.label} = ${metric.formula}` : `${metric.label}, as filed`}>
                 {metric.label}
               </button>
             </th>
             {columns.map((period) => {
               const value = period.values[key];
               const text = value == null ? ABSENT : formatUnit(value, metric.unit as Unit, period.currency);
-              // A dash says why it is a dash (lib/io/absence.ts).
-              const why = value == null ? absenceOf(view, key, metric.label).text : undefined;
+              // A dash says why it is a dash (lib/io/absence.ts); a figure says how it was arrived at.
+              const how = period.basis?.[key];
+              const why = value == null
+                ? absenceOf(view, key, metric.label).text
+                : how ? `${period.label} · ${how}` : metric.formula ? `${period.label} · calculated: ${metric.formula}` : `${period.label} · as filed`;
               return (
-                <td key={`${key}-${period.end}-${period.label}`} data-empty={value == null} title={why}>{text}</td>
+                <td key={`${key}-${period.end}-${period.label}`} data-empty={value == null} data-basis={how ? (how.startsWith("Restated") ? "restated" : "calculated") : undefined} title={why}>{text}</td>
               );
             })}
           </tr>

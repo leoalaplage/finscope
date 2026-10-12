@@ -43,7 +43,10 @@ export function fullDcfBase(view: IoCompanyView): DcfBase | null {
   const operatingMargin = value(latest, "operatingMargin");
   const freeCashFlow = value(latest, "freeCashFlow");
   const dilutedShares = value(latest, "dilutedShares");
-  const cash = value(latest, "cashAndEquivalents");
+  // Netted against debt the way net debt is everywhere: cash and short-term investments.
+  const cashOnly = value(latest, "cashAndEquivalents");
+  const investments = value(latest, "shortTermInvestments");
+  const cash = cashOnly == null ? null : cashOnly + (investments != null && investments > 0 ? investments : 0);
   const debt = value(latest, "totalDebt");
   if (
     !known(revenue) || revenue <= 0

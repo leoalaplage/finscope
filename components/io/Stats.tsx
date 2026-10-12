@@ -69,10 +69,13 @@ export function Stats({ view, quote }: { view: IoCompanyView; quote: IoQuote | n
 
   const usable = basis && price != null && Number.isFinite(price) && price > 0 && !mismatch;
   const marketCap = usable ? price * basis.shares : null;
-  const enterpriseValue = usable && basis.netDebt != null ? marketCap! + basis.netDebt : null;
+  // Market value + net debt (after cash and short-term investments) + minority interest, where filed.
+  const enterpriseValue = usable && basis.netDebt != null ? marketCap! + basis.netDebt + (basis.minorityInterest != null && basis.minorityInterest > 0 ? basis.minorityInterest : 0) : null;
 
   const currency = basis?.currency ?? view.company.currency;
-  const netIncome = latest(view, "netIncome");
+  // Earnings to the common shareholder where filed — net of preferred dividends — which is what a P/E is.
+  const toCommon = latest(view, "netIncomeToCommon");
+  const netIncome = toCommon.value != null ? toCommon : latest(view, "netIncome");
   const revenue = latest(view, "revenue");
   const freeCashFlow = latest(view, "freeCashFlow");
   const ebitda = latest(view, "ebitda");

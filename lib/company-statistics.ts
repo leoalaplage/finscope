@@ -275,7 +275,7 @@ export function companyStatistics(dataset: CompanyDataset, price: PricePoint | n
       title: `Valuation (${periodName})`,
       note: noPrice,
       stats: [
-        stat("priceToEarnings", "P/E", over(marketCap, flow("netIncome")), "multiple", -1, noPrice ?? "Earnings are not positive"),
+        stat("priceToEarnings", "P/E", over(marketCap, flow("netIncomeToCommon") ?? flow("netIncome")), "multiple", -1, noPrice ?? "Earnings are not positive"),
         stat("priceToBook", "P/B", over(marketCap, flow("totalEquity")), "multiple", -1, noPrice ?? "Equity is not positive"),
         stat("enterpriseToSales", "EV/Sales", over(enterpriseValue, flow("revenue")), "multiple", -1, noEnterpriseValue),
         stat("enterpriseToEbitda", "EV/EBITDA", over(enterpriseValue, flow("ebitda")), "multiple", -1, noEnterpriseValue ?? "EBITDA is not positive"),

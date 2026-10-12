@@ -95,9 +95,58 @@ export function divideByPositive(numerator: number | null | undefined, denominat
  * zero.
  */
 export function netDebt(period: FinancialPeriod): number | null {
-  const debt = valueOf(period, "totalDebt"); const cash = valueOf(period, "cashAndEquivalents");
-  if (debt == null || cash == null) return null;
-  return debt - cash;
+  const debt = valueOf(period, "totalDebt"); const liquid = liquidAssets(period);
+  if (debt == null || liquid == null) return null;
+  return debt - liquid;
+}
+
+/**
+ * Cash and the short-term investments held beside it: what net debt and an
+ * enterprise value net against borrowings, by the convention every terminal
+ * uses.
+ *
+ * Cash alone used to be netted, and a company holding its liquidity in
+ * marketable securities was stated with net debt it does not have: Microsoft's
+ * June 2026 balance sheet carries 20.9 billion of cash and 55.9 billion of
+ * short-term investments against 40.3 billion of borrowings — net cash of 36.5
+ * billion, which the page showed as 19.4 billion of net debt, and its
+ * enterprise value 56 billion too high. The financial-health reading already
+ * counted both; now every reading does. The cash balance is required; the
+ * investments are added where filed (a filer with none tags none).
+ */
+/**
+ * Net income to the common shareholder, where the filed line can be trusted,
+ * or nothing — and every reader then falls back to net income.
+ *
+ * It is net income less preferred dividends, or plus a gain on redeeming them,
+ * or a small share of it where most of the profit belongs to a minority
+ * (Interactive Brokers keeps about a quarter). So no fixed band around net
+ * income can judge it; the filer's own diluted earnings per share can. Where
+ * one is filed, whichever of the two earnings lands nearer it, over the
+ * diluted share count, is the one used: JPMorgan's 55.7 billion to common
+ * gives its reported 20.02, General Motors' 7.0 billion its 6.37. Southwest
+ * tagged its full 2021 year, 977 million, against the dates of its fourth
+ * quarter, whose net income was 68 million, and the reported 0.12 rejects it.
+ * Without a reported figure the line is used within a third of net income.
+ */
+export function earningsToCommon(period: FinancialPeriod): number | null {
+  const toCommon = valueOf(period, "netIncomeToCommon");
+  const net = valueOf(period, "netIncome");
+  if (toCommon == null) return null;
+  if (net == null) return toCommon;
+  const reported = valueOf(period, "dilutedEpsReported");
+  const shares = valueOf(period, "dilutedShares");
+  if (reported != null && shares != null && shares > 0) {
+    return Math.abs(toCommon / shares - reported) <= Math.abs(net / shares - reported) ? toCommon : null;
+  }
+  return Math.abs(net - toCommon) <= Math.max(Math.abs(net), 1) / 3 ? toCommon : null;
+}
+
+export function liquidAssets(period: FinancialPeriod): number | null {
+  const cash = valueOf(period, "cashAndEquivalents");
+  if (cash == null) return null;
+  const investments = valueOf(period, "shortTermInvestments");
+  return cash + (investments != null && investments > 0 ? investments : 0);
 }
 
 /** A borrowing balance, and which filing actually stated it. */
@@ -402,7 +451,18 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     // not exist and quietly disappear again.
     grossProfitPerShare: compatiblePerShare(grossProfit, reportedGross != null ? ["grossProfit"] : ["revenue", "costOfRevenue"]),
     operatingIncomePerShare: compatiblePerShare(valueOf(period, "operatingIncome"),["operatingIncome"]),
-    netIncomePerShare: compatiblePerShare(valueOf(period, "netIncome"),["netIncome"]),
+    /*
+     * Earnings per share on what belongs to the common shareholder: net income
+     * less preferred dividends, where the filer states it. JPMorgan's 2025 net
+     * income of 57.0 billion carries 1.4 billion for its preferred holders, and
+     * dividing all of it by the common shares gave 20.51 a share against the
+     * 20.02 it reports.
+     */
+    netIncomePerShare: earningsToCommon(period) != null
+      ? compatiblePerShare(earningsToCommon(period), ["netIncomeToCommon"])
+      : compatiblePerShare(valueOf(period, "netIncome"), ["netIncome"]),
+    // Read through the same guard by every consumer: the P/E, the earnings yield, the history.
+    netIncomeToCommon: earningsToCommon(period),
     operatingCashFlowPerShare: compatiblePerShare(valueOf(period, "operatingCashFlow"),["operatingCashFlow"]),
     freeCashFlowPerShare: compatiblePerShare(fcf,["operatingCashFlow","capitalExpenditures"]),
     stockBasedCompensationToRevenue: safeDivide(valueOf(period, "stockBasedCompensation"), revenue),
@@ -422,6 +482,10 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     cashReturnOnCapital: returnOn(fcf, investedCapital(period), valueOf(period, "totalAssets")),
     capitalIntensity: capex == null ? null : safeDivide(Math.abs(capex), revenue),
     netDebt: netDebt(period),
+    liquidAssets: liquidAssets(period),
+    currentRatio: divideByPositive(currentAssets, currentLiabilities),
+    // Leverage against earnings; not meaningful on negative EBITDA, so not stated there.
+    netDebtToEbitda: (() => { const value = ebitda(period); return value == null || value <= 0 ? null : safeDivide(netDebt(period), value); })(),
     // Working capital excluding cash needs the cash balance as much as it needs
     // the two current totals; without it the figure is a different measure
     // wearing this one's label.
@@ -449,6 +513,8 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     // year it lost money has a payout its earnings cannot describe.
     dividendPayout: divideByPositive(valueOf(period, "dividendsPaid"), valueOf(period, "netIncome")),
   };
-  return map[key] ?? valueOf(period, key as MetricKey);
+  // A key the map defines answers for itself, null included: a value it has
+  // judged unusable must not fall back to the raw fact it rejected.
+  return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : valueOf(period, key as MetricKey);
 }
 
