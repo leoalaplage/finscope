@@ -3,6 +3,7 @@ import { buildSegments, largestPartition, trailingTwelve } from "@/lib/segments/
 import { parseLabels, parseSegmentFacts, memberName, type SegmentFact } from "@/lib/segments/xbrl";
 import { pickDocuments } from "@/lib/segments/source";
 import { backlogCards, segmentChart, segmentRows, segmentViews } from "@/lib/segments/view";
+import { segmentCharts } from "@/lib/segments/charts";
 
 const filing = { accession: "0001652044-26-000071", filed: "2026-07-24", form: "10-Q" };
 
@@ -159,5 +160,34 @@ describe("views", () => {
   });
   it("reads a quarterly series' trailing twelve months only over four consecutive quarters", () => {
     expect(trailingTwelve(data.series.find((line) => line.label === "Cloud" && line.measure === "revenue")!.quarterly).map((point) => point.value)).toEqual([46, 50]);
+  });
+});
+
+describe("segment charts for GF", () => {
+  const facts: SegmentFact[] = [];
+  const ends = [["2024-01-01", "2024-03-31"], ["2024-04-01", "2024-06-30"], ["2024-07-01", "2024-09-30"], ["2024-10-01", "2024-12-31"], ["2025-01-01", "2025-03-31"], ["2025-04-01", "2025-06-30"]];
+  ends.forEach(([start, end], index) => {
+    facts.push(fact("revenue", "c:CloudMember", start, end, 10 + index, "2025-07-30"), fact("revenue", "c:AdsMember", start, end, 30, "2025-07-30"));
+    facts.push(fact("revenue", "c:BetsMember", start, end, 0.5, "2025-07-30"), fact("revenue", null, start, end, 40.5 + index, "2025-07-30"));
+    facts.push(fact("operatingIncome", "c:CloudMember", start, end, 2 + index, "2025-07-30"), fact("operatingIncome", "c:AdsMember", start, end, 12, "2025-07-30"));
+    facts.push(fact("operatingIncome", "c:BetsMember", start, end, -3, "2025-07-30"));
+  });
+  facts.push(fact("backlog", "c:CloudMember", null, "2025-03-31", 120, "2025-05-30"), fact("backlog", "c:CloudMember", null, "2025-06-30", 140, "2025-07-30"));
+  const data = buildSegments({ ticker: "c", cik: "1", facts, labels: new Map(), filings: [] });
+  const charts = segmentCharts(data, "quarterly", "MAX");
+  const find = (id: string) => charts.find((entry) => entry.preset.id.startsWith(id));
+
+  it("draws margins by segment, leaving out a slice too small to read", () => {
+    const margin = find("seg-margin")!;
+    expect(margin.data.series.map((entry) => entry.spec.label)).toEqual(["Ads", "Cloud"]);
+    expect(margin.data.series.find((entry) => entry.spec.label === "Cloud")!.values.at(-1)).toBeCloseTo(7 / 15);
+  });
+  it("draws each line's share of the total and its growth", () => {
+    expect(find("seg-mix")!.data.series.find((entry) => entry.spec.label === "Cloud")!.values.at(-1)).toBeCloseTo(15 / 45.5);
+    expect(find("seg-growth")!.data.series.find((entry) => entry.spec.label === "Cloud")!.values.at(-1)).toBeCloseTo(15 / 11 - 1);
+  });
+  it("sets a segment's backlog against its last twelve months of revenue", () => {
+    const backlog = find("seg-backlog")!;
+    expect(backlog.data.series.find((entry) => entry.spec.id === "coverage")!.values.at(-1)).toBeCloseTo(140 / 54);
   });
 });

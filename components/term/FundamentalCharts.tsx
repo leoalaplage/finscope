@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { useWidth } from "./use-width";
 import type { IoCompanyView } from "@/lib/io/view";
+import type { SegmentData } from "@/lib/segments/build";
+import { segmentCharts } from "@/lib/segments/charts";
 import { formatUnit, currencySymbol } from "@/components/io/format";
 import {
   PRESETS, RANGES, axisFor, buildPreset,
@@ -32,9 +34,14 @@ export function FundamentalCharts({ view }: { view: IoCompanyView }) {
   const backlog = useBacklog(view.company.ticker, view.company.cik);
   const currency = view.basis?.currency ?? view.company.currency;
 
-  const charts = useMemo(() => PRESETS
-    .map((preset) => ({ preset, data: buildPreset(preset, view, frequency, range, backlog ?? new Map()) }))
-    .filter((chart): chart is { preset: Preset; data: ChartData } => chart.data != null), [view, frequency, range, backlog]);
+  const segments = useSegments(view.company.ticker);
+  const charts = useMemo(() => [
+    ...PRESETS
+      .map((preset) => ({ preset, data: buildPreset(preset, view, frequency, range, backlog ?? new Map()) }))
+      .filter((chart): chart is { preset: Preset; data: ChartData } => chart.data != null),
+    // The segments' own charts, once they are read (lib/segments/charts.ts).
+    ...(segments ? segmentCharts(segments, frequency, range) : []),
+  ], [view, frequency, range, backlog, segments]);
 
   return (
     <div className="t-gf">
@@ -78,6 +85,20 @@ export function FundamentalCharts({ view }: { view: IoCompanyView }) {
       {!charts.length ? <p className="t-empty">This company files too little to draw these charts.</p> : null}
     </div>
   );
+}
+
+/** The company's segments, or null until they arrive or where it has none. */
+function useSegments(ticker: string): SegmentData | null {
+  const [answer, setAnswer] = useState<{ ticker: string; data: SegmentData | null } | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/segments/${encodeURIComponent(ticker)}`, { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() as Promise<SegmentData> : null))
+      .then((data) => { if (!controller.signal.aborted) setAnswer({ ticker, data }); })
+      .catch(() => { /* Without them the segment charts are simply not offered. */ });
+    return () => controller.abort();
+  }, [ticker]);
+  return answer?.ticker === ticker ? answer.data : null;
 }
 
 /** Backlog by balance-sheet date, or null until it arrives; empty for a filer that states none. */
