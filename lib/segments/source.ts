@@ -15,6 +15,9 @@ import { parseLabels, parseSegmentFacts, type SegmentFact } from "./xbrl";
  * so it runs from the scheduled job and the result is stored.
  */
 
+/** EDGAR turns away a share of requests from shared cloud addresses; a build waits longer for it than a page does. */
+const PATIENT = [1000, 3000, 6000];
+
 const HEADERS = () => ({ "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" });
 
 interface IndexItem { name: string }
@@ -43,7 +46,7 @@ interface Columns { form?: string[]; filingDate?: string[]; reportDate?: string[
  */
 async function periodicReports(cik: string, limit: number): Promise<SegmentFiling[]> {
   const base = "https://data.sec.gov/submissions/";
-  const first = await secFetch(`${base}CIK${cik.padStart(10, "0")}.json`, { headers: { ...HEADERS(), Accept: "application/json" } });
+  const first = await secFetch(`${base}CIK${cik.padStart(10, "0")}.json`, { headers: { ...HEADERS(), Accept: "application/json" } }, PATIENT);
   if (!first.ok) throw new Error(`SEC returned ${first.status}.`);
   const body = await first.json() as { filings?: { recent?: Columns; files?: Array<{ name: string }> } };
   const out: SegmentFiling[] = [];
@@ -57,7 +60,7 @@ async function periodicReports(cik: string, limit: number): Promise<SegmentFilin
   take(body.filings?.recent);
   for (const page of body.filings?.files ?? []) {
     if (out.length >= limit) break;
-    const response = await secFetch(`${base}${page.name}`, { headers: { ...HEADERS(), Accept: "application/json" } });
+    const response = await secFetch(`${base}${page.name}`, { headers: { ...HEADERS(), Accept: "application/json" } }, PATIENT);
     if (!response.ok) { await response.body?.cancel(); break; }
     take(await response.json() as Columns);
   }
@@ -65,7 +68,7 @@ async function periodicReports(cik: string, limit: number): Promise<SegmentFilin
 }
 
 async function text(url: string): Promise<string | null> {
-  const response = await secFetch(url, { headers: HEADERS() });
+  const response = await secFetch(url, { headers: HEADERS() }, PATIENT);
   if (!response.ok) { await response.body?.cancel(); return null; }
   return response.text();
 }
@@ -80,7 +83,7 @@ export async function fetchSegments(ticker: string, cik: string, limit = 12): Pr
   for (const report of reports) {
     const folder = `https://www.sec.gov/Archives/edgar/data/${padded}/${report.accession.replace(/-/g, "")}`;
     try {
-      const index = await secFetch(`${folder}/index.json`, { headers: { ...HEADERS(), Accept: "application/json" } });
+      const index = await secFetch(`${folder}/index.json`, { headers: { ...HEADERS(), Accept: "application/json" } }, PATIENT);
       if (!index.ok) { await index.body?.cancel(); continue; }
       const items = ((await index.json()) as { directory?: { item?: IndexItem[] } }).directory?.item ?? [];
       const documents = pickDocuments(items.map((item) => item.name));
@@ -98,5 +101,5 @@ export async function fetchSegments(ticker: string, cik: string, limit = 12): Pr
       // A report that cannot be read is left out; the list of reports read says so.
     }
   }
-  return buildSegments({ ticker, cik, facts, labels, filings: read });
+  return { ...buildSegments({ ticker, cik, facts, labels, filings: read }), complete: read.length === reports.length };
 }

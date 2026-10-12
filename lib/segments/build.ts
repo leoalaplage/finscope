@@ -65,6 +65,8 @@ export interface SegmentData {
   filings: SegmentFiling[];
   series: SegmentSeries[];
   stacks: SegmentStack[];
+  /** False when a report could not be read: kept, but rebuilt soon. */
+  complete?: boolean;
 }
 
 const DAY = 86_400_000;

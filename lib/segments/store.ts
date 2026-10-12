@@ -17,6 +17,8 @@ import { fetchSegments } from "./source";
 const segmentsKey = (ticker: string) => `segments:v1:${ticker.toUpperCase()}`;
 const CURSOR_KEY = "segments-cursor:v1";
 const FRESH_MS = 3 * 86_400_000;
+/** A build that missed a report is served, and tried again a quarter of an hour later. */
+const RETRY_MS = 15 * 60_000;
 /** Kept a month at most: a company that stops filing should not show segments forever. */
 const KEEP_SECONDS = 30 * 86_400;
 
@@ -36,7 +38,11 @@ export async function buildAndStore(ticker: string): Promise<SegmentData | null>
   if (!cik) return null;
   const data = await fetchSegments(ticker, cik);
   // A build that read no filing is a failed read, not a company without segments.
-  if (data.filings.length) await datasetCache()?.put(segmentsKey(ticker), JSON.stringify(data), { expirationTtl: KEEP_SECONDS }).catch(() => undefined);
+  if (!data.filings.length) throw new Error("EDGAR did not answer.");
+  // Nor does a partial build replace a complete one.
+  const held = data.complete === false ? await datasetCache()?.get<SegmentData>(segmentsKey(ticker), "json").catch(() => null) : null;
+  if (held && held.complete !== false && held.filings.length >= data.filings.length) return held;
+  await datasetCache()?.put(segmentsKey(ticker), JSON.stringify(data), { expirationTtl: KEEP_SECONDS }).catch(() => undefined);
   return data;
 }
 
@@ -44,7 +50,7 @@ export async function getSegments(ticker: string, rebuild = false): Promise<Segm
   if (!rebuild) {
     const stored = await datasetCache()?.get<SegmentData>(segmentsKey(ticker), "json").catch(() => null);
     if (stored) {
-      if (Date.now() - Date.parse(stored.builtAt) > FRESH_MS) keepAlive(buildAndStore(ticker));
+      if (Date.now() - Date.parse(stored.builtAt) > (stored.complete === false ? RETRY_MS : FRESH_MS)) keepAlive(buildAndStore(ticker));
       return stored;
     }
   }

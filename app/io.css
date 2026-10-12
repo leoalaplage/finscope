@@ -2175,3 +2175,4 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .segments-table tr[data-other] th, .segments-table tr[data-other] td { color: var(--ink-3); }
 .segments-table tr[data-first-other] th, .segments-table tr[data-first-other] td { border-top: 1px solid var(--ink-3); }
 .term .segments { padding: 6px 8px; }
+.segments-retry { padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-decoration: underline; cursor: pointer; }

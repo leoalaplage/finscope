@@ -21,22 +21,30 @@ const share = (value: number | null) => (value == null ? ABSENT : `${(value * 10
 const dir = (value: number | null) => (value == null || value === 0 ? undefined : value > 0 ? "up" : "down");
 
 export function Segments({ ticker, cik }: { ticker: string; cik?: string }) {
-  const [answer, setAnswer] = useState<{ ticker: string; data: SegmentData | null } | null>(null);
+  const [answer, setAnswer] = useState<{ ticker: string; data: SegmentData | null; failed?: boolean } | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const [viewId, setViewId] = useState<string | null>(null);
   const [periodicity, setPeriodicity] = useState<SegmentPeriodicity>("quarterly");
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/segments/${encodeURIComponent(ticker)}`, { signal: controller.signal })
-      .then((response) => (response.ok ? response.json() as Promise<SegmentData> : null))
-      .then((data) => { if (!controller.signal.aborted) setAnswer({ ticker, data }); })
-      .catch(() => { if (!controller.signal.aborted) setAnswer({ ticker, data: null }); });
+    fetch(`/api/segments/${encodeURIComponent(ticker)}`, { signal: controller.signal, cache: attempt ? "reload" : "default" })
+      .then(async (response) => ({ data: response.ok ? await response.json() as SegmentData : null, failed: response.status >= 500 }))
+      .then(({ data, failed }) => { if (!controller.signal.aborted) setAnswer({ ticker, data, failed }); })
+      .catch(() => { if (!controller.signal.aborted) setAnswer({ ticker, data: null, failed: true }); });
     return () => controller.abort();
-  }, [ticker]);
+  }, [ticker, attempt]);
 
   const data = answer?.ticker === ticker ? answer.data : undefined;
   const views = useMemo(() => (data ? segmentViews(data) : []), [data]);
   const backlog = useMemo(() => (data ? backlogCards(data) : []), [data]);
   if (data === undefined) return <section className="section segments"><p className="stat-note">Reading the segments from the company&apos;s last twelve filings… the first reading takes a few seconds.</p></section>;
+  if (!data && answer?.failed) {
+    return (
+      <section className="section segments">
+        <p className="stat-note">EDGAR did not answer just now — it turns away some requests from shared cloud addresses. <button type="button" className="segments-retry" onClick={() => setAttempt((count) => count + 1)}>Try again</button></p>
+      </section>
+    );
+  }
   if (!data || !views.length) {
     return <section className="section segments"><p className="stat-note">This company&apos;s filings do not break its revenue down by segment, product or region in a form that can be read.</p></section>;
   }
