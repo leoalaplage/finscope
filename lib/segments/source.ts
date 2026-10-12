@@ -17,6 +17,13 @@ import { parseLabels, parseSegmentFacts, type SegmentFact } from "./xbrl";
 
 /** EDGAR turns away a share of requests from shared cloud addresses; a build waits longer for it than a page does. */
 const PATIENT = [1000, 3000, 6000];
+/**
+ * And it is asked slowly. EDGAR allows ten requests a second per address, and
+ * a Worker shares its address with others: forty requests in a burst can get
+ * the address refused for a while, for the rest of the site's SEC reads too.
+ */
+const SPACING_MS = 250;
+const pause = () => new Promise((resolve) => setTimeout(resolve, SPACING_MS));
 
 const HEADERS = () => ({ "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" });
 
@@ -68,6 +75,7 @@ async function periodicReports(cik: string, limit: number): Promise<SegmentFilin
 }
 
 async function text(url: string): Promise<string | null> {
+  await pause();
   const response = await secFetch(url, { headers: HEADERS() }, PATIENT);
   if (!response.ok) { await response.body?.cancel(); return null; }
   return response.text();
@@ -83,6 +91,7 @@ export async function fetchSegments(ticker: string, cik: string, limit = 12): Pr
   for (const report of reports) {
     const folder = `https://www.sec.gov/Archives/edgar/data/${padded}/${report.accession.replace(/-/g, "")}`;
     try {
+      await pause();
       const index = await secFetch(`${folder}/index.json`, { headers: { ...HEADERS(), Accept: "application/json" } }, PATIENT);
       if (!index.ok) { await index.body?.cancel(); continue; }
       const items = ((await index.json()) as { directory?: { item?: IndexItem[] } }).directory?.item ?? [];
