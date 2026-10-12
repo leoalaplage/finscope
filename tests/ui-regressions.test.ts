@@ -1022,7 +1022,9 @@ describe("the redesign", () => {
     expect(version).toMatch(/const VIEW_SHAPE = "iov\d+"/);
     expect(version).toContain("${VIEW_SHAPE}.${KEY_VERSION}");
     expect(multiples).toContain("view.trailing");
-    expect(multiples).toContain("Show first 8");
+    // Eight before "Show all" on the document site; the terminal's FA asks for twelve.
+    expect(multiples).toContain("const COLLAPSED_COUNT = 8;");
+    expect(multiples).toContain("Show first ${collapsedCount}");
     expect(multiples).toContain("Show all ${panels.length}");
     expect(price).toContain("× Back to price");
     expect(price).toContain("{delta(cagr)} CAGR");
