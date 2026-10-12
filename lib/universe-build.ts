@@ -63,6 +63,9 @@ export interface UniverseRow {
   qsPrice: WatchlistSummary["qsPrice"];
   /** When the filings behind this row were read. */
   retrievedAt: string;
+  /** Older stored rows may not carry the score's period yet. */
+  periodLabel?: string;
+  periodEnd?: string;
   /**
    * Which reading of the industry codes it was built under.
    *
@@ -100,6 +103,8 @@ const row = (member: UniverseMember, digest: WatchlistSummary): UniverseRow => (
   qs: digest.qs,
   qsPrice: digest.qsPrice,
   retrievedAt: digest.retrievedAt,
+  periodLabel: digest.qsPeriodLabel ?? digest.periodLabel,
+  periodEnd: digest.qsPeriodEnd ?? digest.periodEnd,
   read: CLASSIFICATION_VERSION,
 });
 

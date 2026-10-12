@@ -3,6 +3,7 @@ import { recordSnapshot, snapshotOf, type EstimateSnapshot, type Estimates } fro
 import { cachedJson } from "./market-cache";
 import { datasetCache } from "./runtime-env";
 import { UNIVERSE } from "./universe";
+import { consensusRow, mergeConsensus, SCREENER_CONSENSUS_KEY, type ConsensusRow, type ConsensusTable } from "./screener-consensus";
 
 /**
  * Where analysts' estimates are kept: the consensus for twelve hours, and one
@@ -59,9 +60,19 @@ export async function snapshotEstimatesSlice(limit = ESTIMATES_PER_RUN): Promise
   if (!cache) return null;
   const start = Number((await cache.get(CURSOR_KEY, "text").catch(() => null)) ?? 0) || 0;
   const read: string[] = [];
+  const updates: ConsensusRow[] = [];
   for (let step = 0; step < limit; step++) {
     const member = UNIVERSE[(start + step) % UNIVERSE.length];
-    try { await getEstimates(member.ticker); read.push(member.ticker); } catch { /* The next pass reads it. */ }
+    try {
+      const result = await getEstimates(member.ticker);
+      updates.push(consensusRow(JSON.parse(result.body) as Estimates));
+      read.push(member.ticker);
+    } catch { /* The next pass reads it. */ }
+  }
+  if (updates.length) {
+    const previous = await cache.get<ConsensusTable>(SCREENER_CONSENSUS_KEY, "json").catch(() => null);
+    const nextTable = mergeConsensus(previous, updates, UNIVERSE.map((member) => member.ticker), new Date().toISOString());
+    await cache.put(SCREENER_CONSENSUS_KEY, JSON.stringify(nextTable)).catch(() => undefined);
   }
   const next = (start + limit) % UNIVERSE.length;
   await cache.put(CURSOR_KEY, String(next)).catch(() => undefined);
