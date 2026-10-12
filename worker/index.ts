@@ -5,6 +5,7 @@ import { warmWatchlist, warmSomeMissing, requestedTickers } from "../lib/dataset
 import { chaseFilings } from "../lib/filing-watch";
 import { buildUniverseSlice } from "../lib/universe-build";
 import { buildTechnicalSlice } from "../lib/term/tech-universe";
+import { snapshotEstimatesSlice } from "../lib/estimates-store";
 import { refreshAuditReport } from "../lib/coverage-audit";
 import { warmExtraSlice } from "../lib/warm-extra";
 import { COVERED_TICKERS } from "../lib/company-registry";
@@ -156,6 +157,12 @@ const worker = {
         if (technicals && (technicals.read || technicals.failed.length)) {
           console.log(`[technicals] read ${technicals.read}; ${technicals.rows} rows` + (technicals.failed.length ? `; failed ${technicals.failed.join(",")}` : ""));
         }
+        /*
+         * A dozen members' analyst estimates, read and snapshotted, so the whole
+         * index has a consensus reading every day (lib/estimates-store.ts).
+         */
+        const estimates = await snapshotEstimatesSlice().catch(() => null);
+        if (estimates?.read.length) console.log(`[estimates] read ${estimates.read.join(",")}; next ${estimates.next}`);
         const audit = await refreshAuditReport();
         if (audit) {
           console.log(`[audit] ${audit.checked}/${audit.members} checked; ${audit.totals.missingFcfLatest} without latest FCF, ${audit.totals.stale} behind a filing` +

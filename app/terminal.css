@@ -270,6 +270,7 @@ body:has(.io.term) { background: #050608; }
 .t-company { align-items: stretch; grid-template-areas:
   "gp gp gp gp gp gp gp gp side side side side"
   "gf gf gf gf gf gf gf gf gf gf gf gf"
+  "est est est est est est est est est est est est"
   "left left left left left left right right right right right right"
   "st st st st st st st st st st st st"
   "val val val val val val val val val val val val"
@@ -620,6 +621,7 @@ body:has(.io.term) { background: #050608; }
     "gp gp gp gp gp gp gp gp gp gp gp gp"
     "side side side side side side side side side side side side"
     "gf gf gf gf gf gf gf gf gf gf gf gf"
+    "est est est est est est est est est est est est"
     "left left left left left left left left left left left left"
     "right right right right right right right right right right right right"
     "st st st st st st st st st st st st"

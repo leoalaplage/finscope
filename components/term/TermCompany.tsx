@@ -24,6 +24,7 @@ import { readsAsLender } from "@/lib/io/lender";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "@/components/io/format";
 import { EarningsReaction } from "./EarningsReaction";
 import { FundamentalCharts } from "./FundamentalCharts";
+import { Estimates } from "@/components/io/Estimates";
 import { Panel } from "./Panel";
 import { Seasonality } from "./Seasonality";
 
@@ -208,6 +209,10 @@ export function TermCompany({ ticker }: { ticker: string }) {
 
         <Panel code="GF" title="Fundamental charts" area="gf">
           <FundamentalCharts key={`gf-${company.ticker}`} view={view} />
+        </Panel>
+
+        <Panel code="EST" title="Analysts' estimates · forecasts, not filings" area="est">
+          <Estimates key={`est-${company.ticker}`} ticker={company.ticker} price={quote?.price ?? null} currency={quote?.currency ?? company.currency} />
         </Panel>
 
         {/*

@@ -2119,3 +2119,31 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-pane .pane-rs { stroke: #4ea8ff; }
 .candle-pane .pane-rs[data-tone="good"] { stroke: var(--gain); }
 .candle-pane .pane-rs[data-tone="bad"] { stroke: var(--loss); }
+
+/* --- Analysts' estimates ------------------------------------------------- */
+.estimates-strip { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.estimates-strip .stat-value[data-dir="up"] { color: var(--gain, #16a34a); }
+.estimates-strip .stat-value[data-dir="down"] { color: var(--loss, #dc2626); }
+.estimates-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 18px; margin-top: 14px; }
+@media (max-width: 900px) { .estimates-grid { grid-template-columns: minmax(0, 1fr); } }
+.estimates-table caption { text-align: left; padding: 4px 0; caption-side: top; }
+.estimates-table td [data-dir="up"], .estimates-momentum [data-dir="up"] { color: var(--gain, #16a34a); }
+.estimates-table td [data-dir="down"], .estimates-momentum [data-dir="down"] { color: var(--loss, #dc2626); }
+.estimates-range { margin-bottom: 14px; }
+.estimates-range-track { position: relative; height: 14px; margin: 8px 0 4px; background: var(--fill, rgba(127,127,127,.12)); }
+.estimates-range-band { position: absolute; top: 3px; bottom: 3px; background: rgba(78, 168, 255, .45); }
+.estimates-range-mean { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--c1, #4ea8ff); }
+.estimates-range-price { position: absolute; top: -4px; width: 0; height: 0; margin-left: -5px; border: 5px solid transparent; border-top-color: var(--ink, #111); }
+.estimates-range-labels { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.estimates-range-now { color: var(--ink); }
+.estimates-ratings { display: flex; height: 18px; margin-bottom: 14px; font-size: var(--fs-micro); line-height: 18px; color: #fff; }
+.estimates-ratings span { min-width: 0; overflow: hidden; white-space: nowrap; padding-inline: 4px; }
+.estimates-ratings [data-kind="buy"] { background: #1f9d55; }
+.estimates-ratings [data-kind="hold"] { background: #7a7f89; }
+.estimates-ratings [data-kind="sell"] { background: #c0392b; }
+.estimates-momentum { width: 100%; margin: 6px 0 8px; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; border-collapse: collapse; }
+.estimates-momentum th, .estimates-momentum td { padding: 2px 6px; text-align: right; white-space: nowrap; }
+.estimates-momentum th[scope="row"] { text-align: left; color: var(--ink-2); font-weight: 400; }
+.estimates-line { fill: none; stroke: var(--c1, #4ea8ff); stroke-width: 2; }
+.estimates-tick { fill: var(--ink-3); font: 10px var(--mono, monospace); }
+.term .estimates { padding: 6px 8px; }
