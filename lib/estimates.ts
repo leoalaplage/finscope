@@ -42,7 +42,24 @@ export interface Estimates {
   ratings: { buy: number; hold: number; sell: number; label: string | null; brokers: number | null } | null;
   /** Recommendations month by month over the last year, as Nasdaq keeps them. */
   ratingHistory: Array<{ date: string; buy: number; hold: number; sell: number }>;
+  /**
+   * The last reported quarters against the consensus before them: Zacks'
+   * adjusted EPS, not the filed GAAP figure. Absent from consensus read before
+   * it was added.
+   */
+  surprises?: EpsSurprise[];
   source: string;
+}
+
+export interface EpsSurprise {
+  /** "Jun 2026", as Nasdaq writes the fiscal quarter's end. */
+  fiscalEnd: string;
+  /** The day the quarter was reported. */
+  reported: string | null;
+  eps: number | null;
+  consensus: number | null;
+  /** Percent above (or below) the consensus. */
+  surprise: number | null;
 }
 
 /** One day's reading, kept to draw how the consensus has moved. */

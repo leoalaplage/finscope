@@ -1,11 +1,12 @@
-import type { EpsEstimate, Estimates } from "../estimates";
+import type { EpsEstimate, EpsSurprise, Estimates } from "../estimates";
 
 /**
  * Analysts' estimates for one company, as Nasdaq publishes Zacks' consensus.
  *
- * Four small requests: the EPS forecasts (five quarters, the next fiscal
+ * Five small requests: the EPS forecasts (five quarters, the next fiscal
  * years), the momentum of the consensus (a week and a month ago), the price
- * target with the recommendations behind it, and the brokers covering it. Each
+ * target with the recommendations behind it, the brokers covering it, and
+ * the last four quarters' EPS against the consensus before them. Each
  * answers on its own; a part that fails is absent, never invented.
  */
 
@@ -24,10 +25,10 @@ export const nasdaqSymbol = (ticker: string) => ticker.trim().toUpperCase().repl
  * turns away a share of requests from shared cloud addresses and answers the
  * same one a moment later.
  */
-async function part<T>(symbol: string, path: string, waits: number[] = [700]): Promise<T | null> {
+async function part<T>(symbol: string, path: string, waits: number[] = [700], base = "analyst"): Promise<T | null> {
   for (let attempt = 0; attempt <= waits.length; attempt++) {
     try {
-      const response = await fetch(`https://api.nasdaq.com/api/analyst/${encodeURIComponent(symbol)}/${path}`, { headers: HEADERS });
+      const response = await fetch(`https://api.nasdaq.com/api/${base}/${encodeURIComponent(symbol)}/${path}`, { headers: HEADERS });
       if (response.ok) {
         const body = await response.json() as { data?: T | null };
         if (body.data) return body.data;
@@ -59,6 +60,7 @@ interface Target {
   historicalConsensus?: Array<{ z?: { buy?: unknown; hold?: unknown; sell?: unknown; date?: string } }>;
 }
 interface Ratings { meanRatingType?: string; brokerNames?: string[] }
+interface Surprises { earningsSurpriseTable?: { rows?: Array<{ fiscalQtrEnd?: string; dateReported?: string; eps?: unknown; consensusForecast?: unknown; percentageSurprise?: unknown }> | null } }
 
 const rows = (list: ForecastRow[] | null | undefined): EpsEstimate[] => (list ?? []).flatMap((row) => {
   if (!row.fiscalEnd) return [];
@@ -75,7 +77,20 @@ const isoDate = (text: string | undefined) => {
 };
 const after = (text: string | undefined, prefix: RegExp) => text?.replace(prefix, "").trim() || null;
 
-export function parseEstimates(ticker: string, forecast: Forecast | null, momentum: Momentum | null, target: Target | null, ratings: Ratings | null, asOf: string): Estimates {
+/** "8/12/2026" → "2026-08-12". */
+const usDate = (text: string | undefined) => {
+  const match = text?.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return match ? `${match[3]}-${match[1].padStart(2, "0")}-${match[2].padStart(2, "0")}` : null;
+};
+
+export function parseSurprises(surprises: Surprises | null): EpsSurprise[] {
+  return (surprises?.earningsSurpriseTable?.rows ?? []).flatMap((row) => (row.fiscalQtrEnd ? [{
+    fiscalEnd: row.fiscalQtrEnd.trim(), reported: usDate(row.dateReported),
+    eps: number(row.eps), consensus: number(row.consensusForecast), surprise: number(row.percentageSurprise),
+  }] : []));
+}
+
+export function parseEstimates(ticker: string, forecast: Forecast | null, momentum: Momentum | null, target: Target | null, ratings: Ratings | null, asOf: string, surprises: Surprises | null = null): Estimates {
   const change = momentum?.changeInConsensus;
   const overview = target?.consensusOverview;
   const buy = count(overview?.buy); const hold = count(overview?.hold); const sell = count(overview?.sell);
@@ -98,17 +113,19 @@ export function parseEstimates(ticker: string, forecast: Forecast | null, moment
       const date = isoDate(entry.z?.date);
       return date ? [{ date, buy: count(entry.z?.buy) ?? 0, hold: count(entry.z?.hold) ?? 0, sell: count(entry.z?.sell) ?? 0 }] : [];
     }),
+    surprises: parseSurprises(surprises),
     source: "Zacks Investment Research, via Nasdaq",
   };
 }
 
 export async function fetchEstimates(ticker: string): Promise<Estimates> {
   const symbol = nasdaqSymbol(ticker);
-  const [forecast, momentum, target, ratings] = await Promise.all([
+  const [forecast, momentum, target, ratings, surprises] = await Promise.all([
     part<Forecast>(symbol, "earnings-forecast"),
     part<Momentum>(symbol, "estimate-momentum"),
     part<Target>(symbol, "targetprice"),
     part<Ratings>(symbol, "ratings"),
+    part<Surprises>(symbol, "earnings-surprise", [700], "company"),
   ]);
-  return parseEstimates(ticker, forecast, momentum, target, ratings, new Date().toISOString());
+  return parseEstimates(ticker, forecast, momentum, target, ratings, new Date().toISOString(), surprises);
 }

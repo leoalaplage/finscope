@@ -26,6 +26,7 @@ import { EarningsReaction } from "./EarningsReaction";
 import { FundamentalCharts } from "./FundamentalCharts";
 import { Estimates } from "@/components/io/Estimates";
 import { Segments } from "@/components/io/Segments";
+import { Reports } from "@/components/io/Reports";
 import { Panel } from "./Panel";
 import { Seasonality } from "./Seasonality";
 
@@ -226,6 +227,10 @@ export function TermCompany({ ticker }: { ticker: string }) {
 
         <Panel code="SEG" title="Segments · revenue, margin and backlog by slice, as filed" area="seg">
           <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
+        </Panel>
+
+        <Panel code="RPT" title="Quarterly reports · filed figures, surprise and the stock's reaction" area="rpt">
+          <Reports key={`rpt-${company.ticker}`} view={view} />
         </Panel>
 
         <Panel code="EST" title="Analysts' estimates · forecasts, not filings" area="est">

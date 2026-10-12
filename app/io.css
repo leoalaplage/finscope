@@ -2199,3 +2199,29 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .segments-retry { padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-decoration: underline; cursor: pointer; }
 /* A figure the application calculated or a later filing restated: marked, with how on hover. */
 .sheet td[data-basis] { text-decoration: underline dotted; text-decoration-color: var(--ink-3); text-underline-offset: 3px; }
+
+/* --- Quarterly reports (components/io/Reports.tsx) --------------------------- */
+.reports-strip { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.reports-strip .stat-value[data-dir="up"] { color: var(--gain, #16a34a); }
+.reports-strip .stat-value[data-dir="down"] { color: var(--loss, #dc2626); }
+.reports-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; margin: 12px 0; }
+@media (max-width: 900px) { .reports-grid { grid-template-columns: minmax(0, 1fr); } }
+.reports-plot { margin: 0; min-width: 0; }
+.reports-plot figcaption { margin-bottom: 4px; font-size: var(--fs-xs, 12px); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.reports-plot svg { display: block; overflow: visible; }
+.reports-bar { fill: var(--ink-3); fill-opacity: .55; }
+.reports-bar[data-dir="up"] { fill: var(--gain); }
+.reports-bar[data-dir="down"] { fill: var(--loss); }
+.reports-bar[data-active] { fill-opacity: .95; }
+.reports-growth { fill: none; stroke: var(--amber, #e8a33d); stroke-width: 1.8; }
+.reports-key-line { color: var(--amber, #e8a33d); }
+.reports-zero { stroke: var(--ink-3); stroke-dasharray: 3 3; }
+.reports-tick { fill: var(--ink-3); font: 10px var(--mono, monospace); font-variant-numeric: tabular-nums; }
+.reports-quad-good { fill: rgba(46, 212, 125, .07); }
+.reports-quad-bad { fill: rgba(255, 81, 73, .07); }
+.reports-dot { fill: var(--ink-2); stroke: var(--bg); stroke-width: 1; }
+.reports-dot[data-dir="up"] { fill: var(--gain); }
+.reports-dot[data-dir="down"] { fill: var(--loss); }
+.reports-table td[data-dir="up"] { color: var(--gain); }
+.reports-table td[data-dir="down"] { color: var(--loss); }
+.term .reports { padding: 6px 8px; }
