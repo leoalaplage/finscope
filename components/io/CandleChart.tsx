@@ -131,7 +131,7 @@ const NO_STUDIES: ReadonlySet<Study> = new Set();
 
 export function CandleChart({
   candles, interval, loading, error, label, studies = NO_STUDIES, compact = false,
-  drawings, tool = "cursor", onDrawingsChange, zoomable = false, logScale = false, compare, benchmark,
+  drawings, tool = "cursor", onDrawingsChange, zoomable = false, logScale = false, compare, benchmark, openOn,
 }: {
   candles: Candles | null;
   interval: CandleInterval;
@@ -160,6 +160,12 @@ export function CandleChart({
   compare?: CompareSeries[];
   /** The market this symbol is measured against in the relative-strength pane. */
   benchmark?: Candles | null;
+  /**
+   * How many of the latest candles open on screen, where a period was chosen
+   * (lib/io/chart-ranges.ts) rather than left to the width. The whole history
+   * is still read, so the averages are settled on the first candle shown.
+   */
+  openOn?: number;
 }) {
   const clipId = `candle-clip-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
@@ -211,7 +217,7 @@ export function CandleChart({
    * are scrolled off to the right. Kept per symbol and interval, so a new one
    * opens on its latest candles; null is the default fit.
    */
-  const seriesKey = candles ? `${candles.symbol}:${interval}:${candles.t.length}` : "";
+  const seriesKey = candles ? `${candles.symbol}:${interval}:${candles.t.length}:${openOn ?? ""}` : "";
   const [zoom, setZoom] = useState<{ key: string; count: number; end: number } | null>(null);
   const windowed = zoomable && zoom?.key === seriesKey ? zoom : null;
 
@@ -252,7 +258,7 @@ export function CandleChart({
   const view = useMemo(() => {
     if (!candles) return null;
     const total = candles.t.length;
-    const fit = candlesToShow(interval, total, width, compact ? COMPACT_CANDLE_PX : undefined);
+    const fit = openOn ? Math.min(total, Math.max(2, openOn)) : candlesToShow(interval, total, width, compact ? COMPACT_CANDLE_PX : undefined);
     if (!fit) return null;
     const count = windowed ? Math.min(total, Math.max(Math.min(MIN_CANDLES, total), Math.round(windowed.count))) : fit;
     const end = windowed ? Math.min(Math.max(0, Math.round(windowed.end)), total - count) : 0;
@@ -351,7 +357,7 @@ export function CandleChart({
       scale, ticks, priceAt, log, slot, x, y, count, end, from, total, key: seriesKey,
       previous: from > 0 ? candles.c[from - 1] : null,
     };
-  }, [candles, averages, indicators, ranges, interval, width, showEma, showSma, showBands, showCloud, showExtension, compact, windowed, logScale, compare, benchmark, studies, seriesKey]);
+  }, [candles, averages, indicators, ranges, interval, width, showEma, showSma, showBands, showCloud, showExtension, compact, windowed, logScale, compare, benchmark, studies, seriesKey, openOn]);
 
   useEffect(() => {
     latest.current = view ? { key: view.key, count: view.count, end: view.end, total: view.total, from: view.from } : null;

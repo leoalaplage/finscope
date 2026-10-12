@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CandleChart, IntervalPicker, useCandles } from "@/components/io/CandleChart";
+import { CandleChart, useCandles } from "@/components/io/CandleChart";
+import { CHART_RANGES, candlesInRange, type ChartRange } from "@/lib/io/chart-ranges";
 import { MarketPerformance } from "@/components/io/MarketPerformance";
 import { shortDate } from "@/components/io/format";
-import type { CandleInterval } from "@/lib/adapters/candles";
 import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import type { Study } from "@/lib/io/technicals";
 import { Heatmap } from "./Heatmap";
@@ -197,9 +197,11 @@ export function MarketBoard() {
   const internals = usePolled<Internals>("/api/internals");
   const extras = usePolled<Extras>("/api/market-extras");
   const futures = usePolled<{ rows: Array<{ id: string; label: string; group: string; last: number | null; changePercent: number | null; spark: number[] }> }>("/api/futures");
-  const [chart, setChart] = useState<{ id: string; interval: CandleInterval }>({ id: "SPX", interval: "5m" });
+  const [chart, setChart] = useState<{ id: string; range: ChartRange }>({ id: "SPX", range: "1D" });
+  const period = CHART_RANGES.find((entry) => entry.id === chart.range)!;
   // Futures and coins are charted under their own names; the indices under Yahoo's.
-  const candles = useCandles(CHART_SYMBOL[chart.id] ?? (/=F$|-USD$/.test(chart.id) ? chart.id : "^GSPC"), chart.interval);
+  const candles = useCandles(CHART_SYMBOL[chart.id] ?? (/=F$|-USD$/.test(chart.id) ? chart.id : "^GSPC"), period.interval);
+  const openOn = candles.candles ? candlesInRange(candles.candles.t, chart.range) : undefined;
 
   const rows = useMemo(() => markets?.rows ?? [], [markets]);
   const group = (name: MarketRow["group"]) => rows.filter((row) => row.group === name);
@@ -296,13 +298,17 @@ export function MarketBoard() {
         </Panel>
       </div>
 
-      <Panel code="GP" title={`${chartName} · ${INTERVAL_TITLES[chart.interval]}`} area="gp" className="t-fill" actions={
-        <IntervalPicker interval={chart.interval} onInterval={(interval) => setChart({ ...chart, interval })} />
+      <Panel code="GP" title={`${chartName} · ${chart.range} · ${INTERVAL_TITLES[period.interval]}`} area="gp" className="t-fill" actions={
+        <div className="seg" role="group" aria-label="Period">
+          {CHART_RANGES.map((entry) => (
+            <button key={entry.id} type="button" aria-pressed={chart.range === entry.id} title={entry.title} onClick={() => setChart({ ...chart, range: entry.id })}>{entry.id}</button>
+          ))}
+        </div>
       }>
         <div className="t-market-chart">
           <CandleChart
-            candles={candles.candles} interval={chart.interval} loading={candles.loading} error={candles.error}
-            studies={CHART_STUDIES} zoomable label={`${chartName}, ${INTERVAL_TITLES[chart.interval].toLowerCase()} candles`}
+            candles={candles.candles} interval={period.interval} loading={candles.loading} error={candles.error} openOn={openOn || undefined}
+            studies={CHART_STUDIES} zoomable label={`${chartName}, ${period.title.toLowerCase()}`}
           />
         </div>
       </Panel>

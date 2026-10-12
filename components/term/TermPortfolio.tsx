@@ -22,7 +22,7 @@ import { parseTrades } from "@/lib/transactions";
 import { BookEditor } from "./BookEditor";
 import { ABSENT, money, price as writePrice, shortDate } from "@/components/io/format";
 import { Panel } from "./Panel";
-import { Bars, CapitalChart, CorrelationMatrix, HoldingsMap, MonthlyReturns, PerfChart, Spark, type PerfPoint, type TradeMark } from "./PortfolioCharts";
+import { Bars, paletteColor, CapitalChart, CorrelationMatrix, HoldingsMap, MonthlyReturns, PerfChart, Spark, type PerfPoint, type TradeMark } from "./PortfolioCharts";
 import { BENCHMARK, usePortfolioFeed, type Bar } from "./use-portfolio";
 
 /**
@@ -99,6 +99,8 @@ export function TermPortfolio() {
     }
     return valuePortfolio(positions, feed.summaries, prices, names);
   }, [positions, feed.quotes, feed.summaries]);
+  /* One colour per holding, by its rank in the book, the same in every chart that names it. */
+  const holdingColor = useMemo(() => new Map(valued.positions.map((position, index) => [position.ticker, paletteColor(index)])), [valued]);
 
   const day = useMemo(() => {
     let moved = 0; let opened = 0;
@@ -459,7 +461,7 @@ export function TermPortfolio() {
         </Panel>
 
         <Panel code="SECT" title="Sectors" area="sect">
-          <Bars rows={sectors.map((entry) => ({ label: entry.label, value: entry.weight }))} format={(value) => plain(value)} tone="plain" />
+          <Bars rows={sectors.map((entry) => ({ label: entry.label, value: entry.weight }))} format={(value) => plain(value)} tone="palette" />
           <p className="t-study-note">
             {valued.positions.length} holdings, concentrated like {spread.effectiveHoldings == null ? ABSENT : spread.effectiveHoldings.toFixed(1)} equally sized ones; the largest is {plain(spread.largest)} of the book.
           </p>
@@ -475,8 +477,8 @@ export function TermPortfolio() {
         <Panel code="RISK" title="Where the risk sits · share of the book's variance, 1Y" area="risk">
           {risk && Object.keys(risk.riskShare).length ? (
             <Bars rows={Object.entries(risk.riskShare).sort((left, right) => right[1] - left[1]).map(([ticker, share]) => ({
-              label: ticker, value: share, note: `${plain(share)} of the risk for ${plain(valued.positions.find((position) => position.ticker === ticker)?.weight)} of the money`,
-            }))} format={(value) => plain(value)} tone="plain" />
+              label: ticker, value: share, color: holdingColor.get(ticker), note: `${plain(share)} of the risk for ${plain(valued.positions.find((position) => position.ticker === ticker)?.weight)} of the money`,
+            }))} format={(value) => plain(value)} tone="palette" />
           ) : <p className="t-empty">Reading prices…</p>}
           <p className="t-study-note">Weight × covariance with the book, over the book&apos;s variance. A holding whose share of the risk is well above its share of the money is where the book is exposed.</p>
         </Panel>
@@ -492,7 +494,7 @@ export function TermPortfolio() {
 
         <Panel code="DVD" title="Dividend income · trailing year" area="inc">
           {income.rows.length ? (
-            <Bars rows={income.rows.map((row) => ({ label: row.ticker, value: row.income, note: `Yield ${plain(row.yield, 2)}` }))} format={(value) => `${money(value, BASE)}/yr`} tone="plain" />
+            <Bars rows={income.rows.map((row) => ({ label: row.ticker, value: row.income, color: holdingColor.get(row.ticker), note: `Yield ${plain(row.yield, 2)}` }))} format={(value) => `${money(value, BASE)}/yr`} tone="palette" />
           ) : <p className="t-empty">{risk ? "No holding paid a dividend over the last year." : "Reading prices…"}</p>}
           <p className="t-study-note">The trailing year&apos;s dividends at today&apos;s holdings, read from how far each adjusted close drifted from the close. {income.annual > 0 ? `${money(income.annual, BASE)} a year, ${money(income.annual / 12, BASE)} a month.` : ""}</p>
         </Panel>

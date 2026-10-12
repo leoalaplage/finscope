@@ -43,6 +43,7 @@ export function PriceSection({
   onWithPrice,
   valuation,
   chartPage = "/chart",
+  surface = "site",
 }: {
   ticker: string;
   currency: string;
@@ -60,6 +61,8 @@ export function PriceSection({
   valuation: ValuationHistoryState;
   /** Where "open in chart" goes: the document site's chart, or the terminal's workspace. */
   chartPage?: string;
+  /** The terminal opens on monthly candles; the document site on the area. */
+  surface?: Surface;
 }) {
   /*
    * The anchor sits on a wrapper that outlives the swap.
@@ -91,7 +94,7 @@ export function PriceSection({
             valuation={valuation}
           />
         )
-        : <MarketPriceSection ticker={ticker} currency={currency} range={range} onRange={onRange} chartPage={chartPage} />}
+        : <MarketPriceSection ticker={ticker} currency={currency} range={range} onRange={onRange} chartPage={chartPage} surface={surface} />}
     </div>
   );
 }
@@ -115,28 +118,40 @@ function RangePicker({ range, onRange, offered = RANGES }: { range: Range; onRan
  * on every company they open, and subscribed to rather than copied into state.
  */
 type PriceStyle = "area" | "candles";
-const PRICE_STYLE_KEY = "finscope.price.style";
 const PRICE_STYLE_EVENT = "finscope:price-style";
 const CANDLE_STUDIES = new Set(["ema"] as const);
+/**
+ * The document site opens on the area and the terminal on monthly candles, so
+ * each keeps its own choice: a reader's "Area" on one is not the other's.
+ */
+const STYLE_STORE = {
+  site: { key: "finscope.price.style", fallback: "area" as PriceStyle },
+  terminal: { key: "finscope.term.price.style", fallback: "candles" as PriceStyle },
+};
+type Surface = keyof typeof STYLE_STORE;
 
 function subscribePriceStyle(notify: () => void) {
   window.addEventListener("storage", notify);
   window.addEventListener(PRICE_STYLE_EVENT, notify);
   return () => { window.removeEventListener("storage", notify); window.removeEventListener(PRICE_STYLE_EVENT, notify); };
 }
-function readPriceStyle(): PriceStyle {
-  try { return localStorage.getItem(PRICE_STYLE_KEY) === "candles" ? "candles" : "area"; } catch { return "area"; }
+function readPriceStyle(surface: Surface): PriceStyle {
+  const { key, fallback } = STYLE_STORE[surface];
+  try {
+    const stored = localStorage.getItem(key);
+    return stored === "candles" || stored === "area" ? stored : fallback;
+  } catch { return fallback; }
 }
-function writePriceStyle(style: PriceStyle) {
-  try { localStorage.setItem(PRICE_STYLE_KEY, style); } catch { /* this visit only */ }
+function writePriceStyle(surface: Surface, style: PriceStyle) {
+  try { localStorage.setItem(STYLE_STORE[surface].key, style); } catch { /* this visit only */ }
   window.dispatchEvent(new Event(PRICE_STYLE_EVENT));
 }
 
-function StylePicker({ style }: { style: PriceStyle }) {
+function StylePicker({ style, surface }: { style: PriceStyle; surface: Surface }) {
   return (
     <div className="seg" role="group" aria-label="Chart style">
       {(["area", "candles"] as const).map((entry) => (
-        <button key={entry} type="button" aria-pressed={style === entry} onClick={() => writePriceStyle(entry)}>
+        <button key={entry} type="button" aria-pressed={style === entry} onClick={() => writePriceStyle(surface, entry)}>
           {entry === "area" ? "Area" : "Candles"}
         </button>
       ))}
@@ -150,17 +165,19 @@ function MarketPriceSection({
   range,
   onRange,
   chartPage,
+  surface,
 }: {
   ticker: string;
   currency: string;
   range: Range;
   onRange: (range: Range) => void;
   chartPage: string;
+  surface: Surface;
 }) {
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [hover, setHover] = useState<number | null>(null);
-  const style = useSyncExternalStore(subscribePriceStyle, readPriceStyle, () => "area" as PriceStyle);
-  const [interval, setCandleInterval] = useState<CandleInterval>("1d");
+  const style = useSyncExternalStore(subscribePriceStyle, () => readPriceStyle(surface), () => STYLE_STORE[surface].fallback);
+  const [interval, setCandleInterval] = useState<CandleInterval>(surface === "terminal" ? "1mo" : "1d");
   const candles = useCandles(ticker, interval, style === "candles");
   const latest = lastMoveOf(candles.candles);
   const key = `${ticker}|${range}`;
@@ -205,7 +222,7 @@ function MarketPriceSection({
             {latest?.move != null && latest.base ? <span className="readout-change">{delta(latest.move / latest.base)} last candle</span> : null}
           </div>
           <div className="price-controls">
-            <StylePicker style={style} />
+            <StylePicker style={style} surface={surface} />
             <IntervalPicker interval={interval} onInterval={setCandleInterval} />
           </div>
         </div>
@@ -229,7 +246,7 @@ function MarketPriceSection({
           {cagr != null ? <span className="readout-cagr">{delta(cagr)} CAGR</span> : null}
         </div>
         <div className="price-controls">
-          <StylePicker style={style} />
+          <StylePicker style={style} surface={surface} />
           <RangePicker range={range} onRange={onRange} />
         </div>
       </div>

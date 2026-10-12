@@ -269,6 +269,7 @@ body:has(.io.term) { background: #050608; }
 
 .t-company { align-items: stretch; grid-template-areas:
   "gp gp gp gp gp gp gp gp side side side side"
+  "fa fa fa fa fa fa gr gr gr gr gr gr"
   "gf gf gf gf gf gf gf gf gf gf gf gf"
   "seg seg seg seg seg seg seg seg seg seg seg seg"
   "est est est est est est est est est est est est"
@@ -380,6 +381,19 @@ body:has(.io.term) { background: #050608; }
   "eco eco eco eco eco eco eco eco eco eco eco eco";
 }
 .t-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; align-items: start; }
+/*
+ * Side by side, the two columns end on one line: the news and the filings take
+ * whatever height the left column (indices, watchlist, earnings) sets and
+ * scroll inside it, rather than each stopping where its own list ends. The
+ * news gets the wider share; the filings list is a ticker and a form.
+ */
+@media (min-width: 1101px) {
+  .t-launch { align-items: stretch; }
+  .t-launch > .t-col > .t-panel:last-child { flex: 1 1 auto; }
+  .t-launch .t-pair { flex: 1 1 0; min-height: 420px; contain: size; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: stretch; }
+  .t-launch .t-pair > .t-panel { display: flex; flex-direction: column; min-height: 0; }
+  .t-launch .t-pair > .t-panel > .t-panel-body { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+}
 .t-indices { display: grid; }
 .t-index { display: grid; grid-template-columns: minmax(0, 1fr) auto 7ch 80px; align-items: center; gap: 8px; padding: 3px 8px; border-bottom: 1px solid var(--line); }
 .t-index:last-child { border-bottom: 0; }
@@ -621,6 +635,8 @@ body:has(.io.term) { background: #050608; }
   .t-company { grid-template-areas:
     "gp gp gp gp gp gp gp gp gp gp gp gp"
     "side side side side side side side side side side side side"
+    "fa fa fa fa fa fa fa fa fa fa fa fa"
+    "gr gr gr gr gr gr gr gr gr gr gr gr"
     "gf gf gf gf gf gf gf gf gf gf gf gf"
     "seg seg seg seg seg seg seg seg seg seg seg seg"
     "est est est est est est est est est est est est"
@@ -728,6 +744,15 @@ body:has(.io.term) { background: #050608; }
 .term .macro-country { padding: 1px 7px; font-size: var(--fs-micro); }
 @media (max-width: 1100px) { .term .macro-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 720px) { .term .macro-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/*
+ * FA beside GR: the small multiples take the height the row has — the growth
+ * table's or their own — in three rows of four, each plot growing with it.
+ */
+.t-fa > .t-panel-body > .section { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+.t-fa .multiples { flex: 1 1 auto; grid-auto-rows: 1fr; }
+.t-fa .multiple { display: flex; flex-direction: column; }
+.t-fa .multiple .plot { flex: 1 1 auto; min-height: 48px; height: auto; }
 
 /* The figures' small multiples, tighter everywhere and two across on a phone. */
 .term .multiple { min-height: 0; padding: 6px 8px 4px; }

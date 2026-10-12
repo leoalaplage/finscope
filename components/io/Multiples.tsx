@@ -24,12 +24,15 @@ export function Multiples({
   onSelect,
   range,
   frequency,
+  collapsedCount = COLLAPSED_COUNT,
 }: {
   view: IoCompanyView;
   selected: string[];
   onSelect: (metric: string | null) => void;
   range: Range;
   frequency: Frequency;
+  /** How many small multiples show before "Show all". */
+  collapsedCount?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const metrics = useMemo(() => new Map(view.metrics.map((metric) => [metric.key, metric])), [view.metrics]);
@@ -61,7 +64,7 @@ export function Multiples({
 
   if (!panels.length || !periods.length) return null;
 
-  const visible = expanded ? panels : panels.slice(0, COLLAPSED_COUNT);
+  const visible = expanded ? panels : panels.slice(0, collapsedCount);
   const currency = periods.at(-1)?.currency ?? view.company.currency;
   const first = periods[0];
   const last = periods.at(-1)!;
@@ -73,9 +76,9 @@ export function Multiples({
           <h2 className="label">{frequency === "annual" ? "Annual figures" : "TTM figures"}</h2>
           <span className="label">{yearOf(first.end)}–{yearOf(last.end)}</span>
         </div>
-        {panels.length > COLLAPSED_COUNT ? (
+        {panels.length > collapsedCount ? (
           <button className="metric-toggle" type="button" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
-            {expanded ? "Show first 8" : `Show all ${panels.length}`}
+            {expanded ? `Show first ${collapsedCount}` : `Show all ${panels.length}`}
           </button>
         ) : null}
       </div>

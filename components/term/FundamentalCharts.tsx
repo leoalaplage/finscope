@@ -28,8 +28,8 @@ const FREQUENCIES: Array<{ id: Frequency; name: string }> = [
 ];
 
 export function FundamentalCharts({ view }: { view: IoCompanyView }) {
-  const [frequency, setFrequency] = useState<Frequency>("quarterly");
-  const [range, setRange] = useState<RangeId>("MAX");
+  const [frequency, setFrequency] = useState<Frequency>("ttm");
+  const [range, setRange] = useState<RangeId>("10Y");
   const [wide, setWide] = useState<string | null>(null);
   const backlog = useBacklog(view.company.ticker, view.company.cik);
   const currency = view.basis?.currency ?? view.company.currency;

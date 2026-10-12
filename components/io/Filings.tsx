@@ -21,8 +21,11 @@ import { edgarUrl } from "./format";
  * Nothing is filtered by importance, because importance is a judgement and the
  * form is a fact. What is filtered is form type: on one ordinary Friday the
  * index filed 454 documents, of which 264 were prospectus supplements and 81
- * were insider transactions.
+ * were insider transactions. Only the quarterly and annual reports are shown.
  */
+
+/** Periodic reports only: the quarter and the year. */
+const SHOWN = new Set(["10-Q", "10-K"]);
 
 type State =
   | { kind: "loading" }
@@ -71,8 +74,9 @@ export function FilingsList() {
       try {
         const response = await fetch("/api/filings", { signal: controller.signal });
         if (!response.ok) { setState({ kind: "absent" }); return; }
-        const answer = await response.json() as FilingsAnswer;
-        if (!controller.signal.aborted) setState(answer.items?.length ? { kind: "ready", answer } : { kind: "absent" });
+        const read = await response.json() as FilingsAnswer;
+        const answer = { ...read, items: (read.items ?? []).filter((item) => SHOWN.has(item.form.toUpperCase())) };
+        if (!controller.signal.aborted) setState(read.items ? { kind: "ready", answer } : { kind: "absent" });
       } catch {
         if (!controller.signal.aborted) setState({ kind: "absent" });
       }
@@ -86,7 +90,7 @@ export function FilingsList() {
     <>
       <p className="stat-note wire-caption">
         {state.kind === "ready"
-          ? `${state.answer.items.length} filings from the index · ${dayLabel(state.answer.date)}`
+          ? `${state.answer.items.length ? `${state.answer.items.length} 10-Q and 10-K` : "No 10-Q or 10-K"} from the index · ${dayLabel(state.answer.date)}`
           : "Reading EDGAR"}
       </p>
       {state.kind === "loading" ? (

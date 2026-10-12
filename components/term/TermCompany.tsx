@@ -145,6 +145,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
             onWithPrice={setWithPrice}
             valuation={valuation}
             chartPage="/t/chart"
+            surface="terminal"
           />
         </Panel>
 
@@ -208,6 +209,17 @@ export function TermCompany({ ticker }: { ticker: string }) {
           </Panel>
         </div>
 
+        {/*
+          * The figures and their growth side by side, one height: twelve small
+          * multiples fill the figures' half as the growth table fills its own.
+          */}
+        <Panel code="FA" area="fa" className="t-fill t-fa">
+          <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range="MAX" frequency="ttm" collapsedCount={12} />
+        </Panel>
+        <Panel code="GR" area="gr" className="t-fill">
+          <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
+        </Panel>
+
         <Panel code="GF" title="Fundamental charts" area="gf">
           <FundamentalCharts key={`gf-${company.ticker}`} view={view} />
         </Panel>
@@ -229,16 +241,10 @@ export function TermCompany({ ticker }: { ticker: string }) {
           <Panel code="ERX" title="Earnings reaction · last 12 releases">
             <EarningsReaction key={`erx-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
           </Panel>
-          <Panel code="FA">
-            <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range="MAX" frequency="ttm" />
-          </Panel>
         </div>
         <div className="t-mcol" style={{ gridArea: "right" }}>
           <Panel code="SEAS" title="Seasonality · monthly returns">
             <Seasonality key={`seas-${company.ticker}`} symbol={company.ticker} />
-          </Panel>
-          <Panel code="GR">
-            <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
           </Panel>
         </div>
         <Panel code="FS" area="st">

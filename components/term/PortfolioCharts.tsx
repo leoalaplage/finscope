@@ -139,26 +139,36 @@ export function HoldingsMap({ items, height = 300 }: { items: MapHolding[]; heig
 
 /* --- Horizontal bars --------------------------------------------------- */
 
-export interface BarRow { label: string; value: number; note?: string; href?: string }
+export interface BarRow { label: string; value: number; note?: string; href?: string; color?: string }
 
-/** Bars from a zero line, left for negatives and right for positives, scaled to the largest. */
-export function Bars({ rows, format, tone = "sign" }: { rows: BarRow[]; format: (value: number) => string; tone?: "sign" | "plain" }) {
+/** The terminal's eight series colours, by position. */
+export const paletteColor = (index: number) => `var(--c${(index % 8) + 1})`;
+
+/**
+ * Bars from a zero line, left for negatives and right for positives, scaled to the largest.
+ * "sign" colours them by direction, "plain" in one colour, "palette" one colour a bar —
+ * the row's own where it has one, so a holding keeps its colour from chart to chart.
+ */
+export function Bars({ rows, format, tone = "sign" }: { rows: BarRow[]; format: (value: number) => string; tone?: "sign" | "plain" | "palette" }) {
   const reach = Math.max(1e-12, ...rows.map((row) => Math.abs(row.value)));
   const signed = rows.some((row) => row.value < 0);
   return (
     <div className="t-pf-bars" data-signed={signed || undefined}>
-      {rows.map((row) => (
+      {rows.map((row, index) => (
         <div className="t-pf-bar" key={row.label} title={row.note}>
           <span className="t-pf-bar-label">{row.href ? <a href={row.href}>{row.label}</a> : row.label}</span>
           <span className="t-pf-bar-track">
             <i
-              data-dir={tone === "plain" ? undefined : row.value < 0 ? "down" : "up"}
-              style={signed
-                ? { width: `${(Math.abs(row.value) / reach) * 50}%`, left: row.value < 0 ? `${50 - (Math.abs(row.value) / reach) * 50}%` : "50%" }
-                : { width: `${(Math.abs(row.value) / reach) * 100}%`, left: 0 }}
+              data-dir={tone !== "sign" ? undefined : row.value < 0 ? "down" : "up"}
+              style={{
+                ...(signed
+                  ? { width: `${(Math.abs(row.value) / reach) * 50}%`, left: row.value < 0 ? `${50 - (Math.abs(row.value) / reach) * 50}%` : "50%" }
+                  : { width: `${(Math.abs(row.value) / reach) * 100}%`, left: 0 }),
+                ...(tone === "palette" ? { background: row.color ?? paletteColor(index) } : {}),
+              }}
             />
           </span>
-          <span className="t-pf-bar-value" data-dir={tone === "plain" ? undefined : row.value < 0 ? "down" : row.value > 0 ? "up" : undefined}>{format(row.value)}</span>
+          <span className="t-pf-bar-value" data-dir={tone !== "sign" ? undefined : row.value < 0 ? "down" : row.value > 0 ? "up" : undefined}>{format(row.value)}</span>
         </div>
       ))}
     </div>
