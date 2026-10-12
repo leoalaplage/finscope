@@ -9,7 +9,8 @@ import { useSize } from "./use-width";
 /**
  * The price as a line over the period, measured against where the period
  * opened: a dashed line at the opening price, the area above it green and the
- * area below it red, the way a market screen shows a session.
+ * area below it red, and the scale in percent from that open — the move is the
+ * reading, the level is in the readout.
  *
  * Reads the same candles as the candle chart and the same period (`count`, the
  * latest candles), so switching between the two shows the same stretch.
@@ -41,20 +42,24 @@ export function AreaPrice({ candles, interval, count, label }: { candles: Candle
 
   const box = { width: Math.max(0, width), height: Math.max(0, height) };
   const n = shown.c.length;
-  const low = Math.min(shown.open, ...shown.c);
-  const high = Math.max(shown.open, ...shown.c);
-  const step = niceStep((high - low) || Math.abs(high) * 0.01 || 1, 5);
+  // The scale is the move from the open, in percent; the open is its zero.
+  const pct = (value: number) => (value / shown.open - 1) * 100;
+  const moves = shown.c.map(pct);
+  const low = Math.min(0, ...moves);
+  const high = Math.max(0, ...moves);
+  const step = niceStep((high - low) || 0.1, 5);
   const min = Math.floor(low / step) * step;
   const max = Math.ceil(high / step) * step;
   const ticks: number[] = [];
-  for (let tick = min; tick <= max + step / 2; tick += step) ticks.push(tick);
+  for (let tick = min; tick <= max + step / 2; tick += step) ticks.push(Math.abs(tick) < step / 1e6 ? 0 : tick);
+  const places = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
 
   const plotRight = box.width - PAD.right;
   const plotBottom = box.height - PAD.bottom;
   const x = (index: number) => PAD.left + (index / Math.max(n - 1, 1)) * (plotRight - PAD.left);
-  const y = (value: number) => PAD.top + (1 - (value - min) / (max - min || 1)) * (plotBottom - PAD.top);
-  const base = y(shown.open);
-  const line = shown.c.map((value, index) => `${index ? "L" : "M"}${x(index).toFixed(1)} ${y(value).toFixed(1)}`).join("");
+  const y = (move: number) => PAD.top + (1 - (move - min) / (max - min || 1)) * (plotBottom - PAD.top);
+  const base = y(0);
+  const line = moves.map((move, index) => `${index ? "L" : "M"}${x(index).toFixed(1)} ${y(move).toFixed(1)}`).join("");
   const area = `${line}L${x(n - 1).toFixed(1)} ${base.toFixed(1)}L${x(0).toFixed(1)} ${base.toFixed(1)}Z`;
 
   const last = shown.c[n - 1];
@@ -90,7 +95,7 @@ export function AreaPrice({ candles, interval, count, label }: { candles: Candle
             {ticks.map((tick) => (
               <g key={tick}>
                 <line className="t-area-rule" x1={PAD.left} x2={plotRight} y1={y(tick)} y2={y(tick)} />
-                <text className="t-area-tick" x={plotRight + 6} y={y(tick) + 3.5}>{number(tick)}</text>
+                {tick !== 0 ? <text className="t-area-tick" x={plotRight + 6} y={y(tick) + 3.5}>{signed(tick, places)}%</text> : null}
               </g>
             ))}
             {shown.t.map((time, index) => ((n - 1 - index) % every === 0 ? (
@@ -103,11 +108,12 @@ export function AreaPrice({ candles, interval, count, label }: { candles: Candle
             {/* The opening price, labelled on the axis. */}
             <line className="t-area-open" x1={PAD.left} x2={plotRight} y1={base} y2={base} />
             <rect className="t-area-open-tag" x={plotRight + 1} y={base - 8} width={PAD.right - 2} height={16} />
-            <text className="t-area-open-text" x={plotRight + 6} y={base + 3.5}>{number(shown.open)}</text>
+            <text className="t-area-open-text" x={plotRight + 6} y={base + 3.5}>{(0).toFixed(places)}%</text>
+            <text className="t-area-open-label" x={PAD.left + 4} y={base - 5}>Open {number(shown.open)}</text>
             {hover != null ? (
               <g>
                 <line className="t-area-cross" x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={plotBottom} />
-                <circle cx={x(hover)} cy={y(shown.c[hover])} r={3.5} className={shown.c[hover] >= shown.open ? "t-area-dot-up" : "t-area-dot-down"} />
+                <circle cx={x(hover)} cy={y(moves[hover])} r={3.5} className={shown.c[hover] >= shown.open ? "t-area-dot-up" : "t-area-dot-down"} />
               </g>
             ) : null}
             <rect className="t-area-catch" x={PAD.left} y={PAD.top} width={Math.max(0, plotRight - PAD.left)} height={Math.max(0, plotBottom - PAD.top)}

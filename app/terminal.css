@@ -1159,3 +1159,4 @@ body:has(.io.term) { background: #050608; }
 .t-area-dot-up { fill: var(--gain); }
 .t-area-dot-down { fill: var(--loss); }
 .t-area-catch { fill: transparent; cursor: crosshair; touch-action: pan-y; }
+.t-area-open-label { fill: var(--amber); font: 10px var(--mono); font-variant-numeric: tabular-nums; }

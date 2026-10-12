@@ -8,6 +8,7 @@ import { shortDate } from "@/components/io/format";
 import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import type { Study } from "@/lib/io/technicals";
 import { AreaPrice } from "./AreaPrice";
+import { nextRank, ranked, type Rank } from "@/lib/term/rank";
 import { Heatmap } from "./Heatmap";
 import { Panel } from "./Panel";
 import { Rotation } from "./Rotation";
@@ -185,14 +186,33 @@ function YieldCurve({ rates }: { rates: MarketRow[] }) {
   );
 }
 
-function QuoteTable({ rows, label }: { rows: MarketRow[]; label: string }) {
+/** The sector table's ranked columns: the median move over each window. */
+const SECTOR_COLUMNS = [["d1", "1D"], ["d5", "5D"], ["d20", "1M"], ["d60", "3M"]] as const;
+type SectorColumn = (typeof SECTOR_COLUMNS)[number][0];
+
+/** A move of a row as the tables rank it: basis points for a yield, percent for the rest. */
+const moveOf = (row: MarketRow) => (row.group === "rates" ? row.changeBasisPoints : row.changePercent);
+
+/** The panel's ranking button: as listed, best first, worst first. */
+function RankChip({ rank, onRank, column = "move", names = { move: "Chg" } }: { rank: Rank | null; onRank: (rank: Rank | null) => void; column?: string; names?: Record<string, string> }) {
+  const on = rank?.key === column ? rank.direction : null;
+  return (
+    <button type="button" className="t-chip" aria-pressed={rank != null}
+      title={on === "desc" ? "Best first · click for worst first" : on === "asc" ? "Worst first · click for the listed order" : "Rank by performance, best first"}
+      onClick={() => onRank(nextRank(rank, rank?.key ?? column))}>
+      {rank ? `${names[rank.key] ?? rank.key} ${rank.direction === "desc" ? "▼" : "▲"}` : "Rank"}
+    </button>
+  );
+}
+
+function QuoteTable({ rows, label, rank }: { rows: MarketRow[]; label: string; rank: Rank | null }) {
   return (
     <div className="sheet t-quotes">
       <table aria-label={label}>
         <tbody>
-          {rows.map((row) => {
+          {ranked(rows, rank, moveOf).map((row) => {
             const rate = row.group === "rates";
-            const move = rate ? row.changeBasisPoints : row.changePercent;
+            const move = moveOf(row);
             return (
               <tr key={row.id}>
                 <td className="key">{row.label}{row.note && !rate ? <span className="t-dim"> · {row.note}</span> : null}</td>
@@ -220,6 +240,10 @@ export function MarketBoard() {
   const candles = useCandles(CHART_SYMBOL[chart.id] ?? (/=F$|-USD$/.test(chart.id) ? chart.id : "^GSPC"), period.interval);
   const openOn = candles.candles ? candlesInRange(candles.candles.t, chart.range) : undefined;
   const style = useSyncExternalStore(subscribeMarketStyle, readMarketStyle, () => "candles" as MarketStyle);
+  /* Each table's ranking: as listed until asked. */
+  const [ranks, setRanks] = useState<Record<string, Rank | null>>({});
+  const rankOf = (panel: string) => ranks[panel] ?? null;
+  const setRank = (panel: string) => (rank: Rank | null) => setRanks((current) => ({ ...current, [panel]: rank }));
 
   const rows = useMemo(() => markets?.rows ?? [], [markets]);
   const group = (name: MarketRow["group"]) => rows.filter((row) => row.group === name);
@@ -256,12 +280,12 @@ export function MarketBoard() {
         * chart and the sector table grow to whatever height the band has.
         */}
       <div className="t-mcol" style={{ gridArea: "c1" }}>
-        <Panel code="WEI" title="World indices">
+        <Panel code="WEI" title="World indices" actions={<RankChip rank={rankOf("wei")} onRank={setRank("wei")} />}>
           <div className="sheet t-wei">
             <table>
-              <thead><tr><th className="key">Index</th><th>Last</th><th>Chg %</th><th title="US averages: today's session. Other indices, futures and coins: the last month of closes.">Trend</th></tr></thead>
+              <thead><tr><th className="key">Index</th><th>Last</th><th aria-sort={rankOf("wei") ? (rankOf("wei")!.direction === "desc" ? "descending" : "ascending") : "none"}><button type="button" className="t-sort" onClick={() => setRank("wei")(nextRank(rankOf("wei"), "move"))}>Chg %{rankOf("wei") ? (rankOf("wei")!.direction === "desc" ? " ▼" : " ▲") : ""}</button></th><th title="US averages: today's session. Other indices, futures and coins: the last month of closes.">Trend</th></tr></thead>
               <tbody>
-                {board.map((row) => (
+                {ranked(board, rankOf("wei"), (row) => row.change).map((row) => (
                   <tr key={row.id} data-selected={row.id === chart.id || undefined}>
                     <td className="key">
                       <button type="button" className="t-wei-pick" onClick={() => setChart({ ...chart, id: row.id })}>
@@ -344,19 +368,37 @@ export function MarketBoard() {
       </Panel>
 
       <div className="t-mcol" style={{ gridArea: "c2" }}>
-        <Panel code="FX" title="Currencies"><QuoteTable rows={group("currencies")} label="Currencies" /></Panel>
-        <Panel code="CMDTY" title="Commodities"><QuoteTable rows={group("commodities")} label="Commodities" /></Panel>
+        <Panel code="FX" title="Currencies" actions={<RankChip rank={rankOf("fx")} onRank={setRank("fx")} />}>
+          <QuoteTable rows={group("currencies")} label="Currencies" rank={rankOf("fx")} />
+        </Panel>
+        <Panel code="CMDTY" title="Commodities" actions={<RankChip rank={rankOf("cmdty")} onRank={setRank("cmdty")} />}>
+          <QuoteTable rows={group("commodities")} label="Commodities" rank={rankOf("cmdty")} />
+        </Panel>
         <Panel code="GC" title="US yield curve · today vs yesterday">
           <YieldCurve rates={group("rates")} />
         </Panel>
       </div>
 
-      <Panel code="SECT" title="Sectors · median move" area="sect" className="t-fill">
+      <Panel code="SECT" title="Sectors · median move" area="sect" className="t-fill" actions={<RankChip rank={rankOf("sect")} onRank={setRank("sect")} column="d1" names={Object.fromEntries(SECTOR_COLUMNS)} />}>
         <div className="sheet t-sectors">
           <table>
-            <thead><tr><th className="key">Sector</th><th>N</th><th>1D</th><th>5D</th><th>1M</th><th>3M</th><th>A / D</th></tr></thead>
+            <thead>
+              <tr>
+                <th className="key">Sector</th><th>N</th>
+                {SECTOR_COLUMNS.map(([key, name]) => {
+                  const rank = rankOf("sect");
+                  const on = rank?.key === key ? rank.direction : null;
+                  return (
+                    <th key={key} aria-sort={on === "desc" ? "descending" : on === "asc" ? "ascending" : "none"}>
+                      <button type="button" className="t-sort" onClick={() => setRank("sect")(nextRank(rank, key))}>{name}{on ? (on === "desc" ? " ▼" : " ▲") : ""}</button>
+                    </th>
+                  );
+                })}
+                <th>A / D</th>
+              </tr>
+            </thead>
             <tbody>
-              {sectors.map((row) => (
+              {ranked(sectors, rankOf("sect"), (row, key) => row[key as SectorColumn]).map((row) => (
                 <tr key={row.sector}>
                   <td className="key">{row.sector}</td>
                   <td className="t-dim">{row.companies}</td>
@@ -380,8 +422,8 @@ export function MarketBoard() {
             <MoverList title="Volume vs 20D" rows={(extras?.volume ?? []).slice(0, 8).map((row) => ({ ticker: row.ticker, value: `${row.ratio.toFixed(1)}×`, note: signed(row.change, 1), tone: undefined }))} />
           </div>
         </Panel>
-        <Panel code="YLD" title="Government yields">
-          <QuoteTable rows={group("rates")} label="Government yields" />
+        <Panel code="YLD" title="Government yields" actions={<RankChip rank={rankOf("yld")} onRank={setRank("yld")} />}>
+          <QuoteTable rows={group("rates")} label="Government yields" rank={rankOf("yld")} />
         </Panel>
       </div>
 
