@@ -1162,3 +1162,11 @@ body:has(.io.term) { background: #050608; }
 .t-area-dot-down { fill: var(--loss); }
 .t-area-catch { fill: transparent; cursor: crosshair; touch-action: pan-y; }
 .t-area-open-label { fill: var(--amber); font: 10px var(--mono); font-variant-numeric: tabular-nums; }
+
+/* VAL's multiples through time (components/io/ValuationCharts.tsx). */
+.valuation-charts .t-gf-card figcaption { flex-wrap: wrap; }
+.valuation-now { font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--ink); }
+.valuation-now b { color: var(--amber); font-weight: 600; }
+.valuation-pct[data-high] { color: var(--loss); }
+.valuation-pct[data-low] { color: var(--gain); }
+.term .valuation-charts { padding: 0; }

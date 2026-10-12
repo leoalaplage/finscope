@@ -15,6 +15,7 @@ import { Multiples } from "@/components/io/Multiples";
 import { Growth } from "@/components/io/Growth";
 import { Statements } from "@/components/io/Statements";
 import { ValuationHistory } from "@/components/io/ValuationHistory";
+import { ValuationCharts } from "@/components/io/ValuationCharts";
 import { Insiders, useInsiders } from "@/components/io/Insiders";
 import { Holders } from "@/components/io/Holders";
 import { CompanyNews } from "@/components/io/CompanyNews";
@@ -256,6 +257,8 @@ export function TermCompany({ ticker }: { ticker: string }) {
           <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
         </Panel>
         <Panel code="VAL" area="val">
+          {/* The multiples through time, then where today sits in the window (the bands). */}
+          <ValuationCharts key={`valc-${company.ticker}`} view={view} quote={valuationQuote} />
           <ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />
         </Panel>
         <Panel code="INS" area="ins">

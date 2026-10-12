@@ -145,7 +145,7 @@ function tickText(value: number, unit: AxisUnit, axis: Axis, currency: string): 
   }
 }
 
-function ComboChart({ preset, data, currency, height }: { preset: Preset; data: ChartData; currency: string; height: number }) {
+export function ComboChart({ preset, data, currency, height }: { preset: Preset; data: ChartData; currency: string; height: number }) {
   const { ref, width } = useWidth();
   const [hover, setHover] = useState<number | null>(null);
 
