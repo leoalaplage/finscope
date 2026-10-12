@@ -6,6 +6,7 @@ import { chaseFilings } from "../lib/filing-watch";
 import { buildUniverseSlice } from "../lib/universe-build";
 import { buildTechnicalSlice } from "../lib/term/tech-universe";
 import { snapshotEstimatesSlice } from "../lib/estimates-store";
+import { primeSegmentsSlice } from "../lib/segments/store";
 import { refreshAuditReport } from "../lib/coverage-audit";
 import { warmExtraSlice } from "../lib/warm-extra";
 import { COVERED_TICKERS } from "../lib/company-registry";
@@ -163,6 +164,12 @@ const worker = {
          */
         const estimates = await snapshotEstimatesSlice().catch(() => null);
         if (estimates?.read.length) console.log(`[estimates] read ${estimates.read.join(",")}; next ${estimates.next}`);
+        /*
+         * Two companies' segments, each built in an invocation of its own — a
+         * dozen filings read apiece — largest first (lib/segments/store.ts).
+         */
+        const segments = await primeSegmentsSlice(origin).catch(() => []);
+        if (segments.length) console.log(`[segments] built ${segments.join(",")}`);
         const audit = await refreshAuditReport();
         if (audit) {
           console.log(`[audit] ${audit.checked}/${audit.members} checked; ${audit.totals.missingFcfLatest} without latest FCF, ${audit.totals.stale} behind a filing` +

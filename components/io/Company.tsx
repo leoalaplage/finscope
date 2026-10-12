@@ -11,6 +11,7 @@ import { Fold } from "./Fold";
 import { GrowthYield } from "./GrowthYield";
 import { LenderReading } from "./LenderReading";
 import { Estimates } from "./Estimates";
+import { Segments } from "./Segments";
 import { readsAsLender } from "@/lib/io/lender";
 import { Verdict, type VerdictKey } from "./Verdict";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
@@ -210,6 +211,8 @@ export function Company({ ticker }: { ticker: string }) {
           {openDetail === "valuation" ? <GrowthYield view={view} quote={valuationQuote} /> : null}
           {openDetail === "growth" ? <FcfShareGrowth view={view} /> : null}
         </>}
+      {/* The company in slices, as filed (components/io/Segments.tsx). */}
+      <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
       {/* What analysts expect, after the filed answers and labelled as forecasts (components/io/Estimates.tsx). */}
       <Estimates key={`est-${company.ticker}`} ticker={company.ticker} price={quote?.price ?? null} currency={quote?.currency ?? company.currency} />
       {/*

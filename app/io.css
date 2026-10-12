@@ -2147,3 +2147,31 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .estimates-line { fill: none; stroke: var(--c1, #4ea8ff); stroke-width: 2; }
 .estimates-tick { fill: var(--ink-3); font: 10px var(--mono, monospace); }
 .term .estimates { padding: 6px 8px; }
+
+/* --- Segments ------------------------------------------------------------ */
+.segments-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.segments-backlog { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1px; margin-bottom: 12px; }
+.segments-backlog [data-dir="up"], .segments-table td[data-dir="up"] { color: var(--gain, #16a34a); }
+.segments-backlog [data-dir="down"], .segments-table td[data-dir="down"] { color: var(--loss, #dc2626); }
+.segments-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 14px; margin-bottom: 12px; }
+.segments-plot { margin: 0; min-width: 0; }
+.segments-plot figcaption { font-size: var(--fs-xs, 12px); font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+.segments-canvas { position: relative; width: 100%; }
+.segments-canvas svg { display: block; overflow: visible; }
+.segments-rule { stroke: var(--line); stroke-dasharray: 3 4; }
+.segments-zero { stroke: var(--ink-3); }
+.segments-tick { fill: var(--ink-3); font: 10px var(--mono, monospace); font-variant-numeric: tabular-nums; }
+.segments-hover { fill: rgba(127, 127, 127, .1); }
+.segments-catch { fill: transparent; cursor: crosshair; touch-action: pan-y; }
+.segments-tip { position: absolute; top: 6px; z-index: 2; display: grid; gap: 2px; min-width: 180px; padding: 6px 8px; background: var(--raise); border: 1px solid var(--line); font-size: var(--fs-micro, 11px); pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
+.segments-tip b { color: var(--ink); font-weight: 600; }
+.segments-tip span { display: flex; align-items: center; gap: 6px; color: var(--ink-2); white-space: nowrap; }
+.segments-tip i { width: 8px; height: 8px; flex: none; }
+.segments-tip em { margin-left: auto; padding-left: 10px; font-style: normal; color: var(--ink); font-variant-numeric: tabular-nums; }
+.segments-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 0; padding: 0; list-style: none; font-size: var(--fs-micro, 11px); color: var(--ink-2); }
+.segments-legend li { display: flex; align-items: center; gap: 5px; }
+.segments-legend i { width: 10px; height: 10px; border-radius: 2px; }
+.segments-key { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px; background: var(--key, transparent); vertical-align: 0; }
+.segments-table tr[data-other] th, .segments-table tr[data-other] td { color: var(--ink-3); }
+.segments-table tr[data-first-other] th, .segments-table tr[data-first-other] td { border-top: 1px solid var(--ink-3); }
+.term .segments { padding: 6px 8px; }

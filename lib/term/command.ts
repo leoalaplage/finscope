@@ -7,7 +7,7 @@
  * where to go, this decides what was meant.
  */
 
-export type CompanyFunction = "DES" | "GP" | "FA" | "GF" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "CN" | "DCF" | "COMP";
+export type CompanyFunction = "DES" | "GP" | "FA" | "GF" | "SEG" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "CN" | "DCF" | "COMP";
 export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "SCAN" | "BT" | "ECAL" | "SET" | "HELP";
 
 export interface FunctionSpec<Code extends string> { code: Code; name: string }
@@ -31,6 +31,7 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   { code: "COMP", name: "Compare" },
   // Past ⌥0: typed, or picked from the function bar.
   { code: "GF", name: "Fundamental charts" },
+  { code: "SEG", name: "Segments" },
   { code: "EST", name: "Analysts' estimates" },
   { code: "ERX", name: "Earnings reaction" },
   { code: "SEAS", name: "Seasonality" },
@@ -62,6 +63,7 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
   HDS: "HDS", HOLD: "HDS",
   NEWS: "CN", N: "CN",
   COMPARE: "COMP", RV: "COMP",
+  SEGMENTS: "SEG", SEGMENT: "SEG", PGEO: "SEG",
   ANR: "EST", EEO: "EST", ESTIMATES: "EST", CONSENSUS: "EST",
   MAIN: "HOME", LP: "HOME",
   MARKET: "MKT",

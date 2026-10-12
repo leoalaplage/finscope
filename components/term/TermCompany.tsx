@@ -25,6 +25,7 @@ import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } fr
 import { EarningsReaction } from "./EarningsReaction";
 import { FundamentalCharts } from "./FundamentalCharts";
 import { Estimates } from "@/components/io/Estimates";
+import { Segments } from "@/components/io/Segments";
 import { Panel } from "./Panel";
 import { Seasonality } from "./Seasonality";
 
@@ -209,6 +210,10 @@ export function TermCompany({ ticker }: { ticker: string }) {
 
         <Panel code="GF" title="Fundamental charts" area="gf">
           <FundamentalCharts key={`gf-${company.ticker}`} view={view} />
+        </Panel>
+
+        <Panel code="SEG" title="Segments · revenue, margin and backlog by slice, as filed" area="seg">
+          <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
         </Panel>
 
         <Panel code="EST" title="Analysts' estimates · forecasts, not filings" area="est">
