@@ -49,6 +49,8 @@ const configSchema = z.object({
   mode: z.enum(["all", "any"]), scope: z.enum(["index", "watchlist"]), query: z.string().max(120), sectors: z.array(z.string().max(100)).max(30),
   conditions: z.array(conditionSchema).max(30), columns: z.array(fieldKey).min(1).max(24),
   sort: z.union([fieldKey, z.literal("ticker")]), descending: z.boolean(),
+  /** The column view (lib/screener-filters.ts); "custom" shows `columns`. Older saved searches have none and show their own columns. */
+  view: z.string().max(20).optional(),
 });
 export type ScreenConfig = z.infer<typeof configSchema>;
 export interface SavedScreen { id: string; name: string; config: ScreenConfig }
@@ -57,7 +59,7 @@ export const SCREEN_STORAGE_KEY = "finscope.free-screener.v1";
 export const DEFAULT_SCREEN: ScreenConfig = {
   mode: "all", scope: "index", query: "", sectors: [], conditions: [],
   columns: ["Market Cap", "Revenue 5Y CAGR", "Operating Margin", "Net Debt / EBITDA", "FCF Yield", "forwardPe", "tech:rsi14"],
-  sort: "Market Cap", descending: true,
+  sort: "Market Cap", descending: true, view: "overview",
 };
 export const newCondition = (id: string): ScreenCondition => ({ id, field: "Revenue 5Y CAGR", op: "gte", target: "number", value: "10", upper: "20", other: "Revenue 10Y CAGR" });
 

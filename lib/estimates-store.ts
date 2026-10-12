@@ -1,6 +1,6 @@
 import { fetchEstimates } from "./adapters/nasdaq-estimates";
 import { recordSnapshot, snapshotOf, type EstimateSnapshot, type Estimates } from "./estimates";
-import { cachedJson } from "./market-cache";
+import { cachedJson, marketKey } from "./market-cache";
 import { datasetCache } from "./runtime-env";
 import { UNIVERSE } from "./universe";
 import { consensusRow, mergeConsensus, SCREENER_CONSENSUS_KEY, type ConsensusRow, type ConsensusTable } from "./screener-consensus";
@@ -21,6 +21,8 @@ const historyKey = (ticker: string) => `estimates-history:v1:${ticker.toUpperCas
 const CURSOR_KEY = "estimates-cursor:v1";
 /** Twelve a run, forty-eight runs a day: the index once a day, four requests each. */
 export const ESTIMATES_PER_RUN = 12;
+/** Kept consensus copied into the screener's table a run, where it has no row. */
+const BACKFILL_PER_RUN = 80;
 
 export async function readHistory(ticker: string): Promise<EstimateSnapshot[]> {
   try {
@@ -69,8 +71,19 @@ export async function snapshotEstimatesSlice(limit = ESTIMATES_PER_RUN): Promise
       read.push(member.ticker);
     } catch { /* The next pass reads it. */ }
   }
+  const previous = await cache.get<ConsensusTable>(SCREENER_CONSENSUS_KEY, "json").catch(() => null);
+  /*
+   * Members the screener's table has no row for yet are filled from the
+   * consensus already kept for them, without asking Nasdaq again: a few dozen
+   * reads of the store a run, so the table is whole within hours of a deploy
+   * rather than after the day the rotation takes.
+   */
+  const held = new Set([...(previous?.rows ?? []).map((row) => row.ticker), ...updates.map((row) => row.ticker)]);
+  for (const member of UNIVERSE.filter((entry) => !held.has(entry.ticker)).slice(0, BACKFILL_PER_RUN)) {
+    const body = await cache.get<Estimates>(marketKey(estimatesKey(member.ticker)), "json").catch(() => null);
+    if (body?.ticker) updates.push(consensusRow(body));
+  }
   if (updates.length) {
-    const previous = await cache.get<ConsensusTable>(SCREENER_CONSENSUS_KEY, "json").catch(() => null);
     const nextTable = mergeConsensus(previous, updates, UNIVERSE.map((member) => member.ticker), new Date().toISOString());
     await cache.put(SCREENER_CONSENSUS_KEY, JSON.stringify(nextTable)).catch(() => undefined);
   }

@@ -2,13 +2,28 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
-  DEFAULT_SCREEN, SCREEN_FIELD, SCREEN_FIELDS, SCREEN_GROUPS, SCREEN_OPERATORS, SCREEN_PRESETS, SCREEN_STORAGE_KEY,
+  DEFAULT_SCREEN, SCREEN_FIELD, SCREEN_FIELDS, SCREEN_GROUPS, SCREEN_OPERATORS, SCREEN_STORAGE_KEY,
   conditionError, newCondition, readScreenStore, runScreen, saveScreen,
   type ScreenCondition, type ScreenConfig, type ScreenField, type ScreenRow, type ScreenStore,
 } from "@/lib/free-screener";
+import {
+  FILTER_TABS, RECIPES, SHORT, SIGNED, VIEWS,
+  conditionFor, customBounds, customCondition, describeCondition, formatValue, isQuickCondition, optionIndex,
+} from "@/lib/screener-filters";
 import type { ScreenerFeed } from "@/lib/screener-feed";
 import { useStoredWatchlist } from "@/components/io/watchlist";
 import { ExportMenu } from "@/components/io/ExportMenu";
+
+/**
+ * EQS: a Finviz-style screener over the S&P 500 (lib/free-screener.ts).
+ *
+ * Filters first, as a grid of drop-downs with ready thresholds, tab by tab;
+ * the matches straight under them in a dense table whose columns come in
+ * views (Overview, Valuation, Growth…); advanced rules — one metric against
+ * another, crossovers, any/all — for what the grid cannot say. Every cell
+ * names its source and date on hover; a value that is missing stays empty
+ * and never passes a filter.
+ */
 
 const EVENT = "finscope:free-screener";
 // A blocked/full browser store still permits editing for this tab's lifetime.
@@ -30,53 +45,21 @@ function writeScreenStore(next: ScreenStore): boolean {
   window.dispatchEvent(new Event(EVENT));
   return !volatileOnly;
 }
-const numericFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
-const date = (value: string | null) => value ? value.slice(0, 10) : "unavailable";
-const unitLabel = (field: ScreenField) => field.unit === "percent" ? "%" : field.unit === "billions" ? "bn, filing currency" : field.unit === "ratio" ? "×" : field.unit === "price" ? "quote currency" : "number";
-function display(value: number | null | undefined, field: ScreenField) {
-  if (value == null || !Number.isFinite(value)) return "—";
-  return `${numericFormat.format(value)}${field.unit === "percent" ? "%" : field.unit === "ratio" ? "×" : field.unit === "billions" ? " bn" : ""}`;
-}
+
+const date = (value: string | null) => (value ? value.slice(0, 10) : "unavailable");
+const unitLabel = (field: ScreenField) => (field.unit === "percent" ? "%" : field.unit === "billions" ? "$ bn" : field.unit === "ratio" ? "×" : field.unit === "price" ? "price" : "");
+const headerOf = (key: string) => SHORT[key] ?? SCREEN_FIELD[key]?.label ?? key;
+
 function cellNote(row: ScreenRow, field: ScreenField) {
-  const source = field.source === "fundamental" ? `SEC filings · ${row.period ?? "period not supplied by this stored row"} · read ${date(row.dates.fundamental)}`
-    : field.source === "consensus" ? `Nasdaq / Zacks forecast · read ${date(row.dates.consensus)}${field.key === "forwardPe" || field.key === "peg" ? ` · ${row.epsBasis ?? "EPS unavailable"}` : ""}`
+  const source = field.source === "fundamental" ? `SEC filings · ${row.period ?? "latest period"} · read ${date(row.dates.fundamental)}`
+    : field.source === "consensus" ? `Analysts' forecast, Zacks via Nasdaq · read ${date(row.dates.consensus)}${field.key === "forwardPe" || field.key === "peg" ? ` · EPS: ${row.epsBasis ?? "unavailable"}` : ""}`
     : `Yahoo daily bars · session ${date(row.dates.technical)}`;
   const valuation = field.group === "Valuation" ? ` · price ${date(row.dates.price)} · shares ${row.sharesBasis ?? "unavailable"}` : "";
-  const missing = row.values[field.key] == null ? ` · ${(field.group === "Valuation" ? row.reasons.valuation : row.reasons[field.source]) ?? "The source does not supply a usable value for this measure."}` : "";
-  return `${source}${valuation}${field.unit === "price" || field.unit === "billions" ? ` · ${row.currency ?? "currency unavailable"}` : ""}${missing}`;
+  const missing = row.values[field.key] == null ? ` · ${(field.group === "Valuation" ? row.reasons.valuation : row.reasons[field.source]) ?? "The source gives no usable value."}` : "";
+  return `${field.label}: ${source}${valuation}${missing}`;
 }
 
-function MetricOptions({ compatible }: { compatible?: ScreenField }) {
-  return <>{SCREEN_GROUPS.map((group) => <optgroup key={group} label={group}>
-    {SCREEN_FIELDS.filter((field) => field.group === group && (!compatible || field.unit === compatible.unit)).map((field) => <option key={field.key} value={field.key}>{field.label}</option>)}
-  </optgroup>)}</>;
-}
-
-function Rule({ condition, index, onChange, onRemove }: { condition: ScreenCondition; index: number; onChange: (patch: Partial<ScreenCondition>) => void; onRemove: () => void }) {
-  const field = SCREEN_FIELD[condition.field];
-  const error = conditionError(condition);
-  const noTarget = condition.op === "present" || condition.op === "missing";
-  const otherAvailable = SCREEN_FIELD[condition.other]?.unit === field.unit;
-  return <div className="free-rule">
-    <div className="free-rule-controls">
-      <label><span className="label">Metric {index + 1}</span><select value={condition.field} onChange={(event) => {
-        const selected = SCREEN_FIELD[event.target.value];
-        const other = SCREEN_FIELDS.find((candidate) => candidate.key !== selected.key && candidate.unit === selected.unit)?.key ?? selected.key;
-        onChange({ field: selected.key, other, op: selected.source !== "technical" && condition.op.startsWith("cross") ? "gt" : condition.op });
-      }}><MetricOptions /></select></label>
-      <label><span className="label">Operator</span><select value={condition.op} onChange={(event) => onChange({ op: event.target.value as ScreenCondition["op"] })}>
-        {SCREEN_OPERATORS.filter(([op]) => field.source === "technical" || !op.startsWith("cross")).map(([op, label]) => <option key={op} value={op}>{label}</option>)}
-      </select></label>
-      {!noTarget && condition.op !== "between" ? <label><span className="label">Compare with</span><select value={condition.target} onChange={(event) => onChange({ target: event.target.value as ScreenCondition["target"], other: otherAvailable ? condition.other : field.key })}>
-        <option value="number">Number</option><option value="field">Another metric</option>
-      </select></label> : null}
-      {!noTarget && condition.target === "field" && condition.op !== "between" ? <label className="free-rule-target"><span className="label">Other metric</span><select value={condition.other} onChange={(event) => onChange({ other: event.target.value })}><MetricOptions compatible={field} /></select></label> : !noTarget ? <label className="free-rule-number"><span className="label">{condition.op === "between" ? "Minimum" : "Value"} · {unitLabel(field)}</span><input type="number" step="any" value={condition.value} aria-invalid={!!error} onChange={(event) => onChange({ value: event.target.value })} /></label> : null}
-      {condition.op === "between" ? <label className="free-rule-number"><span className="label">Maximum · {unitLabel(field)}</span><input type="number" step="any" value={condition.upper} aria-invalid={!!error} onChange={(event) => onChange({ upper: event.target.value })} /></label> : null}
-      <button type="button" className="free-remove" aria-label={`Remove criterion ${index + 1}`} onClick={onRemove}>Remove</button>
-    </div>
-    {error ? <p className="notice" role="alert">Criterion {index + 1}: {error}</p> : null}
-  </div>;
-}
+const PAGE_SIZES = [50, 100, 250];
 
 export function FreeScreener() {
   const stored = useSyncExternalStore(subscribe, readStore, serverStore);
@@ -85,22 +68,27 @@ export function FreeScreener() {
   const watchlist = useStoredWatchlist();
   const [feed, setFeed] = useState<ScreenerFeed | null>(null);
   const [error, setError] = useState("");
-  const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(true);
   const [nameOverride, setNameOverride] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [page, setPage] = useState(1);
-  const [columnQuery, setColumnQuery] = useState("");
-  const [detail, setDetail] = useState<{ ticker: string; key: string } | null>(null);
-  const detailRow = detail ? feed?.rows.find((row) => row.ticker === detail.ticker) : null;
+  const [pageSize, setPageSize] = useState(50);
+  const [tab, setTab] = useState(FILTER_TABS[0].id);
+  const [customOpen, setCustomOpen] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+
   const selected = store.saved.find((entry) => entry.id === store.selected);
   const name = nameOverride ?? selected?.name ?? "";
-  const dirty = selected && JSON.stringify(selected.config) !== JSON.stringify(config);
+  const dirty = Boolean(selected && JSON.stringify(selected.config) !== JSON.stringify(config));
+  const view = config.view ?? "custom";
+  const columns = VIEWS.find((entry) => entry.id === view)?.columns ?? config.columns;
+  const quick = config.conditions.filter(isQuickCondition);
+  const advanced = config.conditions.filter((condition) => !isQuickCondition(condition));
   const result = useMemo(() => runScreen(feed?.rows ?? [], config, watchlist), [feed, config, watchlist]);
-  const sectors = useMemo(() => [...new Set(feed?.rows.flatMap((row) => row.sector ? [row.sector] : []) ?? [])].sort(), [feed]);
-  const pages = Math.max(1, Math.ceil(result.matches.length / 50));
+  const sectors = useMemo(() => [...new Set(feed?.rows.flatMap((row) => (row.sector ? [row.sector] : [])) ?? [])].sort(), [feed]);
+  const pages = Math.max(1, Math.ceil(result.matches.length / pageSize));
   const shownPage = Math.min(page, pages);
-  const visible = result.matches.slice((shownPage - 1) * 50, shownPage * 50);
+  const visible = result.matches.slice((shownPage - 1) * pageSize, shownPage * pageSize);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -115,95 +103,325 @@ export function FreeScreener() {
       } catch (cause) {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "The screener data could not be read.");
       } finally {
-        if (!controller.signal.aborted) { setLoading(false); timer = setTimeout(load, 60_000); }
+        if (!controller.signal.aborted) { setLoading(false); timer = setTimeout(load, 5 * 60_000); }
       }
     }
     void load();
     return () => { controller.abort(); clearTimeout(timer); };
-  }, [refresh]);
+  }, []);
 
   function persist(next: ScreenStore) {
-    setMessage(writeScreenStore(next) ? "" : "Browser storage is unavailable. Changes will last for this tab only.");
+    setMessage(writeScreenStore(next) ? "" : "Browser storage is unavailable: changes last for this tab only.");
   }
   function change(patch: Partial<ScreenConfig>) { setPage(1); persist({ ...store, current: { ...config, ...patch } }); }
+  function setQuick(filterId: string, condition: ScreenCondition | null) {
+    const id = `f:${filterId}`;
+    const others = config.conditions.filter((entry) => entry.id !== id);
+    change({ conditions: condition ? [...others, condition] : others });
+  }
   function save(asNew: boolean) {
-    if (!name.trim()) { setMessage("Give this search a name before saving it."); return; }
-    if ((asNew || !selected) && store.saved.length >= 50) { setMessage("You have 50 saved searches. Delete one before adding another."); return; }
-    if (result.errors.length) { setMessage("Complete the invalid criteria before saving."); return; }
-    const next = saveScreen(store, name, !asNew && selected ? selected.id : crypto.randomUUID());
-    persist(next); setNameOverride(null);
+    if (!name.trim()) { setMessage("Name this screen to save it."); return; }
+    if ((asNew || !selected) && store.saved.length >= 50) { setMessage("50 screens are saved: delete one first."); return; }
+    if (result.errors.length) { setMessage("Complete the advanced rules before saving."); return; }
+    persist(saveScreen(store, name, !asNew && selected ? selected.id : crypto.randomUUID()));
+    setNameOverride(null);
+  }
+  function sortBy(key: string) {
+    change({ sort: key, descending: config.sort === key ? !config.descending : key !== "ticker" });
   }
   function toggleColumn(key: string) {
     const present = config.columns.includes(key);
     if ((present && config.columns.length === 1) || (!present && config.columns.length >= 24)) return;
-    change({ columns: present ? config.columns.filter((field) => field !== key) : [...config.columns, key], ...(present && config.sort === key ? { sort: "ticker", descending: false } : {}) });
+    change({ view: "custom", columns: present ? config.columns.filter((field) => field !== key) : [...config.columns, key] });
   }
+  function moveColumn(at: number, by: number) {
+    const next = [...config.columns];
+    [next[at], next[at + by]] = [next[at + by], next[at]];
+    change({ view: "custom", columns: next });
+  }
+
+  const tabCount = (tabId: string) => FILTER_TABS.find((entry) => entry.id === tabId)!.filters.filter((entry) => quick.some((condition) => condition.id === `f:${entry.id}`)).length;
   const exportRows = result.matches.map((row) => ({
     Ticker: row.ticker, Company: row.name, Sector: row.sector, Currency: row.currency,
-    ...Object.fromEntries(config.columns.map((key) => [`${SCREEN_FIELD[key].label} (${unitLabel(SCREEN_FIELD[key])})`, row.values[key]])),
+    ...Object.fromEntries(columns.map((key) => [`${SCREEN_FIELD[key].label}${unitLabel(SCREEN_FIELD[key]) ? ` (${unitLabel(SCREEN_FIELD[key])})` : ""}`, row.values[key]])),
     "Financial period": row.period, "Filings read": row.dates.fundamental, "Price date": row.dates.price,
-    "Consensus read": row.dates.consensus, "EPS forecast basis": row.epsBasis, "Technical session": row.dates.technical, "Shares basis": row.sharesBasis,
+    "Consensus read": row.dates.consensus, "EPS forecast basis": row.epsBasis, "Technical session": row.dates.technical,
   }));
+  const activeTab = FILTER_TABS.find((entry) => entry.id === tab);
 
-  return <div className="free-screener">
-    <section className="free-controls" aria-label="Build a search">
-      <div className="free-toolbar">
-        <label><span className="label">Saved searches</span><select value={store.selected ?? ""} onChange={(event) => {
+  return (
+    <div className="eqs">
+      <div className="eqs-bar">
+        <select aria-label="Saved screens" value={store.selected ?? ""} onChange={(event) => {
           const saved = store.saved.find((entry) => entry.id === event.target.value);
           setNameOverride(null); setPage(1); persist({ ...store, selected: saved?.id ?? null, current: saved?.config ?? DEFAULT_SCREEN });
-        }}><option value="">New search</option>{store.saved.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
-        <label className="free-save-name"><span className="label">Search name{dirty ? " · modified" : ""}</span><input value={name} maxLength={60} placeholder="My quality compounders" onChange={(event) => setNameOverride(event.target.value)} /></label>
-        <button type="button" onClick={() => save(false)}>{selected ? "Update search" : "Save search"}</button>
-        {selected ? <><button type="button" onClick={() => save(true)}>Save as new</button><button type="button" onClick={() => { persist({ ...store, selected: null, saved: store.saved.filter((entry) => entry.id !== selected.id) }); setNameOverride(null); }}>Delete saved search</button></> : null}
+        }}>
+          <option value="">New screen</option>
+          {store.saved.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+        </select>
+        <input className="eqs-name" aria-label="Screen name" value={name} maxLength={60} placeholder="Name this screen" onChange={(event) => setNameOverride(event.target.value)} />
+        <button type="button" className="t-chip" onClick={() => save(false)}>{selected ? (dirty ? "Update ●" : "Saved") : "Save"}</button>
+        {selected ? <>
+          <button type="button" className="t-chip" onClick={() => save(true)}>Save as</button>
+          <button type="button" className="t-chip" onClick={() => { persist({ ...store, selected: null, saved: store.saved.filter((entry) => entry.id !== selected.id) }); setNameOverride(null); }}>Delete</button>
+        </> : null}
+        <span className="eqs-sep" />
+        <select aria-label="Universe" value={config.scope} onChange={(event) => change({ scope: event.target.value as ScreenConfig["scope"] })}>
+          <option value="index">S&amp;P 500</option><option value="watchlist">My watchlist</option>
+        </select>
+        <select aria-label="Sector" value={config.sectors.length === 1 ? config.sectors[0] : config.sectors.length ? "__many" : ""} onChange={(event) => change({ sectors: event.target.value ? [event.target.value] : [] })}>
+          <option value="">Any sector</option>
+          {config.sectors.length > 1 ? <option value="__many" disabled>{config.sectors.length} sectors</option> : null}
+          {sectors.map((sector) => <option key={sector} value={sector}>{sector}</option>)}
+        </select>
+        <input type="search" className="eqs-find" aria-label="Find a company" value={config.query} placeholder="Ticker or name" onChange={(event) => change({ query: event.target.value })} />
+        <span className="eqs-sep" />
+        <span className="t-dim">Screens</span>
+        {RECIPES.map((recipe) => (
+          <button key={recipe.name} type="button" className="t-chip" onClick={() => {
+            persist({ ...store, selected: null, current: { ...DEFAULT_SCREEN, conditions: recipe.conditions, view: recipe.view, sort: recipe.sort, descending: recipe.descending } });
+            setNameOverride(null); setPage(1);
+          }}>{recipe.name}</button>
+        ))}
       </div>
-      <p className="stat-note">Searches and columns are saved on this device.</p>
-      {message ? <p className="notice" role="status">{message}</p> : null}
-      <div className="free-toolbar free-scope">
-        <label><span className="label">Universe</span><select value={config.scope} onChange={(event) => change({ scope: event.target.value as ScreenConfig["scope"] })}><option value="index">S&amp;P 500</option><option value="watchlist">My watchlist · index members</option></select></label>
-        <label><span className="label">Find a company</span><input type="search" value={config.query} placeholder="Ticker or company" onChange={(event) => change({ query: event.target.value })} /></label>
-        <label><span className="label">Start from a preset</span><select value="" onChange={(event) => {
-          const preset = SCREEN_PRESETS[Number(event.target.value)];
-          if (preset) { persist({ ...store, current: preset.config, selected: null }); setNameOverride(null); setPage(1); }
-        }}><option value="" disabled>Choose…</option>{SCREEN_PRESETS.map((preset, at) => <option key={preset.name} value={at}>{preset.name}</option>)}</select></label>
-        <button type="button" onClick={() => { persist({ ...store, selected: null, current: DEFAULT_SCREEN }); setNameOverride(null); setPage(1); }}>Reset search</button>
-      </div>
-      <details className="free-sectors"><summary>Sectors{config.sectors.length ? ` · ${config.sectors.length} selected` : " · all"}</summary><div className="free-checks">{[...new Set([...sectors, ...config.sectors])].map((sector) => <label key={sector}><input type="checkbox" checked={config.sectors.includes(sector)} onChange={() => change({ sectors: config.sectors.includes(sector) ? config.sectors.filter((entry) => entry !== sector) : [...config.sectors, sector] })} />{sector}</label>)}{!sectors.length ? <p className="stat-note">Sectors appear when financial data is available.</p> : null}</div></details>
-      <div className="free-rule-heading"><h2>Criteria</h2><label>Match <select value={config.mode} onChange={(event) => change({ mode: event.target.value as ScreenConfig["mode"] })}><option value="all">all criteria</option><option value="any">any criterion</option></select></label></div>
-      {!config.conditions.length ? <p className="stat-note">Add a criterion or choose a preset. Without criteria, all companies in your selection are shown.</p> : null}
-      {config.conditions.map((condition, index) => <Rule key={condition.id} condition={condition} index={index} onChange={(patch) => change({ conditions: config.conditions.map((entry) => entry.id === condition.id ? { ...entry, ...patch } : entry) })} onRemove={() => change({ conditions: config.conditions.filter((entry) => entry.id !== condition.id) })} />)}
-      <button type="button" disabled={config.conditions.length >= 30} onClick={() => change({ conditions: [...config.conditions, newCondition(crypto.randomUUID())] })}>+ Add criterion</button>
-      <p className="stat-note">Percentages use percentage points: enter 15 for 15%. Missing values never pass a numeric criterion. Technical crossovers compare the last two daily sessions.</p>
-    </section>
+      {message ? <p className="eqs-message" role="status">{message}</p> : null}
 
-    <details className="free-columns"><summary>Columns · {config.columns.length} selected</summary>
-      <label className="free-column-search"><span className="label">Find a column</span><input type="search" placeholder="Margin, growth, RSI…" value={columnQuery} onChange={(event) => setColumnQuery(event.target.value)} /></label>
-      <div className="free-column-order" aria-label="Column order">{config.columns.map((key, at) => <div key={key}><span>{SCREEN_FIELD[key].label}</span><button type="button" aria-label={`Move ${SCREEN_FIELD[key].label} left`} disabled={at === 0} onClick={() => { const columns = [...config.columns]; [columns[at - 1], columns[at]] = [columns[at], columns[at - 1]]; change({ columns }); }}>←</button><button type="button" aria-label={`Move ${SCREEN_FIELD[key].label} right`} disabled={at === config.columns.length - 1} onClick={() => { const columns = [...config.columns]; [columns[at], columns[at + 1]] = [columns[at + 1], columns[at]]; change({ columns }); }}>→</button></div>)}</div>
-      <div className="free-column-groups">{SCREEN_GROUPS.map((group) => {
-        const fields = SCREEN_FIELDS.filter((field) => field.group === group && `${field.label} ${group}`.toLowerCase().includes(columnQuery.toLowerCase()));
-        return fields.length ? <fieldset key={group}><legend>{group}</legend>{fields.map((field) => <label key={field.key}><input type="checkbox" checked={config.columns.includes(field.key)} disabled={config.columns.includes(field.key) ? config.columns.length === 1 : config.columns.length >= 24} onChange={() => toggleColumn(field.key)} />{field.label}</label>)}</fieldset> : null;
-      })}</div>
-    </details>
+      <section className="eqs-filters" aria-label="Filters">
+        <div className="eqs-tabs" role="tablist" aria-label="Filter groups">
+          {FILTER_TABS.map((entry) => (
+            <button key={entry.id} type="button" role="tab" aria-selected={tab === entry.id} onClick={() => setTab(entry.id)}>
+              {entry.label}{tabCount(entry.id) ? <b>{tabCount(entry.id)}</b> : null}
+            </button>
+          ))}
+          <button type="button" role="tab" aria-selected={tab === "advanced"} onClick={() => setTab("advanced")}>
+            Advanced rules{advanced.length ? <b>{advanced.length}</b> : null}
+          </button>
+          <span className="eqs-match">
+            Match
+            <select aria-label="Match" value={config.mode} onChange={(event) => change({ mode: event.target.value as ScreenConfig["mode"] })}>
+              <option value="all">all filters</option><option value="any">any filter</option>
+            </select>
+          </span>
+        </div>
 
-    <section aria-label="Search results" className="free-results">
-      <div className="free-result-heading"><h2 aria-live="polite">{result.matches.length} matches <small>of {result.considered} selected companies</small></h2><button type="button" onClick={() => { setLoading(true); setRefresh((value) => value + 1); }}>Refresh data</button></div>
-      {loading && !feed ? <p className="notice" role="status">Reading the prepared financial, consensus and technical snapshots…</p> : null}
-      {error ? <p className="notice" role="alert">{error}{feed ? " The last successful snapshot remains visible." : " Use Refresh data to try again."}</p> : null}
-      {feed ? <p className="free-coverage">Coverage · filings {feed.coverage.fundamental}/{feed.members} · prices {feed.coverage.price}/{feed.members} · consensus {feed.coverage.consensus}/{feed.members} · technicals {feed.coverage.technical}/{feed.members}<br /><span className="stat-note">Index membership {feed.asOf}. Consensus is a forecast from Nasdaq / Zacks; technical signals use Yahoo daily bars. Click a value to see its source and date.</span></p> : null}
-      {config.scope === "watchlist" && feed ? <p className="stat-note">{watchlist.filter((ticker) => !feed.rows.some((row) => row.ticker === ticker)).length} watchlist companies outside this index are not screened.</p> : null}
-      {result.errors.length ? <p className="notice" role="alert">Complete the highlighted criteria to evaluate this search.</p> : result.unknown ? <p className="notice" role="status">{result.unknown} companies cannot be evaluated because a required value is missing or stale.</p> : null}
-      {feed && !loading && !result.errors.length && !result.matches.length ? <p className="notice">No company matches this search. Try changing a threshold or removing a criterion.</p> : null}
-      <div className="sheet free-sheet" role="region" aria-label="Matching companies">
-        <table><thead><tr><th className="key" aria-sort={config.sort === "ticker" ? config.descending ? "descending" : "ascending" : "none"}><button type="button" onClick={() => change({ sort: "ticker", descending: config.sort === "ticker" ? !config.descending : false })}>Company{config.sort === "ticker" ? config.descending ? " ↓" : " ↑" : ""}</button></th><th>Sector</th>{config.columns.map((key) => <th key={key} aria-sort={config.sort === key ? config.descending ? "descending" : "ascending" : "none"}><button type="button" title={unitLabel(SCREEN_FIELD[key])} onClick={() => change({ sort: key, descending: config.sort === key ? !config.descending : true })}>{SCREEN_FIELD[key].label}{config.sort === key ? config.descending ? " ↓" : " ↑" : ""}</button></th>)}</tr></thead>
-          <tbody>{visible.map((row) => <tr key={row.ticker}><th scope="row" className="key"><a href={`/t/s/${encodeURIComponent(row.ticker)}`}>{row.ticker}</a><small>{row.name}</small></th><td>{row.sector ?? "—"}</td>{config.columns.map((key) => <td key={key} title={cellNote(row, SCREEN_FIELD[key])}><button type="button" className="free-cell" aria-label={`${row.ticker}, ${SCREEN_FIELD[key].label}: ${display(row.values[key], SCREEN_FIELD[key])}. Show source and date.`} onClick={() => setDetail({ ticker: row.ticker, key })}>{display(row.values[key], SCREEN_FIELD[key])}</button></td>)}</tr>)}</tbody>
-        </table>
-      </div>
-      {detail && detailRow ? <div className="free-source" role="status"><p><b>{detail.ticker} · {SCREEN_FIELD[detail.key].label}</b><br />{cellNote(detailRow, SCREEN_FIELD[detail.key])}</p><button type="button" onClick={() => setDetail(null)}>Close source</button></div> : null}
-      <div className="free-pagination"><button type="button" disabled={shownPage <= 1} onClick={() => setPage(shownPage - 1)}>Previous</button><span>Page {shownPage} / {pages}</span><button type="button" disabled={shownPage >= pages} onClick={() => setPage(shownPage + 1)}>Next</button></div>
-      {result.matches.length ? <ExportMenu name={name || "fundamental-screener"} rows={exportRows} provenance={[
-        `SEC filings; Nasdaq / Zacks consensus forecasts; Yahoo daily bars. S&P 500 membership ${feed?.asOf ?? "unavailable"}.`,
-        `Match ${config.mode}: ${config.conditions.map((condition) => `${SCREEN_FIELD[condition.field].label} ${condition.op} ${condition.target === "field" ? SCREEN_FIELD[condition.other].label : condition.value}${condition.op === "between" ? ` to ${condition.upper}` : ""}`).join("; ") || "no numeric criteria"}.`,
-        "Missing values remain empty. Source dates, the financial period and EPS/share bases are supplied per row. Market cap is in billions of the matching quote/filing currency.",
-      ]} /> : null}
-    </section>
-  </div>;
+        {activeTab ? (
+          <div className="eqs-grid">
+            {activeTab.filters.map((entry) => {
+              const condition = quick.find((item) => item.id === `f:${entry.id}`);
+              const index = condition ? optionIndex(entry.id, condition) : -2;
+              const custom = customOpen === entry.id || index === -1;
+              const bounds = condition && index === -1 ? customBounds(condition) : { low: "", high: "" };
+              const field = SCREEN_FIELD[entry.field];
+              return (
+                <div key={entry.id} className="eqs-filter" data-active={condition ? true : undefined}>
+                  <label htmlFor={`eqs-${entry.id}`}>{entry.label}</label>
+                  <select id={`eqs-${entry.id}`} value={custom ? "custom" : index >= 0 ? String(index) : ""} onChange={(event) => {
+                    const value = event.target.value;
+                    if (value === "custom") { setCustomOpen(entry.id); return; }
+                    setCustomOpen(null);
+                    setQuick(entry.id, value === "" ? null : conditionFor(entry.id, entry.options[Number(value)]));
+                  }}>
+                    <option value="">Any</option>
+                    {entry.options.map((option, at) => <option key={option.label} value={at}>{option.label}</option>)}
+                    {field.source !== "technical" || !entry.options.some((option) => option.other) ? <option value="custom">Custom range…</option> : null}
+                  </select>
+                  {custom ? (
+                    <span className="eqs-range">
+                      <input type="number" step="any" aria-label={`${entry.label} from`} placeholder="min" defaultValue={bounds.low}
+                        onBlur={(event) => setQuick(entry.id, customCondition(entry.id, event.target.value, (event.target.nextElementSibling?.nextElementSibling as HTMLInputElement | null)?.value ?? ""))} />
+                      <span>to</span>
+                      <input type="number" step="any" aria-label={`${entry.label} to`} placeholder="max" defaultValue={bounds.high}
+                        onBlur={(event) => setQuick(entry.id, customCondition(entry.id, (event.target.previousElementSibling?.previousElementSibling as HTMLInputElement | null)?.value ?? "", event.target.value))} />
+                      <span className="t-dim">{unitLabel(field)}</span>
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="eqs-advanced">
+            {advanced.map((condition, index) => (
+              <Rule key={condition.id} condition={condition} index={index}
+                onChange={(patch) => change({ conditions: config.conditions.map((entry) => (entry.id === condition.id ? { ...entry, ...patch } : entry)) })}
+                onRemove={() => change({ conditions: config.conditions.filter((entry) => entry.id !== condition.id) })} />
+            ))}
+            <button type="button" className="t-chip" disabled={config.conditions.length >= 30} onClick={() => change({ conditions: [...config.conditions, newCondition(crypto.randomUUID())] })}>+ Rule</button>
+            <span className="t-dim"> One metric against a number or another metric, ranges, crossovers over the last two sessions. Percentages in points: 15 is 15%.</span>
+          </div>
+        )}
+
+        {config.conditions.length ? (
+          <div className="eqs-chips">
+            {config.conditions.map((condition) => (
+              <button key={condition.id} type="button" className="eqs-chip" data-invalid={conditionError(condition) ? true : undefined}
+                title="Remove this filter" onClick={() => { if (customOpen && condition.id === `f:${customOpen}`) setCustomOpen(null); change({ conditions: config.conditions.filter((entry) => entry.id !== condition.id) }); }}>
+                {describeCondition(condition)} <span aria-hidden="true">×</span>
+              </button>
+            ))}
+            <button type="button" className="eqs-clear" onClick={() => { setCustomOpen(null); change({ conditions: [] }); }}>Clear all</button>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="eqs-results" aria-label="Results">
+        <div className="eqs-views">
+          <div className="eqs-tabs" role="tablist" aria-label="Columns">
+            {VIEWS.map((entry) => (
+              <button key={entry.id} type="button" role="tab" aria-selected={view === entry.id} onClick={() => { setPicking(false); change({ view: entry.id }); }}>{entry.label}</button>
+            ))}
+            <button type="button" role="tab" aria-selected={view === "custom"} onClick={() => { change({ view: "custom" }); setPicking(view === "custom" ? !picking : true); }}>
+              Custom{view === "custom" ? (picking ? " ▴" : " ▾") : ""}
+            </button>
+          </div>
+          <span className="eqs-count" aria-live="polite">
+            <b>{result.matches.length}</b> of {result.considered}
+            {result.unknown ? <span className="t-dim" title="A filter needs a value these companies do not have yet."> · {result.unknown} not evaluable</span> : null}
+          </span>
+          <select aria-label="Rows per page" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
+            {PAGE_SIZES.map((size) => <option key={size} value={size}>{size} rows</option>)}
+          </select>
+          {result.matches.length ? <ExportMenu name={name || "screener"} rows={exportRows} provenance={[
+            `SEC filings; analysts' consensus (Zacks via Nasdaq); Yahoo daily bars. S&P 500 membership ${feed?.asOf ?? "unavailable"}.`,
+            `Match ${config.mode}: ${config.conditions.map(describeCondition).join("; ") || "no filters"}.`,
+            "Missing values stay empty. Each row carries its financial period, source dates and EPS basis.",
+          ]} /> : null}
+        </div>
+
+        {view === "custom" && picking ? (
+          <div className="eqs-picker">
+            <div className="eqs-order" aria-label="Column order">
+              {config.columns.map((key, at) => (
+                <span key={key}>
+                  <button type="button" aria-label={`Move ${SCREEN_FIELD[key].label} left`} disabled={at === 0} onClick={() => moveColumn(at, -1)}>‹</button>
+                  {headerOf(key)}
+                  <button type="button" aria-label={`Move ${SCREEN_FIELD[key].label} right`} disabled={at === config.columns.length - 1} onClick={() => moveColumn(at, 1)}>›</button>
+                </span>
+              ))}
+            </div>
+            <div className="eqs-groups">
+              {SCREEN_GROUPS.map((group) => (
+                <fieldset key={group}>
+                  <legend>{group}</legend>
+                  {SCREEN_FIELDS.filter((field) => field.group === group).map((field) => (
+                    <label key={field.key}>
+                      <input type="checkbox" checked={config.columns.includes(field.key)} onChange={() => toggleColumn(field.key)} />{field.label}
+                    </label>
+                  ))}
+                </fieldset>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {loading && !feed ? <p className="eqs-message" role="status">Reading the financial, consensus and technical snapshots…</p> : null}
+        {error ? <p className="eqs-message" role="alert">{error}{feed ? " The last snapshot read stays on screen." : ""}</p> : null}
+        {result.errors.length ? <p className="eqs-message" role="alert">An advanced rule is incomplete: complete or remove it to see results.</p> : null}
+        {feed && !loading && !result.errors.length && !result.matches.length ? <p className="eqs-message">No company passes these filters.</p> : null}
+
+        <div className="sheet eqs-sheet" role="region" aria-label="Matching companies">
+          <table>
+            <thead>
+              <tr>
+                <th className="eqs-n" scope="col">#</th>
+                <th className="key" scope="col" aria-sort={config.sort === "ticker" ? (config.descending ? "descending" : "ascending") : "none"}>
+                  <button type="button" className="t-sort" onClick={() => sortBy("ticker")}>Ticker{config.sort === "ticker" ? (config.descending ? " ▼" : " ▲") : ""}</button>
+                </th>
+                <th className="eqs-company" scope="col">Company</th>
+                <th className="eqs-sector" scope="col">Sector</th>
+                {columns.map((key) => (
+                  <th key={key} scope="col" title={`${SCREEN_FIELD[key].label}${unitLabel(SCREEN_FIELD[key]) ? ` · ${unitLabel(SCREEN_FIELD[key])}` : ""}`} aria-sort={config.sort === key ? (config.descending ? "descending" : "ascending") : "none"}>
+                    <button type="button" className="t-sort" onClick={() => sortBy(key)}>
+                      {headerOf(key)}{config.sort === key ? (config.descending ? " ▼" : " ▲") : ""}
+                    </button>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((row, at) => (
+                <tr key={row.ticker}>
+                  <td className="eqs-n">{(shownPage - 1) * pageSize + at + 1}</td>
+                  <th scope="row" className="key"><a href={`/t/s/${encodeURIComponent(row.ticker)}`}>{row.ticker}</a></th>
+                  <td className="eqs-company" title={row.name}>{row.name}</td>
+                  <td className="eqs-sector">{row.sector ?? "—"}</td>
+                  {columns.map((key) => {
+                    const field = SCREEN_FIELD[key];
+                    const value = row.values[key];
+                    return (
+                      <td key={key} title={cellNote(row, field)} data-source={field.source}
+                        data-dir={SIGNED.has(key) && value != null && value !== 0 ? (value > 0 ? "up" : "down") : undefined}>
+                        {formatValue(value, field, row.currency)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="eqs-foot">
+          {pages > 1 ? (
+            <span className="eqs-pages">
+              <button type="button" className="t-chip" disabled={shownPage <= 1} onClick={() => setPage(shownPage - 1)}>‹</button>
+              {Array.from({ length: pages }, (_, index) => index + 1).map((number) => (
+                <button key={number} type="button" className="t-chip" aria-pressed={number === shownPage} onClick={() => setPage(number)}>{number}</button>
+              ))}
+              <button type="button" className="t-chip" disabled={shownPage >= pages} onClick={() => setPage(shownPage + 1)}>›</button>
+            </span>
+          ) : null}
+          {feed ? (
+            <span className="t-dim">
+              Data · filings {feed.coverage.fundamental}/{feed.members} · prices {feed.coverage.price}/{feed.members} · consensus {feed.coverage.consensus}/{feed.members} · technicals {feed.coverage.technical}/{feed.members}.
+              {" "}Consensus is a forecast (Zacks via Nasdaq), read daily; hover a value for its source and date. Index membership {feed.asOf}.
+            </span>
+          ) : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MetricOptions({ compatible }: { compatible?: ScreenField }) {
+  return <>{SCREEN_GROUPS.map((group) => (
+    <optgroup key={group} label={group}>
+      {SCREEN_FIELDS.filter((field) => field.group === group && (!compatible || field.unit === compatible.unit)).map((field) => <option key={field.key} value={field.key}>{field.label}</option>)}
+    </optgroup>
+  ))}</>;
+}
+
+/** One advanced rule on a single line: metric, operator, a number or another metric. */
+function Rule({ condition, index, onChange, onRemove }: { condition: ScreenCondition; index: number; onChange: (patch: Partial<ScreenCondition>) => void; onRemove: () => void }) {
+  const field = SCREEN_FIELD[condition.field];
+  const error = conditionError(condition);
+  const noTarget = condition.op === "present" || condition.op === "missing";
+  const otherAvailable = SCREEN_FIELD[condition.other]?.unit === field.unit;
+  return (
+    <div className="t-rule-row eqs-rule" data-invalid={error ? true : undefined}>
+      <span className="t-rule-and">{index ? "and" : "if"}</span>
+      <select aria-label={`Rule ${index + 1} metric`} value={condition.field} onChange={(event) => {
+        const picked = SCREEN_FIELD[event.target.value];
+        const other = SCREEN_FIELDS.find((candidate) => candidate.key !== picked.key && candidate.unit === picked.unit)?.key ?? picked.key;
+        onChange({ field: picked.key, other, op: picked.source !== "technical" && condition.op.startsWith("cross") ? "gt" : condition.op });
+      }}><MetricOptions /></select>
+      <select aria-label={`Rule ${index + 1} operator`} value={condition.op} onChange={(event) => onChange({ op: event.target.value as ScreenCondition["op"] })}>
+        {SCREEN_OPERATORS.filter(([op]) => field.source === "technical" || !op.startsWith("cross")).map(([op, label]) => <option key={op} value={op}>{label}</option>)}
+      </select>
+      {!noTarget && condition.op !== "between" ? (
+        <select aria-label={`Rule ${index + 1} compares with`} value={condition.target} onChange={(event) => onChange({ target: event.target.value as ScreenCondition["target"], other: otherAvailable ? condition.other : field.key })}>
+          <option value="number">a number</option><option value="field">a metric</option>
+        </select>
+      ) : null}
+      {!noTarget && condition.target === "field" && condition.op !== "between" ? (
+        <select aria-label={`Rule ${index + 1} other metric`} value={condition.other} onChange={(event) => onChange({ other: event.target.value })}><MetricOptions compatible={field} /></select>
+      ) : !noTarget ? (
+        <input type="number" step="any" aria-label={`Rule ${index + 1} value`} value={condition.value} aria-invalid={!!error} onChange={(event) => onChange({ value: event.target.value })} />
+      ) : null}
+      {condition.op === "between" ? <><span className="t-rule-op">and</span><input type="number" step="any" aria-label={`Rule ${index + 1} upper bound`} value={condition.upper} aria-invalid={!!error} onChange={(event) => onChange({ upper: event.target.value })} /></> : null}
+      <span className="t-dim">{unitLabel(field)}</span>
+      <button type="button" className="t-chip" aria-label={`Remove rule ${index + 1}`} onClick={onRemove}>×</button>
+      {error ? <span className="eqs-error" role="alert">{error}</span> : null}
+    </div>
+  );
 }
