@@ -19,15 +19,23 @@ const HEADERS = {
 /** Nasdaq names share classes with a dot as the site does (BRK.B), lower-cased in its URLs. */
 export const nasdaqSymbol = (ticker: string) => ticker.trim().toUpperCase().replace(/-/g, ".");
 
-async function part<T>(symbol: string, path: string): Promise<T | null> {
-  try {
-    const response = await fetch(`https://api.nasdaq.com/api/analyst/${encodeURIComponent(symbol)}/${path}`, { headers: HEADERS });
-    if (!response.ok) return null;
-    const body = await response.json() as { data?: T | null };
-    return body.data ?? null;
-  } catch {
-    return null;
+/**
+ * One part, asked twice if the first answer is a refusal or empty: Nasdaq
+ * turns away a share of requests from shared cloud addresses and answers the
+ * same one a moment later.
+ */
+async function part<T>(symbol: string, path: string, waits: number[] = [700]): Promise<T | null> {
+  for (let attempt = 0; attempt <= waits.length; attempt++) {
+    try {
+      const response = await fetch(`https://api.nasdaq.com/api/analyst/${encodeURIComponent(symbol)}/${path}`, { headers: HEADERS });
+      if (response.ok) {
+        const body = await response.json() as { data?: T | null };
+        if (body.data) return body.data;
+      }
+    } catch { /* Asked again below. */ }
+    if (attempt < waits.length) await new Promise((resolve) => setTimeout(resolve, waits[attempt] + Math.random() * 300));
   }
+  return null;
 }
 
 const number = (value: unknown): number | null => {

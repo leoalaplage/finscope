@@ -44,7 +44,13 @@ export async function getEstimates(ticker: string): Promise<{ body: string; hit:
     const estimates = await fetchEstimates(ticker);
     await remember(estimates);
     return estimates;
-  }, (estimates) => (estimates.quarterly.length || estimates.yearly.length || estimates.target ? "full" : "empty"));
+  }, (estimates) => {
+    // Both halves answered: kept twelve hours. One of them: a minute, so the
+    // missing half is asked again soon. Neither: not kept at all.
+    const forecast = estimates.quarterly.length > 0 || estimates.yearly.length > 0;
+    const opinion = estimates.target != null || estimates.ratings != null;
+    return forecast && opinion ? "full" : forecast || opinion ? "partial" : "empty";
+  });
 }
 
 /** The timer's share: the next dozen members of the index, read and snapshotted. */
