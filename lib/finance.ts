@@ -10,7 +10,7 @@ export const FORMULAS = {
   freeCashFlowAfterSbc: "Operating cash flow − |Capital expenditures| − Stock-based compensation",
   freeCashFlowAfterSbcPerShare: "Free cash flow after stock-based compensation / Diluted weighted average shares",
   freeCashFlowAfterSbcMargin: "Free cash flow after stock-based compensation / Revenue",
-  investedCapital: "Total debt + Total equity − Cash and equivalents",
+  investedCapital: "Total debt + Total equity − Cash and short-term investments",
   nopat: "Operating income × (1 − Effective tax rate)",
   roic: "NOPAT / Invested capital",
   cashReturnOnCapital: "Free cash flow / Invested capital",
@@ -322,9 +322,12 @@ export function valueOf(period: FinancialPeriod, key: MetricKey) {
  * unknown capital earns an unknown return.
  */
 export function investedCapital(period: FinancialPeriod): number | null {
-  const debt = valueOf(period, "totalDebt"); const equity = valueOf(period, "totalEquity"); const cash = valueOf(period, "cashAndEquivalents");
-  if (debt == null || equity == null || cash == null) return null;
-  const capital = debt + equity - cash;
+  // Cash and short-term investments, as net debt nets them: Copart moving its
+  // cash into treasury bills each quarter otherwise swung its invested capital
+  // by billions, and its return on it between 21% and 33%, quarter to quarter.
+  const debt = valueOf(period, "totalDebt"); const equity = valueOf(period, "totalEquity"); const liquid = liquidAssets(period);
+  if (debt == null || equity == null || liquid == null) return null;
+  const capital = debt + equity - liquid;
   return capital > 0 ? capital : null;
 }
 

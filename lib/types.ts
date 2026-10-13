@@ -77,6 +77,8 @@ export type MetricKey =
   | "accountsReceivable"
   | "accountsPayable"
   | "shortTermInvestments"
+  | "heldToMaturitySecurities"
+  | "heldToMaturityNoncurrent"
   | "longTermInvestments"
   | "retainedEarnings"
   | "researchAndDevelopment"

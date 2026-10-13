@@ -18,7 +18,7 @@ export const FLOW_METRICS: MetricKey[] = [
   "dilutedEpsReported",
 ];
 export const WEIGHTED_SHARE_METRICS: MetricKey[] = ["basicShares", "dilutedShares"];
-export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities", "totalEquity", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt", "debtInstrumentCarryingAmount", "shortTermBorrowings", "financeLeaseLiability", "totalLiabilities", "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable", "shortTermInvestments", "longTermInvestments", "retainedEarnings", "minorityInterest", "liabilitiesAndEquity", "temporaryEquity"];
+export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities", "totalEquity", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt", "debtInstrumentCarryingAmount", "shortTermBorrowings", "financeLeaseLiability", "totalLiabilities", "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable", "shortTermInvestments", "longTermInvestments", "retainedEarnings", "minorityInterest", "liabilitiesAndEquity", "temporaryEquity", "heldToMaturitySecurities", "heldToMaturityNoncurrent"];
 const SPLIT_ADJUSTED_METRICS: MetricKey[] = [...WEIGHTED_SHARE_METRICS, "sharesOutstanding", "sharesIssued", "treasuryShares"];
 /** Per-share amounts move the other way: a split divides them. */
 const SPLIT_DIVIDED_METRICS: MetricKey[] = ["dilutedEpsReported", "dividendsPerShare"];
@@ -719,18 +719,42 @@ function quarterFact(index: FactIndex, metric: MetricKey, fy: number, quarter: "
  * same year gives one inside: never a value of our own, only the filer's other
  * figure for the same window.
  */
-function annualOnQuartersBasis(annual: RawFinancialFact, candidates: RawFinancialFact[], isolate: (year: number) => number, reference: number): RawFinancialFact {
+/** The ratios stock splits come in, for reconciling a share count filed on one split basis with quarters filed on another. */
+const SPLIT_FACTORS = [2, 3, 4, 5, 8, 10, 15, 20];
+
+function annualOnQuartersBasis(annual: RawFinancialFact, candidates: RawFinancialFact[], isolate: (year: number) => number, reference: number, shares?: { filed: string; accession?: string }): RawFinancialFact {
   if (!(reference > 0)) return annual;
   const fits = (year: number) => { const quarter = isolate(year); return quarter > 0 && quarter <= reference * 2.2 && quarter >= reference / 2.2; };
   if (fits(annual.value)) return annual;
-  const versions = [
+  const all = [
+    { value: annual.value, filed: annual.filed, accession: annual.accession },
     ...(annual.versions ?? []),
     ...candidates.filter((fact) => fact !== annual && fact.start === annual.start && fact.end === annual.end)
       .flatMap((fact) => fact.versions ?? [{ value: fact.value, filed: fact.filed, accession: fact.accession }]),
-  ].filter((version) => version.value !== annual.value && fits(version.value));
+  ];
+  const versions = all.filter((version) => version.value !== annual.value && fits(version.value));
   const distance = (year: number) => Math.abs(Math.log(isolate(year) / reference));
   const best = versions.sort((left, right) => distance(left.value) - distance(right.value))[0];
-  return best ? { ...annual, value: best.value, filed: best.filed, accession: best.accession } : annual;
+  if (best) return { ...annual, value: best.value, filed: best.filed, accession: best.accession };
+  /*
+   * A share count no version of which is on the quarters' basis: the year was
+   * filed before one split and restated after the next, and the quarters sit
+   * between the two (Copart, two 2-for-1 splits ten months apart). Brought onto
+   * the quarters' basis by a split ratio — and only where the isolated quarter
+   * then lands within 5% of the one before it, which a share count does — the
+   * year takes the quarters' filing date, so the later split adjustment moves
+   * it with them.
+   */
+  if (shares) {
+    for (const version of all) {
+      for (const factor of SPLIT_FACTORS) {
+        for (const scaled of [version.value / factor, version.value * factor]) {
+          if (fits(scaled) && distance(scaled) < Math.log(1.05)) return { ...annual, value: scaled, filed: shares.filed, accession: shares.accession ?? annual.accession };
+        }
+      }
+    }
+  }
+  return annual;
 }
 
 function quarterFromConcept(index: FactIndex, metric: MetricKey, fy: number, quarter: "Q1" | "Q2" | "Q3" | "Q4", candidates: RawFinancialFact[]): NormalizedFact | undefined {
@@ -764,7 +788,7 @@ function quarterFromConcept(index: FactIndex, metric: MetricKey, fy: number, qua
           ? (year * totalDays - directQuarters.reduce((sum, fact) => sum + fact.value * daysBetween(fact.start, fact.end), 0)) / isolatedDays
           : year - directQuarters.reduce((sum, fact) => sum + fact.value, 0);
         const reference = weighted ? directQuarters[2].value : directQuarters.reduce((sum, fact) => sum + fact.value, 0) / 3;
-        const year = annualOnQuartersBasis(current, candidates, isolate, reference);
+        const year = annualOnQuartersBasis(current, candidates, isolate, reference, weighted ? { filed: directQuarters[2].filed, accession: directQuarters[2].accession } : undefined);
         const rawValue = isolate(year.value);
         if (implausible(metric, rawValue)) return undefined;
         const value = rawValue;
@@ -781,7 +805,8 @@ function quarterFromConcept(index: FactIndex, metric: MetricKey, fy: number, qua
     const weighted = WEIGHTED_SHARE_METRICS.includes(metric);
     if (gap > 0) current = annualOnQuartersBasis(current, candidates,
       (year) => (weighted ? (year * yearDays - prior.value * priorDays) / gap : year - prior.value),
-      weighted ? prior.value : prior.value / 3);
+      weighted ? prior.value : prior.value / 3,
+      weighted ? { filed: prior.filed, accession: prior.accession } : undefined);
   }
 
   if (WEIGHTED_SHARE_METRICS.includes(metric)) {

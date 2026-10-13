@@ -296,7 +296,10 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
   inventory: { namespace: "us-gaap", tags: ["InventoryNet"], unit: "currency" },
   accountsReceivable: { namespace: "us-gaap", tags: ["AccountsReceivableNetCurrent"], unit: "currency" },
   accountsPayable: { namespace: "us-gaap", tags: ["AccountsPayableCurrent"], unit: "currency" },
-  shortTermInvestments: { namespace: "us-gaap", tags: ["MarketableSecuritiesCurrent", "ShortTermInvestments", "OtherShortTermInvestments"], unit: "currency" },
+  shortTermInvestments: { namespace: "us-gaap", tags: ["MarketableSecuritiesCurrent", "ShortTermInvestments", "OtherShortTermInvestments", "AvailableForSaleSecuritiesDebtSecuritiesCurrent", "HeldToMaturitySecuritiesCurrent", "DebtSecuritiesHeldToMaturityAmortizedCostAfterAllowanceForCreditLossCurrent"], unit: "currency" },
+  // Held-to-maturity securities tagged without saying current or not (Copart's treasury bills); see deriveShortTermFromSecurities.
+  heldToMaturitySecurities: { namespace: "us-gaap", tags: ["DebtSecuritiesHeldToMaturityAmortizedCostAfterAllowanceForCreditLoss", "HeldToMaturitySecurities"], unit: "currency" },
+  heldToMaturityNoncurrent: { namespace: "us-gaap", tags: ["HeldToMaturitySecuritiesNoncurrent", "DebtSecuritiesHeldToMaturityAmortizedCostAfterAllowanceForCreditLossNoncurrent"], unit: "currency" },
   longTermInvestments: { namespace: "us-gaap", tags: ["MarketableSecuritiesNoncurrent", "LongTermInvestments"], unit: "currency" },
   // Deliberately not in NEVER_NEGATIVE: a company that has distributed more
   // than it ever earned carries a deficit, and Apple's is minus 14bn.
@@ -880,6 +883,90 @@ function combinedDebtFact(parts: NormalizedFact[], formula: string, note: string
       note,
     },
   };
+}
+
+/**
+ * Held-to-maturity securities that are short-term investments in all but tag.
+ *
+ * Copart keeps its surplus in treasury bills and tags them with the generic
+ * held-to-maturity concept, which does not say current or not. Read as
+ * nothing, its liquid assets swung by two billion as bills matured into cash
+ * and back, and its net debt and return on capital with them. They are read as
+ * short-term only where the filer tags no non-current held-to-maturity line and
+ * cash, the securities and receivables together fit inside current assets — so
+ * they cannot be a long-dated holding.
+ */
+function deriveShortTermFromSecurities(periods: FinancialPeriod[]): FinancialPeriod[] {
+  return periods.map((period) => {
+    const f = period.facts;
+    const securities = f.heldToMaturitySecurities;
+    if (f.shortTermInvestments?.value != null || securities?.value == null || securities.value <= 0 || f.heldToMaturityNoncurrent?.value != null) return period;
+    const current = f.currentAssets?.value, cash = f.cashAndEquivalents?.value;
+    if (current == null || cash == null || cash + securities.value + (f.accountsReceivable?.value ?? 0) > current * 1.001) return period;
+    return {
+      ...period,
+      facts: {
+        ...f,
+        shortTermInvestments: {
+          ...securities, metric: "shortTermInvestments",
+          provenance: {
+            ...securities.provenance, provider: "Calculated", status: "calculated",
+            formula: "Held-to-maturity securities, read as current",
+            note: "Tagged as held-to-maturity without a current or non-current label; read as short-term because no non-current holding is tagged and cash, these securities and receivables fit within current assets.",
+          },
+        },
+      },
+    };
+  });
+}
+
+/**
+ * A quarter whose filing tags no borrowing line at all, for a company whose
+ * annual reports say it has none to speak of.
+ *
+ * Copart has had no debt since 2022. Its 10-Ks file a finance lease of a few
+ * million and nothing else; its 10-Qs file no borrowing concept whatsoever, so
+ * every quarter had an unknown debt balance — and with it no net debt, no
+ * invested capital and no return on it, three quarters a year.
+ *
+ * An absent balance is still not a zero (combineDebtComponents). What closes
+ * the gap is the annual reports either side: where the one before (and the one
+ * after, where it exists) file debt under 1% of total assets, and the quarter's
+ * total liabilities are within 2% of total assets of that annual report's —
+ * so no borrowing of any size can have appeared without a line — the annual
+ * figure is carried into the quarter, and says where it came from.
+ */
+function carryImmaterialDebt(quarterly: FinancialPeriod[], annual: FinancialPeriod[]): FinancialPeriod[] {
+  const BORROWING: Array<keyof FinancialPeriod["facts"]> = ["totalDebt", "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt", "shortTermBorrowings", "financeLeaseLiability"];
+  const YEAR = 400 * 86_400_000;
+  const immaterial = (period: FinancialPeriod | undefined) => {
+    const debt = period?.facts.totalDebt?.value, assets = period?.facts.totalAssets?.value;
+    return debt != null && assets != null && assets > 0 && debt >= 0 && debt <= assets * 0.01;
+  };
+  return quarterly.map((period) => {
+    if (BORROWING.some((key) => period.facts[key]?.value != null)) return period;
+    const end = Date.parse(period.periodEnd);
+    const before = [...annual].reverse().find((year) => Date.parse(year.periodEnd) < end && end - Date.parse(year.periodEnd) <= YEAR);
+    const after = annual.find((year) => Date.parse(year.periodEnd) > end && Date.parse(year.periodEnd) - end <= YEAR);
+    if (!before || !immaterial(before) || (after && !immaterial(after))) return period;
+    const liabilities = period.facts.totalLiabilities?.value, priorLiabilities = before.facts.totalLiabilities?.value, assets = period.facts.totalAssets?.value;
+    if (liabilities == null || priorLiabilities == null || assets == null || Math.abs(liabilities - priorLiabilities) > assets * 0.02) return period;
+    const carried = before.facts.totalDebt!;
+    return {
+      ...period,
+      facts: {
+        ...period.facts,
+        totalDebt: {
+          ...carried, periodEnd: period.periodEnd, periodicity: period.periodicity, fiscalYear: period.fiscalYear, fiscalQuarter: period.fiscalQuarter,
+          provenance: {
+            ...carried.provenance, provider: "Calculated", status: "calculated",
+            formula: `Carried from ${before.label}: no borrowing is tagged at this date`,
+            note: `The filing tags no borrowing line. The annual report before it${after ? " and the one after it" : ""} file debt under 1% of total assets, and total liabilities moved by under 2% of total assets since, so no borrowing of size can be missing; ${before.label}'s balance is carried.`,
+          },
+        },
+      },
+    };
+  });
 }
 
 type AmbiguousLongTermRole = "noncurrent" | "includes-current";
@@ -1684,9 +1771,10 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
   // recovery divides by it; the recovery runs before split adjustment, so the
   // count it produces is on the as-filed basis every other share fact starts
   // from and gets adjusted exactly once.
+  const annualPeriods = deriveShortTermFromSecurities(deriveLiabilities(deriveCostOfRevenue(deriveOperatingIncome(deriveBankRevenue(combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.businessType), company.businessType), company.businessType))));
   const reconciled = reconcileDividendsPerShare(
-    deriveLiabilities(deriveCostOfRevenue(deriveOperatingIncome(deriveBankRevenue(combineDebtComponents(recoverDilutedShares(normalizeAnnualPeriods(rawFacts, company.currency)), company.businessType), company.businessType), company.businessType))),
-    deriveLiabilities(deriveCostOfRevenue(deriveOperatingIncome(deriveBankRevenue(combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.businessType), company.businessType), company.businessType))),
+    annualPeriods,
+    deriveShortTermFromSecurities(carryImmaterialDebt(deriveLiabilities(deriveCostOfRevenue(deriveOperatingIncome(deriveBankRevenue(combineDebtComponents(recoverDilutedShares(normalizeQuarterlyPeriods(rawFacts, company.currency)), company.businessType), company.businessType), company.businessType))), annualPeriods)),
   );
   // The hand-verified splits first; then any the filer declared that still
   // explain a break in what is left, which is what covers a company nobody

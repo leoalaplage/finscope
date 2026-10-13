@@ -105,6 +105,17 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v39: three repairs Copart needed, each general. A quarter whose filing tags
+ * no borrowing line at all carries the annual report's debt where the annual
+ * reports either side file under 1% of assets and total liabilities barely
+ * moved (it had no net debt, invested capital or ROIC three quarters a year);
+ * held-to-maturity securities tagged without a current label count as
+ * short-term investments where they demonstrably sit in current assets; and a
+ * fourth-quarter share count whose year was filed on a split basis none of its
+ * quarters share is brought onto theirs by the split ratio (four trailing
+ * windows had no share count). Invested capital now nets cash and short-term
+ * investments, as net debt does.
+ *
  * v38: the audit of the financial pipeline (FINANCIAL_DATA_AUDIT.md). Net
  * income to common shareholders is read and earnings per share struck on it
  * where the filer's own reported EPS confirms it (JPMorgan 20.51 → 20.02, as
@@ -302,7 +313,7 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v38";
+export const KEY_VERSION = "v39";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.
