@@ -13,6 +13,8 @@ import { KEY_VERSION, SUMMARY_SHAPE } from "@/lib/data-version";
 import { stated } from "@/lib/sector";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import { growthYieldOutOfTen, growthYieldScore } from "@/lib/io/growth-yield";
+import { filterRows, isFiltered, measureValue, NO_FILTER, type ScreenerFilter } from "@/lib/qs/screener-views";
+import { CompanyCard, GradeBadge, QualityValueMap, ScreenerOverview, SectorScores } from "./ScreenerCharts";
 import { useStoredWatchlist } from "./watchlist";
 import { ABSENT, money, percent } from "./format";
 
@@ -104,7 +106,7 @@ interface Column {
 }
 
 const COLUMNS: Column[] = [
-  { sort: "note", label: "Grade", read: (row) => row.note, empty: (row) => row.note === "NR" },
+  { sort: "note", label: "Grade", read: (row) => <GradeBadge grade={row.note} />, empty: (row) => row.note === "NR", drawn: true },
   { sort: "total", label: "Score", read: (row) => (row.total == null ? ABSENT : row.total.toFixed(1)), empty: (row) => row.total == null },
   /*
    * Three pillars as bars, and the fourth as stars.
@@ -210,6 +212,8 @@ export function Screener() {
   const [universeBuilding, setUniverseBuilding] = useState<{ ready: number; asked: number } | null>(null);
   const [pasted, setPasted] = useState("");
   const [sortKey, setSortKey] = useState("total");
+  const [filter, setFilter] = useState<ScreenerFilter>(NO_FILTER);
+  const [selected, setSelected] = useState<string | null>(null);
   const [direction, setDirection] = useState<SortDirection>("desc");
   const chooseSort = (key: string) => {
     if (key === sortKey) { setDirection((current) => (current === "asc" ? "desc" : "asc")); return; }
@@ -381,9 +385,19 @@ export function Screener() {
   const nativeAuditState = watchlistState ?? waiting;
 
   const ordered = useMemo(
-    () => (state.kind === "ready" ? sortRowsBy(state.feed.rows, sortKey, direction) : []),
-    [state, sortKey, direction],
+    () => (state.kind === "ready" ? sortRowsBy(filterRows(state.feed.rows, filter), sortKey, direction) : []),
+    [state, sortKey, direction, filter],
   );
+  const allRows = state.kind === "ready" ? state.feed.rows : [];
+  const picked = allRows.find((row) => row.Ticker === selected) ?? null;
+  const toggleGrade = (grade: string) => setFilter((current) => ({
+    ...current, grades: current.grades.includes(grade) ? current.grades.filter((each) => each !== grade) : [...current.grades, grade],
+  }));
+  const pick = (ticker: string) => {
+    setSelected((current) => (current === ticker ? null : ticker));
+    // The card opens above the table: bring it to the reader who picked from the map or a row below.
+    requestAnimationFrame(() => document.getElementById("qs-card-anchor")?.scrollIntoView({ block: "nearest" }));
+  };
 
   return (
     <main className="wrap" id="main-content" tabIndex={-1}>
@@ -449,7 +463,45 @@ export function Screener() {
         ) : state.kind === "failed" ? (
           <div className="state"><p>{state.message}</p></div>
         ) : (
-          <ScoreTable feed={state.feed} rows={ordered} sortKey={sortKey} direction={direction} onSort={chooseSort} />
+          <>
+            {/*
+              * The list drawn before it is tabulated: the grades at a glance,
+              * each company between what it is and what it costs, and its
+              * sectors. Every chart filters or picks into the table below.
+              */}
+            <ScreenerOverview rows={allRows} grades={filter.grades} onGrade={toggleGrade} />
+            <div className="qs-panels">
+              <section className="qs-panel" aria-labelledby="qs-map-title">
+                <div className="section-head">
+                  <h2 className="label" id="qs-map-title">Business against price</h2>
+                  <span className="stat-note">Area: market cap · colour: grade · lines: this list&apos;s medians</span>
+                </div>
+                <QualityValueMap rows={filterRows(allRows, { ...filter, query: "" })} weights={QS_PRESETS[preset]} selected={selected} onSelect={pick} />
+              </section>
+              <section className="qs-panel" aria-labelledby="qs-sectors-title">
+                <div className="section-head">
+                  <h2 className="label" id="qs-sectors-title">Median score by sector</h2>
+                </div>
+                <SectorScores rows={allRows} sector={filter.sector} onSector={(sector) => setFilter((current) => ({ ...current, sector }))} />
+              </section>
+            </div>
+
+            <div className="qs-filters" role="search">
+              <input type="search" className="qs-search" placeholder="Ticker or sector" value={filter.query}
+                onChange={(event) => setFilter((current) => ({ ...current, query: event.target.value }))} aria-label="Find a company or sector" />
+              <button type="button" className="qs-chip" aria-pressed={filter.sweetOnly} onClick={() => setFilter((current) => ({ ...current, sweetOnly: !current.sweetOnly }))}>Quality at a fair price</button>
+              <button type="button" className="qs-chip" aria-pressed={filter.noAlerts} onClick={() => setFilter((current) => ({ ...current, noAlerts: !current.noAlerts }))}>No alerts</button>
+              {filter.grades.map((grade) => <button key={grade} type="button" className="qs-chip" aria-pressed onClick={() => toggleGrade(grade)}>Grade {grade} ×</button>)}
+              {filter.sector ? <button type="button" className="qs-chip" aria-pressed onClick={() => setFilter((current) => ({ ...current, sector: null }))}>{filter.sector} ×</button> : null}
+              {isFiltered(filter) ? <button type="button" className="metric-toggle" onClick={() => setFilter(NO_FILTER)}>Clear</button> : null}
+              <span className="stat-note qs-filter-count">{ordered.length} of {allRows.length} shown · press a row for its card</span>
+            </div>
+
+            <div id="qs-card-anchor" />
+            {picked ? <CompanyCard key={picked.Ticker} row={picked} rows={allRows} onClose={() => setSelected(null)} /> : null}
+
+            <ScoreTable feed={state.feed} rows={ordered} sortKey={sortKey} direction={direction} onSort={chooseSort} selected={selected} onSelect={pick} />
+          </>
         )}
         {state.kind === "ready" && state.feed.source === "pasted" ? (
           <SourceAudit imported={state.feed} native={nativeAuditState} pasted={pasted} />
@@ -463,12 +515,7 @@ export function Screener() {
   );
 }
 
-const AUDIT_PERCENT = new Set(["ROIC", "ROIC5", "OpM", "FCFM5", "FCF_NI", "GM5", "ShOut5", "SBC", "Rev5", "RevFwd3", "LevFCF5", "NI5", "RevPS5", "FCFPS5", "FCFYield"]);
-
-const auditValue = (key: string, value: number | null | undefined) => {
-  if (value == null || !Number.isFinite(value)) return ABSENT;
-  return AUDIT_PERCENT.has(key) ? `${value.toFixed(1)}%` : `${value.toFixed(2)}×`;
-};
+const auditValue = (key: string, value: number | null | undefined) => measureValue(key, value, ABSENT);
 
 const materiallyDifferent = (left: number | null | undefined, right: number | null | undefined) => {
   if (left == null || right == null) return left !== right;
@@ -604,14 +651,18 @@ function ScoreTable({
   sortKey,
   direction,
   onSort,
+  selected,
+  onSelect,
 }: {
   feed: Feed;
   rows: ScoredCompany[];
   sortKey: string;
   direction: SortDirection;
   onSort: (key: string) => void;
+  selected: string | null;
+  onSelect: (ticker: string) => void;
 }) {
-  if (!rows.length) return <div className="state"><p>No company in this list could be scored.</p></div>;
+  if (!rows.length) return <div className="state"><p>{feed.rows.length ? "No company matches these filters." : "No company in this list could be scored."}</p></div>;
   const columns = feed.source === "pasted" ? COLUMNS.filter((column) => column.sort !== "growthYield") : COLUMNS;
 
   const header = (key: string, label: string, drawn?: boolean) => (
@@ -645,7 +696,8 @@ function ScoreTable({
           </thead>
           <tbody>
             {rows.map((row, index) => (
-              <tr key={row.Ticker}>
+              <tr key={row.Ticker} className="qs-row" data-selected={row.Ticker === selected || undefined}
+                onClick={(event) => { if (!(event.target instanceof Element && event.target.closest("a"))) onSelect(row.Ticker); }}>
                 <th className="key" scope="row">
                   <a className="key-open" href={`/s/${encodeURIComponent(row.Ticker)}`}>
                     <span className="screener-rank">{index + 1}</span>

@@ -41,13 +41,17 @@ describe("shareable research workflows", () => {
     expect(read("../components/io/Company.tsx")).not.toContain("CompanyNotebook");
     /*
      * The screener saves nothing. Saved views were stored beside a minimum
-     * score, a maximum alert count and a sector box, and all four are gone:
-     * the list is the reader's own watchlist, and hiding part of it is the one
-     * thing a ranking of twenty-seven companies must not do.
+     * score, a maximum alert count and a sector box, and are gone: hiding part
+     * of a list without saying so is the one thing a ranking must not do. Over
+     * five hundred companies a reader does need to narrow it — by a grade, a
+     * sector, the charts — so a filter lives only on the page, says how many
+     * rows it leaves out, and is one press from cleared.
      */
     const screener = read("../components/io/Screener.tsx");
     expect(screener).not.toContain("SAVED_SCREENS_KEY");
-    expect(screener).not.toContain("filterRows");
+    expect(screener).not.toContain("localStorage");
+    expect(screener).toContain("{ordered.length} of {allRows.length} shown");
+    expect(screener).toContain("setFilter(NO_FILTER)");
     expect(screener).not.toContain("ExportMenu");
   });
 
