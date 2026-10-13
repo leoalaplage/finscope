@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { hrefFor, parseCommand, suggestFunctions, terminalHref } from "@/lib/term/command";
+import { readFileSync } from "node:fs";
+import { COMPANY_FUNCTIONS, hrefFor, parseCommand, suggestFunctions, terminalHref } from "@/lib/term/command";
 import { marketState, newYorkTime } from "@/lib/term/market-clock";
 
 describe("parseCommand", () => {
@@ -60,7 +61,7 @@ describe("hrefFor", () => {
 
 describe("suggestFunctions", () => {
   it("offers a company's functions once the security is typed", () => {
-    expect(suggestFunctions("AAPL G", null).map((s) => s.command)).toEqual(["AAPL GP", "AAPL GF"]);
+    expect(suggestFunctions("AAPL G", null).map((s) => s.command)).toEqual(["AAPL GP", "AAPL GR", "AAPL GF"]);
     expect(suggestFunctions("AAPL ", null)).toHaveLength(16);
   });
 
@@ -107,5 +108,26 @@ describe("terminalHref", () => {
     expect(terminalHref("/t/s/AAPL")).toBeNull();
     expect(terminalHref("/research")).toBeNull();
     expect(terminalHref("/s/AAPL/extra")).toBeNull();
+  });
+});
+
+describe("the company function bar, in the page's order", () => {
+  it("runs through the six chapters in order, and names a panel the page has for every function", () => {
+    const page = readFileSync(new URL("../components/term/TermCompany.tsx", import.meta.url), "utf8");
+    const chapters = COMPANY_FUNCTIONS.flatMap((spec) => (spec.chapter == null ? [] : [spec.chapter]));
+    expect(chapters).toEqual([...chapters].sort((left, right) => left - right));
+    expect(new Set(chapters)).toEqual(new Set([1, 2, 3, 4, 5, 6]));
+    for (const spec of COMPANY_FUNCTIONS) {
+      if (spec.code === "COMP") continue;
+      expect(page, spec.code).toContain(`code="${spec.code}"`);
+    }
+    // Each function sits in the chapter whose heading comes before its panel on the page.
+    const heading = (number: number) => page.indexOf(`number={${number}}`);
+    for (const spec of COMPANY_FUNCTIONS) {
+      if (spec.chapter == null) continue;
+      const at = page.indexOf(`code="${spec.code}"`);
+      expect(at, spec.code).toBeGreaterThan(heading(spec.chapter));
+      if (spec.chapter < 6) expect(at, spec.code).toBeLessThan(heading(spec.chapter + 1));
+    }
   });
 });

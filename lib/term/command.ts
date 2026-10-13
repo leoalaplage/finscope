@@ -7,36 +7,50 @@
  * where to go, this decides what was meant.
  */
 
-export type CompanyFunction = "DES" | "GP" | "FA" | "GF" | "SEG" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "CN" | "DCF" | "COMP";
+export type CompanyFunction = "DES" | "GP" | "FA" | "GR" | "GF" | "SEG" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "CN" | "DCF" | "FS" | "COMP";
 export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "SCAN" | "BT" | "ECAL" | "SET" | "HELP";
 
-export interface FunctionSpec<Code extends string> { code: Code; name: string }
+export interface FunctionSpec<Code extends string> {
+  code: Code;
+  name: string;
+  /** The company page's chapter the panel sits in (components/term/TermCompany.tsx); ⌥ and its number goes there. */
+  chapter?: number;
+}
 
 /**
- * What can be done to one company, in the order the function bar shows them.
+ * What can be done to one company, in the order the function bar shows them:
+ * the company page's chapters, in the order an analyst reads them.
  *
  * DES opens the company itself; the others are panels on the same screen,
  * except COMP, which is a screen of its own. DCF is both: a panel on the
  * company's screen, and a full screen of its own from the panel's link.
  */
 export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
-  { code: "DES", name: "Description" },
-  { code: "GP", name: "Price graph" },
-  { code: "FA", name: "Financial analysis" },
-  { code: "EE", name: "Earnings release" },
-  { code: "VAL", name: "Valuation history" },
-  { code: "HDS", name: "Institutional holders" },
-  { code: "INS", name: "Insider dealing" },
-  { code: "CN", name: "Company news" },
-  { code: "DCF", name: "Discounted cash flow" },
+  // 1 · Snapshot
+  { code: "DES", name: "Description", chapter: 1 },
+  { code: "GP", name: "Price graph", chapter: 1 },
+  { code: "EE", name: "Earnings release", chapter: 1 },
+  { code: "CN", name: "Company news", chapter: 1 },
+  // 2 · The business
+  { code: "SEG", name: "Segments", chapter: 2 },
+  { code: "FA", name: "Financial analysis", chapter: 2 },
+  { code: "GR", name: "Growth", chapter: 2 },
+  { code: "GF", name: "Fundamental charts", chapter: 2 },
+  // 3 · The results
+  { code: "RPT", name: "Quarterly reports", chapter: 3 },
+  { code: "EST", name: "Analysts' estimates", chapter: 3 },
+  { code: "ERX", name: "Earnings reaction", chapter: 3 },
+  { code: "SEAS", name: "Seasonality", chapter: 3 },
+  // 4 · The valuation
+  { code: "VAL", name: "Valuation multiples", chapter: 4 },
+  { code: "DCF", name: "Discounted cash flow", chapter: 4 },
+  // 5 · Ownership
+  { code: "INS", name: "Insider dealing", chapter: 5 },
+  { code: "HDS", name: "Institutional holders", chapter: 5 },
+  // 6 · The accounts
+  { code: "FS", name: "Financial statements", chapter: 6 },
+  // A screen of its own, after the page.
   { code: "COMP", name: "Compare" },
-  // Past ⌥0: typed, or picked from the function bar.
-  { code: "GF", name: "Fundamental charts" },
-  { code: "SEG", name: "Segments" },
-  { code: "RPT", name: "Quarterly reports" },
-  { code: "EST", name: "Analysts' estimates" },
-  { code: "ERX", name: "Earnings reaction" },
-  { code: "SEAS", name: "Seasonality" },
 ];
 
 export const GLOBAL_FUNCTIONS: FunctionSpec<GlobalFunction>[] = [

@@ -69,11 +69,24 @@ function FunctionKeys({ ticker }: { ticker: string | null }) {
    * The F-keys a real terminal uses are the browser's — F5 reloads, F11 and F12
    * belong to the window — and on a Mac they are the volume and brightness keys
    * before they are anything else. Option and a digit is free everywhere.
+   *
+   * On a company the bar follows its page, chapter by chapter, and the digit
+   * is the chapter: ⌥4 is the valuation wherever it sits in the bar, and the
+   * key after the last chapter opens the comparison. Elsewhere the digit is
+   * the function's place in the bar.
    */
   const functions = ticker ? COMPANY_FUNCTIONS : GLOBAL_FUNCTIONS.filter((spec) => spec.code !== "HELP");
   const hrefs = functions.map((spec) => (ticker
     ? hrefFor({ kind: "company", ticker, fn: spec.code as never })
     : hrefFor({ kind: "global", fn: spec.code as never })));
+  const chapters = Math.max(0, ...functions.map((spec) => spec.chapter ?? 0));
+  // Which function each digit opens, and the digit shown on it.
+  const keyOf = functions.map((spec, index) => {
+    if (!ticker) return index < 10 ? (index + 1) % 10 : null;
+    if (spec.chapter != null) return functions.findIndex((other) => other.chapter === spec.chapter) === index ? spec.chapter : null;
+    const after = chapters + functions.slice(0, index).filter((other) => other.chapter == null).length + 1;
+    return after <= 10 ? after % 10 : null;
+  });
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -82,22 +95,24 @@ function FunctionKeys({ ticker }: { ticker: string | null }) {
       if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
       const digit = /^Digit(\d)$/.exec(event.code)?.[1];
       if (digit == null) return;
-      const index = digit === "0" ? 9 : Number(digit) - 1;
-      const href = hrefs[index];
+      const href = hrefs[keyOf.indexOf(Number(digit))];
       if (!href) return;
       event.preventDefault();
       window.location.assign(href);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hrefs]);
+  }, [hrefs, keyOf]);
 
   return (
     <nav className="t-fn" aria-label={ticker ? `${ticker} functions` : "Functions"}>
       {ticker ? <span className="t-fn-sec">{ticker} US</span> : null}
       {functions.map((spec, index) => (
-        <a key={spec.code} href={hrefs[index] ?? "#"} title={index < 10 ? `${spec.name} · ⌥${(index + 1) % 10}` : spec.name}>
-          {index < 10 ? <kbd>{(index + 1) % 10}</kbd> : null}{spec.code}
+        <a key={spec.code} href={hrefs[index] ?? "#"}
+          data-chapter-start={ticker && keyOf[index] != null ? true : undefined}
+          title={keyOf[index] != null ? `${spec.name} · ⌥${keyOf[index]}` : spec.name}
+        >
+          {keyOf[index] != null ? <kbd>{keyOf[index]}</kbd> : null}{spec.code}
         </a>
       ))}
       <a className="t-fn-end" data-classic href={ticker ? `/s/${encodeURIComponent(ticker)}` : "/"} title="The same page on the document site">Classic view</a>

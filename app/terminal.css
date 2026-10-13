@@ -149,6 +149,7 @@ body:has(.io.term) { background: #050608; }
 .t-fn a:hover, .t-fn button:hover { background: var(--fill); color: var(--amber); }
 .t-fn a[aria-current="true"] { color: var(--amber); box-shadow: inset 0 -2px 0 var(--amber); }
 .t-fn kbd { font: inherit; font-size: var(--fs-micro); color: var(--amber-ink); background: var(--amber); padding: 0 4px; }
+.t-fn-sec ~ a[data-chapter-start]:not(:nth-child(2)) { border-left: 1px solid var(--line-strong); }
 .t-fn-sec { color: var(--amber); padding: 3px 10px; border-right: 1px solid var(--line); font-weight: 700; white-space: nowrap; }
 .t-fn-end { margin-left: auto; }
 
