@@ -105,6 +105,11 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v42: a company whose history is a predecessor's (Paramount Skydance's is
+ * Paramount Global's) reads it, says so, and takes no current figure its own
+ * later quarters have left behind; a quarter subtracted from year-to-date
+ * figures must be a quarter long.
+ *
  * v41: an IFRS filer's operating cash flow is read from "cash flows from
  * operations" where that is its whole operating section, and its own capital
  * line from its filings, across the names it has had. Suncor had neither.
@@ -322,7 +327,7 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v41";
+export const KEY_VERSION = "v42";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

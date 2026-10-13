@@ -43,11 +43,25 @@
  * HealthCare, Veralto, GE Vernova — are genuinely young companies whose short
  * history is the truth about them.
  */
-export const KNOWN_SUCCESSORS: Record<string, { listed: string; reads: string; why: string }> = {
+export const KNOWN_SUCCESSORS: Record<string, { listed: string; reads: string; why: string; predecessor?: boolean }> = {
   XOM: {
     listed: "0002115436",
     reads: "0000034088",
     why: "ExxonMobil Holdings Corp carries the ticker; Exxon Mobil Corporation carries the filings, back to 2011, and still files.",
+  },
+  /*
+   * A merger that left the history with a predecessor that no longer files.
+   * Paramount Skydance's own filings begin on 8 August 2025, the day the
+   * merger closed; Paramount Global's, back to 2009, stay under its own
+   * identifier. The page says which figures are whose: the years before are
+   * the predecessor's as it reported them, on its own shares, and 2025 has no
+   * full year because the filings split it in two at the merger.
+   */
+  PSKY: {
+    listed: "0002041610",
+    reads: "0000813828",
+    predecessor: true,
+    why: "Paramount Skydance's own filings begin on 8 August 2025, when the merger closed. Figures before that are Paramount Global's, its predecessor, as Paramount Global reported them and on its shares; 2025 is split at the merger in the filings, so it has no full year.",
   },
 };
 

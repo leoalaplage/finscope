@@ -1880,7 +1880,10 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
 }
 
 export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
-  const company = COMPANIES.find((item) => item.ticker === ticker.toUpperCase()) ?? await resolveSecCompany(ticker);
+  const resolved = COMPANIES.find((item) => item.ticker === ticker.toUpperCase()) ?? await resolveSecCompany(ticker);
+  // A ticker resolved to the new filer of a known reorganisation reads the filer with the history (see KNOWN_SUCCESSORS).
+  const reorganised = KNOWN_SUCCESSORS[resolved.ticker.toUpperCase()];
+  const company = reorganised && resolved.cik?.padStart(10, "0") === reorganised.listed ? { ...resolved, cik: reorganised.reads } : resolved;
   if (!company.cik) throw new Error(company.resolutionNote || "No reliable regulatory identifier is available for this instrument.");
   const retrievedAt = new Date().toISOString();
   const response = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${company.cik}.json`, {
@@ -1907,6 +1910,7 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
         headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com", Accept: "application/json" },
       });
       if (listed.ok) facts = mergeFactTrees(facts, ((await listed.json()) as { facts: FactTree }).facts);
+      if (successor.predecessor) notes.push(successor.why);
     } catch { /* The history alone is still the company. */ }
   }
 

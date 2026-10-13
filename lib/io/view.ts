@@ -1,6 +1,6 @@
 import { balanceSheetIsTheBusiness, cashFlowIsTheBalanceSheet } from "../business-type";
 import { validatedDerivedValue } from "../data-quality";
-import { currentDatasetPeriod } from "../current-period";
+import { currentDatasetPeriod, leftBehind } from "../current-period";
 import { capitalAYearEarlier, liquidAssets, reportedDebt, returnOnAverageCapital, valueOf } from "../finance";
 import { shareCount } from "../market-basis";
 import { METRICS, type MetricKind } from "../metrics";
@@ -337,7 +337,9 @@ export function companyView(dataset: CompanyDataset): IoCompanyView {
   const trailing = ordered(dataset.periods, "ttm", TTM_LIMIT).map(project);
   const annual = ordered(dataset.periods, "annual", ANNUAL_LIMIT).map(project);
   const quarterly = ordered(dataset.periods, "quarterly", QUARTERLY_LIMIT).map(project);
-  const ttm = trailing.at(-1) ?? null;
+  // The latest trailing year, unless the company's quarters have long left it behind (lib/current-period.ts).
+  const newestTrailing = ordered(dataset.periods, "ttm", 1).at(-1);
+  const ttm = newestTrailing && !leftBehind(dataset.periods, newestTrailing) ? trailing.at(-1) ?? null : null;
   const { basis, reason } = valuationBasis(dataset, withheld);
   return {
     company: {

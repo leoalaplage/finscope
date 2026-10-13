@@ -818,6 +818,11 @@ function quarterFromConcept(index: FactIndex, metric: MetricKey, fy: number, qua
     if (implausible(metric, value)) return undefined;
     return calculated(metric, value, current, prior, `(Cumulative weighted shares × ${currentDays} days − prior weighted shares × ${priorDays} days) / ${isolatedDays} days`, quarter, quarterStart);
   }
+  // A quarter is a quarter long. Paramount Global's last report runs to the day
+  // before its merger, 6 August: its year-to-date less its half year is five
+  // weeks, and was shown as a third quarter of revenue $2.6bn.
+  const span = daysBetween(quarterStart, current.end) + 1;
+  if (span < 55 || span > 125) return undefined;
   if (implausible(metric, current.value - prior.value)) return undefined;
   return calculated(metric, current.value - prior.value, current, prior, `${quarter} = cumulative through ${quarter} − cumulative through ${priorFp}`, quarter, quarterStart);
 }

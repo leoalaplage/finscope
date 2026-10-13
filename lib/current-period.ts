@@ -22,9 +22,22 @@ export function currentPeriod(periods: FinancialPeriod[]): FinancialPeriod | und
     periods.filter((period) => period.periodicity === periodicity)
       .sort((left, right) => left.periodEnd.localeCompare(right.periodEnd)).at(-1);
   const ttm = latestOf("ttm"); const annual = latestOf("annual");
-  if (!ttm) return annual;
-  if (!annual) return ttm;
-  return annual.periodEnd > ttm.periodEnd ? annual : ttm;
+  const chosen = !ttm ? annual : !annual ? ttm : annual.periodEnd > ttm.periodEnd ? annual : ttm;
+  /*
+   * Not a year that the company's own later quarters have left behind.
+   * Paramount Skydance's quarters since its merger cannot make a trailing year
+   * yet, and the newest one there is ends in June 2025 — its predecessor's,
+   * before the merger. Read as current, it priced today's company on a
+   * business that no longer exists. A year ending more than 300 days before
+   * the newest quarter is history; the third quarter after a year end is 274.
+   */
+  return chosen && leftBehind(periods, chosen) ? undefined : chosen;
+}
+
+/** Whether the company's own quarters have run more than 300 days past this period's end. */
+export function leftBehind(periods: FinancialPeriod[], period: FinancialPeriod): boolean {
+  const quarter = periods.filter((each) => each.periodicity === "quarterly").reduce<string | null>((latest, each) => (latest == null || each.periodEnd > latest ? each.periodEnd : latest), null);
+  return quarter != null && Date.parse(quarter) - Date.parse(period.periodEnd) > 300 * 86_400_000;
 }
 
 export function currentDatasetPeriod(dataset: CompanyDataset): FinancialPeriod | undefined {
