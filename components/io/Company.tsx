@@ -21,7 +21,9 @@ import { Statements } from "./Statements";
 import { Stats } from "./Stats";
 import { Holders } from "./Holders";
 import { Insiders, useInsiders } from "./Insiders";
-import { ValuationHistory } from "./ValuationHistory";
+import { ValuationCharts } from "./ValuationCharts";
+import { DcfModel } from "./DcfModel";
+import { FundamentalCharts } from "@/components/term/FundamentalCharts";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "./format";
 import { PendingEarnings } from "./PendingEarnings";
 import { useCompany } from "./use-company";
@@ -153,23 +155,16 @@ export function Company({ ticker }: { ticker: string }) {
       <PendingEarnings view={view} />
 
       {/*
-        * One company, one document.
+        * One company in six chapters, in the order an analyst reads it — the
+        * terminal's order (components/term/TermCompany.tsx), so the two pages
+        * are one reading. What a reader comes for stays open; the long records
+        * (statements, insiders, holders, news) are named folds, which say what
+        * the page holds and cost nothing until opened.
         *
-        * The chart and its statistics, five readings, then a line to open.
-        *
-        * This page once folded its statements away and the fold was taken out,
-        * because a reader should not have to know a section exists to find it.
-        * It came back at the reader's own request, for the opposite reason: a
-        * company page that says everything at once is a wall at first sight.
-        * So what a reader comes for stays open — the price chart and the key
-        * statistics under it, then the grade, the balance sheet, free cash flow
-        * per share, the trailing figures and growth — and the rest is a named
-        * fold, which still says what the page holds and costs nothing until it
-        * is opened.
-        *
-        * The chart was folded for a day and came back open: it is the top of a
-        * company, and a measure chosen below has to have somewhere to be drawn.
+        * The chart is the top of a company, and a measure chosen below has to
+        * have somewhere to be drawn.
         */}
+      <Chapter number={1} title="Snapshot" note="the price, the key numbers, the verdict" />
       <PriceSection
         ticker={company.ticker}
         currency={quote?.currency ?? company.currency}
@@ -189,13 +184,8 @@ export function Company({ ticker }: { ticker: string }) {
       <Stats view={view} quote={valuationQuote} />
 
       {/*
-        * Four answers in one line, each opening its own reading.
-        *
-        * Quality, health, price against growth and free cash flow per share were
-        * four open sections, then one fold holding all four. A reader who wants
-        * the reason behind one answer now presses that answer and gets that
-        * reading, beneath the line (components/io/Verdict.tsx); pressing it again
-        * closes it.
+        * Four answers in one line, each opening its own reading beneath it
+        * (components/io/Verdict.tsx); pressing it again closes it.
         */}
       <Verdict view={view}
         quote={valuationQuote}
@@ -212,39 +202,48 @@ export function Company({ ticker }: { ticker: string }) {
           {openDetail === "valuation" ? <GrowthYield view={view} quote={valuationQuote} /> : null}
           {openDetail === "growth" ? <FcfShareGrowth view={view} /> : null}
         </>}
+      <Fold title="Newsroom"><CompanyNews key={company.ticker} ticker={company.ticker} /></Fold>
+
+      <Chapter number={2} title="The business" note="what it sells, what it earns, how it has grown" />
       {/* The company in slices, as filed (components/io/Segments.tsx). */}
       <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
-      {/* Each quarter as filed, against the consensus, and how the stock took it (components/io/Reports.tsx). */}
-      <Reports key={`rpt-${company.ticker}`} view={view} />
-      {/* What analysts expect, after the filed answers and labelled as forecasts (components/io/Estimates.tsx). */}
-      <Estimates key={`est-${company.ticker}`} ticker={company.ticker} price={quote?.price ?? null} currency={quote?.currency ?? company.currency} />
       {/*
-        * Always the whole trailing history, whatever the chart shows.
-        *
-        * The figures followed the chart's window, so moving the chart to five
-        * years redrew every panel under it and a reader comparing two visits
-        * saw two different tables. They are a record, not a view of the chart.
+        * Always the whole trailing history, whatever the chart shows: the
+        * figures are a record, not a view of the chart.
         */}
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range="MAX" frequency="ttm" />
       <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
+      <section className="section-panel" aria-label="Fundamental charts">
+        <h3>Fundamental charts <span>· ten years, trailing twelve months</span></h3>
+        <FundamentalCharts key={`gf-${company.ticker}`} view={view} />
+      </section>
 
-      <Fold title="Valuation and capital returned">
-        <ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />
-      </Fold>
-      <Fold title="Statements">
-        <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
-      </Fold>
+      <Chapter number={3} title="The results" note="what it reported, and what is expected" />
+      {/* Each quarter as filed, against the consensus, and how the stock took it (components/io/Reports.tsx). */}
+      <Reports key={`rpt-${company.ticker}`} view={view} />
+      {/* What analysts expect, labelled as forecasts (components/io/Estimates.tsx). */}
+      <Estimates key={`est-${company.ticker}`} ticker={company.ticker} price={quote?.price ?? null} currency={quote?.currency ?? company.currency} />
+
+      <Chapter number={4} title="The valuation" note="what it costs against its own history, and what the cash is worth" />
+      {/* The multiples through time, each against its own median and range. */}
+      <ValuationCharts key={`valc-${company.ticker}`} view={view} quote={valuationQuote} />
+      <section className="section-panel" id="dcf" aria-label="Discounted cash flow">
+        <h3>Discounted cash flow <span>· the value of the cash, against the price</span></h3>
+        <DcfModel key={`dcf-${company.ticker}`} view={view} quote={valuationQuote} />
+      </section>
+
+      <Chapter number={5} title="Ownership" note="who buys, who sells, who holds" />
       {/*
-        * Below the statements, because they are about the people rather than
-        * the business, and last of all what the company has said since. Each
-        * is keyed by the company, so moving to another starts it over rather
-        * than leaving one filer's insiders under another's name; the keys are
-        * prefixed because two siblings under one key is a collision React
-        * resolves by dropping one of them.
+        * Each keyed by the company, so moving to another starts it over rather
+        * than leaving one filer's insiders under another's name.
         */}
       <Fold title="Insider dealing"><Insiders key={`insiders-${company.ticker}`} state={insiderState} /></Fold>
       <Fold title="Institutional holders"><Holders key={`holders-${company.ticker}`} ticker={company.ticker} view={view} /></Fold>
-      <Fold title="Newsroom"><CompanyNews key={company.ticker} ticker={company.ticker} /></Fold>
+
+      <Chapter number={6} title="The accounts" note="every filed line, year by year" />
+      <Fold title="Statements">
+        <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
+      </Fold>
 
       <footer className="foot">
         <span className="label">Source</span>
@@ -255,5 +254,16 @@ export function Company({ ticker }: { ticker: string }) {
         {quote?.asOf ? <span className="label">Price {shortDate(quote.asOf)}</span> : null}
       </footer>
     </main>
+  );
+}
+
+/** A chapter's heading: its number, its name and what it answers. */
+function Chapter({ number, title, note }: { number: number; title: string; note: string }) {
+  return (
+    <div className="chapter" role="separator" aria-label={`${number}. ${title}`}>
+      <span className="chapter-number">{String(number).padStart(2, "0")}</span>
+      <h2 className="chapter-title">{title}</h2>
+      <p className="chapter-note">{note}</p>
+    </div>
   );
 }

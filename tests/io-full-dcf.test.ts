@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateDcf, defaultDcfAssumptions } from "../lib/dcf";
 import { defaultFullDcfScenarios, fullDcfBase, scenarioResults, terminalConsistency } from "../lib/io/full-dcf";
-import { decodeFullDcf, encodeFullDcf } from "../components/io/FullDcf";
 import type { IoCompanyView, IoPeriod } from "../lib/io/view";
 
 const period = (year: number, values: Record<string, number>): IoPeriod => ({
@@ -58,17 +57,6 @@ describe("the unified full DCF", () => {
     const results = scenarioResults(view, scenarios!);
     expect(results?.bear.intrinsicValuePerShare).toBeLessThan(results?.base.intrinsicValuePerShare ?? 0);
     expect(results?.bull.intrinsicValuePerShare).toBeGreaterThan(results?.base.intrinsicValuePerShare ?? Infinity);
-  });
-
-  it("round-trips the entire scenario set through one URL token", () => {
-    const scenarios = defaultFullDcfScenarios(view)!;
-    const token = encodeFullDcf("TEST", "bull", scenarios);
-    const restored = decodeFullDcf(`?s=TEST&mode=full&d=${token}`, "TEST");
-    expect(restored?.active).toBe("bull");
-    expect(restored?.scenarios.base.forecastYears).toBe(scenarios.base.forecastYears);
-    expect(restored?.scenarios.base.revenueGrowth[0]).toBeCloseTo(scenarios.base.revenueGrowth[0], 6);
-    expect(restored?.scenarios.bear.wacc).toBeCloseTo(scenarios.bear.wacc, 6);
-    expect(restored?.scenarios.bull.terminalGrowth).toBeCloseTo(scenarios.bull.terminalGrowth, 6);
   });
 
   it("flags perpetual growth that has no reinvestment behind it", () => {

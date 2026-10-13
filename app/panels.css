@@ -1,0 +1,98 @@
+/*
+ * Panels the terminal and the site share: the fundamental charts (GF), the
+ * valuation multiples through time (VAL) and the discounted cash flow (DCF).
+ *
+ * Written once against the tokens both stylesheets define. Where the terminal
+ * hard-coded a dark surface — the tooltip, the grid rule, an input — the
+ * colour is a variable with the terminal's value as its fallback, and the
+ * site sets its own (app/io.css).
+ */
+
+/* GF: the gallery of fundamental charts, two or three to a row. */
+.t-gf-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 8px; font-size: var(--fs-micro); }
+.t-gf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: 2px; padding: 0 2px 2px; }
+.t-gf-card { margin: 0; min-width: 0; padding: 6px 8px 8px; background: var(--raise); border: 1px solid var(--line); }
+.t-gf-card[data-wide] { grid-column: 1 / -1; }
+.t-gf-card figcaption { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.t-gf-card h3 { flex: 1; margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); letter-spacing: .01em; }
+.t-gf-plot { position: relative; width: 100%; }
+.t-gf-plot svg { display: block; overflow: visible; }
+.t-gf-rule { stroke: var(--panel-rule, #262a32); stroke-dasharray: 3 4; }
+.t-gf-zero { stroke: var(--ink-3); stroke-width: 1; }
+.t-gf-negative { fill: var(--panel-negative, rgba(255, 81, 73, .08)); }
+.t-gf-hover { fill: var(--panel-hover, rgba(255, 255, 255, .05)); }
+.t-gf-catch { fill: transparent; cursor: crosshair; touch-action: pan-y; }
+.t-gf-tick { fill: var(--ink-3); font: 10px var(--mono); font-variant-numeric: tabular-nums; }
+.t-gf-tip {
+  position: absolute; top: 6px; z-index: 2; display: grid; gap: 2px; min-width: 170px; padding: 5px 8px; pointer-events: none;
+  background: var(--panel-tip, #14171c); border: 1px solid var(--line-strong); font-size: var(--fs-micro); box-shadow: var(--panel-tip-shadow, 0 4px 14px rgba(0, 0, 0, .5));
+}
+.t-gf-tip b { color: var(--amber); font-weight: 600; }
+.t-gf-tip span { display: flex; align-items: center; gap: 6px; color: var(--ink-2); white-space: nowrap; }
+.t-gf-tip i { width: 8px; height: 8px; flex: none; }
+.t-gf-tip em { margin-left: auto; padding-left: 10px; font-style: normal; color: var(--ink); font-variant-numeric: tabular-nums; }
+.t-gf-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin: 4px 0 0; padding: 0; list-style: none; font-size: var(--fs-micro); color: var(--ink-2); }
+.t-gf-legend li { display: flex; align-items: center; gap: 6px; }
+.t-gf-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--key); }
+.t-gf-legend li[data-kind="line"] i { width: 16px; height: 2px; border-radius: 0; position: relative; }
+.t-gf-legend li[data-kind="line"] i::after { content: ""; position: absolute; left: 5px; top: -2.5px; width: 6px; height: 6px; border-radius: 50%; background: var(--key); }
+.t-gf-note { margin: 4px 0 0; color: var(--ink-3); font-size: var(--fs-micro); text-align: center; }
+
+/* VAL's multiples through time (components/io/ValuationCharts.tsx). */
+.valuation-charts .t-gf-card figcaption { flex-wrap: wrap; }
+.valuation-now { font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--ink); }
+.valuation-now b { color: var(--amber); font-weight: 600; }
+.valuation-pct[data-high] { color: var(--loss); }
+.valuation-pct[data-low] { color: var(--gain); }
+.term .valuation-charts { padding: 0; }
+
+/* --- DCF (components/io/DcfModel.tsx) ------------------------------------- */
+.term .dcf { padding: 6px 8px; }
+.dcf-strip { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.dcf-strip .stat[data-big] .stat-value { font-size: var(--fs-lg, 20px); color: var(--amber); }
+.dcf-strip .stat-value[data-dir="up"] { color: var(--gain); }
+.dcf-strip .stat-value[data-dir="down"] { color: var(--loss); }
+.dcf-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 10px; margin-top: 8px; }
+@media (max-width: 1100px) { .dcf-grid { grid-template-columns: minmax(0, 1fr); } }
+.dcf-levers { min-width: 0; }
+.dcf-levers-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.dcf-lever-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+.dcf-lever-table th { padding: 3px 6px 3px 0; text-align: left; font-weight: 400; color: var(--ink-2); white-space: nowrap; }
+.dcf-lever-table td { padding: 3px 4px; }
+.dcf-lever-table tr { border-bottom: 1px solid var(--line); }
+.dcf-lever-table tr[data-edited] th { color: var(--amber); }
+.dcf-hint { color: var(--ink-3); font-size: var(--fs-micro); }
+.dcf-input { display: inline-flex; align-items: center; gap: 2px; }
+.dcf-input input { width: 8.5ch; height: 20px; padding: 0 4px; font: inherit; font-variant-numeric: tabular-nums; text-align: right; color: var(--amber); background: var(--panel-input, #000); border: 1px solid var(--line-strong); }
+.dcf-input input:focus { outline: none; border-color: var(--amber); }
+.dcf-input button { width: 18px; height: 20px; padding: 0; font: inherit; color: var(--ink-2); background: var(--raise); border: 1px solid var(--line-strong); cursor: pointer; }
+.dcf-input button:hover { color: var(--amber); border-color: var(--amber); }
+.dcf-input span { color: var(--ink-3); }
+.dcf-right { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.dcf-chart { border: 1px solid var(--line); }
+.dcf-bridge { font-size: var(--fs-xs); }
+.dcf-bridge .label { margin-bottom: 4px; }
+.dcf-bridge-row { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) 9ch; align-items: center; gap: 8px; padding: 2px 0; font-variant-numeric: tabular-nums; }
+.dcf-bridge-row > span:first-child { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dcf-bridge-row b { text-align: right; font-weight: 500; color: var(--ink); }
+.dcf-bridge-row[data-total] { border-top: 1px solid var(--line-strong); }
+.dcf-bridge-row[data-total] b { color: var(--amber); }
+.dcf-bridge-track { position: relative; height: 8px; }
+.dcf-bridge-track i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c1); }
+.dcf-bridge-track i[data-dir="down"] { background: var(--loss); }
+.dcf-sens table { width: 100%; font-variant-numeric: tabular-nums; }
+.dcf-sens caption { text-align: left; padding: 4px 0; caption-side: top; }
+.term .dcf-sens td, .term .dcf-sens th { text-align: right; }
+.dcf-sens td[data-centre] { outline: 1px solid var(--amber); outline-offset: -1px; font-weight: 600; }
+.dcf-table { margin-top: 8px; }
+.dcf-table tr[data-strong] td, .dcf-table tr[data-strong] th { color: var(--amber); font-weight: 600; }
+.dcf-checks { margin: 8px 0 4px; padding-left: 16px; font-size: var(--fs-xs); color: var(--ink-2); }
+.dcf-checks li[data-tone="good"] { color: var(--gain); }
+.dcf-checks li[data-tone="bad"] { color: var(--loss); }
+.dcf-screen-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.dcf-screen-bar label { display: flex; align-items: center; gap: 6px; }
+.dcf-screen-bar input { width: 10ch; height: 22px; padding: 0 4px; font: inherit; text-transform: uppercase; color: var(--amber); background: var(--panel-input, #000); border: 1px solid var(--line-strong); }
+.dcf-screen-head { display: flex; align-items: baseline; gap: 12px; padding: 8px 8px 0; }
+.dcf-screen-head h1 { margin: 0; color: var(--amber); font-size: var(--fs-hero, 22px); }
+.dcf-screen-head span { color: var(--ink-2); }
+.dcf-screen-head b { margin-left: auto; color: var(--ink); }

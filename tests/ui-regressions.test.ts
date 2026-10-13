@@ -669,24 +669,17 @@ describe("the redesign", () => {
     expect(portfolio).not.toContain("Contributions add to the weighted score");
   });
 
-  it("draws today's multiple against the window the reader chose", () => {
+  it("draws each multiple through time in VAL, beside the DCF, in the valuation chapter", () => {
     const company = companyPage();
-    const history = readFileSync(new URL("../components/io/ValuationHistory.tsx", import.meta.url), "utf8");
     const series = readFileSync(new URL("../components/io/valuation-series.ts", import.meta.url), "utf8");
-    // One read for the page: the table states the ranges and the chart draws
-    // the line, and two requests for the same prices would be two answers.
+    // One read for the page: the big chart draws a multiple from the same history.
     expect(company).toContain("const valuation = useValuationHistory(");
-    expect(company).toContain("<ValuationHistory state={valuation} selected={selectedMetrics} onSelect={selectMetric} />");
     expect(company).toContain("valuation={valuation}");
-    // One window at a time, switched in a click, and drawn rather than tabulated.
-    expect(history).toContain("historicalValuationRange(state.history, metric.key, now, years, asOf)");
-    expect(history).toContain("const WINDOWS = [5, 10] as const;");
-    expect(history).not.toContain("<table>");
     expect(series).toContain("published=1");
-    // A row sends its multiple to the chart at the top, like every other table.
-    expect(history).toContain("onSelect(chosen ? null : metric.key)");
-    expect(history).not.toContain("Current valuation against observed 5Y and 10Y ranges");
-    expect(history).not.toContain("One observation per published");
+    // "What it costs" and "What it returns" gave way to the multiples' own charts, as on the terminal.
+    expect(company).not.toContain("<ValuationHistory");
+    expect(company.indexOf("<ValuationCharts")).toBeGreaterThan(company.indexOf('title="The valuation"'));
+    expect(company.indexOf("<DcfModel")).toBeGreaterThan(company.indexOf("<ValuationCharts"));
   });
 
   it("lets the big chart draw a multiple it struck itself", () => {
@@ -790,7 +783,7 @@ describe("the redesign", () => {
       // Each answer at a glance opens its own reading, and only that one.
       expect(company).toContain(`openDetail === "${key}" ?`);
     }
-    for (const shut of ["<ValuationHistory ", "<Statements ", "<Insiders ", "<Holders ", "<CompanyNews "]) {
+    for (const shut of ["<Statements ", "<Insiders ", "<Holders ", "<CompanyNews "]) {
       expect(folded(shut), `${shut} is folded`).toBe(true);
     }
     // The chart is the top of a company and the statistics sit under it.
@@ -804,18 +797,23 @@ describe("the redesign", () => {
     expect(company).toContain('<Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range="MAX" frequency="ttm" />');
   });
 
-  it("puts the company's own newsroom last on its page, under everything it filed", () => {
+  it("reads a company in six chapters, the terminal's order, with its newsroom in the snapshot", () => {
     const company = companyPage();
+    const terminal = readFileSync(new URL("../components/term/TermCompany.tsx", import.meta.url), "utf8");
     const news = readFileSync(new URL("../components/io/CompanyNews.tsx", import.meta.url), "utf8");
-    // Under the statements: the page is what the company filed, and this is
-    // the one section that is what it said since.
-    expect(company.indexOf("<CompanyNews key={company.ticker} ticker={company.ticker} />")).toBeGreaterThan(company.indexOf("<Statements view={view}"));
-    expect(company.indexOf("<CompanyNews")).toBeLessThan(company.indexOf('<footer className="foot">'));
-    // It reads an instant from the one helper every other panel reads it from.
+    const titles = ["Snapshot", "The business", "The results", "The valuation", "Ownership", "The accounts"];
+    const at = (source: string) => titles.map((title) => source.indexOf(`title="${title}"`));
+    // Both pages hold every chapter, in the same order.
+    for (const positions of [at(company), at(terminal)]) {
+      expect(positions.every((position) => position > 0)).toBe(true);
+      expect([...positions].sort((left, right) => left - right)).toEqual(positions);
+    }
+    // What the company said since sits with the snapshot, as the terminal's CN does, folded.
+    expect(company.indexOf("<CompanyNews")).toBeLessThan(company.indexOf('title="The business"'));
+    expect(company.indexOf("<Statements view={view}")).toBeGreaterThan(company.indexOf('title="The accounts"'));
     expect(news).toContain('from "./format"');
     expect(news).not.toContain("function clock(");
-    // Keyed by company, so one company's releases never sit under another's
-    // name while the next request is out.
+    // Keyed by company, so one company's releases never sit under another's name.
     expect(company).toContain("<CompanyNews key={company.ticker}");
   });
 

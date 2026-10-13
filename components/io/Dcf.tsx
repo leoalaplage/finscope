@@ -12,7 +12,7 @@ import { logLinearFit } from "@/lib/log-linear.js";
 import { withinYears } from "./ranges";
 import type { IoQuote } from "./quote";
 import { ABSENT, datedCagrOf, delta, money, percent, price as writePrice } from "./format";
-import { FullDcf } from "./FullDcf";
+import { DcfModel } from "./DcfModel";
 
 /**
  * One company, one question: what would have to be true for this price.
@@ -652,15 +652,8 @@ export function Dcf({ initial }: { initial: string }) {
           </p>
         </div>
       ) : mode === "full" && view ? (
-        <FullDcf
-          key={view.company.ticker}
-          view={view}
-          quote={quote}
-          search={search}
-          quickFair={fair}
-          quickRate={required}
-          quickGrowth={model.drawn}
-        />
+        // The same model as the company page's DCF (components/io/DcfModel.tsx), full width.
+        <DcfModel key={view.company.ticker} view={view} quote={quote} fullPage />
       ) : (
         <>
           {/*

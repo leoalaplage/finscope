@@ -29,11 +29,8 @@ describe("shareable research workflows", () => {
     expect(source).toContain("Copy scenario");
     expect(source).toContain("Why these values differ");
 
-    const full = read("../components/io/FullDcf.tsx");
-    expect(full).toContain('const CASES: ScenarioName[] = ["bear", "base", "bull"]');
-    expect(full).toContain('url.searchParams.set("d"');
-    expect(full).toContain("Terminal consistency");
-    expect(full).toContain("What the record suggests");
+    // The full model is the company page's (components/io/DcfModel.tsx), one model on both screens.
+    expect(source).toContain("<DcfModel");
   });
 
   it("stores named watchlists locally, and keeps no notebook", () => {
