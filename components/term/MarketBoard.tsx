@@ -8,6 +8,8 @@ import { shortDate } from "@/components/io/format";
 import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import type { Study } from "@/lib/io/technicals";
 import { AreaPrice } from "./AreaPrice";
+import type { MarketWindow } from "@/lib/adapters/intraday";
+import { areaFromCandles, areaFromWindow } from "@/lib/term/area-price";
 import { nextRank, ranked, type Rank } from "@/lib/term/rank";
 import { Heatmap } from "./Heatmap";
 import { Panel } from "./Panel";
@@ -28,7 +30,7 @@ import { Seasonality } from "./Seasonality";
  */
 
 interface IndexAnswer {
-  indices?: Array<{ id: string; name: string; last?: number | null; changePercent?: number | null; baseline?: number | null; points?: Array<{ close: number }>; error?: string }>;
+  indices?: Array<({ id: string; error?: undefined } & MarketWindow) | { id: string; name: string; error: string }>;
 }
 interface MarketRow {
   id: string; label: string; group: "world" | "commodities" | "rates" | "currencies"; last: number | null; currency: string | null;
@@ -137,7 +139,7 @@ function MoverList({ title, rows }: { title: string; rows: Array<{ ticker: strin
   );
 }
 
-/* How GP draws the index: candles, or the line over its area against the period's open. Kept on the device. */
+/* How GP draws the index: candles, or an area relative to the period's reference. */
 type MarketStyle = "candles" | "area";
 const MARKET_STYLE_KEY = "finscope.term.market.style";
 const MARKET_STYLE_EVENT = "finscope:market-style";
@@ -237,9 +239,13 @@ export function MarketBoard() {
   const [chart, setChart] = useState<{ id: string; range: ChartRange }>({ id: "SPX", range: "1D" });
   const period = CHART_RANGES.find((entry) => entry.id === chart.range)!;
   // Futures and coins are charted under their own names; the indices under Yahoo's.
-  const candles = useCandles(CHART_SYMBOL[chart.id] ?? (/=F$|-USD$/.test(chart.id) ? chart.id : "^GSPC"), period.interval);
+  const candles = useCandles(CHART_SYMBOL[chart.id] ?? (/=F$|-USD$/.test(chart.id) ? chart.id : "^GSPC"), period.interval, true, REFRESH_MS);
   const openOn = candles.candles ? candlesInRange(candles.candles.t, chart.range) : undefined;
   const style = useSyncExternalStore(subscribeMarketStyle, readMarketStyle, () => "candles" as MarketStyle);
+  const snapshot = indices?.indices?.find((index) => index.id === chart.id);
+  const area = useMemo(() => chart.range === "1D" && snapshot && "points" in snapshot
+    ? areaFromWindow(snapshot)
+    : candles.candles ? areaFromCandles(candles.candles, chart.range) : null, [snapshot, candles.candles, chart.range]);
   /* Each table's ranking: as listed until asked. */
   const [ranks, setRanks] = useState<Record<string, Rank | null>>({});
   const rankOf = (panel: string) => ranks[panel] ?? null;
@@ -248,9 +254,9 @@ export function MarketBoard() {
   const rows = useMemo(() => markets?.rows ?? [], [markets]);
   const group = (name: MarketRow["group"]) => rows.filter((row) => row.group === name);
   const board = useMemo(() => {
-    const us = (indices?.indices ?? []).filter((index) => !index.error).map((index) => ({
+    const us = (indices?.indices ?? []).filter((index): index is MarketWindow & { id: string } => index.error === undefined).map((index) => ({
       id: index.id, name: index.name, last: index.last ?? null, change: index.changePercent != null ? index.changePercent * 100 : null,
-      spark: (index.points ?? []).map((point) => point.close), baseline: index.baseline ?? null,
+      spark: areaFromWindow(index).c, baseline: index.baseline ?? null,
     }));
     const vix = extras?.vix ? [{ id: "VIX", name: "VIX", last: extras.vix.last, change: extras.vix.changePercent, spark: extras.vix.spark, baseline: null }] : [];
     const world = rows.filter((row) => row.group === "world").map((row) => ({
@@ -259,8 +265,15 @@ export function MarketBoard() {
     const traded = (futures?.rows ?? []).filter((row) => row.last != null).map((row) => ({
       id: row.id, name: row.label, last: row.last, change: row.changePercent, spark: row.spark, baseline: null,
     }));
-    return [...us, ...vix, ...world, ...traded];
-  }, [indices, extras, rows, futures]);
+    // The selected non-US instrument uses GP's freshly polled 1D snapshot,
+    // so the quote and percentage cannot come from an older daily endpoint.
+    return [...us, ...vix, ...world, ...traded].map((row) => {
+      if (chart.range !== "1D" || row.id !== chart.id || snapshot || !area?.c.length) return row;
+      const last = area.c[area.c.length - 1];
+      return { ...row, last, baseline: area.baseline, spark: area.c,
+        change: area.baseline != null && area.baseline > 0 ? (last - area.baseline) / area.baseline * 100 : null };
+    });
+  }, [indices, extras, rows, futures, chart.range, chart.id, snapshot, area]);
 
   const sectors = useMemo(() => {
     const today = new Map((internals?.sectors ?? []).map((sector) => [sector.sector, sector]));
@@ -283,7 +296,7 @@ export function MarketBoard() {
         <Panel code="WEI" title="World indices" actions={<RankChip rank={rankOf("wei")} onRank={setRank("wei")} />}>
           <div className="sheet t-wei">
             <table>
-              <thead><tr><th className="key">Index</th><th>Last</th><th aria-sort={rankOf("wei") ? (rankOf("wei")!.direction === "desc" ? "descending" : "ascending") : "none"}><button type="button" className="t-sort" onClick={() => setRank("wei")(nextRank(rankOf("wei"), "move"))}>Chg %{rankOf("wei") ? (rankOf("wei")!.direction === "desc" ? " ▼" : " ▲") : ""}</button></th><th title="US averages: today's session. Other indices, futures and coins: the last month of closes.">Trend</th></tr></thead>
+              <thead><tr><th className="key">Index</th><th>Last</th><th aria-sort={rankOf("wei") ? (rankOf("wei")!.direction === "desc" ? "descending" : "ascending") : "none"}><button type="button" className="t-sort" onClick={() => setRank("wei")(nextRank(rankOf("wei"), "move"))}>Chg %{rankOf("wei") ? (rankOf("wei")!.direction === "desc" ? " ▼" : " ▲") : ""}</button></th><th title="US averages and the selected 1D instrument: latest session. Other rows: the last month of closes.">Trend</th></tr></thead>
               <tbody>
                 {ranked(board, rankOf("wei"), (row) => row.change).map((row) => (
                   <tr key={row.id} data-selected={row.id === chart.id || undefined}>
@@ -355,8 +368,8 @@ export function MarketBoard() {
       }>
         <div className="t-market-chart">
           {style === "area" ? (
-            candles.candles && openOn ? (
-              <AreaPrice candles={candles.candles} interval={period.interval} count={openOn} label={`${chartName}, ${period.title.toLowerCase()}`} />
+            area ? (
+              <AreaPrice key={`${chart.id}:${chart.range}`} series={area} interval={period.interval} label={`${chartName}, ${period.title.toLowerCase()}`} />
             ) : <p className="t-empty">{candles.error ?? "Reading prices…"}</p>
           ) : (
             <CandleChart

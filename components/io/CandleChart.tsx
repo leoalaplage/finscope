@@ -116,26 +116,28 @@ export const tone = (value: number | null) => (value == null ? undefined : value
 export type CandleLoad = { key: string; candles: Candles | null; error: string | null };
 
 /** One symbol's candles at one interval; nothing is asked for until `enabled`. */
-export function useCandles(symbol: string, interval: CandleInterval, enabled = true) {
+export function useCandles(symbol: string, interval: CandleInterval, enabled = true, refreshMs = 0) {
   const key = `${symbol}:${interval}`;
   const [load, setLoad] = useState<CandleLoad>({ key: "", candles: null, error: null });
 
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
-    fetch(`/api/candles/${encodeURIComponent(symbol)}?interval=${interval}`, { signal: controller.signal })
+    const read = () => fetch(`/api/candles/${encodeURIComponent(symbol)}?interval=${interval}`, { signal: controller.signal })
       .then(async (response) => {
         const body = (await response.json()) as Partial<Candles> & { error?: string };
         if (!response.ok) throw new Error(body.error ?? `The server answered ${response.status}.`);
         if (!body.t?.length) throw new Error(`No price history for ${symbol}.`);
-        setLoad({ key, candles: body as Candles, error: null });
+        if (!controller.signal.aborted) setLoad({ key, candles: body as Candles, error: null });
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
-        setLoad({ key, candles: null, error: error instanceof Error ? error.message : "Unreachable." });
+        setLoad((current) => current.key === key && current.candles ? current : { key, candles: null, error: error instanceof Error ? error.message : "Unreachable." });
       });
-    return () => controller.abort();
-  }, [key, symbol, interval, enabled]);
+    void read();
+    const timer = refreshMs > 0 ? setInterval(read, refreshMs) : null;
+    return () => { controller.abort(); if (timer != null) clearInterval(timer); };
+  }, [key, symbol, interval, enabled, refreshMs]);
 
   const loading = load.key !== key;
   return { candles: loading ? null : load.candles, error: loading ? null : load.error, loading };

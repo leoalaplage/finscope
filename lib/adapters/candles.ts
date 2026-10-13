@@ -133,7 +133,7 @@ export function candlesFromChart(payload: unknown, interval: CandleInterval): Ca
     interval,
     t: [], o: [], h: [], l: [], c: [], v: volumes,
     last: result.meta.regularMarketPrice ?? null,
-    previousClose: result.meta.previousClose ?? result.meta.chartPreviousClose ?? null,
+    previousClose: result.meta.previousClose ?? (isIntraday(interval) ? null : result.meta.chartPreviousClose) ?? null,
   };
   const stamps = result.timestamp ?? [];
   for (let index = 0; index < stamps.length; index++) {
@@ -161,6 +161,16 @@ export function candlesFromChart(payload: unknown, interval: CandleInterval): Ca
     out.l.push(round(Math.min(low, open, close)));
     out.c.push(round(close));
     volumes.push(volume);
+  }
+  // chartPreviousClose precedes the entire history, not the latest session.
+  if (isIntraday(interval) && out.previousClose == null && out.t.length) {
+    const session = Math.floor(out.t[out.t.length - 1] / DAY);
+    for (let index = out.t.length - 2; index >= 0; index--) {
+      if (Math.floor(out.t[index] / DAY) < session) {
+        out.previousClose = out.c[index];
+        break;
+      }
+    }
   }
   return out;
 }
