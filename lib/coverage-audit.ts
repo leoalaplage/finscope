@@ -35,6 +35,41 @@ export const AUDIT_REPORT_KEY = `audit-report:${AUDIT_SHAPE}`;
 /** The measures a reader expects on every company page. */
 export const AUDITED_MEASURES = ["revenue", "netIncome", "operatingCashFlow", "capitalExpenditures", "freeCashFlow", "dilutedShares"] as const;
 
+/**
+ * The measures whose series are checked for holes: a period without a value
+ * between two that have one. A series that starts late or stops early is how
+ * filings are; a gap inside one is almost always the normalizer missing a
+ * case (Copart's untagged quarterly debt, its quarter between two splits), and
+ * the same case is usually somewhere else too.
+ */
+export const SERIES_MEASURES = [
+  "revenue", "operatingIncome", "freeCashFlow", "dilutedShares", "freeCashFlowPerShare",
+  "cashAndEquivalents", "totalDebt", "netDebt", "investedCapital", "roic",
+] as const;
+
+export interface SeriesHole { measure: string; periodicity: "annual" | "ttm" | "quarterly"; periods: string[] }
+
+/** Periods with no value between two that have one, over the last ten years of each series. */
+export function seriesHoles(view: IoCompanyView): SeriesHole[] {
+  const withheld = withheldMeasures(view.company.businessType);
+  const latest = [view.annual?.at(-1)?.end, view.trailing?.at(-1)?.end].filter((end): end is string => Boolean(end)).sort().at(-1);
+  if (!latest) return [];
+  const since = `${Number(latest.slice(0, 4)) - 10}${latest.slice(4)}`;
+  const out: SeriesHole[] = [];
+  for (const [periodicity, periods] of [["annual", view.annual], ["ttm", view.trailing], ["quarterly", view.quarterly]] as const) {
+    const window = (periods ?? []).filter((period) => period.end > since);
+    for (const measure of SERIES_MEASURES) {
+      if (withheld.has(measure)) continue;
+      const known = window.map((period) => period.values[measure] != null && Number.isFinite(period.values[measure]!));
+      const first = known.indexOf(true), last = known.lastIndexOf(true);
+      if (first < 0) continue;
+      const holes = window.filter((_, index) => index > first && index < last && !known[index]).map((period) => period.label);
+      if (holes.length) out.push({ measure, periodicity, periods: holes });
+    }
+  }
+  return out;
+}
+
 /** The filed figures checked against a second source. */
 export const SOURCED_MEASURES = ["revenue", "netIncome", "operatingCashFlow"] as const;
 
@@ -83,6 +118,8 @@ export interface CompanyAudit {
   implausible?: Finding[];
   /** Accounting identities the filed figures break, over the last five years (lib/accounting-invariants.ts). */
   identities?: IdentityFailure[];
+  /** Holes inside the last ten years of a series. Absent from checks made before it existed. */
+  holes?: SeriesHole[];
 }
 
 export interface IdentityFailure { invariant: string; metric: string; period: string; observed: number | null; recalculated: number | null }
@@ -184,6 +221,7 @@ export function auditCompany(view: IoCompanyView, previous: CompanyAudit | null,
     values,
     moved,
     implausible: plausibilityFindings(view),
+    holes: seriesHoles(view),
     ...(identities ? { identities } : {}),
     ...(sourced ? { sourced } : {}),
   };
@@ -302,6 +340,8 @@ export interface AuditTotals {
   implausible?: number;
   /** Companies whose figures break an accounting identity. Absent from reports before it existed. */
   identities?: number;
+  /** Companies with a hole inside a series. Absent from reports before it existed. */
+  holes?: number;
 }
 
 export interface AuditReport {
@@ -325,6 +365,7 @@ export interface AuditReport {
     disagreements?: Disagreement[];
     implausible?: Array<Finding & { ticker: string }>;
     identities?: Array<IdentityFailure & { ticker: string }>;
+    holes?: Array<SeriesHole & { ticker: string }>;
   };
   history: Array<{ date: string; totals: AuditTotals }>;
 }
@@ -337,7 +378,7 @@ export function summariseAudits(
   now = new Date(),
   checked: { compared: number; disagreements: Disagreement[] } = { compared: 0, disagreements: [] },
 ): AuditReport {
-  const issues: AuditReport["issues"] = { notBuilt: [], missingFcfLatest: [], missingAnnual: [], missingTtm: [], recentTtmGaps: [], stale: [], moved: [], disagreements: checked.disagreements, implausible: [], identities: [] };
+  const issues: AuditReport["issues"] = { notBuilt: [], missingFcfLatest: [], missingAnnual: [], missingTtm: [], recentTtmGaps: [], stale: [], moved: [], disagreements: checked.disagreements, implausible: [], identities: [], holes: [] };
   const graceCutoff = new Date(now.getTime() - FILING_GRACE_DAYS * 86_400_000).toISOString().slice(0, 10);
 
   for (const { ticker } of members) {
@@ -367,6 +408,7 @@ export function summariseAudits(
     for (const move of audit.moved) issues.moved.push({ ticker, ...move });
     for (const finding of audit.implausible ?? []) issues.implausible!.push({ ticker, ...finding });
     for (const failure of audit.identities ?? []) issues.identities!.push({ ticker, ...failure });
+    for (const hole of audit.holes ?? []) issues.holes!.push({ ticker, ...hole });
   }
 
   const totals: AuditTotals = {
@@ -380,6 +422,7 @@ export function summariseAudits(
     disagree: new Set(checked.disagreements.filter((entry) => !entry.scale && !entry.otherFiling).map((entry) => entry.ticker)).size,
     implausible: new Set(issues.implausible!.map((entry) => entry.ticker)).size,
     identities: new Set(issues.identities!.map((entry) => entry.ticker)).size,
+    holes: new Set(issues.holes!.map((entry) => entry.ticker)).size,
   };
   const date = now.toISOString().slice(0, 10);
   const earlier = (previous?.history ?? []).filter((entry) => entry.date !== date);

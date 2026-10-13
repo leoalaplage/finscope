@@ -125,3 +125,22 @@ describe("the latest year against the SEC's own frames", () => {
     expect(summariseAudits([{ ticker: "ANET" }], new Map([["ANET", arista]]), new Map(), null, new Date("2026-09-15T12:00:00Z"), result).totals.disagree).toBe(0);
   });
 });
+
+describe("holes inside a series", () => {
+  it("finds a period with no value between two that have one, and not a series that starts late", async () => {
+    const { seriesHoles } = await import("@/lib/coverage-audit");
+    const period = (label: string, end: string, values: Record<string, number | null>) => ({ label, end, values } as never);
+    const view = {
+      company: { businessType: "operating" },
+      annual: [period("FY2024", "2024-12-31", { revenue: 1 })],
+      trailing: [
+        period("TTM Q1", "2025-03-31", { revenue: 1, totalDebt: null }),
+        period("TTM Q2", "2025-06-30", { revenue: 1, totalDebt: 5 }),
+        period("TTM Q3", "2025-09-30", { revenue: 1, totalDebt: null }),
+        period("TTM Q4", "2025-12-31", { revenue: 1, totalDebt: 6 }),
+      ],
+      quarterly: [],
+    } as never;
+    expect(seriesHoles(view)).toEqual([{ measure: "totalDebt", periodicity: "ttm", periods: ["TTM Q3"] }]);
+  });
+});

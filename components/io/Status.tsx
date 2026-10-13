@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AuditEntry, AuditReport, AuditTotals, Disagreement, MoveEntry, StaleEntry } from "@/lib/coverage-audit";
+import type { AuditEntry, AuditReport, AuditTotals, Disagreement, MoveEntry, SeriesHole, StaleEntry } from "@/lib/coverage-audit";
 import { ABSENT, shortDate } from "./format";
 
 /**
@@ -24,6 +24,7 @@ const COUNTS: Array<{ key: keyof AuditTotals; label: string; note: string }> = [
   { key: "missingTtm", label: "Latest TTM missing a measure", note: "Revenue, net income, operating cash flow, capital expenditure, free cash flow or diluted shares absent from the newest trailing period." },
   { key: "missingAnnual", label: "Latest year missing a measure", note: "The same six measures, on the newest annual period." },
   { key: "recentTtmGaps", label: "FCF gaps, last two years", note: "At least one of the last eight trailing periods without free cash flow." },
+  { key: "holes", label: "Hole inside a series", note: "Over the last ten years: a period without a value between two that have one, on revenue, operating income, FCF, diluted shares, FCF per share, cash, debt, net debt, invested capital or ROIC. Each is usually a case the normalizer misses, and the same case is usually elsewhere too." },
   { key: "identities", label: "Breaks an accounting identity", note: "Over the last five years: a balance sheet that does not balance, a year its quarters do not add up to, a trailing window that is not its four quarters, or earnings per share away from the filer's own." },
   { key: "implausible", label: "Implausible figure", note: "Over the last five years: a quarter out of line with both neighbours, a return on a vanishing base, a margin beyond any business, a trailing year disagreeing with its annual report, or recent quarters without revenue." },
   { key: "moved", label: "Moved without a filing", note: "A latest figure that changed by more than 20% on a rebuild of the same period." },
@@ -104,6 +105,7 @@ function Report({ report }: { report: AuditReport }) {
       <Entries title="Latest period without FCF" entries={report.issues.missingFcfLatest} />
       <Stale entries={report.issues.stale} />
       <Disagreements entries={report.issues.disagreements ?? []} compared={report.compared ?? 0} />
+      <Holes entries={report.issues.holes ?? []} />
       <Identities entries={report.issues.identities ?? []} />
       <Implausible entries={report.issues.implausible ?? []} />
       <Moves entries={report.issues.moved} />
@@ -280,6 +282,39 @@ function Implausible({ entries }: { entries: NonNullable<AuditReport["issues"]["
                 <td>{CHECK_NAMES[entry.check] ?? entry.check}</td>
                 <td>{entry.period}</td>
                 <td>{entry.detail}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Holes inside a series, measure by measure, then company by company, the
+ * most holed first: one fix to the normalizer usually closes a whole row.
+ */
+function Holes({ entries }: { entries: Array<SeriesHole & { ticker: string }> }) {
+  if (!entries.length) return null;
+  const byMeasure = new Map<string, Set<string>>();
+  for (const entry of entries) byMeasure.set(entry.measure, (byMeasure.get(entry.measure) ?? new Set()).add(entry.ticker));
+  const rows = [...entries].sort((a, b) => b.periods.length - a.periods.length || a.ticker.localeCompare(b.ticker));
+  return (
+    <section className="section">
+      <div className="section-head"><h2 className="label">Holes inside a series</h2><span className="label">{new Set(entries.map((entry) => entry.ticker)).size} companies</span></div>
+      <p className="stat-note">{[...byMeasure].sort((a, b) => b[1].size - a[1].size).map(([measure, tickers]) => `${measure} ${tickers.size}`).join(" · ")}</p>
+      <div className="sheet">
+        <table>
+          <thead><tr><th className="key" scope="col">Company</th><th scope="col">Measure</th><th scope="col">Series</th><th scope="col">Holes</th><th scope="col">Periods</th></tr></thead>
+          <tbody>
+            {rows.slice(0, 300).map((entry, index) => (
+              <tr key={`${entry.ticker}-${entry.measure}-${entry.periodicity}-${index}`}>
+                <th className="key" scope="row"><a className="key-open" href={`/s/${encodeURIComponent(entry.ticker)}`}>{entry.ticker}</a></th>
+                <td>{entry.measure}</td>
+                <td>{entry.periodicity}</td>
+                <td>{entry.periods.length}</td>
+                <td>{entry.periods.slice(0, 6).join(", ")}{entry.periods.length > 6 ? "…" : ""}</td>
               </tr>
             ))}
           </tbody>
