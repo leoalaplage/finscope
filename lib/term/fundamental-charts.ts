@@ -174,7 +174,7 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "returns", title: "Returns on capital", left: "percent",
-    note: "Trailing twelve months at every point, so a quarter is not read as a year.",
+    note: "Returns use trailing twelve months. ROIC uses average invested capital; small positive capital can produce a high return. Nonpositive capital is not measurable.",
     series: [
       { id: "roic", label: "ROIC", kind: "line", axis: "left", color: YELLOW, value: (p, c) => at(yearly(p, c), "roic") },
       { id: "roe", label: "ROE", kind: "line", axis: "left", color: BLUE, value: (p, c) => at(yearly(p, c), "returnOnEquity") },

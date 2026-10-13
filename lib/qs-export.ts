@@ -161,7 +161,6 @@ function scoreRoic(dataset: CompanyDataset, current: FinancialPeriod | null): nu
     derivedValue(current, "nopat"),
     capital(current),
     capitalAYearEarlier(dataset.periods, current, capital),
-    valueOf(current, "totalAssets"),
   );
 }
 

@@ -7,6 +7,7 @@ import { companySector } from "../sector";
 import type { BusinessType, CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "../types";
 import { KNOWN_SUCCESSORS, universeMember } from "../universe";
 import { companyCapexLine, filingIsAhead, instanceDocument, investingLines, mergeFactTrees, parseXbrlInstance, quotedClassShares, type FactTree, type FilingFact } from "./xbrl-instance";
+import { debtFromReconciledLiabilities, OPERATING_LIABILITY_GROUPS } from "./debt-free";
 
 type FilingFactLike = FilingFact;
 
@@ -281,7 +282,7 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
    * spelling and comes last: it carries a little more than depreciation and
    * amortisation, so it stands in only where nothing narrower is filed.
    */
-  depreciationAndAmortization: { namespace: "us-gaap", tags: ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment", "Depreciation", "DepreciationAmortizationAndAccretionNet"], unit: "currency" },
+  depreciationAndAmortization: { namespace: "us-gaap", tags: ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "OtherDepreciationAndAmortization", "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment", "Depreciation", "DepreciationAmortizationAndAccretionNet"], unit: "currency" },
   totalAssets: { namespace: "us-gaap", tags: ["Assets"], unit: "currency" },
   // Goodwill and acquired intangibles are subtracted from assets for the
   // tangible-return measure: they are the price paid for past acquisitions,
@@ -464,6 +465,7 @@ function extractFacts(
   cik: string,
   currency: string,
   retrievedAt: string,
+  inferOperatingDebt = false,
 ) {
   const output: RawFinancialFact[] = [];
   for (const [metric, spec] of Object.entries(SEC_CONCEPTS) as Array<[keyof typeof SEC_CONCEPTS, ConceptSpec]>) {
@@ -495,6 +497,15 @@ function extractFacts(
     cashFlow("NetCashProvidedByUsedInOperatingActivities"),
     cashFlow("NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"),
     cashFlow("CashProvidedByUsedInOperatingActivitiesDiscontinuedOperations"),
+  ));
+  const liability = (tag: string) => factsUnder(namespaces, "us-gaap", tag, "totalDebt", "currency", cik, currency, retrievedAt);
+  if (inferOperatingDebt) output.push(...debtFromReconciledLiabilities(
+    liability("Liabilities"), liability("LiabilitiesCurrent"),
+    OPERATING_LIABILITY_GROUPS.map((tags) => tags.flatMap(liability)),
+    Object.keys(namespaces["us-gaap"] ?? {})
+      .filter((tag) => /^(?:LongTermDebt|ShortTermBorrowings|OtherShortTermBorrowings|CommercialPaper|NotesPayable|DebtCurrent|DebtInstrument|FinanceLeaseLiability|ConvertibleNotesPayable|DebtLongtermAndShorttermCombinedAmount)/.test(tag))
+      .flatMap(liability),
+    liability("OperatingLeaseLiability"),
   ));
   return anchorCoverPageShares(output);
 }
@@ -1788,7 +1799,7 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
   const currency = reportingCurrency(parsed.facts, resolved.currency);
   const classified = classifyBusiness(resolved);
   const company = currency === classified.currency ? classified : { ...classified, currency };
-  const rawFacts = extractFacts(parsed.facts, company.cik, company.currency, retrievedAt);
+  const rawFacts = extractFacts(parsed.facts, company.cik, company.currency, retrievedAt, company.businessType === "operating");
   // Order matters. The dividend rate is repaired first, because the share
   // recovery divides by it; the recovery runs before split adjustment, so the
   // count it produces is on the as-filed basis every other share fact starts

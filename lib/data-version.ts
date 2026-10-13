@@ -327,7 +327,9 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v42";
+// v43: reconcile debt-free operating balance sheets and read the broader
+// depreciation/amortization cash-flow line; all affected companies rebuild.
+export const KEY_VERSION = "v43";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

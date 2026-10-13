@@ -364,10 +364,11 @@ export function returnOnAverageCapital(
   nopatValue: number | null | undefined,
   ending: number | null,
   opening: number | null,
-  totalAssets: number | null | undefined,
 ) {
-  if (ending == null) return null;
-  return returnOn(nopatValue, opening == null ? ending : (opening + ending) / 2, totalAssets);
+  if (ending == null || ending <= 0) return null;
+  // Cash-rich operating companies can employ less than 5% of their assets.
+  // Their positive, validated capital still has a measurable return.
+  return divideByPositive(nopatValue, opening == null ? ending : (opening + ending) / 2);
 }
 
 /**
@@ -515,7 +516,7 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     nopat: nopat(period),
     // ROIC has been declared in the metric registry all along without ever
     // being computed, so it rendered as an em dash everywhere it appeared.
-    roic: returnOn(nopat(period), investedCapital(period), valueOf(period, "totalAssets")),
+    roic: divideByPositive(nopat(period), investedCapital(period)),
     // The same question as ROIC, asked of cash instead of accounting profit.
     // NOPAT applies an effective tax rate, and falls back to an assumed 21%
     // when the reported one is not usable, so ROIC always carries one
@@ -559,4 +560,3 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
   // judged unusable must not fall back to the raw fact it rejected.
   return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : valueOf(period, key as MetricKey);
 }
-

@@ -33,6 +33,9 @@ import { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
  * "Building financials…" until the warm-up has been round the watchlist.
  */
 const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [
+  // v43 fills proven zero-debt balances and D&A; the prior copy stays visible
+  // only while the same company's corrected statements are being rebuilt.
+  { version: "v42", shape: "s13" },
   // v38 adds concepts and corrects EPS, bank revenue and net debt; v37 is what was on screen.
   { version: "v37", shape: "s13" },
   // v37 reads balances under the preferred concept; v36 is what was on screen.

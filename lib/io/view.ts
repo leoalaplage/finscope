@@ -229,7 +229,7 @@ function projectPeriod(dataset: CompanyDataset, period: FinancialPeriod, withhel
   // A year's (or trailing year's) return over the capital employed through it,
   // as the screener reads it: average of opening and closing invested capital.
   if (values.roic != null && period.periodicity !== "quarterly") {
-    values.roic = returnOnAverageCapital(values.nopat, values.investedCapital, capitalAYearEarlier(dataset.periods, period), valueOf(period, "totalAssets"));
+    values.roic = returnOnAverageCapital(values.nopat, values.investedCapital, capitalAYearEarlier(dataset.periods, period));
   }
   /*
    * An insurer that files no capital expenditure at all.
