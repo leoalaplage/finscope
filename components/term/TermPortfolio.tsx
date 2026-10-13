@@ -24,7 +24,7 @@ import { ABSENT, money, price as writePrice, shortDate } from "@/components/io/f
 import { Panel } from "./Panel";
 import { Bars, paletteColor, CapitalChart, CorrelationMatrix, HoldingsMap, MonthlyReturns, PerfChart, Spark, type TradeMark } from "./PortfolioCharts";
 import { BENCHMARK, usePortfolioFeed } from "./use-portfolio";
-import { performanceChartPoints, performanceHistories } from "@/lib/term/portfolio-performance";
+import { benchmarkName, performanceChartPoints, performanceHistories } from "@/lib/term/portfolio-performance";
 
 /**
  * PORT: the book, as a risk desk reads it.
@@ -84,7 +84,8 @@ export function TermPortfolio() {
   const [editing, setEditing] = useState(false);
   const [span, setSpan] = useState<Span>("1Y");
   const [total, setTotal] = useState(true);
-  const benchmarkLabel = total ? `${BENCHMARK.label} Total Return` : `${BENCHMARK.label} Price`;
+  const shownFeed = DAILY_SPANS.has(span) ? feed.daily : feed.weekly;
+  const benchmarkLabel = benchmarkName(total, total && shownFeed != null && shownFeed.totalIndex.length === 0);
   const [sort, setSort] = useState<SortKey>("value");
   const [targets, setTargets] = useState<Record<string, string>>({});
 
@@ -379,9 +380,7 @@ export function TermPortfolio() {
           </>
         }>
           {/* Taller beside the longer column of figures a dated book has. */}
-          {total && (DAILY_SPANS.has(span) ? feed.daily : feed.weekly)?.totalIndex.length === 0
-            ? <p className="t-empty">S&P 500 Total Return history is unavailable. Try again shortly.</p>
-            : <PerfChart key={`${span}:${total ? "return" : "value"}`} points={perf?.drawn ?? []} label={total ? benchmarkLabel : `${BENCHMARK.label} equivalent`} unit={total ? "percent" : "currency"} currency={BASE} marks={perf?.marks ?? []} height={dated ? 430 : 300} />}
+          <PerfChart key={`${span}:${total ? "return" : "value"}`} points={perf?.drawn ?? []} label={total ? benchmarkLabel : `${BENCHMARK.label} equivalent`} unit={total ? "percent" : "currency"} currency={BASE} marks={perf?.marks ?? []} height={dated ? 430 : 300} />
           <p className="t-study-note">
             {!total ? <>Portfolio value in {BASE}, {dated ? "from the shares held on each date; deposits and sales change the value" : "from the shares held today, priced back through the window"}. The S&amp;P 500 price comparison starts with the same amount. ▲ buys, ▼ sales. </> : dated
               ? <>The book as it stood on each {DAILY_SPANS.has(span) ? "session" : "week"}, from your dated trades, as a time-weighted return: a deposit is not a gain, so each trade&apos;s cash is taken out before the day&apos;s return is chained. ▲ buys, ▼ sales. </>

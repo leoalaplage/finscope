@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { portfolioSeries, rebasePair } from "../lib/portfolio";
-import { performanceChartPoints, performanceHistories, type Histories } from "../lib/term/portfolio-performance";
+import { benchmarkName, performanceChartPoints, performanceHistories, type Histories } from "../lib/term/portfolio-performance";
 
 const bar = (date: string, close: number, adjusted = close) => ({ date, close, adjusted });
 const source: Histories = {
@@ -33,7 +33,9 @@ describe("PERF price and total returns", () => {
   });
 
   it("does not silently replace a missing total-return index with a price index", () => {
-    expect(performanceHistories({ ...source, totalIndex: [] }, true).index).toEqual([]);
+    // It stands in only flagged, and the flag names it on screen (benchmarkName).
+    expect(performanceHistories({ ...source, totalIndex: [] }, true)).toMatchObject({ priceOnly: true });
+    expect(performanceHistories(source, true).priceOnly).toBe(false);
     expect(performanceHistories({ ...source, totalIndex: [] }, false).index).toHaveLength(2);
   });
 });
@@ -62,5 +64,15 @@ describe("PERF display units", () => {
     const older = [{ date: "2024-01-02", value: 1_000 }, ...values];
     expect(performanceChartPoints(paired, older, water, false)[0].index).toBe(10_000);
     expect(performanceChartPoints(paired, [], water, false)).toEqual([]);
+  });
+});
+
+describe("a total-return benchmark that has not arrived", () => {
+  it("stands the price index in, named as such, rather than drawing nothing", () => {
+    const bar = (date: string, close: number) => ({ date, close, adjusted: close });
+    const read = performanceHistories({ holdings: {}, index: [bar("2026-10-12", 100)], totalIndex: [] }, true);
+    expect(read).toMatchObject({ priceOnly: true, index: [{ date: "2026-10-12", value: 100 }] });
+    expect(benchmarkName(true, true)).toBe("S&P 500 Price (total return unavailable)");
+    expect(benchmarkName(true, false)).toBe("S&P 500 Total Return");
   });
 });

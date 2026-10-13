@@ -284,7 +284,10 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
    * spelling and comes last: it carries a little more than depreciation and
    * amortisation, so it stands in only where nothing narrower is filed.
    */
-  depreciationAndAmortization: { namespace: "us-gaap", tags: ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "OtherDepreciationAndAmortization", "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment", "Depreciation", "DepreciationAmortizationAndAccretionNet"], unit: "currency" },
+  // `OtherDepreciationAndAmortization` last of all: for most filers it is the
+  // residual line beside a depreciation figure, not the total; Veeva files its
+  // whole cash-flow charge under it, and there it is the only one.
+  depreciationAndAmortization: { namespace: "us-gaap", tags: ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment", "Depreciation", "DepreciationAmortizationAndAccretionNet", "OtherDepreciationAndAmortization"], unit: "currency" },
   totalAssets: { namespace: "us-gaap", tags: ["Assets"], unit: "currency" },
   // Goodwill and acquired intangibles are subtracted from assets for the
   // tangible-return measure: they are the price paid for past acquisitions,

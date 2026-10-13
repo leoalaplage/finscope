@@ -1158,5 +1158,7 @@ body:has(.io.term) { background: #050608; }
 .t-area-dot-up { fill: var(--gain); }
 .t-area-dot-down { fill: var(--loss); }
 .t-area-catch { fill: transparent; cursor: crosshair; touch-action: pan-y; }
+.t-area-dayopen { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 2 4; }
+.t-area-dayopen-label { fill: var(--ink-3); font: 10px var(--mono); font-variant-numeric: tabular-nums; }
 .t-area-open-label { fill: var(--amber); font: 10px var(--mono); font-variant-numeric: tabular-nums; }
 

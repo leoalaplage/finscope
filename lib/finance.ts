@@ -522,7 +522,9 @@ export function derivedValue(period: FinancialPeriod, key: string): number | nul
     // when the reported one is not usable, so ROIC always carries one
     // assumption. Free cash flow carries none: it is what the business
     // actually produced after paying for its own maintenance.
-    cashReturnOnCapital: returnOn(fcf, investedCapital(period), valueOf(period, "totalAssets")),
+    // On the same capital, under the same rule as ROIC: a small positive capital
+    // is still measurable, and the two returns are read side by side.
+    cashReturnOnCapital: divideByPositive(fcf, investedCapital(period)),
     capitalIntensity: capex == null ? null : safeDivide(Math.abs(capex), revenue),
     netDebt: netDebt(period),
     liquidAssets: liquidAssets(period),

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { CandleChart, useCandles } from "@/components/io/CandleChart";
+import type { Candles } from "@/lib/adapters/candles";
 import { CHART_RANGES, candlesInRange, type ChartRange } from "@/lib/io/chart-ranges";
 import { MarketPerformance } from "@/components/io/MarketPerformance";
 import { shortDate } from "@/components/io/format";
@@ -139,6 +140,14 @@ function MoverList({ title, rows }: { title: string; rows: Array<{ ticker: strin
   );
 }
 
+/** The session's first open from the chart's own candles, only when they are of the same session as the snapshot. */
+function sessionOpen(candles: Candles | null, sessionDate: string): number | null {
+  if (!candles) return null;
+  const today = areaFromCandles(candles, "1D");
+  const first = today.t[0];
+  return first != null && new Date(first * 1000).toISOString().slice(0, 10) === sessionDate ? today.open : null;
+}
+
 /* How GP draws the index: candles, or an area relative to the period's reference. */
 type MarketStyle = "candles" | "area";
 const MARKET_STYLE_KEY = "finscope.term.market.style";
@@ -244,7 +253,7 @@ export function MarketBoard() {
   const style = useSyncExternalStore(subscribeMarketStyle, readMarketStyle, () => "candles" as MarketStyle);
   const snapshot = indices?.indices?.find((index) => index.id === chart.id);
   const area = useMemo(() => chart.range === "1D" && snapshot && "points" in snapshot
-    ? areaFromWindow(snapshot)
+    ? areaFromWindow(snapshot, sessionOpen(candles.candles, snapshot.sessionDate))
     : candles.candles ? areaFromCandles(candles.candles, chart.range) : null, [snapshot, candles.candles, chart.range]);
   /* Each table's ranking: as listed until asked. */
   const [ranks, setRanks] = useState<Record<string, Rank | null>>({});

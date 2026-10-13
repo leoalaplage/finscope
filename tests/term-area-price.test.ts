@@ -30,6 +30,15 @@ describe("MKT 1D area reference", () => {
     expect(areaFromCandles({ ...candles, previousClose: null }, "1D").baseline).toBeNull();
   });
 
+  it("measures a week from the close before it, as a return is computed, and keeps its open to draw", () => {
+    const week: Candles = { ...candles, interval: "1d",
+      t: [at("2026-10-01T00:00:00Z"), at("2026-10-12T00:00:00Z"), at("2026-10-13T00:00:00Z")], o: [90, 99, 104], c: [95, 100, 102] };
+    const area = areaFromCandles(week, "1W");
+    expect(area).toMatchObject({ baseline: 95, reference: "prior close", open: 99 });
+    // The day keeps the previous close as its reference and its own open beside it.
+    expect(areaFromCandles(candles, "1D")).toMatchObject({ baseline: 100, open: 105 });
+  });
+
   const snapshot: MarketWindow = {
     symbol: "^GSPC", name: "S&P 500", currency: "USD", timezone: "America/New_York", range: "1D",
     points: [{ time: at("2026-10-13T13:30:00Z"), label: "09:30", close: 103 }],

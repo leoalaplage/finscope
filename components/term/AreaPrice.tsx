@@ -7,7 +7,13 @@ import { niceStep } from "@/lib/term/fundamental-charts";
 import { useSize } from "./use-width";
 import type { AreaSeries } from "@/lib/term/area-price";
 
-/** Price relative to the previous close in 1D, or the open over longer periods. */
+/**
+ * The price as a line over the period, measured against the close before it
+ * (lib/term/area-price.ts): a dashed line at that reference, the area above it
+ * green and below it red, and the scale in percent from it — the move is the
+ * reading, the level is in the readout. The period's own open is drawn as a
+ * quieter line, so the night's gap is in the picture as well as in the number.
+ */
 
 const PAD = { top: 12, right: 64, bottom: 22, left: 8 };
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -32,15 +38,17 @@ export function AreaPrice({ series: shown, interval, label }: { series: AreaSeri
     return <p className="t-empty">{shown.c.length ? "Reference price unavailable." : "Reading prices…"}</p>;
   }
   const baseline = shown.baseline;
-  const reference = shown.reference === "previous close" ? "previous close" : "the open";
-  const referenceLabel = shown.reference === "previous close" ? "Prev close" : "Open";
+  const reference = shown.reference === "open" ? "the open" : shown.reference === "prior close" ? "the close before" : "previous close";
+  const referenceLabel = shown.reference === "open" ? "Open" : shown.reference === "prior close" ? "Close before" : "Prev close";
+  // The open, where it is not the reference itself.
+  const open = shown.reference !== "open" && shown.open != null && shown.open > 0 && Math.abs(shown.open / baseline - 1) > 1e-6 ? shown.open : null;
   const box = { width: Math.max(0, width), height: Math.max(0, height) };
   const n = shown.c.length;
   // The selected reference is zero on the percentage scale.
   const pct = (value: number) => (value / baseline - 1) * 100;
   const moves = shown.c.map(pct);
-  const low = Math.min(0, ...moves);
-  const high = Math.max(0, ...moves);
+  const low = Math.min(0, ...moves, ...(open != null ? [pct(open)] : []));
+  const high = Math.max(0, ...moves, ...(open != null ? [pct(open)] : []));
   const step = niceStep((high - low) || 0.1, 5);
   const min = Math.floor(low / step) * step;
   const max = Math.ceil(high / step) * step;
@@ -100,6 +108,12 @@ export function AreaPrice({ series: shown, interval, label }: { series: AreaSeri
             <path d={line} className="t-area-line-up" clipPath={`url(#${clip}-up)`} />
             <path d={line} className="t-area-line-down" clipPath={`url(#${clip}-down)`} />
             {n === 1 ? <circle cx={x(0)} cy={y(moves[0])} r={3.5} className={shown.c[0] >= baseline ? "t-area-dot-up" : "t-area-dot-down"} /> : null}
+            {open != null ? (
+              <g>
+                <line className="t-area-dayopen" x1={PAD.left} x2={plotRight} y1={y(pct(open))} y2={y(pct(open))} />
+                <text className="t-area-dayopen-label" x={plotRight - 4} y={y(pct(open)) - 4} textAnchor="end">Open {number(open)}</text>
+              </g>
+            ) : null}
             {/* The reference price, labelled on the axis. */}
             <line className="t-area-open" x1={PAD.left} x2={plotRight} y1={base} y2={base} />
             <rect className="t-area-open-tag" x={plotRight + 1} y={base - 8} width={PAD.right - 2} height={16} />

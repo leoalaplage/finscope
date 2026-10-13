@@ -336,7 +336,9 @@
 // to it (AEP's capex was a fiftieth of its spending, Con Ed's before 2012); a
 // lone finance lease is no longer total debt where other borrowing is filed
 // (Deere's $51m against $60bn).
-export const KEY_VERSION = "v45";
+// v46: the residual "other depreciation and amortization" line is read only
+// where no fuller one is filed; cash return on capital follows ROIC's rule.
+export const KEY_VERSION = "v46";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

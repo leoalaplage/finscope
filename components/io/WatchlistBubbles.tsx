@@ -3,29 +3,36 @@
 import { useState } from "react";
 import type { PerformanceRow } from "@/app/api/performance/route";
 import { WINDOWS, type WindowId } from "@/lib/performance";
-import { bubbleLayout, sectorColor } from "@/lib/watchlist-bubbles";
+import { bubbleLayout } from "@/lib/watchlist-bubbles";
 import { delta, shortDate } from "./format";
 
 const cap = (value: number | null | undefined) => value != null && value > 0
   ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 2 }).format(value)
   : "Unavailable";
 
+/**
+ * The watchlist as bubbles: each company's return over the chosen window,
+ * grouped by sector, its area its market capitalisation. A bubble opens the
+ * company on this site.
+ */
 export function WatchlistBubbles({ rows, loading }: { rows: PerformanceRow[]; loading: boolean }) {
-  const [window, setWindow] = useState<WindowId>("d1");
+  // Not `window`: that name is the browser's.
+  const [windowId, setWindowId] = useState<WindowId>("d1");
   const [sector, setSector] = useState<string | null>(null);
   const [active, setActive] = useState<string | null>(null);
   // An edited watchlist must not stay hidden behind an obsolete sector filter.
   const selected = rows.some((row) => (row.sector || "Unclassified") === sector) ? sector : null;
-  const layout = bubbleLayout(rows, window, selected);
+  const layout = bubbleLayout(rows, windowId, selected);
+  const sectorColor = (name: string) => layout.colors.get(name) ?? "#a1aab7";
   const point = layout.points.find((item) => item.ticker === active);
-  const period = WINDOWS.find((item) => item.id === window)!;
+  const period = WINDOWS.find((item) => item.id === windowId)!;
   const y = (value: number) => 32 + (layout.max - value) / (layout.max - layout.min) * 350;
 
   return <div className="watch-bubbles">
     <div className="watch-bubbles-toolbar">
       <span className="label">Sector view · {period.label}</span>
       <div className="watch-bubbles-periods" aria-label="Bubble chart period">
-        {WINDOWS.map((item) => <button key={item.id} type="button" aria-pressed={window === item.id} onClick={() => setWindow(item.id)}>{item.label}</button>)}
+        {WINDOWS.map((item) => <button key={item.id} type="button" aria-pressed={windowId === item.id} onClick={() => setWindowId(item.id)}>{item.label}</button>)}
       </div>
     </div>
     <div className="watch-bubbles-readout" aria-live="polite">
@@ -44,7 +51,7 @@ export function WatchlistBubbles({ rows, loading }: { rows: PerformanceRow[]; lo
           <line x1={65 + index / layout.groups.length * 1090} x2={65 + index / layout.groups.length * 1090} y1="32" y2="382" className="watch-bubbles-grid" />
           <rect x={65 + index / layout.groups.length * 1090} y="402" width={1090 / layout.groups.length - 2} height="4" fill={sectorColor(name)} />
         </g>)}
-        {[...layout.points].sort((a, b) => b.r - a.r).map((item) => <a key={item.ticker} href={`/t/s/${encodeURIComponent(item.ticker)}`} aria-label={`${item.ticker}, ${item.sector}, ${delta(item.value / 100, 2)}, market cap ${cap(item.marketCap)}`} onMouseEnter={() => setActive(item.ticker)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(item.ticker)} onBlur={() => setActive(null)}>
+        {[...layout.points].sort((a, b) => b.r - a.r).map((item) => <a key={item.ticker} href={`/s/${encodeURIComponent(item.ticker)}`} aria-label={`${item.ticker}, ${item.sector}, ${delta(item.value / 100, 2)}, market cap ${cap(item.marketCap)}`} onMouseEnter={() => setActive(item.ticker)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(item.ticker)} onBlur={() => setActive(null)}>
           <title>{`${item.ticker} · ${item.name ?? item.ticker}\n${item.sector} · ${delta(item.value / 100, 2)}\nMarket cap ${cap(item.marketCap)}`}</title>
           <circle cx={item.x} cy={item.y} r={Math.max(item.r, 10)} fill="transparent" />
           <circle className="watch-bubble" cx={item.x} cy={item.y} r={item.r} fill={item.marketCap != null && item.marketCap > 0 ? sectorColor(item.sector) : "none"} stroke={sectorColor(item.sector)} fillOpacity={active === item.ticker ? .95 : .68} strokeWidth={active === item.ticker ? 3 : 1.5} />

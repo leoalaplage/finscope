@@ -27,3 +27,12 @@ describe("watchlist sector bubbles", () => {
     expect(bubbleLayout(rows, "y10", null).points).toEqual([]);
   });
 });
+
+describe("sector colours", () => {
+  it("gives every sector of a watchlist its own colour, unchanged by a filter", () => {
+    const rows = ["Software", "Semiconductors", "Banking", "Energy", "Retail", "Media"].map((sector, index) => row(`T${index}`, .01, 100, sector));
+    const all = bubbleLayout(rows, "d1", null).colors;
+    expect(new Set(all.values()).size).toBe(6);
+    expect(bubbleLayout(rows, "d1", "Energy").colors.get("Energy")).toBe(all.get("Energy"));
+  });
+});
