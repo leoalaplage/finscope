@@ -3,7 +3,8 @@
 import { useState, type PointerEvent as ReactPointerEvent } from "react";
 import { layoutMap, moveColor, SECTOR_HEADER } from "@/lib/term/heatmap-layout";
 import { axisFor } from "@/lib/term/fundamental-charts";
-import { ABSENT, shortDate } from "@/components/io/format";
+import { ABSENT, currencySymbol, money, shortDate } from "@/components/io/format";
+import type { PerfPoint } from "@/lib/term/portfolio-performance";
 import { useWidth } from "./use-width";
 
 /**
@@ -18,7 +19,6 @@ const pct = (value: number | null | undefined, places = 1) =>
 
 /* --- Performance against the index ------------------------------------- */
 
-export interface PerfPoint { date: string; book: number; index: number; under: number }
 
 export interface TradeMark { date: string; kind: "buy" | "sell"; label: string }
 
@@ -33,14 +33,18 @@ function placeMarks(dates: string[], marks: TradeMark[]) {
   return [...placed.entries()];
 }
 
-export function PerfChart({ points, label, height = 300, marks = [] }: { points: PerfPoint[]; label: string; height?: number; marks?: TradeMark[] }) {
+export function PerfChart({ points, label, unit = "percent", currency = "USD", height = 300, marks = [] }: { points: PerfPoint[]; label: string; unit?: "percent" | "currency"; currency?: string; height?: number; marks?: TradeMark[] }) {
   const { ref, width } = useWidth();
   const [hover, setHover] = useState<number | null>(null);
   const under = 70;
   const top = 8; const left = 6; const right = 52; const bottom = 18;
   const plotHeight = height - under - bottom - top - 10;
-  const changes = points.flatMap((point) => [point.book / 100 - 1, point.index / 100 - 1]);
-  const axis = axisFor(changes, true, 5);
+  const valueMode = unit === "currency";
+  const plotValue = (value: number) => valueMode ? value : value / 100 - 1;
+  const writeValue = (value: number) => valueMode ? money(value, currency) : pct(value / 100 - 1);
+  const reference = valueMode ? points[0]?.book ?? 0 : 100;
+  const changes = points.flatMap((point) => [plotValue(point.book), plotValue(point.index)]);
+  const axis = axisFor(changes, !valueMode, 5);
   const depth = Math.min(-0.01, ...points.map((point) => point.under));
   const x = (index: number) => left + (index / Math.max(points.length - 1, 1)) * (width - left - right);
   const y = (change: number) => top + (1 - (change - axis!.min) / (axis!.max - axis!.min || 1)) * plotHeight;
@@ -60,24 +64,24 @@ export function PerfChart({ points, label, height = 300, marks = [] }: { points:
       {current ? (
         <div className="t-pf-readout">
           <span className="t-dim">{shortDate(current.date)}</span>
-          <span><i className="t-pf-key t-pf-key-book" />Portfolio <b data-dir={current.book >= 100 ? "up" : "down"}>{pct(current.book / 100 - 1)}</b></span>
-          <span><i className="t-pf-key t-pf-key-index" />{label} <b data-dir={current.index >= 100 ? "up" : "down"}>{pct(current.index / 100 - 1)}</b></span>
-          <span className="t-dim">Spread <b data-dir={current.book >= current.index ? "up" : "down"}>{pct((current.book - current.index) / 100)}</b></span>
+          <span><i className="t-pf-key t-pf-key-book" />Portfolio <b data-dir={current.book >= reference ? "up" : "down"}>{writeValue(current.book)}</b></span>
+          <span><i className="t-pf-key t-pf-key-index" />{label} <b data-dir={current.index >= reference ? "up" : "down"}>{writeValue(current.index)}</b></span>
+          <span className="t-dim">Spread <b data-dir={current.book >= current.index ? "up" : "down"}>{valueMode ? money(current.book - current.index, currency) : pct((current.book - current.index) / 100)}</b></span>
           <span className="t-dim">Drawdown <b data-dir="down">{pct(current.under)}</b></span>
         </div>
       ) : null}
       {width > 0 && axis && points.length > 1 ? (
-        <svg width={width} height={height} role="img" aria-label={`Portfolio against the ${label}, rebased, with its drawdown`}>
+        <svg width={width} height={height} role="img" aria-label={`Portfolio against the ${label}, ${valueMode ? `value in ${currency}` : "return in percent"}, with its drawdown`}>
           {axis.ticks.map((tick) => (
             <g key={tick}>
               <line className="t-gf-rule" x1={left} x2={width - right} y1={y(tick)} y2={y(tick)} />
-              <text className="t-gf-tick" x={width - right + 6} y={y(tick) + 3.5}>{pct(tick, 0)}</text>
+              <text className="t-gf-tick" x={width - right + 6} y={y(tick) + 3.5}>{valueMode ? compactMoney(tick, currency) : pct(tick, 0)}</text>
             </g>
           ))}
-          <line className="t-gf-zero" x1={left} x2={width - right} y1={y(0)} y2={y(0)} />
-          <path className="t-pf-area" d={`${path((point) => point.book / 100 - 1)}L${x(points.length - 1)} ${y(axis.min)}L${x(0)} ${y(axis.min)}Z`} />
-          <path className="t-pf-index" d={path((point) => point.index / 100 - 1)} />
-          <path className="t-pf-book" d={path((point) => point.book / 100 - 1)} />
+          <line className="t-gf-zero" x1={left} x2={width - right} y1={y(plotValue(reference))} y2={y(plotValue(reference))} />
+          <path className="t-pf-area" d={`${path((point) => plotValue(point.book))}L${x(points.length - 1)} ${y(axis.min)}L${x(0)} ${y(axis.min)}Z`} />
+          <path className="t-pf-index" d={path((point) => plotValue(point.index))} />
+          <path className="t-pf-book" d={path((point) => plotValue(point.book))} />
           {/* Underwater: how far below its running peak the book stood. */}
           <text className="t-gf-tick" x={left + 2} y={underTop - 2}>DRAWDOWN</text>
           <path className="t-pf-under" d={`M${x(0)} ${underTop}${points.map((point, index) => `L${x(index).toFixed(1)} ${yu(point.under).toFixed(1)}`).join("")}L${x(points.length - 1)} ${underTop}Z`} />
@@ -255,10 +259,10 @@ export function Spark({ values }: { values: number[] }) {
 
 /* --- Money in against what it is worth --------------------------------- */
 
-const compactMoney = (value: number) => {
+const compactMoney = (value: number, currency = "USD") => {
   const size = Math.abs(value);
   const text = size >= 1e9 ? `${(size / 1e9).toFixed(1)}B` : size >= 1e6 ? `${(size / 1e6).toFixed(1)}M` : size >= 1e3 ? `${(size / 1e3).toFixed(size >= 1e5 ? 0 : 1)}K` : size.toFixed(0);
-  return `${value < 0 ? "−" : ""}$${text}`;
+  return `${value < 0 ? "−" : ""}${currencySymbol(currency)}${text}`;
 };
 
 /**

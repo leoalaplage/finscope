@@ -22,9 +22,9 @@ import { parseTrades } from "@/lib/transactions";
 import { BookEditor } from "./BookEditor";
 import { ABSENT, money, price as writePrice, shortDate } from "@/components/io/format";
 import { Panel } from "./Panel";
-import { Bars, paletteColor, CapitalChart, CorrelationMatrix, HoldingsMap, MonthlyReturns, PerfChart, Spark, type PerfPoint, type TradeMark } from "./PortfolioCharts";
+import { Bars, paletteColor, CapitalChart, CorrelationMatrix, HoldingsMap, MonthlyReturns, PerfChart, Spark, type TradeMark } from "./PortfolioCharts";
 import { BENCHMARK, usePortfolioFeed } from "./use-portfolio";
-import { performanceHistories } from "@/lib/term/portfolio-performance";
+import { performanceChartPoints, performanceHistories } from "@/lib/term/portfolio-performance";
 
 /**
  * PORT: the book, as a risk desk reads it.
@@ -146,8 +146,8 @@ export function TermPortfolio() {
     const paired = rebasePair(book, source.index);
     if (paired.length < 2) return null;
     const water = new Map(underwater(book).map((point) => [point.date, point.value]));
-    const drawn: PerfPoint[] = paired.map((point) => ({ date: point.date, book: point.portfolio, index: point.benchmark, under: water.get(point.date) ?? 0 }));
-    const last = drawn.at(-1)!;
+    const drawn = performanceChartPoints(paired, source.values, water, total);
+    const last = paired.at(-1)!;
     const years = (Date.parse(last.date) - Date.parse(drawn[0].date)) / (365.25 * 86_400_000);
     const startValue = since(source.values, drawn[0].date)[0]?.value ?? 0;
     const contrib = (dated
@@ -162,13 +162,13 @@ export function TermPortfolio() {
     })) : [];
     return {
       drawn, from: drawn[0].date, years,
-      book: last.book / 100 - 1, index: last.index / 100 - 1,
-      cagr: years >= 1 ? (last.book / 100) ** (1 / years) - 1 : null,
+      book: last.portfolio / 100 - 1, index: last.benchmark / 100 - 1,
+      cagr: years >= 1 ? (last.portfolio / 100) ** (1 / years) - 1 : null,
       drawdown: maxDrawdown(book), contrib, marks,
       // A book younger than the window starts where its youngest holding does.
       short: paired[0].date > (since(source.index, from)[0]?.date ?? paired[0].date),
     };
-  }, [series, span, positions, dated, trades, everTraded]);
+  }, [series, span, total, positions, dated, trades, everTraded]);
 
   /* Risk over the last year of sessions, on total-return closes. */
   const risk = useMemo(() => {
@@ -367,11 +367,11 @@ export function TermPortfolio() {
     <>
       {header}
       <div className="t-grid t-port" data-dated={dated || undefined}>
-        <Panel code="PERF" title={`Performance against the ${benchmarkLabel}`} area="perf" actions={
+        <Panel code="PERF" title={total ? `Performance against the ${benchmarkLabel}` : `Portfolio value · ${BASE}`} area="perf" actions={
           <>
             <div className="seg" role="group" aria-label="Returns">
-              <button type="button" aria-pressed={total} onClick={() => setTotal(true)} title="Dividends reinvested">Total return</button>
-              <button type="button" aria-pressed={!total} onClick={() => setTotal(false)}>Price</button>
+              <button type="button" aria-pressed={total} onClick={() => setTotal(true)} title="Performance in %, dividends reinvested">Total return</button>
+              <button type="button" aria-pressed={!total} onClick={() => setTotal(false)} title={`Portfolio value in ${BASE}`}>Price</button>
             </div>
             <div className="seg" role="group" aria-label="Window">
               {SPANS.map((entry) => <button key={entry} type="button" aria-pressed={span === entry} onClick={() => setSpan(entry)}>{entry}</button>)}
@@ -381,12 +381,12 @@ export function TermPortfolio() {
           {/* Taller beside the longer column of figures a dated book has. */}
           {total && (DAILY_SPANS.has(span) ? feed.daily : feed.weekly)?.totalIndex.length === 0
             ? <p className="t-empty">S&P 500 Total Return history is unavailable. Try again shortly.</p>
-            : <PerfChart points={perf?.drawn ?? []} label={benchmarkLabel} marks={perf?.marks ?? []} height={dated ? 430 : 300} />}
+            : <PerfChart key={`${span}:${total ? "return" : "value"}`} points={perf?.drawn ?? []} label={total ? benchmarkLabel : `${BENCHMARK.label} equivalent`} unit={total ? "percent" : "currency"} currency={BASE} marks={perf?.marks ?? []} height={dated ? 430 : 300} />}
           <p className="t-study-note">
-            {dated
+            {!total ? <>Portfolio value in {BASE}, {dated ? "from the shares held on each date; deposits and sales change the value" : "from the shares held today, priced back through the window"}. The S&amp;P 500 price comparison starts with the same amount. ▲ buys, ▼ sales. </> : dated
               ? <>The book as it stood on each {DAILY_SPANS.has(span) ? "session" : "week"}, from your dated trades, as a time-weighted return: a deposit is not a gain, so each trade&apos;s cash is taken out before the day&apos;s return is chained. ▲ buys, ▼ sales. </>
               : <>The shares held today, priced back through every {DAILY_SPANS.has(span) ? "session" : "week"} of the window — not a record of trades; add dated trades or import a broker CSV for the book as it really was. </>}
-            {total ? "Dividends reinvested on both lines." : "Price only, on both lines."}
+            {total ? "Dividends reinvested on both lines." : ""}
             {perf?.short ? ` The line starts on ${shortDate(perf.from)}, where ${dated ? "the first trade" : "the youngest holding's prices"} begin${dated ? "s" : ""}.` : ""}
           </p>
         </Panel>
