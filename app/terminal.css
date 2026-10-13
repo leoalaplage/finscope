@@ -268,19 +268,32 @@ body:has(.io.term) { background: #050608; }
 .t-head-move[data-dir="down"]::before { content: "▼ "; font-size: 9px; vertical-align: 1px; }
 
 .t-company { align-items: stretch; grid-template-areas:
+  "c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top"
   "gp gp gp gp gp gp gp gp side side side side"
+  "c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz"
+  "seg seg seg seg seg seg seg seg seg seg seg seg"
   "fa fa fa fa fa fa gr gr gr gr gr gr"
   "gf gf gf gf gf gf gf gf gf gf gf gf"
-  "seg seg seg seg seg seg seg seg seg seg seg seg"
+  "c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res"
   "rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt"
   "est est est est est est est est est est est est"
   "left left left left left left right right right right right right"
+  "c-val c-val c-val c-val c-val c-val c-val c-val c-val c-val c-val c-val"
   "val val val val val val val val val val val val"
   "dcf dcf dcf dcf dcf dcf dcf dcf dcf dcf dcf dcf"
-  "st st st st st st st st st st st st"
+  "c-own c-own c-own c-own c-own c-own c-own c-own c-own c-own c-own c-own"
   "ins ins ins ins ins ins hds hds hds hds hds hds"
+  "c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc"
+  "st st st st st st st st st st st st"
   "src src src src src src src src src src src src";
 }
+
+/* A chapter of the company page (components/term/TermCompany.tsx). */
+.t-chapter { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-top: 10px; padding: 6px 8px 4px; border-bottom: 1px solid var(--amber-dim); }
+.t-chapter b { color: var(--amber-ink); background: var(--amber); padding: 0 6px; font-size: var(--fs-xs); font-weight: 700; }
+.t-chapter-title { color: var(--amber); font-size: var(--fs-sm); font-weight: 700; text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-chapter-note { color: var(--ink-3); font-size: var(--fs-xs); }
+.t-company > .t-chapter:first-child { margin-top: 0; }
 
 /*
  * The graph takes the height of its band. Its own height is the floor; when
@@ -635,21 +648,27 @@ body:has(.io.term) { background: #050608; }
 
 @media (max-width: 1100px) {
   .t-company { grid-template-areas:
+    "c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top"
     "gp gp gp gp gp gp gp gp gp gp gp gp"
     "side side side side side side side side side side side side"
+    "c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz"
+    "seg seg seg seg seg seg seg seg seg seg seg seg"
     "fa fa fa fa fa fa fa fa fa fa fa fa"
     "gr gr gr gr gr gr gr gr gr gr gr gr"
     "gf gf gf gf gf gf gf gf gf gf gf gf"
-    "seg seg seg seg seg seg seg seg seg seg seg seg"
+    "c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res"
     "rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt"
     "est est est est est est est est est est est est"
     "left left left left left left left left left left left left"
     "right right right right right right right right right right right right"
+    "c-val c-val c-val c-val c-val c-val c-val c-val c-val c-val c-val c-val"
     "val val val val val val val val val val val val"
     "dcf dcf dcf dcf dcf dcf dcf dcf dcf dcf dcf dcf"
-    "st st st st st st st st st st st st"
+    "c-own c-own c-own c-own c-own c-own c-own c-own c-own c-own c-own c-own"
     "ins ins ins ins ins ins ins ins ins ins ins ins"
     "hds hds hds hds hds hds hds hds hds hds hds hds"
+    "c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc"
+    "st st st st st st st st st st st st"
     "src src src src src src src src src src src src";
   }
   .t-launch { grid-template-areas:
