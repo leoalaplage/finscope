@@ -1,9 +1,10 @@
 import { fetchYahooSessions } from "@/lib/adapters/yahoo";
 import { cachedJson, TODAY_SECONDS } from "@/lib/market-cache";
 import { COVERED_TICKERS } from "@/lib/company-registry";
-import { requestedTickers, summaryKey } from "@/lib/dataset-cache";
+import { requestedTickers } from "@/lib/dataset-cache";
 import { datasetCache } from "@/lib/runtime-env";
-import type { WatchlistSummary } from "@/lib/watchlist-summary";
+import { performanceMetadata } from "@/lib/performance-metadata";
+import { readServedUniverse } from "@/lib/universe-build";
 import { resolveMarketProfile } from "@/lib/market-profile";
 import { performanceOf, PERFORMANCE_SHAPE, type Performance } from "@/lib/performance";
 
@@ -48,6 +49,17 @@ export async function GET(request: Request) {
   const end = new Date().toISOString().slice(0, 10);
   const start = `${Number(end.slice(0, 4)) - YEARS - 1}${end.slice(4)}`;
 
+  const cache = datasetCache();
+  let universe: ReturnType<typeof readServedUniverse> | undefined;
+  const metadata = (company: NonNullable<ReturnType<typeof resolveMarketProfile>>, price: number | null) => performanceMetadata(
+    company, price,
+    async (key) => cache ? await cache.get(key, "json") : null,
+    async () => {
+      universe ??= readServedUniverse();
+      return (await universe)?.rows.find((row) => row.ticker === company.ticker) ?? null;
+    },
+  );
+
   const rows = await Promise.all(asked.map(async (ticker): Promise<PerformanceRow> => {
     const company = resolveMarketProfile(ticker);
     if (!company) return { ticker, price: null, asOf: null, changes: {}, error: "Not a usable exchange symbol" };
@@ -62,20 +74,7 @@ export async function GET(request: Request) {
         (value) => value.price == null ? "empty" : "full",
       );
       const performance = JSON.parse(body) as Performance;
-      let summary: WatchlistSummary | null = null;
-      try {
-        const stored = await datasetCache()?.get(summaryKey(ticker), "text");
-        if (stored) summary = JSON.parse(stored) as WatchlistSummary;
-      } catch { /* Prices remain usable when the filing summary is unavailable. */ }
-      const shares = summary?.qsPrice?.shares ?? summary?.shares;
-      const sector = summary?.qs?.["Sector"];
-      return {
-        ticker, ...performance,
-        name: summary?.name ?? company.name,
-        sector: typeof sector === "string" && sector.trim() ? sector : company.sector,
-        marketCap: performance.price != null && shares != null && Number.isFinite(shares) && shares > 0
-          ? performance.price * shares : null,
-      };
+      return { ticker, ...performance, ...await metadata(company, performance.price) };
     } catch (error) {
       return { ticker, price: null, asOf: null, changes: {}, error: error instanceof Error ? error.message : "Prices unavailable" };
     }
