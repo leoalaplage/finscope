@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adjustedBeta, costOfEquity, EQUITY_RISK_PREMIUM, rawBeta, returnsOf } from "../lib/io/cost-of-equity";
+import { adjustedBeta, BETA_FLOOR, costOfEquity, EQUITY_RISK_PREMIUM, rawBeta, returnsOf } from "../lib/io/cost-of-equity";
 
 /**
  * The discounted cash flow's one unfiled number, stopped being a guess.
@@ -57,9 +57,11 @@ describe("what the model charges for risk", () => {
     const defensive = costOfEquity(.0483, times(.2), market)!;
     const volatile = costOfEquity(.0483, times(2.1), market)!;
     expect(defensive.rate).toBeLessThan(volatile.rate);
-    expect(defensive.rate).toBeCloseTo(.0483 + adjustedBeta(.2) * EQUITY_RISK_PREMIUM, 6);
+    // Its measured beta stays on record; the rate is struck on the floor of 0.6.
+    expect(defensive.beta).toBeCloseTo(adjustedBeta(.2), 6);
+    expect(defensive.rate).toBeCloseTo(.0483 + BETA_FLOOR * EQUITY_RISK_PREMIUM, 6);
     // The spread the four buttons were pretending did not exist.
-    expect(volatile.rate - defensive.rate).toBeGreaterThan(.05);
+    expect(volatile.rate - defensive.rate).toBeGreaterThan(.04);
   });
 
   it("carries every ingredient, so the page can state the arithmetic", () => {

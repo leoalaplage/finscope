@@ -11,8 +11,16 @@ import type { IoCompanyView, IoPeriod } from "./view";
  *   the two-stage shape every business that has ever grown has had.
  * - The operating margin moves from today's to a target by year five and
  *   holds there.
- * - Tax, capital spending, depreciation and working capital are shares of
- *   revenue; dilution is a yearly change in the share count.
+ * - Capital spending and depreciation start where they are today and move to
+ *   a year-five level in a straight line, so year one's free cash flow looks
+ *   like this year's rather than like a five-year average (a company in the
+ *   middle of a building programme is not valued as if it had finished it).
+ * - From year five the reinvestment fades to what the terminal growth needs:
+ *   growth ÷ return on capital, of NOPAT (Damodaran's identity). A company
+ *   mid-way through a building programme does not keep building at that pace
+ *   for ever, and a perpetuity with no reinvestment cannot grow.
+ * - Tax and working capital are shares of revenue; dilution is a yearly
+ *   change in the share count.
  * - The discount rate is the weighted cost of capital: this company's cost of
  *   equity (its measured beta on the ten-year Treasury) and its own cost of
  *   debt after tax, at today's market weights.
@@ -53,12 +61,16 @@ export interface DcfFoundation {
   basePeriod: { label: string; end: string };
   /** Today's operating margin, where the margin path starts. */
   startMargin: number;
+  /** Today's levels, where the reinvestment paths start, and today's growth. */
+  now: { growth: number | null; capex: number | null; depreciation: number | null };
   /** The company's record, for the hints beside each lever. */
   record: {
     growth3: number | null; growth5: number | null; growth10: number | null;
     margin5: number | null; marginHigh: number | null;
     tax5: number | null; capex5: number | null; depreciation5: number | null; workingCapital5: number | null; dilution5: number | null;
     costOfDebt: number | null;
+    /** Return on invested capital, five-year average: what new capital earns once the business is mature. */
+    roic5: number | null;
     /** Revenue and free cash flow by fiscal year, for the chart. */
     years: Array<{ label: string; end: string; revenue: number | null; freeCashFlow: number | null }>;
   };
@@ -67,6 +79,12 @@ export interface DcfFoundation {
 const known = (value: number | null | undefined): value is number => value != null && Number.isFinite(value);
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 const at = (period: IoPeriod | undefined, key: string) => (known(period?.values[key]) ? period!.values[key]! : null);
+const median = (values: Array<number | null>) => {
+  const usable = values.filter(known).sort((a, b) => a - b);
+  if (!usable.length) return null;
+  const middle = Math.floor(usable.length / 2);
+  return usable.length % 2 ? usable[middle] : (usable[middle - 1] + usable[middle]) / 2;
+};
 const mean = (values: Array<number | null>) => {
   const usable = values.filter(known);
   return usable.length ? usable.reduce((sum, value) => sum + value, 0) / usable.length : null;
@@ -109,17 +127,24 @@ export function dcfFoundation(view: IoCompanyView): DcfFoundation | null {
     return known(now) && known(before) && before > 0 ? now / before - 1 : null;
   });
   const interest = at(latest, "interestExpense");
+  // Today: the trailing year against the trailing year before it, where the filer has both.
+  const yearAgo = view.trailing.find((period) => Math.abs(Date.parse(period.end) - (Date.parse(latest.end) - 365 * 86_400_000)) <= 20 * 86_400_000)
+    ?? annual.find((period) => Math.abs(Date.parse(period.end) - (Date.parse(latest.end) - 365 * 86_400_000)) <= 20 * 86_400_000);
+  const revenueAgo = at(yearAgo, "revenue");
+  const ofRevenue = (key: string) => { const amount = at(latest, key); return known(amount) ? Math.abs(amount) / revenue : null; };
   return {
     base: { revenue, operatingMargin: startMargin, freeCashFlow: at(latest, "freeCashFlow") ?? 0, dilutedShares: shares, cash, debt },
     basePeriod: { label: latest.label, end: latest.end },
     startMargin,
+    now: { growth: known(revenueAgo) && revenueAgo > 0 ? revenue / revenueAgo - 1 : null, capex: ofRevenue("capitalExpenditures"), depreciation: ofRevenue("depreciationAndAmortization") },
     record: {
       growth3: cagr(3), growth5: cagr(5), growth10: cagr(10) ?? mean(growth.slice(-10)),
       margin5: mean(margins.slice(-5)), marginHigh: margins.filter(known).length ? Math.max(...margins.filter(known)) : null,
       tax5: mean(annual.slice(-5).map((period) => at(period, "effectiveTaxRate"))),
       capex5: mean(share("capitalExpenditures")), depreciation5: mean(share("depreciationAndAmortization")),
-      workingCapital5: mean(workingCapital), dilution5: mean(dilution),
+      workingCapital5: median(workingCapital), dilution5: mean(dilution),
       costOfDebt: known(interest) && debt > 0 ? Math.abs(interest) / debt : null,
+      roic5: mean(annual.slice(-5).map((period) => at(period, "roic"))),
       years: annual.slice(-6).map((period) => ({ label: period.label, end: period.end, revenue: at(period, "revenue"), freeCashFlow: at(period, "freeCashFlow") })),
     },
   };
@@ -133,22 +158,29 @@ export function weightedCost(costOfEquity: number, costOfDebt: number | null, ta
   return equity * costOfEquity + (1 - equity) * kd;
 }
 
+const midway = (now: number | null, record: number | null) => (now != null && record != null ? (now + record) / 2 : now ?? record);
+
 /** The company's own record, bounded, as the base case. */
 export function defaultDrivers(foundation: DcfFoundation, costOfEquity: number | null, marketCap: number | null): Drivers {
   const r = foundation.record;
-  const recent = r.growth3 ?? r.growth5 ?? 0.05;
-  const longer = r.growth5 ?? r.growth10 ?? recent;
+  // Today's growth weighs most in year one; the three-year record tempers a single year.
+  const record3 = r.growth3 ?? r.growth5 ?? 0.05;
+  const recent = foundation.now.growth != null ? 0.6 * foundation.now.growth + 0.4 * record3 : record3;
+  const longer = r.growth5 ?? r.growth10 ?? record3;
   const growthStart = clamp(recent, -0.1, 0.35);
   const growthEnd = clamp(Math.min(growthStart, (longer + 0.03) / 2 + 0.02), -0.05, 0.2);
   const taxRate = clamp(r.tax5 ?? 0.21, 0.1, 0.3);
   const coe = costOfEquity ?? 0.09;
   return {
     growthStart, growthEnd,
-    marginTarget: clamp(r.margin5 != null ? (r.margin5 + foundation.startMargin) / 2 : foundation.startMargin, -0.2, 0.6),
+    // Today's margin held: the case a reader moves from, up or down.
+    marginTarget: clamp(foundation.startMargin, -0.2, 0.6),
     taxRate,
-    capex: clamp(r.capex5 ?? 0.04, 0, 0.4),
-    depreciation: clamp(r.depreciation5 ?? 0.035, 0, 0.3),
-    workingCapital: clamp(r.workingCapital5 ?? 0.01, -0.05, 0.1),
+    // Year five's reinvestment: halfway from today's level back to the five-year record.
+    capex: clamp(midway(foundation.now.capex, r.capex5) ?? 0.04, 0, 0.4),
+    depreciation: clamp(midway(foundation.now.depreciation, r.depreciation5) ?? 0.035, 0, 0.3),
+    // The median year, bounded: one year's swing in receivables is not a perpetual drain.
+    workingCapital: clamp(r.workingCapital5 ?? 0.01, -0.02, 0.02),
     dilution: clamp(r.dilution5 ?? 0, 0, 0.05),
     wacc: clamp(weightedCost(coe, r.costOfDebt, taxRate, marketCap, foundation.base.debt), 0.05, 0.16),
     terminalMethod: "perpetual-growth",
@@ -159,15 +191,20 @@ export function defaultDrivers(foundation: DcfFoundation, costOfEquity: number |
 
 export type Scenario = "bear" | "base" | "bull";
 
-/** The cases either side of the base: growth and margin three points apart, the rate one point. */
+/**
+ * The cases either side of the base: growth three points apart, the rate one
+ * point, and the margin by a fifth of itself (at most three points) — three
+ * points on Costco's 4% margin would nearly double or erase it.
+ */
 export function scenarioDrivers(base: Drivers, scenario: Scenario): Drivers {
   if (scenario === "base") return base;
   const sign = scenario === "bull" ? 1 : -1;
+  const marginStep = Math.min(0.03, Math.max(0.005, Math.abs(base.marginTarget) * 0.2));
   return {
     ...base,
     growthStart: base.growthStart + sign * 0.03,
     growthEnd: base.growthEnd + sign * 0.02,
-    marginTarget: base.marginTarget + sign * 0.03,
+    marginTarget: base.marginTarget + sign * marginStep,
     wacc: base.wacc - sign * 0.01,
     terminalGrowth: base.terminalGrowth + sign * 0.005,
     exitMultiple: base.exitMultiple * (1 + sign * 0.2),
@@ -185,10 +222,27 @@ export function assumptionsFrom(drivers: Drivers, foundation: DcfFoundation): Dc
   const margin = Array.from({ length: YEARS }, (_, index) =>
     index < STAGE_ONE ? foundation.startMargin + ((drivers.marginTarget - foundation.startMargin) * (index + 1)) / STAGE_ONE : drivers.marginTarget);
   const repeat = (value: number) => Array.from({ length: YEARS }, () => value);
+  // Today's level to the year-five one in a straight line, then held.
+  const path = (now: number | null, target: number) => Array.from({ length: YEARS }, (_, index) =>
+    now == null || index >= STAGE_ONE - 1 ? target : now + ((target - now) * index) / (STAGE_ONE - 1));
+  /*
+   * Capital spending from year five on fades to the steady state: depreciation
+   * plus the net reinvestment the terminal growth needs at the company's
+   * return on capital (bounded between the cost of capital and 30%), less what
+   * working capital already takes.
+   */
+  const terminalGrowth = drivers.terminalMethod === "perpetual-growth" ? drivers.terminalGrowth : Math.min(drivers.growthEnd, 0.04);
+  const roic = clamp(foundation.record.roic5 ?? 0.15, Math.max(drivers.wacc, 0.08), 0.3);
+  const steadyCapex = Math.max(0, drivers.depreciation + (terminalGrowth / roic) * drivers.marginTarget * (1 - drivers.taxRate) - drivers.workingCapital);
+  const capex = path(foundation.now.capex, drivers.capex).map((value, index) => {
+    if (index < STAGE_ONE) return value;
+    const fade = (index - STAGE_ONE + 1) / (YEARS - STAGE_ONE);
+    return drivers.capex + (steadyCapex - drivers.capex) * fade;
+  });
   return {
     method: "fcff", terminalMethod: drivers.terminalMethod, forecastYears: YEARS,
     revenueGrowth: growth, operatingMargin: margin, taxRate: repeat(drivers.taxRate),
-    depreciationPercentRevenue: repeat(drivers.depreciation), capexPercentRevenue: repeat(drivers.capex),
+    depreciationPercentRevenue: path(foundation.now.depreciation, drivers.depreciation), capexPercentRevenue: capex,
     workingCapitalPercentRevenue: repeat(drivers.workingCapital), directFcfMargin: repeat(0),
     shareChange: repeat(drivers.dilution), wacc: drivers.wacc,
     terminalGrowth: drivers.terminalGrowth, exitMultiple: drivers.exitMultiple, otherClaims: 0,

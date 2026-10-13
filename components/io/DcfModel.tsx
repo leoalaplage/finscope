@@ -89,7 +89,7 @@ function Workbench({ view, foundation, price, currency, coe, fullPage }: {
         <Figure label="Against the price" value={signed(upside)} tone={dir(upside)} note={upside == null ? undefined : upside >= 0 ? "Margin of safety at this price" : "The price is above the value"} />
         <Figure label="Bear · base · bull" value={[cases.bear, cases.base, cases.bull].map((entry) => (entry == null ? ABSENT : writePrice(entry, currency))).join(" · ")} note="Growth and margin ±3 points, the rate ∓1" />
         <Figure label="The price asks for" value={implied == null ? ABSENT : `${pct(implied)} a year`} note={`Revenue growth in years 1–5, everything else as set. Delivered: ${pct(record.growth5)} over 5 years`} />
-        <Figure label="Discount rate (WACC)" value={pct(drivers.wacc)} note={coe.value ? `Equity ${pct(coe.value.rate)} · β ${coe.value.beta.toFixed(2)} · 10Y ${pct(coe.value.riskFree, 2)}` : coe.settled ? "Beta unavailable: 9% cost of equity" : "Measuring the beta…"} />
+        <Figure label="Discount rate (WACC)" value={pct(drivers.wacc)} note={coe.value ? `Equity ${pct(coe.value.rate)} · β ${coe.value.beta.toFixed(2)}${coe.value.beta < 0.6 ? " (floored at 0.6)" : ""} · 10Y ${pct(coe.value.riskFree, 2)}` : coe.settled ? "Beta unavailable: 9% cost of equity" : "Measuring the beta…"} />
         <Figure label="Terminal value" value={pct(result.terminalValueWeight, 0)} note="Share of the enterprise value beyond year 10" tone={result.terminalValueWeight != null && result.terminalValueWeight > 0.75 ? "down" : undefined} />
       </div>
 
@@ -105,13 +105,13 @@ function Workbench({ view, foundation, price, currency, coe, fullPage }: {
           </div>
           <table className="dcf-lever-table">
             <tbody>
-              <Lever label="Revenue growth, year 1" value={drivers.growthStart} onChange={(next) => set("growthStart", next)} hint={`3Y ${pct(record.growth3)} · 5Y ${pct(record.growth5)}`} edited={"growthStart" in saved.overrides} />
+              <Lever label="Revenue growth, year 1" value={drivers.growthStart} onChange={(next) => set("growthStart", next)} hint={`Last 12 months ${pct(foundation.now.growth)} · 3Y ${pct(record.growth3)} · 5Y ${pct(record.growth5)}`} edited={"growthStart" in saved.overrides} />
               <Lever label="Revenue growth, year 5" value={drivers.growthEnd} onChange={(next) => set("growthEnd", next)} hint={`10Y ${pct(record.growth10)} · then fades to terminal`} edited={"growthEnd" in saved.overrides} />
               <Lever label="Operating margin, year 5" value={drivers.marginTarget} onChange={(next) => set("marginTarget", next)} hint={`Now ${pct(foundation.startMargin)} · 5Y avg ${pct(record.margin5)} · best ${pct(record.marginHigh)}`} edited={"marginTarget" in saved.overrides} />
               <Lever label="Tax rate" value={drivers.taxRate} onChange={(next) => set("taxRate", next)} hint={`5Y effective ${pct(record.tax5)}`} edited={"taxRate" in saved.overrides} />
-              <Lever label="Capex / revenue" value={drivers.capex} onChange={(next) => set("capex", next)} hint={`5Y ${pct(record.capex5)}`} edited={"capex" in saved.overrides} />
-              <Lever label="D&A / revenue" value={drivers.depreciation} onChange={(next) => set("depreciation", next)} hint={`5Y ${pct(record.depreciation5)}`} edited={"depreciation" in saved.overrides} />
-              <Lever label="Δ working capital / revenue" value={drivers.workingCapital} onChange={(next) => set("workingCapital", next)} hint={`5Y ${pct(record.workingCapital5)}`} edited={"workingCapital" in saved.overrides} />
+              <Lever label="Capex / revenue, year 5" value={drivers.capex} onChange={(next) => set("capex", next)} hint={`Now ${pct(foundation.now.capex)} · 5Y ${pct(record.capex5)} · then fades to what growth needs`} edited={"capex" in saved.overrides} />
+              <Lever label="D&A / revenue, year 5" value={drivers.depreciation} onChange={(next) => set("depreciation", next)} hint={`Now ${pct(foundation.now.depreciation)} · 5Y ${pct(record.depreciation5)}`} edited={"depreciation" in saved.overrides} />
+              <Lever label="Δ working capital / revenue" value={drivers.workingCapital} onChange={(next) => set("workingCapital", next)} hint={`5Y median ${pct(record.workingCapital5)}`} edited={"workingCapital" in saved.overrides} />
               <Lever label="Dilution a year" value={drivers.dilution} onChange={(next) => set("dilution", next)} hint={`5Y ${signed(record.dilution5)} · buybacks are in the cash already`} edited={"dilution" in saved.overrides} />
               <Lever label="Discount rate (WACC)" value={drivers.wacc} onChange={(next) => set("wacc", next)} hint={`Debt ${pct(record.costOfDebt)} before tax`} edited={"wacc" in saved.overrides} />
               <tr>

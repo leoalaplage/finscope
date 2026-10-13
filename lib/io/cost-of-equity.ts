@@ -30,6 +30,8 @@
  * capital becomes an opinion wearing a formula.
  */
 export const EQUITY_RISK_PREMIUM = .05;
+/** The lowest beta a cost of equity is struck on. */
+export const BETA_FLOOR = .6;
 
 /** Period-to-period returns from a series of closes, gaps skipped. */
 export function returnsOf(closes: Array<number | null | undefined>): number[] {
@@ -105,9 +107,16 @@ export function costOfEquity(
 ): CostOfEquity | null {
   if (riskFree == null || !Number.isFinite(riskFree) || riskFree < 0 || riskFree > .25) return null;
   const raw = rawBeta(company, market);
-  if (raw == null || !Number.isFinite(raw)) return null;
+  // A beta at or under nothing is not a measurement of this company's risk; the reader chooses instead.
+  if (raw == null || !Number.isFinite(raw) || raw <= 0) return null;
+  /*
+   * A floor of 0.6 on the beta the rate is struck on. Five years of weekly
+   * returns put Johnson & Johnson at 0.46 and Coca-Cola at 0.56, which price
+   * their equity barely above the Treasury; no practitioner discounts a
+   * company's equity at that, and the floor keeps the measured beta on screen.
+   */
   const beta = adjustedBeta(raw);
-  const rate = riskFree + beta * premium;
+  const rate = riskFree + Math.max(beta, BETA_FLOOR) * premium;
   // A negative-beta company would price below the Treasury, and a rate at or
   // under the terminal growth makes a perpetuity infinite. Neither is a reading
   // this page can use, so it hands the choice back rather than clamping.
