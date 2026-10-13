@@ -16,6 +16,7 @@ const frequencies = new Set<MarketFrequency>(["daily", "weekly", "monthly", "qua
  */
 const BENCHMARKS: Record<string, { name: string; yahooTicker: string; currency: string }> = {
   "^GSPC": { name: "S&P 500", yahooTicker: "^GSPC", currency: "USD" },
+  "^SP500TR": { name: "S&P 500 Total Return", yahooTicker: "^SP500TR", currency: "USD" },
   "^NDX": { name: "Nasdaq 100", yahooTicker: "^NDX", currency: "USD" },
 };
 

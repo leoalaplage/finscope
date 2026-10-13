@@ -23,7 +23,8 @@ import { BookEditor } from "./BookEditor";
 import { ABSENT, money, price as writePrice, shortDate } from "@/components/io/format";
 import { Panel } from "./Panel";
 import { Bars, paletteColor, CapitalChart, CorrelationMatrix, HoldingsMap, MonthlyReturns, PerfChart, Spark, type PerfPoint, type TradeMark } from "./PortfolioCharts";
-import { BENCHMARK, usePortfolioFeed, type Bar } from "./use-portfolio";
+import { BENCHMARK, usePortfolioFeed } from "./use-portfolio";
+import { performanceHistories } from "@/lib/term/portfolio-performance";
 
 /**
  * PORT: the book, as a risk desk reads it.
@@ -61,7 +62,6 @@ function windowStart(end: string, span: Span): string {
   else from.setUTCFullYear(from.getUTCFullYear() - Number(span.slice(0, -1)));
   return from.toISOString().slice(0, 10);
 }
-const points = (bars: Bar[] | undefined, adjusted: boolean): SeriesPoint[] => (bars ?? []).map((bar) => ({ date: bar.date, value: adjusted ? bar.adjusted : bar.close }));
 const since = (series: SeriesPoint[], from: string) => series.filter((point) => point.date >= from);
 
 type SortKey = "value" | "ticker" | "day" | "gain" | "year" | "risk";
@@ -84,6 +84,7 @@ export function TermPortfolio() {
   const [editing, setEditing] = useState(false);
   const [span, setSpan] = useState<Span>("1Y");
   const [total, setTotal] = useState(true);
+  const benchmarkLabel = total ? `${BENCHMARK.label} Total Return` : `${BENCHMARK.label} Price`;
   const [sort, setSort] = useState<SortKey>("value");
   const [targets, setTargets] = useState<Record<string, string>>({});
 
@@ -122,14 +123,14 @@ export function TermPortfolio() {
     const start = dated ? firstTradeDate(trades) : null;
     const read = (source: typeof feed.daily, adjusted: boolean) => {
       if (!source) return null;
-      const histories = Object.fromEntries(Object.entries(source.holdings).map(([ticker, bars]) => [ticker, points(bars, adjusted)]));
+      const { histories, index } = performanceHistories(source, adjusted);
       if (timeline && flows) {
         // The book as it stood each day, and its return with the trades' cash taken out.
         const values = holdingsSeries(timeline, histories, start);
-        return { book: timeWeightedSeries(values, flows), values, index: points(source.index, adjusted), histories };
+        return { book: timeWeightedSeries(values, flows), values, index, histories };
       }
       const values = portfolioSeries(positions, histories);
-      return { book: values, values, index: points(source.index, adjusted), histories };
+      return { book: values, values, index, histories };
     };
     return {
       daily: read(feed.daily, total), weekly: read(feed.weekly, total),
@@ -345,7 +346,7 @@ export function TermPortfolio() {
     ] : []),
     { label: "Today", value: day ? `${signedMoney(day.moved)} · ${pct(day.percent, 2)}` : ABSENT, tone: dir(day?.moved) },
     { label: `${dated ? "Time-weighted" : "Return"} · ${span}`, value: perf ? pct(perf.book) : ABSENT, tone: dir(perf?.book), note: dated ? "Deposits and sales taken out" : undefined },
-    { label: `${BENCHMARK.label} · ${span}`, value: perf ? pct(perf.index) : ABSENT, tone: dir(perf?.index) },
+    { label: `${benchmarkLabel} · ${span}`, value: perf ? pct(perf.index) : ABSENT, tone: dir(perf?.index) },
     { label: "Excess return", value: perf ? pct(perf.book - perf.index) : ABSENT, tone: dir(perf ? perf.book - perf.index : null) },
     { label: "Annualised", value: perf?.cagr != null ? pct(perf.cagr) : ABSENT, note: "Over windows of a year or more" },
     { label: "Volatility · 1Y", value: plain(risk?.vol), note: `${BENCHMARK.label} ${plain(risk?.volIndex)}` },
@@ -366,7 +367,7 @@ export function TermPortfolio() {
     <>
       {header}
       <div className="t-grid t-port" data-dated={dated || undefined}>
-        <Panel code="PERF" title={`Performance against the ${BENCHMARK.label}`} area="perf" actions={
+        <Panel code="PERF" title={`Performance against the ${benchmarkLabel}`} area="perf" actions={
           <>
             <div className="seg" role="group" aria-label="Returns">
               <button type="button" aria-pressed={total} onClick={() => setTotal(true)} title="Dividends reinvested">Total return</button>
@@ -378,7 +379,9 @@ export function TermPortfolio() {
           </>
         }>
           {/* Taller beside the longer column of figures a dated book has. */}
-          <PerfChart points={perf?.drawn ?? []} label={BENCHMARK.label} marks={perf?.marks ?? []} height={dated ? 430 : 300} />
+          {total && (DAILY_SPANS.has(span) ? feed.daily : feed.weekly)?.totalIndex.length === 0
+            ? <p className="t-empty">S&P 500 Total Return history is unavailable. Try again shortly.</p>
+            : <PerfChart points={perf?.drawn ?? []} label={benchmarkLabel} marks={perf?.marks ?? []} height={dated ? 430 : 300} />}
           <p className="t-study-note">
             {dated
               ? <>The book as it stood on each {DAILY_SPANS.has(span) ? "session" : "week"}, from your dated trades, as a time-weighted return: a deposit is not a gain, so each trade&apos;s cash is taken out before the day&apos;s return is chained. ▲ buys, ▼ sales. </>

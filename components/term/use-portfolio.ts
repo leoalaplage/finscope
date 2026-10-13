@@ -6,6 +6,8 @@ import type { Position } from "@/lib/portfolio";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import { EARNINGS_DAY_SHAPE, type ReportTime } from "@/lib/adapters/nasdaq-earnings";
 import type { IoQuote } from "@/components/io/quote";
+import { BENCHMARK, type Bar, type Histories } from "@/lib/term/portfolio-performance";
+export { BENCHMARK, type Bar, type Histories } from "@/lib/term/portfolio-performance";
 
 /**
  * Everything PORT reads, for the book on screen.
@@ -18,8 +20,6 @@ import type { IoQuote } from "@/components/io/quote";
  * holdings table draws before the histories behind the risk figures land.
  */
 
-export interface Bar { date: string; close: number; adjusted: number }
-export interface Histories { holdings: Record<string, Bar[]>; index: Bar[] }
 export interface UpcomingEarnings { ticker: string; date: string; time: ReportTime; consensusEps: number | null; name: string }
 
 export interface PortfolioFeed {
@@ -31,7 +31,6 @@ export interface PortfolioFeed {
   earnings: UpcomingEarnings[] | null;
 }
 
-export const BENCHMARK = { symbol: "^GSPC", label: "S&P 500" };
 const DAILY_DAYS = 560;
 const WEEKLY_YEARS = 10;
 
@@ -89,8 +88,8 @@ export function usePortfolioFeed(positions: Position[], traded: string[] = []): 
           : []));
       };
       const load = async (query: string): Promise<Histories> => {
-        const [index, ...series] = await Promise.all([read(BENCHMARK.symbol, query), ...everTraded.map((ticker) => read(ticker, query))]);
-        return { index, holdings: Object.fromEntries(everTraded.map((ticker, at) => [ticker, series[at]])) };
+        const [index, totalIndex, ...series] = await Promise.all([read(BENCHMARK.symbol, query), read(BENCHMARK.totalSymbol, query), ...everTraded.map((ticker) => read(ticker, query))]);
+        return { index, totalIndex, holdings: Object.fromEntries(everTraded.map((ticker, at) => [ticker, series[at]])) };
       };
       const daily = await load(`frequency=daily&start=${day(DAILY_DAYS)}&end=${end}`);
       merge({ daily });
