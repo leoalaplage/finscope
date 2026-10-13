@@ -1,4 +1,4 @@
-import { cagrForPeriods, derivedValue, liquidAssets, reportedDebt, valueOf } from "./finance";
+import { cagrForPeriods, capitalAYearEarlier, derivedValue, liquidAssets, reportedDebt, returnOnAverageCapital, valueOf } from "./finance";
 import { shareCount, type SharesBasis } from "./market-basis";
 import { balanceSheetHealth } from "./statement-flows";
 import type { CompanyDataset, FinancialPeriod } from "./types";
@@ -148,31 +148,21 @@ function scoreNetDebt(dataset: CompanyDataset, current: FinancialPeriod | null):
 
 function scoreRoic(dataset: CompanyDataset, current: FinancialPeriod | null): number | null {
   if (!current) return null;
-  const nopat = derivedValue(current, "nopat");
+  // The same capital the company page divides by (lib/finance.ts), with the
+  // screener's one allowance: a filer shown never to borrow owes nought.
   const capital = (period: FinancialPeriod) => {
     const debt = scoreDebt(dataset, period);
     const equity = valueOf(period, "totalEquity");
-    const cash = valueOf(period, "cashAndEquivalents");
-    const invested = debt == null || equity == null || cash == null ? null : debt + equity - cash;
+    const liquid = liquidAssets(period);
+    const invested = debt == null || equity == null || liquid == null ? null : debt + equity - liquid;
     return invested != null && invested > 0 ? invested : null;
   };
-  const ending = capital(current);
-  if (nopat == null || ending == null) return null;
-
-  /*
-   * A return earned through a year belongs over the capital employed through
-   * that year, not only the balance left on its final day. Prefer a balance
-   * close to twelve months earlier, regardless of whether it arrived in a
-   * quarter or an annual filing. When no comparable opening balance exists we
-   * keep the auditable period-end convention instead of fabricating one.
-   */
-  const opening = dataset.periods
-    .filter((period) => period.periodEnd < current.periodEnd)
-    .map((period) => ({ period, distance: Math.abs(yearsBetween(period.periodEnd, current.periodEnd) - 1) }))
-    .filter(({ period, distance }) => distance <= 0.25 && capital(period) != null)
-    .sort((left, right) => left.distance - right.distance)[0]?.period;
-  const openingCapital = opening ? capital(opening) : null;
-  return over(nopat, openingCapital == null ? ending : (openingCapital + ending) / 2);
+  return returnOnAverageCapital(
+    derivedValue(current, "nopat"),
+    capital(current),
+    capitalAYearEarlier(dataset.periods, current, capital),
+    valueOf(current, "totalAssets"),
+  );
 }
 
 /** Five annual ROIC readings, each using average capital where an opening balance exists. */

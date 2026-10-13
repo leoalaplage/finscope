@@ -33,8 +33,10 @@ import { KEY_VERSION } from "../data-version";
 /*
  * iov11: each figure that is not a plain filed fact carries how it was
  * arrived at (`IoPeriod.basis`), which the statements show on the figure.
+ * iov12: a year's ROIC is over its average invested capital, the screener's
+ * definition, rather than the closing balance alone.
  */
-export const VIEW_SHAPE = "iov11";
+export const VIEW_SHAPE = "iov12";
 
 /** The token a reader's request carries: the shape, then the figures. */
 export const IO_VIEW = `${VIEW_SHAPE}.${KEY_VERSION}`;

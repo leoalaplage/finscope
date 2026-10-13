@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { QS_COLUMNS, qsPriceInputs, qsRow, qsTable, qsValuationColumns } from "../lib/qs-export";
 import { derivedValue } from "../lib/finance";
+import { companyView } from "../lib/io/view";
 import { balanceSheetHealth } from "../lib/statement-flows";
 import type { CompanyDataset, FinancialPeriod, MetricKey } from "../lib/types";
 
@@ -90,6 +91,16 @@ describe("the watchlist as the screener's table", () => {
     const row = qsRow(dataset([opening, closing]), null).values;
     // NOPAT is 300 × (1 − 21%) = 237. Invested capital averages 500 and 800.
     expect(row["ROIC"]).toBeCloseTo(237 / 650 * 100, 8);
+  });
+
+  it("gives the company page the screener's ROIC: average capital, net of short-term investments", () => {
+    const opening = period("annual", "2024-12-31", { ...business, totalDebt: 100, totalEquity: 500, cashAndEquivalents: 60, shortTermInvestments: 40 });
+    const closing = period("annual", "2025-12-31", { ...business, totalDebt: 300, totalEquity: 700, cashAndEquivalents: 150, shortTermInvestments: 50 });
+    const company = dataset([opening, closing]);
+    const row = qsRow(company, null).values;
+    const page = companyView(company).annual.at(-1)!.values.roic!;
+    expect(row["ROIC"]).toBeCloseTo(237 / 650 * 100, 8);
+    expect(page * 100).toBeCloseTo(Number(row["ROIC"]), 8);
   });
 
   it("prefers filed long-term debt components over total debt for debt-to-assets", () => {

@@ -1,7 +1,7 @@
 import { balanceSheetIsTheBusiness, cashFlowIsTheBalanceSheet } from "../business-type";
 import { validatedDerivedValue } from "../data-quality";
 import { currentDatasetPeriod } from "../current-period";
-import { liquidAssets, reportedDebt, valueOf } from "../finance";
+import { capitalAYearEarlier, liquidAssets, reportedDebt, returnOnAverageCapital, valueOf } from "../finance";
 import { shareCount } from "../market-basis";
 import { METRICS, type MetricKind } from "../metrics";
 import type { CompanyDataset, FinancialPeriod } from "../types";
@@ -226,6 +226,11 @@ function metricCatalogue(periods: IoPeriod[]): IoMetric[] {
 function projectPeriod(dataset: CompanyDataset, period: FinancialPeriod, withheld: ReadonlySet<string>, cashIsFree = false): IoPeriod {
   const values: Record<string, number | null> = {};
   for (const key of IO_METRIC_KEYS) values[key] = withheld.has(key) ? null : validatedDerivedValue(period, key, "validated");
+  // A year's (or trailing year's) return over the capital employed through it,
+  // as the screener reads it: average of opening and closing invested capital.
+  if (values.roic != null && period.periodicity !== "quarterly") {
+    values.roic = returnOnAverageCapital(values.nopat, values.investedCapital, capitalAYearEarlier(dataset.periods, period), valueOf(period, "totalAssets"));
+  }
   /*
    * An insurer that files no capital expenditure at all.
    *

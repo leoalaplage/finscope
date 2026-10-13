@@ -12,7 +12,7 @@ export const FORMULAS = {
   freeCashFlowAfterSbcMargin: "Free cash flow after stock-based compensation / Revenue",
   investedCapital: "Total debt + Total equity − Cash and short-term investments",
   nopat: "Operating income × (1 − Effective tax rate)",
-  roic: "NOPAT / Invested capital",
+  roic: "NOPAT / Average invested capital (opening and closing)",
   cashReturnOnCapital: "Free cash flow / Invested capital",
   capitalIntensity: "|Capital expenditures| / Revenue",
   freeCashFlowMargin: "Free cash flow / Revenue",
@@ -329,6 +329,45 @@ export function investedCapital(period: FinancialPeriod): number | null {
   if (debt == null || equity == null || liquid == null) return null;
   const capital = debt + equity - liquid;
   return capital > 0 ? capital : null;
+}
+
+/**
+ * Invested capital close to twelve months before `current`, from whichever
+ * filing (quarter or year) put a balance sheet nearest that date, within a
+ * quarter of it. Null when no such balance exists: the return then stays on
+ * the period-end capital rather than an invented opening one.
+ */
+export function capitalAYearEarlier(
+  periods: FinancialPeriod[],
+  current: FinancialPeriod,
+  capitalOf: (period: FinancialPeriod) => number | null = investedCapital,
+): number | null {
+  const years = (earlier: string, later: string) => (Date.parse(later) - Date.parse(earlier)) / (365.2425 * 86_400_000);
+  let best: { capital: number; distance: number } | null = null;
+  for (const period of periods) {
+    if (period.periodEnd >= current.periodEnd) continue;
+    const distance = Math.abs(years(period.periodEnd, current.periodEnd) - 1);
+    if (distance > 0.25 || (best && best.distance <= distance)) continue;
+    const capital = capitalOf(period);
+    if (capital != null) best = { capital, distance };
+  }
+  return best?.capital ?? null;
+}
+
+/**
+ * Return on invested capital, one definition for the screener and the company
+ * page: NOPAT over the capital employed through the year — the average of the
+ * opening and closing balances where an opening one exists, the closing one
+ * otherwise. Capital is total debt + equity − cash and short-term investments.
+ */
+export function returnOnAverageCapital(
+  nopatValue: number | null | undefined,
+  ending: number | null,
+  opening: number | null,
+  totalAssets: number | null | undefined,
+) {
+  if (ending == null) return null;
+  return returnOn(nopatValue, opening == null ? ending : (opening + ending) / 2, totalAssets);
 }
 
 /**
