@@ -332,7 +332,11 @@
 // v44: revenue filed as goods plus services before the contracts standard is
 // read where the parts give the filer's own total back (A. O. Smith, Coca-Cola,
 // General Mills and some forty others had no quarter before 2017).
-export const KEY_VERSION = "v44";
+// v45: construction expenditure beside a smaller standard capex line is added
+// to it (AEP's capex was a fiftieth of its spending, Con Ed's before 2012); a
+// lone finance lease is no longer total debt where other borrowing is filed
+// (Deere's $51m against $60bn).
+export const KEY_VERSION = "v45";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

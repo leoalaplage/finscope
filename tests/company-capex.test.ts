@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { companyCapexLine, investingLines, parseXbrlInstance } from "../lib/adapters/xbrl-instance";
-import { operationsAsOperatingActivities, revenueFromParts } from "../lib/adapters/sec";
+import { capexWithConstruction, operationsAsOperatingActivities, revenueFromParts } from "../lib/adapters/sec";
 
 // Cut from ConocoPhillips' June 2026 10-Q calculation linkbase, cop-20260630_cal.xml.
 const COP_CALCULATION = `<link:linkbase xmlns:link="http://www.xbrl.org/2003/linkbase" xmlns:xlink="http://www.w3.org/1999/xlink">
@@ -103,5 +103,30 @@ describe("revenue filed as goods and services, before the contracts standard", (
   it("reads nothing where the parts never met a total", () => {
     const lone = { "us-gaap": { SalesRevenueGoodsNet: { units: { USD: [fact("2016-01-01", "2016-03-31", 636.9e6)] } } } };
     expect(revenueFromParts(lone).company).toBeUndefined();
+  });
+});
+
+describe("construction expenditure beside a smaller standard line", () => {
+  const raw = (concept: string, start: string, end: string, value: number, accession = "a") => ({
+    metric: "capitalExpenditures" as const, value, currency: "USD", unit: "currency" as const, start, end, filed: "2024-02-20", accession,
+    fiscalYear: 2023, fiscalPeriod: "FY" as const, form: "10-K" as const, concept: `us-gaap:${concept}`, sourceUrl: "", retrievedAt: "",
+  });
+
+  it("adds the two where the standard line is the smaller, and reads construction alone where it stands alone", () => {
+    // American Electric Power: $7.4bn of construction beside $155m under the standard name.
+    const standard = raw("PaymentsToAcquireProductiveAssets", "2023-01-01", "2023-12-31", 155e6);
+    const { replaced, added } = capexWithConstruction([standard], [
+      raw("PaymentsForConstructionInProcess", "2023-01-01", "2023-12-31", 7378.3e6),
+      raw("PaymentsForConstructionInProcess", "2022-01-01", "2022-12-31", 6671.7e6, "b"),
+    ]);
+    expect(replaced.has(standard)).toBe(true);
+    expect(added.map((fact) => [fact.end, fact.value])).toEqual([["2023-12-31", 7533.3e6], ["2022-12-31", 6671.7e6]]);
+  });
+
+  it("leaves a standard line that is the larger, which may already hold construction", () => {
+    const standard = raw("PaymentsToAcquirePropertyPlantAndEquipment", "2023-01-01", "2023-12-31", 9e9);
+    const { replaced, added } = capexWithConstruction([standard], [raw("PaymentsForConstructionInProcess", "2023-01-01", "2023-12-31", 2e9)]);
+    expect(replaced.size).toBe(0);
+    expect(added).toEqual([]);
   });
 });

@@ -496,6 +496,13 @@ function extractFacts(
    * construction in process, APA's exploration and development of oil and gas
    * properties. Each is read on the same rule (see `capexFromOtherProductiveAssets`).
    */
+  const construction = capexWithConstruction(output.filter(isCapex), read("PaymentsForConstructionInProcess"));
+  if (construction.replaced.size) {
+    const kept = output.filter((fact) => !construction.replaced.has(fact));
+    output.length = 0;
+    output.push(...kept);
+  }
+  output.push(...construction.added);
   for (const tag of SOLE_CAPEX_LINES) output.push(...capexFromOtherProductiveAssets(output.filter(isCapex), read(tag)));
   const cashFlow = (tag: string) => factsUnder(namespaces, "us-gaap", tag, "operatingCashFlow", SEC_CONCEPTS.operatingCashFlow.unit, cik, currency, retrievedAt);
   output.push(...operatingCashFlowTotals(
@@ -662,6 +669,47 @@ export function capexFromOtherProductiveAssets(capex: RawFinancialFact[], other:
   const alone = other.filter((fact) => fact.start && fact.end > lastShared && !taken.has(span(fact)));
   const aYear = alone.some((fact) => (Date.parse(fact.end) - Date.parse(fact.start!)) / 86_400_000 >= 300);
   return aYear ? alone : [];
+}
+
+/**
+ * Construction expenditure filed beside a smaller standard line: the two are
+ * the capital expenditure together.
+ *
+ * American Electric Power's investing section carries "construction
+ * expenditures" — $7.4bn in 2023 — and, as a separate line, $155m of other
+ * property under the standard capital-expenditure name. Read alone, the
+ * standard line put AEP's capital expenditure at a fiftieth of what it spent
+ * and its free cash flow billions too high. A standard line smaller than the
+ * construction line beside it, in the same filing and period, cannot contain
+ * it; they are two outflows and the expenditure is their sum. Where that holds
+ * in every period both are filed, the construction line is the expenditure on
+ * its own too, in the periods the standard line is absent.
+ */
+export function capexWithConstruction(capex: RawFinancialFact[], construction: RawFinancialFact[]): { replaced: Set<RawFinancialFact>; added: RawFinancialFact[] } {
+  const replaced = new Set<RawFinancialFact>();
+  const added: RawFinancialFact[] = [];
+  if (!construction.length) return { replaced, added };
+  const standard = capex.filter((fact) => fact.start && /^us-gaap:PaymentsToAcquire(?:PropertyPlantAndEquipment|ProductiveAssets)$/.test(fact.concept));
+  const key = (fact: RawFinancialFact) => `${span(fact)}|${fact.accession}`;
+  const byKey = new Map(construction.filter((fact) => fact.start).map((fact) => [key(fact), fact]));
+  let shared = 0; let larger = 0;
+  for (const fact of standard) {
+    const built = byKey.get(key(fact));
+    if (!built) continue;
+    shared++;
+    if (Math.abs(built.value) <= Math.abs(fact.value)) continue;
+    larger++;
+    replaced.add(fact);
+    added.push({
+      ...fact, value: Math.abs(fact.value) + Math.abs(built.value),
+      concept: "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment+PaymentsForConstructionInProcess",
+    });
+  }
+  if (shared > 0 && larger === shared) {
+    const taken = new Set(standard.map(span));
+    for (const fact of construction) if (fact.start && !taken.has(span(fact))) added.push({ ...fact, value: Math.abs(fact.value) });
+  }
+  return { replaced, added };
 }
 
 /** Every usable fact filed under one concept, in the shape the normalizer reads. */
@@ -1363,7 +1411,16 @@ function combineDebtComponents(periods: FinancialPeriod[], businessType: Busines
         formula = "Every borrowing balance this filer tags at this date is filed as nought";
       }
     }
-    if (!parts.length && financeLease?.value != null) {
+    /*
+     * Only where the lease is the only borrowing filed: Deere tags its current
+     * debt, $12.6bn, and its long-term borrowings under a name of its own, so
+     * no complete sum can be struck — and its $51m of finance leases stood as
+     * its total debt for four years. A part of what is owed is not the whole,
+     * and a figure two hundred times too small is worse than none.
+     */
+    const otherBorrowing = [current, noncurrent, longTermCombined, otherLongTerm, shortTerm]
+      .some((fact) => fact?.value != null && fact.value !== 0);
+    if (!parts.length && financeLease?.value != null && !otherBorrowing) {
       // A finance lease is borrowing. Copart's latest annual balance sheet has
       // no conventional debt line and files this exact liability on its own;
       // refusing the only borrowing it reports made every debt-based measure
