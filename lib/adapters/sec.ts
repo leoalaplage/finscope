@@ -13,6 +13,8 @@ type FilingFactLike = FilingFact;
 
 /** The tag a company's own capital-expenditure line is read under, in the "company" taxonomy. */
 const COMPANY_CAPEX_TAG = "CapitalExpenditures";
+/** Revenue read as goods plus services, in the "company" taxonomy (see `revenueFromParts`). */
+const COMPANY_REVENUE_TAG = "RevenueFromGoodsAndServices";
 const SEC_HEADERS = () => ({ "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" });
 
 const STANDARD_CAPEX_TAGS = [
@@ -452,7 +454,10 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
       // A company's own capital-expenditure line, last of all: read only where no standard one is filed.
       return [metric, metric === "capitalExpenditures"
         ? { ...withIfrs, also: [...(withIfrs.also ?? []), { namespace: "company" as const, tags: [COMPANY_CAPEX_TAG] }] }
-        : withIfrs];
+        : metric === "revenue"
+          // Goods plus services, last of all: only where no standard total is filed (see `revenueFromParts`).
+          ? { ...withIfrs, also: [...(withIfrs.also ?? []), { namespace: "company" as const, tags: [COMPANY_REVENUE_TAG] }] }
+          : withIfrs];
     }),
   ) as Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepurchases">, ConceptSpec>;
 
@@ -1914,7 +1919,7 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
    * the normalizer's own de-duplication keeps a figure filed twice once.
    */
   const successor = KNOWN_SUCCESSORS[company.ticker.toUpperCase()];
-  let facts = operationsAsOperatingActivities(payload.facts);
+  let facts = revenueFromParts(operationsAsOperatingActivities(payload.facts));
   if (successor && successor.reads === company.cik) {
     try {
       const listed = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${successor.listed}.json`, {
@@ -2296,6 +2301,67 @@ export function operationsAsOperatingActivities(tree: FactTree): FactTree {
   }
   if (!Object.keys(adopted).length) return tree;
   return mergeFactTrees(tree, { "ifrs-full": { CashFlowsFromUsedInOperatingActivities: { units: adopted } } });
+}
+
+const REVENUE_PARTS = ["SalesRevenueGoodsNet", "SalesRevenueServicesNet"];
+
+/**
+ * Revenue filed as goods and services, before the contracts standard.
+ *
+ * Until 2018 A. O. Smith, Coca-Cola, General Mills, Dollar General and some
+ * forty others in the index tagged their sales as `SalesRevenueGoodsNet` —
+ * with `SalesRevenueServicesNet` beside it where they sell both — and no
+ * total; only the later reports restate those years under a standard total,
+ * and only the years, so every quarter before 2017 had no revenue and every
+ * trailing year before 2018 a hole. The parts stand for the total only for a
+ * filer whose parts give its own standard total back, within 0.5%, in the
+ * periods both are filed — at least once, and only up to the first period
+ * they disagree; and only with
+ * the same parts the proof was made with, so goods alone never stand in for
+ * a company that also sold services that year.
+ */
+export function revenueFromParts(tree: FactTree): FactTree {
+  const gaap = tree["us-gaap"];
+  if (!gaap || !REVENUE_PARTS.some((part) => gaap[part])) return tree;
+  const span = (fact: { start?: string; end: string }) => `${fact.start}|${fact.end}`;
+  const totals = new Map<string, number[]>();
+  for (const tag of US_GAAP_CONCEPTS.revenue.tags) {
+    for (const fact of gaap[tag]?.units.USD ?? []) if (fact.start) totals.set(span(fact), [...(totals.get(span(fact)) ?? []), fact.val]);
+  }
+  // Each filing's parts for each span, and which parts they are.
+  const sums = new Map<string, { span: string; parts: string; val: number; fact: FilingFact }>();
+  for (const part of REVENUE_PARTS) {
+    for (const fact of gaap[part]?.units.USD ?? []) {
+      if (!fact.start) continue;
+      const key = `${span(fact)}|${fact.accn}`;
+      const held = sums.get(key);
+      sums.set(key, held
+        ? { ...held, parts: `${held.parts}+${part}`, val: held.val + fact.val }
+        : { span: span(fact), parts: part, val: fact.val, fact });
+    }
+  }
+  /*
+   * Until the parts first disagree with the total, and no further: Coca-Cola's
+   * goods line was its whole revenue until 2018, and a component of it after.
+   */
+  const agrees = (sum: { span: string; val: number }) => totals.get(sum.span)!.some((value) => Math.abs(value - sum.val) <= Math.abs(value) * 0.005);
+  const until = [...sums.values()].filter((sum) => totals.has(sum.span) && !agrees(sum))
+    .map((sum) => sum.fact.end).sort()[0] ?? "9999-12-31";
+  const proven = new Map<string, number>();
+  for (const sum of sums.values()) {
+    if (sum.fact.end >= until || !totals.has(sum.span)) continue;
+    proven.set(sum.parts, (proven.get(sum.parts) ?? 0) + 1);
+  }
+  if (!proven.size) return tree;
+  const adopted: FilingFact[] = [];
+  // Where a total is filed it is still the figure read (the parts come last); the parts are kept beside it as
+  // the same measure, which is what lets a year restated under a new tag keep its quarters filed in parts.
+  for (const sum of sums.values()) {
+    if (sum.fact.end >= until || !proven.has(sum.parts)) continue;
+    adopted.push({ ...sum.fact, val: sum.val });
+  }
+  if (!adopted.length) return tree;
+  return mergeFactTrees(tree, { company: { [COMPANY_REVENUE_TAG]: { units: { USD: adopted } } } });
 }
 
 /**

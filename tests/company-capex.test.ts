@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { companyCapexLine, investingLines, parseXbrlInstance } from "../lib/adapters/xbrl-instance";
-import { operationsAsOperatingActivities } from "../lib/adapters/sec";
+import { operationsAsOperatingActivities, revenueFromParts } from "../lib/adapters/sec";
 
 // Cut from ConocoPhillips' June 2026 10-Q calculation linkbase, cop-20260630_cal.xml.
 const COP_CALCULATION = `<link:linkbase xmlns:link="http://www.xbrl.org/2003/linkbase" xmlns:xlink="http://www.w3.org/1999/xlink">
@@ -84,5 +84,24 @@ describe("an IFRS operating cash flow tagged as cash flows from operations", () 
 
   it("is not, where something was paid below it", () => {
     expect(operationsAsOperatingActivities(tree(17500e6))["ifrs-full"].CashFlowsFromUsedInOperatingActivities).toBeUndefined();
+  });
+});
+
+describe("revenue filed as goods and services, before the contracts standard", () => {
+  const fact = (start: string, end: string, val: number, accn = "a") => ({ start, end, val, accn, fy: 2016, fp: "FY", form: "10-K", filed: "2017-02-01" });
+  const tree = (goodsLater: number) => ({ "us-gaap": {
+    SalesRevenueGoodsNet: { units: { USD: [fact("2016-01-01", "2016-03-31", 636.9e6), fact("2016-01-01", "2016-12-31", 2685.9e6), fact("2018-04-01", "2018-06-30", goodsLater, "b")] } },
+    RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: [fact("2016-01-01", "2016-12-31", 2685.9e6, "c"), fact("2018-04-01", "2018-06-30", 9421e6, "b")] } },
+  } });
+
+  it("reads the parts where they give the filer's own total back, up to the first period they do not", () => {
+    // Coca-Cola: its goods line was all its revenue until 2018, and a component of it after.
+    const units = revenueFromParts(tree(8927e6)).company?.RevenueFromGoodsAndServices?.units.USD ?? [];
+    expect(units.map((each) => each.end).sort()).toEqual(["2016-03-31", "2016-12-31"]);
+  });
+
+  it("reads nothing where the parts never met a total", () => {
+    const lone = { "us-gaap": { SalesRevenueGoodsNet: { units: { USD: [fact("2016-01-01", "2016-03-31", 636.9e6)] } } } };
+    expect(revenueFromParts(lone).company).toBeUndefined();
   });
 });

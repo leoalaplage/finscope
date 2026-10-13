@@ -329,7 +329,10 @@
  */
 // v43: reconcile debt-free operating balance sheets and read the broader
 // depreciation/amortization cash-flow line; all affected companies rebuild.
-export const KEY_VERSION = "v43";
+// v44: revenue filed as goods plus services before the contracts standard is
+// read where the parts give the filer's own total back (A. O. Smith, Coca-Cola,
+// General Mills and some forty others had no quarter before 2017).
+export const KEY_VERSION = "v44";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

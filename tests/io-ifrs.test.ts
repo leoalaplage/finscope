@@ -81,6 +81,8 @@ describe("an IFRS filer on Form 20-F", () => {
     const revenue = SEC_CONCEPTS.revenue;
     expect(revenue.namespace).toBe("us-gaap");
     expect(revenue.tags[0]).toBe("RevenueFromContractWithCustomerExcludingAssessedTax");
-    expect(revenue.also?.at(-1)).toEqual({ namespace: "ifrs-full", tags: ["Revenue", "RevenueFromContractsWithCustomers", "RevenueFromSaleOfGoods"] });
+    expect(revenue.also?.at(-2)).toEqual({ namespace: "ifrs-full", tags: ["Revenue", "RevenueFromContractsWithCustomers", "RevenueFromSaleOfGoods"] });
+    // Goods plus services, proved against the filer's own total, after every filed total (revenueFromParts).
+    expect(revenue.also?.at(-1)).toEqual({ namespace: "company", tags: ["RevenueFromGoodsAndServices"] });
   });
 });
