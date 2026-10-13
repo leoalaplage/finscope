@@ -1,7 +1,9 @@
 import { fetchYahooSessions } from "@/lib/adapters/yahoo";
 import { cachedJson, TODAY_SECONDS } from "@/lib/market-cache";
 import { COVERED_TICKERS } from "@/lib/company-registry";
-import { requestedTickers } from "@/lib/dataset-cache";
+import { requestedTickers, summaryKey } from "@/lib/dataset-cache";
+import { datasetCache } from "@/lib/runtime-env";
+import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import { resolveMarketProfile } from "@/lib/market-profile";
 import { performanceOf, PERFORMANCE_SHAPE, type Performance } from "@/lib/performance";
 
@@ -29,6 +31,9 @@ const headers = {
 export interface PerformanceRow extends Performance {
   ticker: string;
   error?: string;
+  sector?: string;
+  name?: string;
+  marketCap?: number | null;
 }
 
 /**
@@ -56,7 +61,21 @@ export async function GET(request: Request) {
         // no shares, and keeping it would freeze the gap for everyone.
         (value) => value.price == null ? "empty" : "full",
       );
-      return { ticker, ...JSON.parse(body) as Performance };
+      const performance = JSON.parse(body) as Performance;
+      let summary: WatchlistSummary | null = null;
+      try {
+        const stored = await datasetCache()?.get(summaryKey(ticker), "text");
+        if (stored) summary = JSON.parse(stored) as WatchlistSummary;
+      } catch { /* Prices remain usable when the filing summary is unavailable. */ }
+      const shares = summary?.qsPrice?.shares ?? summary?.shares;
+      const sector = summary?.qs?.["Sector"];
+      return {
+        ticker, ...performance,
+        name: summary?.name ?? company.name,
+        sector: typeof sector === "string" && sector.trim() ? sector : company.sector,
+        marketCap: performance.price != null && shares != null && Number.isFinite(shares) && shares > 0
+          ? performance.price * shares : null,
+      };
     } catch (error) {
       return { ticker, price: null, asOf: null, changes: {}, error: error instanceof Error ? error.message : "Prices unavailable" };
     }

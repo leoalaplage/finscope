@@ -32,7 +32,7 @@ import type { MarketSession } from "./adapters/yahoo";
  * p2 added the ten-year window. p3 cut the four middle ones and annualised the
  * long two.
  */
-export const PERFORMANCE_SHAPE = "p3";
+export const PERFORMANCE_SHAPE = "p4";
 
 export const WINDOWS = [
   { id: "d1", label: "1D", days: 1, annualised: false },

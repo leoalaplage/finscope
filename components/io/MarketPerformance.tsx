@@ -6,6 +6,7 @@ import { PERFORMANCE_SHAPE, WINDOWS, type WindowId } from "@/lib/performance";
 import type { PerformanceRow } from "@/app/api/performance/route";
 import { ABSENT, delta, price as writePrice, shortDate } from "./format";
 import { useStoredWatchlist } from "./watchlist";
+import { WatchlistBubbles } from "./WatchlistBubbles";
 import { WatchlistEditor } from "./WatchlistEditor";
 
 /**
@@ -180,6 +181,8 @@ export function MarketPerformance() {
           </button>
         </div>
       </div>
+
+      <WatchlistBubbles rows={tickers.flatMap((ticker) => rows[ticker] ? [rows[ticker]] : [])} loading={loaded < tickers.length && !failed} />
 
       {failed ? (
         <p className="stat-note">Prices are temporarily unavailable, so no window can be measured.</p>

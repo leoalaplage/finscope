@@ -2239,3 +2239,24 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   .dcf-bridge-row { grid-template-columns: minmax(0, 9rem) minmax(0, 1fr) 8ch; }
   .dcf-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Sector scatter complements the watchlist's exact tabular returns. */
+.watch-bubbles { margin-top: 16px; border-block: 1px solid var(--line-strong); padding-block: 12px; }
+.watch-bubbles-toolbar, .watch-bubbles-periods, .watch-bubbles-legend, .watch-bubbles-readout { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.watch-bubbles-toolbar { justify-content: space-between; }
+.watch-bubbles button { font: inherit; font-size: 11px; color: var(--ink-2); border: 1px solid var(--line-strong); background: transparent; padding: 5px 9px; cursor: pointer; }
+.watch-bubbles button[aria-pressed="true"] { color: var(--ink); border-color: var(--ink-2); background: var(--fill); }
+.watch-bubbles-readout { min-height: 38px; font-size: 11px; color: var(--ink-2); }
+.watch-bubbles-readout strong { color: var(--ink); }
+.watch-bubbles-scroll { overflow-x: auto; }
+.watch-bubbles-plot { display: block; width: 100%; min-width: 760px; }
+.watch-bubbles-grid { stroke: var(--line-strong); stroke-width: .8; }
+.watch-bubbles-zero { stroke: var(--ink-3); stroke-dasharray: 4 4; }
+.watch-bubbles-axis { fill: var(--ink-3); font-size: 11px; }
+.watch-bubble-label { fill: var(--ink); font-size: 11px; font-weight: 600; paint-order: stroke; stroke: var(--bg); stroke-width: 2px; pointer-events: none; }
+.watch-bubbles-plot a:focus { outline: none; }
+.watch-bubbles-plot a:focus .watch-bubble { stroke: var(--ink); stroke-width: 3px; }
+.watch-bubbles-legend { margin-top: 8px; gap: 5px; }
+.watch-bubbles-legend button { display: inline-flex; align-items: center; gap: 5px; }
+.watch-bubbles-legend span { width: 8px; height: 8px; border-radius: 50%; }
+.watch-bubbles .stat-note { font-size: 10px; margin-block: 10px 0; }
