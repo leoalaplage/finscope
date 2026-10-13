@@ -78,6 +78,102 @@ export function parseXbrlInstance(xml: string, filing: { accession: string; form
   return tree;
 }
 
+/**
+ * The share counts of the class a ticker trades, from a filer that states its
+ * counts only per class of stock.
+ *
+ * Berkshire Hathaway tags no company-wide weighted share count or earnings per
+ * share after 2015: both are filed per class (Class A, Class B equivalents),
+ * and Company Facts leaves every per-class figure out. The class is the one the
+ * ticker names (`BRK.B` → a member called Class B), and it is taken only for a
+ * period where its own earnings per share times its count give the company's
+ * net income back, within 3%: that is the proof it counts the whole company in
+ * that class's shares, not a slice of it. Shares outstanding at a date come
+ * from any class that passes the same proof, converted at the ratio of the two
+ * classes' weighted counts in the same filing.
+ *
+ * Returned as plain facts under the standard names, so every rule downstream
+ * (quarters from year-to-date, splits, restatements) applies unchanged. The
+ * ratio between the two whole-company classes comes back with them, for
+ * counts the feed carried on the other class's basis.
+ */
+export function quotedClassShares(xml: string, filing: { accession: string; form: string; filed: string }, ticker: string): { facts: FactTree; ratio: number | null } {
+  const letter = ticker.toUpperCase().match(/[.\-/]([A-Z])$/)?.[1];
+  if (!letter) return { facts: {}, ratio: null };
+  const contexts = new Map<string, { start?: string; end: string; member: string | null }>();
+  for (const match of xml.matchAll(new RegExp(`<${PREFIX}context\\b[^>]*\\bid="([^"]+)"[^>]*>([\\s\\S]*?)</${PREFIX}context>`, "g"))) {
+    const body = match[2];
+    const members = [...body.matchAll(/dimension="([^"]+)"[^>]*>\s*([^<\s]+)\s*</g)];
+    if (members.length > 1 || /typedMember/.test(body)) continue;
+    if (members.length === 1 && !/:StatementClassOfStockAxis$/.test(members[0][1])) continue;
+    const date = (tag: string) => body.match(new RegExp(`<${PREFIX}${tag}>\\s*(\\d{4}-\\d{2}-\\d{2})`))?.[1];
+    const instant = date("instant"); const start = date("startDate"); const end = date("endDate");
+    const member = members.length ? members[0][2].replace(/^[\w-]+:/, "") : null;
+    if (instant) contexts.set(match[1], { end: instant, member });
+    else if (start && end) contexts.set(match[1], { start, end, member });
+  }
+  const read = (concept: string) => {
+    const facts: Array<{ start?: string; end: string; member: string | null; val: number }> = [];
+    for (const match of xml.matchAll(new RegExp(`<us-gaap:${concept}\\b([^>]*?)>([^<]*)</us-gaap:${concept}>`, "g"))) {
+      const context = contexts.get(match[1].match(/\bcontextRef="([^"]+)"/)?.[1] ?? "");
+      const val = Number(match[2].trim());
+      if (context && match[2].trim() !== "" && Number.isFinite(val)) facts.push({ ...context, val });
+    }
+    return facts;
+  };
+  const span = (fact: { start?: string; end: string }) => `${fact.start ?? ""}|${fact.end}`;
+  const income = new Map<string, number>();
+  for (const concept of ["NetIncomeLossAvailableToCommonStockholdersBasic", "NetIncomeLoss"]) {
+    for (const fact of read(concept)) if (fact.member == null && !income.has(span(fact))) income.set(span(fact), fact.val);
+  }
+  const eps = read("EarningsPerShareBasic").filter((fact) => fact.member != null);
+  const weighted = read("WeightedAverageNumberOfSharesOutstandingBasic").filter((fact) => fact.member != null);
+  const diluted = read("WeightedAverageNumberOfDilutedSharesOutstanding").filter((fact) => fact.member != null);
+  /** Whether this class's count, over this span, is the whole company counted in its shares. */
+  const whole = (member: string, key: string, count: number) => {
+    const profit = income.get(key);
+    const perShare = eps.find((fact) => fact.member === member && span(fact) === key)?.val;
+    if (profit == null || perShare == null || profit === 0) return false;
+    return Math.abs(perShare * count - profit) <= Math.abs(profit) * 0.03;
+  };
+  const quoted = (member: string) => new RegExp(`Class${letter}(?![a-z])`).test(member);
+  const cover = (name: string) => xml.match(new RegExp(`<dei:${name}\\b[^>]*>\\s*([^<]+?)\\s*<`))?.[1] ?? null;
+  const year = Number(cover("DocumentFiscalYearFocus"));
+  const fy = Number.isInteger(year) && year > 0 ? year : null;
+  const fp = cover("DocumentFiscalPeriodFocus");
+  const fact = (value: number, from: { start?: string; end: string }): FilingFact => ({
+    ...(from.start ? { start: from.start } : {}), end: from.end, val: value,
+    accn: filing.accession, fy, fp, form: filing.form, filed: filing.filed,
+  });
+  const basic: FilingFact[] = []; const dilutedOut: FilingFact[] = []; const outstanding: FilingFact[] = [];
+  const ratios: Array<{ member: string; ratio: number }> = [];
+  for (const each of weighted) {
+    if (!quoted(each.member!) || !whole(each.member!, span(each), each.val)) continue;
+    basic.push(fact(each.val, each));
+    const counted = diluted.find((other) => other.member === each.member && span(other) === span(each));
+    if (counted) dilutedOut.push(fact(counted.val, counted));
+    for (const other of weighted) {
+      if (other.member === each.member || span(other) !== span(each) || !whole(other.member!, span(other), other.val)) continue;
+      const ratio = each.val / other.val;
+      // Berkshire's 1,500-to-1 shows as 1,500.0001 between two rounded counts.
+      ratios.push({ member: other.member!, ratio: Math.abs(ratio - Math.round(ratio)) <= ratio * 1e-4 ? Math.round(ratio) : ratio });
+    }
+  }
+  for (const each of read("CommonStockSharesOutstanding")) {
+    if (each.member == null) continue;
+    const direct = quoted(each.member) && basic.length && ratios.length === 0 ? 1 : null;
+    const converted = ratios.find((item) => item.member === each.member)?.ratio ?? direct;
+    if (converted != null) outstanding.push(fact(Math.round(each.val * converted), each));
+  }
+  const tree: FactTree = {};
+  const put = (concept: string, list: FilingFact[]) => { if (list.length) (tree["us-gaap"] ??= {})[concept] = { units: { shares: list } }; };
+  put("WeightedAverageNumberOfSharesOutstandingBasic", basic);
+  put("WeightedAverageNumberOfDilutedSharesOutstanding", dilutedOut);
+  put("CommonStockSharesOutstanding", outstanding);
+  // How many of the quoted class's shares one share of the other whole-company class is worth.
+  return { facts: tree, ratio: ratios.length && ratios.every((item) => item.ratio === ratios[0].ratio) ? ratios[0].ratio : null };
+}
+
 /** One tree with another's facts added, where the same figure for the same period is not already there. */
 export function mergeFactTrees(base: FactTree, extra: FactTree): FactTree {
   const merged: FactTree = structuredClone(base);

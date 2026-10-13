@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filingIsAhead, instanceDocument, mergeFactTrees, newestReportedEnd, parseXbrlInstance, type FactTree } from "../lib/adapters/xbrl-instance";
+import { filingIsAhead, instanceDocument, mergeFactTrees, newestReportedEnd, parseXbrlInstance, quotedClassShares, type FactTree } from "../lib/adapters/xbrl-instance";
 
 // Cut from Coca-Cola's June 2026 10-Q instance, ko-20260703_htm.xml, in its own layout.
 const INSTANCE = `<?xml version="1.0" encoding="utf-8"?>
@@ -88,5 +88,39 @@ describe("a filing's own XBRL, read as Company Facts serves it", () => {
     expect(instanceDocument(["FilingSummary.xml", "ko-20260703_cal.xml", "ko-20260703_htm.xml", "ko-20260703.htm"])).toBe("ko-20260703_htm.xml");
     expect(instanceDocument(["FilingSummary.xml", "abc-20100331_lab.xml", "abc-20100331.xml"])).toBe("abc-20100331.xml");
     expect(instanceDocument(["R1.htm"])).toBeNull();
+  });
+});
+
+// The shape of Berkshire Hathaway's June 2026 10-Q: counts and earnings per share filed per class only.
+const CLASSES = `<xbrl xmlns:us-gaap="http://fasb.org/us-gaap/2026" xmlns:brka="http://www.berkshirehathaway.com/20260630" xmlns:xbrldi="http://xbrl.org/2006/xbrldi">
+  <context id="q"><entity><identifier>1</identifier></entity><period><startDate>2026-04-01</startDate><endDate>2026-06-30</endDate></period></context>
+  <context id="qA"><entity><identifier>1</identifier><segment><xbrldi:explicitMember dimension="us-gaap:StatementClassOfStockAxis">brka:EquivalentClassAMember</xbrldi:explicitMember></segment></entity><period><startDate>2026-04-01</startDate><endDate>2026-06-30</endDate></period></context>
+  <context id="qB"><entity><identifier>1</identifier><segment><xbrldi:explicitMember dimension="us-gaap:StatementClassOfStockAxis">brka:EquivalentClassBMember</xbrldi:explicitMember></segment></entity><period><startDate>2026-04-01</startDate><endDate>2026-06-30</endDate></period></context>
+  <context id="iA"><entity><identifier>1</identifier><segment><xbrldi:explicitMember dimension="us-gaap:StatementClassOfStockAxis">brka:EquivalentClassAMember</xbrldi:explicitMember></segment></entity><period><instant>2026-06-30</instant></period></context>
+  <context id="iB"><entity><identifier>1</identifier><segment><xbrldi:explicitMember dimension="us-gaap:StatementClassOfStockAxis">us-gaap:CommonClassBMember</xbrldi:explicitMember></segment></entity><period><instant>2026-06-30</instant></period></context>
+  <unit id="shares"><measure>shares</measure></unit>
+  <us-gaap:NetIncomeLoss contextRef="q" unitRef="usd" decimals="-6">25667000000</us-gaap:NetIncomeLoss>
+  <us-gaap:EarningsPerShareBasic contextRef="qA" unitRef="usdPerShare" decimals="0">17868</us-gaap:EarningsPerShareBasic>
+  <us-gaap:EarningsPerShareBasic contextRef="qB" unitRef="usdPerShare" decimals="2">11.91</us-gaap:EarningsPerShareBasic>
+  <us-gaap:WeightedAverageNumberOfSharesOutstandingBasic contextRef="qA" unitRef="shares" decimals="INF">1436443</us-gaap:WeightedAverageNumberOfSharesOutstandingBasic>
+  <us-gaap:WeightedAverageNumberOfSharesOutstandingBasic contextRef="qB" unitRef="shares" decimals="INF">2154664073</us-gaap:WeightedAverageNumberOfSharesOutstandingBasic>
+  <us-gaap:CommonStockSharesOutstanding contextRef="iA" unitRef="shares" decimals="INF">1431693</us-gaap:CommonStockSharesOutstanding>
+  <us-gaap:CommonStockSharesOutstanding contextRef="iB" unitRef="shares" decimals="INF">1395887484</us-gaap:CommonStockSharesOutstanding>
+</xbrl>`;
+
+describe("share counts filed only per class of stock", () => {
+  const filing = { accession: "0001193125-26-341032", form: "10-Q", filed: "2026-08-03" };
+
+  it("reads the class the ticker names, proved against net income, and converts the other class's shares outstanding", () => {
+    const { facts: tree, ratio } = quotedClassShares(CLASSES, filing, "BRK.B");
+    expect(ratio).toBe(1500);
+    expect(tree["us-gaap"].WeightedAverageNumberOfSharesOutstandingBasic.units.shares).toMatchObject([{ start: "2026-04-01", end: "2026-06-30", val: 2154664073 }]);
+    // Class A equivalents at 1,500 Class B each; the Class B line alone is a slice of the company and is not used.
+    expect(tree["us-gaap"].CommonStockSharesOutstanding.units.shares).toMatchObject([{ end: "2026-06-30", val: 1431693 * 1500 }]);
+  });
+
+  it("reads nothing for a ticker that names no class, or a count that does not give net income back", () => {
+    expect(quotedClassShares(CLASSES, filing, "BRK").facts).toEqual({});
+    expect(quotedClassShares(CLASSES.replace(">25667000000<", ">40000000000<"), filing, "BRK.B").facts).toEqual({});
   });
 });

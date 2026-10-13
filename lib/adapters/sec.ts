@@ -6,7 +6,7 @@ import { businessTypeFromSic, cashFlowIsTheBalanceSheet, classifyBusiness, isFin
 import { companySector } from "../sector";
 import type { BusinessType, CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "../types";
 import { KNOWN_SUCCESSORS, universeMember } from "../universe";
-import { companyCapexLine, filingIsAhead, instanceDocument, investingLines, mergeFactTrees, parseXbrlInstance, type FactTree, type FilingFact } from "./xbrl-instance";
+import { companyCapexLine, filingIsAhead, instanceDocument, investingLines, mergeFactTrees, parseXbrlInstance, quotedClassShares, type FactTree, type FilingFact } from "./xbrl-instance";
 
 type FilingFactLike = FilingFact;
 
@@ -181,7 +181,8 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
   dilutedShares: { namespace: "us-gaap", tags: ["WeightedAverageNumberOfDilutedSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"], unit: "shares" },
   // Only used to recover a share count when the filer publishes none directly.
   dilutedEpsReported: { namespace: "us-gaap", tags: ["EarningsPerShareDiluted"], unit: "perShare" },
-  basicShares: { namespace: "us-gaap", tags: ["WeightedAverageNumberOfSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"], unit: "shares" },
+  // `…OutstandingBasic` is the element; the shorter name was never one, and no basic count was read before v40.
+  basicShares: { namespace: "us-gaap", tags: ["WeightedAverageNumberOfSharesOutstandingBasic", "WeightedAverageNumberOfSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"], unit: "shares" },
   /*
    * The count of shares in issue on the day the balance sheet closes.
    *
@@ -831,6 +832,20 @@ function recoverDilutedShares(periods: FinancialPeriod[]): FinancialPeriod[] {
     if (period.facts.dilutedShares?.value != null) return period;
     const netIncome = period.facts.netIncome;
     const eps = period.facts.dilutedEpsReported;
+    /*
+     * Nothing diluted filed for the period at all — no count, no earnings per
+     * share — while the basic count is: the basic count is the diluted one.
+     * Berkshire Hathaway has no dilutive securities and tags basic figures only.
+     */
+    const basic = period.facts.basicShares;
+    if (eps?.value == null && basic?.value != null && basic.value > 0 && basic.periodEnd === period.periodEnd) {
+      return { ...period, facts: { ...period.facts, dilutedShares: {
+        ...basic, metric: "dilutedShares",
+        provenance: { ...basic.provenance, provider: "Calculated", concept: "DilutedSharesFromBasic", status: "calculated",
+          formula: "Basic weighted-average shares",
+          note: "The filer states no diluted share count or diluted earnings per share for this period: nothing is reported as dilutive, so the basic count is the diluted one." },
+      } } };
+    }
     if (!netIncome?.value || !eps?.value || eps.periodEnd !== period.periodEnd) return period;
     const shares = netIncome.value / eps.value;
     if (!Number.isFinite(shares) || shares <= 0) return period;
@@ -1918,6 +1933,46 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
   } catch { /* The feed's figures stand. */ }
 
   /*
+   * Share counts filed only per class of stock, read from the filings.
+   *
+   * See `quotedClassShares`. Only for a ticker that names its class and whose
+   * feed has carried no company-wide share count or earnings per share for
+   * over a year while net income kept coming: the eight latest reports for the
+   * quarters, and every third annual report before them for a decade of years
+   * (each states three). Anything failing leaves the counts as they were.
+   */
+  try {
+    if (/[.\-/][A-Z]$/.test(company.ticker) && sharesOnlyPerClass(facts)) {
+      const filer = successor?.listed ?? company.cik;
+      const filings = await fetchPeriodicFilings(filer, 48);
+      // Counted from the oldest, so the oldest years the list reaches are covered too.
+      const annuals = filings.slice(8).filter((filing) => filing.form === "10-K");
+      const chosen = [...filings.slice(0, 8), ...annuals.filter((_, index) => (annuals.length - 1 - index) % 3 === 1)];
+      const paced = async (url: string) => { await new Promise((resolve) => setTimeout(resolve, 150)); return fetch(url, { headers: SEC_HEADERS() }); };
+      let read = 0;
+      const ratios = new Set<number>(); const accessions = new Set<string>();
+      for (const filing of chosen) {
+        if (!filing.accession) continue;
+        const folder = `https://www.sec.gov/Archives/edgar/data/${Number(filer)}/${filing.accession.replaceAll("-", "")}`;
+        const listing = await paced(`${folder}/index.json`);
+        if (!listing.ok) continue;
+        const instance = instanceDocument(((await listing.json()) as { directory: { item: Array<{ name: string }> } }).directory.item.map((item) => item.name));
+        if (!instance) continue;
+        const document = await paced(`${folder}/${instance}`);
+        if (!document.ok) continue;
+        const extra = quotedClassShares(await document.text(), { accession: filing.accession, form: filing.form, filed: filing.filingDate }, company.ticker);
+        if (!Object.keys(extra.facts).length) continue;
+        facts = mergeFactTrees(facts, extra.facts);
+        read++;
+        if (extra.ratio != null) ratios.add(extra.ratio);
+        accessions.add(filing.accession);
+      }
+      if (read && ratios.size === 1) facts = onQuotedClassBasis(facts, [...ratios][0], accessions);
+      if (read) notes.push(`${company.name} files its share counts only per class of stock. The ${company.ticker} class's counts are read from ${read} of its reports, each checked against net income: that class's earnings per share times its count give the company's net income back.`);
+    }
+  } catch { /* The counts stand as the feed has them. */ }
+
+  /*
    * A capital expenditure the SEC's standard feed does not carry, read from the
    * company's own line (see `companyCapexLine`).
    *
@@ -2140,6 +2195,59 @@ export interface LatestFiling {
  * company's own calendar rather than against a clock.
  */
 /** A company's recent periodic reports, newest first. */
+const CLASS_COUNTS = ["WeightedAverageNumberOfDilutedSharesOutstanding", "WeightedAverageNumberOfSharesOutstandingBasic", "WeightedAverageNumberOfSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted", "CommonStockSharesOutstanding"];
+const CLASS_PER_SHARE = ["EarningsPerShareBasic", "EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted", "CommonStockDividendsPerShareDeclared", "CommonStockDividendsPerShareCashPaid"];
+
+/**
+ * The feed's older company-wide counts, put on the quoted class's basis.
+ *
+ * Until 2015 Berkshire Hathaway tagged one company-wide count, in Class A
+ * equivalents: 1.6 million shares against the 2.5 billion Class B equivalents
+ * its later reports count, and a free cash flow per share of $10,237 beside
+ * $8. Those counts are converted at the ratio the filings themselves give
+ * between the two classes — only when the newest of them, converted, lands
+ * within 5% of the oldest count read per class, which shows it is the same
+ * company on the other class's basis. Earnings and dividends per share move
+ * the other way.
+ */
+function onQuotedClassBasis(facts: FactTree, ratio: number, read: Set<string>): FactTree {
+  const gaap = facts["us-gaap"] ?? {};
+  const weighted = ["WeightedAverageNumberOfSharesOutstandingBasic", "WeightedAverageNumberOfDilutedSharesOutstanding"];
+  const ours = weighted.flatMap((concept) => gaap[concept]?.units.shares ?? []).filter((fact) => read.has(fact.accn)).sort((a, b) => a.end.localeCompare(b.end))[0];
+  if (!ours) return facts;
+  const theirs = weighted.concat("WeightedAverageNumberOfShareOutstandingBasicAndDiluted").flatMap((concept) => gaap[concept]?.units.shares ?? [])
+    .filter((fact) => !read.has(fact.accn) && fact.end < ours.end).sort((a, b) => b.end.localeCompare(a.end))[0];
+  if (!theirs || Math.abs(theirs.val * ratio - ours.val) > ours.val * 0.05) return facts;
+  const next: FactTree = structuredClone(facts);
+  const scale = (concepts: string[], by: number) => {
+    for (const concept of concepts) for (const list of Object.values(next["us-gaap"]?.[concept]?.units ?? {})) {
+      for (const fact of list) if (!read.has(fact.accn)) fact.val *= by;
+    }
+  };
+  scale(CLASS_COUNTS, ratio);
+  scale(CLASS_PER_SHARE, 1 / ratio);
+  for (const list of Object.values(next.dei?.EntityCommonStockSharesOutstanding?.units ?? {})) for (const fact of list) if (!read.has(fact.accn)) fact.val *= ratio;
+  return next;
+}
+
+/**
+ * Whether the feed has stopped carrying any company-wide share count while the
+ * company kept reporting: no weighted count and no earnings per share within a
+ * year of its latest net income.
+ */
+function sharesOnlyPerClass(facts: FactTree): boolean {
+  const gaap = facts["us-gaap"] ?? {};
+  const newest = (concepts: string[]) => {
+    let end: string | null = null;
+    for (const concept of concepts) for (const list of Object.values(gaap[concept]?.units ?? {})) for (const fact of list) if (end == null || fact.end > end) end = fact.end;
+    return end;
+  };
+  const income = newest(["NetIncomeLoss"]);
+  if (!income) return false;
+  const shares = newest(["WeightedAverageNumberOfDilutedSharesOutstanding", "WeightedAverageNumberOfSharesOutstandingBasic", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted", "EarningsPerShareDiluted", "EarningsPerShareBasic", "EarningsPerShareBasicAndDiluted"]);
+  return shares == null || Date.parse(income) - Date.parse(shares) > 400 * 86_400_000;
+}
+
 export async function fetchPeriodicFilings(cik: string, limit = 8): Promise<LatestFiling[]> {
   const response = await fetch(`https://data.sec.gov/submissions/CIK${cik.padStart(10, "0")}.json`, {
     headers: { ...SEC_HEADERS(), Accept: "application/json" },

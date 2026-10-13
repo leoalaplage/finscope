@@ -105,6 +105,11 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v40: a basic share count is read at all — it was mapped to an element name
+ * no filer uses — and a filer that states its counts only per class of stock
+ * has the quoted class's counts read from its filings, each proved against
+ * net income. Berkshire Hathaway had no per-share figure since 2015.
+ *
  * v39: three repairs Copart needed, each general. A quarter whose filing tags
  * no borrowing line at all carries the annual report's debt where the annual
  * reports either side file under 1% of assets and total liabilities barely
@@ -313,7 +318,7 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v39";
+export const KEY_VERSION = "v40";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.
