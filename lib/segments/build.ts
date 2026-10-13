@@ -67,7 +67,14 @@ export interface SegmentData {
   stacks: SegmentStack[];
   /** False when a report could not be read: kept, but rebuilt soon. */
   complete?: boolean;
+  /** The rules it was built with (SEGMENTS_BUILD); an older build is served and rebuilt behind. */
+  build?: number;
 }
+
+/**
+ * 2: fourth quarters on their quarters' basis, renamed lines joined.
+ */
+export const SEGMENTS_BUILD = 2;
 
 const DAY = 86_400_000;
 const days = (start: string, end: string) => Math.round((Date.parse(end) - Date.parse(start)) / DAY) + 1;
@@ -106,11 +113,19 @@ export function buildSegments(input: {
     const held = latest.get(key);
     if (!held || fact.filed > held.filed || (fact.filed === held.filed && fact.measure === "revenue" && fact.value > held.value)) latest.set(key, fact);
   }
+  // Every filing's value of each year, for the fourth quarter (below).
+  const years = new Map<string, SegmentFact[]>();
+  for (const fact of input.facts) {
+    if (fact.currency !== currency || !fact.start || days(fact.start, fact.end) < 300 || days(fact.start, fact.end) > 400) continue;
+    const key = `${sliceOf(fact)}|${windowKey(fact)}`;
+    years.set(key, [...(years.get(key) ?? []), fact]);
+  }
   const kept = withoutMisfiledTotals([...latest.values()]);
   const groups = new Map<string, SegmentFact[]>();
   for (const fact of kept) groups.set(sliceOf(fact), [...(groups.get(sliceOf(fact)) ?? []), fact]);
 
   const series: SegmentSeries[] = [];
+  const slices = new Map<SegmentSeries, string[]>();
   for (const facts of groups.values()) {
     facts.sort((left, right) => right.filed.localeCompare(left.filed));
     const [first, parent] = facts[0].members;
@@ -120,18 +135,6 @@ export function buildSegments(input: {
     const quarterly = facts.filter((fact) => fact.start && days(fact.start, fact.end) >= 55 && days(fact.start, fact.end) <= 125).map(point);
     const annual = facts.filter((fact) => fact.start && days(fact.start, fact.end) >= 300 && days(fact.start, fact.end) <= 400).map(point);
     const instant = facts.filter((fact) => !fact.start).map(point);
-    // The fourth quarter: the year less the three quarters inside it.
-    for (const year of annual) {
-      if (quarterly.some((quarter) => quarter.end === year.end)) continue;
-      const inside = quarterly.filter((quarter) => quarter.start! >= year.start! && quarter.end < year.end);
-      if (inside.length !== 3) continue;
-      const lastEnd = inside.map((quarter) => quarter.end).sort().at(-1)!;
-      const value = year.value - inside.reduce((sum, quarter) => sum + quarter.value, 0);
-      if (facts[0].measure === "revenue" && value < 0) continue;
-      const start = new Date(Date.parse(`${lastEnd}T00:00:00Z`) + DAY).toISOString().slice(0, 10);
-      if (days(start, year.end) < 55 || days(start, year.end) > 125) continue;
-      quarterly.push({ start, end: year.end, value, accession: year.accession, derived: true });
-    }
     const byEnd = (left: SegmentPoint, right: SegmentPoint) => left.end.localeCompare(right.end);
     series.push({
       id,
@@ -145,11 +148,45 @@ export function buildSegments(input: {
       annual: annual.sort(byEnd),
       instant: instant.sort(byEnd),
     });
+    slices.set(series.at(-1)!, [sliceOf(facts[0])]);
   }
-  const tidy = withoutEmpty(series).sort((left, right) => left.id.localeCompare(right.id));
+  const joined = withRenamesJoined(withoutEmpty(series), (older, newer) => slices.set(newer, [...slices.get(newer)!, ...slices.get(older)!]));
+  /*
+   * The fourth quarter: the year less the three quarters inside it — the year
+   * as filed nearest to those quarters, on their basis. Derived once renamed
+   * lines are joined, so a year filed under the new name meets the quarters
+   * filed under the old. Microsoft recast its segments in 2024: its 2025
+   * report states fiscal 2023 on the new basis while that year's quarters
+   * stand as first filed, and the difference made Intelligent Cloud's fourth
+   * quarter $9bn against $21bn in each of the three before it. Revenue still
+   * has to look like a quarter of the same business: between 40% and 250% of
+   * the three quarters' average.
+   */
+  const filedOf = new Map(input.facts.map((fact) => [fact.accession, fact.filed]));
+  for (const line of joined) {
+    for (const year of line.annual) {
+      if (line.quarterly.some((quarter) => quarter.end === year.end)) continue;
+      const inside = line.quarterly.filter((quarter) => quarter.start! >= year.start! && quarter.end < year.end);
+      if (inside.length !== 3) continue;
+      const lastEnd = inside.map((quarter) => quarter.end).sort().at(-1)!;
+      const quartersFiled = Date.parse(inside.map((quarter) => filedOf.get(quarter.accession) ?? "").sort().at(-1)!);
+      const versions = (slices.get(line) ?? []).flatMap((slice) => years.get(`${slice}|${windowKey(year)}`) ?? [])
+        .filter((fact) => fact.filed >= year.end)
+        .sort((left, right) => Math.abs(Date.parse(left.filed) - quartersFiled) - Math.abs(Date.parse(right.filed) - quartersFiled));
+      const basis = versions[0] ?? { value: year.value, accession: year.accession };
+      const value = basis.value - inside.reduce((sum, quarter) => sum + quarter.value, 0);
+      const average = inside.reduce((sum, quarter) => sum + quarter.value, 0) / 3;
+      if (line.measure === "revenue" && (value < 0 || (average > 0 && (value < average * 0.4 || value > average * 2.5)))) continue;
+      const start = new Date(Date.parse(`${lastEnd}T00:00:00Z`) + DAY).toISOString().slice(0, 10);
+      if (days(start, year.end) < 55 || days(start, year.end) > 125) continue;
+      line.quarterly.push({ start, end: year.end, value, accession: basis.accession, derived: true });
+    }
+    line.quarterly.sort((left, right) => left.end.localeCompare(right.end));
+  }
+  const tidy = joined.sort((left, right) => left.id.localeCompare(right.id));
   return {
     ticker: input.ticker.toUpperCase(), cik: input.cik, currency,
-    builtAt: input.builtAt ?? new Date().toISOString(),
+    builtAt: input.builtAt ?? new Date().toISOString(), build: SEGMENTS_BUILD,
     filings: [...input.filings].sort((left, right) => right.reportDate.localeCompare(left.reportDate)),
     series: tidy,
     stacks: stacksOf(tidy),
@@ -169,6 +206,57 @@ function withoutMisfiledTotals(facts: SegmentFact[]): SegmentFact[] {
       && other.measure === fact.measure && windowKey(other) === windowKey(fact));
     return others.length < 2 || !close(fact.value, others.reduce((sum, other) => sum + other.value, 0), others.length);
   });
+}
+
+/**
+ * One line under two names, joined.
+ *
+ * Microsoft's "Dynamics" became "Dynamics products and cloud services" in its
+ * taxonomy, and the chart drew two short lines where the company has one. Two
+ * lines of the same measure, axis and parent are the same line when they
+ * state the same value for at least one period they share — the restated
+ * report repeating an old period under the new name — and never a different
+ * one. The newer name carries the joined line. Lines regrouped rather than
+ * renamed (Windows and Devices out of Windows and Devices) share no equal
+ * period, and stay apart: nothing here splits or sums a line.
+ */
+export function withRenamesJoined(series: SegmentSeries[], onJoin?: (older: SegmentSeries, newer: SegmentSeries) => void): SegmentSeries[] {
+  const lines = [...series];
+  const last = (line: SegmentSeries) => [...line.quarterly, ...line.annual].map((point) => point.end).sort().at(-1) ?? "";
+  const first = (line: SegmentSeries) => [...line.quarterly, ...line.annual].map((point) => point.end).sort()[0] ?? "";
+  for (let joined = true; joined;) {
+    joined = false;
+    for (const older of lines) {
+      if (older.axis === "total" || older.measure === "backlog") continue;
+      const newer = lines.find((other) => other !== older && other.measure === older.measure && other.axis === older.axis
+        && other.parentLabel === older.parentLabel && other.label !== older.label
+        && last(other) > last(older) && first(other) > first(older) && sameLine(older, other));
+      if (!newer) continue;
+      const merge = (periodicity: "quarterly" | "annual") => {
+        const held = new Set(newer[periodicity].map((point) => windowKey(point)));
+        newer[periodicity] = [...older[periodicity].filter((point) => !held.has(windowKey(point))), ...newer[periodicity]].sort((left, right) => left.end.localeCompare(right.end));
+      };
+      merge("quarterly"); merge("annual");
+      onJoin?.(older, newer);
+      lines.splice(lines.indexOf(older), 1);
+      joined = true;
+      break;
+    }
+  }
+  return lines;
+}
+
+function sameLine(left: SegmentSeries, right: SegmentSeries): boolean {
+  let equal = 0;
+  for (const periodicity of ["quarterly", "annual"] as const) {
+    for (const point of left[periodicity]) {
+      const other = right[periodicity].find((each) => each.start === point.start && each.end === point.end);
+      if (!other) continue;
+      if (!close(point.value, other.value)) return false;
+      equal++;
+    }
+  }
+  return equal > 0;
 }
 
 /** A line that is zero throughout says nothing. */

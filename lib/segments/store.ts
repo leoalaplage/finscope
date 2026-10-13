@@ -1,7 +1,7 @@
 import { searchSecCompanies } from "../adapters/sec";
 import { datasetCache, keepAlive, selfFetcher } from "../runtime-env";
 import { UNIVERSE, universeMember } from "../universe";
-import type { SegmentData } from "./build";
+import { SEGMENTS_BUILD, type SegmentData } from "./build";
 import { fetchSegments } from "./source";
 
 /**
@@ -50,7 +50,8 @@ export async function getSegments(ticker: string, rebuild = false): Promise<Segm
   if (!rebuild) {
     const stored = await datasetCache()?.get<SegmentData>(segmentsKey(ticker), "json").catch(() => null);
     if (stored) {
-      if (Date.now() - Date.parse(stored.builtAt) > (stored.complete === false ? RETRY_MS : FRESH_MS)) keepAlive(buildAndStore(ticker));
+      const outdated = (stored.build ?? 1) < SEGMENTS_BUILD;
+      if (outdated || Date.now() - Date.parse(stored.builtAt) > (stored.complete === false ? RETRY_MS : FRESH_MS)) keepAlive(buildAndStore(ticker));
       return stored;
     }
   }

@@ -118,6 +118,35 @@ describe("buildSegments", () => {
     expect(renamed.series.find((entry) => entry.label === "Compute")!.quarterly.map((point) => point.value)).toEqual([5, 8]);
     expect(renamed.series.some((entry) => entry.member === "us-gaap:CorporateNonSegmentMember")).toBe(false);
   });
+
+  it("joins a line renamed in the taxonomy when the restated report repeats a period at the same value, and not otherwise", () => {
+    // Microsoft's Gaming became XBOX: the new name's first report restates the last quarter of the old one.
+    const built = buildSegments({
+      ticker: "m", cik: "1", labels: new Map([["m:GamingMember", "Gaming"], ["m:XboxMember", "XBOX"], ["m:DynMember", "Dynamics"], ["m:DynCloudMember", "Dynamics cloud"]]), filings: [], facts: [
+        fact("revenue", "m:GamingMember", "2025-01-01", "2025-03-31", 5_000_000_000, "2025-05-01"),
+        fact("revenue", "m:GamingMember", "2025-04-01", "2025-06-30", 5_200_000_000, "2025-08-01"),
+        fact("revenue", "m:XboxMember", "2025-04-01", "2025-06-30", 5_200_000_000, "2025-11-01"),
+        fact("revenue", "m:XboxMember", "2025-07-01", "2025-09-30", 5_400_000_000, "2025-11-01"),
+        fact("revenue", "m:DynMember", "2025-04-01", "2025-06-30", 1_540_000_000, "2025-08-01"),
+        fact("revenue", "m:DynCloudMember", "2025-04-01", "2025-06-30", 1_626_000_000, "2025-11-01"),
+        fact("revenue", "m:DynCloudMember", "2025-07-01", "2025-09-30", 1_700_000_000, "2025-11-01"),
+      ],
+    });
+    expect(built.series.map((entry) => entry.label).sort()).toEqual(["Dynamics", "Dynamics cloud", "XBOX"]);
+    expect(built.series.find((entry) => entry.label === "XBOX")!.quarterly.map((point) => point.value)).toEqual([5_000_000_000, 5_200_000_000, 5_400_000_000]);
+  });
+
+  it("takes a fourth quarter from the year as filed beside its quarters, not as restated on a new basis", () => {
+    const recast = buildSegments({
+      ticker: "c", cik: "1", labels: new Map(), filings: [], facts: [
+        ...quarters.map(([start, end]) => fact("revenue", "c:CloudMember", start, end, 20_000_000_000, "2025-10-30")),
+        fact("revenue", "c:CloudMember", "2025-01-01", "2025-12-31", 82_000_000_000, "2026-02-01"),
+        // The next year's report restates the segment on a new basis.
+        fact("revenue", "c:CloudMember", "2025-01-01", "2025-12-31", 69_000_000_000, "2027-02-01"),
+      ],
+    });
+    expect(recast.series[0].quarterly.at(-1)).toMatchObject({ end: "2025-12-31", value: 22_000_000_000, derived: true });
+  });
 });
 
 describe("largestPartition", () => {
