@@ -8,7 +8,7 @@
  */
 
 export type CompanyFunction = "DES" | "GP" | "FA" | "GR" | "GF" | "SEG" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "CN" | "DCF" | "FS" | "COMP";
-export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "SCAN" | "BT" | "ECAL" | "SET" | "HELP";
+export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "BT" | "ECAL" | "SET" | "HELP";
 
 export interface FunctionSpec<Code extends string> {
   code: Code;
@@ -59,7 +59,6 @@ export const GLOBAL_FUNCTIONS: FunctionSpec<GlobalFunction>[] = [
   { code: "SCRN", name: "Screener" },
   { code: "PORT", name: "Portfolio" },
   { code: "CHART", name: "Chart workspace" },
-  { code: "SCAN", name: "Technical scanner" },
   { code: "BT", name: "Backtest" },
   { code: "ECAL", name: "Earnings calendar" },
   { code: "SET", name: "Settings and what this device keeps" },
@@ -87,7 +86,8 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
   EQS: "SCRN", SCREEN: "SCRN",
   PRT: "PORT", PORTFOLIO: "PORT",
   GRAPH: "CHART",
-  SCANNER: "SCAN", TS: "SCAN",
+  // The technical scanner is a mode of the screener now (components/term/ScreenerWorkspace.tsx).
+  SCAN: "SCRN", SCANNER: "SCRN", TS: "SCRN",
   BACKTEST: "BT", BTST: "BT",
   EARNINGS: "ECAL", CALENDAR: "ECAL",
   SETTINGS: "SET", PREFS: "SET",
@@ -194,7 +194,6 @@ export function hrefFor(command: Command): string | null {
         case "SCRN": return "/t/screener";
         case "PORT": return "/t/portfolio";
         case "CHART": return command.ticker ? `/t/chart?s=${encodeURIComponent(command.ticker)}` : "/t/chart";
-        case "SCAN": return "/t/screener?mode=scan";
         case "ECAL": return "/t/ecal";
         case "SET": return "/t/settings";
         case "BT": return command.ticker ? `/t/backtest?s=${encodeURIComponent(command.ticker)}` : "/t/backtest";

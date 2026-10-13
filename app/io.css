@@ -2283,7 +2283,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   padding: 0; background: none; border: 0; cursor: pointer; color: var(--ink-2);
 }
 .qs-grade-bar:disabled { cursor: default; opacity: .45; }
-.qs-grade-fill { width: 100%; min-height: 2px; align-self: end; border-radius: 2px 2px 0 0; background: color-mix(in srgb, var(--grade) 70%, transparent); }
+.qs-grade-fill { width: 100%; min-height: 2px; align-self: end; background: color-mix(in srgb, var(--grade) 70%, transparent); }
 .qs-grade-bar[aria-pressed="true"] .qs-grade-fill { background: var(--grade); box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--grade); }
 .qs-grade-bar:hover:not(:disabled) .qs-grade-fill { background: var(--grade); }
 .qs-grade-count { font-size: var(--fs-xs); color: var(--ink-2); }
@@ -2312,17 +2312,21 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 }
 .qs-map-tip b { color: var(--ink); }
 
-.qs-sectors { display: grid; gap: 2px; }
+/* As tall as the map beside it, and scrolled within: thirty sectors are not thirty rows of page. */
+.qs-sectors {
+  display: grid; align-content: start; gap: 1px; height: 420px; overflow-y: auto; overscroll-behavior: contain;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--raise);
+}
 .qs-sector {
   display: grid; grid-template-columns: minmax(0, 9.5rem) minmax(0, 1fr) 3ch; grid-template-areas: "name track value" "count count count";
-  align-items: center; column-gap: 10px; padding: 6px 8px; text-align: left; background: none; border: 0; border-radius: var(--radius); cursor: pointer;
+  align-items: center; column-gap: 10px; padding: 6px 10px; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line); cursor: pointer;
 }
-.qs-sector:hover { background: var(--raise); }
+.qs-sector:hover { background: var(--fill); }
 .qs-sector[aria-pressed="true"] { background: var(--fill); box-shadow: inset 2px 0 0 var(--ink); }
 .qs-sector-name { grid-area: name; display: flex; align-items: center; gap: 7px; min-width: 0; font-size: var(--fs-sm); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.qs-sector-name > i { flex: none; width: 8px; height: 8px; border-radius: 2px; background: var(--sector); }
-.qs-sector-track { grid-area: track; height: 8px; background: var(--fill); border-radius: 4px; overflow: hidden; }
-.qs-sector-track > span { display: block; height: 100%; background: var(--sector); border-radius: 4px; }
+.qs-sector-name > i { flex: none; width: 8px; height: 8px; background: var(--sector); }
+.qs-sector-track { grid-area: track; height: 8px; background: var(--fill); overflow: hidden; }
+.qs-sector-track > span { display: block; height: 100%; background: var(--sector); }
 .qs-sector-value { grid-area: value; text-align: right; font-size: var(--fs-sm); }
 .qs-sector-count { grid-area: count; font: var(--fs-micro) var(--mono); color: var(--ink-3); }
 
@@ -2342,8 +2346,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .qs-card-pillars { display: grid; gap: 6px; margin-bottom: 14px; }
 .qs-pillar { display: grid; grid-template-columns: 6rem minmax(0, 1fr) 3ch; align-items: center; gap: 10px; }
 .qs-pillar .num { text-align: right; font-size: var(--fs-sm); }
-.qs-pillar-track { position: relative; height: 10px; background: var(--fill); border-radius: 5px; }
-.qs-pillar-fill { position: absolute; inset: 0 auto 0 0; background: var(--plot); border-radius: 5px; }
+.qs-pillar-track { position: relative; height: 10px; background: var(--fill); }
+.qs-pillar-fill { position: absolute; inset: 0 auto 0 0; background: var(--plot); }
 .qs-pillar-track > i { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); }
 .qs-card-notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 14px; }
 .qs-card-notes ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: var(--fs-sm); }
@@ -2357,11 +2361,15 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .qs-measure[data-empty] { color: var(--ink-3); }
 .qs-measure-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .qs-measure-raw, .qs-measure-score { text-align: right; }
-.qs-measure-track { height: 6px; background: var(--fill); border-radius: 3px; overflow: hidden; }
+.qs-measure-track { height: 6px; background: var(--fill); overflow: hidden; }
 .qs-measure-track > span { display: block; height: 100%; background: var(--plot); }
 
 @media (max-width: 900px) {
   .qs-overview, .qs-panels { grid-template-columns: minmax(0, 1fr); }
+}
+/* The map is 340 high below 560 pixels; the sectors beside it follow. */
+@media (max-width: 559px) {
+  .qs-sectors { height: 340px; }
 }
 @media (max-width: 640px) {
   .qs-tiles { grid-template-columns: minmax(0, 1fr); }
@@ -2391,4 +2399,4 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 
 /* A sector named with its colour. */
 .qs-sector-tag { display: inline-flex; align-items: center; gap: 5px; }
-.qs-sector-tag > i { width: 7px; height: 7px; border-radius: 2px; }
+.qs-sector-tag > i { width: 7px; height: 7px; }

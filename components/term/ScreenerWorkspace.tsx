@@ -12,7 +12,7 @@ import { Screener } from "@/components/io/Screener";
  * Quality Score, and the technical scanner were three screens a reader had to
  * know about separately; the scanner had its own code. They are three modes of
  * one screen now, the mode in the address so each can be linked and comes back
- * where it was — `/t/scan` opens this screen on the scanner.
+ * where it was: `/t/screener?mode=scan` is the scanner.
  */
 export type ScreenerMode = "filters" | "quality" | "scan";
 const MODES: Array<{ id: ScreenerMode; label: string }> = [
