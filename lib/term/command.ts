@@ -16,7 +16,8 @@ export interface FunctionSpec<Code extends string> { code: Code; name: string }
  * What can be done to one company, in the order the function bar shows them.
  *
  * DES opens the company itself; the others are panels on the same screen,
- * except DCF and COMP, which are screens of their own.
+ * except COMP, which is a screen of its own. DCF is both: a panel on the
+ * company's screen, and a full screen of its own from the panel's link.
  */
 export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   { code: "DES", name: "Description" },
@@ -168,7 +169,6 @@ export function hrefFor(command: Command): string | null {
   switch (command.kind) {
     case "company": {
       const ticker = encodeURIComponent(command.ticker);
-      if (command.fn === "DCF") return `/t/dcf?s=${ticker}`;
       if (command.fn === "COMP") return `/t/compare?s=${ticker}`;
       if (command.fn === "DES") return `/t/s/${ticker}`;
       return `/t/s/${ticker}#${command.fn.toLowerCase()}`;

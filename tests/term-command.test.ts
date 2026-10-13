@@ -51,7 +51,7 @@ describe("hrefFor", () => {
   it("sends panels to the terminal company page and screens to their own pages", () => {
     expect(hrefFor({ kind: "company", ticker: "AAPL", fn: "DES" })).toBe("/t/s/AAPL");
     expect(hrefFor({ kind: "company", ticker: "AAPL", fn: "HDS" })).toBe("/t/s/AAPL#hds");
-    expect(hrefFor({ kind: "company", ticker: "AAPL", fn: "DCF" })).toBe("/t/dcf?s=AAPL");
+    expect(hrefFor({ kind: "company", ticker: "AAPL", fn: "DCF" })).toBe("/t/s/AAPL#dcf");
     expect(hrefFor({ kind: "company", ticker: "BRK.B", fn: "COMP" })).toBe("/t/compare?s=BRK.B");
     expect(hrefFor({ kind: "global", fn: "SCRN" })).toBe("/t/screener");
     expect(hrefFor({ kind: "global", fn: "HELP" })).toBeNull();

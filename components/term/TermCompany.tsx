@@ -15,6 +15,7 @@ import { Multiples } from "@/components/io/Multiples";
 import { Growth } from "@/components/io/Growth";
 import { Statements } from "@/components/io/Statements";
 import { ValuationCharts } from "@/components/io/ValuationCharts";
+import { DcfModel } from "@/components/io/DcfModel";
 import { Insiders, useInsiders } from "@/components/io/Insiders";
 import { Holders } from "@/components/io/Holders";
 import { CompanyNews } from "@/components/io/CompanyNews";
@@ -252,12 +253,15 @@ export function TermCompany({ ticker }: { ticker: string }) {
             <Seasonality key={`seas-${company.ticker}`} symbol={company.ticker} />
           </Panel>
         </div>
-        <Panel code="FS" area="st">
-          <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
-        </Panel>
         <Panel code="VAL" title="Valuation multiples · through time, against their own range" area="val">
           {/* The multiples through time, each against its own median and range. */}
           <ValuationCharts key={`valc-${company.ticker}`} view={view} quote={valuationQuote} />
+        </Panel>
+        <Panel code="DCF" title="Discounted cash flow · the value of the cash, against the price" area="dcf">
+          <DcfModel key={`dcf-${company.ticker}`} view={view} quote={valuationQuote} />
+        </Panel>
+        <Panel code="FS" area="st">
+          <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
         </Panel>
         <Panel code="INS" area="ins">
           <Insiders key={`insiders-${company.ticker}`} state={insiderState} />
