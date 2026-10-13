@@ -33,6 +33,16 @@ import { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
  * "Building financials…" until the warm-up has been round the watchlist.
  */
 const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [
+  /*
+   * v44 to v46 fill revenue before the contracts standard, correct utilities'
+   * capital expenditure, refuse a lone lease as total debt and keep a residual
+   * depreciation line last. Each prior copy is what was on screen an hour
+   * before, and without them every company not yet rebuilt showed blank
+   * filing columns in both screeners.
+   */
+  { version: "v45", shape: "s13" },
+  { version: "v44", shape: "s13" },
+  { version: "v43", shape: "s13" },
   // v43 fills proven zero-debt balances and D&A; the prior copy stays visible
   // only while the same company's corrected statements are being rebuilt.
   { version: "v42", shape: "s13" },

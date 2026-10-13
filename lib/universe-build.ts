@@ -208,7 +208,27 @@ export async function buildUniverseSlice(origin: string, limit = BUILD_PER_RUN):
   const rows = new Map((table?.rows ?? []).map((each) => [each.ticker, each]));
   const byTicker = new Map(UNIVERSE.map((member) => [member.ticker, member]));
 
-  for (const ticker of nextToBuild(table, limit)) {
+  /*
+   * Digests already stored are taken first, all of them, without asking for a
+   * build.
+   *
+   * After a version change every company is rebuilt — by readers, by the warm,
+   * by the filing watcher — and each build leaves its digest in the store. The
+   * table only learnt of them a hundred companies a run, by asking for each
+   * build again, so for hours after a version change the screener showed
+   * Microsoft, Meta and Nvidia with nothing but their consensus columns while
+   * their digests sat ready. Reading one back is two kilobytes.
+   */
+  for (const member of UNIVERSE) {
+    if (rows.has(member.ticker)) continue;
+    try {
+      const digest = (await cache.get(summaryKey(member.ticker), "json")) as WatchlistSummary | null;
+      if (digest?.qs) rows.set(member.ticker, row(member, digest));
+    } catch { /* Asked for below, like any other missing company. */ }
+  }
+  const held = table ? { ...table, rows: [...rows.values()] } : null;
+
+  for (const ticker of nextToBuild(held, limit)) {
     const member = byTicker.get(ticker);
     if (!member) continue;
     try {
