@@ -29,7 +29,9 @@ describe("watchlist sector bubbles", () => {
 });
 
 describe("sector colours", () => {
-  it("gives every sector of a watchlist its own colour, unchanged by a filter", () => {
+  it("gives every sector its own colour, however many, unchanged by a filter", () => {
+    const many = Array.from({ length: 34 }, (_, index) => row(`M${index}`, .01, 100, `Sector ${index}`));
+    expect(new Set(bubbleLayout(many, "d1", null).colors.values()).size).toBe(34);
     const rows = ["Software", "Semiconductors", "Banking", "Energy", "Retail", "Media"].map((sector, index) => row(`T${index}`, .01, 100, sector));
     const all = bubbleLayout(rows, "d1", null).colors;
     expect(new Set(all.values()).size).toBe(6);

@@ -27,13 +27,13 @@ export function bubbleLayout(rows: PerformanceRow[], window: WindowId, sector: s
 /**
  * One colour per sector on screen, by its place among them.
  *
- * Hashing a sector's name onto eleven colours gave two sectors of the same
- * watchlist the same colour as often as not — the site names some forty
- * sectors. Assigned in order over the sectors present, every sector of a list
- * of up to twelve has its own; and taken from all of them, not the ones a
- * filter leaves, so choosing a sector never recolours it.
+ * Hashing a sector's name onto eleven colours gave two sectors the same colour
+ * as often as not, and the index carries some thirty sectors — more than any
+ * fixed palette. Each sector present takes the next hue round the circle by the
+ * golden angle, so neighbours in the list are never neighbours in colour and no
+ * two sectors share one however many there are. Taken from every sector
+ * present, not the ones a filter leaves, so choosing one never recolours it.
  */
-const COLORS = ["#3ca9dc", "#ef8c32", "#29b885", "#bb70dc", "#ef5350", "#d6b536", "#7889ec", "#e475ad", "#25b9ba", "#8bc34a", "#a1aab7", "#c98a5b"];
 export function sectorColors(sectors: string[]): Map<string, string> {
-  return new Map([...new Set(sectors)].sort().map((sector, index) => [sector, COLORS[index % COLORS.length]]));
+  return new Map([...new Set(sectors)].sort().map((sector, index) => [sector, `hsl(${Math.round((index * 137.508 + 200) % 360)} 62% 54%)`]));
 }

@@ -5,7 +5,7 @@ import { QS_COLUMNS, qsTable, qsValuationColumns, type QsPriceInputs, type QsRow
 import {
   naturalDirection, QS_ALERT_PENALTY, QS_ALERT_RULES, QS_ANCHORS, QS_COVERAGE_FLOOR,
   QS_GRADE_BANDS, QS_METRIC_NAMES, QS_METRIC_NOTES, QS_METRICS, QS_PILLARS, QS_PRESETS,
-  QS_STAR_BANDS, QS_STARS, rowGrowthYield, screen, sortRowsBy, valuationStars,
+  QS_STAR_BANDS, QS_STARS, rowGrowthYield, screen, sortRowsBy,
   type PillarName, type PresetName, type ScoredCompany, type SortDirection,
 } from "@/lib/qs/screener";
 import type { PricePoint } from "@/lib/types";
@@ -14,7 +14,7 @@ import { stated } from "@/lib/sector";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import { growthYieldOutOfTen, growthYieldScore } from "@/lib/io/growth-yield";
 import { filterRows, isFiltered, measureValue, NO_FILTER, type ScreenerFilter } from "@/lib/qs/screener-views";
-import { CompanyCard, GradeBadge, QualityValueMap, ScreenerOverview, SectorScores } from "./ScreenerCharts";
+import { CompanyCard, GradeBadge, QualityValueMap, ScoreCell, ScreenerOverview, SectorScores, SectorTag, useSectorColors } from "./ScreenerCharts";
 import { useStoredWatchlist } from "./watchlist";
 import { ABSENT, money, percent } from "./format";
 
@@ -121,11 +121,11 @@ const COLUMNS: Column[] = [
   ...QS_PILLARS.filter((pillar) => pillar !== "Value").map((pillar) => ({
     sort: pillar as string,
     label: pillar as string,
-    read: (row: ScoredCompany) => <Meter value={row.piliers[pillar]} label={pillar} />,
+    read: (row: ScoredCompany) => <ScoreCell value={row.piliers[pillar]} label={pillar} />,
     empty: (row: ScoredCompany) => row.piliers[pillar] == null,
     drawn: true,
   })),
-  { sort: "etoiles", label: "Valuation", read: (row) => <Stars row={row} />, empty: (row) => row.piliers.Value == null, drawn: true },
+  { sort: "etoiles", label: "Value", read: (row) => <span title={row.valuation}><ScoreCell value={row.piliers.Value} label="Value" /></span>, empty: (row) => row.piliers.Value == null, drawn: true },
   /*
    * FinScope's own reading of the price against the growth: the cash yield
    * plus five years of revenue growth per share (lib/io/growth-yield.ts). Not
@@ -160,47 +160,6 @@ const COLUMNS: Column[] = [
  * One ink, as everywhere else on this site: the track is the page's soft plot
  * fill and the bar is its ink. Nothing about a colour says "good" here.
  */
-function Meter({ value, label }: { value: number | null; label: string }) {
-  if (value == null || !Number.isFinite(value)) return <span className="meter-absent">{ABSENT}</span>;
-  const width = Math.max(0, Math.min(100, value));
-  return (
-    <span
-      className="meter"
-      role="img"
-      aria-label={`${label} ${value.toFixed(0)} out of 100`}
-      title={`${label} ${value.toFixed(0)} out of 100`}
-    >
-      <span className="meter-track" aria-hidden="true"><span style={{ width: `${width}%` }} /></span>
-    </span>
-  );
-}
-
-/**
- * The valuation as five stars, cheapest first.
- *
- * It is the Value pillar read as a verdict — which is what the column always
- * was, when it said "Attractive", "Fair" or "Expensive". Five bands instead of
- * three separate the merely fair from the nearly cheap without inventing a
- * second measurement: the band edges are the engine's own, and the named level
- * travels with the stars so the two can never disagree.
- */
-function Stars({ row }: { row: ScoredCompany }) {
-  const stars = valuationStars(row.piliers.Value);
-  if (stars == null) return <span className="meter-absent">{ABSENT}</span>;
-  return (
-    <span
-      className="stars"
-      role="img"
-      aria-label={`${stars} of ${QS_STARS} stars, ${row.valuation}`}
-      title={`${row.valuation} · Value pillar ${row.piliers.Value!.toFixed(0)} of 100`}
-    >
-      {Array.from({ length: QS_STARS }, (_, index) => (
-        <span key={index} aria-hidden="true" data-lit={index < stars}>★</span>
-      ))}
-    </span>
-  );
-}
-
 export function Screener() {
   const tickers = useStoredWatchlist();
   const followed = tickers.join(",");
@@ -487,12 +446,18 @@ export function Screener() {
             </div>
 
             <div className="qs-filters" role="search">
-              <input type="search" className="qs-search" placeholder="Ticker or sector" value={filter.query}
+              <input type="search" className="field qs-search" placeholder="Ticker or sector" value={filter.query}
                 onChange={(event) => setFilter((current) => ({ ...current, query: event.target.value }))} aria-label="Find a company or sector" />
-              <button type="button" className="qs-chip" aria-pressed={filter.sweetOnly} onClick={() => setFilter((current) => ({ ...current, sweetOnly: !current.sweetOnly }))}>Quality at a fair price</button>
-              <button type="button" className="qs-chip" aria-pressed={filter.noAlerts} onClick={() => setFilter((current) => ({ ...current, noAlerts: !current.noAlerts }))}>No alerts</button>
-              {filter.grades.map((grade) => <button key={grade} type="button" className="qs-chip" aria-pressed onClick={() => toggleGrade(grade)}>Grade {grade} ×</button>)}
-              {filter.sector ? <button type="button" className="qs-chip" aria-pressed onClick={() => setFilter((current) => ({ ...current, sector: null }))}>{filter.sector} ×</button> : null}
+              <div className="seg" role="group" aria-label="Narrow the list">
+                <button type="button" aria-pressed={filter.sweetOnly} onClick={() => setFilter((current) => ({ ...current, sweetOnly: !current.sweetOnly }))}>Quality at a fair price</button>
+                <button type="button" aria-pressed={filter.noAlerts} onClick={() => setFilter((current) => ({ ...current, noAlerts: !current.noAlerts }))}>No alerts</button>
+              </div>
+              {filter.grades.length || filter.sector ? (
+                <div className="seg" role="group" aria-label="Active filters — press one to remove it">
+                  {filter.grades.map((grade) => <button key={grade} type="button" aria-pressed onClick={() => toggleGrade(grade)}>Grade {grade} ×</button>)}
+                  {filter.sector ? <button type="button" aria-pressed onClick={() => setFilter((current) => ({ ...current, sector: null }))}>{filter.sector} ×</button> : null}
+                </div>
+              ) : null}
               {isFiltered(filter) ? <button type="button" className="metric-toggle" onClick={() => setFilter(NO_FILTER)}>Clear</button> : null}
               <span className="stat-note qs-filter-count">{ordered.length} of {allRows.length} shown · press a row for its card</span>
             </div>
@@ -662,6 +627,7 @@ function ScoreTable({
   selected: string | null;
   onSelect: (ticker: string) => void;
 }) {
+  const colors = useSectorColors(feed.rows);
   if (!rows.length) return <div className="state"><p>{feed.rows.length ? "No company matches these filters." : "No company in this list could be scored."}</p></div>;
   const columns = feed.source === "pasted" ? COLUMNS.filter((column) => column.sort !== "growthYield") : COLUMNS;
 
@@ -705,7 +671,7 @@ function ScoreTable({
                     {/* A sector we do not know is not a sector called
                         "Unclassified": the filer's own classification is
                         missing, and a blank says that better than a word. */}
-                    <span className="screener-sector">{stated(row.Secteur)}</span>
+                    {stated(row.Secteur) ? <span className="screener-sector"><SectorTag sector={stated(row.Secteur)!} color={colors.get(stated(row.Secteur)!)} /></span> : null}
                   </a>
                 </th>
                 {columns.map((column) => (
@@ -778,21 +744,20 @@ function Method({ preset }: { preset: PresetName }) {
 
           <div className="method-scales">
             <section className="method-scale">
-              <h3 className="label">The bars, out of 100</h3>
+              <h3 className="label">The pillars, out of 100</h3>
               <p className="stat-note">
-                A pillar bar is the weighted average of its measures, each on the same nought-to-a-hundred scale: 0 is
-                broken, 50 is what a solid listed company reads, 100 is exceptional and rare. Half a bar is not half of
-                anything the company owns — it is the mark, drawn. Three pillars are drawn this way; the fourth is the
-                stars.
+                A pillar is the weighted average of its measures, each on the same nought-to-a-hundred scale: 0 is
+                broken, 50 is what a solid listed company reads, 100 is exceptional and rare. The table writes each
+                pillar as that number, greener above fifty and redder below it; a company&apos;s card draws them as
+                bars against the list&apos;s own medians.
               </p>
             </section>
 
             <section className="method-scale">
               <h3 className="label">The stars</h3>
               <p className="stat-note">
-                The stars are the fourth pillar. Value is the only one of the four that is not a judgement about the
-                company but about its price, so it is shown as the verdict it becomes: the same score out of 100, in
-                five bands. Five stars is the cheapest, one the dearest. Cheap is not good — a company can be five
+                Value is the only pillar that is not a judgement about the company but about its price, so a
+                company&apos;s card also states it as the verdict it becomes: the same score out of 100, in five bands. Five stars is the cheapest, one the dearest. Cheap is not good — a company can be five
                 stars because the market doubts its cash flows.
               </p>
               <ul className="method-list">

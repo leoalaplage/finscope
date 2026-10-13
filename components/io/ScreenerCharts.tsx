@@ -6,6 +6,7 @@ import {
   businessScore, gradeCounts, gradeRank, measureValue, median, pillarMedians, sectorOf, sectorScores,
 } from "@/lib/qs/screener-views";
 import { useWidth } from "@/components/term/use-width";
+import { sectorColors } from "@/lib/watchlist-bubbles";
 import { ABSENT, money } from "./format";
 
 /**
@@ -22,6 +23,28 @@ export function gradeTone(grade: string): CSSProperties {
   const rank = gradeRank(grade);
   if (rank == null) return { "--grade": "var(--ink-3)" } as CSSProperties;
   return { "--grade": `color-mix(in srgb, var(--gain) ${Math.round((1 - rank) * 100)}%, var(--loss))` } as CSSProperties;
+}
+
+/**
+ * A score out of a hundred as the site writes a reading in a table: the number,
+ * tinted from red through to green around the fifty that marks a solid listed
+ * company — the way the filter screener colours its figures — rather than a
+ * bar of its own design.
+ */
+export function ScoreCell({ value, label }: { value: number | null | undefined; label: string }) {
+  if (value == null || !Number.isFinite(value)) return <span className="meter-absent">{ABSENT}</span>;
+  const share = Math.max(0, Math.min(100, value));
+  const tone = share >= 50 ? `color-mix(in srgb, var(--gain) ${Math.round(40 + (share - 50) * 1.2)}%, var(--ink-2))` : `color-mix(in srgb, var(--loss) ${Math.round(40 + (50 - share) * 1.2)}%, var(--ink-2))`;
+  return <span className="qs-score num" style={{ "--tone": tone } as CSSProperties} title={`${label} ${share.toFixed(0)} out of 100`}>{share.toFixed(0)}</span>;
+}
+
+/** A sector's colour: one per sector present, the palette the market page's bubbles use. */
+export function useSectorColors(rows: ScoredCompany[]) {
+  return useMemo(() => sectorColors(rows.map(sectorOf)), [rows]);
+}
+
+export function SectorTag({ sector, color }: { sector: string; color?: string }) {
+  return <span className="qs-sector-tag"><i style={{ background: color ?? "var(--ink-3)" }} />{sector}</span>;
 }
 
 export function GradeBadge({ grade }: { grade: string }) {
@@ -165,16 +188,18 @@ export function QualityValueMap({ rows, weights, selected, onSelect }: {
 
 export function SectorScores({ rows, sector, onSector }: { rows: ScoredCompany[]; sector: string | null; onSector: (sector: string | null) => void }) {
   const sectors = sectorScores(rows);
+  const colors = useSectorColors(rows);
   if (!sectors.length) return null;
   return (
     <div className="qs-sectors" role="group" aria-label="Median score by sector — press a sector to filter the table">
       {sectors.map((entry) => (
         <button key={entry.sector} type="button" className="qs-sector" aria-pressed={sector === entry.sector}
+          style={{ "--sector": colors.get(entry.sector) ?? "var(--plot)" } as CSSProperties}
           onClick={() => onSector(sector === entry.sector ? null : entry.sector)}>
-          <span className="qs-sector-name">{entry.sector}</span>
+          <span className="qs-sector-name"><i aria-hidden="true" />{entry.sector}</span>
           <span className="qs-sector-track"><span style={{ width: `${Math.max(2, Math.min(100, entry.median))}%` }} /></span>
           <span className="qs-sector-value num">{entry.median.toFixed(0)}</span>
-          <span className="qs-sector-count">{entry.count} · best {entry.best}</span>
+          <span className="qs-sector-count">{entry.count} {entry.count === 1 ? "company" : "companies"} · best {entry.best}</span>
         </button>
       ))}
     </div>

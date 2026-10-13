@@ -194,7 +194,7 @@ export function hrefFor(command: Command): string | null {
         case "SCRN": return "/t/screener";
         case "PORT": return "/t/portfolio";
         case "CHART": return command.ticker ? `/t/chart?s=${encodeURIComponent(command.ticker)}` : "/t/chart";
-        case "SCAN": return "/t/scan";
+        case "SCAN": return "/t/screener?mode=scan";
         case "ECAL": return "/t/ecal";
         case "SET": return "/t/settings";
         case "BT": return command.ticker ? `/t/backtest?s=${encodeURIComponent(command.ticker)}` : "/t/backtest";

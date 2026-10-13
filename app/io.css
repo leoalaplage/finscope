@@ -2319,18 +2319,15 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 }
 .qs-sector:hover { background: var(--raise); }
 .qs-sector[aria-pressed="true"] { background: var(--fill); box-shadow: inset 2px 0 0 var(--ink); }
-.qs-sector-name { grid-area: name; font-size: var(--fs-sm); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qs-sector-name { grid-area: name; display: flex; align-items: center; gap: 7px; min-width: 0; font-size: var(--fs-sm); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qs-sector-name > i { flex: none; width: 8px; height: 8px; border-radius: 2px; background: var(--sector); }
 .qs-sector-track { grid-area: track; height: 8px; background: var(--fill); border-radius: 4px; overflow: hidden; }
-.qs-sector-track > span { display: block; height: 100%; background: var(--plot); border-radius: 4px; }
+.qs-sector-track > span { display: block; height: 100%; background: var(--sector); border-radius: 4px; }
 .qs-sector-value { grid-area: value; text-align: right; font-size: var(--fs-sm); }
 .qs-sector-count { grid-area: count; font: var(--fs-micro) var(--mono); color: var(--ink-3); }
 
 .qs-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: calc(var(--u) * 3); }
-.qs-search { height: 30px; min-width: 180px; padding: 0 10px; font: var(--fs-sm) var(--mono); color: var(--ink); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--radius); }
-.qs-search:focus { outline: none; border-color: var(--ink); }
-.qs-chip { height: 30px; padding: 0 10px; font: var(--fs-xs) var(--mono); color: var(--ink-2); background: var(--bg); border: 1px solid var(--line-strong); border-radius: 15px; cursor: pointer; }
-.qs-chip:hover { color: var(--ink); border-color: var(--ink-2); }
-.qs-chip[aria-pressed="true"] { color: var(--inverse); background: var(--ink); border-color: var(--ink); }
+.qs-search { width: 22ch; }
 .qs-filter-count { margin-left: auto; }
 
 .qs-row { cursor: pointer; }
@@ -2371,7 +2368,27 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   .qs-tile + .qs-tile { border-left: 0; border-top: 1px solid var(--line); }
   .qs-tile b { font-size: var(--fs-xl); }
   .qs-filter-count { margin-left: 0; flex-basis: 100%; }
-  .qs-search { flex: 1; min-width: 0; }
+  .qs-search { flex: 1; width: auto; min-width: 0; }
   .qs-card-head { flex-wrap: wrap; }
   .qs-measure { grid-template-columns: minmax(0, 1fr) 7ch 40px 3ch; }
 }
+
+/*
+ * The site's text field, for any page that asks for one: the same height,
+ * border and type as the segmented controls beside it. The terminal restyles it
+ * as its own (app/terminal.css).
+ */
+.field {
+  height: 30px; padding: 0 10px; font: var(--fs-xs) var(--mono); color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line-strong); border-radius: var(--radius); min-width: 0;
+}
+.field::placeholder { color: var(--ink-3); }
+.field:hover { border-color: var(--ink-2); }
+.field:focus-visible { outline: none; border-color: var(--ink); }
+
+/* A pillar score in the table: the number, tinted (ScoreCell). */
+.qs-score { display: inline-block; min-width: 3ch; font-weight: 600; color: var(--tone); }
+
+/* A sector named with its colour. */
+.qs-sector-tag { display: inline-flex; align-items: center; gap: 5px; }
+.qs-sector-tag > i { width: 7px; height: 7px; border-radius: 2px; }

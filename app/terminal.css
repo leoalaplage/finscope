@@ -219,6 +219,9 @@ body:has(.io.term) { background: #050608; }
 /* --- Borrowed components, retuned for density --------------------------- */
 
 .term .seg { background: var(--line); border-color: var(--line-strong); }
+/* The site's text field, in the terminal's own: amber on black, square, as EQS's inputs are. */
+.term .field { height: 22px; padding: 0 6px; font-size: var(--fs-xs); color: var(--amber); background: #000; border-color: var(--line-strong); border-radius: 0; }
+.term .field:focus-visible { border-color: var(--amber); }
 .term .seg button { padding: 1px 7px; font-size: var(--fs-micro); color: var(--ink-3); background: var(--bg); }
 .term .seg button:hover { color: var(--amber); }
 .term .seg button[aria-pressed="true"] { background: var(--amber); color: var(--amber-ink); }
