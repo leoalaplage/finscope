@@ -2220,3 +2220,22 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .io .section-panel { margin-top: calc(var(--u) * 6); }
 .io .section-panel > h3 { margin: 0 0 calc(var(--u) * 2); font-size: var(--fs-md); font-weight: 600; }
 .io .section-panel > h3 span { color: var(--ink-3); font-weight: 400; }
+
+/*
+ * A phone, after everything above: nothing wider than the screen.
+ *
+ * The 44-pixel touch targets make a row of range buttons wider than a phone,
+ * and a section's heading kept its controls beside it. The heading now wraps
+ * its controls under it, a row of buttons scrolls sideways within itself, and
+ * a wide table scrolls within its own frame rather than the page.
+ */
+@media (max-width: 640px) {
+  .section-head { flex-wrap: wrap; }
+  .price-controls { justify-content: flex-start; max-width: 100%; }
+  .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .seg::-webkit-scrollbar { display: none; }
+  .seg button { flex: 0 0 auto; }
+  .estimates-momentum, .dcf-lever-table { display: block; max-width: 100%; overflow-x: auto; }
+  .dcf-bridge-row { grid-template-columns: minmax(0, 9rem) minmax(0, 1fr) 8ch; }
+  .dcf-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

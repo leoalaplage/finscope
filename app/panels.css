@@ -96,3 +96,22 @@
 .dcf-screen-head h1 { margin: 0; color: var(--amber); font-size: var(--fs-hero, 22px); }
 .dcf-screen-head span { color: var(--ink-2); }
 .dcf-screen-head b { margin-left: auto; color: var(--ink); }
+
+/*
+ * On a phone a gallery is swiped, not scrolled past.
+ *
+ * Stacked one under another, the twenty-nine fundamental charts were five
+ * thousand pixels of page and VAL's eight another four: the chapters after
+ * them were a long way down. Side by side, each card most of the screen wide
+ * so the next one shows at the edge, a gallery is one card's height. A drag
+ * across a chart scrolls the gallery; a touch still reads the chart's values.
+ */
+@media (max-width: 640px) {
+  .t-gf-grid {
+    grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 88%;
+    overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; padding-bottom: 6px;
+  }
+  .t-gf-card { scroll-snap-align: start; }
+  .t-gf-card[data-wide] { grid-column: auto; }
+  .t-gf-catch { touch-action: pan-x pan-y; }
+}

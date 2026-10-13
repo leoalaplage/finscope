@@ -705,6 +705,9 @@ body:has(.io.term) { background: #050608; }
 }
 
 @media (max-width: 720px) {
+  /* A desk's ten-pixel figures are unreadable in a hand: one step up on a phone. */
+  :root body .io.term { --fs-micro: 11px; --fs-xs: 12px; --fs-sm: 12px; }
+
   /* One row of frame: the short mark, the command line, nothing else. */
   .t-brand { padding-inline: 8px; }
   .t-brand-long, .t-bar-right a { display: none; }
