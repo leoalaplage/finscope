@@ -54,14 +54,21 @@ export function plausibleCompanyCapex(tree: FactTree, units: Record<string, Arra
  * missing, which is the figure every trailing window after it is built from.
  */
 export function annualCapexBehindCashFlow(tree: FactTree): boolean {
-  const newestYear = (tags: string[]) => {
+  const newestYear = (taxonomy: string, tags: string[]) => {
     let end = "";
-    for (const tag of tags) for (const facts of Object.values(tree["us-gaap"]?.[tag]?.units ?? {})) for (const fact of facts) if (isYear(fact) && fact.end > end) end = fact.end;
+    for (const tag of tags) for (const facts of Object.values(tree[taxonomy]?.[tag]?.units ?? {})) for (const fact of facts) if (isYear(fact) && fact.end > end) end = fact.end;
     return end;
   };
-  const cash = newestYear(["NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"]);
-  const capex = newestYear(STANDARD_CAPEX_TAGS);
-  return cash !== "" && capex !== "" && capex < cash;
+  const cash = newestYear("us-gaap", ["NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"]);
+  const capex = newestYear("us-gaap", STANDARD_CAPEX_TAGS);
+  if (cash !== "" && capex !== "" && capex < cash) return true;
+  /*
+   * An IFRS filer whose capital expenditure is under a name of its own in
+   * every year: Suncor's "cash flows used for capital expenditures" is the
+   * only capital line in its statements, and the feed carries none at all.
+   */
+  const ifrsCash = newestYear("ifrs-full", ["CashFlowsFromUsedInOperatingActivities"]);
+  return ifrsCash !== "" && newestYear("ifrs-full", IFRS_CONCEPTS.capitalExpenditures ?? []) < ifrsCash;
 }
 
 /** Whether the feed's newest capital expenditure is older than its newest operating cash flow. */
@@ -1893,7 +1900,7 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
    * the normalizer's own de-duplication keeps a figure filed twice once.
    */
   const successor = KNOWN_SUCCESSORS[company.ticker.toUpperCase()];
-  let facts = payload.facts;
+  let facts = operationsAsOperatingActivities(payload.facts);
   if (successor && successor.reads === company.cik) {
     try {
       const listed = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${successor.listed}.json`, {
@@ -1987,7 +1994,9 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
       const filer = successor?.listed ?? company.cik;
       const filings = await fetchPeriodicFilings(filer, 8);
       const annual = filings.findIndex((filing) => filing.form === "10-K" || filing.form === "20-F" || filing.form === "40-F");
-      const recent = annual < 0 ? filings.slice(0, 4) : filings.slice(0, annual + 1).slice(0, 4);
+      // A filer of annual reports only (40-F, 20-F) has no quarters to read: five years of its reports, each stating two.
+      const annualOnly = filings.length > 0 && filings.every((filing) => filing.form === "20-F" || filing.form === "40-F");
+      const recent = annualOnly ? filings.slice(0, 5) : annual < 0 ? filings.slice(0, 4) : filings.slice(0, annual + 1).slice(0, 4);
       const read: string[] = [];
       const standardRead: string[] = [];
       // The company's own line, gathered across the filings and judged once, as a whole, before it is used.
@@ -2035,8 +2044,16 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
         const own = parseXbrlInstance(xml, filed, line!.prefix.replace(/[^\w-]/g, ""));
         const units = own[line!.prefix]?.[line!.name]?.units;
         if (!units) continue;
-        if (ownLine && (ownLine.prefix !== line!.prefix || ownLine.name !== line!.name)) continue;
-        ownLine = { prefix: line!.prefix, name: line!.name };
+        /*
+         * The same line under a new name is the same line. Suncor called it
+         * "capital and exploration expenditures" until 2024 and "capital
+         * expenditures" from 2025; a renamed line is taken only where it gives
+         * the year both reports state the same value, within 0.5%.
+         */
+        if (ownLine && (ownLine.prefix !== line!.prefix || ownLine.name !== line!.name)
+          && !Object.entries(units).some(([unit, list]) => list.some((fact) => (ownUnits[unit] ?? []).some((known) =>
+            known.start === fact.start && known.end === fact.end && Math.abs(known.val - fact.val) <= Math.abs(known.val) * 0.005)))) continue;
+        ownLine ??= { prefix: line!.prefix, name: line!.name };
         for (const [unit, list] of Object.entries(units)) (ownUnits[unit] ??= []).push(...list);
         read.push(`${filing.form} ${filing.reportDate}`);
       }
@@ -2228,6 +2245,42 @@ function onQuotedClassBasis(facts: FactTree, ratio: number, read: Set<string>): 
   scale(CLASS_PER_SHARE, 1 / ratio);
   for (const list of Object.values(next.dei?.EntityCommonStockSharesOutstanding?.units ?? {})) for (const fact of list) if (!read.has(fact.accn)) fact.val *= ratio;
   return next;
+}
+
+/**
+ * An IFRS operating cash flow tagged as "cash flows from operations".
+ *
+ * IAS 7 names two totals: cash generated from operations, before the interest
+ * and tax paid a filer may show beneath it, and cash flows from operating
+ * activities after them. Suncor tags its whole operating section with the
+ * first — C$15.96bn in 2024, the figure on its own statement — and the second
+ * not at all, so it had no operating cash flow and no free cash flow. The
+ * first stands for the second only where no second is filed and the three
+ * sections add up to the change in cash with it, within 0.5%: that is the
+ * proof nothing was paid below it.
+ */
+export function operationsAsOperatingActivities(tree: FactTree): FactTree {
+  const ifrs = tree["ifrs-full"];
+  const operations = ifrs?.CashFlowsFromUsedInOperations;
+  if (!operations) return tree;
+  const filed = new Set(Object.values(ifrs.CashFlowsFromUsedInOperatingActivities?.units ?? {}).flat().map((fact) => `${fact.start}|${fact.end}`));
+  const find = (concept: string, unit: string, start: string | undefined, end: string) =>
+    ifrs[concept]?.units[unit]?.find((fact) => fact.start === start && fact.end === end)?.val;
+  const adopted: Record<string, FilingFact[]> = {};
+  for (const [unit, list] of Object.entries(operations.units)) {
+    for (const fact of list) {
+      if (!fact.start || filed.has(`${fact.start}|${fact.end}`)) continue;
+      const investing = find("CashFlowsFromUsedInInvestingActivities", unit, fact.start, fact.end);
+      const financing = find("CashFlowsFromUsedInFinancingActivities", unit, fact.start, fact.end);
+      const change = find("IncreaseDecreaseInCashAndCashEquivalentsBeforeEffectOfExchangeRateChanges", unit, fact.start, fact.end);
+      if (investing == null || financing == null || change == null) continue;
+      const sum = fact.val + investing + financing;
+      if (Math.abs(sum - change) > Math.max(Math.abs(fact.val) * 0.005, 1)) continue;
+      (adopted[unit] ??= []).push(fact);
+    }
+  }
+  if (!Object.keys(adopted).length) return tree;
+  return mergeFactTrees(tree, { "ifrs-full": { CashFlowsFromUsedInOperatingActivities: { units: adopted } } });
 }
 
 /**

@@ -105,6 +105,10 @@
  *     and Flowserve are restated onto one basis with it.
  */
 /*
+ * v41: an IFRS filer's operating cash flow is read from "cash flows from
+ * operations" where that is its whole operating section, and its own capital
+ * line from its filings, across the names it has had. Suncor had neither.
+ *
  * v40: a basic share count is read at all — it was mapped to an element name
  * no filer uses — and a filer that states its counts only per class of stock
  * has the quoted class's counts read from its filings, each proved against
@@ -318,7 +322,7 @@
  * built again; nothing may stand in for them, because standing in would serve
  * the very figures this corrects.
  */
-export const KEY_VERSION = "v40";
+export const KEY_VERSION = "v41";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

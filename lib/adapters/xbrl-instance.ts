@@ -245,7 +245,7 @@ export function investingLines(calculation: string): InvestingLine[] {
     const from = locators.get(match[1].match(/xlink:from="([^"]+)"/)?.[1] ?? "");
     const to = locators.get(match[1].match(/xlink:to="([^"]+)"/)?.[1] ?? "");
     const weight = Number(match[1].match(/weight="([^"]+)"/)?.[1]);
-    if (!from || !to || !/_NetCashProvidedByUsedInInvestingActivities(ContinuingOperations)?$/.test(from)) continue;
+    if (!from || !to || !/_(NetCashProvidedByUsedInInvestingActivities(ContinuingOperations)?|CashFlowsFromUsedInInvestingActivities)$/.test(from)) continue;
     const cut = to.indexOf("_");
     if (cut < 0) continue;
     lines.set(to, { concept: to, prefix: to.slice(0, cut), name: to.slice(cut + 1), weight });
@@ -268,7 +268,7 @@ export function investingLines(calculation: string): InvestingLine[] {
  */
 export function companyCapexLine(lines: InvestingLine[]): InvestingLine | null {
   const candidates = lines.filter((line) => line.prefix !== "us-gaap" && line.weight < 0
-    && /Acquire\w*ProductiveAssets|CapitalExpenditure|AdditionsToProperty|PurchasesOfProperty|PropertyPlantAndEquipment/i.test(line.name)
-    && !/Proceeds|Sale|Disposal|Accrual|IncurredButNotYetPaid|IncreaseDecrease/i.test(line.name));
+    && /Acquire\w*ProductiveAssets|Capital(And\w+)?Expenditure|AdditionsToProperty|PurchasesOfProperty|PropertyPlantAndEquipment/i.test(line.name)
+    && !/Proceeds|Sale|Disposal|Accrual|IncurredButNotYetPaid|IncreaseDecrease|HeldForSale|DiscontinuedOperation/i.test(line.name));
   return candidates.length === 1 ? candidates[0] : null;
 }
