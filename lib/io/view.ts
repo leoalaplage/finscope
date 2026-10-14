@@ -46,6 +46,12 @@ export interface IoPeriod {
   currency: string;
   values: Record<string, number | null>;
   /**
+   * Diluted earnings per share as the filer printed it, not net income over
+   * the shares: a bank's is after its preferred dividends. What a press
+   * release is checked against (lib/io/release-anchors.ts).
+   */
+  reportedEps?: number | null;
+  /**
    * How each figure that is not a plain filed fact was arrived at: the
    * formula for one this application calculated (a fourth quarter from the
    * year less nine months, a liabilities total from the balance sheet's own
@@ -273,6 +279,7 @@ function projectPeriod(dataset: CompanyDataset, period: FinancialPeriod, withhel
     accession: period.accession,
     currency: period.currency,
     values,
+    reportedEps: valueOf(period, "dilutedEpsReported"),
     ...(Object.keys(basis).length ? { basis } : {}),
     valuationBasis: counted ? {
       shares: counted.shares,

@@ -73,8 +73,9 @@ export function marketKey(parts: string) {
  * before the company listed — but it may also be an upstream hiccup, and a few
  * minutes is long enough to be useful and short enough to heal. "empty" is not
  * stored at all: an answer with nothing in it is never worth serving back.
+ * "brief" is complete but about to change, and kept half an hour at most.
  */
-export type Completeness = "full" | "partial" | "empty";
+export type Completeness = "full" | "partial" | "empty" | "brief";
 
 /**
  * A JSON answer, from KV where one has been built before.
@@ -110,7 +111,9 @@ export async function cachedJson<T>(
     try {
       // KV's own floor is sixty seconds, so a partial answer is kept for that
       // rather than for the day a full one earns.
-      await cache?.put(marketKey(key), body, { expirationTtl: state === "full" ? Math.max(60, ttlSeconds) : 60 });
+      // "brief": complete, but about to change (a quarter just reported), so kept half an hour at most.
+      const ttl = state === "full" ? Math.max(60, ttlSeconds) : state === "brief" ? Math.max(60, Math.min(ttlSeconds, 1800)) : 60;
+      await cache?.put(marketKey(key), body, { expirationTtl: ttl });
     } catch {
       // Storing is best-effort; the reader still gets their answer.
     }

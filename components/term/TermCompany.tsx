@@ -201,9 +201,10 @@ export function TermCompany({ ticker }: { ticker: string }) {
             </Panel>
           ) : null}
 
-          <Panel code="EE" title="Earnings release">
+          <Panel code="EE" title="Earnings · release & expectations">
             <PendingEarnings
               view={view}
+              chart
               empty={
                 <p className="t-panel-pad t-dim">
                   No release newer than the filed figures.

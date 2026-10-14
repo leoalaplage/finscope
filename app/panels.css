@@ -183,3 +183,27 @@
 .etf-term .about { margin: 4px 6px 10px; }
 .etf-term .etf-grid { gap: 2px; }
 .etf-term .etf-cell[data-span="side"] { gap: 2px; }
+
+/* A new release's figures, and earnings per share against the consensus (components/io/PendingEarnings.tsx). */
+.release-sheet { margin-top: 10px; }
+.release-sheet td b { font-weight: 600; color: var(--ink); }
+.release-consensus { margin: 8px 0 0; font: var(--fs-xs)/1.5 var(--mono); color: var(--ink-2); }
+.release-consensus b { color: var(--ink); font-weight: 600; }
+.release-consensus b[data-dir="up"] { color: var(--gain); }
+.release-consensus b[data-dir="down"] { color: var(--loss); }
+.release-consensus span { color: var(--ink-3); }
+.eps-chart { margin: 10px 0 0; padding: 0 8px 8px; }
+.eps-chart figcaption { display: flex; justify-content: space-between; gap: 8px; font: var(--fs-micro, 10px)/1.4 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); margin-bottom: 4px; }
+.eps-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.eps-axis { stroke: var(--line-strong, var(--line)); stroke-width: 1; }
+.eps-consensus { fill: none; stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 2 2; }
+.eps-actual { fill: var(--ink-3); }
+.eps-actual[data-state="beat"] { fill: var(--gain); }
+.eps-actual[data-state="miss"] { fill: var(--loss); }
+.eps-actual[data-state="pending"] { fill: var(--amber, #f5a623); }
+.eps-label, .eps-tick { font: 9px var(--mono); text-anchor: middle; fill: var(--ink-3); }
+.eps-label[data-state="beat"] { fill: var(--gain); }
+.eps-label[data-state="miss"] { fill: var(--loss); }
+.eps-label[data-state="pending"] { fill: var(--amber, #f5a623); }
+.eps-note { margin: 4px 0 0; font: var(--fs-micro, 10px)/1.4 var(--mono); color: var(--ink-3); }
+.term .earnings-pending { padding: 8px; border-block: 0; }

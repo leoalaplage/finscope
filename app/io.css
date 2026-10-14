@@ -477,16 +477,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .earnings-pending p { margin-top: 2px; color: var(--ink-3); font-size: var(--fs-xs); }
 .earnings-pending-head > a { flex: 0 0 auto; color: var(--ink-2); }
 .earnings-pending-head > a:hover { color: var(--ink); }
-.earnings-preview {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(var(--u) * 5);
-  margin-top: calc(var(--u) * 3); padding-top: calc(var(--u) * 3); border-top: 1px solid var(--line);
-}
-.earnings-period > .label { color: var(--ink-2); }
-.earnings-period dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(var(--u) * 2) calc(var(--u) * 4); margin-top: calc(var(--u) * 2); }
-.earnings-period dl div { min-width: 0; }
-.earnings-period dt { color: var(--ink-3); font-size: var(--fs-xs); }
-.earnings-period dd { margin-top: 2px; color: var(--ink); font-size: var(--fs-sm); font-weight: 600; }
-
 .io-legal {
   display: flex; justify-content: space-between; gap: calc(var(--u) * 4); padding-block: calc(var(--u) * 5);
   border-top: 1px solid var(--line); color: var(--ink-3); font: var(--fs-xs)/1.5 var(--mono);

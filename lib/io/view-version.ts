@@ -35,8 +35,10 @@ import { KEY_VERSION } from "../data-version";
  * arrived at (`IoPeriod.basis`), which the statements show on the figure.
  * iov12: a year's ROIC is over its average invested capital, the screener's
  * definition, rather than the closing balance alone.
+ * iov13: each period carries the diluted EPS as filed (`IoPeriod.reportedEps`),
+ * which a quarter's press release is checked against.
  */
-export const VIEW_SHAPE = "iov12";
+export const VIEW_SHAPE = "iov13";
 
 /** The token a reader's request carries: the shape, then the figures. */
 export const IO_VIEW = `${VIEW_SHAPE}.${KEY_VERSION}`;

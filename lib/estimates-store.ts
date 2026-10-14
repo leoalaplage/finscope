@@ -1,5 +1,5 @@
 import { fetchEstimates } from "./adapters/nasdaq-estimates";
-import { recordSnapshot, snapshotOf, type EstimateSnapshot, type Estimates } from "./estimates";
+import { mergeSurprises, recordSnapshot, snapshotOf, type EpsSurprise, type EstimateSnapshot, type Estimates } from "./estimates";
 import { cachedJson, marketKey } from "./market-cache";
 import { datasetCache } from "./runtime-env";
 import { UNIVERSE } from "./universe";
@@ -18,6 +18,8 @@ import { consensusRow, mergeConsensus, SCREENER_CONSENSUS_KEY, type ConsensusRow
 export const ESTIMATES_SECONDS = 12 * 3600;
 const estimatesKey = (ticker: string) => `estimates:v1:${ticker.toUpperCase()}`;
 const historyKey = (ticker: string) => `estimates-history:v1:${ticker.toUpperCase()}`;
+/** Every reported quarter against its consensus, kept: Nasdaq lists the last four, the chart grows past them. */
+const surprisesKey = (ticker: string) => `estimates-surprises:v1:${ticker.toUpperCase()}`;
 const CURSOR_KEY = "estimates-cursor:v1";
 /** Twelve a run, forty-eight runs a day: the index once a day, four requests each. */
 export const ESTIMATES_PER_RUN = 12;
@@ -32,13 +34,34 @@ export async function readHistory(ticker: string): Promise<EstimateSnapshot[]> {
   }
 }
 
+export async function readSurprises(ticker: string): Promise<EpsSurprise[]> {
+  try {
+    return (await datasetCache()?.get<EpsSurprise[]>(surprisesKey(ticker), "json")) ?? [];
+  } catch {
+    return [];
+  }
+}
+
 async function remember(estimates: Estimates) {
   const cache = datasetCache();
   if (!cache) return;
+  if (estimates.surprises?.length) {
+    const kept = mergeSurprises(await readSurprises(estimates.ticker), estimates.surprises);
+    await cache.put(surprisesKey(estimates.ticker), JSON.stringify(kept)).catch(() => undefined);
+  }
   // Nothing to remember from a company no analyst covers.
   if (!estimates.quarterly.length && !estimates.yearly.length && !estimates.target) return;
   const history = recordSnapshot(await readHistory(estimates.ticker), snapshotOf(estimates, estimates.asOf.slice(0, 10)));
   await cache.put(historyKey(estimates.ticker), JSON.stringify(history)).catch(() => undefined);
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** Whether the nearest quarter of the consensus has already ended: its report is days away, or out. */
+export function awaitingReport(estimates: Pick<Estimates, "quarterly">, today = new Date()): boolean {
+  const [month, year] = (estimates.quarterly[0]?.fiscalEnd ?? "").split(" ");
+  const index = MONTHS.indexOf(month);
+  if (index < 0 || !/^\d{4}$/.test(year ?? "")) return false;
+  return Date.UTC(Number(year), index + 1, 0) < today.getTime();
 }
 
 /** The consensus, read at most every twelve hours, its snapshot taken each time it is read fresh. */
@@ -52,6 +75,8 @@ export async function getEstimates(ticker: string): Promise<{ body: string; hit:
     // missing half is asked again soon. Neither: not kept at all.
     const forecast = estimates.quarterly.length > 0 || estimates.yearly.length > 0;
     const opinion = estimates.target != null || estimates.ratings != null;
+    // A quarter that has ended and is not yet among the reported ones is about to be: asked again within the half hour.
+    if (forecast && opinion && awaitingReport(estimates)) return "brief";
     return forecast && opinion ? "full" : forecast || opinion ? "partial" : "empty";
   });
 }

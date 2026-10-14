@@ -62,6 +62,21 @@ export interface EpsSurprise {
   surprise: number | null;
 }
 
+/**
+ * The reported quarters kept so far with the ones just read: newest first, one
+ * per quarter, the newer reading of a quarter winning (Nasdaq corrects a
+ * figure now and then), two years and a half at most.
+ */
+export function mergeSurprises(kept: EpsSurprise[], fresh: EpsSurprise[]): EpsSurprise[] {
+  const order = (entry: EpsSurprise) => {
+    const [month, year] = entry.fiscalEnd.split(" ");
+    return Number(year) * 12 + ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].indexOf(month);
+  };
+  const byQuarter = new Map(kept.map((entry) => [entry.fiscalEnd, entry]));
+  for (const entry of fresh) byQuarter.set(entry.fiscalEnd, entry);
+  return [...byQuarter.values()].filter((entry) => Number.isFinite(order(entry))).sort((left, right) => order(right) - order(left)).slice(0, 10);
+}
+
 /** One day's reading, kept to draw how the consensus has moved. */
 export interface EstimateSnapshot {
   date: string;

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { secFetch } from "./sec-fetch";
+import { namesQuarterEnd, readReleaseFigures, releaseDocuments, type ReleaseAnchors, type ReleaseCheck, type ReleaseFigures } from "./earnings-release";
 
 const SEC_AGENT = () => process.env.SEC_USER_AGENT || "FinScope research application contact@example.com";
 
@@ -11,6 +12,7 @@ const EarningsSubmissionsSchema = z.object({
       reportDate: z.array(z.string()),
       accessionNumber: z.array(z.string()),
       items: z.array(z.string()).optional(),
+      primaryDocument: z.array(z.string()).optional(),
     }),
   }),
 });
@@ -21,6 +23,7 @@ interface RecentSubmissions {
   reportDate: string[];
   accessionNumber: string[];
   items?: string[];
+  primaryDocument?: string[];
 }
 
 export interface EarningsReleaseFiling {
@@ -29,29 +32,34 @@ export interface EarningsReleaseFiling {
   reportDate: string | null;
   accession: string;
   sourceUrl: string;
-  preliminary?: PreliminaryEarnings | null;
+  /** The 8-K's own cover document, which carries no figures. */
+  primaryDocument?: string | null;
+  /** The quarter's headline figures, read from the release where they could be proven (lib/adapters/earnings-release.ts). */
+  reading?: ReleaseReading | null;
 }
 
-export interface PreliminaryEarningsPeriod {
-  label: string;
+/** What a press release was read for, and what it proved. */
+export interface ReleaseReading {
+  /** "Q3 FY2026". */
+  quarter: string;
+  /** The quarter's expected end. */
   periodEnd: string;
-  revenue: number | null;
-  grossProfit: number | null;
-  operatingIncome: number | null;
-  netIncome: number | null;
-  dilutedEps: number | null;
-  dilutedShares: number | null;
-  operatingCashFlow: number | null;
-  capitalExpenditures: number | null;
-  freeCashFlow: number | null;
+  /** The year-ago quarter the figures were proven against, as filed. */
+  yearAgo: string;
+  figures: ReleaseFigures;
+  /** The documents read, in order. */
+  documents: Array<{ name: string; url: string }>;
+  status: "preliminary-unaudited";
 }
 
-export interface PreliminaryEarnings {
-  currency: "USD";
-  status: "preliminary-unaudited";
-  sourceUrl: string;
-  quarter: PreliminaryEarningsPeriod | null;
-  annual: PreliminaryEarningsPeriod | null;
+/** What a release is read against: the quarter it should be for, from the filed figures (lib/io/release-anchors.ts). */
+export interface ReleaseTarget {
+  label: string;
+  end: string;
+  quarter: { number: number; fiscalYear: number };
+  yearAgoLabel: string;
+  anchors: ReleaseAnchors;
+  check: ReleaseCheck;
 }
 
 const FilingIndexSchema = z.object({
@@ -89,152 +97,41 @@ export function latestEarningsRelease(recent: RecentSubmissions, cik: string): E
       reportDate: recent.reportDate[index] || null,
       accession,
       sourceUrl: `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${digits}/`,
+      primaryDocument: recent.primaryDocument?.[index] || null,
     };
   }
   return null;
 }
 
-const decodeEntities = (value: string) => value
-  .replace(/&#x([0-9a-f]+);/gi, (_, digits: string) => String.fromCodePoint(Number.parseInt(digits, 16)))
-  .replace(/&#(\d+);/g, (_, digits: string) => String.fromCodePoint(Number.parseInt(digits, 10)))
-  .replace(/&(nbsp|amp|quot|apos|lt|gt);/gi, (entity) => ({
-    "&nbsp;": " ", "&amp;": "&", "&quot;": '"', "&apos;": "'", "&lt;": "<", "&gt;": ">",
-  })[entity.toLowerCase()] ?? entity);
-
-const plainText = (value: string) => decodeEntities(value
-  .replace(/<br\s*\/?\s*>/gi, " ")
-  .replace(/<[^>]+>/g, " "))
-  .replace(/\s+/g, " ")
-  .trim();
-
-function htmlTables(html: string): string[][][] {
-  return [...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)].map((table) =>
-    [...table[1].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map((row) =>
-      [...row[1].matchAll(/<(?:td|th)\b[^>]*>([\s\S]*?)<\/(?:td|th)>/gi)].map((cell) => plainText(cell[1])),
-    ).filter((row) => row.some(Boolean)),
-  );
-}
-
-const rowLabel = (row: string[]) => (row.find(Boolean) ?? "").toLowerCase().replace(/\s+/g, " ").trim();
-
-function reportedValues(row: string[]): number[] {
-  const values: number[] = [];
-  for (let index = 1; index < row.length; index += 1) {
-    const cell = row[index].replace(/\u2212/g, "-").trim();
-    const match = cell.match(/^([(-])?\$?([\d,]+(?:\.\d+)?)$/);
-    if (!match) continue;
-    const next = row.slice(index + 1).find(Boolean) ?? "";
-    if (/^\)?%$/.test(next)) continue;
-    const amount = Number(match[2].replaceAll(",", ""));
-    if (!Number.isFinite(amount)) continue;
-    values.push(match[1] === "(" || match[1] === "-" ? -amount : amount);
-  }
-  return values;
-}
-
-const valuesFor = (table: string[][], label: string) => {
-  const wanted = label.toLowerCase();
-  const row = table.find((candidate) => rowLabel(candidate) === wanted);
-  return row ? reportedValues(row) : [];
-};
-
-const scaled = (value: number | undefined, scale: number) => value == null ? null : value * scale;
-
-function periodEndFrom(html: string): string | null {
-  const text = plainText(html);
-  const match = text.match(/(?:quarter and year|three months and year) ended ([A-Z][a-z]+ \d{1,2}, \d{4})/i);
-  if (!match) return null;
-  const timestamp = Date.parse(`${match[1]} 12:00:00 UTC`);
-  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString().slice(0, 10) : null;
-}
-
 /**
- * Read only the headline rows explicitly printed in an earnings exhibit.
+ * The release's documents, read against the quarter they should report.
  *
- * These are intentionally kept outside the normalized XBRL statements. An
- * exhibit is unaudited and its table labels are presentation, not taxonomy;
- * showing it as a preliminary snapshot makes the new release useful without
- * silently granting it the validation status of a filed 10-Q or 10-K fact.
+ * At most four documents, the press release first; each cut at six
+ * megabytes, which is past the statements in any of them. A document that
+ * does not speak of the quarter expected is not read.
  */
-export function parsePreliminaryEarnings(html: string, sourceUrl: string): PreliminaryEarnings | null {
-  const periodEnd = periodEndFrom(html);
-  if (!periodEnd) return null;
-  const year = periodEnd.slice(0, 4);
-  const scale = /\(\s*in thousands\s*\)/i.test(plainText(html)) ? 1_000
-    : /\(\s*in millions\s*\)/i.test(plainText(html)) ? 1_000_000
-      : 1;
-  const tables = htmlTables(html);
-  const income = tables.find((table) => {
-    const labels = table.map(rowLabel);
-    return labels.includes("total service revenues and vehicle sales")
-      && labels.includes("diluted net income per common share");
-  });
-  if (!income) return null;
-
-  const revenue = valuesFor(income, "Total service revenues and vehicle sales");
-  const grossProfit = valuesFor(income, "Gross profit");
-  const operatingIncome = valuesFor(income, "Operating income");
-  const netIncome = valuesFor(income, "Net income attributable to Copart, Inc.");
-  const dilutedEps = valuesFor(income, "Diluted net income per common share");
-  const dilutedShares = valuesFor(income, "Diluted weighted average common shares outstanding");
-  if (revenue.length < 4 || netIncome.length < 4 || dilutedEps.length < 4) return null;
-
-  const cashFlow = tables.find((table) => table.map(rowLabel).includes("net cash provided by operating activities"));
-  const operatingCashFlow = cashFlow ? valuesFor(cashFlow, "Net cash provided by operating activities")[0] : undefined;
-  const capex = cashFlow ? valuesFor(cashFlow, "Purchases of property and equipment")[0] : undefined;
-  const annualOcf = scaled(operatingCashFlow, scale);
-  const annualCapex = capex == null ? null : Math.abs(capex * scale);
-
-  const base = {
-    periodEnd,
-    operatingCashFlow: null,
-    capitalExpenditures: null,
-    freeCashFlow: null,
-  };
-  const quarter: PreliminaryEarningsPeriod = {
-    ...base,
-    label: `Q4 FY${year}`,
-    revenue: scaled(revenue[0], scale),
-    grossProfit: scaled(grossProfit[0], scale),
-    operatingIncome: scaled(operatingIncome[0], scale),
-    netIncome: scaled(netIncome[0], scale),
-    dilutedEps: scaled(dilutedEps[0], 1),
-    dilutedShares: scaled(dilutedShares[0], scale),
-  };
-  const annual: PreliminaryEarningsPeriod = {
-    ...base,
-    label: `FY${year}`,
-    revenue: scaled(revenue[2], scale),
-    grossProfit: scaled(grossProfit[2], scale),
-    operatingIncome: scaled(operatingIncome[2], scale),
-    netIncome: scaled(netIncome[2], scale),
-    dilutedEps: scaled(dilutedEps[2], 1),
-    dilutedShares: scaled(dilutedShares[2], scale),
-    operatingCashFlow: annualOcf,
-    capitalExpenditures: annualCapex,
-    freeCashFlow: annualOcf != null && annualCapex != null ? annualOcf - annualCapex : null,
-  };
-
-  return { currency: "USD", status: "preliminary-unaudited", sourceUrl, quarter, annual };
-}
-
-async function fetchPreliminaryEarnings(filing: EarningsReleaseFiling): Promise<PreliminaryEarnings | null> {
+export async function readRelease(filing: EarningsReleaseFiling, target: ReleaseTarget): Promise<ReleaseReading | null> {
   const indexResponse = await secFetch(`${filing.sourceUrl}index.json`, {
     headers: { "User-Agent": SEC_AGENT(), Accept: "application/json" },
   });
-  if (!indexResponse.ok) return null;
-  const items = FilingIndexSchema.parse(await indexResponse.json()).directory.item;
-  const candidates = items
-    .filter((item) => /\.html?$/i.test(item.name) && /ex(?:hibit)?[-_]?99(?:[-_.]?1)?/i.test(item.name))
-    .sort((left, right) => Number(right.size ?? 0) - Number(left.size ?? 0));
-  const exhibit = candidates[0];
-  if (!exhibit) return null;
-  const sourceUrl = `${filing.sourceUrl}${exhibit.name}`;
-  const response = await secFetch(sourceUrl, {
-    headers: { "User-Agent": SEC_AGENT(), Accept: "text/html" },
-  });
-  if (!response.ok) return null;
-  return parsePreliminaryEarnings(await response.text(), sourceUrl);
+  if (!indexResponse.ok) throw new Error(`SEC returned ${indexResponse.status}.`);
+  const names = releaseDocuments(FilingIndexSchema.parse(await indexResponse.json()).directory.item, filing.primaryDocument ?? null);
+  const documents: Array<{ name: string; html: string }> = [];
+  for (const name of names) {
+    const response = await secFetch(`${filing.sourceUrl}${name}`, { headers: { "User-Agent": SEC_AGENT(), Accept: "text/html" } });
+    if (!response.ok) { await response.body?.cancel(); continue; }
+    const html = (await response.text()).slice(0, 6_000_000);
+    if (namesQuarterEnd(html, target.end, target.quarter)) documents.push({ name, html });
+  }
+  const figures = readReleaseFigures(documents, target.anchors, target.check);
+  return {
+    quarter: target.label,
+    periodEnd: target.end,
+    yearAgo: target.yearAgoLabel,
+    figures,
+    documents: documents.map((document) => ({ name: document.name, url: `${filing.sourceUrl}${document.name}` })),
+    status: "preliminary-unaudited",
+  };
 }
 
 /** Read the filing index, not the Company Facts feed that trails the release. */
@@ -245,9 +142,7 @@ export async function fetchLatestEarningsRelease(cik: string): Promise<EarningsR
   });
   if (!response.ok) throw new Error(`SEC returned ${response.status}.`);
   const recent = EarningsSubmissionsSchema.parse(await response.json()).filings.recent;
-  const filing = latestEarningsRelease(recent, padded);
-  if (!filing) return null;
-  return { ...filing, preliminary: await fetchPreliminaryEarnings(filing).catch(() => null) };
+  return latestEarningsRelease(recent, padded);
 }
 
 /** Every earnings release in a filer's recent index, newest first, as filing dates. */
