@@ -220,3 +220,39 @@ describe("segment charts for GF", () => {
     expect(backlog.data.series.find((entry) => entry.spec.id === "coverage")!.values.at(-1)).toBeCloseTo(140 / 54);
   });
 });
+
+describe("a segment chart over a company that re-cut its revenue", () => {
+  it("draws one breakdown: the latest where it has a year, the longest otherwise", async () => {
+    const { coherentRun } = await import("../lib/segments/charts");
+    // Two lines for six periods, then two different lines for two.
+    const a = [1, 1, 1, 1, 1, 1, null, null];
+    const b = [2, 2, 2, 2, 2, 2, null, null];
+    const c = [null, null, null, null, null, null, 3, 3];
+    const d = [null, null, null, null, null, null, 4, 4];
+    expect(coherentRun([a, b, c, d], 8)).toEqual({ from: 0, to: 6 });
+    // The latest breakdown with four periods wins over a longer older one.
+    const e = [1, 1, 1, 1, 1, 1, null, null, null, null];
+    const f = [1, 1, 1, 1, 1, 1, null, null, null, null];
+    const g = [null, null, null, null, null, null, 1, 1, 1, 1];
+    const h = [null, null, null, null, null, null, 1, 1, 1, 1];
+    expect(coherentRun([e, f, g, h], 10)).toEqual({ from: 6, to: 10 });
+  });
+});
+
+describe("a segment chart with a quarter missing a year back", () => {
+  it("starts after the hole, so no line breaks in the middle", async () => {
+    const { segmentCharts } = await import("../lib/segments/charts");
+    const quarters = ["2023-03-31", "2023-06-30", "2023-09-30", "2024-03-31", "2024-06-30", "2024-09-30", "2024-12-31", "2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31"];
+    const line = (id: string, label: string, base: number) => ({
+      id, label, measure: "revenue", axis: "business", parent: null, parentLabel: null,
+      quarterly: quarters.map((end, index) => ({ end, value: base * (1 + index * 0.02) })), annual: [], instant: [],
+    });
+    const data = { ticker: "TEST", series: [line("a", "Alpha", 100), line("b", "Beta", 50)], stacks: [] } as never;
+    const growth = segmentCharts(data, "quarterly", "MAX").find((chart) => chart.preset.id === "seg-growth");
+    expect(growth).toBeDefined();
+    for (const series of growth!.data.series) {
+      const first = series.values.findIndex((value) => value != null);
+      expect(series.values.slice(first).every((value) => value != null)).toBe(true);
+    }
+  });
+});
