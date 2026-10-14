@@ -19,6 +19,7 @@ import { GrowthYield } from "./GrowthYield";
 import { LenderReading } from "./LenderReading";
 import { Estimates } from "./Estimates";
 import { Segments } from "./Segments";
+import { OperatingKpis } from "./OperatingKpis";
 import { Reports } from "./Reports";
 import { readsAsLender } from "@/lib/io/lender";
 import { Verdict, type VerdictKey } from "./Verdict";
@@ -219,6 +220,11 @@ export function Company({ ticker }: { ticker: string }) {
       <Chapter number={2} title="Business" />
       {/* The company in slices, as filed (components/io/Segments.tsx). */}
       <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
+      {/* What it runs itself by, from its releases and 10-Qs (components/io/OperatingKpis.tsx). */}
+      <section className="section-panel" id="kpi" aria-label="Operating figures">
+        <h3>Operating figures</h3>
+        <OperatingKpis key={`kpi-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
+      </section>
       {/*
         * Always the whole trailing history, whatever the chart shows: the
         * figures are a record, not a view of the chart.

@@ -34,6 +34,7 @@ import { EarningsReaction } from "./EarningsReaction";
 import { FundamentalCharts } from "./FundamentalCharts";
 import { Estimates } from "@/components/io/Estimates";
 import { Segments } from "@/components/io/Segments";
+import { OperatingKpis } from "@/components/io/OperatingKpis";
 import { Reports } from "@/components/io/Reports";
 import { Panel } from "./Panel";
 import { Seasonality } from "./Seasonality";
@@ -221,6 +222,9 @@ export function TermCompany({ ticker }: { ticker: string }) {
         <Chapter area="c-biz" number={2} title="Business" />
         <Panel code="SEG" title="Segments" area="seg">
           <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
+        </Panel>
+        <Panel code="KPI" title="Operating figures" area="kpi">
+          <div className="t-panel-pad"><OperatingKpis key={`kpi-${company.ticker}`} ticker={company.ticker} cik={company.cik} /></div>
         </Panel>
         {/* The figures and their growth side by side, one height: twelve small multiples fill the figures' half as the growth table fills its own. */}
         <Panel code="FA" area="fa" className="t-fill t-fa">
