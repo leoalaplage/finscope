@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import type { EtfProfile, Exposure, NotReported } from "@/lib/adapters/etf";
+import { flowSince, monthlyFlows, type EtfProfile, type Exposure, type NotReported } from "@/lib/adapters/etf";
 import { candlesInRange, CHART_RANGES, type ChartRange } from "@/lib/io/chart-ranges";
 import { sectorColors } from "@/lib/watchlist-bubbles";
 import { CandleChart, useCandles } from "./CandleChart";
@@ -22,6 +22,7 @@ const RANGES: ChartRange[] = ["1M", "1Q", "YTD", "1Y", "5Y"];
 const pct = (value: number | null | undefined, places = 2) => (value == null || !Number.isFinite(value) ? ABSENT : `${(value * 100).toFixed(places)}%`);
 const signedPct = (value: number | null | undefined, places = 1) => (value == null || !Number.isFinite(value) ? ABSENT : `${value >= 0 ? "+" : "−"}${Math.abs(value * 100).toFixed(places)}%`);
 const tone = (value: number | null | undefined) => (value == null ? undefined : value >= 0 ? "up" : "down");
+const signedMoney = (value: number | null | undefined) => (value == null || !Number.isFinite(value) ? ABSENT : `${value >= 0 ? "+" : "−"}${money(Math.abs(value), "USD")}`);
 
 export function Etf({ ticker }: { ticker: string }) {
   const [loaded, setLoaded] = useState<Loaded>({ kind: "loading" });
@@ -65,7 +66,12 @@ export function Etf({ ticker }: { ticker: string }) {
             <div className="head-meta">
               <span className="label">Exchange-traded fund</span>
               {fund?.prospectus?.returns.indexName ? <span className="label">Tracks {fund.prospectus.returns.indexName}</span> : null}
-              {fund ? <span className="label">CIK {Number(fund.identity.cik)} · {fund.identity.seriesId}</span> : null}
+              {fund?.identity ? <span className="label">CIK {Number(fund.identity.cik)} · {fund.identity.seriesId}</span> : null}
+              {fund?.holdingsSource ? (
+                <span className="label">
+                  Holdings {fund.holdingsSource.kind === "issuer" ? "from the issuer's daily file" : "from the SEC's N-PORT"} · {shortDate(fund.holdingsSource.asOf)}
+                </span>
+              ) : null}
             </div>
           </div>
           <div className="price-block">
@@ -93,9 +99,11 @@ export function Etf({ ticker }: { ticker: string }) {
       {loaded.kind === "failed" ? <div className="state"><p>{loaded.message}</p></div> : null}
       {profile?.kind === "unreported" ? <div className="state"><p>{profile.reason}</p></div> : null}
 
+      {fund?.commodity ? <Commodity fund={fund} /> : null}
+      {fund && fund.history.length > 20 ? <Flows fund={fund} /> : null}
       {fund?.prospectus ? <Returns fund={fund} /> : null}
-      {fund?.portfolio ? <Exposures fund={fund} /> : null}
-      {fund?.portfolio ? <Holdings fund={fund} all={allHoldings} onAll={() => setAllHoldings((value) => !value)} /> : null}
+      {fund?.portfolio && fund.portfolio.holdings.length ? <Exposures fund={fund} /> : null}
+      {fund?.portfolio && fund.portfolio.holdings.length ? <Holdings fund={fund} all={allHoldings} onAll={() => setAllHoldings((value) => !value)} /> : null}
       {fund ? <About fund={fund} /> : null}
     </main>
   );
@@ -104,9 +112,13 @@ export function Etf({ ticker }: { ticker: string }) {
 function KeyFigures({ fund }: { fund: EtfProfile }) {
   const fees = fund.prospectus;
   const average = (years: number) => fees?.returns.average.find((entry) => entry.years === years) ?? null;
+  const trust = fund.commodity;
+  const latest = fund.history.at(-1);
+  const assets = latest?.netAssets ?? fund.portfolio?.netAssets ?? trust?.netAssets ?? null;
   const figures: Array<{ label: string; value: string; note?: string; dir?: string }> = [
-    { label: "Expense ratio", value: pct(fees?.expenseRatio), note: fees?.managementFee != null ? `Management ${pct(fees.managementFee)}` : undefined },
-    { label: "Net assets", value: fund.portfolio?.netAssets != null ? money(fund.portfolio.netAssets, "USD") : ABSENT, note: fund.portfolio ? `At ${shortDate(fund.portfolio.asOf)}` : undefined },
+    { label: "Expense ratio", value: pct(fees?.expenseRatio ?? trust?.expenseRatio), note: fees?.managementFee != null ? `Management ${pct(fees.managementFee)}` : trust ? "Sponsor's fee and expenses" : fees ? undefined : "Not stated in a filing read here" },
+    { label: "Net assets", value: assets != null ? money(assets, "USD") : ABSENT, note: latest ? `At ${shortDate(latest.date)}` : fund.portfolio ? `At ${shortDate(fund.portfolio.asOf)}` : trust ? `At ${shortDate(trust.asOf)}` : undefined },
+    ...(latest ? [{ label: "Net flows · 1Y", value: signedMoney(flowSince(fund.history, 365)), dir: tone(flowSince(fund.history, 365)), note: `1M ${signedMoney(flowSince(fund.history, 31))}` }] : []),
     { label: "Holdings", value: fund.portfolio ? fund.portfolio.holdingsCount.toLocaleString("en-US") : ABSENT, note: fund.topTenWeight != null ? `Top ten ${pct(fund.topTenWeight, 1)}` : undefined },
     { label: "Turnover", value: pct(fees?.turnover, 0), note: "Of the portfolio, last fiscal year" },
     ...[1, 5, 10].map((years) => {
@@ -117,9 +129,11 @@ function KeyFigures({ fund }: { fund: EtfProfile }) {
       };
     }),
   ];
+  // What does not apply to this fund is left out — a gold trust has no turnover — except the two every fund has.
+  const shown = figures.filter((figure) => figure.value !== ABSENT || figure.label === "Expense ratio" || figure.label === "Net assets");
   return (
     <div className="grid-ruled stats etf-stats">
-      {figures.map((figure) => (
+      {shown.map((figure) => (
         <div className="stat" key={figure.label}>
           <div className="label">{figure.label}</div>
           <div className="stat-value num" data-dir={figure.dir}>{figure.value}</div>
@@ -170,6 +184,71 @@ function Returns({ fund }: { fund: EtfProfile }) {
   );
 }
 
+/** Money in and out, month by month, from the shares outstanding each day (lib/adapters/etf.ts). */
+function Flows({ fund }: { fund: EtfProfile }) {
+  const months = monthlyFlows(fund.history).slice(-24);
+  const extreme = Math.max(1, ...months.map((entry) => Math.abs(entry.flow)));
+  const spans: Array<[string, number]> = [["1 month", 31], ["3 months", 92], ["Year to date", Math.ceil((Date.parse(fund.history.at(-1)!.date) - Date.parse(`${fund.history.at(-1)!.date.slice(0, 4)}-01-01`)) / 86_400_000)], ["1 year", 365], ["3 years", 1096]];
+  return (
+    <section className="section" aria-labelledby="etf-flows-title">
+      <div className="section-head">
+        <h2 className="label" id="etf-flows-title">Net flows · money created into and redeemed out of the fund</h2>
+        <span className="stat-note">Daily change in shares outstanding × NAV, from the issuer&apos;s file, to {shortDate(fund.history.at(-1)!.date)}</span>
+      </div>
+      <div className="etf-flow-sums">
+        {spans.map(([label, days]) => {
+          const value = flowSince(fund.history, days);
+          return <div key={label}><span className="label">{label}</span><b className="num" data-dir={tone(value)}>{signedMoney(value)}</b></div>;
+        })}
+      </div>
+      <div className="etf-years etf-flows" role="img" aria-label={`Monthly net flows: ${months.map((entry) => `${entry.month} ${signedMoney(entry.flow)}`).join(", ")}`}>
+        {months.map((entry) => (
+          <div key={entry.month} className="etf-year" data-dir={tone(entry.flow)} title={`${entry.month}: ${signedMoney(entry.flow)}`}>
+            <span className="etf-year-value num">{Math.abs(entry.flow) >= extreme * 0.35 ? signedMoney(entry.flow) : ""}</span>
+            <span className="etf-year-track">
+              <span className="etf-year-bar" style={{ height: `${(Math.abs(entry.flow) / extreme) * 50}%`, [entry.flow >= 0 ? "bottom" : "top"]: "50%" } as CSSProperties} />
+            </span>
+            <span className="etf-year-label">{entry.month.slice(2).replace("-", "/")}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** A trust whose whole portfolio is one physical commodity (GLD, IAU, SLV). */
+function Commodity({ fund }: { fund: EtfProfile }) {
+  const trust = fund.commodity!;
+  const extreme = Math.max(1, ...trust.flows.map((entry) => Math.max(entry.created, entry.redeemed)));
+  return (
+    <section className="section" aria-labelledby="etf-commodity-title">
+      <div className="section-head">
+        <h2 className="label" id="etf-commodity-title">Holds physical {trust.commodity.toLowerCase()}</h2>
+        <span className="stat-note">From the trust&apos;s own report for the period to {shortDate(trust.asOf)}, filed {shortDate(trust.filed)}</span>
+      </div>
+      <div className="grid-ruled stats stats-seven etf-stats">
+        <div className="stat"><div className="label">Portfolio</div><div className="stat-value num">100% {trust.commodity}</div><div className="stat-note">Bullion held for the trust</div></div>
+        <div className="stat"><div className="label">NAV per share</div><div className="stat-value num">{trust.navPerShare != null ? writePrice(trust.navPerShare, "USD") : ABSENT}</div></div>
+        <div className="stat"><div className="label">Shares outstanding</div><div className="stat-value num">{trust.shares != null ? `${(trust.shares / 1e6).toFixed(1)}M` : ABSENT}</div></div>
+      </div>
+      {trust.flows.length ? (
+        <div className="etf-exposure">
+          <h3 className="label">Shares created and redeemed, by quarter</h3>
+          {trust.flows.map((entry) => (
+            <div key={entry.end} className="etf-bar etf-bar-pair">
+              <span className="etf-bar-name">{shortDate(entry.end)}</span>
+              <span className="etf-bar-track" data-dir="up"><span style={{ width: `${(entry.created / extreme) * 100}%` }} /></span>
+              <span className="etf-bar-value num">+{money(entry.created, "USD")}</span>
+              <span className="etf-bar-track" data-dir="down"><span style={{ width: `${(entry.redeemed / extreme) * 100}%` }} /></span>
+              <span className="etf-bar-value num">−{money(entry.redeemed, "USD")}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function Bars({ title, rows, colors, note }: { title: string; rows: Exposure[]; colors?: Map<string, string>; note?: string }) {
   if (!rows.length) return null;
   const top = Math.max(0.0001, ...rows.map((row) => row.weight));
@@ -190,12 +269,13 @@ function Bars({ title, rows, colors, note }: { title: string; rows: Exposure[]; 
 
 function Exposures({ fund }: { fund: EtfProfile }) {
   const colors = useMemo(() => sectorColors(fund.exposure.sector.map((entry) => entry.label)), [fund]);
-  const equity = fund.exposure.assetClass.find((entry) => entry.label === "Equity")?.weight ?? 0;
+  // An issuer's file names no asset class; its listed securities are read as the shares they are for this test only.
+  const equity = fund.exposure.assetClass.filter((entry) => entry.label === "Equity" || entry.label === "Listed security").reduce((sum, entry) => sum + entry.weight, 0);
   return (
     <section className="section" aria-labelledby="etf-exposure-title">
       <div className="section-head">
         <h2 className="label" id="etf-exposure-title">Where the money is</h2>
-        <span className="stat-note">Positions at {shortDate(fund.portfolio!.asOf)}, as the fund reported them</span>
+        <span className="stat-note">Positions at {shortDate(fund.portfolio!.asOf)}, {fund.holdingsSource?.kind === "issuer" ? "from the issuer's daily file; country and class from the fund's last SEC report where the security is in it" : "as the fund reported them to the SEC"}</span>
       </div>
       <div className="etf-exposures">
         {/* Only where most of the fund could be classified: a sector chart of a fifth of a fund is a chart of the wrong thing. */}
@@ -257,8 +337,10 @@ function About({ fund }: { fund: EtfProfile }) {
       ) : null}
       <footer className="foot">
         <span className="label">Sources</span>
-        {fund.portfolio ? <a className="label" href={fund.portfolio.url} target="_blank" rel="noreferrer">SEC N-PORT · positions at {shortDate(fund.portfolio.asOf)}, filed {shortDate(fund.portfolio.filed)}</a> : <span className="label">No portfolio report found</span>}
-        {fund.prospectus ? <a className="label" href={fund.prospectus.url} target="_blank" rel="noreferrer">Prospectus · filed {shortDate(fund.prospectus.filed)}</a> : <span className="label">No XBRL prospectus found</span>}
+        {fund.holdingsSource?.kind === "issuer" ? <a className="label" href={fund.holdingsSource.url} target="_blank" rel="noreferrer">Issuer&apos;s daily holdings · {shortDate(fund.holdingsSource.asOf)}</a> : null}
+        {fund.holdingsSource?.kind === "N-PORT" ? <a className="label" href={fund.holdingsSource.url} target="_blank" rel="noreferrer">SEC N-PORT · positions at {shortDate(fund.holdingsSource.asOf)}, filed {shortDate(fund.portfolio?.filed)}</a> : null}
+        {fund.commodity ? <span className="label">SEC 10-K / 10-Q · period to {shortDate(fund.commodity.asOf)}</span> : null}
+        {fund.prospectus ? <a className="label" href={fund.prospectus.url} target="_blank" rel="noreferrer">Prospectus · filed {shortDate(fund.prospectus.filed)}</a> : null}
       </footer>
     </section>
   );

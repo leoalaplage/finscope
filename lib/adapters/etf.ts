@@ -74,9 +74,22 @@ export interface EtfPortfolio {
 export interface EtfProfile {
   ticker: string;
   kind: "fund";
-  identity: FundIdentity;
+  /** The share class in the SEC's fund register; null for a trust outside it (SPY, DIA, GLD). */
+  identity: FundIdentity | null;
   name: string;
   portfolio: EtfPortfolio | null;
+  /**
+   * Where the holdings shown come from: the fund's own daily file where its
+   * issuer publishes one we read, newer than the SEC's report; the SEC's N-PORT
+   * otherwise.
+   */
+  holdingsSource: { kind: "issuer" | "N-PORT"; asOf: string; url: string } | null;
+  /** Each day's NAV, shares outstanding and net assets, oldest first, where the issuer publishes them. */
+  history: Array<{ date: string; nav: number; shares: number; netAssets: number }>;
+  /** A trust holding a physical commodity, from its 10-K and 10-Q. */
+  commodity: CommodityTrust | null;
+  /** What each issuer file asked for answered, where one was asked for. */
+  issuerNotes?: string[];
   prospectus: EtfProspectus | null;
   exposure: { sector: Exposure[]; country: Exposure[]; assetClass: Exposure[]; currency: Exposure[]; issuerType: Exposure[] };
   topTenWeight: number | null;
@@ -320,4 +333,104 @@ export async function fetchText(url: string): Promise<string | null> {
 export async function fetchJson<T>(url: string): Promise<T | null> {
   const response = await fetch(url, { headers: { ...UA(), Accept: "application/json" } });
   return response.ok ? response.json() as Promise<T> : null;
+}
+
+/* --- A commodity trust (GLD, IAU, SLV) ----------------------------------- */
+
+export interface CommodityTrust {
+  /** What it holds, from the trust's own name: "Gold", "Silver". */
+  commodity: string;
+  asOf: string;
+  netAssets: number | null;
+  navPerShare: number | null;
+  shares: number | null;
+  /** The sponsor's fee and other expenses, a year, as the trust states it. */
+  expenseRatio: number | null;
+  /** Each reported period's creations and redemptions, in dollars, oldest first. */
+  flows: Array<{ end: string; created: number; redeemed: number }>;
+  filed: string;
+}
+
+type Facts = Record<string, Record<string, { units: Record<string, Array<{ start?: string; end: string; val: number; form: string; filed: string; fp?: string }>> }>>;
+
+/**
+ * A trust that holds a physical commodity and files a company's 10-K and
+ * 10-Q: its whole portfolio is the metal, stated in XBRL with the net assets,
+ * the NAV per share, the shares in issue, the expense ratio and the shares
+ * created and redeemed each quarter.
+ */
+export function parseCommodityTrust(facts: Facts, title: string): CommodityTrust | null {
+  const gaap = facts["us-gaap"] ?? {};
+  // SPDR's trusts and iShares' name the same things differently; each list is in preference order.
+  if (!gaap.InvestmentInPhysicalCommodities && !gaap.InvestmentInPhysicalCommoditiesFairValueDisclosure) return null;
+  const latestOf = (concept: string, unit = "USD") => {
+    const list = gaap[concept]?.units[unit] ?? [];
+    return list.length ? list.reduce((best, fact) => (fact.end > best.end || (fact.end === best.end && fact.filed > best.filed) ? fact : best)) : null;
+  };
+  // The newest among several names for one figure, so a trust that renamed its element is read at its latest date.
+  const latest = (concepts: string[], unit = "USD") => concepts.map((concept) => latestOf(concept, unit)).filter((fact) => fact != null)
+    .reduce<ReturnType<typeof latestOf>>((best, fact) => (!best || fact!.end > best.end ? fact : best), null);
+  const assets = latest(["AssetsNet", "InvestmentOwnedAtFairValue", "InvestmentInPhysicalCommodities", "InvestmentInPhysicalCommoditiesFairValueDisclosure"]);
+  if (!assets) return null;
+  // Quarters only: three-month spans, one per end, the latest filing's figure.
+  const quarterly = (concept: string) => {
+    const byEnd = new Map<string, { val: number; filed: string }>();
+    for (const fact of gaap[concept]?.units.USD ?? []) {
+      if (!fact.start) continue;
+      const days = (Date.parse(fact.end) - Date.parse(fact.start)) / 86_400_000;
+      if (days < 80 || days > 100) continue;
+      const held = byEnd.get(fact.end);
+      if (!held || fact.filed > held.filed) byEnd.set(fact.end, { val: fact.val, filed: fact.filed });
+    }
+    return byEnd;
+  };
+  const merged = (concepts: string[]) => {
+    const out = new Map<string, { val: number; filed: string }>();
+    for (const concept of concepts) for (const [end, fact] of quarterly(concept)) if (!out.has(end)) out.set(end, fact);
+    return out;
+  };
+  const created = merged(["StockIssuedDuringPeriodValueNewIssues", "TemporaryEquityStockIssuedDuringPeriodValueNewIssues"]);
+  const redeemed = merged(["StockRepurchasedAndRetiredDuringPeriodValue", "StockRedeemedOrCalledDuringPeriodValue"]);
+  const ends = [...new Set([...created.keys(), ...redeemed.keys()])].sort().slice(-12);
+  const commodity = title.match(/\b(Gold|Silver|Platinum|Palladium|Copper|Bitcoin|Ether(?:eum)?)\b/i)?.[1] ?? "Commodity";
+  return {
+    commodity: commodity[0].toUpperCase() + commodity.slice(1).toLowerCase(),
+    asOf: assets.end, netAssets: assets.val,
+    navPerShare: latest(["NetAssetValuePerShare"], "USD/shares")?.val ?? null,
+    shares: latest(["SharesOutstanding", "TemporaryEquitySharesOutstanding"], "shares")?.val ?? null,
+    expenseRatio: latest(["InvestmentCompanyExpenseRatioAfterIncentiveAllocation", "InvestmentCompanyExpenseRatioBeforeIncentiveAllocation"], "pure")?.val ?? null,
+    flows: ends.map((end) => ({ end, created: created.get(end)?.val ?? 0, redeemed: redeemed.get(end)?.val ?? 0 })),
+    filed: assets.filed,
+  };
+}
+
+/**
+ * Money in and out of a fund, month by month: each day's change in shares
+ * outstanding times that day's NAV, summed. A share is created only against
+ * cash or securities delivered at NAV and redeemed the same way, so this is the
+ * flow itself, not an estimate of it; the market's move changes the NAV, not
+ * the share count.
+ */
+export function monthlyFlows(history: Array<{ date: string; nav: number; shares: number }>): Array<{ month: string; flow: number }> {
+  const months = new Map<string, number>();
+  for (let index = 1; index < history.length; index++) {
+    const day = history[index];
+    const month = day.date.slice(0, 7);
+    months.set(month, (months.get(month) ?? 0) + (day.shares - history[index - 1].shares) * day.nav);
+  }
+  return [...months].map(([month, flow]) => ({ month, flow }));
+}
+
+/** The net flow over the last `days` calendar days of a history. */
+export function flowSince(history: Array<{ date: string; nav: number; shares: number }>, days: number): number | null {
+  if (history.length < 2) return null;
+  const from = new Date(Date.parse(history.at(-1)!.date) - days * 86_400_000).toISOString().slice(0, 10);
+  let total = 0;
+  let counted = false;
+  for (let index = 1; index < history.length; index++) {
+    if (history[index].date <= from) continue;
+    total += (history[index].shares - history[index - 1].shares) * history[index].nav;
+    counted = true;
+  }
+  return counted ? total : null;
 }

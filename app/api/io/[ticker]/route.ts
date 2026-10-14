@@ -136,7 +136,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
      * and asking for one left SPY or VOO on "reading the filings" for ever. The
      * page is told it is a fund and draws the fund page (components/io/Etf.tsx).
      */
-    if (!companyByTicker(symbol) && await isFund(symbol).catch(() => false)) {
+    if (!companyByTicker(symbol) && !universeMember(symbol) && await isFund(symbol).catch(() => false)) {
       return NextResponse.json({ error: `${symbol} is an exchange-traded fund.`, fund: true }, { status: 409, headers: { "Cache-Control": "public, max-age=3600" } });
     }
     // A company this application vouches for skips the memo entirely rather

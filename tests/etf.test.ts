@@ -57,3 +57,41 @@ describe("a fund read from its own filings", () => {
     expect(exposureBy(holdings, (holding) => holding.country, 2).map((entry) => entry.label)).toEqual(["A", "Other"]);
   });
 });
+
+describe("a SPDR fund's daily files and a commodity trust", () => {
+  it("reads the issuer's dated holdings and its NAV history, and makes flows of the shares", async () => {
+    const { parseSsgaHoldings, parseSsgaNavHistory } = await import("../lib/adapters/ssga");
+    const { flowSince, monthlyFlows } = await import("../lib/adapters/etf");
+    const holdings = parseSsgaHoldings([
+      ["Fund Name:", "SPDR S&P 500 ETF Trust"], ["Holdings:", "As of 12-Oct-2026"],
+      ["Name", "Ticker", "Identifier", "SEDOL", "Weight", "Sector", "Shares Held", "Local Currency"],
+      ["APPLE INC", "AAPL", "037833100", "2046251", "7.396685", "-", "1.78620809E8", "USD"],
+      ["NVIDIA CORP", "NVDA", "67066G104", "2379504", "8.141004", "-", "2.96187117E8", "USD"],
+    ], "u");
+    expect(holdings).toMatchObject({ asOf: "2026-10-12", holdings: [{ ticker: "NVDA", weight: 0.08141004 }, { ticker: "AAPL", cusip: "037833100" }] });
+    const history = parseSsgaNavHistory([
+      ["Date", "NAV", "Shares Outstanding", "Total Net Assets"],
+      ["13-Oct-2026", "777.86", "1.058332116E9", "8.2E11"], ["12-Oct-2026", "778.02", "1.055382116E9", "8.2E11"], ["30-Sep-2026", "770", "1.05E9", "8.1E11"],
+    ]);
+    expect(history.map((day) => day.date)).toEqual(["2026-09-30", "2026-10-12", "2026-10-13"]);
+    // 2.95m shares created on the 13th at 777.86.
+    expect(monthlyFlows(history).at(-1)!.flow).toBeCloseTo((1.055382116e9 - 1.05e9) * 778.02 + 2.95e6 * 777.86, 0);
+    expect(flowSince(history, 1)).toBeCloseTo(2.95e6 * 777.86, 0);
+  });
+
+  it("reads a gold trust's portfolio, fees and quarterly creations under either family's names", async () => {
+    const { parseCommodityTrust } = await import("../lib/adapters/etf");
+    const fact = (end: string, val: number, start?: string) => ({ start, end, val, form: "10-Q", filed: "2026-08-01" });
+    const trust = parseCommodityTrust({ "us-gaap": {
+      InvestmentInPhysicalCommoditiesFairValueDisclosure: { units: { USD: [fact("2026-06-30", 60e9)] } },
+      InvestmentOwnedAtFairValue: { units: { USD: [fact("2026-06-30", 60.1e9)] } },
+      NetAssetValuePerShare: { units: { "USD/shares": [fact("2026-06-30", 75.72)] } },
+      TemporaryEquitySharesOutstanding: { units: { shares: [fact("2026-06-30", 793.6e6)] } },
+      InvestmentCompanyExpenseRatioBeforeIncentiveAllocation: { units: { pure: [fact("2026-06-30", 0.0025)] } },
+      TemporaryEquityStockIssuedDuringPeriodValueNewIssues: { units: { USD: [fact("2026-06-30", 1.66e9, "2026-04-01")] } },
+      StockRedeemedOrCalledDuringPeriodValue: { units: { USD: [fact("2026-06-30", 2.1e9, "2026-04-01")] } },
+    } }, "ISHARES GOLD TRUST")!;
+    expect(trust).toMatchObject({ commodity: "Gold", netAssets: 60.1e9, navPerShare: 75.72, shares: 793.6e6, expenseRatio: 0.0025 });
+    expect(trust.flows).toEqual([{ end: "2026-06-30", created: 1.66e9, redeemed: 2.1e9 }]);
+  });
+});

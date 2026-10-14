@@ -2442,3 +2442,20 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   .etf-year-value { font-size: var(--fs-micro); }
   .etf-holding-name { max-width: 16ch; }
 }
+.etf-flow-sums { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: calc(var(--u) * 3); border: 1px solid var(--line); border-radius: var(--radius); }
+.etf-flow-sums > div { display: grid; gap: 4px; padding: 10px 12px; }
+.etf-flow-sums > div + div { border-left: 1px solid var(--line); }
+.etf-flow-sums b { font-size: var(--fs-lg); }
+.etf-flow-sums b[data-dir="up"] { color: var(--gain); }
+.etf-flow-sums b[data-dir="down"] { color: var(--loss); }
+.etf-flows .etf-year-label { font-size: 9px; }
+.etf-bar-pair { grid-template-columns: minmax(0, 7rem) minmax(0, 1fr) 9ch minmax(0, 1fr) 9ch; }
+.etf-bar-track[data-dir="up"] > span { background: var(--gain); }
+.etf-bar-track[data-dir="down"] > span { background: var(--loss); }
+@media (max-width: 640px) {
+  .etf-flow-sums { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .etf-flow-sums > div + div { border-left: 0; border-top: 1px solid var(--line); }
+  .etf-flows .etf-year-value { display: none; }
+  .etf-bar-pair { grid-template-columns: minmax(0, 5rem) minmax(0, 1fr) 8ch; }
+  .etf-bar-pair > :nth-child(4), .etf-bar-pair > :nth-child(5) { grid-column: 2 / span 1; }
+}
