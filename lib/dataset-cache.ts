@@ -155,6 +155,33 @@ export function datasetKey(ticker: string) {
 }
 
 /**
+ * A dataset is kept gzipped: five and a half megabytes of JSON are three
+ * hundred kilobytes so (Apple's: 5.68 MB to 326 KB), which is what keeps nine
+ * hundred companies inside the store's included gigabyte, and the store hands
+ * back a seventeenth of the bytes. Unpacking costs about fifteen milliseconds.
+ *
+ * The metadata says how a copy was kept, so a copy written before this — or
+ * by an older version standing in — is read as it always was.
+ */
+export async function putDataset(cache: KVNamespace, key: string, body: string, ttlSeconds = CACHE_SECONDS): Promise<void> {
+  const packed = await new Response(new Blob([body]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer();
+  await cache.put(key, packed, { expirationTtl: ttlSeconds, metadata: { encoding: "gzip" } });
+}
+
+/** The stored dataset as a stream of its JSON text, however it was kept; null when there is none. */
+export async function getDatasetStream(cache: KVNamespace, key: string): Promise<ReadableStream | null> {
+  if (typeof cache.getWithMetadata !== "function") return cache.get(key, "stream");
+  const { value, metadata } = await cache.getWithMetadata<{ encoding?: string }>(key, "stream");
+  if (!value) return null;
+  return metadata?.encoding === "gzip" ? value.pipeThrough(new DecompressionStream("gzip")) : value;
+}
+
+export async function getDatasetText(cache: KVNamespace, key: string): Promise<string | null> {
+  const stream = await getDatasetStream(cache, key);
+  return stream ? new Response(stream).text() : null;
+}
+
+/**
  * The card-sized digest stored beside each dataset.
  *
  * Carries the dataset's version too, so a summary is never read back under

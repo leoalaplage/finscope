@@ -6,7 +6,7 @@ import { companyView } from "@/lib/io/view";
 import { isFund } from "@/lib/etf-profile";
 import { ioViewKey } from "@/lib/io/view-version";
 import { rememberOpened } from "@/lib/warm-extra";
-import { CACHE_SECONDS, claimKey, datasetKey, fallbackDatasetKeys, readWithin, requestCompany } from "@/lib/dataset-cache";
+import { CACHE_SECONDS, claimKey, datasetKey, fallbackDatasetKeys, getDatasetText, readWithin, requestCompany } from "@/lib/dataset-cache";
 import { TICKER_PATTERN } from "@/lib/market-profile";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
 import type { CompanyDataset } from "@/lib/types";
@@ -118,10 +118,10 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
   let bridged = false;
   if (cache) {
     try {
-      stored = (await readWithin(cache.get(datasetKey(symbol), "text"))).value;
+      stored = (await readWithin(getDatasetText(cache, datasetKey(symbol)))).value;
       if (!stored) {
         for (const previous of fallbackDatasetKeys(symbol)) {
-          stored = (await readWithin(cache.get(previous, "text"))).value;
+          stored = (await readWithin(getDatasetText(cache, previous))).value;
           if (stored) { bridged = true; break; }
         }
       }

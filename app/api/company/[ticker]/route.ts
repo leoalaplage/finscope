@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchSecCompany } from "@/lib/adapters/sec";
-import { CACHE_SECONDS, claimKey, datasetKey, digestIsCurrent, fallbackDatasetKeys, readWithin, requestCompany, summaryKey } from "@/lib/dataset-cache";
+import { CACHE_SECONDS, claimKey, datasetKey, digestIsCurrent, fallbackDatasetKeys, getDatasetStream, getDatasetText, putDataset, readWithin, requestCompany, summaryKey } from "@/lib/dataset-cache";
 import { summariseDataset } from "@/lib/watchlist-summary";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
 import { ioViewKey } from "@/lib/io/view-version";
@@ -70,7 +70,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       // and only for a company cached before digests existed. A reader asking
       // for this company gets the stream and no extra work.
       if (warming && cache && !(await cache.get(summaryKey(symbol), "text"))) {
-        const stored = await cache.get(key, "text");
+        const stored = await getDatasetText(cache, key);
         if (stored) {
           const summary = summariseDataset(JSON.parse(stored) as Parameters<typeof summariseDataset>[0]);
           if (summary) await cache.put(summaryKey(symbol), JSON.stringify(summary), { expirationTtl: CACHE_SECONDS });
@@ -79,7 +79,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       }
       // A digest already current is all a digest-only request wants.
       if (digestOnly && cache && digestIsCurrent(await cache.get(summaryKey(symbol), "text").catch(() => null))) return NextResponse.json({ digest: true });
-      const warm = digestOnly ? null : cache ? (await readWithin(cache.get(key, "stream"))).value : null;
+      const warm = digestOnly ? null : cache ? (await readWithin(getDatasetStream(cache, key))).value : null;
       if (warm) return new Response(warm, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
 
       /*
@@ -104,7 +104,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
        * started behind them.
        */
       for (const previous of warming ? [] : fallbackDatasetKeys(symbol)) {
-        const stale = cache ? (await readWithin(cache.get(previous, "stream"))).value : null;
+        const stale = cache ? (await readWithin(getDatasetStream(cache, previous))).value : null;
         if (stale) {
           const claim = cache ? await cache.get(claimKey(symbol), "text").catch(() => null) : null;
           if (!claim) {
@@ -173,7 +173,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       }
       await Promise.all([
         // A digest-only build keeps the digest and nothing else (lib/dataset-cache.ts, requestCompany).
-        digestOnly ? undefined : cache?.put(key, body, { expirationTtl: CACHE_SECONDS }),
+        digestOnly || !cache ? undefined : putDataset(cache, key, body),
         summary ? cache?.put(summaryKey(symbol), JSON.stringify(summary), { expirationTtl: CACHE_SECONDS }) : undefined,
         audit ? cache?.put(auditKey(symbol), JSON.stringify(audit), { expirationTtl: CACHE_SECONDS }) : undefined,
         // A view is derived from this dataset. Retaining it after replacing
