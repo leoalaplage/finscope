@@ -15,14 +15,15 @@ const cap = (value: number | null | undefined) => value != null && value > 0
  * grouped by sector, its area its market capitalisation. A bubble opens the
  * company on this site.
  */
-export function WatchlistBubbles({ rows, loading }: { rows: PerformanceRow[]; loading: boolean }) {
+export function WatchlistBubbles({ rows, loading, width = 1200 }: { rows: PerformanceRow[]; loading: boolean; width?: number }) {
   // Not `window`: that name is the browser's.
   const [windowId, setWindowId] = useState<WindowId>("d1");
   const [sector, setSector] = useState<string | null>(null);
   const [active, setActive] = useState<string | null>(null);
   // An edited watchlist must not stay hidden behind an obsolete sector filter.
   const selected = rows.some((row) => (row.sector || "Unclassified") === sector) ? sector : null;
-  const layout = bubbleLayout(rows, windowId, selected);
+  const layout = bubbleLayout(rows, windowId, selected, width);
+  const right = width - 45, span = width - 110;
   const sectorColor = (name: string) => layout.colors.get(name) ?? "#a1aab7";
   const point = layout.points.find((item) => item.ticker === active);
   const period = WINDOWS.find((item) => item.id === windowId)!;
@@ -40,16 +41,16 @@ export function WatchlistBubbles({ rows, loading }: { rows: PerformanceRow[]; lo
         : <span>Hover or focus a bubble for details · Click to open the stock · Select a sector below to expand it</span>}
     </div>
     {layout.points.length ? <div className="watch-bubbles-scroll">
-      <svg className="watch-bubbles-plot" viewBox="0 0 1200 430" role="group" aria-label={`Watchlist sector bubbles, ${period.label} change, area represents market capitalization`}>
+      <svg className="watch-bubbles-plot" viewBox={`0 0 ${width} 430`} data-compact={width < 1000 || undefined} role="group" aria-label={`Watchlist sector bubbles, ${period.label} change, area represents market capitalization`}>
         <text x="12" y="16" className="watch-bubbles-axis">Change % {period.annualised ? "p.a." : ""}</text>
         {Array.from({ length: 6 }, (_, index) => {
           const value = layout.min + (layout.max - layout.min) * index / 5;
-          return <g key={index}><line x1="65" x2="1155" y1={y(value)} y2={y(value)} className="watch-bubbles-grid" /><text x="54" y={y(value) + 4} textAnchor="end" className="watch-bubbles-axis">{value.toFixed(1)}%</text></g>;
+          return <g key={index}><line x1="65" x2={right} y1={y(value)} y2={y(value)} className="watch-bubbles-grid" /><text x="54" y={y(value) + 4} textAnchor="end" className="watch-bubbles-axis">{value.toFixed(1)}%</text></g>;
         })}
-        <line x1="65" x2="1155" y1={y(0)} y2={y(0)} className="watch-bubbles-zero" />
+        <line x1="65" x2={right} y1={y(0)} y2={y(0)} className="watch-bubbles-zero" />
         {layout.groups.map((name, index) => <g key={name}>
-          <line x1={65 + index / layout.groups.length * 1090} x2={65 + index / layout.groups.length * 1090} y1="32" y2="382" className="watch-bubbles-grid" />
-          <rect x={65 + index / layout.groups.length * 1090} y="402" width={1090 / layout.groups.length - 2} height="4" fill={sectorColor(name)} />
+          <line x1={65 + index / layout.groups.length * span} x2={65 + index / layout.groups.length * span} y1="32" y2="382" className="watch-bubbles-grid" />
+          <rect x={65 + index / layout.groups.length * span} y="402" width={span / layout.groups.length - 2} height="4" fill={sectorColor(name)} />
         </g>)}
         {[...layout.points].sort((a, b) => b.r - a.r).map((item) => <a key={item.ticker} href={`/s/${encodeURIComponent(item.ticker)}`} aria-label={`${item.ticker}, ${item.sector}, ${delta(item.value / 100, 2)}, market cap ${cap(item.marketCap)}`} onMouseEnter={() => setActive(item.ticker)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(item.ticker)} onBlur={() => setActive(null)}>
           <title>{`${item.ticker} · ${item.name ?? item.ticker}\n${item.sector} · ${delta(item.value / 100, 2)}\nMarket cap ${cap(item.marketCap)}`}</title>

@@ -2615,3 +2615,12 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   .account-link { width: 44px; height: 44px; }
   .acct-btn { height: 40px; }
 }
+
+/* Watchlist performance: the sector view and the list on one line (components/io/MarketPerformance.tsx). */
+.performance-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: calc(var(--u) * 6); align-items: start; }
+.performance-split .performance-sheet { margin-top: 16px; }
+.performance-split .performance-sheet table { min-width: 0; width: 100%; }
+.performance-split .watch-bubbles-plot[data-compact] { min-width: 480px; }
+@media (max-width: 1100px) {
+  .performance-split { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}

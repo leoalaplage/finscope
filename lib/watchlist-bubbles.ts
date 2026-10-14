@@ -1,7 +1,10 @@
 import type { PerformanceRow } from "@/app/api/performance/route";
 import type { WindowId } from "./performance";
 
-export function bubbleLayout(rows: PerformanceRow[], window: WindowId, sector: string | null) {
+/** `width`: the plot's own width in SVG units — 1200 across the page, narrower beside the table (components/io/MarketPerformance.tsx). */
+export function bubbleLayout(rows: PerformanceRow[], window: WindowId, sector: string | null, width = 1200) {
+  const span = width - 110;
+  const largestRadius = width >= 1000 ? 42 : 30;
   const available = rows.filter((row) => Number.isFinite(row.changes[window]));
   const sectors = [...new Set(available.map((row) => row.sector || "Unclassified"))].sort();
   const shown = available.filter((row) => !sector || (row.sector || "Unclassified") === sector);
@@ -15,10 +18,10 @@ export function bubbleLayout(rows: PerformanceRow[], window: WindowId, sector: s
     const members = shown.filter((row) => (row.sector || "Unclassified") === name).sort((a, b) => a.ticker.localeCompare(b.ticker));
     return members.map((row, index) => ({
       ...row, sector: name, value: row.changes[window]! * 100,
-      x: 65 + (group + (index + 1) / (members.length + 1)) / groups.length * 1090,
+      x: 65 + (group + (index + 1) / (members.length + 1)) / groups.length * span,
       y: 32 + (max - row.changes[window]! * 100) / (max - min) * 350,
       // Circle area is proportional to capitalization; missing caps are hollow markers.
-      r: row.marketCap != null && row.marketCap > 0 ? 42 * Math.sqrt(row.marketCap / largest) : 6,
+      r: row.marketCap != null && row.marketCap > 0 ? largestRadius * Math.sqrt(row.marketCap / largest) : 6,
     }));
   });
   return { points, sectors, groups, min, max, missing: rows.length - available.length, colors: sectorColors(sectors) };

@@ -182,7 +182,9 @@ export function MarketPerformance() {
         </div>
       </div>
 
-      <WatchlistBubbles rows={tickers.flatMap((ticker) => rows[ticker] ? [rows[ticker]] : [])} loading={loaded < tickers.length && !failed} />
+      {/* The sector view and the list side by side, each half as wide. */}
+      <div className="performance-split">
+      <WatchlistBubbles rows={tickers.flatMap((ticker) => rows[ticker] ? [rows[ticker]] : [])} loading={loaded < tickers.length && !failed} width={680} />
 
       {failed ? (
         <p className="stat-note">Prices are temporarily unavailable, so no window can be measured.</p>
@@ -231,7 +233,7 @@ export function MarketPerformance() {
           </table>
         </div>
       )}
-
+      </div>
 
       {editing ? (
         <WatchlistEditor tickers={tickers} onClose={() => setEditing(false)} onSaved={setSession} />
