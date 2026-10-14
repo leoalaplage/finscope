@@ -2400,3 +2400,45 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 /* A sector named with its colour. */
 .qs-sector-tag { display: inline-flex; align-items: center; gap: 5px; }
 .qs-sector-tag > i { width: 7px; height: 7px; }
+
+/* --- An exchange-traded fund (components/io/Etf.tsx) ----------------------- */
+
+.etf-stats { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.etf-chart { height: 380px; border: 1px solid var(--line); border-radius: var(--radius); }
+
+.etf-years { display: flex; align-items: stretch; gap: 6px; height: 220px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--raise); }
+.etf-year { flex: 1; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; gap: 4px; min-width: 0; }
+.etf-year-value { font-size: var(--fs-xs); color: var(--ink-2); }
+.etf-year-track { position: relative; width: 100%; border-bottom: 0; }
+.etf-year-track::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--line-strong); }
+.etf-year-bar { position: absolute; left: 18%; right: 18%; background: var(--gain); }
+.etf-year[data-dir="down"] .etf-year-bar { background: var(--loss); }
+.etf-year-label { font: var(--fs-micro) var(--mono); color: var(--ink-3); }
+.etf-average { margin-top: calc(var(--u) * 4); }
+.etf-average td[data-dir="up"] { color: var(--gain); }
+.etf-average td[data-dir="down"] { color: var(--loss); }
+
+.etf-exposures { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: calc(var(--u) * 6); }
+.etf-exposure { min-width: 0; }
+.etf-exposure h3 { margin: 0 0 6px; }
+.etf-bar { display: grid; grid-template-columns: minmax(0, 9.5rem) minmax(0, 1fr) 6ch; align-items: center; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
+.etf-bar-name { display: flex; align-items: center; gap: 7px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.etf-bar-name > i { flex: none; width: 8px; height: 8px; background: var(--bar); }
+.etf-bar-track { height: 8px; background: var(--fill); }
+.etf-bar-track > span { display: block; height: 100%; background: var(--bar); }
+.etf-bar-value { text-align: right; font-size: var(--fs-xs); }
+
+.etf-holdings td[data-drawn] { width: 120px; }
+.etf-weight { display: block; height: 6px; background: var(--fill); }
+.etf-weight > span { display: block; height: 100%; background: var(--plot); }
+.etf-holding-name { margin-inline-start: 8px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32ch; display: inline-block; vertical-align: bottom; }
+.etf-objective { max-width: 80ch; color: var(--ink-2); font-size: var(--fs-md); line-height: 1.6; }
+
+@media (max-width: 1100px) { .etf-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .etf-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .etf-chart { height: 300px; }
+  .etf-years { height: 180px; gap: 3px; padding: 8px; }
+  .etf-year-value { font-size: var(--fs-micro); }
+  .etf-holding-name { max-width: 16ch; }
+}

@@ -48,6 +48,8 @@ export type CompanyState =
   | { kind: "loading"; ticker: string; progress: number }
   | { kind: "building"; ticker: string; progress: number }
   | { kind: "failed"; ticker: string; message: string }
+  /** Not a company: an exchange-traded fund, drawn by its own page (components/io/Etf.tsx). */
+  | { kind: "fund"; ticker: string }
   | { kind: "ready"; ticker: string; view: IoCompanyView };
 
 export interface CompanyData {
@@ -93,6 +95,10 @@ export function useCompany(ticker: string): CompanyData {
           return;
         }
         const body = await response.json() as Record<string, unknown>;
+        if (response.status === 409 && body?.fund === true) {
+          setLoaded({ kind: "fund", ticker });
+          return;
+        }
         if (!response.ok) {
           const stated = body?.error;
           setLoaded({ kind: "failed", ticker, message: typeof stated === "string" ? stated : `${ticker} could not be loaded.` });

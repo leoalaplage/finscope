@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { searchSecCompanies } from "@/lib/adapters/sec";
+import { sameListing, searchSecCompanies } from "@/lib/adapters/sec";
+import { fundSearchEntry } from "@/lib/etf-profile";
 import { cachedJson, SETTLED_SECONDS, type Completeness } from "@/lib/market-cache";
 
 /**
@@ -26,7 +27,13 @@ export async function GET(request: Request) {
     const { body, hit } = await cachedJson(
       key,
       SETTLED_SECONDS,
-      () => searchSecCompanies(query),
+      async () => {
+        const results = await searchSecCompanies(query);
+        // A fund typed by its exact ticker, which the company register does not carry.
+        if (results.some((entry) => sameListing(entry.ticker, query))) return results;
+        const fund = await fundSearchEntry(query);
+        return fund ? [fund, ...results] : results;
+      },
       // An empty answer is a real answer — no filer matches "zzzz" — but it is
       // also what a refused upstream request looks like, so it is not kept.
       (answer): Completeness => (answer.length ? "full" : "empty"),

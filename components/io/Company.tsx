@@ -1,5 +1,6 @@
 "use client";
 
+import { Etf } from "./Etf";
 import { useEffect, useState } from "react";
 import { stated } from "@/lib/sector";
 import { FcfShareGrowth } from "./FcfShareGrowth";
@@ -79,6 +80,9 @@ export function Company({ ticker }: { ticker: string }) {
       </main>
     );
   }
+
+  // A fund has a page of its own: what it holds and costs, not statements it does not file.
+  if (state.kind === "fund") return <Etf ticker={ticker} />;
 
   if (state.kind !== "ready") {
     const label = state.kind === "building" ? "Reading the filings" : "Opening company";

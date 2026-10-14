@@ -1,5 +1,6 @@
 "use client";
 
+import { Etf } from "@/components/io/Etf";
 import { useRef, useState, type CSSProperties } from "react";
 import { stated } from "@/lib/sector";
 import { useCompany } from "@/components/io/use-company";
@@ -75,6 +76,9 @@ export function TermCompany({ ticker }: { ticker: string }) {
       </div>
     );
   }
+
+  // A fund has a page of its own: what it holds and costs, not statements it does not file.
+  if (state.kind === "fund") return <Etf ticker={ticker} />;
 
   if (state.kind !== "ready") {
     const label = state.kind === "building" ? "READING FILINGS" : "LOADING";

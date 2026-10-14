@@ -3,6 +3,7 @@ import { sameListing, searchSecCompanies } from "@/lib/adapters/sec";
 import { companyByTicker } from "@/lib/company-registry";
 import { universeMember } from "@/lib/universe";
 import { companyView } from "@/lib/io/view";
+import { isFund } from "@/lib/etf-profile";
 import { ioViewKey } from "@/lib/io/view-version";
 import { rememberOpened } from "@/lib/warm-extra";
 import { CACHE_SECONDS, claimKey, datasetKey, fallbackDatasetKeys, readWithin, requestCompany } from "@/lib/dataset-cache";
@@ -130,6 +131,14 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
   }
 
   if (!stored) {
+    /*
+     * A fund is not a company to build: it files no statements to normalize,
+     * and asking for one left SPY or VOO on "reading the filings" for ever. The
+     * page is told it is a fund and draws the fund page (components/io/Etf.tsx).
+     */
+    if (!companyByTicker(symbol) && await isFund(symbol).catch(() => false)) {
+      return NextResponse.json({ error: `${symbol} is an exchange-traded fund.`, fund: true }, { status: 409, headers: { "Cache-Control": "public, max-age=3600" } });
+    }
     // A company this application vouches for skips the memo entirely rather
     // than being cleared by it. A refusal is only ever about a symbol we could
     // not resolve, so one that predates the registry knowing the symbol must
