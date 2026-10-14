@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { scopeTable } from "@/lib/universe-all";
-import { readTechTable } from "@/lib/term/tech-universe";
-import { datasetCache } from "@/lib/runtime-env";
-import { SCREENER_CONSENSUS_KEY, type ConsensusTable } from "@/lib/screener-consensus";
-import { screenerFeed } from "@/lib/screener-feed";
+import { scopedFeed } from "@/lib/screener-scope";
+import { largest } from "@/lib/listed-universe";
 import { cachedJson } from "@/lib/market-cache";
 import { peerTable } from "@/lib/peers";
 import { TICKER_PATTERN } from "@/lib/market-profile";
@@ -17,13 +14,11 @@ export async function GET(_request: Request, context: { params: Promise<{ ticker
   const symbol = decodeURIComponent((await context.params).ticker).toUpperCase();
   if (!TICKER_PATTERN.test(symbol)) return NextResponse.json({ error: "That is not a ticker." }, { status: 400 });
   const { body } = await cachedJson(`sector-peers:v3:${symbol}`, 1800, async () => {
-    const [top, all, technical, consensus] = await Promise.all([
-      scopeTable("us1000"), scopeTable("all"), readTechTable(),
-      datasetCache()?.get<ConsensusTable>(SCREENER_CONSENSUS_KEY, "json").catch(() => null) ?? null,
-    ]);
-    const largest = peerTable(screenerFeed(top.table, technical, consensus, new Date(), top.members, "US 1000"), symbol);
-    if (largest) return { table: largest };
-    return { table: peerTable(screenerFeed(all.table, technical, consensus, new Date(), all.members, "All US"), symbol, "nearest") };
+    // The all-US feed the screener already keeps: the thousand largest are its rows with the largest market values.
+    const all = await scopedFeed("all");
+    const top = largest(all.rows, (row) => (typeof row.values["Market Cap"] === "number" ? row.values["Market Cap"] : null));
+    const largestRows = { name: "US 1000", rows: all.rows.filter((row) => top.has(row.ticker)) };
+    return { table: peerTable(largestRows, symbol) ?? peerTable({ name: "All US", rows: all.rows }, symbol, "nearest") };
   });
   return new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=900, s-maxage=1800" } });
 }
