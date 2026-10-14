@@ -315,7 +315,7 @@ export function MarketBoard() {
                       </button>
                     </td>
                     <td>{level(row.last)}</td>
-                    <td data-dir={row.id === "VIX" ? tone(row.change == null ? null : -row.change) : tone(row.change)}>{signed(row.change)}</td>
+                    <td data-dir={tone(row.change)}>{signed(row.change)}</td>
                     <td className="t-spark-cell"><Spark values={row.spark} baseline={row.baseline} /></td>
                   </tr>
                 ))}
