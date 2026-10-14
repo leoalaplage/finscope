@@ -5,6 +5,8 @@ import { flowSince, monthlyFlows, type EtfProfile, type Exposure, type NotReport
 import { candlesInRange, CHART_RANGES, type ChartRange } from "@/lib/io/chart-ranges";
 import { sectorColors } from "@/lib/watchlist-bubbles";
 import { CandleChart, useCandles } from "./CandleChart";
+import { About } from "./About";
+import { EtfAnalytics } from "./EtfAnalytics";
 import { ABSENT, money, price as writePrice, shortDate } from "./format";
 
 /**
@@ -81,6 +83,10 @@ export function Etf({ ticker }: { ticker: string }) {
         </div>
       </header>
 
+      {/* What it is, first: the prospectus's objective, or the trust's own description where it files none. */}
+      {fund?.prospectus?.objective
+        ? <About ticker={ticker} fallback={{ text: fund.prospectus.objective, source: `Prospectus filed ${shortDate(fund.prospectus.filed)} · the fund's own words`, url: fund.prospectus.url }} />
+        : profile ? <About ticker={ticker} /> : null}
       {fund ? <KeyFigures fund={fund} /> : null}
 
       <section className="section" aria-labelledby="etf-price-title">
@@ -99,12 +105,13 @@ export function Etf({ ticker }: { ticker: string }) {
       {loaded.kind === "failed" ? <div className="state"><p>{loaded.message}</p></div> : null}
       {profile?.kind === "unreported" ? <div className="state"><p>{profile.reason}</p></div> : null}
 
+      {fund ? <EtfAnalytics fund={fund} /> : null}
       {fund?.commodity ? <Commodity fund={fund} /> : null}
       {fund && fund.history.length > 20 ? <Flows fund={fund} /> : null}
       {fund?.prospectus ? <Returns fund={fund} /> : null}
       {fund?.portfolio && fund.portfolio.holdings.length ? <Exposures fund={fund} /> : null}
       {fund?.portfolio && fund.portfolio.holdings.length ? <Holdings fund={fund} all={allHoldings} onAll={() => setAllHoldings((value) => !value)} /> : null}
-      {fund ? <About fund={fund} /> : null}
+      {fund ? <HowItInvests fund={fund} /> : null}
     </main>
   );
 }
@@ -327,11 +334,19 @@ function Holdings({ fund, all, onAll }: { fund: EtfProfile; all: boolean; onAll:
   );
 }
 
-function About({ fund }: { fund: EtfProfile }) {
+function HowItInvests({ fund }: { fund: EtfProfile }) {
   return (
     <section className="section" aria-labelledby="etf-about-title">
-      <div className="section-head"><h2 className="label" id="etf-about-title">What it sets out to do</h2></div>
-      {fund.prospectus?.objective ? <p className="etf-objective">{fund.prospectus.objective}</p> : <p className="stat-note">The prospectus states no objective in a form that can be read here.</p>}
+      <div className="section-head"><h2 className="label" id="etf-about-title">How it invests</h2></div>
+      {fund.prospectus?.strategy ? <p className="etf-objective">{fund.prospectus.strategy}</p> : fund.prospectus?.objective ? <p className="etf-objective">{fund.prospectus.objective}</p> : <p className="stat-note">The fund files no prospectus in a form that can be read here.</p>}
+      {fund.prospectus?.risks.length ? (
+        <details className="etf-risks">
+          <summary className="label">Principal risks · {fund.prospectus.risks.length}, as the prospectus names them</summary>
+          <dl>
+            {fund.prospectus.risks.map((risk) => <div key={risk.name}><dt>{risk.name}</dt><dd>{risk.text}</dd></div>)}
+          </dl>
+        </details>
+      ) : null}
       {fund.portfolio?.monthlyReturns.length ? (
         <p className="stat-note">Monthly total return, last reported: {fund.portfolio.monthlyReturns.map((entry) => `${entry.month} ${signedPct(entry.value)}`).join(" · ")}</p>
       ) : null}

@@ -2459,3 +2459,51 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   .etf-bar-pair { grid-template-columns: minmax(0, 5rem) minmax(0, 1fr) 8ch; }
   .etf-bar-pair > :nth-child(4), .etf-bar-pair > :nth-child(5) { grid-column: 2 / span 1; }
 }
+
+/* --- What a company or fund is (components/io/About.tsx) ----------------- */
+.about { margin: calc(var(--u) * 2) 0 calc(var(--u) * 4); max-width: 92ch; }
+.about-text { margin: 0; color: var(--ink-2); font-size: var(--fs-md); line-height: 1.6; white-space: pre-line;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.about-text[data-open] { display: block; -webkit-line-clamp: unset; }
+.about-foot { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.about-foot a.label { color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
+.term .about-text { font-size: var(--fs-xs); color: var(--ink-2); }
+.term .about + .t-about-fallback { display: none; }
+
+/* --- Fund analysis (components/io/EtfAnalytics.tsx) ----------------------- */
+.etf-score { display: grid; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr); gap: calc(var(--u) * 6); align-items: center; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--raise); }
+.etf-score-total { display: grid; justify-items: start; gap: 4px; }
+.etf-score-total b { font-size: var(--fs-hero); font-weight: 600; line-height: 1; letter-spacing: var(--track-hero); }
+.etf-score-total .stars { font-size: var(--fs-lg); }
+.etf-score-total .stars > span[data-lit="true"] { color: var(--ink); }
+.etf-score-pillars { display: grid; gap: 8px; }
+.etf-score-pillars .qs-pillar { grid-template-columns: 11rem minmax(0, 1fr) 3ch minmax(0, 15rem); }
+.etf-score-pillars .qs-pillar[data-empty] { opacity: .55; }
+.etf-score-pillars small { color: var(--ink-3); font-weight: 400; }
+.etf-score-reading { font: var(--fs-xs) var(--mono); color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.etf-risk-stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.etf-risk-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: calc(var(--u) * 6); margin-top: calc(var(--u) * 4); align-items: start; }
+.etf-drawdown { margin: 0; min-width: 0; }
+.etf-drawdown svg { display: block; border-bottom: 1px solid var(--line); }
+.etf-drawdown-zero { stroke: var(--line-strong); }
+.etf-drawdown-area { fill: color-mix(in srgb, var(--loss) 18%, transparent); }
+.etf-drawdown-line { fill: none; stroke: var(--loss); stroke-width: 1.25; }
+.etf-drawdown-tick { fill: var(--ink-3); font: 10px var(--mono); }
+.etf-map { position: relative; width: 100%; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); }
+.etf-tile {
+  position: absolute; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; overflow: hidden;
+  background: color-mix(in srgb, var(--tile) 70%, var(--bg)); border: 1px solid var(--bg); color: #fff; text-decoration: none; font-family: var(--mono);
+}
+.etf-tile:hover { background: var(--tile); }
+.etf-tile b { font-size: var(--fs-sm); font-weight: 600; }
+.etf-tile span { font-size: var(--fs-micro); opacity: .9; }
+.etf-risks { margin-top: calc(var(--u) * 4); }
+.etf-risks summary { cursor: pointer; }
+.etf-risks dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px 24px; margin: 10px 0 0; }
+.etf-risks dt { font-weight: 600; font-size: var(--fs-sm); }
+.etf-risks dd { margin: 2px 0 0; color: var(--ink-2); font-size: var(--fs-sm); line-height: 1.5; }
+@media (max-width: 900px) {
+  .etf-score, .etf-risk-body { grid-template-columns: minmax(0, 1fr); }
+  .etf-score-pillars .qs-pillar { grid-template-columns: 9rem minmax(0, 1fr) 3ch; }
+  .etf-score-reading { grid-column: 1 / -1; }
+}

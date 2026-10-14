@@ -1,6 +1,7 @@
 "use client";
 
 import { Etf } from "@/components/io/Etf";
+import { About } from "@/components/io/About";
 import { useRef, useState, type CSSProperties } from "react";
 import { stated } from "@/lib/sector";
 import { useCompany } from "@/components/io/use-company";
@@ -170,7 +171,9 @@ export function TermCompany({ ticker }: { ticker: string }) {
           <Panel code="DES" title="Key statistics" className="t-side"
             actions={view.current ? <span>{view.current.label}</span> : null}
           >
-            {description ? <p className="t-panel-pad t-dim">{description}</p> : null}
+            {/* The company's own description where its report can be read; the registry's line otherwise. */}
+            <div className="t-panel-pad"><About ticker={company.ticker} /></div>
+            {description ? <p className="t-panel-pad t-dim t-about-fallback">{description}</p> : null}
             <Stats view={view} quote={valuationQuote} />
           </Panel>
 

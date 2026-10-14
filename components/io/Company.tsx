@@ -1,6 +1,7 @@
 "use client";
 
 import { Etf } from "./Etf";
+import { About } from "./About";
 import { useEffect, useState } from "react";
 import { stated } from "@/lib/sector";
 import { FcfShareGrowth } from "./FcfShareGrowth";
@@ -155,6 +156,9 @@ export function Company({ ticker }: { ticker: string }) {
           </div>
         </div>
       </header>
+
+      {/* What the company does, in its own words (components/io/About.tsx). */}
+      <About ticker={company.ticker} />
 
       <PendingEarnings view={view} />
 

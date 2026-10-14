@@ -23,7 +23,7 @@ import { stated } from "./sector";
  * weigh most. The sector chart says how much of the fund it could classify.
  */
 
-export const ETF_SHAPE = "etf8";
+export const ETF_SHAPE = "etf9";
 const REGISTER_KEY = "etf-register:v1";
 const DAY = 86_400;
 

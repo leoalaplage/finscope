@@ -54,6 +54,10 @@ export interface EtfProspectus {
   otherExpenses: number | null;
   turnover: number | null;
   objective: string | null;
+  /** How it goes about the objective: the prospectus's principal investment strategies. */
+  strategy: string | null;
+  /** The principal risks, each under the name the prospectus tags it with. */
+  risks: Array<{ name: string; text: string }>;
   returns: EtfReturns;
 }
 
@@ -214,6 +218,23 @@ export function parseProspectus(xml: string, seriesId: string, classId: string, 
   const expenseRatio = one(ofClass("ExpensesOverAssets"));
   if (expenseRatio == null && !ofClass("AnnlRtrPct").length) return null;
   const objective = etfFirst(ofSeries("ObjectivePrimaryTextBlock"))[0]?.value ?? null;
+  const strategy = etfFirst(ofSeries("StrategyNarrativeTextBlock"))[0]?.value ?? null;
+  // One block per risk, tagged with the risk it is — "RiskLoseMoneyMember", "StockMarketRiskMember".
+  const seenRisk = new Set<string>();
+  const risks = etfFirst(ofSeries("RiskTextBlock")).flatMap((fact) => {
+    const member = [...fact.dims.entries()].find(([axis]) => !/DocumentInformation|LegalEntity|ClassAxis/.test(axis))?.[1];
+    if (!member) return [];
+    const name = prettyMember(member).replace(/^Risk\s+/, "").replace(/\s*Risk$/i, "").trim();
+    // The block repeats its own heading first ("General Market Risk. The markets…"): dropped where it is one.
+    const raw = stripHtml(fact.value);
+    const heading = raw.match(/^([^.]{2,80})\.\s+/);
+    const headingWords = heading ? heading[1].trim().split(/\s+/) : [];
+    const textValue = heading && headingWords.length <= 7 && headingWords.every((word) => /^[A-Z(]/.test(word) || /^(and|of|in|the|to|for|on|or|a)$/.test(word))
+      ? raw.slice(heading[0].length) : raw;
+    if (!name || seenRisk.has(name) || textValue.length < 20) return [];
+    seenRisk.add(name);
+    return [{ name: `${name} risk`.replace(/^Lose Money risk$/i, "Loss of money"), text: textValue.length > 420 ? `${textValue.slice(0, 417).replace(/\s+\S*$/, "")}…` : textValue }];
+  }).slice(0, 14);
   const turnover = one(etfFirst(ofSeries("PortfolioTurnoverRate")));
 
   const calendar = ofClass("AnnlRtrPct").flatMap((fact) => {
@@ -272,6 +293,8 @@ export function parseProspectus(xml: string, seriesId: string, classId: string, 
     expenseRatio, managementFee: one(ofClass("ManagementFeesOverAssets")), otherExpenses: one(ofClass("OtherExpensesOverAssets")),
     turnover,
     objective: objective ? stripHtml(objective).slice(0, 1200) : null,
+    strategy: strategy ? stripHtml(strategy).slice(0, 2400) : null,
+    risks,
     returns: {
       calendar, average, indexName,
       best: extreme("BarChartHighestQuarterlyReturn", "BarChartHighestQuarterlyReturnDate"),
