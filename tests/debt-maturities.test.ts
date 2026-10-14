@@ -12,7 +12,8 @@ describe("when the debt falls due", () => {
     };
     const schedule = scheduleFromConcepts(facts, new Date("2026-10-14"))!;
     expect(schedule.asOf).toBe("2025-12-31");
-    expect(schedule.buckets.map((bucket) => bucket.value)).toEqual([1, 2, 3, 0, 0, 10]);
+    // Years four and five are not tagged: unknown, not nought.
+    expect(schedule.buckets.map((bucket) => bucket.value)).toEqual([1, 2, 3, null, null, 10]);
     expect(schedule.buckets[0].label).toBe("FY26");
     expect(scheduleFromConcepts(facts, new Date("2028-06-01"))).toBeNull();
   });

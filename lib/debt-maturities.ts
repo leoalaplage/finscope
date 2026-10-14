@@ -11,7 +11,8 @@
  * Pure: facts in, schedule out. The fetching is in the endpoint.
  */
 
-export interface MaturityBucket { label: string; value: number }
+/** A year the filing does not tag is null, never nought: Coca-Cola tags no "after year five", and a nought there read as no long debt at all. */
+export interface MaturityBucket { label: string; value: number | null }
 
 export interface DebtMaturities {
   source: "schedule" | "notes";
@@ -55,9 +56,9 @@ export function scheduleFromConcepts(facts: Partial<Record<(typeof SCHEDULE_TAGS
   const values = SCHEDULE_TAGS.map((tag) => at(tag));
   if (values.filter(Boolean).length < 3) return null;
   const names = labels(asOf);
-  const buckets = values.map((fact, index) => ({ label: names[index], value: fact?.val ?? 0 }));
+  const buckets = values.map((fact, index) => ({ label: names[index], value: fact?.val ?? null }));
   const first = values.find(Boolean)!;
-  return { source: "schedule", asOf, filed: first.filed, form: first.form ?? "10-K", url: null, buckets, total: buckets.reduce((sum, bucket) => sum + bucket.value, 0) };
+  return { source: "schedule", asOf, filed: first.filed, form: first.form ?? "10-K", url: null, buckets, total: buckets.reduce((sum, bucket) => sum + (bucket.value ?? 0), 0) };
 }
 
 /** The balance-sheet date plus an ISO-8601 duration, or null. */
@@ -125,10 +126,11 @@ export function scheduleFromNotes(xml: string, filing: { form: string; filed: st
   if (notes.length < 2) return null;
   const names = labels(asOf);
   const end = Date.parse(asOf);
-  const buckets = names.map((label) => ({ label, value: 0 }));
+  const buckets: MaturityBucket[] = names.map((label) => ({ label, value: 0 }));
   for (const note of notes) {
     const years = (Date.parse(note.maturity) - end) / (365.25 * 86_400_000);
-    buckets[Math.min(5, Math.max(0, Math.ceil(years) - 1))].value += note.face;
+    const bucket = buckets[Math.min(5, Math.max(0, Math.ceil(years) - 1))];
+    bucket.value = (bucket.value ?? 0) + note.face;
   }
   return { source: "notes", asOf, filed: filing.filed, form: filing.form, url: filing.url, buckets, total: notes.reduce((sum, note) => sum + note.face, 0), notes };
 }

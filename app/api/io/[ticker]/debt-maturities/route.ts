@@ -43,7 +43,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
   const cik = new URL(request.url).searchParams.get("cik") ?? "";
   if (!TICKER_PATTERN.test(symbol) || !/^\d{1,10}$/.test(cik)) return NextResponse.json({ error: "A valid exchange symbol and SEC CIK are required." }, { status: 400 });
   try {
-    const { body } = await cachedJson(`debt-maturities:v1:${cik.padStart(10, "0")}`, 7 * 86_400, () => build(cik), (value) => (value.maturities ? "full" : "partial"));
+    const { body } = await cachedJson(`debt-maturities:v2:${cik.padStart(10, "0")}`, 7 * 86_400, () => build(cik), (value) => (value.maturities ? "full" : "partial"));
     return new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=3600, s-maxage=86400" } });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "The filing could not be read." }, { status: 502, headers: { "Cache-Control": "no-store" } });

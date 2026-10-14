@@ -35,7 +35,8 @@ export function DebtMaturities({ view }: { view: IoCompanyView }) {
   const latest = view.trailing.at(-1) ?? view.annual.at(-1);
   const cash = (latest?.values.cashAndEquivalents ?? 0) + Math.max(0, latest?.values.shortTermInvestments ?? 0);
   const first = schedule.buckets[0]?.value ?? 0;
-  const fiveYears = schedule.buckets.slice(0, 5).reduce((sum, bucket) => sum + bucket.value, 0);
+  const fiveYears = schedule.buckets.slice(0, 5).reduce((sum, bucket) => sum + (bucket.value ?? 0), 0);
+  const untagged = schedule.buckets.filter((bucket) => bucket.value == null).map((bucket) => bucket.label);
   const data: ChartData = {
     labels: schedule.buckets.map((bucket) => bucket.label),
     names: schedule.buckets.map((bucket, index) => (index === 5 ? `${bucket.label} · everything later` : `${bucket.label} · year ${index + 1} after ${shortDate(schedule.asOf)}`)),
@@ -49,10 +50,10 @@ export function DebtMaturities({ view }: { view: IoCompanyView }) {
   return (
     <div className="ddis">
       <div className="grid-ruled stats dvd-strip">
-        <Stat label="Scheduled" value={money(schedule.total, currency)} note={`At ${shortDate(schedule.asOf)}, ${schedule.form} filed ${shortDate(schedule.filed)}`} />
+        <Stat label="Scheduled" value={money(schedule.total, currency)} note={untagged.length ? `Not tagged: ${untagged.join(", ")}` : `At ${shortDate(schedule.asOf)}, ${schedule.form} filed ${shortDate(schedule.filed)}`} />
         <Stat label="Due within a year" value={money(first, currency)} note={first > 0 && cash > 0 ? `Cash covers it ${(cash / first).toFixed(1)}×` : cash > 0 ? "Nothing due" : undefined} tone={first > 0 && cash < first ? "down" : undefined} />
         <Stat label="Due within five years" value={money(fiveYears, currency)} note={schedule.total > 0 ? `${Math.round((fiveYears / schedule.total) * 100)}% of the total` : undefined} />
-        <Stat label="Later" value={money(schedule.buckets[5]?.value ?? null, currency)} note={schedule.source === "notes" ? `Rebuilt from ${schedule.notes?.length ?? 0} notes` : "As the 10-K schedules it"} />
+        <Stat label="Later" value={schedule.buckets[5]?.value == null ? "Not tagged" : money(schedule.buckets[5].value, currency)} note={schedule.source === "notes" ? `Rebuilt from ${schedule.notes?.length ?? 0} notes` : "As the 10-K schedules it"} />
       </div>
       <div className={schedule.notes?.length ? "dvd-grid" : undefined}>
         <figure className="t-gf-card">
