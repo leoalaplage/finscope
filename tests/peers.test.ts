@@ -40,3 +40,18 @@ describe("a lender against its sector", () => {
     expect(table.metrics.find((metric) => metric.key === "P/B")!).toMatchObject({ company: 1.2, median: 1.2, cheaperThan: 0.5 });
   });
 });
+
+describe("a small company against its sector", () => {
+  it("is set beside the companies nearest its size, not the sector's largest", () => {
+    const caps = [5000, 2000, 900, 40, 30, 25, 20, 15, 12, 10, 8, 6, 5, 4, 3];
+    const feed = { name: "All US", rows: caps.map((cap, at) => row(`S${at}`, "Software", { "Market Cap": cap, "EV/EBIT": 10 + at, "FCF Yield": 3 })) };
+    const table = peerTable(feed, "S9", "nearest")!;
+    expect(table.universe).toBe("All US");
+    expect(table.pick).toBe("nearest");
+    expect(table.peers.map((peer) => peer.ticker)).not.toContain("S0");
+    expect(table.peers.map((peer) => peer.ticker)).toContain("S9");
+    expect(table.peers).toHaveLength(12);
+    // Still ranked against the whole sector.
+    expect(table.members).toBe(15);
+  });
+});

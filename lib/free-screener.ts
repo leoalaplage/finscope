@@ -49,7 +49,7 @@ const conditionSchema = z.object({
 });
 export type ScreenCondition = z.infer<typeof conditionSchema>;
 const configSchema = z.object({
-  mode: z.enum(["all", "any"]), scope: z.enum(["index", "watchlist"]), query: z.string().max(120), sectors: z.array(z.string().max(100)).max(30),
+  mode: z.enum(["all", "any"]), scope: z.enum(["index", "us1000", "all", "watchlist"]), query: z.string().max(120), sectors: z.array(z.string().max(100)).max(30),
   conditions: z.array(conditionSchema).max(30), columns: z.array(fieldKey).min(1).max(24),
   sort: z.union([fieldKey, z.literal("ticker")]), descending: z.boolean(),
   /** The column view (lib/screener-filters.ts); "custom" shows `columns`. Older saved searches have none and show their own columns. */

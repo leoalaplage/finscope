@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { KEY_VERSION, SUMMARY_SHAPE } from "@/lib/data-version";
 import { readServedUniverse } from "@/lib/universe-build";
+import { scopeTable } from "@/lib/universe-all";
+import { compactTable } from "@/lib/universe-compact";
+import { cachedJson } from "@/lib/market-cache";
 import { UNIVERSE, UNIVERSE_AS_OF, UNIVERSE_NAME } from "@/lib/universe";
 
 /**
@@ -23,7 +26,18 @@ const headers = {
   "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=900",
 };
 
-export async function GET() {
+export async function GET(request: Request) {
+  const scope = new URL(request.url).searchParams.get("scope");
+  // Beyond the S&P 500: the joined table, in columns, kept ten minutes (lib/universe-all.ts, lib/universe-compact.ts).
+  if (scope === "us1000" || scope === "all") {
+    const { body } = await cachedJson(`universe-scope:v1:${scope}:${KEY_VERSION}.${SUMMARY_SHAPE}`, 600, async () => {
+      const { table } = await scopeTable(scope);
+      return table && table.rows.length ? { compact: compactTable(table), version: `${KEY_VERSION}.${SUMMARY_SHAPE}` } : null;
+    }, (value) => (value ? "full" : "empty"));
+    const payload = JSON.parse(body) as { compact: unknown } | null;
+    if (!payload) return NextResponse.json({ building: true, ready: 0, members: 0, version: `${KEY_VERSION}.${SUMMARY_SHAPE}` }, { status: 202, headers: { ...headers, "Cache-Control": "no-store" } });
+    return new Response(body, { headers });
+  }
   const table = await readServedUniverse();
   if (!table) {
     return NextResponse.json(

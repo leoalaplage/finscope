@@ -61,6 +61,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
    * again" that any caller could repeat would be a way to exhaust the Worker.
    */
   const asksRebuild = warming && request.headers.get("X-FinScope-Rebuild") === "1";
+  const digestOnly = warming && request.headers.get("X-FinScope-Digest-Only") === "1";
   const rebuilding = asksRebuild && cache != null && !digestIsCurrent(await cache.get(summaryKey(symbol), "text").catch(() => null));
 
   if (!rebuilding) {
@@ -73,10 +74,12 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
         if (stored) {
           const summary = summariseDataset(JSON.parse(stored) as Parameters<typeof summariseDataset>[0]);
           if (summary) await cache.put(summaryKey(symbol), JSON.stringify(summary), { expirationTtl: CACHE_SECONDS });
-          return new Response(stored, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
+          return digestOnly ? NextResponse.json({ digest: summary != null }) : new Response(stored, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
         }
       }
-      const warm = cache ? (await readWithin(cache.get(key, "stream"))).value : null;
+      // A digest already current is all a digest-only request wants.
+      if (digestOnly && cache && digestIsCurrent(await cache.get(summaryKey(symbol), "text").catch(() => null))) return NextResponse.json({ digest: true });
+      const warm = digestOnly ? null : cache ? (await readWithin(cache.get(key, "stream"))).value : null;
       if (warm) return new Response(warm, { headers: { ...headers, "X-FinScope-Cache": "hit" } });
 
       /*
@@ -153,30 +156,35 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
 
   try {
     const dataset = await fetchSecCompany(symbol);
-    const body = JSON.stringify(dataset);
+    // Five megabytes of text a digest-only build has no use for.
+    const body = digestOnly ? "" : JSON.stringify(dataset);
     try {
       // The digest is written from the same object in the same breath, so the
       // watchlist can never show a figure the company page disagrees with.
       const summary = summariseDataset(dataset);
       // The day's audit reads this check rather than the dataset (see lib/coverage-audit.ts).
       let audit: CompanyAudit | null = null;
-      try {
+      // The audit covers the companies with a page's worth of data; a digest-only build is not one.
+      if (!digestOnly) try {
         const previous = cache ? await cache.get<CompanyAudit>(auditKey(symbol), "json").catch(() => null) : null;
         audit = auditCompany(companyView(dataset), previous, new Date().toISOString(), sourcedFigures(dataset), identityFailures(dataset));
       } catch {
         audit = null;
       }
       await Promise.all([
-        cache?.put(key, body, { expirationTtl: CACHE_SECONDS }),
+        // A digest-only build keeps the digest and nothing else (lib/dataset-cache.ts, requestCompany).
+        digestOnly ? undefined : cache?.put(key, body, { expirationTtl: CACHE_SECONDS }),
         summary ? cache?.put(summaryKey(symbol), JSON.stringify(summary), { expirationTtl: CACHE_SECONDS }) : undefined,
         audit ? cache?.put(auditKey(symbol), JSON.stringify(audit), { expirationTtl: CACHE_SECONDS }) : undefined,
         // A view is derived from this dataset. Retaining it after replacing
         // the source would keep yesterday's figures visible for another day.
-        cache?.delete(ioViewKey(symbol)),
+        digestOnly ? undefined : cache?.delete(ioViewKey(symbol)),
       ]);
+      if (digestOnly) return NextResponse.json({ digest: summary != null });
     } catch {
       // Storing is best-effort; the reader still gets their answer.
     }
+    if (digestOnly) return NextResponse.json({ digest: false });
     return new Response(body, { headers: { ...headers, "X-FinScope-Cache": "miss" } });
   } catch (error) {
     const message = error instanceof Error && error.name === "ZodError"

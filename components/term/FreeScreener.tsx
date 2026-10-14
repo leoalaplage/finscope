@@ -10,12 +10,13 @@ import {
   FILTER_TABS, RECIPES, SHORT, SIGNED, VIEWS,
   conditionFor, customBounds, customCondition, describeCondition, formatValue, isQuickCondition, optionIndex,
 } from "@/lib/screener-filters";
-import type { ScreenerFeed } from "@/lib/screener-feed";
+import { expandFeed, type CompactFeed, type ScreenerFeed } from "@/lib/screener-feed";
 import { useStoredWatchlist } from "@/components/io/watchlist";
 import { ExportMenu } from "@/components/io/ExportMenu";
 
 /**
- * EQS: a Finviz-style screener over the S&P 500 (lib/free-screener.ts).
+ * EQS: a Finviz-style screener over the S&P 500, the thousand largest US
+ * companies or every one listed (lib/free-screener.ts, lib/universe-all.ts).
  *
  * Filters first, as a grid of drop-downs with ready thresholds, tab by tab;
  * the matches straight under them in a dense table whose columns come in
@@ -68,7 +69,8 @@ export function FreeScreener() {
   const watchlist = useStoredWatchlist();
   const [feed, setFeed] = useState<ScreenerFeed | null>(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loadingFirst, setLoading] = useState(true);
+  const [feedFor, setFeedFor] = useState<string | null>(null);
   const [nameOverride, setNameOverride] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [page, setPage] = useState(1);
@@ -90,16 +92,20 @@ export function FreeScreener() {
   const shownPage = Math.min(page, pages);
   const visible = result.matches.slice((shownPage - 1) * pageSize, shownPage * pageSize);
 
+  // The table screened: the S&P 500's, the thousand largest, or every listed company — a watchlist is looked up in the widest.
+  const universe = config.scope === "us1000" ? "us1000" : config.scope === "all" || config.scope === "watchlist" ? "all" : "sp500";
+  // Another scope's table stays on screen, said to be loading, until this one's arrives.
+  const loading = loadingFirst || feedFor !== universe;
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     async function load() {
       try {
-        const response = await fetch("/api/screener", { signal: controller.signal });
+        const response = await fetch(universe === "sp500" ? "/api/screener" : `/api/screener?scope=${universe}`, { signal: controller.signal });
         if (!response.ok) throw new Error("The screener data could not be read.");
-        const data = await response.json() as ScreenerFeed;
+        const data = expandFeed(await response.json() as ScreenerFeed | CompactFeed);
         if (!Array.isArray(data.rows) || !data.coverage) throw new Error("The screener returned an incomplete response.");
-        if (!controller.signal.aborted) { setFeed(data); setError(""); }
+        if (!controller.signal.aborted) { setFeed(data); setFeedFor(universe); setError(""); }
       } catch (cause) {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "The screener data could not be read.");
       } finally {
@@ -108,7 +114,7 @@ export function FreeScreener() {
     }
     void load();
     return () => { controller.abort(); clearTimeout(timer); };
-  }, []);
+  }, [universe]);
 
   function persist(next: ScreenStore) {
     setMessage(writeScreenStore(next) ? "" : "Browser storage is unavailable: changes last for this tab only.");
@@ -167,7 +173,7 @@ export function FreeScreener() {
         </> : null}
         <span className="eqs-sep" />
         <select aria-label="Universe" value={config.scope} onChange={(event) => change({ scope: event.target.value as ScreenConfig["scope"] })}>
-          <option value="index">S&amp;P 500</option><option value="watchlist">My watchlist</option>
+          <option value="index">S&amp;P 500</option><option value="us1000">US 1000</option><option value="all">All US</option><option value="watchlist">My watchlist</option>
         </select>
         <select aria-label="Sector" value={config.sectors.length === 1 ? config.sectors[0] : config.sectors.length ? "__many" : ""} onChange={(event) => change({ sectors: event.target.value ? [event.target.value] : [] })}>
           <option value="">Any sector</option>
@@ -282,7 +288,7 @@ export function FreeScreener() {
             {PAGE_SIZES.map((size) => <option key={size} value={size}>{size} rows</option>)}
           </select>
           {result.matches.length ? <ExportMenu name={name || "screener"} rows={exportRows} provenance={[
-            `SEC filings; analysts' consensus (Zacks via Nasdaq); Yahoo daily bars. S&P 500 membership ${feed?.asOf ?? "unavailable"}.`,
+            `SEC filings; analysts' consensus (Zacks via Nasdaq); Yahoo daily bars. ${feed?.name ?? "S&P 500"} membership ${feed?.asOf ?? "unavailable"}.`,
             `Match ${config.mode}: ${config.conditions.map(describeCondition).join("; ") || "no filters"}.`,
             "Missing values stay empty. Each row carries its financial period, source dates and EPS basis.",
           ]} /> : null}
@@ -314,7 +320,7 @@ export function FreeScreener() {
           </div>
         ) : null}
 
-        {loading && !feed ? <p className="eqs-message" role="status">Reading the financial, consensus and technical snapshots…</p> : null}
+        {loading && (!feed || feedFor !== universe) ? <p className="eqs-message" role="status">Reading the financial, consensus and technical snapshots…</p> : null}
         {error ? <p className="eqs-message" role="alert">{error}{feed ? " The last snapshot read stays on screen." : ""}</p> : null}
         {result.errors.length ? <p className="eqs-message" role="alert">An advanced rule is incomplete: complete or remove it to see results.</p> : null}
         {feed && !loading && !result.errors.length && !result.matches.length ? <p className="eqs-message">No company passes these filters.</p> : null}
@@ -365,7 +371,8 @@ export function FreeScreener() {
           {pages > 1 ? (
             <span className="eqs-pages">
               <button type="button" className="t-chip" disabled={shownPage <= 1} onClick={() => setPage(shownPage - 1)}>‹</button>
-              {Array.from({ length: pages }, (_, index) => index + 1).map((number) => (
+              {/* Five thousand companies are a hundred pages: the first, the last and those around this one. */}
+              {Array.from({ length: pages }, (_, index) => index + 1).filter((number) => number === 1 || number === pages || Math.abs(number - shownPage) <= 3).map((number) => (
                 <button key={number} type="button" className="t-chip" aria-pressed={number === shownPage} onClick={() => setPage(number)}>{number}</button>
               ))}
               <button type="button" className="t-chip" disabled={shownPage >= pages} onClick={() => setPage(shownPage + 1)}>›</button>

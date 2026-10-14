@@ -9,13 +9,14 @@ interface Answer { updatedAt: string | null; days: string[]; pending: number; pu
 const RANGES = [{ days: 30, label: "30 days" }, { days: 60, label: "60 days" }, { days: 120, label: "120 days" }];
 
 /**
- * INSB: officers and directors of the index's companies buying their own
+ * INSB: officers and directors of US-listed companies buying their own
  * shares in the open market, and the clusters of them — two or more buying
  * the same stock within a fortnight (lib/insider-buying.ts).
  */
 export function InsiderBuying() {
   const [answer, setAnswer] = useState<Answer | null | undefined>(undefined);
   const [range, setRange] = useState(60);
+  const [wide, setWide] = useState(true);
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/insider-buying", { signal: controller.signal })
@@ -29,17 +30,23 @@ export function InsiderBuying() {
   const updatedAt = answer?.updatedAt ?? null;
   const reference = updatedAt ? Date.parse(updatedAt) : NaN;
   const since = Number.isFinite(reference) ? new Date(reference - range * 86_400_000).toISOString().slice(0, 10) : "";
-  const purchases = (answer?.purchases ?? []).filter((purchase) => purchase.date >= since);
-  const clusters = (answer?.clusters ?? []).filter((cluster) => cluster.to >= since);
+  const purchases = (answer?.purchases ?? []).filter((purchase) => purchase.date >= since && (wide || purchase.index));
+  const clusters = (answer?.clusters ?? []).filter((cluster) => cluster.to >= since && (wide || cluster.purchases.some((purchase) => purchase.index)));
   const total = purchases.reduce((sum, purchase) => sum + (purchase.value ?? 0), 0);
   const covered = answer?.days.length ? `${shortDate(answer.days[0])} to ${shortDate(answer.days.at(-1))}` : null;
 
   return (
     <div className="t-grid t-insb">
-      <Panel code="INSB" title="Insider buying · S&P 500" actions={
-        <div className="seg" role="group" aria-label="Window">
-          {RANGES.map((entry) => <button key={entry.days} type="button" aria-pressed={range === entry.days} onClick={() => setRange(entry.days)}>{entry.label}</button>)}
-        </div>
+      <Panel code="INSB" title={`Insider buying · ${wide ? "All US" : "S&P 500"}`} actions={
+        <>
+          <div className="seg" role="group" aria-label="Companies">
+            <button type="button" aria-pressed={!wide} onClick={() => setWide(false)}>S&amp;P 500</button>
+            <button type="button" aria-pressed={wide} onClick={() => setWide(true)}>All US</button>
+          </div>
+          <div className="seg" role="group" aria-label="Window">
+            {RANGES.map((entry) => <button key={entry.days} type="button" aria-pressed={range === entry.days} onClick={() => setRange(entry.days)}>{entry.label}</button>)}
+          </div>
+        </>
       }>
         {answer === undefined ? <p className="t-empty">Reading the Form 4s…</p> : answer === null ? <p className="t-empty">The insider record could not be read just now.</p> : (
           <div className="t-panel-pad t-insb-body">
@@ -89,7 +96,7 @@ export function InsiderBuying() {
                 </tbody>
               </table>
             </div>
-            <p className="t-study-note">Open-market purchases (Form 4, code P) by the officers, directors and 10% owners of the S&P 500&apos;s companies, read from EDGAR&apos;s daily index{covered ? `, ${covered}` : ""}{answer.pending ? `; ${answer.pending} filings still to read` : ""}. Grants, option exercises and sales are left out.</p>
+            <p className="t-study-note">Open-market purchases (Form 4, code P) by the officers, directors and 10% owners of {wide ? "every company listed on the NYSE or Nasdaq" : "the S&P 500's companies"}, read from EDGAR&apos;s daily index{covered ? `, ${covered}` : ""}{wide ? " (beyond the S&P 500, the last two weeks of the backfill)" : ""}{answer.pending ? `; ${answer.pending} filings still to read` : ""}. Grants, option exercises and sales are left out.</p>
           </div>
         )}
       </Panel>

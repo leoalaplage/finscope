@@ -97,7 +97,7 @@ export interface UniverseTable {
   pending: string[];
 }
 
-const row = (member: UniverseMember, digest: WatchlistSummary): UniverseRow => ({
+export const universeRow = (member: UniverseMember, digest: WatchlistSummary): UniverseRow => ({
   ticker: member.ticker,
   name: member.name,
   qs: digest.qs,
@@ -223,7 +223,7 @@ export async function buildUniverseSlice(origin: string, limit = BUILD_PER_RUN):
     if (rows.has(member.ticker)) continue;
     try {
       const digest = (await cache.get(summaryKey(member.ticker), "json")) as WatchlistSummary | null;
-      if (digest?.qs) rows.set(member.ticker, row(member, digest));
+      if (digest?.qs) rows.set(member.ticker, universeRow(member, digest));
     } catch { /* Asked for below, like any other missing company. */ }
   }
   const held = table ? { ...table, rows: [...rows.values()] } : null;
@@ -245,7 +245,7 @@ export async function buildUniverseSlice(origin: string, limit = BUILD_PER_RUN):
       const response = await requestCompany(origin, ticker, rebuild);
       await response.body?.cancel();
       const digest = (await cache.get(summaryKey(ticker), "json")) as WatchlistSummary | null;
-      if (digest?.qs) rows.set(ticker, row(member, digest));
+      if (digest?.qs) rows.set(ticker, universeRow(member, digest));
       /*
        * A rebuilt dataset is not a rebuilt page. The company view is derived
        * once and kept for a day under its own key, so a company whose figures

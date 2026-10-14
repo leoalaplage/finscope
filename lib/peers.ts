@@ -63,8 +63,12 @@ export interface PeerTable {
   /** Read as a lender, on earnings and book. */
   lender: boolean;
   members: number;
+  /** The table the sector is drawn from: "US 1000", or "All US" for a company outside the thousand largest. */
+  universe?: string;
+  /** "largest" for the sector's biggest; "nearest" for the companies closest to this one in market value. */
+  pick?: "largest" | "nearest";
   metrics: PeerMetric[];
-  /** The largest members of the sector, the company among them. */
+  /** The largest members of the sector (or those nearest in size), the company among them. */
   peers: Array<{ ticker: string; name: string; marketCap: number | null; values: Partial<Record<PeerMetricKey, number | null>> }>;
 }
 
@@ -72,7 +76,7 @@ const finite = (value: unknown): value is number => typeof value === "number" &&
 /** A multiple is a price paid for something positive; a negative one is a loss, not a cheap price. Returns and yields may be anything sane. */
 const usable = (key: PeerMetricKey, value: unknown): value is number => finite(value) && (key === "FCF Yield" || key === "ROE" || key === "Dividend Yield" ? Math.abs(value) < 100 : value > 0 && value < 500);
 
-export function peerTable(feed: Pick<ScreenerFeed, "rows">, ticker: string): PeerTable | null {
+export function peerTable(feed: Pick<ScreenerFeed, "rows"> & { name?: string }, ticker: string, pick: "largest" | "nearest" = "largest"): PeerTable | null {
   const symbol = ticker.toUpperCase();
   const company = feed.rows.find((row) => row.ticker.toUpperCase() === symbol);
   if (!company) return null;
@@ -93,10 +97,16 @@ export function peerTable(feed: Pick<ScreenerFeed, "rows">, ticker: string): Pee
     return { key: spec.key, label: spec.label, percent: spec.percent, company: mine, median, cheaperThan, count: values.length };
   });
   const capOf = (row: ScreenerFeed["rows"][number]) => (finite(row.values["Market Cap"]) ? row.values["Market Cap"] as number : null);
-  const peers = [...members].sort((left, right) => (capOf(right) ?? 0) - (capOf(left) ?? 0)).slice(0, 12)
+  // A small company is shown beside the companies of its own size, not beside the sector's giants.
+  const own = capOf(company);
+  const distance = (row: ScreenerFeed["rows"][number]) => { const cap = capOf(row); return cap && own ? Math.abs(Math.log(cap / own)) : Infinity; };
+  const ranked = pick === "nearest" && own
+    ? [...members].sort((left, right) => distance(left) - distance(right)).slice(0, 12).sort((left, right) => (capOf(right) ?? 0) - (capOf(left) ?? 0))
+    : [...members].sort((left, right) => (capOf(right) ?? 0) - (capOf(left) ?? 0)).slice(0, 12);
+  const peers = ranked
     .map((row) => ({ ticker: row.ticker, name: row.name, marketCap: capOf(row), values: Object.fromEntries(specs.map((spec) => [spec.key, usable(spec.key, row.values[spec.key]) ? row.values[spec.key] as number : null])) }));
   if (!peers.some((peer) => peer.ticker.toUpperCase() === symbol)) {
     peers.push({ ticker: company.ticker, name: company.name, marketCap: capOf(company), values: Object.fromEntries(specs.map((spec) => [spec.key, usable(spec.key, company.values[spec.key]) ? company.values[spec.key] as number : null])) });
   }
-  return { ticker: company.ticker, sector, lender, members: members.length, metrics, peers };
+  return { ticker: company.ticker, sector, lender, members: members.length, ...(feed.name ? { universe: feed.name } : {}), pick, metrics, peers };
 }

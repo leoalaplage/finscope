@@ -8,6 +8,7 @@ import { buildUniverseSlice } from "../lib/universe-build";
 import { buildTechnicalSlice } from "../lib/term/tech-universe";
 import { snapshotEstimatesSlice } from "../lib/estimates-store";
 import { insiderBuyingSlice } from "../lib/insider-buying";
+import { buildAllUniverseSlice } from "../lib/universe-all";
 import { primeSegmentsSlice } from "../lib/segments/store";
 import { refreshAuditReport } from "../lib/coverage-audit";
 import { warmExtraSlice } from "../lib/warm-extra";
@@ -172,6 +173,12 @@ const worker = {
          */
         const insiders = await insiderBuyingSlice().catch(() => null);
         if (insiders && (insiders.read || insiders.queued)) console.log(`[insider buying] queued ${insiders.queued} days; read ${insiders.read}; ${insiders.purchases} purchases kept`);
+        /*
+         * And two dozen of the listed companies beyond the S&P 500, digest only
+         * (lib/universe-all.ts): the US 1000 and All US scopes of the screener.
+         */
+        const everyone = await buildAllUniverseSlice(origin).catch((error) => { console.log(`[all universe] ${error instanceof Error ? error.message : String(error)}`); return null; });
+        if (everyone) console.log(`[all universe] ${everyone.rows} rows; built ${everyone.built.join(",") || "none"}; ${everyone.failed} failed; ${everyone.priced} priced`);
         /*
          * Two companies' segments, each built in an invocation of its own — a
          * dozen filings read apiece — largest first (lib/segments/store.ts).

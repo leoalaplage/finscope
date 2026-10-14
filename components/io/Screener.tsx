@@ -10,6 +10,8 @@ import {
 } from "@/lib/qs/screener";
 import type { PricePoint } from "@/lib/types";
 import { KEY_VERSION, SUMMARY_SHAPE } from "@/lib/data-version";
+import { SCOPES, type Scope } from "@/lib/scopes";
+import { expandTable, type CompactTable } from "@/lib/universe-compact";
 import { stated } from "@/lib/sector";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import { growthYieldOutOfTen, growthYieldScore } from "@/lib/io/growth-yield";
@@ -167,8 +169,12 @@ export function Screener() {
   const [progress, setProgress] = useState<Progress>(() => ({ kind: "building", followed, ready: 0, asked: tickers.length }));
   const [preset, setPreset] = useState<PresetName>("defaut");
   const [source, setSource] = useState<Source>("watchlist");
-  const [universe, setUniverse] = useState<{ table: ReturnType<typeof qsTable>; asked: number; answered: number; name: string; asOf: string } | null>(null);
-  const [universeBuilding, setUniverseBuilding] = useState<{ ready: number; asked: number } | null>(null);
+  const [scope, setScope] = useState<Scope>("sp500");
+  const [loaded, setUniverse] = useState<{ scope: Scope; table: ReturnType<typeof qsTable>; asked: number; answered: number; name: string; asOf: string } | null>(null);
+  const [building, setUniverseBuilding] = useState<{ scope: Scope; ready: number; asked: number } | null>(null);
+  // Each scope its own table: one held for another scope is not shown under this one.
+  const universe = loaded?.scope === scope ? loaded : null;
+  const universeBuilding = building?.scope === scope ? building : null;
   const [pasted, setPasted] = useState("");
   const [sortKey, setSortKey] = useState("total");
   const [filter, setFilter] = useState<ScreenerFilter>(NO_FILTER);
@@ -290,11 +296,13 @@ export function Screener() {
     const controller = new AbortController();
     (async () => {
       try {
-        const response = await fetch(`/api/universe?v=${KEY_VERSION}.${SUMMARY_SHAPE}`, { signal: controller.signal });
-        const payload = await response.json() as UniverseAnswer & { building?: boolean; members?: number };
+        const response = await fetch(`/api/universe?v=${KEY_VERSION}.${SUMMARY_SHAPE}${scope === "sp500" ? "" : `&scope=${scope}`}`, { signal: controller.signal });
+        const answer = await response.json() as (UniverseAnswer | { compact: CompactTable }) & { building?: boolean; members?: number };
         if (controller.signal.aborted) return;
+        // Beyond the S&P 500 the table travels in columns (lib/universe-compact.ts).
+        const payload = ("compact" in answer ? { ...expandTable(answer.compact), building: false } : answer) as UniverseAnswer & { building?: boolean; members?: number };
         if (!response.ok || payload.building || !payload.rows?.length) {
-          setUniverseBuilding({ ready: payload.rows?.length ?? 0, asked: payload.members ?? 0 });
+          setUniverseBuilding({ scope, ready: payload.rows?.length ?? 0, asked: payload.members ?? 0 });
           return;
         }
         const rows: QsRow[] = payload.rows.map((item) => {
@@ -304,14 +312,14 @@ export function Screener() {
             values: { ...item.qs, ...qsValuationColumns(item.qsPrice, quote?.price ?? null, quote?.currency) },
           };
         });
-        setUniverse({ table: qsTable(rows), asked: payload.members, answered: rows.length, name: payload.name, asOf: payload.asOf });
+        setUniverse({ scope, table: qsTable(rows), asked: payload.members, answered: rows.length, name: payload.name, asOf: payload.asOf });
         setUniverseBuilding(null);
       } catch {
-        if (!controller.signal.aborted) setUniverseBuilding({ ready: 0, asked: 0 });
+        if (!controller.signal.aborted) setUniverseBuilding({ scope, ready: 0, asked: 0 });
       }
     })();
     return () => controller.abort();
-  }, [source, universe]);
+  }, [source, universe, scope]);
 
   const universeState = useMemo<State | null>(() => {
     if (!universe) return universeBuilding ? { kind: "building", followed, ready: universeBuilding.ready, asked: universeBuilding.asked } : null;
@@ -413,7 +421,9 @@ export function Screener() {
             */}
           <div className="seg" role="group" aria-label="Which companies to score">
             <button type="button" aria-pressed={source === "watchlist"} onClick={() => setSource("watchlist")}>Watchlist</button>
-            <button type="button" aria-pressed={source === "universe"} onClick={() => setSource("universe")}>S&amp;P 500</button>
+            {SCOPES.map((entry) => (
+              <button key={entry.id} type="button" title={entry.note} aria-pressed={source === "universe" && scope === entry.id} onClick={() => { setSource("universe"); setScope(entry.id); }}>{entry.label}</button>
+            ))}
           </div>
         </div>
 

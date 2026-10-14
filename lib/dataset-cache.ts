@@ -321,9 +321,16 @@ export function claimKey(ticker: string) {
  * present but out of date would be served the very copy it was sent to
  * replace, and the timer would report success having changed nothing.
  */
-export async function requestCompany(origin: string, ticker: string, rebuild = false): Promise<Response> {
+/**
+ * `digestOnly`: build the company to write its two-kilobyte digest and keep
+ * nothing else — how the index beyond the S&P 500 is filled (lib/universe-all.ts).
+ * Its full dataset is five megabytes; five thousand of them would be the
+ * store's bill, and only the companies a reader opens need one.
+ */
+export async function requestCompany(origin: string, ticker: string, rebuild = false, digestOnly = false): Promise<Response> {
   const headers: Record<string, string> = { "X-FinScope-Warm": "1" };
   if (rebuild) headers["X-FinScope-Rebuild"] = "1";
+  if (digestOnly) headers["X-FinScope-Digest-Only"] = "1";
   const request = new Request(new URL(`/api/company/${encodeURIComponent(ticker)}`, origin), { headers });
   const self = selfFetcher();
   return self ? self.fetch(request) : fetch(request);

@@ -16,7 +16,7 @@ const write = (value: number | null | undefined, percent: boolean) =>
   value == null || !Number.isFinite(value) ? ABSENT : percent ? `${value.toFixed(1)}%` : `${value.toFixed(1)}×`;
 
 /**
- * PEER: each multiple against the company's sector in the S&P 500 — the
+ * PEER: each multiple against the company's sector among US-listed companies — the
  * sector's median and where the company ranks, cheapest first — beside where
  * today's figure sits in the company's own ten years, so cheap against peers
  * and cheap against itself can be told apart.
@@ -57,14 +57,14 @@ export function PeerValuation({ view, quote }: { view: IoCompanyView; quote: IoQ
 
   const current = table?.ticker === ticker ? table : null;
   if (!current) return <p className="t-empty">Setting the company against its sector…</p>;
-  if (!current.table) return <p className="t-empty">This company is not in the S&amp;P 500, whose members are the peers here.</p>;
+  if (!current.table) return <p className="t-empty">This company&apos;s figures are not in the screening table yet: it is filled a few dozen companies every half hour.</p>;
   const peers = current.table;
   const specs = peers.lender ? LENDER_PEER_METRICS : PEER_METRICS;
 
   return (
     <div className="peer">
       <p className="peer-lede">
-        <b>{peers.sector ?? "Unclassified"}</b> · {peers.members} members of the S&amp;P 500
+        <b>{peers.sector ?? "Unclassified"}</b> · {peers.members} companies in the {peers.universe === "All US" ? "US-listed universe" : peers.universe === "US 1000" ? "thousand largest US companies" : "S&P 500"}
         {peers.members < 6 ? <span className="t-dim"> · few peers: read the ranks loosely</span> : null}
       </p>
       <div className="sheet peer-sheet">
@@ -93,7 +93,7 @@ export function PeerValuation({ view, quote }: { view: IoCompanyView; quote: IoQ
       </div>
       <div className="sheet peer-sheet">
         <table>
-          <thead><tr><th className="key">Largest in the sector</th><th>Market value</th>{specs.map((spec) => <th key={spec.key}>{spec.short}</th>)}</tr></thead>
+          <thead><tr><th className="key">{peers.pick === "nearest" ? "Nearest in size" : "Largest in the sector"}</th><th>Market value</th>{specs.map((spec) => <th key={spec.key}>{spec.short}</th>)}</tr></thead>
           <tbody>
             {peers.peers.map((peer) => (
               <tr key={peer.ticker} data-self={peer.ticker === peers.ticker || undefined}>
