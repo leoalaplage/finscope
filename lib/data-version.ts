@@ -338,7 +338,10 @@
 // (Deere's $51m against $60bn).
 // v46: the residual "other depreciation and amortization" line is read only
 // where no fuller one is filed; cash return on capital follows ROIC's rule.
-export const KEY_VERSION = "v46";
+// v47: borrowings a balance sheet states only by line of business (Caterpillar,
+// General Motors) are summed from the filings, and a company's own non-current
+// debt line is read where no standard one is filed (Deere).
+export const KEY_VERSION = "v47";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

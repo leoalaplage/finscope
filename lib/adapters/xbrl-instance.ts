@@ -174,6 +174,98 @@ export function quotedClassShares(xml: string, filing: { accession: string; form
   return { facts: tree, ratio: ratios.length && ratios.every((item) => item.ratio === ratios[0].ratio) ? ratios[0].ratio : null };
 }
 
+const DEBT_CONCEPTS = [
+  "ShortTermBorrowings", "OtherShortTermBorrowings", "CommercialPaper", "LongTermDebtCurrent",
+  "LongTermDebtAndCapitalLeaseObligationsCurrent", "DebtCurrent", "LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations",
+];
+/** The axes that split a whole company by line of business, as a balance sheet presents it. */
+const BUSINESS_AXIS = /(ProductOrService|BusinessGroup|BusinessSegments)Axis$/;
+const NOT_A_PART = /Elimination|Intersegment|Intercompany|Reconcil|Adjust|Consolidat/i;
+/** The company's own name for its long-term debt beyond a year. */
+const OWN_NONCURRENT_DEBT = /^LongTerm(?:Debt|Borrowings?)[A-Za-z]*Noncurrent$|^LongTermBorrowings?$/;
+
+/**
+ * A balance sheet's borrowings where the filing states them only in parts.
+ *
+ * Caterpillar and General Motors present every borrowing line twice — for the
+ * machinery business and for the finance arm (ME&T and Financial Products,
+ * Automotive and GM Financial) — and tag the parts, never the consolidated
+ * line, which Company Facts therefore never carries: neither company had a
+ * quarterly debt figure at all, and Caterpillar's years lacked their current
+ * maturities. A line is summed over its parts only where the filing tags no
+ * total for it at that date, every part sits on the same line-of-business axis
+ * and no part is an elimination; it then stands under its own standard name.
+ *
+ * Deere names its long-term debt beyond a year its own way
+ * (`LongTermDebtAndFinanceLeasesNoncurrent`). Such a line is read, as the
+ * company's own, only where the filing tags no standard non-current debt at
+ * that date.
+ */
+export function balanceSheetDebt(xml: string, filing: { accession: string; form: string; filed: string }): FactTree {
+  const contexts = new Map<string, { end: string; dims: Array<[string, string]> }>();
+  for (const match of xml.matchAll(new RegExp(`<${PREFIX}context\\b[^>]*\\bid="([^"]+)"[^>]*>([\\s\\S]*?)</${PREFIX}context>`, "g"))) {
+    const body = match[2];
+    const instant = body.match(new RegExp(`<${PREFIX}instant>\\s*(\\d{4}-\\d{2}-\\d{2})`))?.[1];
+    if (!instant || /typedMember/.test(body)) continue;
+    const dims = [...body.matchAll(/dimension="([^"]+)"[^>]*>\s*([^<\s]+)\s*</g)].map((each) => [each[1], each[2]] as [string, string]);
+    contexts.set(match[1], { end: instant, dims });
+  }
+  const cover = (name: string) => xml.match(new RegExp(`<dei:${name}\\b[^>]*>\\s*([^<]+?)\\s*<`))?.[1] ?? null;
+  const year = Number(cover("DocumentFiscalYearFocus"));
+  const fy = Number.isInteger(year) && year > 0 ? year : null;
+  const fp = cover("DocumentFiscalPeriodFocus");
+  const fact = (end: string, val: number): FilingFact => ({ end, val, accn: filing.accession, fy, fp, form: filing.form, filed: filing.filed });
+  const read = (prefix: string, concept: string) => {
+    const out: Array<{ end: string; dims: Array<[string, string]>; val: number }> = [];
+    for (const match of xml.matchAll(new RegExp(`<${prefix}:${concept}\\b([^>]*?)>([^<]*)</${prefix}:${concept}>`, "g"))) {
+      if (/xsi:nil="true"/.test(match[1])) continue;
+      const context = contexts.get(match[1].match(/\bcontextRef="([^"]+)"/)?.[1] ?? "");
+      const val = Number(match[2].trim());
+      if (context && match[2].trim() !== "" && Number.isFinite(val)) out.push({ ...context, val });
+    }
+    return out;
+  };
+  const tree: FactTree = {};
+  const put = (namespace: string, concept: string, list: FilingFact[]) => {
+    if (list.length) ((tree[namespace] ??= {})[concept] = { units: { USD: list } });
+  };
+  const totalsAt = new Map<string, Set<string>>();
+  for (const concept of DEBT_CONCEPTS) {
+    const facts = read("us-gaap", concept);
+    const summed: FilingFact[] = [];
+    for (const end of new Set(facts.map((each) => each.end))) {
+      const here = facts.filter((each) => each.end === end);
+      if (here.some((each) => !each.dims.length)) { (totalsAt.get(end) ?? totalsAt.set(end, new Set()).get(end)!).add(concept); continue; }
+      const parts = here.filter((each) => each.dims.length === 1);
+      if (!parts.length || parts.length !== here.filter((each) => each.dims.length >= 1 && BUSINESS_AXIS.test(each.dims[0][0])).length) continue;
+      const axes = new Set(parts.map((each) => each.dims[0][0]));
+      if (axes.size !== 1 || !BUSINESS_AXIS.test([...axes][0]) || parts.some((each) => NOT_A_PART.test(each.dims[0][1]))) continue;
+      const members = new Map(parts.map((each) => [each.dims[0][1], each.val]));
+      summed.push(fact(end, [...members.values()].reduce((sum, value) => sum + value, 0)));
+      (totalsAt.get(end) ?? totalsAt.set(end, new Set()).get(end)!).add(concept);
+    }
+    put("us-gaap", concept, summed);
+  }
+  // The company's own non-current line, where no standard one stands at the date.
+  const own = new Map<string, FilingFact[]>();
+  for (const match of xml.matchAll(/<([a-z][\w-]*):([A-Za-z]+)\b([^>]*?)>([^<]*)<\/\1:\2>/g)) {
+    const [, prefix, concept, attributes, content] = match;
+    if (["us-gaap", "dei", "srt", "ifrs-full", "xbrli", "link"].includes(prefix) || !OWN_NONCURRENT_DEBT.test(concept)) continue;
+    const context = contexts.get(attributes.match(/\bcontextRef="([^"]+)"/)?.[1] ?? "");
+    const val = Number(content.trim());
+    if (!context || context.dims.length || !Number.isFinite(val) || val < 0) continue;
+    const standing = totalsAt.get(context.end);
+    if (standing?.has("LongTermDebtNoncurrent") || standing?.has("LongTermDebtAndCapitalLeaseObligations")) continue;
+    own.set(concept, [...(own.get(concept) ?? []), fact(context.end, val)]);
+  }
+  // One own line or none: two are two different things, and neither is the whole.
+  if (own.size === 1) put("company", COMPANY_NONCURRENT_DEBT_TAG, [...own.values()][0]);
+  return tree;
+}
+
+/** The tag a company's own non-current debt line is read under, in the "company" taxonomy. */
+export const COMPANY_NONCURRENT_DEBT_TAG = "LongTermDebtNoncurrent";
+
 /** One tree with another's facts added, where the same figure for the same period is not already there. */
 export function mergeFactTrees(base: FactTree, extra: FactTree): FactTree {
   const merged: FactTree = structuredClone(base);

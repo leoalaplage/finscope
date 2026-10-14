@@ -40,6 +40,8 @@ const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [
    * before, and without them every company not yet rebuilt showed blank
    * filing columns in both screeners.
    */
+  // v47 reads split and own-named borrowings from the filings; v46 is what was on screen.
+  { version: "v46", shape: "s13" },
   { version: "v45", shape: "s13" },
   { version: "v44", shape: "s13" },
   { version: "v43", shape: "s13" },

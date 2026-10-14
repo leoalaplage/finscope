@@ -6,7 +6,7 @@ import { businessTypeFromSic, cashFlowIsTheBalanceSheet, classifyBusiness, isFin
 import { companySector } from "../sector";
 import type { BusinessType, CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "../types";
 import { KNOWN_SUCCESSORS, universeMember } from "../universe";
-import { companyCapexLine, filingIsAhead, instanceDocument, investingLines, mergeFactTrees, parseXbrlInstance, quotedClassShares, type FactTree, type FilingFact } from "./xbrl-instance";
+import { balanceSheetDebt, COMPANY_NONCURRENT_DEBT_TAG, companyCapexLine, filingIsAhead, instanceDocument, investingLines, mergeFactTrees, parseXbrlInstance, quotedClassShares, type FactTree, type FilingFact } from "./xbrl-instance";
 import { debtFromReconciledLiabilities, OPERATING_LIABILITY_GROUPS } from "./debt-free";
 
 type FilingFactLike = FilingFact;
@@ -228,7 +228,8 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
   // NVIDIA files 999m under both concepts for the same date, and treating the
   // second as separate short-term borrowing reported 9,467m of debt against the
   // 8,468m its own long-term-debt tag states.
-  longTermDebtCurrent: { namespace: "us-gaap", tags: ["LongTermDebtCurrent", "DebtCurrent", "ConvertibleDebtCurrent"], unit: "currency" },
+  // `…AndCapitalLeaseObligationsCurrent` is Caterpillar's name for the same line, read where the plain one is not filed.
+  longTermDebtCurrent: { namespace: "us-gaap", tags: ["LongTermDebtCurrent", "LongTermDebtAndCapitalLeaseObligationsCurrent", "DebtCurrent", "ConvertibleDebtCurrent"], unit: "currency" },
   // `LongTermDebtAndCapitalLeaseObligations` is the same balance with finance
   // leases folded in, and for many filers it is the only non-current figure in
   // the quarterly statements — Home Depot and AbbVie tag nothing else at their
@@ -460,7 +461,10 @@ export const SEC_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareR
         : metric === "revenue"
           // Goods plus services, last of all: only where no standard total is filed (see `revenueFromParts`).
           ? { ...withIfrs, also: [...(withIfrs.also ?? []), { namespace: "company" as const, tags: [COMPANY_REVENUE_TAG] }] }
-          : withIfrs];
+          : metric === "longTermDebtNoncurrent"
+            // A company's own non-current debt line, read from its filings where no standard one is filed (see `balanceSheetDebt`).
+            ? { ...withIfrs, also: [...(withIfrs.also ?? []), { namespace: "company" as const, tags: [COMPANY_NONCURRENT_DEBT_TAG] }] }
+            : withIfrs];
     }),
   ) as Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepurchases">, ConceptSpec>;
 
@@ -2020,6 +2024,42 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
   } catch { /* The feed's figures stand. */ }
 
   /*
+   * Borrowings a balance sheet states only in parts, or under a name of its own,
+   * read from the filings (see `balanceSheetDebt`).
+   *
+   * Only for a company that has filed borrowings and whose recent balance sheets
+   * in the feed carry no debt line, or no long-term one: Caterpillar, General
+   * Motors, Deere. The sixteen latest reports for four years of quarters, and
+   * every second annual report before them (each states two balance sheets).
+   * Anything failing leaves the balances as they were.
+   */
+  try {
+    if (debtOnlyInParts(facts)) {
+      const filer = successor?.listed ?? company.cik;
+      const filings = await fetchPeriodicFilings(filer, 48);
+      const annuals = filings.slice(16).filter((filing) => filing.form === "10-K" || filing.form === "20-F" || filing.form === "40-F");
+      const chosen = [...filings.slice(0, 16), ...annuals.filter((_, index) => index % 2 === 1)];
+      const paced = async (url: string) => { await new Promise((resolve) => setTimeout(resolve, 150)); return fetch(url, { headers: SEC_HEADERS() }); };
+      let read = 0;
+      for (const filing of chosen) {
+        if (!filing.accession) continue;
+        const folder = `https://www.sec.gov/Archives/edgar/data/${Number(filer)}/${filing.accession.replaceAll("-", "")}`;
+        const listing = await paced(`${folder}/index.json`);
+        if (!listing.ok) continue;
+        const instance = instanceDocument(((await listing.json()) as { directory: { item: Array<{ name: string }> } }).directory.item.map((item) => item.name));
+        if (!instance) continue;
+        const document = await paced(`${folder}/${instance}`);
+        if (!document.ok) continue;
+        const extra = balanceSheetDebt(await document.text(), { accession: filing.accession, form: filing.form, filed: filing.filingDate });
+        if (!Object.keys(extra).length) continue;
+        facts = mergeFactTrees(facts, extra);
+        read++;
+      }
+      if (read) notes.push(`Borrowings are read from ${read} of ${company.name}'s reports where its balance sheet states them only by line of business, or under a name of its own: the SEC's standard feed carries no consolidated debt line at those dates.`);
+    }
+  } catch { /* The balances stand as the feed has them. */ }
+
+  /*
    * Share counts filed only per class of stock, read from the filings.
    *
    * See `quotedClassShares`. Only for a ticker that names its class and whose
@@ -2422,6 +2462,39 @@ export function revenueFromParts(tree: FactTree): FactTree {
   }
   if (!adopted.length) return tree;
   return mergeFactTrees(tree, { company: { [COMPANY_REVENUE_TAG]: { units: { USD: adopted } } } });
+}
+
+const FEED_DEBT_TAGS = [
+  "LongTermDebtCurrent", "LongTermDebtAndCapitalLeaseObligationsCurrent", "DebtCurrent", "ShortTermBorrowings", "CommercialPaper",
+  "LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations", "LongTermDebt", "DebtLongtermAndShorttermCombinedAmount",
+  "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities", "LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent",
+];
+const NONCURRENT_DEBT_TAGS = ["LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations", "LongTermDebt",
+  "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities", "LongTermDebtAndFinanceLeaseObligationsCurrentAndNoncurrent"];
+
+/**
+ * Whether a borrower's recent balance sheets in the feed lack their debt.
+ *
+ * A filer that has tagged borrowings in the last three years, whose balance
+ * sheets of the last two years (dated by their total liabilities) include at
+ * least two with no debt line at all, or a current one and no long-term one.
+ * A company that never borrows tags none, and is never read for it.
+ */
+export function debtOnlyInParts(tree: FactTree): boolean {
+  const gaap = tree["us-gaap"] ?? {};
+  const ends = (tags: string[]) => new Set(tags.flatMap((tag) => Object.values(gaap[tag]?.units ?? {}).flat()).filter((fact) => !fact.start).map((fact) => fact.end));
+  const liabilities = [...ends(["Liabilities", "LiabilitiesAndStockholdersEquity"])].sort();
+  const newest = liabilities.at(-1);
+  if (!newest) return false;
+  const debt = ends(FEED_DEBT_TAGS);
+  const since3 = new Date(Date.parse(newest) - 3 * 366 * 86_400_000).toISOString().slice(0, 10);
+  if (![...debt].some((end) => end >= since3)) return false;
+  const since2 = new Date(Date.parse(newest) - 2 * 366 * 86_400_000).toISOString().slice(0, 10);
+  const longTerm = ends(NONCURRENT_DEBT_TAGS);
+  const recent = liabilities.filter((end) => end >= since2);
+  const bare = recent.filter((end) => !debt.has(end)).length;
+  const shortOnly = recent.filter((end) => debt.has(end) && !longTerm.has(end)).length;
+  return bare >= 2 || shortOnly >= 2;
 }
 
 /**

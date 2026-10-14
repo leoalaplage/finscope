@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filingIsAhead, instanceDocument, mergeFactTrees, newestReportedEnd, parseXbrlInstance, quotedClassShares, type FactTree } from "../lib/adapters/xbrl-instance";
+import { balanceSheetDebt, filingIsAhead, instanceDocument, mergeFactTrees, newestReportedEnd, parseXbrlInstance, quotedClassShares, type FactTree } from "../lib/adapters/xbrl-instance";
 
 // Cut from Coca-Cola's June 2026 10-Q instance, ko-20260703_htm.xml, in its own layout.
 const INSTANCE = `<?xml version="1.0" encoding="utf-8"?>
@@ -122,5 +122,45 @@ describe("share counts filed only per class of stock", () => {
   it("reads nothing for a ticker that names no class, or a count that does not give net income back", () => {
     expect(quotedClassShares(CLASSES, filing, "BRK").facts).toEqual({});
     expect(quotedClassShares(CLASSES.replace(">25667000000<", ">40000000000<"), filing, "BRK.B").facts).toEqual({});
+  });
+});
+
+// Caterpillar's June 2026 10-Q: every borrowing line tagged for ME&T and for Financial Products, never in total.
+const SPLIT_DEBT = `<xbrl xmlns:us-gaap="http://fasb.org/us-gaap/2026" xmlns:cat="http://www.caterpillar.com/20260630" xmlns:srt="http://fasb.org/srt/2026" xmlns:xbrldi="http://xbrl.org/2006/xbrldi">
+  <context id="me"><entity><identifier>1</identifier><segment><xbrldi:explicitMember dimension="srt:ProductOrServiceAxis">cat:MachineryPowerEnergyMember</xbrldi:explicitMember></segment></entity><period><instant>2026-06-30</instant></period></context>
+  <context id="fp"><entity><identifier>1</identifier><segment><xbrldi:explicitMember dimension="srt:ProductOrServiceAxis">cat:FinancialProductsMember</xbrldi:explicitMember></segment></entity><period><instant>2026-06-30</instant></period></context>
+  <context id="whole"><entity><identifier>1</identifier></entity><period><instant>2026-06-30</instant></period></context>
+  <us-gaap:ShortTermBorrowings contextRef="fp" unitRef="usd">5046000000</us-gaap:ShortTermBorrowings>
+  <us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent contextRef="me" unitRef="usd">35000000</us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent>
+  <us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent contextRef="fp" unitRef="usd">8026000000</us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent>
+  <us-gaap:LongTermDebtAndCapitalLeaseObligations contextRef="me" unitRef="usd">10655000000</us-gaap:LongTermDebtAndCapitalLeaseObligations>
+  <us-gaap:LongTermDebtAndCapitalLeaseObligations contextRef="fp" unitRef="usd">21384000000</us-gaap:LongTermDebtAndCapitalLeaseObligations>
+  <us-gaap:DebtCurrent contextRef="whole" unitRef="usd">13796000000</us-gaap:DebtCurrent>
+  <cat:LongTermDebtAndFinanceLeasesNoncurrent contextRef="whole" unitRef="usd">43544000000</cat:LongTermDebtAndFinanceLeasesNoncurrent>
+</xbrl>`;
+
+describe("borrowings a balance sheet states only in parts, or under its own name", () => {
+  const filing = { accession: "0000018230-26-000046", form: "10-Q", filed: "2026-08-04" };
+  const tree = balanceSheetDebt(SPLIT_DEBT, filing);
+  const at = (namespace: string, concept: string) => tree[namespace]?.[concept]?.units.USD.map((fact) => fact.val);
+
+  it("sums a line over the business parts it is tagged for, where no total is tagged", () => {
+    expect(at("us-gaap", "ShortTermBorrowings")).toEqual([5046000000]);
+    expect(at("us-gaap", "LongTermDebtAndCapitalLeaseObligationsCurrent")).toEqual([8061000000]);
+    expect(at("us-gaap", "LongTermDebtAndCapitalLeaseObligations")).toEqual([32039000000]);
+    // A line tagged in total is left to the feed, which carries it.
+    expect(at("us-gaap", "DebtCurrent")).toBeUndefined();
+  });
+
+  it("reads the company's own non-current debt line only where no standard one stands at the date", () => {
+    // Here the parts above give a standard non-current line at the date, so the own line is not taken.
+    expect(tree.company).toBeUndefined();
+    const own = balanceSheetDebt(SPLIT_DEBT.replace(/<us-gaap:LongTermDebtAndCapitalLeaseObligations contextRef[^\n]*\n/g, ""), filing);
+    expect(own.company?.LongTermDebtNoncurrent?.units.USD.map((fact) => fact.val)).toEqual([43544000000]);
+  });
+
+  it("does not add parts that include an elimination", () => {
+    const eliminated = SPLIT_DEBT.replace("cat:FinancialProductsMember", "cat:ConsolidatingAdjustmentsMember");
+    expect(balanceSheetDebt(eliminated, filing)["us-gaap"]?.ShortTermBorrowings).toBeUndefined();
   });
 });
