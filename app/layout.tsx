@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { STALE_BUILD_BOOT } from "@/lib/stale-build";
 
 /**
  * The canonical origin, as a constant.
@@ -87,6 +88,8 @@ export default function RootLayout({
     <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }}/>
+        {/* A page open across a deploy loads the new build rather than failing (lib/stale-build.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: STALE_BUILD_BOOT }}/>
       </head>
       <body>{children}</body>
     </html>
