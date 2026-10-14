@@ -288,7 +288,7 @@ export function EpsChart({ history, pending, currency }: {
         <li data-kind="bar" style={{ "--key": "var(--ink-3)" } as CSSProperties}><i aria-hidden="true" />Consensus</li>
         <li data-kind="bar" style={{ "--key": "var(--gain)" } as CSSProperties}><i aria-hidden="true" />Beat</li>
         <li data-kind="bar" style={{ "--key": "var(--loss)" } as CSSProperties}><i aria-hidden="true" />Missed</li>
-        {pending ? <li data-kind="bar" style={{ "--key": "var(--amber)" } as CSSProperties}><i aria-hidden="true" />Just released (GAAP)</li> : null}
+        {bars.some((bar) => bar.state === "pending") ? <li data-kind="bar" style={{ "--key": "var(--amber)" } as CSSProperties}><i aria-hidden="true" />Just released (GAAP)</li> : null}
         <li data-kind="line" style={{ "--key": "var(--c5)" } as CSSProperties}><i aria-hidden="true" />Surprise</li>
       </ul>
       <p className="t-study-note">Reported EPS as Zacks scores it (adjusted), against the consensus before the release, as Nasdaq publishes both. The last bar is the coming quarter&apos;s consensus.</p>
