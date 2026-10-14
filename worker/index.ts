@@ -175,7 +175,7 @@ const worker = {
         const insiders = await insiderBuyingSlice().catch(() => null);
         if (insiders && (insiders.read || insiders.queued)) console.log(`[insider buying] queued ${insiders.queued} days; read ${insiders.read}; ${insiders.purchases} purchases kept`);
         /*
-         * And two dozen of the listed companies beyond the S&P 500, digest only
+         * And forty of the listed companies beyond the S&P 500, largest first, digest only
          * (lib/universe-all.ts): the US 1000 and All US scopes of the screener.
          */
         const everyone = await buildAllUniverseSlice(origin).catch((error) => { console.log(`[all universe] ${error instanceof Error ? error.message : String(error)}`); return null; });

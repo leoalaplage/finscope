@@ -1,7 +1,7 @@
 import { fetchQuotes } from "./adapters/spark";
 import { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
 import { requestCompany, summaryKey } from "./dataset-cache";
-import { largest, listedCompanies, type Scope } from "./listed-universe";
+import { largest, listedCompanies, marketValues, type Scope } from "./listed-universe";
 import { qsValuationColumns } from "./qs-export";
 import { datasetCache } from "./runtime-env";
 import { UNIVERSE, UNIVERSE_AS_OF, type UniverseMember } from "./universe";
@@ -11,7 +11,7 @@ import type { WatchlistSummary } from "./watchlist-summary";
 /**
  * The listed companies beyond the S&P 500, as rows of the same table.
  *
- * Built a few dozen a run on the half-hourly timer, digest only — the
+ * Built forty a run on the half-hourly timer, largest first, digest only — the
  * company is normalized from its filings and only its two-kilobyte digest is
  * kept (requestCompany's `digestOnly`) — so five thousand companies cost the
  * store ten megabytes, not twenty-five gigabytes. A company that cannot be
@@ -30,7 +30,7 @@ export interface AllUniverseStore {
 }
 
 export const ALL_UNIVERSE_KEY = () => `universe-all:v1:${KEY_VERSION}.${SUMMARY_SHAPE}`;
-const BUILD_PER_RUN = 24;
+const BUILD_PER_RUN = 40;
 const ABSORB_PER_RUN = 120;
 const REFRESH_AFTER_DAYS = 35;
 const DAY = 86_400_000;
@@ -66,8 +66,11 @@ export async function buildAllUniverseSlice(origin: string, now = new Date()): P
   // Then build: the missing first, then the oldest rows.
   const stale = Object.values(store.rows).filter((row) => now.getTime() - Date.parse(row.retrievedAt) > REFRESH_AFTER_DAYS * DAY)
     .sort((left, right) => left.retrievedAt.localeCompare(right.retrievedAt)).map((row) => row.ticker);
+  // The largest first, so the thousand largest are whole within a day; the order only, never a figure shown.
+  const size = await marketValues().catch(() => ({} as Record<string, number>));
   const queue = [
-    ...listed.filter((member) => !store.rows[member.ticker] && retryDue(store.failed[member.ticker], now)).map((member) => member.ticker),
+    ...listed.filter((member) => !store.rows[member.ticker] && retryDue(store.failed[member.ticker], now))
+      .sort((left, right) => (size[right.ticker] ?? 0) - (size[left.ticker] ?? 0)).map((member) => member.ticker),
     ...stale,
   ].slice(0, BUILD_PER_RUN);
   const built: string[] = [];

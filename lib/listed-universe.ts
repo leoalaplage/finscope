@@ -66,3 +66,24 @@ export function largest<T extends { ticker: string }>(rows: T[], marketValue: (r
     .slice(0, size)
     .map((entry) => entry.ticker));
 }
+
+/**
+ * The market value of every listed stock, from Nasdaq's public screener, kept
+ * a day: only the order the timer builds companies in, so the thousand largest
+ * are read first. Never shown — the screener's own market value is the
+ * filings' share count times the price.
+ */
+export async function marketValues(): Promise<Record<string, number>> {
+  const { body } = await cachedJson<Record<string, number>>("listed-market-values:v1", 86_400, async () => {
+    const response = await fetch("https://api.nasdaq.com/api/screener/stocks?tableonly=true&limit=10000&download=true", {
+      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36" },
+    });
+    if (!response.ok) { await response.body?.cancel(); return {}; }
+    const rows = ((await response.json()) as { data?: { rows?: Array<{ symbol?: string; marketCap?: string }> } }).data?.rows ?? [];
+    return Object.fromEntries(rows.flatMap((row) => {
+      const value = Number(row.marketCap);
+      return row.symbol && Number.isFinite(value) && value > 0 ? [[row.symbol.toUpperCase().replace(/\//g, "."), value]] : [];
+    }));
+  }, (value) => (Object.keys(value).length > 1000 ? "full" : "empty"));
+  return JSON.parse(body) as Record<string, number>;
+}
