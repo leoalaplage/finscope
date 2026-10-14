@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { concentration, overWindow, portfolioExposure, portfolioQuality, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, weightedMetric, withinWindow } from "../lib/portfolio";
+import { concentration, overWindow, portfolioExposure, portfolioQuality, portfolioSeries, rebasePair, seriesStats, sectorWeights, valuePortfolio, weightBy, weightedMetric, withinWindow } from "../lib/portfolio";
 import type { WatchlistSummary } from "../lib/watchlist-summary";
 
 const summary = (ticker: string, over: Partial<WatchlistSummary> = {}): WatchlistSummary => ({
@@ -239,5 +239,22 @@ describe("reading a window of the portfolio's own history", () => {
   it("says nothing about a series with one point or none", () => {
     expect(seriesStats([]).change).toBeNull();
     expect(seriesStats([{ date: "2026-01-01", value: 10 }]).cagr).toBeNull();
+  });
+});
+
+describe("sectorWeights", () => {
+  it("spreads a fund over the sectors it holds and names what it could not classify", () => {
+    const valued = valuePortfolio(
+      [{ ticker: "AAPL", shares: 1 }, { ticker: "VOO", shares: 1 }],
+      {},
+      { AAPL: 100, VOO: 100 },
+      { AAPL: { name: "Apple", sector: "Technology" }, VOO: { name: "Vanguard S&P 500 ETF", sector: "ETF" } },
+    );
+    const sectors = sectorWeights(valued.positions, (position) => position.sector,
+      (ticker) => ticker === "VOO" ? [{ label: "Technology", weight: .3 }, { label: "Health Care", weight: .6 }] : null);
+    expect(sectors.find((entry) => entry.label === "Technology")?.weight).toBeCloseTo(.65);
+    expect(sectors.find((entry) => entry.label === "Health Care")?.weight).toBeCloseTo(.3);
+    expect(sectors.find((entry) => entry.label === "Not classified")?.weight).toBeCloseTo(.05);
+    expect(sectors.reduce((sum, entry) => sum + entry.weight, 0)).toBeCloseTo(1);
   });
 });

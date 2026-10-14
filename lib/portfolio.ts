@@ -202,6 +202,33 @@ export function weightBy(positions: ValuedPosition[], key: (position: ValuedPosi
 }
 
 /**
+ * Weight by sector, a fund's share of the book spread over the sectors it
+ * holds.
+ *
+ * A book of VOO and Apple has a third of its money in technology, not a
+ * third in "ETF": a fund is a basket, and the sector a reader is exposed to is
+ * the one of the companies in it. Whatever share of a fund could not be
+ * classified is named as such rather than given to its largest sector.
+ */
+export function sectorWeights(
+  positions: ValuedPosition[],
+  sectorOf: (position: ValuedPosition) => string,
+  fundSectors: (ticker: string) => Array<{ label: string; weight: number }> | null,
+) {
+  const groups = new Map<string, number>();
+  const add = (label: string, weight: number) => groups.set(label, (groups.get(label) ?? 0) + weight);
+  for (const position of positions) {
+    if (position.weight == null) continue;
+    const basket = fundSectors(position.ticker);
+    if (!basket) { add(sectorOf(position), position.weight); continue; }
+    const classified = basket.reduce((sum, entry) => sum + Math.max(0, entry.weight), 0);
+    for (const entry of basket) if (entry.weight > 0) add(entry.label, position.weight * entry.weight / Math.max(1, classified));
+    if (classified < .995) add("Not classified", position.weight * (1 - Math.min(1, classified)));
+  }
+  return [...groups.entries()].map(([label, weight]) => ({ label, weight })).sort((a, b) => b.weight - a.weight);
+}
+
+/**
  * How concentrated the book is, on the Herfindahl index of its weights.
  *
  * The reciprocal is the more readable form: an index of 0.2 is five equally

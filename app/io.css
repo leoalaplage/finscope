@@ -20,6 +20,7 @@
  */
 
 .io {
+  --heat-gutter: var(--bg);
   --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text",
           "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   /* Every figure on this site is monospaced, so a column never shifts under
@@ -2404,7 +2405,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 /* --- An exchange-traded fund (components/io/Etf.tsx) ----------------------- */
 
 .etf-stats { grid-template-columns: repeat(7, minmax(0, 1fr)); }
-.etf-chart { height: 380px; border: 1px solid var(--line); border-radius: var(--radius); }
 
 .etf-years { display: flex; align-items: stretch; gap: 6px; height: 220px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--raise); }
 .etf-year { flex: 1; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; gap: 4px; min-width: 0; }

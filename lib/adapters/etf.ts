@@ -339,8 +339,11 @@ export async function fundIdentity(ticker: string, register: () => Promise<{ fie
 /** The newest filing of a form for a fund series, from EDGAR's series-level index. */
 export async function latestSeriesFiling(seriesId: string, form: string): Promise<{ accession: string; filed: string; folder: string } | null> {
   const response = await fetch(`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${seriesId}&type=${encodeURIComponent(form)}&dateb=&owner=include&count=5&output=atom`, { headers: UA() });
+  refused(response);
   if (!response.ok) return null;
   const atom = await response.text();
+  // A throttled request is answered with a page, not a feed: that is a refusal, not "never filed".
+  if (!/<feed\b/.test(atom)) throw new Error("EDGAR answered without a feed; asked again on the next read.");
   const href = atom.match(/<filing-href>([^<]+)<\/filing-href>/)?.[1];
   const filed = atom.match(/<filing-date>([^<]+)<\/filing-date>/)?.[1];
   const accession = atom.match(/<accession-number>([^<]+)<\/accession-number>/)?.[1];
@@ -348,13 +351,28 @@ export async function latestSeriesFiling(seriesId: string, form: string): Promis
   return { accession, filed, folder: href.replace(/\/[^/]+$/, "") };
 }
 
+/**
+ * A refusal or an outage is not an absence. The SEC answers a burst of
+ * requests with 403 or 429 and a bad moment with a 5xx; read as "no such
+ * filing", either made a fund that files every month "unreported" — and that
+ * answer was kept for a day. Thrown instead, so nothing is kept and the next
+ * reader asks again.
+ */
+function refused(response: Response) {
+  if (response.status === 403 || response.status === 429 || response.status >= 500) {
+    throw new Error(`The SEC answered ${response.status}; asked again on the next read.`);
+  }
+}
+
 export async function fetchText(url: string): Promise<string | null> {
   const response = await fetch(url, { headers: UA() });
+  refused(response);
   return response.ok ? response.text() : null;
 }
 
 export async function fetchJson<T>(url: string): Promise<T | null> {
   const response = await fetch(url, { headers: { ...UA(), Accept: "application/json" } });
+  refused(response);
   return response.ok ? response.json() as Promise<T> : null;
 }
 

@@ -5,7 +5,9 @@ import {
 import { fetchSsgaHoldings, fetchSsgaNavHistory, isSsgaFund, issuerAnswers, type IssuerHolding, type NavDay } from "./adapters/ssga";
 import { resolveIsins } from "./adapters/isin";
 import { sameListing, searchSecCompanies } from "./adapters/sec";
-import { cachedJson } from "./market-cache";
+import { cachedJson, marketKey } from "./market-cache";
+import { companyByTicker } from "./company-registry";
+import { universeMember } from "./universe";
 import { datasetCache } from "./runtime-env";
 import { readServedUniverse } from "./universe-build";
 import { stated } from "./sector";
@@ -23,7 +25,7 @@ import { stated } from "./sector";
  * weigh most. The sector chart says how much of the fund it could classify.
  */
 
-export const ETF_SHAPE = "etf9";
+export const ETF_SHAPE = "etf11";
 const REGISTER_KEY = "etf-register:v1";
 const DAY = 86_400;
 
@@ -196,7 +198,8 @@ export async function buildEtfProfile(ticker: string): Promise<EtfProfile | NotR
     issuerNotes: ssga ? [...issuerAnswers].filter(([url]) => url.includes(`-${ticker.toLowerCase()}.xlsx`)).map(([url, answer]) => `${url.split("/").pop()}: ${answer}`) : undefined,
     prospectus: fees,
     exposure: {
-      sector: exposureBy(positive, (holding) => holding.sector ?? (holding.assetClass === "Equity" || holding.assetClass === "Listed security" ? null : holding.assetClass)),
+      // Every sector, not the largest few: a portfolio holding the fund spreads it over all of them.
+      sector: exposureBy(positive, (holding) => holding.sector ?? (holding.assetClass === "Equity" || holding.assetClass === "Listed security" ? null : holding.assetClass), 40),
       country: exposureBy(positive, (holding) => holding.country && holding.country !== "N/A" ? holding.country : null),
       assetClass: exposureBy(positive, (holding) => holding.assetClass, 8),
       currency: exposureBy(positive, (holding) => holding.currency, 8),
@@ -211,7 +214,8 @@ export async function buildEtfProfile(ticker: string): Promise<EtfProfile | NotR
 export async function getEtfProfile(ticker: string): Promise<string> {
   const { body } = await cachedJson<EtfProfile | NotReported>(`etf:${ETF_SHAPE}:${ticker.toUpperCase()}`, DAY, () => buildEtfProfile(ticker),
     // An issuer whose daily file did not answer is asked again in a minute rather than missed for a day.
-    (value) => (value.kind === "unreported" ? "full"
+    // A ticker no register knows is settled for the day; a registered fund with nothing read is asked again in a minute.
+    (value) => (value.kind === "unreported" ? (value.reason.startsWith("Neither") ? "full" : "partial")
       : value.portfolio && !(isSsgaFund(value.name) && !value.commodity && !value.history.length) ? "full" : "partial"));
   return body;
 }
@@ -229,4 +233,68 @@ export async function fundSearchEntry(query: string) {
     exchange: "US listing", currency: "USD", yahooTicker: identity.ticker, sector: "Fund", description: "An exchange-traded fund, read from its N-PORT and prospectus filings.",
     resolutionStatus: "partial" as const, resolutionNote: "A fund share class in the SEC's fund register.", businessType: "operating" as const,
   };
+}
+
+/**
+ * What a watchlist or a portfolio shows for a fund: its name and the few
+ * figures a card has room for, read from the profile already built for the
+ * fund's page — never a build of its own, which reads several filings and an
+ * issuer's files and has no place in a list's answer. A fund whose page was
+ * never opened is listed by its ticker, its figures blank, and the profile is
+ * built in the background so the next answer has them.
+ */
+export interface FundCard {
+  ticker: string;
+  kind: "fund";
+  name: string;
+  expenseRatio: number | null;
+  netAssets: number | null;
+  holdingsCount: number | null;
+  topTenWeight: number | null;
+  /** The largest sector, where the holdings could be classified. */
+  sector: string | null;
+  /** Each sector's share of the fund, where the holdings could be classified; the rest is unclassified. */
+  sectors: Array<{ label: string; weight: number }>;
+  indexName: string | null;
+  /** Calendar-year returns at NAV, newest last. */
+  calendar: Array<{ year: number; fund: number }>;
+}
+
+export async function fundCard(ticker: string, background?: (work: Promise<unknown>) => void): Promise<FundCard | null> {
+  const symbol = ticker.toUpperCase();
+  if (companyByTicker(symbol) || universeMember(symbol) || !(await isFund(symbol).catch(() => false))) return null;
+  let profile: EtfProfile | null = null;
+  try {
+    const stored = await datasetCache()?.get(marketKey(`etf:${ETF_SHAPE}:${symbol}`), "text");
+    const parsed = stored ? JSON.parse(stored) as EtfProfile | NotReported : null;
+    if (parsed?.kind === "fund") profile = parsed;
+  } catch {
+    // Listed by its ticker alone.
+  }
+  if (!profile) background?.(getEtfProfile(symbol).catch(() => null));
+  const latestNetAssets = profile?.history.at(-1)?.netAssets ?? profile?.portfolio?.netAssets ?? null;
+  return {
+    ticker: symbol, kind: "fund",
+    name: profile?.name || symbol,
+    expenseRatio: profile?.prospectus?.expenseRatio ?? null,
+    netAssets: latestNetAssets,
+    holdingsCount: profile?.portfolio?.holdingsCount ?? null,
+    topTenWeight: profile?.topTenWeight ?? null,
+    sector: profile?.exposure.sector[0]?.label ?? (profile?.commodity ? "Commodity" : null),
+    sectors: profile?.exposure.sector.length ? profile.exposure.sector : profile?.commodity ? [{ label: "Commodity", weight: 1 }] : [],
+    indexName: profile?.prospectus?.returns.indexName ?? null,
+    calendar: profile?.prospectus?.returns.calendar.slice(-5) ?? [],
+  };
+}
+
+/**
+ * The tickers of a list that are companies, its funds left out: what the
+ * warm on a watchlist read should build. A fund is never built as a company,
+ * so left in it would take the warm's few places on every read and the
+ * company the reader added beside it would wait for ever.
+ */
+export async function companiesOnly(tickers: string[]): Promise<string[]> {
+  const funds = await Promise.all(tickers.map((ticker) => companyByTicker(ticker) || universeMember(ticker)
+    ? false : isFund(ticker).catch(() => false)));
+  return tickers.filter((_, index) => !funds[index]);
 }

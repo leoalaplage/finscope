@@ -1165,3 +1165,21 @@ body:has(.io.term) { background: #050608; }
 .t-area-dayopen-label { fill: var(--ink-3); font: 10px var(--mono); font-variant-numeric: tabular-nums; }
 .t-area-open-label { fill: var(--amber); font: 10px var(--mono); font-variant-numeric: tabular-nums; }
 
+
+/* The launchpad's three days of results (MiniEcal, components/term/EarningsCal.tsx). */
+.t-miniecal { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.t-miniecal-bar { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.t-miniecal-days { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); flex: 1; min-height: 0; overflow-y: auto; }
+.t-miniecal-day { min-width: 0; padding: 3px 4px; border-right: 1px solid var(--line); }
+.t-miniecal-day:last-child { border-right: 0; }
+.t-miniecal-day[data-today] header b { color: var(--amber); }
+.t-miniecal-day header { display: flex; gap: 4px; align-items: baseline; padding: 2px 2px 4px; font-size: var(--fs-micro); text-transform: uppercase; border-bottom: 1px solid var(--line); margin-bottom: 2px; }
+.t-miniecal-day header span { margin-left: auto; }
+.t-miniecal-co { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 4px; padding: 1px 2px; font-size: var(--fs-micro); color: var(--ink-2); text-decoration: none; }
+.t-miniecal-co:hover { background: var(--fill); color: var(--amber); }
+.t-miniecal-co b { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.t-miniecal-co[data-followed] b { color: var(--amber); }
+.t-miniecal-co[data-result="beat"] span:last-child { color: var(--gain); }
+.t-miniecal-co[data-result="miss"] span:last-child { color: var(--loss); }
+.t-miniecal-co > span:first-child { color: var(--ink-3); }
+.t-miniecal-more { display: block; padding: 2px; font-size: var(--fs-micro); }

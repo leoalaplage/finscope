@@ -196,3 +196,66 @@ export function EarningsCal() {
     </div>
   );
 }
+
+/**
+ * The next three trading days of the calendar, in the launchpad's corner
+ * (components/term/Launchpad.tsx): the S&P 500 members reporting — or the
+ * watchlist's — largest first, before the open or after the close, each
+ * opening its company. The whole calendar is ECAL.
+ */
+export function MiniEcal() {
+  const watchlist = useStoredWatchlist();
+  const [filter, setFilter] = useState<"sp500" | "watchlist">("sp500");
+  const today = useSyncExternalStore(noSubscription, () => isoDay(new Date()), () => null);
+  const [answer, setAnswer] = useState<{ from: string; days: Day[] | null } | null>(null);
+  useEffect(() => {
+    if (!today) return;
+    const controller = new AbortController();
+    fetch(`/api/earnings-days?from=${today}&days=3&v=${EARNINGS_DAY_SHAPE}`, { signal: controller.signal })
+      .then((response) => response.json() as Promise<{ days?: Day[] }>)
+      .then((body) => setAnswer({ from: today, days: body.days ?? [] }))
+      .catch(() => { if (!controller.signal.aborted) setAnswer({ from: today, days: null }); });
+    return () => controller.abort();
+  }, [today]);
+  const days = answer?.from === today ? answer.days : undefined;
+  const followed = new Set(watchlist);
+  const shown = (rows: Event[]) => rows
+    .filter((row) => (filter === "sp500" ? row.sp500 : followed.has(row.ticker)))
+    .sort((a, b) => (b.marketCap ?? 0) - (a.marketCap ?? 0));
+  return (
+    <div className="t-miniecal">
+      <div className="t-miniecal-bar">
+        <div className="seg" role="group" aria-label="Companies">
+          <button type="button" aria-pressed={filter === "sp500"} onClick={() => setFilter("sp500")}>S&amp;P 500</button>
+          <button type="button" aria-pressed={filter === "watchlist"} onClick={() => setFilter("watchlist")}>Watchlist</button>
+        </div>
+        <a className="t-chip" href="/t/ecal">ECAL ›</a>
+      </div>
+      {days === null ? <p className="t-empty">The calendar could not be read just now.</p> : null}
+      {days === undefined ? <p className="t-empty">Loading…</p> : null}
+      <div className="t-miniecal-days">
+        {(days ?? []).slice(0, 3).map((day) => {
+          const rows = shown(day.rows);
+          const name = label(day.date);
+          return (
+            <section key={day.date} className="t-miniecal-day" data-today={day.date === today || undefined}>
+              <header><b>{name.weekday}</b> {name.day}<span className="t-dim">{rows.length || ""}</span></header>
+              {rows.length ? rows.slice(0, 14).map((row) => {
+                const slot = TIMES.find((each) => each.time === row.time)!;
+                return (
+                  <a key={row.ticker} href={`/t/s/${encodeURIComponent(row.ticker)}#ee`} className="t-miniecal-co" data-result={resultOf(row)}
+                    data-followed={followed.has(row.ticker) || undefined}
+                    title={`${row.name} · ${slot.name}${row.consensusEps != null ? ` · consensus EPS ${eps(row.consensusEps)}` : ""}`}>
+                    <span aria-hidden="true">{slot.mark}</span><b>{row.ticker}</b>
+                    <span>{row.reportedEps != null ? signedPct(row.surprise) : row.consensusEps != null ? eps(row.consensusEps) : cap(row.marketCap)}</span>
+                  </a>
+                );
+              }) : <p className="t-dim t-ecal-none">{day.error ? "Unavailable" : "—"}</p>}
+              {rows.length > 14 ? <a className="t-dim t-miniecal-more" href="/t/ecal">+{rows.length - 14} more</a> : null}
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

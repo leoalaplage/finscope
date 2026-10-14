@@ -258,3 +258,29 @@ export function squarify<T>(items: Array<{ item: T; value: number }>, width: num
   if (row.length) lay(row);
   return tiles;
 }
+
+/** What $10,000 became, week by week, distributions reinvested, for the fund and its benchmark over the same weeks. */
+export function growthOf(bars: WeeklyBar[], benchmark: WeeklyBar[], start = 10_000): Array<{ date: string; fund: number; benchmark: number | null }> {
+  if (bars.length < 2) return [];
+  const byDate = new Map(benchmark.map((bar) => [bar.date, bar.adjustedClose]));
+  const base = bars[0]; const baseBench = byDate.get(base.date) ?? null;
+  return bars.map((bar) => {
+    const bench = byDate.get(bar.date);
+    return { date: bar.date, fund: (start * bar.adjustedClose) / base.adjustedClose, benchmark: baseBench && bench ? (start * bench) / baseBench : null };
+  });
+}
+
+/** Total return month by month, from the last weekly bar of each month, as years of twelve cells. */
+export function monthlyTable(bars: WeeklyBar[]): Array<{ year: number; months: Array<number | null>; year_total: number | null }> {
+  const ends = new Map<string, number>();
+  for (const bar of bars) ends.set(bar.date.slice(0, 7), bar.adjustedClose);
+  const months = [...ends].sort(([left], [right]) => left.localeCompare(right));
+  const returns = new Map<string, number>();
+  for (let index = 1; index < months.length; index++) returns.set(months[index][0], months[index][1] / months[index - 1][1] - 1);
+  const years = [...new Set(months.slice(1).map(([month]) => Number(month.slice(0, 4))))].sort();
+  return years.map((year) => {
+    const cells = Array.from({ length: 12 }, (_, index) => returns.get(`${year}-${String(index + 1).padStart(2, "0")}`) ?? null);
+    const known = cells.filter((value): value is number => value != null);
+    return { year, months: cells, year_total: known.length ? known.reduce((product, value) => product * (1 + value), 1) - 1 : null };
+  }).reverse();
+}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { KEY_VERSION, SUMMARY_SHAPE } from "@/lib/data-version";
 import type { Position } from "@/lib/portfolio";
+import type { FundCard } from "@/lib/etf-profile";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 import { EARNINGS_DAY_SHAPE, type ReportTime } from "@/lib/adapters/nasdaq-earnings";
 import type { IoQuote } from "@/components/io/quote";
@@ -26,6 +27,8 @@ export interface PortfolioFeed {
   summaries: Record<string, WatchlistSummary>;
   quotes: Record<string, IoQuote>;
   pending: string[];
+  /** Holdings that are funds: priced, spread over their sectors, outside the filings figures. */
+  funds: Record<string, FundCard>;
   daily: Histories | null;
   weekly: Histories | null;
   earnings: UpcomingEarnings[] | null;
@@ -34,7 +37,7 @@ export interface PortfolioFeed {
 const DAILY_DAYS = 560;
 const WEEKLY_YEARS = 10;
 
-const EMPTY: PortfolioFeed = { summaries: {}, quotes: {}, pending: [], daily: null, weekly: null, earnings: null };
+const EMPTY: PortfolioFeed = { summaries: {}, quotes: {}, pending: [], funds: {}, daily: null, weekly: null, earnings: null };
 
 /**
  * `traded` are the tickers whose prices the history needs: with dated trades,
@@ -65,15 +68,17 @@ export function usePortfolioFeed(positions: Position[], traded: string[] = []): 
 
     // Digests and quotes: what the table needs.
     (async () => {
-      const payload = tickers.length ? await json<{ summaries?: WatchlistSummary[]; pending?: string[] }>(`/api/watchlist?tickers=${encodeURIComponent(heldPart)}&v=${KEY_VERSION}.${SUMMARY_SHAPE}`) : { summaries: [], pending: [] };
+      const payload = tickers.length ? await json<{ summaries?: WatchlistSummary[]; pending?: string[]; funds?: FundCard[] }>(`/api/watchlist?tickers=${encodeURIComponent(heldPart)}&v=${KEY_VERSION}.${SUMMARY_SHAPE}`) : { summaries: [], pending: [] };
       const summaries: Record<string, WatchlistSummary> = {};
       for (const summary of payload?.summaries ?? []) summaries[summary.ticker.toUpperCase()] = summary;
+      const funds: Record<string, FundCard> = {};
+      for (const fund of payload?.funds ?? []) funds[fund.ticker.toUpperCase()] = fund;
       const quotes: Record<string, IoQuote> = {};
       await Promise.all(tickers.map(async (ticker) => {
         const quote = await json<IoQuote>(`/api/io/${encodeURIComponent(ticker)}/quote`);
         if (quote) quotes[ticker] = quote;
       }));
-      merge({ summaries, quotes, pending: payload ? payload.pending ?? [] : tickers });
+      merge({ summaries, quotes, funds, pending: payload ? payload.pending ?? [] : tickers });
     })();
 
     // Closes: the index and every holding, daily and weekly.

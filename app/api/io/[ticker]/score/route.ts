@@ -12,6 +12,9 @@ import {
 } from "@/lib/qs/history";
 import { asStrength, asWeakness } from "@/lib/qs/standing";
 import { TICKER_PATTERN } from "@/lib/market-profile";
+import { companyByTicker } from "@/lib/company-registry";
+import { isFund } from "@/lib/etf-profile";
+import { universeMember } from "@/lib/universe";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 
@@ -64,6 +67,10 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
       keepAlive(requestCompany(new URL(request.url).origin, symbol).then(async (response) => {
         await response.body?.cancel();
       }));
+    } else if (!companyByTicker(symbol) && !universeMember(symbol) && await isFund(symbol).catch(() => false)) {
+      // A fund is never graded on this scale, which is struck from a company's
+      // own filings: saying so ends the page's wait instead of a minute of polls.
+      return NextResponse.json({ error: "A fund is not graded on the company scale.", fund: true }, { status: 404, headers: { "Cache-Control": "public, s-maxage=86400" } });
     }
     return NextResponse.json({ building: true, ticker: symbol }, { status: 202, headers: { "Cache-Control": "no-store" } });
   }

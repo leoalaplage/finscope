@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { COVERED_TICKERS } from "@/lib/company-registry";
+import { fundCard, type FundCard } from "@/lib/etf-profile";
 import { fallbackSummaryKeys, requestedTickers, summaryKey } from "@/lib/dataset-cache";
-import { datasetCache } from "@/lib/runtime-env";
+import { datasetCache, keepAlive } from "@/lib/runtime-env";
 import type { WatchlistSummary } from "@/lib/watchlist-summary";
 
 /**
@@ -63,12 +64,19 @@ export async function GET(request: Request) {
   // Which companies the warm behind this request is still working through, so
   // the page can say "building" and come back for them rather than settling on
   // an empty card and a Load button the reader has to find and press.
-  const pending = covered.filter((ticker) => !found.some((item) => item.ticker.toUpperCase() === ticker));
+  const missing = covered.filter((ticker) => !found.some((item) => item.ticker.toUpperCase() === ticker));
+  // A fund has no filings digest and never will: it is answered as a fund,
+  // from its page's profile, rather than left "building" for ever. Only a
+  // ticker no company list knows is asked about, so a company being built is
+  // not looked up in the fund register on every poll.
+  const cards = await Promise.all(missing.map((ticker) => fundCard(ticker, keepAlive).catch(() => null)));
+  const funds = cards.filter((card): card is FundCard => card != null);
+  const pending = missing.filter((ticker) => !funds.some((fund) => fund.ticker === ticker));
 
   const rebuilding = [...standingIn];
-  return new Response(JSON.stringify({ summaries: found, pending, rebuilding }), {
+  return new Response(JSON.stringify({ summaries: found, funds, pending, rebuilding }), {
     // A card standing in for a rebuild is as short-lived as a missing one:
     // the warm behind this request is about to replace it.
-    headers: { ...headers, "Cache-Control": pending.length || rebuilding.length ? partial : complete },
+    headers: { ...headers, "Cache-Control": pending.length || rebuilding.length || funds.some((fund) => fund.netAssets == null) ? partial : complete },
   });
 }

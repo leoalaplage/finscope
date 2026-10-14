@@ -159,7 +159,7 @@ function StylePicker({ style, surface }: { style: PriceStyle; surface: Surface }
   );
 }
 
-function MarketPriceSection({
+export function MarketPriceSection({
   ticker,
   currency,
   range,

@@ -36,8 +36,9 @@ export function HomeWatchlist() {
       try {
         const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(unknown)}&v=${KEY_VERSION}.${SUMMARY_SHAPE}`, { signal: controller.signal });
         if (!response.ok) return;
-        const payload = await response.json() as { summaries?: WatchlistSummary[] };
+        const payload = await response.json() as { summaries?: WatchlistSummary[]; funds?: Array<{ ticker: string }> };
         const named: Record<string, string> = {};
+        for (const fund of payload.funds ?? []) named[fund.ticker.toUpperCase()] = "ETF";
         for (const summary of payload.summaries ?? []) {
           const sector = summarySector(summary);
           if (sector) named[summary.ticker.toUpperCase()] = sector;

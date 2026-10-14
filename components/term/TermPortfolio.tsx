@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  concentration, holdingsSeries, portfolioQuality, portfolioSeries, rebasePair, timeWeightedSeries, valuePortfolio, weightBy,
+  concentration, holdingsSeries, portfolioQuality, portfolioSeries, rebasePair, timeWeightedSeries, sectorWeights, valuePortfolio,
   type SeriesPoint, type ValuedPosition,
 } from "@/lib/portfolio";
 import {
@@ -97,10 +97,14 @@ export function TermPortfolio() {
       const quote = feed.quotes[position.ticker];
       const summary = feed.summaries[position.ticker];
       prices[position.ticker] = quote?.price != null && quote.price > 0 && quote.currency === BASE ? quote.price : null;
-      names[position.ticker] = { name: summary?.name ?? quote?.name ?? position.ticker, sector: (summary ? summarySector(summary) : null) ?? "Not classified" };
+      const fund = feed.funds[position.ticker];
+      names[position.ticker] = {
+        name: summary?.name ?? (fund && fund.name !== fund.ticker ? fund.name : null) ?? quote?.name ?? position.ticker,
+        sector: (summary ? summarySector(summary) : null) ?? (fund ? "ETF" : "Not classified"),
+      };
     }
     return valuePortfolio(positions, feed.summaries, prices, names);
-  }, [positions, feed.quotes, feed.summaries]);
+  }, [positions, feed.quotes, feed.summaries, feed.funds]);
   /* One colour per holding, by its rank in the book, the same in every chart that names it. */
   const holdingColor = useMemo(() => new Map(valued.positions.map((position, index) => [position.ticker, paletteColor(index)])), [valued]);
 
@@ -245,7 +249,8 @@ export function TermPortfolio() {
     return reading.value == null ? null : { value: reading.value, grade: reading.coverage >= QS_COVERAGE_FLOOR ? gradeForScore(reading.value) : "NR", coverage: reading.coverage };
   }, [valued, graded]);
 
-  const sectors = useMemo(() => weightBy(valued.positions, (position) => stated(position.sector) ?? "Not classified"), [valued]);
+  const sectors = useMemo(() => sectorWeights(valued.positions, (position) => stated(position.sector) ?? "Not classified",
+    (ticker) => (feed.funds[ticker]?.sectors.length ? feed.funds[ticker].sectors : null)), [valued, feed.funds]);
   const spread = useMemo(() => concentration(valued.positions), [valued]);
 
   const income = useMemo(() => {
@@ -452,6 +457,7 @@ export function TermPortfolio() {
               </tbody>
             </table>
           </div>
+          {Object.keys(feed.funds).length ? <p className="t-study-note">{Object.keys(feed.funds).join(", ")}: {Object.keys(feed.funds).length === 1 ? "a fund" : "funds"} — priced and weighted, spread over the sectors held, outside the grade and the look-through figures.</p> : null}
           {feed.pending.length ? <p className="t-study-note">{feed.pending.join(", ")} still being read from the filings: priced, but without grade or look-through figures yet.</p> : null}
         </Panel>
 

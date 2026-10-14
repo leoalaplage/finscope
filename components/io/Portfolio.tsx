@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { KEY_VERSION, SUMMARY_SHAPE } from "@/lib/data-version";
 import {
-  concentration, DAILY_WINDOWS, overWindow, portfolioExposure, portfolioQuality, portfolioSeries, rebasePair, seriesStats, valuePortfolio, weightBy, WINDOWS,
+  concentration, DAILY_WINDOWS, overWindow, portfolioExposure, portfolioQuality, portfolioSeries, rebasePair, sectorWeights, seriesStats, valuePortfolio, WINDOWS,
   type Position, type SeriesPoint, type ValuedPosition, type WindowId,
 } from "@/lib/portfolio";
 import { qsTable, qsValuationColumns, type QsRow } from "@/lib/qs-export";
 import { gradeForScore, QS_COVERAGE_FLOOR, screen, type ScoredCompany } from "@/lib/qs/screener";
 import { stated } from "@/lib/sector";
 import { summarySector, type WatchlistSummary } from "@/lib/watchlist-summary";
+import type { FundCard } from "@/lib/etf-profile";
 import { parseHoldings, saveHoldings, useStoredHoldings, writeHoldings } from "./holdings";
 import { MultiLine } from "./Plot";
 import type { IoQuote } from "./quote";
@@ -61,9 +62,11 @@ interface Feed {
   summaries: Record<string, WatchlistSummary | undefined>;
   quotes: Record<string, IoQuote | undefined>;
   pending: string[];
+  /** The holdings that are funds: priced like any other, spread over their sectors, outside the filings figures. */
+  funds: Record<string, FundCard | undefined>;
 }
 
-const EMPTY_FEED: Feed = { book: "", summaries: {}, quotes: {}, pending: [] };
+const EMPTY_FEED: Feed = { book: "", summaries: {}, quotes: {}, pending: [], funds: {} };
 
 /** One granularity of closes: every holding's, and the index's. */
 interface Closes { holdings: Record<string, SeriesPoint[]>; index: SeriesPoint[] }
@@ -102,10 +105,12 @@ export function Portfolio() {
       try {
         const response = await fetch(`/api/watchlist?tickers=${encodeURIComponent(followed)}&v=${KEY_VERSION}.${SUMMARY_SHAPE}`, { signal: controller.signal });
         const payload = response.ok
-          ? await response.json() as { summaries?: WatchlistSummary[]; pending?: string[] }
-          : { summaries: [], pending: tickers };
+          ? await response.json() as { summaries?: WatchlistSummary[]; pending?: string[]; funds?: FundCard[] }
+          : { summaries: [], pending: tickers, funds: [] };
         const summaries: Feed["summaries"] = {};
         for (const summary of payload.summaries ?? []) summaries[summary.ticker.toUpperCase()] = summary;
+        const funds: Feed["funds"] = {};
+        for (const fund of payload.funds ?? []) funds[fund.ticker.toUpperCase()] = fund;
 
         const quotes: Feed["quotes"] = {};
         await Promise.all(tickers.map(async (ticker) => {
@@ -115,9 +120,9 @@ export function Portfolio() {
           } catch { /* A holding with no price is listed, and left out of the weights. */ }
         }));
         if (controller.signal.aborted) return;
-        setFetched({ book: followed, summaries, quotes, pending: payload.pending ?? [] });
+        setFetched({ book: followed, summaries, quotes, pending: payload.pending ?? [], funds });
       } catch {
-        if (!controller.signal.aborted) setFetched({ book: followed, summaries: {}, quotes: {}, pending: tickers });
+        if (!controller.signal.aborted) setFetched({ book: followed, summaries: {}, quotes: {}, pending: tickers, funds: {} });
       }
     })();
     return () => controller.abort();
@@ -180,11 +185,12 @@ export function Portfolio() {
     for (const position of positions) {
       const quote = feed.quotes[position.ticker];
       const summary = feed.summaries[position.ticker];
+      const fund = feed.funds[position.ticker];
       const usable = quote?.price != null && Number.isFinite(quote.price) && quote.price > 0 && quote.currency === BASE_CURRENCY;
       prices[position.ticker] = usable ? quote!.price : null;
       names[position.ticker] = {
-        name: summary?.name ?? quote?.name ?? position.ticker,
-        sector: (summary ? summarySector(summary) : null) ?? "",
+        name: summary?.name ?? (fund && fund.name !== fund.ticker ? fund.name : null) ?? quote?.name ?? position.ticker,
+        sector: (summary ? summarySector(summary) : null) ?? (fund ? "ETF" : ""),
       };
     }
     return valuePortfolio(positions, feed.summaries, prices, names);
@@ -325,8 +331,9 @@ export function Portfolio() {
   }, [history, followed, positions, span]);
 
   const sectors = useMemo(
-    () => weightBy(valued.positions, (position) => stated(position.sector) ?? "Not classified"),
-    [valued],
+    () => sectorWeights(valued.positions, (position) => stated(position.sector) ?? "Not classified",
+      (ticker) => (feed.funds[ticker]?.sectors.length ? feed.funds[ticker]!.sectors : null)),
+    [valued, feed],
   );
   const spread = useMemo(() => concentration(valued.positions), [valued]);
   const riskExposures = useMemo(() => {
@@ -343,7 +350,8 @@ export function Portfolio() {
         label: "Largest sector",
         weight: sectors[0].weight,
         tickers: priced
-          .filter((position) => (stated(position.sector) ?? "Not classified") === sectors[0].label)
+          .filter((position) => (stated(position.sector) ?? "Not classified") === sectors[0].label
+            || feed.funds[position.ticker]?.sectors.some((entry) => entry.label === sectors[0].label))
           .map((position) => position.ticker),
       });
     }
@@ -359,7 +367,7 @@ export function Portfolio() {
       add(alert, priced.filter((position) => graded[position.ticker]?.alertes_detail.includes(alert)));
     }
     return exposures;
-  }, [valued, graded, sectors]);
+  }, [valued, graded, sectors, feed]);
 
   const rows = useMemo(() => {
     const ordered = [...valued.positions];
@@ -441,6 +449,7 @@ export function Portfolio() {
               lookThrough={lookThrough}
               unpriced={unpriced}
               building={building}
+              funds={Object.keys(feed.funds).filter((ticker) => positions.some((position) => position.ticker === ticker))}
               foreign={foreign}
               score={score}
             />
@@ -612,8 +621,9 @@ function Stat({ label, value }: { label: string; value: string | null }) {
  * carry a purchase price is not the gain on the portfolio.
  */
 function Notes({
-  valued, lookThrough, unpriced, building, foreign, score,
+  valued, lookThrough, unpriced, building, funds, foreign, score,
 }: {
+  funds: string[];
   valued: ReturnType<typeof valuePortfolio>;
   lookThrough: { coverage: number };
   unpriced: string[];
@@ -623,13 +633,16 @@ function Notes({
 }) {
   const notes = [
     lookThrough.coverage > 0 && lookThrough.coverage < .995
-      ? `The look-through figures cover ${percent(lookThrough.coverage, 0)} of the book: the rest is held in companies whose filings are not read here yet.`
+      ? `The look-through figures cover ${percent(lookThrough.coverage, 0)} of the book: the rest is held in ${funds.length ? "funds, or in " : ""}companies whose filings are not read here yet.`
       : null,
     valued.costCoverage > 0 && valued.costCoverage < .995
       ? `The gain is measured over ${percent(valued.costCoverage, 0)} of the book — the holdings entered with a price paid.`
       : null,
     score != null && score.coverage < .995
       ? `The quality score is the value-weighted average over ${percent(score.coverage, 0)} of the book.`
+      : null,
+    funds.length
+      ? `${funds.join(", ")} ${funds.length === 1 ? "is a fund" : "are funds"}: priced and weighted like any holding, and spread over the sectors ${funds.length === 1 ? "it holds" : "they hold"}, but outside the look-through figures and the quality grade, which are struck from a company's own filings.`
       : null,
     building.length
       ? `${building.join(", ")} ${building.length === 1 ? "is" : "are"} still being read from the filings, and ${building.length === 1 ? "is" : "are"} left out of every figure above rather than counted as nothing.`

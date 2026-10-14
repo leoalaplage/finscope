@@ -115,3 +115,71 @@
   .t-gf-card[data-wide] { grid-column: auto; }
   .t-gf-catch { touch-action: pan-x pan-y; }
 }
+
+/*
+ * A fund's page (components/io/Etf.tsx), on both surfaces: a six-column grid —
+ * the price over four and the key statistics beside it over two, then pairs of
+ * three, then whole rows — and its holdings drawn as a market map.
+ */
+.etf-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px 20px; align-items: start; }
+.etf-cell { min-width: 0; grid-column: span 6; container-type: inline-size; }
+.etf-cell[data-span="wide"] { grid-column: span 4; }
+.etf-cell[data-span="side"] { grid-column: span 2; display: grid; gap: 16px; align-content: start; }
+.etf-cell[data-span="half"] { grid-column: span 3; align-self: stretch; display: grid; }
+.etf-cell .etf-cell { grid-column: auto; }
+.etf-box > .section-head { margin-bottom: 8px; }
+.etf-box-note { margin-top: 6px; }
+.etf-pad { padding: 6px 8px; }
+@media (max-width: 1100px) {
+  .etf-cell[data-span="wide"], .etf-cell[data-span="side"], .etf-cell[data-span="half"] { grid-column: span 6; }
+}
+
+/* A score or risk body in a narrow cell, the side column or a half: stacked, its readings on their own line. */
+@container (max-width: 620px) {
+  .etf-cell .etf-score, .etf-cell .etf-risk-body { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .etf-cell .etf-score-pillars .qs-pillar { grid-template-columns: minmax(0, 9rem) minmax(0, 1fr) 3ch; }
+  .etf-cell .etf-score-reading { grid-column: 1 / -1; white-space: normal; }
+}
+.etf-keys { margin: 0; display: grid; }
+.etf-keys > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.etf-keys dt { color: var(--ink-2); font-size: var(--fs-sm); white-space: nowrap; }
+.etf-keys dd { margin: 0; text-align: right; font-weight: 600; font-size: var(--fs-sm); }
+.etf-keys dd small { display: block; font-weight: 400; color: var(--ink-3); font-size: var(--fs-micro); }
+.etf-keys dd[data-dir="up"] { color: var(--gain); }
+.etf-keys dd[data-dir="down"] { color: var(--loss); }
+
+/* The holdings map: the terminal heat map's geometry, a colour per sector. */
+.fund-heat { position: relative; width: 100%; overflow: hidden; background: var(--heat-gutter, #262931); user-select: none; }
+.fund-heat-sector { position: absolute; }
+.fund-heat-name {
+  position: absolute; left: 0; top: 0; right: 0; z-index: 2; display: flex; align-items: center; padding: 0 5px;
+  font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; overflow: hidden;
+  color: #fff; background: color-mix(in srgb, var(--tile) 45%, #111);
+}
+.fund-heat-tile {
+  position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden;
+  border: 1px solid var(--heat-gutter, #262931); background: color-mix(in srgb, var(--tile) 72%, #000); color: #fff; text-decoration: none;
+  line-height: 1.05; text-shadow: 0 1px 1px rgba(0, 0, 0, .35); font-family: var(--mono, monospace);
+}
+.fund-heat-tile:hover { background: var(--tile); border-color: #fff; z-index: 3; }
+.fund-heat-tile b { font-size: 11px; font-weight: 700; }
+.fund-heat-tile span { font-size: 10px; opacity: .92; font-variant-numeric: tabular-nums; }
+
+.etf-growth svg { display: block; overflow: visible; }
+.etf-growth-base { stroke: var(--line-strong); stroke-dasharray: 3 4; }
+.etf-growth-fund { fill: none; stroke: var(--c1); stroke-width: 2; }
+.etf-growth-bench { fill: none; stroke: var(--ink-3); stroke-width: 1.25; }
+.etf-growth-label { fill: var(--ink-2); font: 10px var(--mono, monospace); }
+.etf-growth-label[data-fund] { fill: var(--c1); font-weight: 600; }
+.etf-growth-key { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; font-size: var(--fs-micro); color: var(--ink-2); }
+.etf-growth-key i { display: inline-block; width: 14px; height: 2px; background: var(--ink-3); }
+.etf-growth-key i[data-fund] { background: var(--c1); }
+.etf-months table { width: 100%; }
+.etf-months th, .etf-months td { padding: 3px 4px !important; font-size: var(--fs-micro) !important; text-align: center; }
+.etf-months td[data-dir="up"] b { color: var(--gain); }
+.etf-months td[data-dir="down"] b { color: var(--loss); }
+.etf-sources { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+.etf-term { padding: 6px; }
+.etf-term .about { margin: 4px 6px 10px; }
+.etf-term .etf-grid { gap: 2px; }
+.etf-term .etf-cell[data-span="side"] { gap: 2px; }

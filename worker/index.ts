@@ -2,6 +2,7 @@
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { warmWatchlist, warmSomeMissing, requestedTickers } from "../lib/dataset-cache";
+import { companiesOnly } from "../lib/etf-profile";
 import { chaseFilings } from "../lib/filing-watch";
 import { buildUniverseSlice } from "../lib/universe-build";
 import { buildTechnicalSlice } from "../lib/term/tech-universe";
@@ -80,7 +81,7 @@ const worker = {
       // about it — so without this its every load pays the full parse and is
       // the one most likely to be refused for it.
       const asked = requestedTickers(url.searchParams.get("tickers"), COVERED_TICKERS);
-      ctx.waitUntil(warmSomeMissing(url.origin, 3, asked).catch((error) => {
+      ctx.waitUntil(companiesOnly(asked).then((companies) => warmSomeMissing(url.origin, 3, companies)).catch((error) => {
         console.log(`[warm on read] ${error instanceof Error ? error.message : String(error)}`);
       }));
     }
