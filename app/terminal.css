@@ -280,6 +280,7 @@ body:has(.io.term) { background: #050608; }
   "fa fa fa fa fa fa gr gr gr gr gr gr"
   "gf gf gf gf gf gf gf gf gf gf gf gf"
   "c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res"
+  "ee ee ee ee ee ee ee ee ee ee ee ee"
   "rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt"
   "est est est est est est est est est est est est"
   "left left left left left left right right right right right right"
@@ -311,27 +312,19 @@ body:has(.io.term) { background: #050608; }
 .t-gp .candle-body { flex: 1 1 auto; height: auto; min-height: clamp(340px, 58vh, 620px); }
 /* A panel the column stretches keeps its content at the top. */
 .t-mcol > .t-panel:last-child { display: flex; flex-direction: column; }
-/*
- * The panel at the foot of the column (EE) asks for no height of its own beyond
- * a floor, so the graph sets the band, and it scrolls inside what is left.
- */
-.t-side-fill { flex: 1 1 0 !important; min-height: 180px; overflow: hidden; display: flex; flex-direction: column; }
-.t-side-fill > .t-panel-body { flex: 1 1 0; min-height: 0; overflow-y: auto; }
 /* Stacked, nothing sets the band: the last panel takes its own height, up to a limit, and the graph its usual one. */
 @media (max-width: 1100px) {
-  .t-side-fill { flex: none !important; max-height: 560px; }
-  .t-side-fill > .t-panel-body { flex: 0 1 auto; }
   .t-gp .candle-body { min-height: clamp(300px, 52vh, 460px); }
 }
 /*
  * A reading open at a glance: the column keeps the height it had, so the graph
- * beside it does not move. The reading sits above the earnings, and the column
+ * beside it does not move, and the column
  * scrolls only if it needs more than the band has.
  */
 @media (min-width: 1101px) {
   .t-col[data-held] { height: var(--held); overflow-y: auto; scrollbar-width: thin; }
   .t-col[data-held] > .t-panel { flex-shrink: 0; }
-  /* The reading above, the earnings release at the foot of the band. */
+  /* The reading takes the foot of the band. */
   .t-col[data-held] > .t-side-detail { flex: 1 0 auto; }
 }
 /* One of the pair with nothing to show: the other takes the row. */
@@ -657,6 +650,7 @@ body:has(.io.term) { background: #050608; }
     "gr gr gr gr gr gr gr gr gr gr gr gr"
     "gf gf gf gf gf gf gf gf gf gf gf gf"
     "c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res"
+    "ee ee ee ee ee ee ee ee ee ee ee ee"
     "rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt"
     "est est est est est est est est est est est est"
     "left left left left left left left left left left left left"
@@ -1178,3 +1172,35 @@ body:has(.io.term) { background: #050608; }
 .t-miniecal-co[data-result="miss"] span:last-child { color: var(--loss); }
 .t-miniecal-co > span:first-child { color: var(--ink-3); }
 .t-miniecal-more { display: block; padding: 2px; font-size: var(--fs-micro); }
+
+/* --- EE: the latest release and the consensus (components/io/PendingEarnings.tsx) --- */
+.t-release-strip {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin: 6px 0 0; padding: 6px 10px;
+  border: 1px solid var(--amber-dim); background: color-mix(in srgb, var(--amber) 7%, transparent);
+  color: var(--ink-2); font-size: var(--fs-xs); text-decoration: none;
+}
+.t-release-strip:hover { border-color: var(--amber); }
+.t-release-strip b { color: var(--amber-ink); background: var(--amber); padding: 0 6px; font-weight: 700; text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-release-strip em { font-style: normal; color: var(--ink); font-weight: 600; }
+.t-release-strip i { font-style: normal; }
+.t-release-strip i[data-dir="up"] { color: var(--gain); }
+.t-release-strip i[data-dir="down"] { color: var(--loss); }
+.t-release-more { margin-left: auto; color: var(--amber); }
+.t-ee { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 12px; padding: 8px; align-items: start; }
+.t-ee-text { display: grid; gap: 10px; min-width: 0; font-size: var(--fs-xs); }
+.t-ee-text > p { margin: 0; }
+.term .t-ee .earnings-pending { padding: 0; border: 0; font-family: inherit; }
+.term .t-ee .earnings-pending-head { align-items: flex-start; gap: 12px; }
+.term .t-ee .earnings-pending-head .label { color: var(--amber); font-size: var(--fs-xs); letter-spacing: var(--track-label); text-transform: uppercase; }
+.term .t-ee .earnings-pending-head p { margin: 4px 0 0; color: var(--ink-3); font-size: var(--fs-micro); line-height: 1.45; }
+.term .t-ee .earnings-pending-head > a { color: var(--amber); font-size: var(--fs-micro); white-space: nowrap; }
+.term .t-ee .release-sheet td, .term .t-ee .release-sheet th { font-size: var(--fs-xs); }
+.term .t-ee .release-consensus { font-size: var(--fs-micro); }
+.t-ee-facts { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.t-ee-facts > div { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.t-ee-facts dt { color: var(--ink-3); }
+.t-ee-facts dd { margin: 0; color: var(--ink); font-weight: 600; text-align: right; }
+.t-ee-facts dd[data-dir="up"] { color: var(--gain); }
+.t-ee-facts dd[data-dir="down"] { color: var(--loss); }
+.t-ee-chart { margin: 0; }
+@media (max-width: 900px) { .t-ee { grid-template-columns: minmax(0, 1fr); } }

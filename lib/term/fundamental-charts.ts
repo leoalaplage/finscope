@@ -248,7 +248,12 @@ export function contextFor(view: IoCompanyView, frequency: Frequency, backlog: M
   };
 }
 
-export interface ChartSeries { spec: SeriesSpec; values: Array<number | null> }
+export interface ChartSeries {
+  spec: SeriesSpec;
+  values: Array<number | null>;
+  /** A bar's own colour where it says something the series colour cannot (a beat in green, a miss in red). */
+  colors?: Array<string | null>;
+}
 export interface ChartData { labels: string[]; names: string[]; series: ChartSeries[] }
 
 /**

@@ -29,13 +29,13 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   // 1 · Snapshot
   { code: "DES", name: "Description", chapter: 1 },
   { code: "GP", name: "Price graph", chapter: 1 },
-  { code: "EE", name: "Earnings release", chapter: 1 },
   // 2 · The business
   { code: "SEG", name: "Segments", chapter: 2 },
   { code: "FA", name: "Financial analysis", chapter: 2 },
   { code: "GR", name: "Growth", chapter: 2 },
   { code: "GF", name: "Fundamental charts", chapter: 2 },
   // 3 · The results
+  { code: "EE", name: "Earnings and the consensus", chapter: 3 },
   { code: "RPT", name: "Quarterly reports", chapter: 3 },
   { code: "EST", name: "Analysts' estimates", chapter: 3 },
   { code: "ERX", name: "Earnings reaction", chapter: 3 },

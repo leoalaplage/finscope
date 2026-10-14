@@ -20,7 +20,7 @@ import { ValuationCharts } from "@/components/io/ValuationCharts";
 import { DcfModel } from "@/components/io/DcfModel";
 import { Insiders, useInsiders } from "@/components/io/Insiders";
 import { Holders } from "@/components/io/Holders";
-import { PendingEarnings } from "@/components/io/PendingEarnings";
+import { EarningsBoard, ReleaseStrip } from "@/components/io/PendingEarnings";
 import { LenderReading } from "@/components/io/LenderReading";
 import { readsAsLender } from "@/lib/io/lender";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "@/components/io/format";
@@ -133,6 +133,9 @@ export function TermCompany({ ticker }: { ticker: string }) {
         </div>
       </header>
 
+      {/* A release newer than the filed figures, named at the top; EE below has the rest. */}
+      <ReleaseStrip view={view} />
+
       <div className="t-grid t-company">
         <Chapter area="c-top" number={1} title="Snapshot" note="the price, the key numbers, the verdict, the latest results" />
         <Panel code="GP" area="gp" className="t-fill t-gp">
@@ -200,19 +203,6 @@ export function TermCompany({ ticker }: { ticker: string }) {
             </Panel>
           ) : null}
 
-          {/* Last, and scrolling inside whatever height the graph leaves. */}
-          <Panel code="EE" title="Earnings · release & expectations" className="t-side-fill">
-            <PendingEarnings
-              view={view}
-              chart
-              empty={
-                <p className="t-panel-pad t-dim">
-                  No release newer than the filed figures.
-                  {lastFiled ? <> Last filed: <span className="t-amber">{lastFiled.label}</span> on {shortDate(lastFiled.filingDate)}.</> : null}
-                </p>
-              }
-            />
-          </Panel>
         </div>
 
         {/*
@@ -238,6 +228,9 @@ export function TermCompany({ ticker }: { ticker: string }) {
         </Panel>
 
         <Chapter area="c-res" number={3} title="The results" note="what it reported, what is expected, how the stock takes them" />
+        <Panel code="EE" title="Earnings · the latest release and the consensus, quarter by quarter" area="ee">
+          <EarningsBoard key={`ee-${company.ticker}`} view={view} lastFiled={lastFiled ? { label: lastFiled.label, filingDate: lastFiled.filingDate } : null} />
+        </Panel>
         <Panel code="RPT" title="Quarterly reports · filed figures, surprise and the stock's reaction" area="rpt">
           <Reports key={`rpt-${company.ticker}`} view={view} />
         </Panel>

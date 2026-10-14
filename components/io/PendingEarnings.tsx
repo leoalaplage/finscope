@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { ComboChart } from "@/components/term/FundamentalCharts";
+import type { ChartData, Preset } from "@/lib/term/fundamental-charts";
 import type { EarningsReleaseFiling, ReleaseReading } from "@/lib/adapters/earnings";
 import type { ReleaseMetric } from "@/lib/adapters/earnings-release";
 import type { EpsSurprise, Estimates } from "@/lib/estimates";
@@ -127,56 +129,125 @@ function AgainstConsensus({ reading, history, currency }: { reading: ReleaseRead
   );
 }
 
-/**
- * A release that is newer than the filed figures: what it says, now.
- *
- * The figures are read from the release itself and proven against the filed
- * year-ago quarter (lib/adapters/earnings-release.ts); one that cannot be
- * proven is not shown. They stay preliminary until the 10-Q or 10-K is filed,
- * when the statements below take them over and this disappears.
- */
-export function PendingEarnings({ view, empty = null, chart = false }: {
-  view: IoCompanyView;
-  /** What to draw when no release is newer than the figures; the terminal's EE panel says so. */
-  empty?: ReactNode;
-  /** The EPS-against-consensus chart under it, as the terminal's EE panel draws it. */
-  chart?: boolean;
-}) {
-  const filing = useEarningsRelease(view);
-  const history = useEpsHistory(view.company.ticker);
-  const reading = filing?.reading ?? null;
-  const currency = view.company.currency;
-  const pendingEps = reading?.figures.dilutedEps ? { fiscalEnd: fiscalEndName(reading.periodEnd), eps: reading.figures.dilutedEps.value } : null;
-  const drawn = chart ? <EpsChart history={history} pending={pendingEps} currency={currency} /> : null;
-
-  if (!filing) return <>{empty}{drawn}</>;
+/** The release's headline: when it came, what it reads for, and where to open it. */
+function ReleaseHead({ filing, reading }: { filing: EarningsReleaseFiling; reading: ReleaseReading | null }) {
   const figures = reading ? Object.keys(reading.figures).length : 0;
   return (
-    <>
-      <aside className="earnings-pending" role="status" aria-label="New earnings release">
-        <div className="earnings-pending-head">
-          <div>
-            <span className="label">New results · {reading?.quarter ?? "earnings release"} · {filing.form} filed {shortDate(filing.filingDate)}</span>
-            <p>{figures
-              ? "From the company's press release, before its 10-Q or 10-K: unaudited, each figure proven against the same quarter a year earlier as filed. The statements below are still the previous quarter's."
-              : "The release is out; its figures could not be proven against the filed ones, so none is shown. The statements below are still the previous quarter's."}</p>
-          </div>
-          <a className="label" href={reading?.documents[0]?.url ?? filing.sourceUrl} target="_blank" rel="noreferrer">Open the release →</a>
-        </div>
-        {reading ? <ReleaseTable reading={reading} currency={currency} /> : null}
-        {reading ? <AgainstConsensus reading={reading} history={history} currency={currency} /> : null}
-      </aside>
-      {drawn}
-    </>
+    <div className="earnings-pending-head">
+      <div>
+        <span className="label">New results · {reading?.quarter ?? "earnings release"} · {filing.form} filed {shortDate(filing.filingDate)}</span>
+        <p>{figures
+          ? "From the company's press release, before its 10-Q or 10-K: unaudited, each figure proven against the same quarter a year earlier as filed. The statements are still the previous quarter's."
+          : "The release is out; its figures could not be proven against the filed ones, so none is shown. The statements are still the previous quarter's."}</p>
+      </div>
+      <a className="label" href={reading?.documents[0]?.url ?? filing.sourceUrl} target="_blank" rel="noreferrer">Open the release →</a>
+    </div>
   );
 }
 
 /**
- * Earnings per share against the consensus, quarter by quarter: the
- * expectation as an outline, what was reported as the bar inside it, green
- * where it beat and red where it missed, the surprise above. A quarter just
- * released and not yet scored is drawn from its release, in amber, its
- * figure GAAP where the consensus is on adjusted earnings.
+ * A release that is newer than the filed figures: what it says, now, at the
+ * top of the document site's company page.
+ *
+ * The figures are read from the release itself and proven against the filed
+ * year-ago quarter (lib/adapters/earnings-release.ts); one that cannot be
+ * proven is not shown. They stay preliminary until the 10-Q or 10-K is filed,
+ * when the statements take them over and this disappears.
+ */
+export function PendingEarnings({ view }: { view: IoCompanyView }) {
+  const filing = useEarningsRelease(view);
+  const history = useEpsHistory(view.company.ticker);
+  if (!filing) return null;
+  const reading = filing.reading ?? null;
+  return (
+    <aside className="earnings-pending" role="status" aria-label="New earnings release">
+      <ReleaseHead filing={filing} reading={reading} />
+      {reading ? <ReleaseTable reading={reading} currency={view.company.currency} /> : null}
+      {reading ? <AgainstConsensus reading={reading} history={history} currency={view.company.currency} /> : null}
+    </aside>
+  );
+}
+
+/**
+ * One line at the top of the terminal's company page while a release is newer
+ * than the filed figures: the quarter's headline figures and their change on
+ * a year, a link down to EE for the rest.
+ */
+export function ReleaseStrip({ view }: { view: IoCompanyView }) {
+  const filing = useEarningsRelease(view);
+  if (!filing) return null;
+  const reading = filing.reading ?? null;
+  const currency = view.company.currency;
+  const parts = ROWS.flatMap(({ metric, label }) => {
+    const figure = reading?.figures[metric];
+    if (!figure) return [];
+    const change = growth(figure.value, figure.yearAgo);
+    return [{ label, value: metric === "dilutedEps" ? price(figure.value, currency) : money(figure.value, currency), change }];
+  });
+  return (
+    <a className="t-release-strip" href="#ee">
+      <b>New results</b>
+      <span>{reading?.quarter ?? "Earnings release"} · {filing.form} {shortDate(filing.filingDate)}</span>
+      {parts.map((part) => (
+        <span key={part.label}>{part.label} <em>{part.value}</em> <i data-dir={tone(part.change)}>{signed(part.change)}</i></span>
+      ))}
+      <span className="t-release-more">EE ↓</span>
+    </a>
+  );
+}
+
+/**
+ * EE, the terminal's earnings panel: the latest release where it is newer than
+ * the filed figures, how the company has done against the consensus, and the
+ * chart of it, quarter by quarter.
+ */
+export function EarningsBoard({ view, lastFiled }: { view: IoCompanyView; lastFiled: { label: string; filingDate: string } | null }) {
+  const filing = useEarningsRelease(view);
+  const history = useEpsHistory(view.company.ticker);
+  const reading = filing?.reading ?? null;
+  const currency = view.company.currency;
+  const pending = reading?.figures.dilutedEps ? { fiscalEnd: fiscalEndName(reading.periodEnd), eps: reading.figures.dilutedEps.value } : null;
+  const scored = (history?.surprises ?? []).filter((entry) => entry.surprise != null);
+  const beats = scored.filter((entry) => entry.surprise! > 0).length;
+  const average = scored.length ? scored.reduce((sum, entry) => sum + entry.surprise!, 0) / scored.length / 100 : null;
+  const next = history?.estimates?.quarterly[0] ?? null;
+
+  return (
+    <div className="t-ee">
+      <div className="t-ee-text">
+        {filing ? (
+          <div className="earnings-pending">
+            <ReleaseHead filing={filing} reading={reading} />
+            {reading ? <ReleaseTable reading={reading} currency={currency} /> : null}
+            {reading ? <AgainstConsensus reading={reading} history={history} currency={currency} /> : null}
+          </div>
+        ) : (
+          <p className="t-dim">
+            No release newer than the filed figures.
+            {lastFiled ? <> Last filed: <span className="t-amber">{lastFiled.label}</span> on {shortDate(lastFiled.filingDate)}.</> : null}
+          </p>
+        )}
+        <dl className="t-ee-facts">
+          <div><dt>Beat the consensus</dt><dd>{scored.length ? `${beats} of ${scored.length} quarters` : ABSENT}</dd></div>
+          <div><dt>Average surprise</dt><dd data-dir={tone(average)}>{signed(average)}</dd></div>
+          <div><dt>Next quarter</dt><dd>{next ? `${next.fiscalEnd} · ${price(next.consensus, currency)}` : ABSENT}</dd></div>
+          {next?.analysts ? <div><dt>Analysts</dt><dd>{next.analysts}{next.up || next.down ? ` · ${next.up ?? 0}↑ ${next.down ?? 0}↓ in 4 weeks` : ""}</dd></div> : null}
+        </dl>
+      </div>
+      <EpsChart history={history} pending={pending} currency={currency} />
+    </div>
+  );
+}
+
+const shortQuarter = (name: string) => name.replace(/^(\w{3}) 20(\d\d)$/, "$1 ’$2");
+
+/**
+ * Earnings per share against the consensus, quarter by quarter, on the
+ * terminal's own chart (ComboChart): the consensus in grey, what was reported
+ * beside it in green where it beat and red where it missed, the surprise as a
+ * line on the right axis. A quarter just released and not yet scored is drawn
+ * from its release, in amber — GAAP, where the consensus is on adjusted
+ * earnings — and the coming quarter has its consensus alone.
  */
 export function EpsChart({ history, pending, currency }: {
   history: ReturnType<typeof useEpsHistory>;
@@ -184,62 +255,43 @@ export function EpsChart({ history, pending, currency }: {
   currency: string;
 }) {
   if (!history) return <p className="t-empty">Reading the consensus…</p>;
-  const scored = [...history.surprises].reverse().filter((entry) => entry.eps != null || entry.consensus != null).slice(-8);
-  const bars: Array<{ name: string; eps: number | null; consensus: number | null; surprise: number | null; pending: boolean }> = scored.map((entry) => ({
-    name: entry.fiscalEnd, eps: entry.eps, consensus: entry.consensus, surprise: entry.surprise, pending: false,
+  const scored = [...history.surprises].reverse().filter((entry) => entry.eps != null || entry.consensus != null).slice(-12);
+  const bars: Array<{ name: string; reported: string | null; eps: number | null; consensus: number | null; surprise: number | null; state: "beat" | "miss" | "pending" | "none" }> = scored.map((entry) => ({
+    name: entry.fiscalEnd, reported: entry.reported, eps: entry.eps, consensus: entry.consensus, surprise: entry.surprise,
+    state: entry.surprise == null ? "none" : entry.surprise >= 0 ? "beat" : "miss",
   }));
   if (pending && !bars.some((bar) => bar.name === pending.fiscalEnd)) {
     const consensus = history.estimates?.quarterly.find((entry) => entry.fiscalEnd === pending.fiscalEnd)?.consensus ?? null;
-    bars.push({ name: pending.fiscalEnd, eps: pending.eps, consensus, surprise: consensus ? (pending.eps / consensus - 1) * 100 : null, pending: true });
+    bars.push({ name: pending.fiscalEnd, reported: null, eps: pending.eps, consensus, surprise: consensus ? (pending.eps / consensus - 1) * 100 : null, state: "pending" });
   }
-  // The next quarter's consensus, as an outline with nothing in it yet.
+  // The coming quarter: its consensus alone.
   const next = history.estimates?.quarterly.find((entry) => !bars.some((bar) => bar.name === entry.fiscalEnd));
-  if (next?.consensus != null) bars.push({ name: next.fiscalEnd, eps: null, consensus: next.consensus, surprise: null, pending: false });
+  if (next?.consensus != null) bars.push({ name: next.fiscalEnd, reported: null, eps: null, consensus: next.consensus, surprise: null, state: "none" });
   if (!bars.length) return <p className="t-empty">No analyst consensus is published for this company.</p>;
 
-  const values = bars.flatMap((bar) => [bar.eps, bar.consensus]).filter((value): value is number => value != null);
-  const top = Math.max(0, ...values);
-  const bottom = Math.min(0, ...values);
-  const width = 320; const height = 150; const padTop = 18; const padBottom = 18;
-  const span = top - bottom || 1;
-  const y = (value: number) => padTop + (top - value) / span * (height - padTop - padBottom);
-  const slot = width / bars.length;
-  const beats = bars.filter((bar) => !bar.pending && bar.surprise != null);
-  const beat = beats.filter((bar) => bar.surprise! > 0).length;
-
+  const colour = { beat: "var(--gain)", miss: "var(--loss)", pending: "var(--amber)", none: "var(--c6)" };
+  const data: ChartData = {
+    labels: bars.map((bar) => shortQuarter(bar.name)),
+    names: bars.map((bar) => `${bar.name}${bar.state === "pending" ? " · just released, GAAP from the 8-K" : bar.reported ? ` · reported ${shortDate(bar.reported)}` : bar.eps == null ? " · to come" : ""}`),
+    series: [
+      { spec: { id: "consensus", label: "Consensus", kind: "bar", axis: "left", color: "var(--ink-3)", value: () => null }, values: bars.map((bar) => bar.consensus) },
+      { spec: { id: "reported", label: "Reported EPS", kind: "bar", axis: "left", color: "var(--c6)", value: () => null }, values: bars.map((bar) => bar.eps), colors: bars.map((bar) => colour[bar.state]) },
+      { spec: { id: "surprise", label: "Surprise (right)", kind: "line", axis: "right", color: "var(--c5)", value: () => null }, values: bars.map((bar) => (bar.surprise == null ? null : bar.surprise / 100)) },
+    ],
+  };
+  const preset: Preset = { id: "eps-consensus", title: "Earnings per share against the consensus", left: "perShare", right: "percent", series: data.series.map((entry) => entry.spec) };
   return (
-    <figure className="eps-chart">
-      <figcaption>
-        <span>EPS against the consensus</span>
-        {beats.length ? <span>beat {beat} of {beats.length}</span> : null}
-      </figcaption>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Earnings per share against the analysts' consensus, by quarter">
-        <line x1={0} x2={width} y1={y(0)} y2={y(0)} className="eps-axis" />
-        {bars.map((bar, index) => {
-          const x = index * slot;
-          const outer = Math.min(34, slot * 0.7);
-          const inner = outer * 0.56;
-          const state = bar.pending ? "pending" : bar.surprise == null ? "none" : bar.surprise >= 0 ? "beat" : "miss";
-          return (
-            <g key={bar.name}>
-              <title>{`${bar.name}: ${bar.eps == null ? "not reported yet" : `${price(bar.eps, currency)}${bar.pending ? " (GAAP, from the release)" : ""}`} · consensus ${price(bar.consensus, currency)}${bar.surprise == null ? "" : ` · ${bar.surprise >= 0 ? "+" : "−"}${Math.abs(bar.surprise).toFixed(1)}%`}`}</title>
-              {bar.consensus != null ? (
-                <rect x={x + (slot - outer) / 2} width={outer} y={Math.min(y(bar.consensus), y(0))} height={Math.max(1, Math.abs(y(bar.consensus) - y(0)))} className="eps-consensus" />
-              ) : null}
-              {bar.eps != null ? (
-                <rect x={x + (slot - inner) / 2} width={inner} y={Math.min(y(bar.eps), y(0))} height={Math.max(1, Math.abs(y(bar.eps) - y(0)))} className="eps-actual" data-state={state} />
-              ) : null}
-              {bar.surprise != null ? (
-                <text x={x + slot / 2} y={Math.max(10, Math.min(y(bar.eps ?? 0), y(bar.consensus ?? 0)) - 5)} className="eps-label" data-state={state}>
-                  {`${bar.surprise >= 0 ? "+" : "−"}${Math.abs(bar.surprise).toFixed(1)}%`}
-                </text>
-              ) : null}
-              <text x={x + slot / 2} y={height - 4} className="eps-tick">{bar.name.replace(/ 20(\d\d)$/, " ’$1")}</text>
-            </g>
-          );
-        })}
-      </svg>
-      <p className="eps-note">Outline: the consensus before the release. Bar: earnings per share as Zacks scores them (adjusted){pending ? "; amber, the quarter just released, GAAP from the release" : ""}. The last outline is the coming quarter.</p>
+    <figure className="t-gf-card t-ee-chart">
+      <figcaption><h3>EPS against the consensus · by quarter</h3></figcaption>
+      <ComboChart preset={preset} data={data} currency={currency} height={220} />
+      <ul className="t-gf-legend">
+        <li data-kind="bar" style={{ "--key": "var(--ink-3)" } as CSSProperties}><i aria-hidden="true" />Consensus</li>
+        <li data-kind="bar" style={{ "--key": "var(--gain)" } as CSSProperties}><i aria-hidden="true" />Beat</li>
+        <li data-kind="bar" style={{ "--key": "var(--loss)" } as CSSProperties}><i aria-hidden="true" />Missed</li>
+        {pending ? <li data-kind="bar" style={{ "--key": "var(--amber)" } as CSSProperties}><i aria-hidden="true" />Just released (GAAP)</li> : null}
+        <li data-kind="line" style={{ "--key": "var(--c5)" } as CSSProperties}><i aria-hidden="true" />Surprise</li>
+      </ul>
+      <p className="t-study-note">Reported EPS as Zacks scores it (adjusted), against the consensus before the release, as Nasdaq publishes both. The last bar is the coming quarter&apos;s consensus.</p>
     </figure>
   );
 }

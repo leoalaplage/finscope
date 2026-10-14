@@ -217,7 +217,7 @@ export function ComboChart({ preset, data, currency, height }: { preset: Preset;
                   if (value == null) return null;
                   const y = yOf(value, axis);
                   const x = centre(index) - group / 2 + barIndex * (barWidth + (bars.length > 1 ? 1 : 0)) + (bars.length > 1 ? 0.5 : (group - barWidth) / 2);
-                  return <rect key={index} x={x} y={Math.min(y, base)} width={barWidth} height={Math.max(1, Math.abs(base - y))} rx={Math.min(2, barWidth / 4)} opacity={hover == null || hover === index ? 1 : 0.55} />;
+                  return <rect key={index} x={x} y={Math.min(y, base)} width={barWidth} height={Math.max(1, Math.abs(base - y))} rx={Math.min(2, barWidth / 4)} fill={entry.colors?.[index] ?? undefined} opacity={hover == null || hover === index ? 1 : 0.55} />;
                 })}
               </g>
             );
@@ -251,7 +251,7 @@ export function ComboChart({ preset, data, currency, height }: { preset: Preset;
           <b>{data.names[hover]}</b>
           {data.series.map((entry) => (
             <span key={entry.spec.id}>
-              <i style={{ background: entry.spec.color }} />
+              <i style={{ background: entry.colors?.[hover] ?? entry.spec.color }} />
               {entry.spec.label}
               <em>{formatUnit(entry.values[hover], entry.spec.axis === "right" ? preset.right ?? preset.left : preset.left, currency)}</em>
             </span>
