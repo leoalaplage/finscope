@@ -634,12 +634,18 @@ body:has(.io.term) { background: #050608; }
 .t-movers td.key a { color: var(--amber); font-weight: 600; }
 .t-quotes td.key { white-space: nowrap; }
 
-.t-curve { display: block; width: calc(100% - 16px); height: 150px; margin: 4px 8px; }
+.t-curve { display: block; width: calc(100% - 16px); height: 168px; margin: 4px 8px 0; }
 .t-curve-now { fill: none; stroke: var(--cyan); stroke-width: 2; }
 .t-curve-before { fill: none; stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 4 3; }
 .t-curve-dot { fill: var(--cyan); }
 .t-curve-axis { fill: var(--ink-3); font: 10px var(--mono); }
 .t-curve-value { fill: var(--ink); font: 10px var(--mono); }
+.t-curve-change { fill: var(--ink-3); font: 9px var(--mono); }
+.t-curve-change[data-dir="up"] { fill: var(--gain); }
+.t-curve-change[data-dir="down"] { fill: var(--loss); }
+.t-curve-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 2px 8px 6px; color: var(--ink-2); font-size: var(--fs-micro); }
+.t-curve-key-now, .t-curve-key-before { display: inline-block; width: 14px; height: 0; border-top: 2px solid var(--cyan); }
+.t-curve-key-before { border-top: 1px dashed var(--ink-3); }
 
 /* --- Narrower screens ---------------------------------------------------- */
 

@@ -147,3 +147,16 @@ describe("caching market answers", () => {
     setRuntimeBindings({});
   });
 });
+
+describe("the Treasury curve against a month ago", () => {
+  it("reads every maturity a day carries and finds the curve a month before the latest", async () => {
+    const { curveAndMonthAgo, parseTreasuryCurves } = await import("../lib/macro");
+    const entry = (date: string, ten: number) => `<entry><content><m:properties><d:NEW_DATE m:type="Edm.DateTime">${date}T00:00:00</d:NEW_DATE><d:BC_3MONTH m:type="Edm.Double">4.1</d:BC_3MONTH><d:BC_2YEAR m:type="Edm.Double">3.9</d:BC_2YEAR><d:BC_10YEAR m:type="Edm.Double">${ten}</d:BC_10YEAR><d:BC_30YEAR m:type="Edm.Double">4.9</d:BC_30YEAR></m:properties></content></entry>`;
+    const curves = parseTreasuryCurves(`<feed>${entry("2026-09-10", 4.3)}${entry("2026-09-14", 4.4)}${entry("2026-10-14", 4.6)}</feed>`);
+    expect(curves.map((curve) => curve.date)).toEqual(["2026-09-10", "2026-09-14", "2026-10-14"]);
+    expect(curves[2].points.map((point) => point.label)).toEqual(["3M", "2Y", "10Y", "30Y"]);
+    const pair = curveAndMonthAgo(curves)!;
+    expect(pair.now.date).toBe("2026-10-14");
+    expect(pair.monthAgo?.date).toBe("2026-09-14");
+  });
+});

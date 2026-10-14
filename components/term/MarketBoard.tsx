@@ -10,6 +10,7 @@ import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import type { Study } from "@/lib/io/technicals";
 import { AreaPrice } from "./AreaPrice";
 import type { MarketWindow } from "@/lib/adapters/intraday";
+import type { TreasuryCurve } from "@/lib/macro";
 import { areaFromCandles, areaFromWindow } from "@/lib/term/area-price";
 import { nextRank, ranked, type Rank } from "@/lib/term/rank";
 import { Heatmap } from "./Heatmap";
@@ -164,36 +165,67 @@ const writeMarketStyle = (style: MarketStyle) => {
   window.dispatchEvent(new Event(MARKET_STYLE_EVENT));
 };
 
-/** Today's US curve, and yesterday's from today's change, so a steepening is a shape. */
-function YieldCurve({ rates }: { rates: MarketRow[] }) {
-  const tenors = [["US3M", 0.25, "3M"], ["US5Y", 5, "5Y"], ["US10Y", 10, "10Y"], ["US30Y", 30, "30Y"]] as const;
-  const points = tenors.flatMap(([id, years, label]) => {
-    const row = rates.find((item) => item.id === id);
-    return row?.last != null ? [{ years, label, now: row.last, before: row.changeBasisPoints != null ? row.last - row.changeBasisPoints / 100 : null }] : [];
-  });
-  if (points.length < 2) return <p className="t-empty">No US curve today.</p>;
-  const values = points.flatMap((point) => [point.now, point.before ?? point.now]);
+/**
+ * The US Treasury curve today against a month ago, every maturity from one
+ * month to thirty years, from the Treasury's own feed (app/api/yield-curve):
+ * a day's move barely shows, a month's is a shape — steepening, flattening,
+ * the short end falling ahead of a cut. The change in basis points under each
+ * maturity.
+ */
+function YieldCurve() {
+  const [answer, setAnswer] = useState<{ now: TreasuryCurve; monthAgo: TreasuryCurve | null } | null | undefined>(undefined);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/yield-curve", { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() as Promise<{ now: TreasuryCurve; monthAgo: TreasuryCurve | null } | null> : null))
+      .then((body) => { if (!controller.signal.aborted) setAnswer(body); })
+      .catch(() => { if (!controller.signal.aborted) setAnswer(null); });
+    return () => controller.abort();
+  }, []);
+  if (answer === undefined) return <p className="t-empty">Reading the Treasury curve…</p>;
+  if (!answer || answer.now.points.length < 2) return <p className="t-empty">The Treasury curve could not be read just now.</p>;
+  const before = new Map((answer.monthAgo?.points ?? []).map((point) => [point.label, point.value]));
+  const points = answer.now.points.map((point) => ({ ...point, before: before.get(point.label) ?? null }));
+  const values = points.flatMap((point) => [point.value, point.before ?? point.value]);
   const low = Math.min(...values) - 0.1;
   const high = Math.max(...values) + 0.1;
   const W = 400;
-  const H = 150;
+  const H = 168;
   // Maturity on a square-root scale, the usual compromise between months and decades.
-  const x = (years: number) => 30 + (Math.sqrt(years) / Math.sqrt(30)) * (W - 50);
-  const y = (value: number) => 10 + (1 - (value - low) / (high - low)) * (H - 30);
+  const x = (years: number) => 22 + (Math.sqrt(years) / Math.sqrt(30)) * (W - 40);
+  const y = (value: number) => 18 + (1 - (value - low) / (high - low)) * (H - 52);
   const line = (pick: (point: (typeof points)[number]) => number | null) =>
-    points.filter((point) => pick(point) != null).map((point, index) => `${index ? "L" : "M"}${x(point.years)} ${y(pick(point)!)}`).join("");
+    points.filter((point) => pick(point) != null).map((point, index) => `${index ? "L" : "M"}${x(point.years).toFixed(1)} ${y(pick(point)!).toFixed(1)}`).join("");
+  // Labels where they do not collide: the short end is crowded on a square-root scale.
+  const labelled = new Set(["1M", "6M", "2Y", "5Y", "10Y", "30Y"]);
   return (
-    <svg className="t-curve" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="US Treasury yield curve, today and the day before">
-      <path d={line((point) => point.before)} className="t-curve-before" />
-      <path d={line((point) => point.now)} className="t-curve-now" />
-      {points.map((point) => (
-        <g key={point.label}>
-          <circle cx={x(point.years)} cy={y(point.now)} r={3} className="t-curve-dot" />
-          <text x={x(point.years)} y={H - 4} textAnchor="middle" className="t-curve-axis">{point.label}</text>
-          <text x={x(point.years)} y={y(point.now) - 7} textAnchor="middle" className="t-curve-value">{point.now.toFixed(2)}</text>
-        </g>
-      ))}
-    </svg>
+    <div className="t-curve-wrap">
+      <svg className="t-curve" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`US Treasury yield curve on ${answer.now.date}${answer.monthAgo ? ` and on ${answer.monthAgo.date}` : ""}`}>
+        {answer.monthAgo ? <path d={line((point) => point.before)} className="t-curve-before" /> : null}
+        <path d={line((point) => point.value)} className="t-curve-now" />
+        {points.map((point) => {
+          const change = point.before == null ? null : Math.round((point.value - point.before) * 100);
+          return (
+            <g key={point.label}>
+              <title>{`${point.label}: ${point.value.toFixed(2)}%${change == null ? "" : ` · ${change >= 0 ? "+" : "−"}${Math.abs(change)} bp on a month`}`}</title>
+              <circle cx={x(point.years)} cy={y(point.value)} r={2.6} className="t-curve-dot" />
+              {labelled.has(point.label) ? (
+                <>
+                  <text x={x(point.years)} y={y(point.value) - 7} textAnchor="middle" className="t-curve-value">{point.value.toFixed(2)}</text>
+                  <text x={x(point.years)} y={H - 18} textAnchor="middle" className="t-curve-axis">{point.label}</text>
+                  {change != null ? <text x={x(point.years)} y={H - 5} textAnchor="middle" className="t-curve-change" data-dir={change > 0 ? "up" : change < 0 ? "down" : undefined}>{`${change > 0 ? "+" : change < 0 ? "−" : ""}${Math.abs(change)}`}</text> : null}
+                </>
+              ) : null}
+            </g>
+          );
+        })}
+      </svg>
+      <p className="t-curve-legend">
+        <span className="t-curve-key-now" />{answer.now.date}
+        {answer.monthAgo ? <><span className="t-curve-key-before" />{answer.monthAgo.date}</> : null}
+        <span className="t-dim"> · change in basis points under each maturity · U.S. Treasury par curve</span>
+      </p>
+    </div>
   );
 }
 
@@ -396,8 +428,8 @@ export function MarketBoard() {
         <Panel code="CMDTY" title="Commodities" actions={<RankChip rank={rankOf("cmdty")} onRank={setRank("cmdty")} />}>
           <QuoteTable rows={group("commodities")} label="Commodities" rank={rankOf("cmdty")} />
         </Panel>
-        <Panel code="GC" title="US yield curve · today vs yesterday">
-          <YieldCurve rates={group("rates")} />
+        <Panel code="GC" title="US yield curve · today vs 1 month ago">
+          <YieldCurve />
         </Panel>
       </div>
 

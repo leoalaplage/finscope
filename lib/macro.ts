@@ -179,6 +179,41 @@ export function parseTreasuryHistory(xml: string, series: TreasurySeriesId): Mac
   }).sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/** The maturities of the Treasury's daily par curve, as its feed names them. */
+export const CURVE_TENORS: Array<{ field: string; label: string; years: number }> = [
+  { field: "BC_1MONTH", label: "1M", years: 1 / 12 }, { field: "BC_3MONTH", label: "3M", years: 0.25 },
+  { field: "BC_6MONTH", label: "6M", years: 0.5 }, { field: "BC_1YEAR", label: "1Y", years: 1 },
+  { field: "BC_2YEAR", label: "2Y", years: 2 }, { field: "BC_3YEAR", label: "3Y", years: 3 },
+  { field: "BC_5YEAR", label: "5Y", years: 5 }, { field: "BC_7YEAR", label: "7Y", years: 7 },
+  { field: "BC_10YEAR", label: "10Y", years: 10 }, { field: "BC_20YEAR", label: "20Y", years: 20 },
+  { field: "BC_30YEAR", label: "30Y", years: 30 },
+];
+
+export interface TreasuryCurve { date: string; points: Array<{ label: string; years: number; value: number }> }
+
+/** Every day's whole curve in a Treasury feed, oldest first; a maturity the day does not carry is left out. */
+export function parseTreasuryCurves(xml: string): TreasuryCurve[] {
+  return [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].flatMap((entry) => {
+    const body = entry[1];
+    const date = body.match(/<d:NEW_DATE[^>]*>(\d{4}-\d{2}-\d{2})T/)?.[1];
+    if (!date) return [];
+    const points = CURVE_TENORS.flatMap((tenor) => {
+      const value = Number(body.match(new RegExp(`<d:${tenor.field}[^>]*>([^<]+)</`))?.[1]);
+      return Number.isFinite(value) ? [{ label: tenor.label, years: tenor.years, value }] : [];
+    });
+    return points.length >= 4 ? [{ date, points }] : [];
+  }).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** The latest curve and the one closest to a month before it, on or before. */
+export function curveAndMonthAgo(curves: TreasuryCurve[]): { now: TreasuryCurve; monthAgo: TreasuryCurve | null } | null {
+  const now = curves.at(-1);
+  if (!now) return null;
+  const target = new Date(Date.parse(`${now.date}T12:00:00Z`) - 30 * 86_400_000).toISOString().slice(0, 10);
+  const monthAgo = [...curves].reverse().find((curve) => curve.date <= target) ?? null;
+  return { now, monthAgo };
+}
+
 /** Read the latest complete curve from the Treasury's Atom XML feed. */
 export function parseTreasuryRates(xml: string): TreasuryRates | null {
   const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)];
