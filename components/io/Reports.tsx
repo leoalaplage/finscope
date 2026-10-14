@@ -22,7 +22,11 @@ const growthText = (value: number | null) => (value != null && Math.abs(value) >
 
 interface Inputs { key: string; releases: string[] | null; candles: Candles | null; estimates: Estimates | null }
 
-export function Reports({ view }: { view: IoCompanyView }) {
+/**
+ * `besideEarnings`: on the terminal, where EE already states the beat rate and
+ * ERX the average move, the strip does not state them a second time.
+ */
+export function Reports({ view, besideEarnings = false }: { view: IoCompanyView; besideEarnings?: boolean }) {
   const { ticker, cik } = view.company;
   const key = `${ticker}:${cik}`;
   const [inputs, setInputs] = useState<Inputs | null>(null);
@@ -62,8 +66,8 @@ export function Reports({ view }: { view: IoCompanyView }) {
     <section className="section reports" aria-label="Quarterly reports">
       <div className="grid-ruled stats reports-strip">
         <Figure label="Last quarter · revenue" value={pct(rows[0].revenueYoy)} tone={dir(rows[0].revenueYoy)} note={`${rows[0].label}, on the same quarter a year before`} />
-        <Figure label="Beat the consensus" value={surprised.length ? `${beats.length} of ${surprised.length}` : ABSENT} note="Adjusted EPS against the consensus, the quarters Nasdaq lists" />
-        <Figure label="Average move · 3 sessions" value={moves.length ? `±${((moves.reduce((sum, row) => sum + Math.abs(row.move3d!), 0) / moves.length) * 100).toFixed(1)}%` : ABSENT} note={`${moves.length} releases`} />
+        {besideEarnings ? null : <Figure label="Beat the consensus" value={surprised.length ? `${beats.length} of ${surprised.length}` : ABSENT} note="Adjusted EPS against the consensus, the quarters Nasdaq lists" />}
+        {besideEarnings ? null : <Figure label="Average move · 3 sessions" value={moves.length ? `±${((moves.reduce((sum, row) => sum + Math.abs(row.move3d!), 0) / moves.length) * 100).toFixed(1)}%` : ABSENT} note={`${moves.length} releases`} />}
         <Figure label="After a beat · a miss" value={`${pct(afterBeat)} · ${pct(afterMiss)}`} note="Average move from the close before the release" />
       </div>
       <div className="reports-grid">

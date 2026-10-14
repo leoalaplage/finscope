@@ -231,7 +231,7 @@ export function EarningsBoard({ view, lastFiled }: { view: IoCompanyView; lastFi
           <div><dt>Beat the consensus</dt><dd>{scored.length ? `${beats} of ${scored.length} quarters` : ABSENT}</dd></div>
           <div><dt>Average surprise</dt><dd data-dir={tone(average)}>{signed(average)}</dd></div>
           <div><dt>Next quarter</dt><dd>{next ? `${next.fiscalEnd} · ${price(next.consensus, currency)}` : ABSENT}</dd></div>
-          {next?.analysts ? <div><dt>Analysts</dt><dd>{next.analysts}{next.up || next.down ? ` · ${next.up ?? 0}↑ ${next.down ?? 0}↓ in 4 weeks` : ""}</dd></div> : null}
+          <div><dt>Quarters scored</dt><dd>{scored.length || ABSENT}</dd></div>
         </dl>
       </div>
       <EpsChart history={history} pending={pending} currency={currency} />

@@ -281,8 +281,8 @@ body:has(.io.term) { background: #050608; }
   "gf gf gf gf gf gf gf gf gf gf gf gf"
   "c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res"
   "ee ee ee ee ee ee ee ee ee ee ee ee"
-  "rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt"
   "est est est est est est est est est est est est"
+  "rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt"
   "left left left left left left right right right right right right"
   "c-val c-val c-val c-val c-val c-val c-val c-val c-val c-val c-val c-val"
   "val val val val val val val val val val val val"
@@ -295,10 +295,9 @@ body:has(.io.term) { background: #050608; }
 }
 
 /* A chapter of the company page (components/term/TermCompany.tsx). */
-.t-chapter { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-top: 10px; padding: 6px 8px 4px; border-bottom: 1px solid var(--amber-dim); }
-.t-chapter b { color: var(--amber-ink); background: var(--amber); padding: 0 6px; font-size: var(--fs-xs); font-weight: 700; }
-.t-chapter-title { color: var(--amber); font-size: var(--fs-sm); font-weight: 700; text-transform: uppercase; letter-spacing: var(--track-label); }
-.t-chapter-note { color: var(--ink-3); font-size: var(--fs-xs); }
+.t-chapter { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 0 8px 2px; }
+.t-chapter::after { content: ""; flex: 1; height: 1px; background: var(--line-strong, var(--line)); }
+.t-chapter-title { color: var(--ink-2); font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: var(--track-label); }
 .t-company > .t-chapter:first-child { margin-top: 0; }
 
 /*
@@ -651,8 +650,8 @@ body:has(.io.term) { background: #050608; }
     "gf gf gf gf gf gf gf gf gf gf gf gf"
     "c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res c-res"
     "ee ee ee ee ee ee ee ee ee ee ee ee"
-    "rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt"
     "est est est est est est est est est est est est"
+    "rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt rpt"
     "left left left left left left left left left left left left"
     "right right right right right right right right right right right right"
     "c-val c-val c-val c-val c-val c-val c-val c-val c-val c-val c-val c-val"

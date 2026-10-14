@@ -137,7 +137,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
       <ReleaseStrip view={view} />
 
       <div className="t-grid t-company">
-        <Chapter area="c-top" number={1} title="Snapshot" note="the price, the key numbers, the verdict, the latest results" />
+        <Chapter area="c-top" number={1} title="Snapshot" />
         <Panel code="GP" area="gp" className="t-fill t-gp">
           <PriceSection
             ticker={company.ticker}
@@ -212,8 +212,8 @@ export function TermCompany({ ticker }: { ticker: string }) {
           * what it is worth, who owns it, and every filed line last. Each
           * chapter is headed, so the thread is visible as well as followed.
           */}
-        <Chapter area="c-biz" number={2} title="The business" note="what it sells, what it earns, how it has grown" />
-        <Panel code="SEG" title="Segments · revenue, margin and backlog by slice, as filed" area="seg">
+        <Chapter area="c-biz" number={2} title="Business" />
+        <Panel code="SEG" title="Segments" area="seg">
           <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
         </Panel>
         {/* The figures and their growth side by side, one height: twelve small multiples fill the figures' half as the growth table fills its own. */}
@@ -227,15 +227,15 @@ export function TermCompany({ ticker }: { ticker: string }) {
           <FundamentalCharts key={`gf-${company.ticker}`} view={view} />
         </Panel>
 
-        <Chapter area="c-res" number={3} title="The results" note="what it reported, what is expected, how the stock takes them" />
-        <Panel code="EE" title="Earnings · the latest release and the consensus, quarter by quarter" area="ee">
+        <Chapter area="c-res" number={3} title="Results" />
+        <Panel code="EE" title="Latest quarter" area="ee">
           <EarningsBoard key={`ee-${company.ticker}`} view={view} lastFiled={lastFiled ? { label: lastFiled.label, filingDate: lastFiled.filingDate } : null} />
         </Panel>
-        <Panel code="RPT" title="Quarterly reports · filed figures, surprise and the stock's reaction" area="rpt">
-          <Reports key={`rpt-${company.ticker}`} view={view} />
-        </Panel>
-        <Panel code="EST" title="Analysts' estimates · forecasts, not filings" area="est">
+        <Panel code="EST" title="Estimates" area="est">
           <Estimates key={`est-${company.ticker}`} ticker={company.ticker} price={quote?.price ?? null} currency={quote?.currency ?? company.currency} />
+        </Panel>
+        <Panel code="RPT" title="Quarterly history" area="rpt">
+          <Reports key={`rpt-${company.ticker}`} view={view} besideEarnings />
         </Panel>
         {/*
           * Two stacks rather than two rows: a short panel beside a tall one left
@@ -243,26 +243,26 @@ export function TermCompany({ ticker }: { ticker: string }) {
           * last panel of each stack takes the difference.
           */}
         <div className="t-mcol" style={{ gridArea: "left" }}>
-          <Panel code="ERX" title="Earnings reaction · last 12 releases">
+          <Panel code="ERX" title="Reaction to releases">
             <EarningsReaction key={`erx-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
           </Panel>
         </div>
         <div className="t-mcol" style={{ gridArea: "right" }}>
-          <Panel code="SEAS" title="Seasonality · monthly returns">
+          <Panel code="SEAS" title="Seasonality">
             <Seasonality key={`seas-${company.ticker}`} symbol={company.ticker} />
           </Panel>
         </div>
 
-        <Chapter area="c-val" number={4} title="The valuation" note="what it costs against its own history, and what the cash is worth" />
-        <Panel code="VAL" title="Valuation multiples · through time, against their own range" area="val">
+        <Chapter area="c-val" number={4} title="Valuation" />
+        <Panel code="VAL" title="Valuation multiples" area="val">
           {/* The multiples through time, each against its own median and range. */}
           <ValuationCharts key={`valc-${company.ticker}`} view={view} quote={valuationQuote} />
         </Panel>
-        <Panel code="DCF" title="Discounted cash flow · the value of the cash, against the price" area="dcf">
+        <Panel code="DCF" title="Discounted cash flow" area="dcf">
           <DcfModel key={`dcf-${company.ticker}`} view={view} quote={valuationQuote} />
         </Panel>
 
-        <Chapter area="c-own" number={5} title="Ownership" note="who buys, who sells, who holds" />
+        <Chapter area="c-own" number={5} title="Ownership" />
         <Panel code="INS" area="ins">
           <Insiders key={`insiders-${company.ticker}`} state={insiderState} />
         </Panel>
@@ -270,7 +270,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
           <Holders key={`holders-${company.ticker}`} ticker={company.ticker} view={view} />
         </Panel>
 
-        <Chapter area="c-acc" number={6} title="The accounts" note="every filed line, year by year" />
+        <Chapter area="c-acc" number={6} title="Accounts" />
         <Panel code="FS" area="st">
           <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
         </Panel>
@@ -289,12 +289,10 @@ export function TermCompany({ ticker }: { ticker: string }) {
 }
 
 /** A chapter of the company page: a numbered band across the grid. */
-function Chapter({ area, number, title, note }: { area: string; number: number; title: string; note: string }) {
+function Chapter({ area, number, title }: { area: string; number: number; title: string }) {
   return (
     <div className="t-chapter" style={{ gridArea: area }} role="separator" aria-label={`${number}. ${title}`}>
-      <b>{number}</b>
       <span className="t-chapter-title">{title}</span>
-      <span className="t-chapter-note">{note}</span>
     </div>
   );
 }

@@ -171,7 +171,7 @@ export function Company({ ticker }: { ticker: string }) {
         * The chart is the top of a company, and a measure chosen below has to
         * have somewhere to be drawn.
         */}
-      <Chapter number={1} title="Snapshot" note="the price, the key numbers, the verdict" />
+      <Chapter number={1} title="Snapshot" />
       <PriceSection
         ticker={company.ticker}
         currency={quote?.currency ?? company.currency}
@@ -210,7 +210,7 @@ export function Company({ ticker }: { ticker: string }) {
           {openDetail === "growth" ? <FcfShareGrowth view={view} /> : null}
         </>}
 
-      <Chapter number={2} title="The business" note="what it sells, what it earns, how it has grown" />
+      <Chapter number={2} title="Business" />
       {/* The company in slices, as filed (components/io/Segments.tsx). */}
       <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
       {/*
@@ -220,25 +220,25 @@ export function Company({ ticker }: { ticker: string }) {
       <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range="MAX" frequency="ttm" />
       <Growth view={view} selected={selectedMetrics} onSelect={selectMetric} />
       <section className="section-panel" aria-label="Fundamental charts">
-        <h3>Fundamental charts <span>· ten years, trailing twelve months</span></h3>
+        <h3>Fundamental charts</h3>
         <FundamentalCharts key={`gf-${company.ticker}`} view={view} />
       </section>
 
-      <Chapter number={3} title="The results" note="what it reported, and what is expected" />
-      {/* Each quarter as filed, against the consensus, and how the stock took it (components/io/Reports.tsx). */}
-      <Reports key={`rpt-${company.ticker}`} view={view} />
+      <Chapter number={3} title="Results" />
       {/* What analysts expect, labelled as forecasts (components/io/Estimates.tsx). */}
       <Estimates key={`est-${company.ticker}`} ticker={company.ticker} price={quote?.price ?? null} currency={quote?.currency ?? company.currency} />
+      {/* Each quarter as filed, against the consensus, and how the stock took it (components/io/Reports.tsx). */}
+      <Reports key={`rpt-${company.ticker}`} view={view} />
 
-      <Chapter number={4} title="The valuation" note="what it costs against its own history, and what the cash is worth" />
+      <Chapter number={4} title="Valuation" />
       {/* The multiples through time, each against its own median and range. */}
       <ValuationCharts key={`valc-${company.ticker}`} view={view} quote={valuationQuote} />
       <section className="section-panel" id="dcf" aria-label="Discounted cash flow">
-        <h3>Discounted cash flow <span>· the value of the cash, against the price</span></h3>
+        <h3>Discounted cash flow</h3>
         <DcfModel key={`dcf-${company.ticker}`} view={view} quote={valuationQuote} />
       </section>
 
-      <Chapter number={5} title="Ownership" note="who buys, who sells, who holds" />
+      <Chapter number={5} title="Ownership" />
       {/*
         * Each keyed by the company, so moving to another starts it over rather
         * than leaving one filer's insiders under another's name.
@@ -246,7 +246,7 @@ export function Company({ ticker }: { ticker: string }) {
       <Fold title="Insider dealing"><Insiders key={`insiders-${company.ticker}`} state={insiderState} /></Fold>
       <Fold title="Institutional holders"><Holders key={`holders-${company.ticker}`} ticker={company.ticker} view={view} /></Fold>
 
-      <Chapter number={6} title="The accounts" note="every filed line, year by year" />
+      <Chapter number={6} title="Accounts" />
       <Fold title="Statements">
         <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
       </Fold>
@@ -263,13 +263,11 @@ export function Company({ ticker }: { ticker: string }) {
   );
 }
 
-/** A chapter's heading: its number, its name and what it answers. */
-function Chapter({ number, title, note }: { number: number; title: string; note: string }) {
+/** A chapter's heading: its name, over a rule. */
+function Chapter({ number, title }: { number: number; title: string }) {
   return (
     <div className="chapter" role="separator" aria-label={`${number}. ${title}`}>
-      <span className="chapter-number">{String(number).padStart(2, "0")}</span>
       <h2 className="chapter-title">{title}</h2>
-      <p className="chapter-note">{note}</p>
     </div>
   );
 }

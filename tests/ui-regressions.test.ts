@@ -671,7 +671,7 @@ describe("the redesign", () => {
     expect(series).toContain("published=1");
     // "What it costs" and "What it returns" gave way to the multiples' own charts, as on the terminal.
     expect(company).not.toContain("<ValuationHistory");
-    expect(company.indexOf("<ValuationCharts")).toBeGreaterThan(company.indexOf('title="The valuation"'));
+    expect(company.indexOf("<ValuationCharts")).toBeGreaterThan(company.indexOf('title="Valuation"'));
     expect(company.indexOf("<DcfModel")).toBeGreaterThan(company.indexOf("<ValuationCharts"));
   });
 
@@ -793,7 +793,7 @@ describe("the redesign", () => {
   it("reads a company in six chapters, the terminal's order, with no newsroom", () => {
     const company = companyPage();
     const terminal = readFileSync(new URL("../components/term/TermCompany.tsx", import.meta.url), "utf8");
-    const titles = ["Snapshot", "The business", "The results", "The valuation", "Ownership", "The accounts"];
+    const titles = ["Snapshot", "Business", "Results", "Valuation", "Ownership", "Accounts"];
     const at = (source: string) => titles.map((title) => source.indexOf(`title="${title}"`));
     // Both pages hold every chapter, in the same order.
     for (const positions of [at(company), at(terminal)]) {
@@ -803,7 +803,7 @@ describe("the redesign", () => {
     // The newsroom panel was removed from both pages.
     expect(company).not.toContain("CompanyNews");
     expect(terminal).not.toContain("CompanyNews");
-    expect(company.indexOf("<Statements view={view}")).toBeGreaterThan(company.indexOf('title="The accounts"'));
+    expect(company.indexOf("<Statements view={view}")).toBeGreaterThan(company.indexOf('title="Accounts"'));
   });
 
   it("puts an official, date-explicit macro snapshot below the market indices", () => {

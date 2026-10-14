@@ -35,10 +35,10 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   { code: "GR", name: "Growth", chapter: 2 },
   { code: "GF", name: "Fundamental charts", chapter: 2 },
   // 3 · The results
-  { code: "EE", name: "Earnings and the consensus", chapter: 3 },
-  { code: "RPT", name: "Quarterly reports", chapter: 3 },
-  { code: "EST", name: "Analysts' estimates", chapter: 3 },
-  { code: "ERX", name: "Earnings reaction", chapter: 3 },
+  { code: "EE", name: "Latest quarter", chapter: 3 },
+  { code: "EST", name: "Estimates", chapter: 3 },
+  { code: "RPT", name: "Quarterly history", chapter: 3 },
+  { code: "ERX", name: "Reaction to releases", chapter: 3 },
   { code: "SEAS", name: "Seasonality", chapter: 3 },
   // 4 · The valuation
   { code: "VAL", name: "Valuation multiples", chapter: 4 },
