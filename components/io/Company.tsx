@@ -14,6 +14,7 @@ import { CompanyEvents } from "./CompanyEvents";
 import { Dividends } from "./Dividends";
 import { PeerValuation } from "./PeerValuation";
 import { DebtMaturities } from "./DebtMaturities";
+import { ThesisNotes } from "./ThesisNotes";
 import { GrowthYield } from "./GrowthYield";
 import { LenderReading } from "./LenderReading";
 import { Estimates } from "./Estimates";
@@ -215,6 +216,7 @@ export function Company({ ticker }: { ticker: string }) {
         </>}
 
       {/* What the company has announced, by the SEC's own categories (components/io/CompanyEvents.tsx). */}
+      <Fold title="Your notes"><ThesisNotes key={`note-${company.ticker}`} view={view} quote={quote} /></Fold>
       <Fold title="Corporate events"><CompanyEvents key={`evt-${company.ticker}`} ticker={company.ticker} cik={company.cik} /></Fold>
 
       <Chapter number={2} title="Business" />

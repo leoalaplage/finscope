@@ -25,6 +25,7 @@ import { CompanyEvents } from "@/components/io/CompanyEvents";
 import { Dividends } from "@/components/io/Dividends";
 import { PeerValuation } from "@/components/io/PeerValuation";
 import { DebtMaturities } from "@/components/io/DebtMaturities";
+import { ThesisNotes } from "@/components/io/ThesisNotes";
 import { InsiderClusterBadge } from "./InsiderBuying";
 import { LenderReading } from "@/components/io/LenderReading";
 import { readsAsLender } from "@/lib/io/lender";
@@ -219,6 +220,10 @@ export function TermCompany({ ticker }: { ticker: string }) {
           */}
         <Panel code="EVT" title="Corporate events" area="evt">
           <div className="t-panel-pad"><CompanyEvents key={`evt-${company.ticker}`} ticker={company.ticker} cik={company.cik} /></div>
+        </Panel>
+
+        <Panel code="NOTE" title="Your notes" area="note">
+          <div className="t-panel-pad"><ThesisNotes key={`note-${company.ticker}`} view={view} quote={quote} /></div>
         </Panel>
 
         <Chapter area="c-biz" number={2} title="Business" />

@@ -235,3 +235,25 @@
 .peer-rank-track i { position: absolute; inset: 0 auto 0 0; background: var(--ink-3); }
 .peer-rank-track i[data-cheap] { background: var(--gain); }
 .peer-rank-track i[data-dear] { background: var(--loss); }
+
+/* NOTE: the reader's thesis (components/io/ThesisNotes.tsx). */
+.thesis { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; align-items: start; }
+.thesis-form { display: grid; gap: 8px; }
+.thesis-form textarea { width: 100%; resize: vertical; font: inherit; }
+.thesis-levels { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; }
+.thesis-levels label { display: grid; gap: 3px; color: var(--ink-3); font-size: var(--fs-micro, 10px); text-transform: uppercase; letter-spacing: .06em; }
+.thesis-levels input { width: 110px; }
+.thesis-save { margin-left: auto; }
+.thesis-list { display: grid; gap: 8px; max-height: 360px; overflow-y: auto; }
+.thesis-note { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.thesis-note header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: var(--fs-xs); }
+.thesis-note header [data-dir="up"] { color: var(--gain); }
+.thesis-note header [data-dir="down"] { color: var(--loss); }
+.thesis-note p { margin: 4px 0 0; white-space: pre-wrap; line-height: 1.45; }
+.thesis-stance { text-transform: uppercase; font-weight: 700; letter-spacing: .06em; }
+.thesis-stance[data-stance="buy"] { color: var(--gain); }
+.thesis-stance[data-stance="sell"] { color: var(--loss); }
+.thesis-stance[data-stance="hold"] { color: var(--c5, var(--ink-2)); }
+.thesis-delete { margin-left: auto; background: none; border: 0; color: var(--ink-3); cursor: pointer; font-size: 14px; }
+.thesis-delete:hover { color: var(--loss); }
+@media (max-width: 900px) { .thesis { grid-template-columns: minmax(0, 1fr); } }

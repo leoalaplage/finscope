@@ -7,7 +7,7 @@
  * where to go, this decides what was meant.
  */
 
-export type CompanyFunction = "DES" | "GP" | "EVT" | "FA" | "GR" | "GF" | "SEG" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "PEER" | "DCF" | "DVD" | "DDIS" | "FS" | "COMP";
+export type CompanyFunction = "DES" | "GP" | "EVT" | "NOTE" | "FA" | "GR" | "GF" | "SEG" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "PEER" | "DCF" | "DVD" | "DDIS" | "FS" | "COMP";
 export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "BT" | "ECAL" | "INSB" | "SET" | "HELP";
 
 export interface FunctionSpec<Code extends string> {
@@ -30,6 +30,7 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   { code: "DES", name: "Description", chapter: 1 },
   { code: "GP", name: "Price graph", chapter: 1 },
   { code: "EVT", name: "Corporate events", chapter: 1 },
+  { code: "NOTE", name: "Your notes", chapter: 1 },
   // 2 · The business
   { code: "SEG", name: "Segments", chapter: 2 },
   { code: "FA", name: "Financial analysis", chapter: 2 },
@@ -79,6 +80,7 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
   GIP: "GP", HP: "GP", G: "GP",
   FIN: "FA", FS: "FA",
   ERN: "EE", EARN: "EE",
+  NOTES: "NOTE", THESIS: "NOTE",
   DEBT: "DDIS", MATURITIES: "DDIS",
   PEERS: "PEER", REL: "PEER",
   DIV: "DVD", DIVIDENDS: "DVD", DVDH: "DVD",
