@@ -396,5 +396,9 @@ export const KEY_VERSION = "v47";
  *     filer is in the business of money — Cboe and CME earn fees and buy
  *     ordinary equipment, and their digests were withholding a decade of free
  *     cash flow their own company pages were already showing.
+ * s14: the price inputs carry earnings to common, book and tangible equity and
+ *     dividends, so a bank, a broker or an insurer has P/E, P/B, P/TBV, ROE and
+ *     a dividend yield in the screener's table and against its peers, where
+ *     EV/EBIT and EV/FCF are withheld. Recomputed from the stored dataset.
  */
-export const SUMMARY_SHAPE = "s13";
+export const SUMMARY_SHAPE = "s14";

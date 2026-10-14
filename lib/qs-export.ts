@@ -1,4 +1,4 @@
-import { cagrForPeriods, capitalAYearEarlier, derivedValue, liquidAssets, reportedDebt, returnOnAverageCapital, valueOf } from "./finance";
+import { cagrForPeriods, capitalAYearEarlier, derivedValue, earningsToCommon, liquidAssets, reportedDebt, returnOnAverageCapital, valueOf } from "./finance";
 import { shareCount, type SharesBasis } from "./market-basis";
 import { balanceSheetHealth } from "./statement-flows";
 import type { CompanyDataset, FinancialPeriod } from "./types";
@@ -225,7 +225,16 @@ export interface QsRow {
  * yesterday's close into today's score, which is the kind of quiet staleness
  * this application refuses everywhere else.
  */
-export interface QsPriceInputs { shares: number | null; sharesBasis: SharesBasis | null; currency: string | null; netDebt: number | null; operatingIncome: number | null; freeCashFlow: number | null }
+export interface QsPriceInputs {
+  shares: number | null; sharesBasis: SharesBasis | null; currency: string | null; netDebt: number | null; operatingIncome: number | null; freeCashFlow: number | null;
+  /**
+   * What a lender is priced on, where enterprise value and free cash flow mean
+   * nothing: trailing earnings to common, book equity, the same less goodwill
+   * and intangibles, and the dividends paid over the trailing year. Absent from
+   * digests built before s14.
+   */
+  earnings?: number | null; equity?: number | null; tangibleEquity?: number | null; dividends?: number | null;
+}
 
 export function qsPriceInputs(dataset: CompanyDataset): QsPriceInputs {
   const current = currentDatasetPeriod(dataset) ?? null;
@@ -240,10 +249,26 @@ export function qsPriceInputs(dataset: CompanyDataset): QsPriceInputs {
     netDebt: financial ? null : scoreNetDebt(dataset, current),
     operatingIncome: current ? derivedValue(current, "operatingIncome") : null,
     freeCashFlow: financial ? null : current ? derivedValue(current, "freeCashFlow") : null,
+    ...bookInputs(current),
   };
 }
 
-/** The four columns that need a price, from one definition used on both sides. */
+/** Earnings, book and dividends at the current period, for the multiples a lender is read on. */
+function bookInputs(current: FinancialPeriod | null): Pick<QsPriceInputs, "earnings" | "equity" | "tangibleEquity" | "dividends"> {
+  if (!current) return { earnings: null, equity: null, tangibleEquity: null, dividends: null };
+  const equity = valueOf(current, "totalEquity");
+  const goodwill = valueOf(current, "goodwill"); const intangibles = valueOf(current, "intangibleAssets");
+  const paid = valueOf(current, "dividendsPaid");
+  return {
+    earnings: earningsToCommon(current) ?? valueOf(current, "netIncome"),
+    equity,
+    // As the VAL panel strikes it (lib/io/valuation-multiples.ts).
+    tangibleEquity: equity == null ? null : equity - (goodwill ?? 0) - (intangibles ?? 0),
+    dividends: paid == null ? null : Math.abs(paid),
+  };
+}
+
+/** The columns that need a price, from one definition used on both sides. */
 export function qsValuationColumns(inputs: QsPriceInputs, price: number | null, priceCurrency?: string | null): Record<string, number | null> {
   // A price in another currency finishes nothing: the columns stay empty rather
   // than stating a dollar market capitalisation against a euro cash flow.
@@ -255,6 +280,12 @@ export function qsValuationColumns(inputs: QsPriceInputs, price: number | null, 
     "EV/EBIT": ratio(over(enterpriseValue, inputs.operatingIncome)),
     "EV/FCF": ratio(over(enterpriseValue, inputs.freeCashFlow)),
     "FCF Yield": percent(over(inputs.freeCashFlow, marketCap)),
+    // A lender's: earnings and book where enterprise value means nothing. A loss gives no P/E.
+    "P/E": ratio(over(marketCap, inputs.earnings != null && inputs.earnings > 0 ? inputs.earnings : null)),
+    "P/B": ratio(over(marketCap, inputs.equity ?? null)),
+    "P/TBV": ratio(over(marketCap, inputs.tangibleEquity ?? null)),
+    "Dividend Yield": percent(over(inputs.dividends ?? null, marketCap)),
+    ROE: percent(over(inputs.earnings ?? null, inputs.equity ?? null)),
   };
 }
 

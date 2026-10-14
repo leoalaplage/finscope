@@ -3,12 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
 import type { IoQuote } from "./quote";
-import { PEER_METRICS, type PeerMetricKey, type PeerTable } from "@/lib/peers";
+import { LENDER_PEER_METRICS, PEER_METRICS, type PeerMetricKey, type PeerTable } from "@/lib/peers";
 import { monthEnds, multipleSeries, multipleStats, type MultipleKey } from "@/lib/io/valuation-multiples";
 import { ABSENT, money } from "./format";
 
 /** The measures that have a history of their own here (lib/io/valuation-multiples.ts). */
-const HISTORY: Partial<Record<PeerMetricKey, MultipleKey>> = { "EV/EBIT": "evEbit", "EV/FCF": "evFcf", "FCF Yield": "fcfYield" };
+const HISTORY: Partial<Record<PeerMetricKey, MultipleKey>> = {
+  "EV/EBIT": "evEbit", "EV/FCF": "evFcf", "FCF Yield": "fcfYield",
+  "P/E": "pe", "P/B": "pb", "P/TBV": "ptb", "Dividend Yield": "dividendYield",
+};
 const write = (value: number | null | undefined, percent: boolean) =>
   value == null || !Number.isFinite(value) ? ABSENT : percent ? `${value.toFixed(1)}%` : `${value.toFixed(1)}×`;
 
@@ -56,6 +59,7 @@ export function PeerValuation({ view, quote }: { view: IoCompanyView; quote: IoQ
   if (!current) return <p className="t-empty">Setting the company against its sector…</p>;
   if (!current.table) return <p className="t-empty">This company is not in the S&amp;P 500, whose members are the peers here.</p>;
   const peers = current.table;
+  const specs = peers.lender ? LENDER_PEER_METRICS : PEER_METRICS;
 
   return (
     <div className="peer">
@@ -69,7 +73,7 @@ export function PeerValuation({ view, quote }: { view: IoCompanyView; quote: IoQ
           <tbody>
             {peers.metrics.map((metric) => {
               const own = HISTORY[metric.key] && history ? multipleStats(history, HISTORY[metric.key]!) : null;
-              const spec = PEER_METRICS.find((entry) => entry.key === metric.key)!;
+              const spec = specs.find((entry) => entry.key === metric.key)!;
               // Where today sits in its own range, read the same way: cheaper than what share of its own history.
               const ownCheaper = own?.percentile == null ? null : spec.higherIsCheaper ? own.percentile : 1 - own.percentile;
               return (
@@ -77,7 +81,7 @@ export function PeerValuation({ view, quote }: { view: IoCompanyView; quote: IoQ
                   <td className="key">{metric.label}</td>
                   <td><b>{write(metric.company, metric.percent)}</b></td>
                   <td>{write(metric.median, metric.percent)}</td>
-                  <td>{metric.cheaperThan == null ? <span className="t-dim">{ABSENT}</span> : <Rank share={metric.cheaperThan} label={`Cheaper than ${Math.round(metric.cheaperThan * 100)}% of ${metric.count - 1}`} />}</td>
+                  <td>{metric.cheaperThan == null ? <span className="t-dim">{ABSENT}</span> : <Rank share={metric.cheaperThan} label={`${spec.quality ? "Higher than" : "Cheaper than"} ${Math.round(metric.cheaperThan * 100)}% of ${metric.count - 1}`} />}</td>
                   <td>{ownCheaper == null ? <span className="t-dim">{HISTORY[metric.key] ? (history ? ABSENT : "Pricing…") : "No history here"}</span> : (
                     <Rank share={ownCheaper} label={`Cheaper than ${Math.round(ownCheaper * 100)}% of its months · median ${write(metric.percent ? own!.median! * 100 : own!.median, metric.percent)}`} />
                   )}</td>
@@ -89,19 +93,21 @@ export function PeerValuation({ view, quote }: { view: IoCompanyView; quote: IoQ
       </div>
       <div className="sheet peer-sheet">
         <table>
-          <thead><tr><th className="key">Largest in the sector</th><th>Market value</th>{PEER_METRICS.map((spec) => <th key={spec.key}>{spec.label.replace("Free cash flow yield", "FCF yield").replace("EV / free cash flow", "EV / FCF")}</th>)}</tr></thead>
+          <thead><tr><th className="key">Largest in the sector</th><th>Market value</th>{specs.map((spec) => <th key={spec.key}>{spec.short}</th>)}</tr></thead>
           <tbody>
             {peers.peers.map((peer) => (
               <tr key={peer.ticker} data-self={peer.ticker === peers.ticker || undefined}>
                 <td className="key"><a href={`/t/s/${encodeURIComponent(peer.ticker)}`}>{peer.ticker}</a> <span className="t-dim">{peer.name}</span></td>
                 <td>{peer.marketCap == null ? ABSENT : money(peer.marketCap * 1e9, "USD")}</td>
-                {PEER_METRICS.map((spec) => <td key={spec.key}>{write(peer.values[spec.key], spec.percent)}</td>)}
+                {specs.map((spec) => <td key={spec.key}>{write(peer.values[spec.key], spec.percent)}</td>)}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="t-study-note">The screener&apos;s figures for every member, struck the same way: trailing operating income and free cash flow, enterprise value on today&apos;s price; forward P/E on the next four quarters&apos; consensus. A loss leaves a multiple out rather than making it look cheap.</p>
+      <p className="t-study-note">{peers.lender
+        ? "Read as a lender: on trailing earnings to common and on book, because a bank's enterprise value and free cash flow are its balance sheet moving. Return on equity is ranked higher-is-better; forward P/E on the next four quarters' consensus."
+        : "The screener's figures for every member, struck the same way: trailing operating income and free cash flow, enterprise value on today's price; forward P/E on the next four quarters' consensus."} A loss leaves a multiple out rather than making it look cheap.</p>
     </div>
   );
 }

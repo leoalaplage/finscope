@@ -24,3 +24,19 @@ describe("a company against its sector", () => {
     expect(table.peers.map((peer) => peer.ticker)).toEqual(["AAA", "BBB", "CCC"]);
   });
 });
+
+describe("a lender against its sector", () => {
+  it("is read on earnings and book, with return on equity ranked higher-is-better", () => {
+    const feed = { rows: [
+      row("BAC", "Banking", { "Market Cap": 350, "P/E": 12, "P/B": 1.2, "P/TBV": 1.6, ROE: 10, "Dividend Yield": 2.5, forwardPe: 10.5 }),
+      row("JPM", "Banking", { "Market Cap": 880, "P/E": 15, "P/B": 2.4, "P/TBV": 2.9, ROE: 17, "Dividend Yield": 2.0, forwardPe: 13.4 }),
+      row("C", "Banking", { "Market Cap": 210, "P/E": 11, "P/B": 0.9, "P/TBV": 1.0, ROE: 7, "Dividend Yield": 3.0, forwardPe: 10.3 }),
+    ] };
+    const table = peerTable(feed, "BAC")!;
+    expect(table.lender).toBe(true);
+    expect(table.metrics.map((metric) => metric.key)).toEqual(["P/E", "forwardPe", "P/B", "P/TBV", "ROE", "Dividend Yield"]);
+    // ROE 10% sits above Citigroup's 7%, below JPMorgan's 17%.
+    expect(table.metrics.find((metric) => metric.key === "ROE")!.cheaperThan).toBe(0.5);
+    expect(table.metrics.find((metric) => metric.key === "P/B")!).toMatchObject({ company: 1.2, median: 1.2, cheaperThan: 0.5 });
+  });
+});

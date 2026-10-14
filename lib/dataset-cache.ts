@@ -41,6 +41,8 @@ const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [
    * filing columns in both screeners.
    */
   // v47 reads split and own-named borrowings from the filings; v46 is what was on screen.
+  /* s14 adds a lender's book and earnings inputs; an s13 digest of this data version is everything else unchanged. */
+  { version: "v47", shape: "s13" },
   { version: "v46", shape: "s13" },
   { version: "v45", shape: "s13" },
   { version: "v44", shape: "s13" },
