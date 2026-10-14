@@ -19,8 +19,10 @@ const fiscalEndName = (iso: string) => {
 };
 const signed = (value: number | null, places = 1) => (value == null || !Number.isFinite(value) ? ABSENT : `${value >= 0 ? "+" : "−"}${Math.abs(value * 100).toFixed(places)}%`);
 const tone = (value: number | null) => (value == null ? undefined : value >= 0 ? "up" : "down");
-/** Growth on a year, where it means something: not across a loss. */
-const growth = (value: number, base: number) => (base > 0 && value > -Infinity ? value / base - 1 : null);
+/** Growth on a year, where it means something: not from a loss. */
+const growth = (value: number, base: number) => (base > 0 ? value / base - 1 : null);
+/** "Q3 FY2026" as a column heading: "Q3 FY26". */
+const short = (label: string) => label.replace(/FY20(\d\d)/, "FY$1");
 
 /**
  * The latest earnings release when it is newer than the figures drawn.
@@ -79,7 +81,7 @@ function ReleaseTable({ reading, currency }: { reading: ReleaseReading; currency
   return (
     <div className="sheet release-sheet">
       <table>
-        <thead><tr><th className="key">{reading.quarter}</th><th>Reported</th><th>{reading.yearAgo}</th><th>On a year</th></tr></thead>
+        <thead><tr><th className="key" /><th>{short(reading.quarter)}</th><th>{short(reading.yearAgo)}</th><th>y/y</th></tr></thead>
         <tbody>
           {shown.map(({ metric, label }) => {
             const figure = reading.figures[metric]!;

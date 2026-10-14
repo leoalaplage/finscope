@@ -185,7 +185,9 @@
 .etf-term .etf-cell[data-span="side"] { gap: 2px; }
 
 /* A new release's figures, and earnings per share against the consensus (components/io/PendingEarnings.tsx). */
-.release-sheet { margin-top: 10px; }
+.release-sheet { margin-top: 10px; overflow-x: auto; }
+.release-sheet table { width: 100%; }
+.release-sheet th, .release-sheet td { white-space: nowrap; }
 .release-sheet td b { font-weight: 600; color: var(--ink); }
 .release-consensus { margin: 8px 0 0; font: var(--fs-xs)/1.5 var(--mono); color: var(--ink-2); }
 .release-consensus b { color: var(--ink); font-weight: 600; }
