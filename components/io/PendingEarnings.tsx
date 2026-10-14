@@ -204,16 +204,26 @@ export function ReleaseStrip({ view }: { view: IoCompanyView }) {
 export function EarningsBoard({ view, lastFiled }: { view: IoCompanyView; lastFiled: { label: string; filingDate: string } | null }) {
   const filing = useEarningsRelease(view);
   const history = useEpsHistory(view.company.ticker);
+  const [mode, setMode] = useState<"quarterly" | "annual">("quarterly");
   const reading = filing?.reading ?? null;
   const currency = view.company.currency;
   const pending = reading?.figures.dilutedEps ? { fiscalEnd: fiscalEndName(reading.periodEnd), eps: reading.figures.dilutedEps.value } : null;
   const scored = (history?.surprises ?? []).filter((entry) => entry.surprise != null);
   const beats = scored.filter((entry) => entry.surprise! > 0).length;
-  const average = scored.length ? scored.reduce((sum, entry) => sum + entry.surprise!, 0) / scored.length / 100 : null;
+  // The median, not the mean: a quarter expected near zero gives a surprise of hundreds of per cent and would be the average on its own.
+  const sorted = scored.map((entry) => entry.surprise!).sort((left, right) => left - right);
+  const median = sorted.length ? (sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2) / 100 : null;
   const next = history?.estimates?.quarterly[0] ?? null;
 
+  const facts = (
+    <dl className="t-ee-facts">
+      <div><dt>Beat the consensus</dt><dd>{scored.length ? `${beats} of ${scored.length}` : ABSENT}</dd></div>
+      <div><dt>Median surprise</dt><dd data-dir={tone(median)}>{signed(median)}</dd></div>
+      <div><dt>Next quarter</dt><dd>{next ? `${price(next.consensus, currency)} · ${shortQuarter(next.fiscalEnd)}` : ABSENT}</dd></div>
+    </dl>
+  );
   return (
-    <div className="t-ee">
+    <div className="t-ee" data-release={filing ? true : undefined}>
       <div className="t-ee-text">
         {filing ? (
           <div className="earnings-pending">
@@ -222,19 +232,22 @@ export function EarningsBoard({ view, lastFiled }: { view: IoCompanyView; lastFi
             {reading ? <AgainstConsensus reading={reading} history={history} currency={currency} /> : null}
           </div>
         ) : (
-          <p className="t-dim">
-            No release newer than the filed figures.
-            {lastFiled ? <> Last filed: <span className="t-amber">{lastFiled.label}</span> on {shortDate(lastFiled.filingDate)}.</> : null}
-          </p>
+          <p className="t-dim t-ee-none">No release since {lastFiled ? <><span className="t-amber">{lastFiled.label}</span>, filed {shortDate(lastFiled.filingDate)}</> : "the filed figures"}.</p>
         )}
-        <dl className="t-ee-facts">
-          <div><dt>Beat the consensus</dt><dd>{scored.length ? `${beats} of ${scored.length} quarters` : ABSENT}</dd></div>
-          <div><dt>Average surprise</dt><dd data-dir={tone(average)}>{signed(average)}</dd></div>
-          <div><dt>Next quarter</dt><dd>{next ? `${next.fiscalEnd} · ${price(next.consensus, currency)}` : ABSENT}</dd></div>
-          <div><dt>Quarters scored</dt><dd>{scored.length || ABSENT}</dd></div>
-        </dl>
+        {facts}
       </div>
-      <EpsChart history={history} pending={pending} currency={currency} />
+      <figure className="t-gf-card t-ee-chart">
+        <figcaption>
+          <h3>{mode === "quarterly" ? "EPS against the consensus" : "EPS by fiscal year · filed, then the consensus"}</h3>
+          <div className="seg" role="group" aria-label="Periods">
+            <button type="button" aria-pressed={mode === "quarterly"} onClick={() => setMode("quarterly")}>Quarterly</button>
+            <button type="button" aria-pressed={mode === "annual"} onClick={() => setMode("annual")}>Annual</button>
+          </div>
+        </figcaption>
+        {mode === "quarterly"
+          ? <EpsChart history={history} pending={pending} currency={currency} />
+          : <AnnualEpsChart view={view} history={history} currency={currency} />}
+      </figure>
     </div>
   );
 }
@@ -281,8 +294,7 @@ export function EpsChart({ history, pending, currency }: {
   };
   const preset: Preset = { id: "eps-consensus", title: "Earnings per share against the consensus", left: "perShare", right: "percent", series: data.series.map((entry) => entry.spec) };
   return (
-    <figure className="t-gf-card t-ee-chart">
-      <figcaption><h3>EPS against the consensus · by quarter</h3></figcaption>
+    <>
       <ComboChart preset={preset} data={data} currency={currency} height={220} />
       <ul className="t-gf-legend">
         <li data-kind="bar" style={{ "--key": "var(--ink-3)" } as CSSProperties}><i aria-hidden="true" />Consensus</li>
@@ -292,6 +304,57 @@ export function EpsChart({ history, pending, currency }: {
         <li data-kind="line" style={{ "--key": "var(--c5)" } as CSSProperties}><i aria-hidden="true" />Surprise</li>
       </ul>
       <p className="t-study-note">Reported EPS as Zacks scores it (adjusted), against the consensus before the release, as Nasdaq publishes both. The last bar is the coming quarter&apos;s consensus.</p>
-    </figure>
+    </>
+  );
+}
+
+/**
+ * Earnings per share by fiscal year: as filed in each 10-K for the years past,
+ * then the consensus for the years ahead with the analysts' range in the
+ * tooltip, and the growth on a year as a line. The filed figure is GAAP and the
+ * consensus is on adjusted earnings, which the note says. No past year's
+ * consensus is drawn: none was kept before October 2026.
+ */
+function AnnualEpsChart({ view, history, currency }: { view: IoCompanyView; history: ReturnType<typeof useEpsHistory>; currency: string }) {
+  if (!history) return <p className="t-empty">Reading the consensus…</p>;
+  const filed = view.annual
+    .map((period) => ({ name: fiscalEndName(period.end), label: `FY${String(period.fiscalYear).slice(2)}`, eps: period.reportedEps ?? period.values.netIncomePerShare ?? null, filed: period.filingDate }))
+    .filter((year) => year.eps != null)
+    .slice(-7);
+  const yearOf = (name: string) => Number(name.split(" ")[1]);
+  const lastFiledYear = filed.length ? yearOf(filed.at(-1)!.name) : -Infinity;
+  const ahead = (history.estimates?.yearly ?? []).filter((entry) => entry.consensus != null && yearOf(entry.fiscalEnd) > lastFiledYear).slice(0, 3);
+  if (!filed.length && !ahead.length) return <p className="t-empty">No annual earnings per share to draw.</p>;
+
+  const rows = [
+    ...filed.map((year) => ({ label: year.label, name: `${year.label} · filed ${shortDate(year.filed)} (GAAP)`, eps: year.eps, consensus: null as number | null })),
+    ...ahead.map((entry) => ({
+      label: `FY${String(yearOf(entry.fiscalEnd)).slice(2)}E`,
+      name: `FY${yearOf(entry.fiscalEnd)} · consensus of ${entry.analysts ?? "?"} analyst${entry.analysts === 1 ? "" : "s"}, ${price(entry.low, currency)} to ${price(entry.high, currency)}`,
+      eps: null as number | null, consensus: entry.consensus,
+    })),
+  ];
+  const level = rows.map((row) => row.eps ?? row.consensus);
+  const data: ChartData = {
+    labels: rows.map((row) => row.label),
+    names: rows.map((row) => row.name),
+    series: [
+      { spec: { id: "filed", label: "Filed EPS", kind: "bar", axis: "left", color: "var(--c6)", value: () => null }, values: rows.map((row) => row.eps) },
+      { spec: { id: "consensus", label: "Consensus", kind: "bar", axis: "left", color: "var(--ink-3)", value: () => null }, values: rows.map((row) => row.consensus) },
+      { spec: { id: "growth", label: "On a year (right)", kind: "line", axis: "right", color: "var(--c5)", value: () => null },
+        values: level.map((value, index) => (index > 0 && value != null && level[index - 1] != null && level[index - 1]! > 0 ? value / level[index - 1]! - 1 : null)) },
+    ],
+  };
+  const preset: Preset = { id: "eps-annual", title: "Earnings per share by fiscal year", left: "perShare", right: "percent", series: data.series.map((entry) => entry.spec) };
+  return (
+    <>
+      <ComboChart preset={preset} data={data} currency={currency} height={220} />
+      <ul className="t-gf-legend">
+        <li data-kind="bar" style={{ "--key": "var(--c6)" } as CSSProperties}><i aria-hidden="true" />Filed (10-K, GAAP)</li>
+        <li data-kind="bar" style={{ "--key": "var(--ink-3)" } as CSSProperties}><i aria-hidden="true" />Consensus (adjusted)</li>
+        <li data-kind="line" style={{ "--key": "var(--c5)" } as CSSProperties}><i aria-hidden="true" />On a year</li>
+      </ul>
+      <p className="t-study-note">Filed diluted EPS from each 10-K, then the analysts&apos; consensus for the years ahead (Zacks, via Nasdaq). Filed figures are GAAP; the consensus is on adjusted earnings.</p>
+    </>
   );
 }

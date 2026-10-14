@@ -1185,7 +1185,11 @@ body:has(.io.term) { background: #050608; }
 .t-release-strip i[data-dir="up"] { color: var(--gain); }
 .t-release-strip i[data-dir="down"] { color: var(--loss); }
 .t-release-more { margin-left: auto; color: var(--amber); }
-.t-ee { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 12px; padding: 8px; align-items: start; }
+.t-ee { display: grid; grid-template-columns: minmax(200px, 240px) minmax(0, 1fr); gap: 12px; padding: 8px; align-items: start; }
+/* With a release to read, the text needs half the width. */
+.t-ee[data-release] { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+.t-ee-none { font-size: var(--fs-xs); line-height: 1.5; }
+.t-ee-chart figcaption { justify-content: space-between; }
 .t-ee-text { display: grid; gap: 10px; min-width: 0; font-size: var(--fs-xs); }
 .t-ee-text > p { margin: 0; }
 .term .t-ee .earnings-pending { padding: 0; border: 0; font-family: inherit; }
@@ -1195,7 +1199,8 @@ body:has(.io.term) { background: #050608; }
 .term .t-ee .earnings-pending-head > a { color: var(--amber); font-size: var(--fs-micro); white-space: nowrap; }
 .term .t-ee .release-sheet td, .term .t-ee .release-sheet th { font-size: var(--fs-xs); }
 .term .t-ee .release-consensus { font-size: var(--fs-micro); }
-.t-ee-facts { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.t-ee-facts { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.t-ee[data-release] .t-ee-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
 .t-ee-facts > div { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
 .t-ee-facts dt { color: var(--ink-3); }
 .t-ee-facts dd { margin: 0; color: var(--ink); font-weight: 600; text-align: right; }
