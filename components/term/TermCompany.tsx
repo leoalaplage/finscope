@@ -218,14 +218,6 @@ export function TermCompany({ ticker }: { ticker: string }) {
           * what it is worth, who owns it, and every filed line last. Each
           * chapter is headed, so the thread is visible as well as followed.
           */}
-        <Panel code="EVT" title="Corporate events" area="evt">
-          <div className="t-panel-pad"><CompanyEvents key={`evt-${company.ticker}`} ticker={company.ticker} cik={company.cik} /></div>
-        </Panel>
-
-        <Panel code="NOTE" title="Your notes" area="note">
-          <div className="t-panel-pad"><ThesisNotes key={`note-${company.ticker}`} view={view} quote={quote} /></div>
-        </Panel>
-
         <Chapter area="c-biz" number={2} title="Business" />
         <Panel code="SEG" title="Segments" area="seg">
           <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
@@ -294,6 +286,12 @@ export function TermCompany({ ticker }: { ticker: string }) {
         <Chapter area="c-acc" number={6} title="Accounts" />
         <Panel code="DDIS" title="Debt maturities" area="ddis">
           <div className="t-panel-pad"><DebtMaturities key={`ddis-${company.ticker}`} view={view} /></div>
+        </Panel>
+        <Panel code="EVT" title="Corporate events" area="evt">
+          <div className="t-panel-pad"><CompanyEvents key={`evt-${company.ticker}`} ticker={company.ticker} cik={company.cik} /></div>
+        </Panel>
+        <Panel code="NOTE" title="Your notes" area="note">
+          <div className="t-panel-pad"><ThesisNotes key={`note-${company.ticker}`} view={view} quote={quote} /></div>
         </Panel>
         <Panel code="FS" area="st">
           <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />

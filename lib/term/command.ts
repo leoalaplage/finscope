@@ -29,8 +29,6 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   // 1 · Snapshot
   { code: "DES", name: "Description", chapter: 1 },
   { code: "GP", name: "Price graph", chapter: 1 },
-  { code: "EVT", name: "Corporate events", chapter: 1 },
-  { code: "NOTE", name: "Your notes", chapter: 1 },
   // 2 · The business
   { code: "SEG", name: "Segments", chapter: 2 },
   { code: "FA", name: "Financial analysis", chapter: 2 },
@@ -52,6 +50,8 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   { code: "HDS", name: "Institutional holders", chapter: 5 },
   // 6 · The accounts
   { code: "DDIS", name: "Debt maturities", chapter: 6 },
+  { code: "EVT", name: "Corporate events", chapter: 6 },
+  { code: "NOTE", name: "Your notes", chapter: 6 },
   { code: "FS", name: "Financial statements", chapter: 6 },
   // A screen of its own, after the page.
   { code: "COMP", name: "Compare" },

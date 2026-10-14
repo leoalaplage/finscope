@@ -275,8 +275,6 @@ body:has(.io.term) { background: #050608; }
 .t-company { align-items: stretch; grid-template-areas:
   "c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top"
   "gp gp gp gp gp gp gp gp side side side side"
-  "evt evt evt evt evt evt evt evt evt evt evt evt"
-  "note note note note note note note note note note note note"
   "c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz"
   "seg seg seg seg seg seg seg seg seg seg seg seg"
   "fa fa fa fa fa fa gr gr gr gr gr gr"
@@ -295,6 +293,8 @@ body:has(.io.term) { background: #050608; }
   "ins ins ins ins ins ins hds hds hds hds hds hds"
   "c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc"
   "ddis ddis ddis ddis ddis ddis ddis ddis ddis ddis ddis ddis"
+  "evt evt evt evt evt evt evt evt evt evt evt evt"
+  "note note note note note note note note note note note note"
   "st st st st st st st st st st st st"
   "src src src src src src src src src src src src";
 }
@@ -648,8 +648,6 @@ body:has(.io.term) { background: #050608; }
     "c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top"
     "gp gp gp gp gp gp gp gp gp gp gp gp"
     "side side side side side side side side side side side side"
-    "evt evt evt evt evt evt evt evt evt evt evt evt"
-    "note note note note note note note note note note note note"
     "c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz"
     "seg seg seg seg seg seg seg seg seg seg seg seg"
     "fa fa fa fa fa fa fa fa fa fa fa fa"
@@ -671,6 +669,8 @@ body:has(.io.term) { background: #050608; }
     "hds hds hds hds hds hds hds hds hds hds hds hds"
     "c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc"
     "ddis ddis ddis ddis ddis ddis ddis ddis ddis ddis ddis ddis"
+    "evt evt evt evt evt evt evt evt evt evt evt evt"
+    "note note note note note note note note note note note note"
     "st st st st st st st st st st st st"
     "src src src src src src src src src src src src";
   }

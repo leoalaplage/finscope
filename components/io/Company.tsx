@@ -215,9 +215,6 @@ export function Company({ ticker }: { ticker: string }) {
           {openDetail === "growth" ? <FcfShareGrowth view={view} /> : null}
         </>}
 
-      {/* What the company has announced, by the SEC's own categories (components/io/CompanyEvents.tsx). */}
-      <Fold title="Your notes"><ThesisNotes key={`note-${company.ticker}`} view={view} quote={quote} /></Fold>
-      <Fold title="Corporate events"><CompanyEvents key={`evt-${company.ticker}`} ticker={company.ticker} cik={company.cik} /></Fold>
 
       <Chapter number={2} title="Business" />
       {/* The company in slices, as filed (components/io/Segments.tsx). */}
@@ -269,6 +266,9 @@ export function Company({ ticker }: { ticker: string }) {
         <h3>Debt maturities</h3>
         <DebtMaturities key={`ddis-${company.ticker}`} view={view} />
       </section>
+      {/* What the company has announced, by the SEC's own categories (components/io/CompanyEvents.tsx). */}
+      <Fold title="Corporate events"><CompanyEvents key={`evt-${company.ticker}`} ticker={company.ticker} cik={company.cik} /></Fold>
+      <Fold title="Your notes"><ThesisNotes key={`note-${company.ticker}`} view={view} quote={quote} /></Fold>
       <Fold title="Statements">
         <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
       </Fold>
