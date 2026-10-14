@@ -9,6 +9,7 @@ import { buildTechnicalSlice } from "../lib/term/tech-universe";
 import { snapshotEstimatesSlice } from "../lib/estimates-store";
 import { insiderBuyingSlice } from "../lib/insider-buying";
 import { buildAllUniverseSlice } from "../lib/universe-all";
+import { emailAlertsSlice } from "../lib/email-alerts";
 import { primeSegmentsSlice } from "../lib/segments/store";
 import { refreshAuditReport } from "../lib/coverage-audit";
 import { warmExtraSlice } from "../lib/warm-extra";
@@ -179,6 +180,13 @@ const worker = {
          */
         const everyone = await buildAllUniverseSlice(origin).catch((error) => { console.log(`[all universe] ${error instanceof Error ? error.message : String(error)}`); return null; });
         if (everyone) console.log(`[all universe] ${everyone.rows} rows; built ${everyone.built.join(",") || "none"}; ${everyone.failed} failed; ${everyone.priced} priced`);
+        /*
+         * The daily alert emails, after the US close, to the accounts that asked
+         * for them (lib/email-alerts.ts) — nothing at all until an email service
+         * is configured.
+         */
+        const emails = await emailAlertsSlice(origin).catch((error) => { console.log(`[email alerts] ${error instanceof Error ? error.message : String(error)}`); return null; });
+        if (emails && (emails.sent || emails.skipped)) console.log(`[email alerts] sent ${emails.sent}; nothing new or not sent ${emails.skipped}`);
         /*
          * Two companies' segments, each built in an invocation of its own — a
          * dozen filings read apiece — largest first (lib/segments/store.ts).

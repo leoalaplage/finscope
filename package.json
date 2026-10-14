@@ -16,6 +16,8 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "13.2.2",
+    "@simplewebauthn/server": "13.3.3",
     "drizzle-orm": "0.45.2",
     "lucide-react": "^1.31.0",
     "react": "19.2.6",

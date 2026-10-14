@@ -8,7 +8,7 @@
  */
 
 export type CompanyFunction = "DES" | "GP" | "EVT" | "NOTE" | "FA" | "GR" | "GF" | "SEG" | "KPI" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "PEER" | "DCF" | "DVD" | "DDIS" | "FS" | "COMP";
-export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "BT" | "ECAL" | "INSB" | "ALRT" | "SET" | "HELP";
+export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "BT" | "ECAL" | "INSB" | "ALRT" | "ACCT" | "SET" | "HELP";
 
 export interface FunctionSpec<Code extends string> {
   code: Code;
@@ -68,6 +68,7 @@ export const GLOBAL_FUNCTIONS: FunctionSpec<GlobalFunction>[] = [
   { code: "ECAL", name: "Earnings calendar" },
   { code: "INSB", name: "Insider buying" },
   { code: "ALRT", name: "Alerts" },
+  { code: "ACCT", name: "Account, sync and email alerts" },
   { code: "SET", name: "Settings and what this device keeps" },
   { code: "HELP", name: "Commands" },
 ];
@@ -103,6 +104,7 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
   BACKTEST: "BT", BTST: "BT",
   EARNINGS: "ECAL", CALENDAR: "ECAL",
   ALERTS: "ALRT", ALERT: "ALRT",
+  ACCOUNT: "ACCT", LOGIN: "ACCT", SIGNIN: "ACCT", SYNC: "ACCT",
   BUYS: "INSB", INSIDERS: "INSB", CLUSTER: "INSB",
   SETTINGS: "SET", PREFS: "SET",
   "?": "HELP",
@@ -211,6 +213,7 @@ export function hrefFor(command: Command): string | null {
         case "ECAL": return "/t/ecal";
         case "INSB": return "/t/insiders";
         case "ALRT": return "/t/alerts";
+        case "ACCT": return "/t/account";
         case "SET": return "/t/settings";
         case "BT": return command.ticker ? `/t/backtest?s=${encodeURIComponent(command.ticker)}` : "/t/backtest";
         case "HELP": return null;

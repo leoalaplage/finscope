@@ -10,6 +10,17 @@ export interface RuntimeBindings {
   DATASET_CACHE?: KVNamespace;
   /** This same Worker, bound as a service. See selfFetcher. */
   SELF?: { fetch(request: Request): Promise<Response> };
+  /** Secrets the site's owner sets with `wrangler secret put`; see lib/email.ts. */
+  RESEND_API_KEY?: string;
+  ALERTS_FROM?: string;
+}
+
+/** A secret from the Worker's bindings, or from the process where the runtime puts them there. */
+export function runtimeSecret(name: "RESEND_API_KEY" | "ALERTS_FROM"): string | null {
+  const bound = bindings[name];
+  if (typeof bound === "string" && bound) return bound;
+  const fromProcess = typeof process !== "undefined" ? process.env?.[name] : undefined;
+  return fromProcess || null;
 }
 
 let bindings: RuntimeBindings = {};

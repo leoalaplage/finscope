@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { STALE_BUILD_BOOT } from "@/lib/stale-build";
+import { AccountSync } from "@/components/io/AccountSync";
 
 /**
  * The canonical origin, as a constant.
@@ -91,7 +92,8 @@ export default function RootLayout({
         {/* A page open across a deploy loads the new build rather than failing (lib/stale-build.ts). */}
         <script dangerouslySetInnerHTML={{ __html: STALE_BUILD_BOOT }}/>
       </head>
-      <body>{children}</body>
+      {/* Signed in, the reader's work follows them between devices (components/io/AccountSync.tsx); otherwise nothing runs. */}
+      <body>{children}<AccountSync /></body>
     </html>
   );
 }

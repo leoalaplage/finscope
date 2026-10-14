@@ -1245,3 +1245,17 @@ body:has(.io.term) { background: #050608; }
 .t-alerts-chip b { min-width: 16px; padding: 0 4px; text-align: center; color: var(--amber-ink); background: var(--amber); font-weight: 700; }
 .t-insb tr[data-fresh] td:first-child { box-shadow: inset 2px 0 0 var(--amber); }
 .t-insb tr[data-kind="flag"] td { background: color-mix(in srgb, var(--loss) 7%, transparent); }
+
+/* ACCT: the account (components/term/Account.tsx). */
+.t-account-chip { color: var(--ink-3); text-decoration: none; white-space: nowrap; }
+.t-account-chip[data-signed-in] { color: var(--ink); }
+.t-acct-body { display: grid; gap: 14px; max-width: 760px; }
+.t-acct-body h3 { margin: 0 0 6px; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
+.t-acct-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.t-acct-row input[type="email"], .t-acct-row input[type="text"] { min-width: 240px; height: 24px; padding: 0 6px; font: inherit; color: var(--ink); background: var(--panel-input, #000); border: 1px solid var(--line-strong); }
+.t-acct-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.t-acct-list li { display: flex; gap: 12px; align-items: baseline; }
+.t-acct-message { margin: 0; color: var(--ink-2); }
+.t-acct-message[data-tone="error"] { color: var(--loss); }
+.t-acct-message[data-tone="ok"] { color: var(--gain); }
+.t-acct-danger { color: var(--loss); }

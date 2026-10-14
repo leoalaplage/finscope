@@ -8,6 +8,7 @@ import { delta, price } from "@/components/io/format";
 import { CommandLine } from "./CommandLine";
 import { useTape } from "./quotes";
 import { AlertsChip } from "./Alerts";
+import { AccountChip } from "./Account";
 
 /**
  * The frame every terminal screen sits in.
@@ -318,6 +319,7 @@ export function TermShell({ ticker = null, bare = false, children }: {
           <CommandLine current={ticker} onHelp={() => setHelpOpen(true)} />
           <div className="t-bar-right">
             <AlertsChip />
+            <AccountChip />
             <button type="button" onClick={() => setHelpOpen(true)} className="t-amber">HELP</button>
             <a href="/t/settings" title="Settings and what this device keeps">SET</a>
           </div>
