@@ -23,6 +23,7 @@ import { Holders } from "@/components/io/Holders";
 import { EarningsBoard, ReleaseStrip } from "@/components/io/PendingEarnings";
 import { CompanyEvents } from "@/components/io/CompanyEvents";
 import { Dividends } from "@/components/io/Dividends";
+import { InsiderClusterBadge } from "./InsiderBuying";
 import { LenderReading } from "@/components/io/LenderReading";
 import { readsAsLender } from "@/lib/io/lender";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "@/components/io/format";
@@ -273,7 +274,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
         </Panel>
 
         <Chapter area="c-own" number={5} title="Ownership" />
-        <Panel code="INS" area="ins">
+        <Panel code="INS" area="ins" actions={<InsiderClusterBadge ticker={company.ticker} />}>
           <Insiders key={`insiders-${company.ticker}`} state={insiderState} />
         </Panel>
         <Panel code="HDS" area="hds">

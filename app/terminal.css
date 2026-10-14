@@ -1216,3 +1216,11 @@ body:has(.io.term) { background: #050608; }
   .t-ee, .t-ee[data-release] { grid-template-columns: minmax(0, 1fr); }
   .t-ee[data-release] > .t-ee-text { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* INSB: insider buying across the index (components/term/InsiderBuying.tsx). */
+.t-insb { grid-template-columns: minmax(0, 1fr); }
+.t-insb-body { display: grid; gap: 10px; }
+.t-insb-head { margin: 6px 0 0; color: var(--ink-2); font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-insb tr[data-strong] td { background: color-mix(in srgb, var(--gain) 8%, transparent); }
+.t-insb-who { white-space: normal; color: var(--ink-2); max-width: 70ch; }
+.t-insb-badge { color: var(--gain); border-color: color-mix(in srgb, var(--gain) 50%, transparent); }

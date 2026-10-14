@@ -7,6 +7,7 @@ import { chaseFilings } from "../lib/filing-watch";
 import { buildUniverseSlice } from "../lib/universe-build";
 import { buildTechnicalSlice } from "../lib/term/tech-universe";
 import { snapshotEstimatesSlice } from "../lib/estimates-store";
+import { insiderBuyingSlice } from "../lib/insider-buying";
 import { primeSegmentsSlice } from "../lib/segments/store";
 import { refreshAuditReport } from "../lib/coverage-audit";
 import { warmExtraSlice } from "../lib/warm-extra";
@@ -165,6 +166,12 @@ const worker = {
          */
         const estimates = await snapshotEstimatesSlice().catch(() => null);
         if (estimates?.read.length) console.log(`[estimates] read ${estimates.read.join(",")}; next ${estimates.next}`);
+        /*
+         * A few dozen of the index's Form 4s, for insider buying across it
+         * (lib/insider-buying.ts): the daily index queues them, this reads them.
+         */
+        const insiders = await insiderBuyingSlice().catch(() => null);
+        if (insiders && (insiders.read || insiders.queued)) console.log(`[insider buying] queued ${insiders.queued} days; read ${insiders.read}; ${insiders.purchases} purchases kept`);
         /*
          * Two companies' segments, each built in an invocation of its own — a
          * dozen filings read apiece — largest first (lib/segments/store.ts).
