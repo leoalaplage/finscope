@@ -22,6 +22,7 @@ import { Insiders, useInsiders } from "@/components/io/Insiders";
 import { Holders } from "@/components/io/Holders";
 import { EarningsBoard, ReleaseStrip } from "@/components/io/PendingEarnings";
 import { CompanyEvents } from "@/components/io/CompanyEvents";
+import { Dividends } from "@/components/io/Dividends";
 import { LenderReading } from "@/components/io/LenderReading";
 import { readsAsLender } from "@/lib/io/lender";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "@/components/io/format";
@@ -265,6 +266,10 @@ export function TermCompany({ ticker }: { ticker: string }) {
         </Panel>
         <Panel code="DCF" title="Discounted cash flow" area="dcf">
           <DcfModel key={`dcf-${company.ticker}`} view={view} quote={valuationQuote} />
+        </Panel>
+
+        <Panel code="DVD" title="Dividends" area="dvd">
+          <div className="t-panel-pad"><Dividends key={`dvd-${company.ticker}`} view={view} price={quote?.price ?? null} /></div>
         </Panel>
 
         <Chapter area="c-own" number={5} title="Ownership" />

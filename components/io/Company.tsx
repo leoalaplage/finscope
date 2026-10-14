@@ -11,6 +11,7 @@ import { Health } from "./Health";
 import { Multiples } from "./Multiples";
 import { Fold } from "./Fold";
 import { CompanyEvents } from "./CompanyEvents";
+import { Dividends } from "./Dividends";
 import { GrowthYield } from "./GrowthYield";
 import { LenderReading } from "./LenderReading";
 import { Estimates } from "./Estimates";
@@ -240,6 +241,11 @@ export function Company({ ticker }: { ticker: string }) {
       <section className="section-panel" id="dcf" aria-label="Discounted cash flow">
         <h3>Discounted cash flow</h3>
         <DcfModel key={`dcf-${company.ticker}`} view={view} quote={valuationQuote} />
+      </section>
+
+      <section className="section-panel" id="dvd" aria-label="Dividends">
+        <h3>Dividends</h3>
+        <Dividends key={`dvd-${company.ticker}`} view={view} price={quote?.price ?? null} />
       </section>
 
       <Chapter number={5} title="Ownership" />

@@ -215,3 +215,12 @@
 .events-text p { margin: 0; color: var(--ink-2); line-height: 1.5; }
 .events-text p span { display: block; color: var(--ink-3); font-size: var(--fs-micro, 10px); text-transform: uppercase; letter-spacing: .06em; }
 .events-more { justify-self: start; }
+
+/* DVD: dividends (components/io/Dividends.tsx). */
+.dvd { display: grid; gap: 10px; }
+.dvd-strip { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.dvd-strip .stat-value[data-dir="up"] { color: var(--gain); }
+.dvd-strip .stat-value[data-dir="down"] { color: var(--loss); }
+.dvd-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.dvd-sheet table { width: 100%; }
+@media (max-width: 900px) { .dvd-grid { grid-template-columns: minmax(0, 1fr); } }
