@@ -21,6 +21,7 @@ import { DcfModel } from "@/components/io/DcfModel";
 import { Insiders, useInsiders } from "@/components/io/Insiders";
 import { Holders } from "@/components/io/Holders";
 import { EarningsBoard, ReleaseStrip } from "@/components/io/PendingEarnings";
+import { CompanyEvents } from "@/components/io/CompanyEvents";
 import { LenderReading } from "@/components/io/LenderReading";
 import { readsAsLender } from "@/lib/io/lender";
 import { ABSENT, delta, direction, edgarUrl, price as writePrice, shortDate } from "@/components/io/format";
@@ -212,6 +213,10 @@ export function TermCompany({ ticker }: { ticker: string }) {
           * what it is worth, who owns it, and every filed line last. Each
           * chapter is headed, so the thread is visible as well as followed.
           */}
+        <Panel code="EVT" title="Corporate events" area="evt">
+          <div className="t-panel-pad"><CompanyEvents key={`evt-${company.ticker}`} ticker={company.ticker} cik={company.cik} /></div>
+        </Panel>
+
         <Chapter area="c-biz" number={2} title="Business" />
         <Panel code="SEG" title="Segments" area="seg">
           <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />

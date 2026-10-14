@@ -10,6 +10,7 @@ import { Score, useCompanyScore } from "./Score";
 import { Health } from "./Health";
 import { Multiples } from "./Multiples";
 import { Fold } from "./Fold";
+import { CompanyEvents } from "./CompanyEvents";
 import { GrowthYield } from "./GrowthYield";
 import { LenderReading } from "./LenderReading";
 import { Estimates } from "./Estimates";
@@ -209,6 +210,9 @@ export function Company({ ticker }: { ticker: string }) {
           {openDetail === "valuation" ? <GrowthYield view={view} quote={valuationQuote} /> : null}
           {openDetail === "growth" ? <FcfShareGrowth view={view} /> : null}
         </>}
+
+      {/* What the company has announced, by the SEC's own categories (components/io/CompanyEvents.tsx). */}
+      <Fold title="Corporate events"><CompanyEvents key={`evt-${company.ticker}`} ticker={company.ticker} cik={company.cik} /></Fold>
 
       <Chapter number={2} title="Business" />
       {/* The company in slices, as filed (components/io/Segments.tsx). */}

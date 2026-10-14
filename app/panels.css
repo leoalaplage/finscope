@@ -194,3 +194,24 @@
 .release-consensus b[data-dir="up"] { color: var(--gain); }
 .release-consensus b[data-dir="down"] { color: var(--loss); }
 .release-consensus span { color: var(--ink-3); }
+
+/* EVT: a company's events (components/io/CompanyEvents.tsx). */
+.events { display: grid; gap: 8px; }
+.events-bar .seg button span { color: var(--ink-3); margin-left: 3px; }
+.events-sheet table { width: 100%; }
+.events-sheet td { vertical-align: top; }
+.events-what button { all: unset; cursor: pointer; color: var(--ink); }
+.events-what button:hover, .events-what button[aria-expanded="true"] { color: var(--amber, var(--ink)); text-decoration: underline; text-underline-offset: 3px; }
+.events-what b { display: inline-block; min-width: 1.4ch; margin-right: 6px; padding: 0 3px; text-align: center; color: #fff; background: var(--loss); font-weight: 700; }
+.events-sheet tr[data-flag] td { background: color-mix(in srgb, var(--loss) 6%, transparent); }
+.events-kind { font-size: var(--fs-micro, 10px); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
+.events-kind[data-kind="results"] { color: var(--c6, var(--ink-2)); }
+.events-kind[data-kind="leadership"] { color: var(--c3, var(--ink-2)); }
+.events-kind[data-kind="deals"] { color: var(--c5, var(--ink-2)); }
+.events-kind[data-kind="financing"] { color: var(--c2, var(--ink-2)); }
+.events-kind[data-kind="governance"] { color: var(--c4, var(--ink-2)); }
+.events-excerpt td { padding-top: 0; }
+.events-text { display: grid; gap: 6px; padding: 6px 0 10px; max-width: 110ch; }
+.events-text p { margin: 0; color: var(--ink-2); line-height: 1.5; }
+.events-text p span { display: block; color: var(--ink-3); font-size: var(--fs-micro, 10px); text-transform: uppercase; letter-spacing: .06em; }
+.events-more { justify-self: start; }

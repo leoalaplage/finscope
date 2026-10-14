@@ -275,6 +275,7 @@ body:has(.io.term) { background: #050608; }
 .t-company { align-items: stretch; grid-template-areas:
   "c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top"
   "gp gp gp gp gp gp gp gp side side side side"
+  "evt evt evt evt evt evt evt evt evt evt evt evt"
   "c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz"
   "seg seg seg seg seg seg seg seg seg seg seg seg"
   "fa fa fa fa fa fa gr gr gr gr gr gr"
@@ -643,6 +644,7 @@ body:has(.io.term) { background: #050608; }
     "c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top c-top"
     "gp gp gp gp gp gp gp gp gp gp gp gp"
     "side side side side side side side side side side side side"
+    "evt evt evt evt evt evt evt evt evt evt evt evt"
     "c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz c-biz"
     "seg seg seg seg seg seg seg seg seg seg seg seg"
     "fa fa fa fa fa fa fa fa fa fa fa fa"
