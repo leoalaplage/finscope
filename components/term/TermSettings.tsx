@@ -69,12 +69,12 @@ export function TermSettings() {
             </tbody>
           </table>
         </div>
-        <p className="t-study-note">Nothing here leaves this browser: there is no account, and another browser or device starts empty.</p>
+        <p className="t-study-note">Kept in this browser. Signed in to <a href="/t/account">an account</a>, the same copy follows you to every device; otherwise another browser or device starts empty.</p>
       </Panel>
 
       <Panel code="SET" id="set-about" title="About the terminal" area="about">
         <div className="t-panel-pad t-about">
-          <p>Dark only, by design. The document site&apos;s light and dark setting is on <a href="/settings" data-classic>its own page</a>.</p>
+          <p>Dark only, by design.</p>
           <p>Filings come from SEC EDGAR; prices from Yahoo Finance and may be delayed; the earnings calendar and its consensus forecasts from Nasdaq, labelled as the analysts&apos; wherever they appear.</p>
           <p>Research information only, not investment advice. Type <code>HELP</code> anywhere for every command.</p>
         </div>

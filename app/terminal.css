@@ -1259,3 +1259,31 @@ body:has(.io.term) { background: #050608; }
 .t-acct-message[data-tone="error"] { color: var(--loss); }
 .t-acct-message[data-tone="ok"] { color: var(--gain); }
 .t-acct-danger { color: var(--loss); }
+
+/* ACCT: the account page worn as a terminal screen (components/io/AccountPage.tsx). */
+.t-page .acct { padding: 0 0 24px; }
+.t-page .acct-head { padding: 8px; border: 1px solid var(--line); margin-bottom: 2px; }
+.t-page .acct-avatar, .io.term .account-link[data-signed-in] { color: var(--amber-ink); background: var(--amber); }
+.t-page .acct-avatar { width: 40px; height: 40px; font-size: var(--fs-md); }
+.t-page .settings-layout { grid-template-columns: 140px minmax(0, 1fr); gap: 2px; }
+.t-page .settings-index { padding: 8px; border: 1px solid var(--line); align-self: start; }
+.t-page .settings-index a { color: var(--ink-2); text-transform: uppercase; letter-spacing: var(--track-label); font-size: var(--fs-micro); }
+.t-page .settings-index a:hover { color: var(--amber); border-inline-start-color: var(--amber); }
+.t-page .settings-section { padding: 8px; margin-bottom: 2px; border: 1px solid var(--line); gap: 16px; }
+.t-page .settings-copy h2 { color: var(--amber); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-page .acct-btn { height: 24px; padding: 0 10px; border-radius: 0; background: transparent; color: var(--ink); border-color: var(--line-strong); text-transform: uppercase; letter-spacing: .04em; font-size: var(--fs-micro); }
+.t-page .acct-btn:hover:not(:disabled) { border-color: var(--amber); color: var(--amber); }
+.t-page .acct-btn-primary { color: var(--amber-ink); background: var(--amber); border-color: var(--amber); }
+.t-page .acct-btn-primary:hover:not(:disabled) { color: var(--amber-ink); opacity: .9; }
+.t-page .acct-btn-danger, .t-page .acct-btn-danger:hover:not(:disabled) { color: var(--loss); }
+.t-page .acct-btn-danger-solid { color: #fff; background: var(--loss); border-color: var(--loss); }
+.t-page .acct-badge { border-radius: 0; height: 20px; }
+.t-page .acct-switch input:checked + span, .t-page .acct-meter span { background: var(--amber); }
+.t-page .acct-card { border-radius: 0; background: var(--panel, transparent); border-color: var(--line); }
+.t-page .acct-card h2, .t-page .acct-danger h3 { text-transform: uppercase; letter-spacing: var(--track-label); font-size: var(--fs-xs); }
+.t-page .acct-card h2 { color: var(--amber); }
+.t-page .acct-danger { border-radius: 0; }
+.t-page .acct-welcome { padding: 8px; border: 1px solid var(--line); }
+.t-page .acct-benefits strong { color: var(--amber); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-page .acct-notice { padding-inline: 8px; }
+@media (max-width: 760px) { .t-page .settings-layout { grid-template-columns: 1fr; } }

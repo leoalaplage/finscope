@@ -913,7 +913,7 @@ describe("the redesign", () => {
     expect(settings).toContain("Appearance");
     expect(settings).toContain("Data &amp; privacy");
     expect(settings).toContain("Without an account everything stays in this browser");
-    expect(settings).toContain(`<a href="/account">`);
+    expect(settings).toContain(`<a href="/t/account">`);
     expect(settings).not.toContain('type="email"');
     expect(settings).not.toContain("Create account");
     expect(settings).toContain("onClick={() => setTheme(option.value)}");

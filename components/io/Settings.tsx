@@ -63,7 +63,7 @@ export function Settings() {
                 <div><dt>Terminal layout, scans &amp; drawings</dt><dd>This browser · and your account, if signed in</dd></div>
                 <div><dt>Theme preference</dt><dd>This browser</dd></div>
               </dl>
-              <p className="stat-note settings-note">Without an account everything stays in this browser. <a href="/account">An account</a>, signed in with a passkey, keeps the same copy on every device you use. Public filing and market data may be cached by FinScope.</p>
+              <p className="stat-note settings-note">Without an account everything stays in this browser. <a href="/t/account">An account</a>, signed in with a passkey, keeps the same copy on every device you use. Public filing and market data may be cached by FinScope.</p>
             </div>
           </section>
         </div>

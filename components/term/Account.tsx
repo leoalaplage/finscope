@@ -7,7 +7,7 @@ export function AccountChip() {
   const { loaded, account } = useAccount();
   if (!loaded) return null;
   return (
-    <a href="/account" className="t-account-chip" data-signed-in={account ? "" : undefined} title={account ? "Your account: sync and email alerts" : "Sign in to keep your work on every device"}>
+    <a href="/t/account" className="t-account-chip" data-signed-in={account ? "" : undefined} title={account ? "Your account: sync and email alerts" : "Sign in to keep your work on every device"}>
       {account ? account.name.slice(0, 16).toUpperCase() : "SIGN IN"}
     </a>
   );

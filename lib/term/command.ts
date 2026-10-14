@@ -213,7 +213,7 @@ export function hrefFor(command: Command): string | null {
         case "ECAL": return "/t/ecal";
         case "INSB": return "/t/insiders";
         case "ALRT": return "/t/alerts";
-        case "ACCT": return "/account";
+        case "ACCT": return "/t/account";
         case "SET": return "/t/settings";
         case "BT": return command.ticker ? `/t/backtest?s=${encodeURIComponent(command.ticker)}` : "/t/backtest";
         case "HELP": return null;
@@ -266,7 +266,7 @@ export function suggestFunctions(input: string, current: string | null): { code:
  * to /compare. Inside the terminal those links should stay inside it, so the
  * shell passes every link through this and follows the terminal's twin.
  */
-const TWINS = ["/chart", "/screener", "/compare", "/dcf", "/portfolio", "/market", "/settings"];
+const TWINS = ["/chart", "/screener", "/compare", "/dcf", "/portfolio", "/market", "/settings", "/account"];
 export function terminalHref(path: string): string | null {
   const pathname = path.split(/[?#]/)[0];
   const tail = path.slice(pathname.length);

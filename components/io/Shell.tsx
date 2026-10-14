@@ -26,7 +26,7 @@ function AccountLink({ current }: { current: boolean }) {
   const { loaded, account } = useAccount();
   const initial = account?.name.trim().charAt(0).toUpperCase();
   return (
-    <a className="account-link" href="/account" aria-current={current ? "page" : undefined}
+    <a className="account-link" href="/t/account" aria-current={current ? "page" : undefined}
       aria-label={account ? `Your account, ${account.name}` : "Sign in"} title={account ? `Signed in as ${account.name}` : "Sign in to sync across devices"}
       data-signed-in={account ? "" : undefined}>
       {loaded && initial ? <span aria-hidden="true">{initial}</span> : <UserRound aria-hidden="true" size={14} strokeWidth={1.5} />}

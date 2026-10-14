@@ -10,6 +10,7 @@ import { snapshotEstimatesSlice } from "../lib/estimates-store";
 import { insiderBuyingSlice } from "../lib/insider-buying";
 import { buildAllUniverseSlice } from "../lib/universe-all";
 import { emailAlertsSlice } from "../lib/email-alerts";
+import { terminalRedirect } from "../lib/terminal-switch";
 import { primeSegmentsSlice } from "../lib/segments/store";
 import { refreshAuditReport } from "../lib/coverage-audit";
 import { warmExtraSlice } from "../lib/warm-extra";
@@ -60,6 +61,12 @@ const worker = {
     // Hand the bindings to route handlers, which only ever see a Request.
     setRuntimeBindings(env, ctx);
     const url = new URL(request.url);
+
+    // The former document site's pages lead to the terminal (lib/terminal-switch.ts).
+    if (request.method === "GET" || request.method === "HEAD") {
+      const target = terminalRedirect(url.pathname);
+      if (target) return Response.redirect(`${url.origin}${target}${url.search}`, 307);
+    }
 
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];

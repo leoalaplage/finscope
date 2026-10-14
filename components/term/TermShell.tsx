@@ -117,7 +117,6 @@ function FunctionKeys({ ticker }: { ticker: string | null }) {
           {keyOf[index] != null ? <kbd>{keyOf[index]}</kbd> : null}{spec.code}
         </a>
       ))}
-      <a className="t-fn-end" data-classic href={ticker ? `/s/${encodeURIComponent(ticker)}` : "/"} title="The same page on the document site">Classic view</a>
     </nav>
   );
 }
