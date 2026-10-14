@@ -555,7 +555,8 @@ describe("the redesign", () => {
      * price series it already returns.
      */
     expect(dcfSource).toContain("const required = chosen ?? priced?.rate ?? .10;");
-    expect(dcfSource).toContain("costOfEquity(yields == null ? null : yields / 100, returnsOf(company), returnsOf(market))");
+    // On the premium the S&P 500 pays today (lib/implied-erp.ts), the long-run one where it cannot be read.
+    expect(dcfSource).toContain("costOfEquity(riskFree, returnsOf(company), returnsOf(market), premium?.premium ?? FALLBACK_PREMIUM)");
     expect(dcfSource).toContain("is this company&rsquo;s cost of equity");
     // The workings sit behind a disclosure, as the score audit has since it
     // was written: every one is worth keeping and none of them is the answer.

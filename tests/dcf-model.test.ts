@@ -70,3 +70,24 @@ describe("the lender's model", () => {
     expect(j.value).toBeCloseTo(j.multiple * 4);
   });
 });
+
+describe("the DCF against the market", () => {
+  it("strikes the margin from pre-tax income and interest where no operating income is filed", () => {
+    const strip = (period: IoPeriod) => ({ ...period, values: { ...period.values, operatingIncome: null as unknown as number, operatingMargin: null as unknown as number, incomeBeforeTax: period.values.revenue! * 0.18, interestExpense: 20 } }) as IoPeriod;
+    const unfiled = { ...view, annual: view.annual.map(strip) } as IoCompanyView;
+    const foundation = dcfFoundation(unfiled)!;
+    expect(foundation.startMargin).toBeGreaterThan(0.18);
+    expect(foundation.marginNote).toContain("pre-tax income plus interest");
+  });
+
+  it("brings a building programme's capital spending back to the ten-year norm, and follows the Treasury for ever", () => {
+    const building = { ...view, annual: view.annual.map((period, index) => index === view.annual.length - 1 ? { ...period, values: { ...period.values, capitalExpenditures: -period.values.revenue! * 0.2 } } : period) } as IoCompanyView;
+    const foundation = dcfFoundation(building)!;
+    const d = defaultDrivers(foundation, 0.09, 2000, 0.052);
+    expect(foundation.now.capex).toBeCloseTo(0.2);
+    expect(d.capex).toBeCloseTo(foundation.record.capex10!);
+    expect(d.terminalGrowth).toBeCloseTo(0.032);
+    expect(defaultDrivers(foundation, 0.09, 2000, 0.07).terminalGrowth).toBe(0.035);
+    expect(defaultDrivers(foundation, 0.09, 2000, 0.03).terminalGrowth).toBe(0.025);
+  });
+});

@@ -1,4 +1,5 @@
 import { calculateDcf, type DcfAssumptions, type DcfBase, type DcfResult } from "@/lib/dcf";
+import { terminalGrowthFor } from "@/lib/implied-erp";
 import type { IoCompanyView, IoPeriod } from "./view";
 
 /**
@@ -61,6 +62,8 @@ export interface DcfFoundation {
   basePeriod: { label: string; end: string };
   /** Today's operating margin, where the margin path starts. */
   startMargin: number;
+  /** Where operating income is not filed, how the margin was struck instead; null where it is. */
+  marginNote: string | null;
   /** Today's levels, where the reinvestment paths start, and today's growth. */
   now: { growth: number | null; capex: number | null; depreciation: number | null };
   /** The company's record, for the hints beside each lever. */
@@ -68,6 +71,8 @@ export interface DcfFoundation {
     growth3: number | null; growth5: number | null; growth10: number | null;
     margin5: number | null; marginHigh: number | null;
     tax5: number | null; capex5: number | null; depreciation5: number | null; workingCapital5: number | null; dilution5: number | null;
+    /** Capital spending over revenue, the median of up to ten years: what the business needs when it is not in a building programme. */
+    capex10: number | null;
     costOfDebt: number | null;
     /** Return on invested capital, five-year average: what new capital earns once the business is mature. */
     roic5: number | null;
@@ -90,19 +95,36 @@ const mean = (values: Array<number | null>) => {
   return usable.length ? usable.reduce((sum, value) => sum + value, 0) / usable.length : null;
 };
 
-/** The company's figures the model starts from, or null where a DCF cannot be built (no revenue, no share count). */
+/**
+ * Operating income as filed, or where a filer presents no operating subtotal
+ * (Nike, GE, Lennar, Newmont: 24 of 307 non-financial S&P 500 members in
+ * October 2026) the same thing struck the classic way, pre-tax income plus
+ * interest expense. Without it the margin read as nought and the model valued
+ * Eli Lilly below zero.
+ */
+function operatingOf(period: IoPeriod | undefined): { value: number; derived: boolean } | null {
+  const filed = at(period, "operatingIncome");
+  if (known(filed)) return { value: filed, derived: false };
+  const pretax = at(period, "incomeBeforeTax");
+  if (!known(pretax)) return null;
+  return { value: pretax + Math.abs(at(period, "interestExpense") ?? 0), derived: true };
+}
+
+/** The company's figures the model starts from, or null where a DCF cannot be built (no revenue, no share count, no operating figure). */
 export function dcfFoundation(view: IoCompanyView): DcfFoundation | null {
   const annual = view.annual;
   const latest = view.trailing.at(-1) && at(view.trailing.at(-1), "revenue") != null ? view.trailing.at(-1)! : annual.at(-1);
   if (!latest) return null;
   const revenue = at(latest, "revenue");
-  const operatingIncome = at(latest, "operatingIncome");
+  const operating = operatingOf(latest) ?? operatingOf(annual.at(-1));
   const shares = at(latest, "dilutedShares") ?? at(annual.at(-1), "dilutedShares");
   if (!known(revenue) || revenue <= 0 || !known(shares) || shares <= 0) return null;
   const cash = (at(latest, "cashAndEquivalents") ?? at(annual.at(-1), "cashAndEquivalents") ?? 0)
     + Math.max(0, at(latest, "shortTermInvestments") ?? at(annual.at(-1), "shortTermInvestments") ?? 0);
   const debt = at(latest, "totalDebt") ?? at(annual.at(-1), "totalDebt") ?? 0;
-  const startMargin = known(operatingIncome) ? operatingIncome / revenue : at(latest, "operatingMargin") ?? 0;
+  const operatingRevenue = operatingOf(latest) ? revenue : at(annual.at(-1), "revenue");
+  if (!operating || !known(operatingRevenue) || operatingRevenue <= 0) return null;
+  const startMargin = operating.value / operatingRevenue;
 
   const growth = annual.map((period, index) => {
     const now = at(period, "revenue"), before = at(annual[index - 1], "revenue");
@@ -113,11 +135,14 @@ export function dcfFoundation(view: IoCompanyView): DcfFoundation | null {
     const a = at(start, "revenue"), b = at(end, "revenue");
     return known(a) && known(b) && a > 0 && b > 0 ? (b / a) ** (1 / years) - 1 : null;
   };
-  const share = (key: string, absolute = true) => annual.slice(-5).map((period) => {
+  const share = (key: string, absolute = true, years = 5) => annual.slice(-years).map((period) => {
     const value = at(period, key), base = at(period, "revenue");
     return known(value) && known(base) && base > 0 ? (absolute ? Math.abs(value) : value) / base : null;
   });
-  const margins = annual.slice(-10).map((period) => at(period, "operatingMargin"));
+  const margins = annual.slice(-10).map((period) => {
+    const income = operatingOf(period), base = at(period, "revenue");
+    return income && known(base) && base > 0 ? income.value / base : null;
+  });
   const workingCapital = annual.slice(-5).map((period, index, list) => {
     const now = at(period, "netWorkingCapital"), before = at(list[index - 1], "netWorkingCapital"), base = at(period, "revenue");
     return known(now) && known(before) && known(base) && base > 0 ? (now - before) / base : null;
@@ -136,12 +161,14 @@ export function dcfFoundation(view: IoCompanyView): DcfFoundation | null {
     base: { revenue, operatingMargin: startMargin, freeCashFlow: at(latest, "freeCashFlow") ?? 0, dilutedShares: shares, cash, debt },
     basePeriod: { label: latest.label, end: latest.end },
     startMargin,
+    marginNote: operating.derived ? "Operating income is not filed: pre-tax income plus interest expense stands in." : null,
     now: { growth: known(revenueAgo) && revenueAgo > 0 ? revenue / revenueAgo - 1 : null, capex: ofRevenue("capitalExpenditures"), depreciation: ofRevenue("depreciationAndAmortization") },
     record: {
       growth3: cagr(3), growth5: cagr(5), growth10: cagr(10) ?? mean(growth.slice(-10)),
       margin5: mean(margins.slice(-5)), marginHigh: margins.filter(known).length ? Math.max(...margins.filter(known)) : null,
       tax5: mean(annual.slice(-5).map((period) => at(period, "effectiveTaxRate"))),
       capex5: mean(share("capitalExpenditures")), depreciation5: mean(share("depreciationAndAmortization")),
+      capex10: median(share("capitalExpenditures", true, 10)),
       workingCapital5: median(workingCapital), dilution5: mean(dilution),
       costOfDebt: known(interest) && debt > 0 ? Math.abs(interest) / debt : null,
       roic5: mean(annual.slice(-5).map((period) => at(period, "roic"))),
@@ -160,8 +187,26 @@ export function weightedCost(costOfEquity: number, costOfDebt: number | null, ta
 
 const midway = (now: number | null, record: number | null) => (now != null && record != null ? (now + record) / 2 : now ?? record);
 
-/** The company's own record, bounded, as the base case. */
-export function defaultDrivers(foundation: DcfFoundation, costOfEquity: number | null, marketCap: number | null): Drivers {
+/**
+ * Year five's capital spending: back to the business's long-run norm (the
+ * ten-year median) where today's is above it — a building programme is valued
+ * as one, not as the company's permanent state: Amazon and Alphabet were
+ * valued at a quarter of their price, their 2026 spending held for five years
+ * without the growth it pays for — and halfway back to the five-year record
+ * where today's is below.
+ */
+function capexTarget(foundation: DcfFoundation): number | null {
+  const { capex } = foundation.now;
+  const { capex5, capex10 } = foundation.record;
+  if (capex != null && capex10 != null && capex > capex10) return capex10;
+  return midway(capex, capex5);
+}
+
+/**
+ * The company's own record, bounded, as the base case. Growth for ever follows
+ * the Treasury (lib/implied-erp.ts), where the page has its rate.
+ */
+export function defaultDrivers(foundation: DcfFoundation, costOfEquity: number | null, marketCap: number | null, riskFree: number | null = null): Drivers {
   const r = foundation.record;
   // Today's growth weighs most in year one; the three-year record tempers a single year.
   const record3 = r.growth3 ?? r.growth5 ?? 0.05;
@@ -177,14 +222,14 @@ export function defaultDrivers(foundation: DcfFoundation, costOfEquity: number |
     marginTarget: clamp(foundation.startMargin, -0.2, 0.6),
     taxRate,
     // Year five's reinvestment: halfway from today's level back to the five-year record.
-    capex: clamp(midway(foundation.now.capex, r.capex5) ?? 0.04, 0, 0.4),
+    capex: clamp(capexTarget(foundation) ?? 0.04, 0, 0.4),
     depreciation: clamp(midway(foundation.now.depreciation, r.depreciation5) ?? 0.035, 0, 0.3),
     // The median year, bounded: one year's swing in receivables is not a perpetual drain.
     workingCapital: clamp(r.workingCapital5 ?? 0.01, -0.02, 0.02),
     dilution: clamp(r.dilution5 ?? 0, 0, 0.05),
     wacc: clamp(weightedCost(coe, r.costOfDebt, taxRate, marketCap, foundation.base.debt), 0.05, 0.16),
     terminalMethod: "perpetual-growth",
-    terminalGrowth: 0.025,
+    terminalGrowth: terminalGrowthFor(riskFree),
     exitMultiple: 18,
   };
 }

@@ -13,6 +13,8 @@ import { withinYears } from "./ranges";
 import type { IoQuote } from "./quote";
 import { ABSENT, datedCagrOf, delta, money, percent, price as writePrice } from "./format";
 import { DcfModel } from "./DcfModel";
+import { fetchMarketPremium } from "./use-cost-of-equity";
+import { FALLBACK_PREMIUM } from "@/lib/implied-erp";
 
 /**
  * One company, one question: what would have to be true for this price.
@@ -356,7 +358,10 @@ export function Dcf({ initial }: { initial: string }) {
         ]);
         if (controller.signal.aborted || !company || !market) return;
         const yields = macro?.indicators?.find((item) => item.id === "treasury-10y")?.value ?? null;
-        setRisk({ ticker, value: costOfEquity(yields == null ? null : yields / 100, returnsOf(company), returnsOf(market)) });
+        const riskFree = yields == null ? null : yields / 100;
+        const premium = await fetchMarketPremium(riskFree, controller.signal);
+        if (controller.signal.aborted) return;
+        setRisk({ ticker, value: costOfEquity(riskFree, returnsOf(company), returnsOf(market), premium?.premium ?? FALLBACK_PREMIUM) });
       } catch {
         // The reader's own choice remains, which is what the page had before.
       }
