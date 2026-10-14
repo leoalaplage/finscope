@@ -7,7 +7,7 @@
  * where to go, this decides what was meant.
  */
 
-export type CompanyFunction = "DES" | "GP" | "EVT" | "FA" | "GR" | "GF" | "SEG" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "PEER" | "DCF" | "DVD" | "FS" | "COMP";
+export type CompanyFunction = "DES" | "GP" | "EVT" | "FA" | "GR" | "GF" | "SEG" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "PEER" | "DCF" | "DVD" | "DDIS" | "FS" | "COMP";
 export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "BT" | "ECAL" | "INSB" | "SET" | "HELP";
 
 export interface FunctionSpec<Code extends string> {
@@ -50,6 +50,7 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   { code: "INS", name: "Insider dealing", chapter: 5 },
   { code: "HDS", name: "Institutional holders", chapter: 5 },
   // 6 · The accounts
+  { code: "DDIS", name: "Debt maturities", chapter: 6 },
   { code: "FS", name: "Financial statements", chapter: 6 },
   // A screen of its own, after the page.
   { code: "COMP", name: "Compare" },
@@ -78,6 +79,7 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
   GIP: "GP", HP: "GP", G: "GP",
   FIN: "FA", FS: "FA",
   ERN: "EE", EARN: "EE",
+  DEBT: "DDIS", MATURITIES: "DDIS",
   PEERS: "PEER", REL: "PEER",
   DIV: "DVD", DIVIDENDS: "DVD", DVDH: "DVD",
   EVENTS: "EVT", CACS: "EVT", CN: "EVT", NEWS: "EVT",

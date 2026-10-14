@@ -293,6 +293,7 @@ body:has(.io.term) { background: #050608; }
   "c-own c-own c-own c-own c-own c-own c-own c-own c-own c-own c-own c-own"
   "ins ins ins ins ins ins hds hds hds hds hds hds"
   "c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc"
+  "ddis ddis ddis ddis ddis ddis ddis ddis ddis ddis ddis ddis"
   "st st st st st st st st st st st st"
   "src src src src src src src src src src src src";
 }
@@ -667,6 +668,7 @@ body:has(.io.term) { background: #050608; }
     "ins ins ins ins ins ins ins ins ins ins ins ins"
     "hds hds hds hds hds hds hds hds hds hds hds hds"
     "c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc c-acc"
+    "ddis ddis ddis ddis ddis ddis ddis ddis ddis ddis ddis ddis"
     "st st st st st st st st st st st st"
     "src src src src src src src src src src src src";
   }

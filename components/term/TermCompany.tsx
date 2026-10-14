@@ -24,6 +24,7 @@ import { EarningsBoard, ReleaseStrip } from "@/components/io/PendingEarnings";
 import { CompanyEvents } from "@/components/io/CompanyEvents";
 import { Dividends } from "@/components/io/Dividends";
 import { PeerValuation } from "@/components/io/PeerValuation";
+import { DebtMaturities } from "@/components/io/DebtMaturities";
 import { InsiderClusterBadge } from "./InsiderBuying";
 import { LenderReading } from "@/components/io/LenderReading";
 import { readsAsLender } from "@/lib/io/lender";
@@ -286,6 +287,9 @@ export function TermCompany({ ticker }: { ticker: string }) {
         </Panel>
 
         <Chapter area="c-acc" number={6} title="Accounts" />
+        <Panel code="DDIS" title="Debt maturities" area="ddis">
+          <div className="t-panel-pad"><DebtMaturities key={`ddis-${company.ticker}`} view={view} /></div>
+        </Panel>
         <Panel code="FS" area="st">
           <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
         </Panel>

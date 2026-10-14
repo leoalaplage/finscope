@@ -13,6 +13,7 @@ import { Fold } from "./Fold";
 import { CompanyEvents } from "./CompanyEvents";
 import { Dividends } from "./Dividends";
 import { PeerValuation } from "./PeerValuation";
+import { DebtMaturities } from "./DebtMaturities";
 import { GrowthYield } from "./GrowthYield";
 import { LenderReading } from "./LenderReading";
 import { Estimates } from "./Estimates";
@@ -262,6 +263,10 @@ export function Company({ ticker }: { ticker: string }) {
       <Fold title="Institutional holders"><Holders key={`holders-${company.ticker}`} ticker={company.ticker} view={view} /></Fold>
 
       <Chapter number={6} title="Accounts" />
+      <section className="section-panel" id="ddis" aria-label="Debt maturities">
+        <h3>Debt maturities</h3>
+        <DebtMaturities key={`ddis-${company.ticker}`} view={view} />
+      </section>
       <Fold title="Statements">
         <Statements view={view} selected={selectedMetrics} onSelect={selectMetric} />
       </Fold>
