@@ -204,7 +204,6 @@ export function ReleaseStrip({ view }: { view: IoCompanyView }) {
 export function EarningsBoard({ view, lastFiled }: { view: IoCompanyView; lastFiled: { label: string; filingDate: string } | null }) {
   const filing = useEarningsRelease(view);
   const history = useEpsHistory(view.company.ticker);
-  const [mode, setMode] = useState<"quarterly" | "annual">("quarterly");
   const reading = filing?.reading ?? null;
   const currency = view.company.currency;
   const pending = reading?.figures.dilutedEps ? { fiscalEnd: fiscalEndName(reading.periodEnd), eps: reading.figures.dilutedEps.value } : null;
@@ -237,16 +236,12 @@ export function EarningsBoard({ view, lastFiled }: { view: IoCompanyView; lastFi
         {facts}
       </div>
       <figure className="t-gf-card t-ee-chart">
-        <figcaption>
-          <h3>{mode === "quarterly" ? "EPS against the consensus" : "EPS by fiscal year · filed, then the consensus"}</h3>
-          <div className="seg" role="group" aria-label="Periods">
-            <button type="button" aria-pressed={mode === "quarterly"} onClick={() => setMode("quarterly")}>Quarterly</button>
-            <button type="button" aria-pressed={mode === "annual"} onClick={() => setMode("annual")}>Annual</button>
-          </div>
-        </figcaption>
-        {mode === "quarterly"
-          ? <EpsChart history={history} pending={pending} currency={currency} />
-          : <AnnualEpsChart view={view} history={history} currency={currency} />}
+        <figcaption><h3>EPS against the consensus · quarterly</h3></figcaption>
+        <EpsChart history={history} pending={pending} currency={currency} />
+      </figure>
+      <figure className="t-gf-card t-ee-chart">
+        <figcaption><h3>EPS by fiscal year · filed, then the consensus</h3></figcaption>
+        <AnnualEpsChart view={view} history={history} currency={currency} />
       </figure>
     </div>
   );
