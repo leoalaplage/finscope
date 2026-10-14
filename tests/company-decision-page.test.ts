@@ -15,7 +15,7 @@ describe("the company page", () => {
     expect(company).not.toContain("<CompanyGroup");
     expect(company).not.toContain("<details");
     expect(company).not.toContain("CompanyNavigation");
-    for (const section of ["<Statements", "<Insiders", "<Holders", "<CompanyNews"]) {
+    for (const section of ["<Statements", "<Insiders", "<Holders"]) {
       expect(company, section).toContain(section);
     }
   });

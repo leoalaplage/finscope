@@ -7,7 +7,7 @@
  * where to go, this decides what was meant.
  */
 
-export type CompanyFunction = "DES" | "GP" | "FA" | "GR" | "GF" | "SEG" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "CN" | "DCF" | "FS" | "COMP";
+export type CompanyFunction = "DES" | "GP" | "FA" | "GR" | "GF" | "SEG" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "DCF" | "FS" | "COMP";
 export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "BT" | "ECAL" | "SET" | "HELP";
 
 export interface FunctionSpec<Code extends string> {
@@ -30,7 +30,6 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   { code: "DES", name: "Description", chapter: 1 },
   { code: "GP", name: "Price graph", chapter: 1 },
   { code: "EE", name: "Earnings release", chapter: 1 },
-  { code: "CN", name: "Company news", chapter: 1 },
   // 2 · The business
   { code: "SEG", name: "Segments", chapter: 2 },
   { code: "FA", name: "Financial analysis", chapter: 2 },
@@ -76,7 +75,6 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
   FIN: "FA", FS: "FA",
   ERN: "EE", EARN: "EE",
   HDS: "HDS", HOLD: "HDS",
-  NEWS: "CN", N: "CN",
   COMPARE: "COMP", RV: "COMP",
   SEGMENTS: "SEG", SEGMENT: "SEG", PGEO: "SEG",
   REPORTS: "RPT", SURP: "RPT", EM: "RPT",

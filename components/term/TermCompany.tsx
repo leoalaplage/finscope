@@ -20,7 +20,6 @@ import { ValuationCharts } from "@/components/io/ValuationCharts";
 import { DcfModel } from "@/components/io/DcfModel";
 import { Insiders, useInsiders } from "@/components/io/Insiders";
 import { Holders } from "@/components/io/Holders";
-import { CompanyNews } from "@/components/io/CompanyNews";
 import { PendingEarnings } from "@/components/io/PendingEarnings";
 import { LenderReading } from "@/components/io/LenderReading";
 import { readsAsLender } from "@/lib/io/lender";
@@ -201,7 +200,8 @@ export function TermCompany({ ticker }: { ticker: string }) {
             </Panel>
           ) : null}
 
-          <Panel code="EE" title="Earnings · release & expectations">
+          {/* Last, and scrolling inside whatever height the graph leaves. */}
+          <Panel code="EE" title="Earnings · release & expectations" className="t-side-fill">
             <PendingEarnings
               view={view}
               chart
@@ -212,11 +212,6 @@ export function TermCompany({ ticker }: { ticker: string }) {
                 </p>
               }
             />
-          </Panel>
-
-          {/* Last, and scrolling inside whatever height the graph leaves. */}
-          <Panel code="CN" className="t-side-news">
-            <CompanyNews key={company.ticker} ticker={company.ticker} />
           </Panel>
         </div>
 

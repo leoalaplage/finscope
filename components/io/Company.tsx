@@ -18,7 +18,6 @@ import { Reports } from "./Reports";
 import { readsAsLender } from "@/lib/io/lender";
 import { Verdict, type VerdictKey } from "./Verdict";
 import { CHART_ANCHOR, PriceSection } from "./PriceSection";
-import { CompanyNews } from "./CompanyNews";
 import { Statements } from "./Statements";
 import { Stats } from "./Stats";
 import { Holders } from "./Holders";
@@ -210,7 +209,6 @@ export function Company({ ticker }: { ticker: string }) {
           {openDetail === "valuation" ? <GrowthYield view={view} quote={valuationQuote} /> : null}
           {openDetail === "growth" ? <FcfShareGrowth view={view} /> : null}
         </>}
-      <Fold title="Newsroom"><CompanyNews key={company.ticker} ticker={company.ticker} /></Fold>
 
       <Chapter number={2} title="The business" note="what it sells, what it earns, how it has grown" />
       {/* The company in slices, as filed (components/io/Segments.tsx). */}

@@ -639,13 +639,6 @@ describe("the redesign", () => {
     // SEC. And a filing is one of ours only if its identifier is.
     expect(filings).toContain("edgarUrl(item.cik, item.accession)");
     expect(daily).toContain("watched.has(filing.cik)");
-    /*
-     * The company's own newsroom keeps its link and its place. There the
-     * destination is the filer being read about, and the release is the
-     * document the headline stands for.
-     */
-    const company = readFileSync(new URL("../app/api/company/[ticker]/news/route.ts", import.meta.url), "utf8");
-    expect(company).toContain("publishedAt, sourceUrl })");
   });
 
   it("places portfolio analysis below sector concentration and omits the FCF-owned summary cell", () => {
@@ -783,7 +776,7 @@ describe("the redesign", () => {
       // Each answer at a glance opens its own reading, and only that one.
       expect(company).toContain(`openDetail === "${key}" ?`);
     }
-    for (const shut of ["<Statements ", "<Insiders ", "<Holders ", "<CompanyNews "]) {
+    for (const shut of ["<Statements ", "<Insiders ", "<Holders "]) {
       expect(folded(shut), `${shut} is folded`).toBe(true);
     }
     // The chart is the top of a company and the statistics sit under it.
@@ -797,10 +790,9 @@ describe("the redesign", () => {
     expect(company).toContain('<Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range="MAX" frequency="ttm" />');
   });
 
-  it("reads a company in six chapters, the terminal's order, with its newsroom in the snapshot", () => {
+  it("reads a company in six chapters, the terminal's order, with no newsroom", () => {
     const company = companyPage();
     const terminal = readFileSync(new URL("../components/term/TermCompany.tsx", import.meta.url), "utf8");
-    const news = readFileSync(new URL("../components/io/CompanyNews.tsx", import.meta.url), "utf8");
     const titles = ["Snapshot", "The business", "The results", "The valuation", "Ownership", "The accounts"];
     const at = (source: string) => titles.map((title) => source.indexOf(`title="${title}"`));
     // Both pages hold every chapter, in the same order.
@@ -808,13 +800,10 @@ describe("the redesign", () => {
       expect(positions.every((position) => position > 0)).toBe(true);
       expect([...positions].sort((left, right) => left - right)).toEqual(positions);
     }
-    // What the company said since sits with the snapshot, as the terminal's CN does, folded.
-    expect(company.indexOf("<CompanyNews")).toBeLessThan(company.indexOf('title="The business"'));
+    // The newsroom panel was removed from both pages.
+    expect(company).not.toContain("CompanyNews");
+    expect(terminal).not.toContain("CompanyNews");
     expect(company.indexOf("<Statements view={view}")).toBeGreaterThan(company.indexOf('title="The accounts"'));
-    expect(news).toContain('from "./format"');
-    expect(news).not.toContain("function clock(");
-    // Keyed by company, so one company's releases never sit under another's name.
-    expect(company).toContain("<CompanyNews key={company.ticker}");
   });
 
   it("puts an official, date-explicit macro snapshot below the market indices", () => {
