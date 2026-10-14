@@ -134,7 +134,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
       </header>
 
       <div className="t-grid t-company">
-        <Chapter area="c-top" number={1} title="Snapshot" note="the price, the key numbers, the verdict, the latest news" />
+        <Chapter area="c-top" number={1} title="Snapshot" note="the price, the key numbers, the verdict, the latest results" />
         <Panel code="GP" area="gp" className="t-fill t-gp">
           <PriceSection
             ticker={company.ticker}
