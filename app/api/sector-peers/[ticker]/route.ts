@@ -12,7 +12,7 @@ import { TICKER_PATTERN } from "@/lib/market-profile";
 export async function GET(_request: Request, context: { params: Promise<{ ticker: string }> }) {
   const symbol = decodeURIComponent((await context.params).ticker).toUpperCase();
   if (!TICKER_PATTERN.test(symbol)) return NextResponse.json({ error: "That is not a ticker." }, { status: 400 });
-  const { body } = await cachedJson(`sector-peers:v1:${symbol}`, 3600, async () => {
+  const { body } = await cachedJson(`sector-peers:v2:${symbol}`, 1800, async () => {
     const [universe, technical, consensus] = await Promise.all([
       readServedUniverse(), readTechTable(),
       datasetCache()?.get<ConsensusTable>(SCREENER_CONSENSUS_KEY, "json").catch(() => null) ?? null,
