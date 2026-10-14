@@ -7,6 +7,7 @@ import { useStoredWatchlist } from "@/components/io/watchlist";
 import { delta, price } from "@/components/io/format";
 import { CommandLine } from "./CommandLine";
 import { useTape } from "./quotes";
+import { AlertsChip } from "./Alerts";
 
 /**
  * The frame every terminal screen sits in.
@@ -316,6 +317,7 @@ export function TermShell({ ticker = null, bare = false, children }: {
           <a className="t-brand" href="/t" aria-label="FinScope terminal home"><span className="t-brand-long">FINSCOPE</span><span className="t-brand-short" aria-hidden="true">FS</span></a>
           <CommandLine current={ticker} onHelp={() => setHelpOpen(true)} />
           <div className="t-bar-right">
+            <AlertsChip />
             <button type="button" onClick={() => setHelpOpen(true)} className="t-amber">HELP</button>
             <a href="/t/settings" title="Settings and what this device keeps">SET</a>
           </div>

@@ -1230,3 +1230,10 @@ body:has(.io.term) { background: #050608; }
 .t-insb tr[data-strong] td { background: color-mix(in srgb, var(--gain) 8%, transparent); }
 .t-insb-who { white-space: normal; color: var(--ink-2); max-width: 70ch; }
 .t-insb-badge { color: var(--gain); border-color: color-mix(in srgb, var(--gain) 50%, transparent); }
+
+/* ALRT: alerts (components/term/Alerts.tsx). */
+.t-alerts-chip { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-3); text-decoration: none; }
+.t-alerts-chip[data-fresh] { color: var(--amber); }
+.t-alerts-chip b { min-width: 16px; padding: 0 4px; text-align: center; color: var(--amber-ink); background: var(--amber); font-weight: 700; }
+.t-insb tr[data-fresh] td:first-child { box-shadow: inset 2px 0 0 var(--amber); }
+.t-insb tr[data-kind="flag"] td { background: color-mix(in srgb, var(--loss) 7%, transparent); }
