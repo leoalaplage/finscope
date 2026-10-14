@@ -12,6 +12,7 @@ import { Multiples } from "./Multiples";
 import { Fold } from "./Fold";
 import { CompanyEvents } from "./CompanyEvents";
 import { Dividends } from "./Dividends";
+import { PeerValuation } from "./PeerValuation";
 import { GrowthYield } from "./GrowthYield";
 import { LenderReading } from "./LenderReading";
 import { Estimates } from "./Estimates";
@@ -238,6 +239,10 @@ export function Company({ ticker }: { ticker: string }) {
       <Chapter number={4} title="Valuation" />
       {/* The multiples through time, each against its own median and range. */}
       <ValuationCharts key={`valc-${company.ticker}`} view={view} quote={valuationQuote} />
+      <section className="section-panel" id="peer" aria-label="Against peers">
+        <h3>Against peers</h3>
+        <PeerValuation key={`peer-${company.ticker}`} view={view} quote={valuationQuote} />
+      </section>
       <section className="section-panel" id="dcf" aria-label="Discounted cash flow">
         <h3>Discounted cash flow</h3>
         <DcfModel key={`dcf-${company.ticker}`} view={view} quote={valuationQuote} />

@@ -23,6 +23,7 @@ import { Holders } from "@/components/io/Holders";
 import { EarningsBoard, ReleaseStrip } from "@/components/io/PendingEarnings";
 import { CompanyEvents } from "@/components/io/CompanyEvents";
 import { Dividends } from "@/components/io/Dividends";
+import { PeerValuation } from "@/components/io/PeerValuation";
 import { InsiderClusterBadge } from "./InsiderBuying";
 import { LenderReading } from "@/components/io/LenderReading";
 import { readsAsLender } from "@/lib/io/lender";
@@ -264,6 +265,9 @@ export function TermCompany({ ticker }: { ticker: string }) {
         <Panel code="VAL" title="Valuation multiples" area="val">
           {/* The multiples through time, each against its own median and range. */}
           <ValuationCharts key={`valc-${company.ticker}`} view={view} quote={valuationQuote} />
+        </Panel>
+        <Panel code="PEER" title="Against peers" area="peer">
+          <div className="t-panel-pad"><PeerValuation key={`peer-${company.ticker}`} view={view} quote={valuationQuote} /></div>
         </Panel>
         <Panel code="DCF" title="Discounted cash flow" area="dcf">
           <DcfModel key={`dcf-${company.ticker}`} view={view} quote={valuationQuote} />
