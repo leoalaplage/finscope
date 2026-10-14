@@ -912,7 +912,8 @@ describe("the redesign", () => {
     expect(page).toContain('export const dynamic = "force-static"');
     expect(settings).toContain("Appearance");
     expect(settings).toContain("Data &amp; privacy");
-    expect(settings).toContain("There is no FinScope account or cloud sync");
+    expect(settings).toContain("Without an account everything stays in this browser");
+    expect(settings).toContain(`<a href="/account">`);
     expect(settings).not.toContain('type="email"');
     expect(settings).not.toContain("Create account");
     expect(settings).toContain("onClick={() => setTheme(option.value)}");

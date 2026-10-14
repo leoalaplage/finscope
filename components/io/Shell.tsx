@@ -3,12 +3,13 @@
 /* eslint-disable @next/next/no-html-link-for-pages -- Native navigation is
    required here while vinext's production RSC link bridge fails to hydrate. */
 
-import { Settings as SettingsIcon } from "lucide-react";
+import { Settings as SettingsIcon, UserRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { onCompany, useRememberedCompany } from "./remembered";
 import { Search } from "./Search";
 import { readTheme, setTheme, subscribeTheme, type Theme } from "./theme";
+import { useAccount } from "./account";
 
 /**
  * The document's own attribute is the state, and React subscribes to it.
@@ -20,6 +21,19 @@ import { readTheme, setTheme, subscribeTheme, type Theme } from "./theme";
  * render is already right, and the server's snapshot is the same default the
  * markup carries.
  */
+/** The account: its initial once signed in, the way in otherwise (components/io/AccountPage.tsx). */
+function AccountLink({ current }: { current: boolean }) {
+  const { loaded, account } = useAccount();
+  const initial = account?.name.trim().charAt(0).toUpperCase();
+  return (
+    <a className="account-link" href="/account" aria-current={current ? "page" : undefined}
+      aria-label={account ? `Your account, ${account.name}` : "Sign in"} title={account ? `Signed in as ${account.name}` : "Sign in to sync across devices"}
+      data-signed-in={account ? "" : undefined}>
+      {loaded && initial ? <span aria-hidden="true">{initial}</span> : <UserRound aria-hidden="true" size={14} strokeWidth={1.5} />}
+    </a>
+  );
+}
+
 function ThemeSwitch() {
   const theme = useSyncExternalStore(subscribeTheme, readTheme, () => "dark" as Theme);
 
@@ -116,6 +130,7 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
             <a href="/portfolio" aria-current={isCurrent("/portfolio") ? "page" : undefined}>Portfolio</a>
           </nav>
           <ThemeSwitch />
+          <AccountLink current={isCurrent("/account")} />
           <a className="settings-link" href="/settings" aria-label="Open settings" title="Settings" aria-current={isCurrent("/settings") ? "page" : undefined}>
             <SettingsIcon aria-hidden="true" size={14} strokeWidth={1.5} />
           </a>

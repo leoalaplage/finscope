@@ -213,7 +213,7 @@ export function hrefFor(command: Command): string | null {
         case "ECAL": return "/t/ecal";
         case "INSB": return "/t/insiders";
         case "ALRT": return "/t/alerts";
-        case "ACCT": return "/t/account";
+        case "ACCT": return "/account";
         case "SET": return "/t/settings";
         case "BT": return command.ticker ? `/t/backtest?s=${encodeURIComponent(command.ticker)}` : "/t/backtest";
         case "HELP": return null;

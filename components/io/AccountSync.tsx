@@ -18,6 +18,9 @@ import { useAccount } from "./account";
 
 const STAMPS_KEY = "finscope.sync.stamps.v1";
 export const SYNC_EVENT = "finscope:sync";
+/** Asks the sync, wherever it runs on the page, to read and send now. */
+export const SYNC_NOW_EVENT = "finscope:sync-now";
+export const syncNow = () => window.dispatchEvent(new Event(SYNC_NOW_EVENT));
 export interface SyncStatus { state: "idle" | "syncing" | "synced" | "failed"; at: string | null; error?: string }
 let status: SyncStatus = { state: "idle", at: null };
 export const syncStatus = () => status;
@@ -125,7 +128,10 @@ export function AccountSync() {
     const again = setInterval(() => { void pull(); }, 5 * 60_000);
     const onFocus = () => { if (document.visibilityState === "visible") void pull(); };
     document.addEventListener("visibilitychange", onFocus);
+    const onAsk = () => { watch(); void pull(); };
+    window.addEventListener(SYNC_NOW_EVENT, onAsk);
     return () => {
+      window.removeEventListener(SYNC_NOW_EVENT, onAsk);
       stopped = true;
       clearInterval(poll); clearInterval(again);
       document.removeEventListener("visibilitychange", onFocus);

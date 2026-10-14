@@ -27,6 +27,8 @@ export interface StoredCredential {
   created: string;
   /** "iPhone", "Chrome on Mac": what the reader called it, or the browser it was made in. */
   label: string;
+  /** The last time it signed in. */
+  lastUsed?: string;
 }
 
 export interface AccountEmail { address: string; verified: boolean; alerts: boolean; lastSent: string | null }
@@ -44,7 +46,7 @@ export interface PublicAccount {
   id: string;
   name: string;
   created: string;
-  passkeys: Array<{ id: string; label: string; created: string }>;
+  passkeys: Array<{ id: string; label: string; created: string; lastUsed: string | null }>;
   email: AccountEmail | null;
 }
 
@@ -74,7 +76,7 @@ const fromBase64Url = (text: string) => Uint8Array.from(atob(text.replace(/-/g, 
 
 export const publicAccount = (account: Account): PublicAccount => ({
   id: account.id, name: account.name, created: account.created, email: account.email,
-  passkeys: account.credentials.map((credential) => ({ id: credential.id, label: credential.label, created: credential.created })),
+  passkeys: account.credentials.map((credential) => ({ id: credential.id, label: credential.label, created: credential.created, lastUsed: credential.lastUsed ?? null })),
 });
 
 export async function readAccount(id: string): Promise<Account | null> {
@@ -153,7 +155,8 @@ async function takeChallenge(id: string, kind: Challenge["kind"]): Promise<Chall
 export async function registrationOptions(request: Request, signedIn: Account | null, name: string) {
   const rp = relyingParty(request);
   const accountId = signedIn?.id ?? randomId(16);
-  const accountName = signedIn?.name ?? (name.trim().slice(0, 60) || "FinScope reader");
+  const chosen = name.trim().replace(/\s+/g, " ");
+  const accountName = signedIn?.name ?? (NAME_PATTERN.test(chosen) ? chosen : "FinScope reader");
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
     rpID: rp.id,
@@ -206,6 +209,28 @@ export async function completeAuthentication(request: Request, challengeId: stri
   });
   if (!verification.verified) throw new Error("The passkey could not be verified.");
   credential.counter = verification.authenticationInfo.newCounter;
+  credential.lastUsed = new Date().toISOString();
+  await writeAccount(account);
+  return account;
+}
+
+/** A display name: one to forty characters, letters, digits, spaces and a little punctuation. */
+export const NAME_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} ._'-]{0,39}$/u;
+
+export async function renameAccount(account: Account, name: string): Promise<Account> {
+  const trimmed = name.trim().replace(/\s+/g, " ");
+  if (!NAME_PATTERN.test(trimmed)) throw new Error("A name is 1 to 40 letters, digits, spaces, dots, dashes or apostrophes.");
+  account.name = trimmed;
+  await writeAccount(account);
+  return account;
+}
+
+export async function renamePasskey(account: Account, credentialId: string, label: string): Promise<Account> {
+  const credential = account.credentials.find((entry) => entry.id === credentialId);
+  if (!credential) throw new Error("No such passkey on this account.");
+  const trimmed = label.trim().replace(/\s+/g, " ").slice(0, 40);
+  if (!trimmed) throw new Error("Give the passkey a name.");
+  credential.label = trimmed;
   await writeAccount(account);
   return account;
 }

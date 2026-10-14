@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { startAuthentication, startRegistration, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import type { PublicAccount } from "@/lib/accounts";
+import type { SyncedData } from "@/lib/account-sync";
 
 /**
  * The account signed in on this browser, as one store every component reads
@@ -74,6 +75,19 @@ export async function signIn(): Promise<void> {
 
 export async function signOut(): Promise<void> {
   take(await json("/api/account/logout", { method: "POST", body: "{}" }));
+}
+
+export async function renameAccount(name: string): Promise<void> {
+  take(await json("/api/account", { method: "PATCH", body: JSON.stringify({ name }) }));
+}
+
+export async function renamePasskey(id: string, label: string): Promise<void> {
+  take(await json(`/api/account/passkey?id=${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ label }) }));
+}
+
+/** What the account holds, key by key, as the server has it. */
+export async function accountData(): Promise<SyncedData> {
+  return (await json<{ items: SyncedData }>("/api/account/data")).items;
 }
 
 export async function removePasskey(id: string): Promise<void> {

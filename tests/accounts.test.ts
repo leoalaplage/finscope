@@ -66,3 +66,15 @@ describe("the daily email", () => {
     expect(email.text).toContain("https://finscope.test/t/account");
   });
 });
+
+describe("what the account page says each store holds", () => {
+  it("counts lists, tickers, notes and saved screens", async () => {
+    const { describeSynced } = await import("../lib/account-sync");
+    expect(describeSynced("finscope.io.watchlists.v1", JSON.stringify({ lists: [{ tickers: ["AAPL", "MSFT"] }, { tickers: ["AAPL", "DAL"] }] }))).toBe("2 lists · 3 tickers");
+    expect(describeSynced("finscope.io.thesis.v1", JSON.stringify([{}]))).toBe("1 note");
+    expect(describeSynced("finscope.free-screener.v1", JSON.stringify({ saved: [{}, {}] }))).toBe("2 saved screens");
+    expect(describeSynced("finscope.io.alerts-seen.v1", "2026-10-14T21:00:00.000Z")).toBe("Up to 2026-10-14");
+    expect(describeSynced("finscope.term.workspace.v1", "{}")).toBeNull();
+    expect(describeSynced("finscope.io.thesis.v1", null)).toBeNull();
+  });
+});
