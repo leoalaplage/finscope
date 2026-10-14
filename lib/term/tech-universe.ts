@@ -1,7 +1,8 @@
 import { fetchCandles } from "@/lib/adapters/candles";
 import { companyByTicker } from "@/lib/company-registry";
 import { datasetCache, keepAlive } from "@/lib/runtime-env";
-import { UNIVERSE } from "@/lib/universe";
+import { UNIVERSE, type UniverseMember } from "@/lib/universe";
+import { coveredMembers } from "@/lib/covered-universe";
 import { computeSeries, snapshotOf, type Snapshot } from "./rules";
 
 /**
@@ -26,7 +27,8 @@ export const TECH_KEY = "technicals:v1";
  * rating weighs.
  */
 export const ROW_SHAPE = 4;
-export const TECH_PER_RUN = 100;
+/** A thousand companies, each read again once six hours old: a hundred and twenty a run keeps all of them within five. */
+export const TECH_PER_RUN = 120;
 export const TECH_STALE_HOURS = 6;
 const AT_ONCE = 6;
 
@@ -75,14 +77,14 @@ export async function readTechTable(): Promise<TechTable | null> {
 }
 
 /** Members never read first, then the oldest past their six hours. */
-export function nextTechnicals(table: TechTable | null, limit = TECH_PER_RUN, now = new Date()): string[] {
+export function nextTechnicals(table: TechTable | null, limit = TECH_PER_RUN, now = new Date(), members: readonly UniverseMember[] = UNIVERSE): string[] {
   const built = new Map((table?.rows ?? []).map((row) => [row.ticker, Date.parse(row.builtAt)]));
   const stale = now.getTime() - TECH_STALE_HOURS * 3_600_000;
   const aside = setAside(table, now);
-  const missing = UNIVERSE.filter((member) => !built.has(member.ticker) && !aside.has(member.ticker)).map((member) => member.ticker);
+  const missing = members.filter((member) => !built.has(member.ticker) && !aside.has(member.ticker)).map((member) => member.ticker);
   const shapes = new Map((table?.rows ?? []).map((row) => [row.ticker, row.shape]));
-  const outdated = UNIVERSE.filter((member) => built.has(member.ticker) && shapes.get(member.ticker) !== ROW_SHAPE).map((member) => member.ticker);
-  const old = UNIVERSE.filter((member) => shapes.get(member.ticker) === ROW_SHAPE && (built.get(member.ticker) ?? Infinity) < stale)
+  const outdated = members.filter((member) => built.has(member.ticker) && shapes.get(member.ticker) !== ROW_SHAPE).map((member) => member.ticker);
+  const old = members.filter((member) => shapes.get(member.ticker) === ROW_SHAPE && (built.get(member.ticker) ?? Infinity) < stale)
     .sort((a, b) => built.get(a.ticker)! - built.get(b.ticker)!)
     .map((member) => member.ticker);
   return [...missing, ...outdated, ...old].slice(0, limit);
@@ -96,8 +98,9 @@ export async function buildTechnicalSlice(limit = TECH_PER_RUN): Promise<{ read:
   if (!cache) return null;
   const table = await readTechTable();
   const rows = new Map((table?.rows ?? []).map((row) => [row.ticker, row]));
-  const names = new Map(UNIVERSE.map((member) => [member.ticker, member.name]));
-  const queue = nextTechnicals(table, limit);
+  const members = await coveredMembers();
+  const names = new Map(members.map((member) => [member.ticker, member.name]));
+  const queue = nextTechnicals(table, limit, new Date(), members);
   const failed: string[] = [];
   const unreadable: Record<string, string> = { ...(table?.unreadable ?? {}) };
   let read = 0;
@@ -127,8 +130,8 @@ export async function buildTechnicalSlice(limit = TECH_PER_RUN): Promise<{ read:
 
   const next: TechTable = {
     builtAt: new Date().toISOString(),
-    members: UNIVERSE.length,
-    rows: UNIVERSE.map((member) => rows.get(member.ticker)).filter((row): row is TechRow => row != null),
+    members: members.length,
+    rows: members.map((member) => rows.get(member.ticker)).filter((row): row is TechRow => row != null),
     unreadable,
   };
   try {

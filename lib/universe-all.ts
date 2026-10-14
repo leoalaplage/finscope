@@ -7,6 +7,7 @@ import { datasetCache } from "./runtime-env";
 import { UNIVERSE, UNIVERSE_AS_OF, type UniverseMember } from "./universe";
 import { readServedUniverse, universeRow, type UniverseRow, type UniverseTable } from "./universe-build";
 import type { WatchlistSummary } from "./watchlist-summary";
+import { US1000_EXTRA_KEY } from "./covered-universe";
 
 /**
  * The listed companies beyond the S&P 500, as rows of the same table.
@@ -112,6 +113,10 @@ export async function buildAllUniverseSlice(origin: string, now = new Date()): P
   store.cursor = (store.cursor + 1) % 1_000_000;
   store.builtAt = now.toISOString();
   await cache.put(ALL_UNIVERSE_KEY(), JSON.stringify(store));
+  // The thousand largest beyond the index: the consensus and the technicals are kept for them too (lib/covered-universe.ts).
+  const { members } = await scopeTable("us1000", store);
+  const sp500Tickers = new Set(UNIVERSE.map((member) => member.ticker));
+  await cache.put(US1000_EXTRA_KEY, JSON.stringify(members.filter((member) => !sp500Tickers.has(member.ticker)))).catch(() => undefined);
   return { rows: tickers.length, built, failed: failures, priced: quotes.size };
 }
 
@@ -121,10 +126,10 @@ export async function buildAllUniverseSlice(origin: string, now = new Date()): P
  * for "US 1000". Members are the scope's companies whether built yet or not,
  * so the screener can say how far along it is.
  */
-export async function scopeTable(scope: Scope): Promise<{ table: UniverseTable | null; members: UniverseMember[] }> {
+export async function scopeTable(scope: Scope, held?: AllUniverseStore): Promise<{ table: UniverseTable | null; members: UniverseMember[] }> {
   const sp = await readServedUniverse();
   if (scope === "sp500") return { table: sp, members: UNIVERSE };
-  const [all, listed] = await Promise.all([readAllUniverse(), listedCompanies().catch(() => [] as UniverseMember[])]);
+  const [all, listed] = await Promise.all([held ?? readAllUniverse(), listedCompanies().catch(() => [] as UniverseMember[])]);
   const sp500 = new Set(UNIVERSE.map((member) => member.cik));
   const everyone = [...UNIVERSE, ...listed.filter((member) => !sp500.has(member.cik))];
   const rows = [...(sp?.rows ?? []), ...Object.values(all?.rows ?? {})];

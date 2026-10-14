@@ -2,7 +2,7 @@ import { fetchEstimates } from "./adapters/nasdaq-estimates";
 import { mergeSurprises, recordSnapshot, snapshotOf, type EpsSurprise, type EstimateSnapshot, type Estimates } from "./estimates";
 import { cachedJson, marketKey } from "./market-cache";
 import { datasetCache } from "./runtime-env";
-import { UNIVERSE } from "./universe";
+import { coveredMembers } from "./covered-universe";
 import { consensusRow, mergeConsensus, SCREENER_CONSENSUS_KEY, type ConsensusRow, type ConsensusTable } from "./screener-consensus";
 
 /**
@@ -21,8 +21,8 @@ const historyKey = (ticker: string) => `estimates-history:v1:${ticker.toUpperCas
 /** Every reported quarter against its consensus, kept: Nasdaq lists the last four, the chart grows past them. */
 const surprisesKey = (ticker: string) => `estimates-surprises:v1:${ticker.toUpperCase()}`;
 const CURSOR_KEY = "estimates-cursor:v1";
-/** Twelve a run, forty-eight runs a day: the index once a day, four requests each. */
-export const ESTIMATES_PER_RUN = 12;
+/** Twenty a run, forty-eight runs a day: the thousand covered companies about once a day, four requests each. */
+export const ESTIMATES_PER_RUN = 20;
 /** Kept consensus copied into the screener's table a run, where it has no row. */
 const BACKFILL_PER_RUN = 80;
 
@@ -85,6 +85,7 @@ export async function getEstimates(ticker: string): Promise<{ body: string; hit:
 export async function snapshotEstimatesSlice(limit = ESTIMATES_PER_RUN): Promise<{ read: string[]; next: number } | null> {
   const cache = datasetCache();
   if (!cache) return null;
+  const UNIVERSE = await coveredMembers();
   const start = Number((await cache.get(CURSOR_KEY, "text").catch(() => null)) ?? 0) || 0;
   const read: string[] = [];
   const updates: ConsensusRow[] = [];

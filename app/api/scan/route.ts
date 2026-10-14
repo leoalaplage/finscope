@@ -20,10 +20,13 @@ import { UNIVERSE, UNIVERSE_AS_OF, UNIVERSE_NAME } from "@/lib/universe";
 export async function GET() {
   const table = await readTechTable();
   // Each member's RS rating, ranked against the rest of the index in this answer.
-  const read = table?.rows ?? [];
+  // The scanner is the index's: the snapshot also keeps the rest of the US 1000 for the screener.
+  const index = new Set(UNIVERSE.map((member) => member.ticker));
+  const read = (table?.rows ?? []).filter((row) => index.has(row.ticker));
   const ratings = rsRatings(read);
   const rows = read.map((row, index) => ({ ...row, values: { ...row.values, rsRating: ratings[index] } }));
-  const whole = isWhole(table);
+  // Whole when the index is, whatever the rest of the US 1000 still waits for.
+  const whole = isWhole(table ? { ...table, rows: read, members: UNIVERSE.length } : null);
   await fillOnDemand(table);
   return NextResponse.json(
     {

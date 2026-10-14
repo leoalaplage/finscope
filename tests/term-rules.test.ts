@@ -182,3 +182,11 @@ describe("RS rating", () => {
     expect(ratings.map((pair) => pair[0])).toEqual([1, 25, 50, 75, null]);
   });
 });
+
+describe("the technical snapshot beyond the index", () => {
+  it("reads the companies it is given, the index's by default", async () => {
+    const { nextTechnicals } = await import("@/lib/term/tech-universe");
+    const members = [{ ticker: "AAA", cik: "1", name: "A" }, { ticker: "BBB", cik: "2", name: "B" }];
+    expect(nextTechnicals(null, 5, new Date(), members)).toEqual(["AAA", "BBB"]);
+  });
+});

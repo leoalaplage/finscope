@@ -27,7 +27,9 @@ const recent = (date: string | undefined | null, days: number, now: Date) => {
 export function screenerFeed(universe: UniverseTable | null, technical: TechTable | null, consensus: ConsensusTable | null, now = new Date(),
   members: UniverseMember[] = UNIVERSE, name = UNIVERSE_NAME): ScreenerFeed {
   const fundamental = new Map(universe?.rows.map((row) => [row.ticker, row]) ?? []);
-  const techRows = (technical?.rows ?? []).filter((row) => recent(row.builtAt, 7, now));
+  // Ranked against the companies screened, not against everything the snapshot keeps.
+  const screened = new Set(members.map((member) => member.ticker));
+  const techRows = (technical?.rows ?? []).filter((row) => screened.has(row.ticker) && recent(row.builtAt, 7, now));
   const ratings = rsRatings(techRows);
   const tech = new Map(techRows.map((row, at) => [row.ticker, { ...row, rating: ratings[at] }]));
   const forecasts = new Map(consensus?.rows.filter((row) => recent(row.asOf, 3, now)).map((row) => [row.ticker, row]) ?? []);
