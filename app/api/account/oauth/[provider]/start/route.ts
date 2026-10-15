@@ -17,7 +17,8 @@ export async function GET(request: Request, context: { params: Promise<{ provide
     headers: {
       Location: authorizeUrl(provider, url.origin, state, challenge, nonce),
       // The state is this browser's: a sign-in started elsewhere cannot be finished here.
-      "Set-Cookie": `${OAUTH_COOKIE}=${state}; Path=/api/account/oauth; HttpOnly; SameSite=Lax; Max-Age=600${secure}`,
+      // SameSite=None: Apple comes back by posting a form from its own site, which a Lax cookie would not follow.
+      "Set-Cookie": `${OAUTH_COOKIE}=${state}; Path=/api/account/oauth; HttpOnly; SameSite=${secure ? "None" : "Lax"}; Max-Age=600${secure}`,
       "Cache-Control": "no-store",
     },
   });

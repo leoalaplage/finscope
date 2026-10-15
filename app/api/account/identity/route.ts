@@ -8,7 +8,7 @@ export async function DELETE(request: Request) {
   if (account instanceof Response) return account;
   const params = new URL(request.url).searchParams;
   const provider = params.get("provider") as IdentityProvider | null;
-  if (provider !== "google" && provider !== "microsoft" && provider !== "email") return refuse("Unknown sign-in method.");
+  if (provider !== "google" && provider !== "microsoft" && provider !== "apple" && provider !== "email") return refuse("Unknown sign-in method.");
   try {
     return accountAnswer(await removeIdentity(account, provider, params.get("subject") ?? ""));
   } catch (error) {

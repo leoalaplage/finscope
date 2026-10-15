@@ -11,9 +11,9 @@ import type { SyncedData } from "@/lib/account-sync";
  * page, and again after anything that changes it.
  */
 
-export interface SignInProviders { google: boolean; microsoft: boolean; email: boolean }
+export interface SignInProviders { google: boolean; apple: boolean; microsoft: boolean; email: boolean }
 export interface AccountState { loaded: boolean; account: PublicAccount | null; emailService: boolean; providers: SignInProviders }
-const NO_PROVIDERS: SignInProviders = { google: false, microsoft: false, email: false };
+const NO_PROVIDERS: SignInProviders = { google: false, apple: false, microsoft: false, email: false };
 
 const EVENT = "finscope:account";
 let state: AccountState = { loaded: false, account: null, emailService: false, providers: NO_PROVIDERS };
@@ -77,7 +77,7 @@ export async function signIn(): Promise<void> {
 }
 
 /** "Continue with Google / Microsoft": a full-page trip to the provider and back (app/api/account/oauth). */
-export function continueWith(provider: "google" | "microsoft", next = "/t/account") {
+export function continueWith(provider: "google" | "apple" | "microsoft", next = "/t/account") {
   window.location.assign(`/api/account/oauth/${provider}/start?next=${encodeURIComponent(next)}`);
 }
 

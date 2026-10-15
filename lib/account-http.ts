@@ -19,7 +19,7 @@ export function accountAnswer(account: Account | null, token?: string | null, re
     account: account ? publicAccount(account) : null,
     emailService: emailConfigured(),
     // The ways in this site offers now: each provider once its secrets are set, the emailed link once email is.
-    providers: { google: providerReady("google"), microsoft: providerReady("microsoft"), email: emailConfigured() },
+    providers: { google: providerReady("google"), apple: providerReady("apple"), microsoft: providerReady("microsoft"), email: emailConfigured() },
   }, { headers: NO_STORE });
   if (token !== undefined && request) response.headers.append("Set-Cookie", sessionCookie(token, request));
   return response;

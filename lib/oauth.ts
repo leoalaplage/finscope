@@ -1,7 +1,7 @@
 import { runtimeSecret, type SecretName } from "./runtime-env";
 
 /**
- * "Continue with Google", "Continue with Microsoft": OpenID Connect, the
+ * "Continue with Google", "Continue with Apple", "Continue with Microsoft": OpenID Connect, the
  * authorization-code flow with PKCE, a state bound to the browser by a
  * cookie, and a nonce carried into the ID token.
  *
@@ -12,7 +12,7 @@ import { runtimeSecret, type SecretName } from "./runtime-env";
  * MICROSOFT_CLIENT_ID / _CLIENT_SECRET, by `wrangler secret put`).
  */
 
-export type OAuthProvider = "google" | "microsoft";
+export type OAuthProvider = "google" | "apple" | "microsoft";
 
 interface ProviderSpec {
   label: string;
@@ -34,6 +34,16 @@ export const PROVIDERS: Record<OAuthProvider, ProviderSpec> = {
     id: "GOOGLE_CLIENT_ID",
     secret: "GOOGLE_CLIENT_SECRET",
   },
+  apple: {
+    label: "Apple",
+    authorize: "https://appleid.apple.com/auth/authorize",
+    token: "https://appleid.apple.com/auth/token",
+    scope: "name email",
+    issuer: (iss) => iss === "https://appleid.apple.com",
+    // The Services ID; Apple's "secret" is a token this site signs with its key (appleClientSecret).
+    id: "APPLE_CLIENT_ID",
+    secret: "APPLE_PRIVATE_KEY",
+  },
   microsoft: {
     label: "Microsoft",
     // "common": work, school and personal Microsoft accounts alike.
@@ -46,8 +56,9 @@ export const PROVIDERS: Record<OAuthProvider, ProviderSpec> = {
   },
 };
 
-export const isProvider = (value: string): value is OAuthProvider => value === "google" || value === "microsoft";
-export const providerReady = (provider: OAuthProvider) => !!runtimeSecret(PROVIDERS[provider].id) && !!runtimeSecret(PROVIDERS[provider].secret);
+export const isProvider = (value: string): value is OAuthProvider => value === "google" || value === "apple" || value === "microsoft";
+export const providerReady = (provider: OAuthProvider) => !!runtimeSecret(PROVIDERS[provider].id) && !!runtimeSecret(PROVIDERS[provider].secret)
+  && (provider !== "apple" || (!!runtimeSecret("APPLE_TEAM_ID") && !!runtimeSecret("APPLE_KEY_ID")));
 
 export const OAUTH_COOKIE = "fs_oauth";
 export const callbackUrl = (origin: string, provider: OAuthProvider) => `${origin}/api/account/oauth/${provider}/callback`;
@@ -76,6 +87,11 @@ export function authorizeUrl(provider: OAuthProvider, origin: string, state: str
     code_challenge_method: "S256",
     prompt: "select_account",
   });
+  // Apple sends the name and the address only by posting a form back, and takes no PKCE nor prompt.
+  if (provider === "apple") {
+    params.set("response_mode", "form_post");
+    for (const key of ["code_challenge", "code_challenge_method", "prompt"]) params.delete(key);
+  }
   return `${spec.authorize}?${params}`;
 }
 
@@ -98,7 +114,7 @@ export function readIdToken(provider: OAuthProvider, idToken: string, clientId: 
   const email = typeof claims.email === "string" ? claims.email.toLowerCase() : typeof claims.preferred_username === "string" && claims.preferred_username.includes("@") ? claims.preferred_username.toLowerCase() : null;
   // Google says whether it checked the address. Microsoft does not: a work account's address is whatever its
   // organisation's administrator typed, so it is confirmed by an emailed link like one typed here.
-  const emailVerified = provider === "google" && claims.email_verified === true;
+  const emailVerified = (provider === "google" || provider === "apple") && (claims.email_verified === true || claims.email_verified === "true");
   return { sub: claims.sub, email, emailVerified, name: typeof claims.name === "string" ? claims.name : null };
 }
 
@@ -110,7 +126,9 @@ export async function exchangeCode(provider: OAuthProvider, origin: string, code
     headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
     body: new URLSearchParams({
       grant_type: "authorization_code", code, redirect_uri: callbackUrl(origin, provider),
-      client_id: clientId, client_secret: runtimeSecret(spec.secret) ?? "", code_verifier: verifier,
+      client_id: clientId,
+      client_secret: provider === "apple" ? await appleClientSecret() : runtimeSecret(spec.secret) ?? "",
+      ...(provider === "apple" ? {} : { code_verifier: verifier }),
     }),
   });
   const body = await response.json().catch(() => ({})) as { id_token?: string; error_description?: string; error?: string };
@@ -119,3 +137,34 @@ export async function exchangeCode(provider: OAuthProvider, origin: string, code
 }
 
 export const randomToken = random;
+
+/**
+ * Apple's client secret: a token signed ES256 with the key Apple issued
+ * (APPLE_PRIVATE_KEY, the .p8 file's contents), naming the team, the key and
+ * the Services ID, good for five minutes — made afresh for each sign-in.
+ */
+export async function appleClientSecret(now = Date.now(), env: { teamId?: string | null; keyId?: string | null; clientId?: string | null; privateKey?: string | null } = {}): Promise<string> {
+  const teamId = env.teamId ?? runtimeSecret("APPLE_TEAM_ID") ?? "";
+  const keyId = env.keyId ?? runtimeSecret("APPLE_KEY_ID") ?? "";
+  const clientId = env.clientId ?? runtimeSecret("APPLE_CLIENT_ID") ?? "";
+  const pem = env.privateKey ?? runtimeSecret("APPLE_PRIVATE_KEY") ?? "";
+  const der = Uint8Array.from(atob(pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "")), (char) => char.charCodeAt(0));
+  const key = await crypto.subtle.importKey("pkcs8", der, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const json = (value: unknown) => base64url(new TextEncoder().encode(JSON.stringify(value)));
+  const iat = Math.floor(now / 1000);
+  const unsigned = `${json({ alg: "ES256", kid: keyId })}.${json({ iss: teamId, iat, exp: iat + 300, aud: "https://appleid.apple.com", sub: clientId })}`;
+  const signature = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(unsigned)));
+  return `${unsigned}.${base64url(signature)}`;
+}
+
+/** Apple's first sign-in posts the name beside the code, once: "user" = {"name":{"firstName","lastName"}}. */
+export function appleName(user: string | null): string | null {
+  if (!user) return null;
+  try {
+    const name = (JSON.parse(user) as { name?: { firstName?: string; lastName?: string } }).name;
+    const full = [name?.firstName, name?.lastName].filter(Boolean).join(" ").trim();
+    return full || null;
+  } catch {
+    return null;
+  }
+}

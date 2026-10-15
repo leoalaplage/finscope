@@ -44,3 +44,27 @@ describe("after signing in", () => {
     expect(verifier.length).toBeGreaterThanOrEqual(43);
   });
 });
+
+describe("Sign in with Apple", () => {
+  it("signs its client secret ES256 with the team's key, for Apple, naming the Services ID", async () => {
+    const { appleClientSecret } = await import("../lib/oauth");
+    const pair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]) as CryptoKeyPair;
+    const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", pair.privateKey));
+    const pem = `-----BEGIN PRIVATE KEY-----\n${btoa(String.fromCharCode(...pkcs8))}\n-----END PRIVATE KEY-----`;
+    const jwt = await appleClientSecret(now, { teamId: "TEAM123", keyId: "KEY456", clientId: "com.tenqay.web", privateKey: pem });
+    const [header, payload, signature] = jwt.split(".");
+    const decode = (part: string) => JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(part.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((part.length + 3) % 4)), (char) => char.charCodeAt(0))));
+    expect(decode(header)).toEqual({ alg: "ES256", kid: "KEY456" });
+    expect(decode(payload)).toMatchObject({ iss: "TEAM123", aud: "https://appleid.apple.com", sub: "com.tenqay.web", iat: now / 1000, exp: now / 1000 + 300 });
+    const bytes = Uint8Array.from(atob(signature.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((signature.length + 3) % 4)), (char) => char.charCodeAt(0));
+    expect(await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, pair.publicKey, bytes, new TextEncoder().encode(`${header}.${payload}`))).toBe(true);
+  });
+
+  it("takes Apple's verified address, written as a string, and the name posted on the first sign-in", async () => {
+    const { appleName } = await import("../lib/oauth");
+    const claims = readIdToken("apple", token({ iss: "https://appleid.apple.com", aud: "com.tenqay.web", exp: now / 1000 + 600, nonce: "n1", sub: "001.abc", email: "x@privaterelay.appleid.com", email_verified: "true" }), "com.tenqay.web", "n1", now);
+    expect(claims).toMatchObject({ sub: "001.abc", email: "x@privaterelay.appleid.com", emailVerified: true });
+    expect(appleName(JSON.stringify({ name: { firstName: "Léo", lastName: "Thiré" } }))).toBe("Léo Thiré");
+    expect(appleName(null)).toBeNull();
+  });
+});

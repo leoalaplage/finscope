@@ -17,10 +17,15 @@ export interface RuntimeBindings {
   GOOGLE_CLIENT_SECRET?: string;
   MICROSOFT_CLIENT_ID?: string;
   MICROSOFT_CLIENT_SECRET?: string;
+  APPLE_CLIENT_ID?: string;
+  APPLE_TEAM_ID?: string;
+  APPLE_KEY_ID?: string;
+  APPLE_PRIVATE_KEY?: string;
 }
 
 /** A secret from the Worker's bindings, or from the process where the runtime puts them there. */
-export type SecretName = "RESEND_API_KEY" | "ALERTS_FROM" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "MICROSOFT_CLIENT_ID" | "MICROSOFT_CLIENT_SECRET";
+export type SecretName = "RESEND_API_KEY" | "ALERTS_FROM" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "MICROSOFT_CLIENT_ID" | "MICROSOFT_CLIENT_SECRET"
+  | "APPLE_CLIENT_ID" | "APPLE_TEAM_ID" | "APPLE_KEY_ID" | "APPLE_PRIVATE_KEY";
 export function runtimeSecret(name: SecretName): string | null {
   const bound = bindings[name];
   if (typeof bound === "string" && bound) return bound;

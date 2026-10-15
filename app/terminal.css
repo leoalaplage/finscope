@@ -1294,3 +1294,5 @@ body:has(.io.term) { background: #050608; }
 .t-page .acct-provider:hover:not(:disabled) { background: #f2f2f2; border-color: #dadce0; }
 .t-page .acct-email-form .acct-btn, .t-page .acct-email-form .field { height: 34px; }
 .t-page .acct-method-mark, .t-page .acct-sent { border-radius: 0; }
+.t-page .acct-provider.acct-provider-apple { color: #fff; background: #000; border-color: #3a3a3c; }
+.t-page .acct-provider.acct-provider-apple:hover:not(:disabled) { background: #1d1d1f; border-color: #5a5a5e; }

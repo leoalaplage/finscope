@@ -34,7 +34,7 @@ export interface StoredCredential {
 export interface AccountEmail { address: string; verified: boolean; alerts: boolean; lastSent: string | null }
 
 /** Another way in: an account at Google or Microsoft, or an email address that receives a sign-in link. */
-export type IdentityProvider = "google" | "microsoft" | "email";
+export type IdentityProvider = "google" | "microsoft" | "apple" | "email";
 export interface Identity { provider: IdentityProvider; subject: string; email: string | null; added: string; lastUsed?: string }
 
 export interface Account {
