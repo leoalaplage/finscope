@@ -9,7 +9,7 @@ import {
   effectiveHoldings, fundScore, portfolioQuality, riskReturn,
   type PortfolioQuality, type RiskReturn, type ScoredHolding, type WeeklyBar,
 } from "@/lib/io/fund-analytics";
-import { useWidth } from "@/components/term/use-width";
+import { useHoverIndex, useWidth } from "@/components/term/use-width";
 import { GradeBadge, gradeTone } from "./ScreenerCharts";
 import { ABSENT, shortDate } from "./format";
 
@@ -166,9 +166,13 @@ export function RiskBody({ risk, benchmark }: { risk: RiskReturn; benchmark: Ris
   const height = 160;
   const points = risk.drawdown;
   const floor = Math.min(-0.05, ...points.map((point) => point.value));
+  const px = (index: number) => (index / Math.max(points.length - 1, 1)) * width;
+  const py = (value: number) => (value / floor) * (height - 18);
   const path = width > 0 && points.length > 1
-    ? points.map((point, index) => `${index ? "L" : "M"}${((index / (points.length - 1)) * width).toFixed(1)} ${((point.value / floor) * (height - 18)).toFixed(1)}`).join("")
+    ? points.map((point, index) => `${index ? "L" : "M"}${px(index).toFixed(1)} ${py(point.value).toFixed(1)}`).join("")
     : "";
+  const { hover, pick, leave } = useHoverIndex(points.length);
+  const shown = points[hover ?? points.length - 1];
   const rows: Array<[string, number | null, number | null, number | null]> = [
     ["Total return", risk.total.y1, risk.total.y3, risk.total.y5],
     ["Price return", risk.price.y1, risk.price.y3, risk.price.y5],
@@ -204,13 +208,23 @@ export function RiskBody({ risk, benchmark }: { risk: RiskReturn; benchmark: Ris
           </table>
         </div>
         <figure className="etf-drawdown" ref={ref}>
-          <figcaption className="label">Below its last peak</figcaption>
+          <figcaption className="etf-readout">
+            <span className="label">Below its last peak</span>
+            {shown ? <><span className="t-dim">{shortDate(shown.date)}</span><b data-dir={shown.value < 0 ? "down" : undefined}>{signed(shown.value)}</b></> : null}
+          </figcaption>
           {path ? (
             <svg width={width} height={height} role="img" aria-label={`Drawdown from the last peak; worst ${signed(risk.maxDrawdown?.value)}`}>
               <line x1={0} x2={width} y1={0.5} y2={0.5} className="etf-drawdown-zero" />
               <path d={`${path}L${width} 0L0 0Z`} className="etf-drawdown-area" />
               <path d={path} className="etf-drawdown-line" />
               <text x={width - 4} y={height - 4} textAnchor="end" className="etf-drawdown-tick">{signed(floor, 0)}</text>
+              {hover != null && shown ? (
+                <g className="etf-cursor">
+                  <line x1={px(hover)} x2={px(hover)} y1={0} y2={height} />
+                  <circle cx={px(hover)} cy={py(shown.value)} r={3} className="etf-cursor-loss" />
+                </g>
+              ) : null}
+              <rect className="t-gf-catch" x={0} y={0} width={width} height={height} onPointerMove={pick} onPointerDown={pick} onPointerLeave={leave} />
             </svg>
           ) : null}
         </figure>

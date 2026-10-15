@@ -276,3 +276,24 @@
 .kpi-bars rect[data-latest] { fill: var(--ink); opacity: 1; }
 .kpi-bars rect[data-early] { fill: none; opacity: 1; stroke: var(--ink); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .kpi-source { justify-self: start; color: var(--ink-3); font-size: var(--fs-micro, 10px); }
+
+/* A fund's charts, read under the pointer (components/io/Etf.tsx, EtfAnalytics.tsx). */
+.etf-readout { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; margin: 0 0 4px; min-height: 1.4em; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.etf-readout b { color: var(--ink); font-weight: 600; }
+.etf-readout [data-dir="up"] { color: var(--gain); }
+.etf-readout [data-dir="down"] { color: var(--loss); }
+.etf-readout i { display: inline-block; width: 12px; height: 2px; vertical-align: middle; background: var(--ink-3); }
+.etf-readout i[data-fund] { background: var(--c1); }
+.etf-drawdown figcaption.etf-readout .label { margin-right: 4px; }
+.etf-cursor line { stroke: var(--ink-2); stroke-dasharray: 2 3; pointer-events: none; }
+.etf-cursor circle { stroke: var(--bg); stroke-width: 1.5; pointer-events: none; }
+.etf-cursor-fund { fill: var(--c1); }
+.etf-cursor-bench { fill: var(--ink-3); }
+.etf-cursor-loss { fill: var(--loss); }
+.etf-year { cursor: default; }
+.etf-year[data-hover] .etf-year-track { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.etf-year[data-hover] .etf-year-bar { filter: brightness(1.25); }
+.etf-year[data-hover] .etf-year-label { color: var(--ink); }
+.etf-bar:hover { background: var(--fill); }
+.etf-bar:hover .etf-bar-name, .etf-bar:hover .etf-bar-value { color: var(--ink); }
+.etf-bar:hover .etf-bar-track > span { filter: brightness(1.25); }

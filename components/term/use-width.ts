@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 /**
  * The pixel width of a box, kept current as it resizes, so a chart can be
@@ -44,4 +44,15 @@ export function useSize<T extends HTMLElement = HTMLDivElement>() {
     return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
   }, []);
   return { ref, ...size };
+}
+
+/** The point under the pointer, across a plot `count` points wide: for a cursor and the readout over it. */
+export function useHoverIndex(count: number) {
+  const [hover, setHover] = useState<number | null>(null);
+  const pick = (event: ReactPointerEvent<Element>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    if (box.width <= 0 || count < 1) return;
+    setHover(Math.max(0, Math.min(count - 1, Math.round(((event.clientX - box.left) / box.width) * (count - 1)))));
+  };
+  return { hover: hover != null && hover < count ? hover : null, pick, leave: () => setHover(null) };
 }

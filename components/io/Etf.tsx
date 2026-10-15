@@ -5,7 +5,7 @@ import { flowSince, monthlyFlows, type EtfProfile, type Exposure, type NotReport
 import type { Range } from "./ranges";
 import { growthOf, monthlyTable } from "@/lib/io/fund-analytics";
 import { layoutMap, SECTOR_HEADER } from "@/lib/term/heatmap-layout";
-import { useWidth } from "@/components/term/use-width";
+import { useHoverIndex, useWidth } from "@/components/term/use-width";
 import { Panel } from "@/components/term/Panel";
 import { MarketPriceSection } from "./PriceSection";
 import { sectorColors } from "@/lib/watchlist-bubbles";
@@ -248,10 +248,19 @@ const shortPct = (value: number) => `${value < 0 ? "−" : "+"}${Math.abs(value 
 function CalendarYears({ fund }: { fund: EtfProfile }) {
   const returns = fund.prospectus!.returns;
   const extreme = Math.max(0.01, ...returns.calendar.map((entry) => Math.abs(entry.fund)));
+  const [hover, setHover] = useState<number | null>(null);
+  const shown = returns.calendar[hover ?? returns.calendar.length - 1];
   return (
-    <div className="etf-years" role="img" aria-label={`Calendar-year returns: ${returns.calendar.map((entry) => `${entry.year} ${signedPct(entry.fund)}`).join(", ")}`}>
-      {returns.calendar.map((entry) => (
-        <div key={entry.year} className="etf-year" data-dir={tone(entry.fund)}>
+    <>
+    {shown ? (
+      <p className="etf-readout">
+        <span className="t-dim">{shown.year}</span>
+        <span>Total return <b data-dir={tone(shown.fund)}>{signedPct(shown.fund)}</b></span>
+      </p>
+    ) : null}
+    <div className="etf-years" role="img" onPointerLeave={() => setHover(null)} aria-label={`Calendar-year returns: ${returns.calendar.map((entry) => `${entry.year} ${signedPct(entry.fund)}`).join(", ")}`}>
+      {returns.calendar.map((entry, index) => (
+        <div key={entry.year} className="etf-year" data-dir={tone(entry.fund)} data-hover={hover === index || undefined} onPointerEnter={() => setHover(index)}>
           {/* Two writings of each figure, the short one for a narrow box (app/io.css, @container). */}
           <span className="etf-year-value num"><span className="etf-long">{signedPct(entry.fund)}</span><span className="etf-short">{shortPct(entry.fund)}</span></span>
           <span className="etf-year-track">
@@ -261,6 +270,7 @@ function CalendarYears({ fund }: { fund: EtfProfile }) {
         </div>
       ))}
     </div>
+    </>
   );
 }
 
@@ -309,8 +319,15 @@ function GrowthChart({ points, ticker }: { points: Array<{ date: string; fund: n
     return value == null ? "" : `${index && read(points[index - 1]) != null ? "L" : "M"}${x(index).toFixed(1)} ${y(value).toFixed(1)}`;
   }).join("");
   const last = points.at(-1)!;
+  const { hover, pick, leave } = useHoverIndex(points.length);
+  const shown = points[hover ?? points.length - 1];
   return (
     <div className="etf-growth" ref={ref}>
+      <p className="etf-readout">
+        <span className="t-dim">{shortDate(shown.date)}</span>
+        <span><i data-fund /> {ticker} <b>{money(shown.fund, "USD")}</b> <span data-dir={tone(shown.fund / 10_000 - 1)}>{signedPct(shown.fund / 10_000 - 1)}</span></span>
+        {shown.benchmark != null ? <span><i /> S&amp;P 500 <b>{money(shown.benchmark, "USD")}</b> <span data-dir={tone(shown.benchmark / 10_000 - 1)}>{signedPct(shown.benchmark / 10_000 - 1)}</span></span> : null}
+      </p>
       {width > 0 ? (
         <svg width={width} height={height} role="img" aria-label={`$10,000 became ${money(last.fund, "USD")} in ${ticker}${last.benchmark != null ? ` and ${money(last.benchmark, "USD")} in the S&P 500` : ""}`}>
           <line x1={0} x2={width - 60} y1={y(10_000)} y2={y(10_000)} className="etf-growth-base" />
@@ -318,6 +335,14 @@ function GrowthChart({ points, ticker }: { points: Array<{ date: string; fund: n
           <path d={line((point) => point.fund)} className="etf-growth-fund" />
           <text x={width - 56} y={y(last.fund) + 4} className="etf-growth-label" data-fund>{money(last.fund, "USD")}</text>
           {last.benchmark != null ? <text x={width - 56} y={y(last.benchmark) + 4} className="etf-growth-label">{money(last.benchmark, "USD")}</text> : null}
+          {hover != null ? (
+            <g className="etf-cursor">
+              <line x1={x(hover)} x2={x(hover)} y1={0} y2={height} />
+              {shown.benchmark != null ? <circle cx={x(hover)} cy={y(shown.benchmark)} r={3} className="etf-cursor-bench" /> : null}
+              <circle cx={x(hover)} cy={y(shown.fund)} r={3.5} className="etf-cursor-fund" />
+            </g>
+          ) : null}
+          <rect className="t-gf-catch" x={0} y={0} width={Math.max(0, width - 60)} height={height} onPointerMove={pick} onPointerDown={pick} onPointerLeave={leave} />
         </svg>
       ) : null}
       <p className="etf-growth-key"><i data-fund /> {ticker} <i /> S&amp;P 500 (SPY)</p>
@@ -347,8 +372,12 @@ function MonthTable({ rows }: { rows: Array<{ year: number; months: Array<number
 }
 
 /** Money in and out, month by month, from the shares outstanding each day (lib/adapters/etf.ts). */
+const MONTH_WORDS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const monthLabel = (month: string) => `${MONTH_WORDS[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
+
 function FlowsBody({ fund }: { fund: EtfProfile }) {
   const months = monthlyFlows(fund.history).slice(-24);
+  const [hover, setHover] = useState<number | null>(null);
   const extreme = Math.max(1, ...months.map((entry) => Math.abs(entry.flow)));
   const lastDate = fund.history.at(-1)!.date;
   const spans: Array<[string, number]> = [["1 month", 31], ["3 months", 92], ["Year to date", Math.ceil((Date.parse(lastDate) - Date.parse(`${lastDate.slice(0, 4)}-01-01`)) / 86_400_000)], ["1 year", 365], ["3 years", 1096]];
@@ -360,9 +389,15 @@ function FlowsBody({ fund }: { fund: EtfProfile }) {
           return <div key={label}><span className="label">{label}</span><b className="num" data-dir={tone(value)}>{signedMoney(value)}</b></div>;
         })}
       </div>
-      <div className="etf-years etf-flows" role="img" aria-label={`Monthly net flows: ${months.map((entry) => `${entry.month} ${signedMoney(entry.flow)}`).join(", ")}`}>
+      {months.length ? (
+        <p className="etf-readout">
+          <span className="t-dim">{monthLabel(months[hover ?? months.length - 1].month)}</span>
+          <span>Net flow <b data-dir={tone(months[hover ?? months.length - 1].flow)}>{signedMoney(months[hover ?? months.length - 1].flow)}</b></span>
+        </p>
+      ) : null}
+      <div className="etf-years etf-flows" role="img" onPointerLeave={() => setHover(null)} aria-label={`Monthly net flows: ${months.map((entry) => `${entry.month} ${signedMoney(entry.flow)}`).join(", ")}`}>
         {months.map((entry, index) => (
-          <div key={entry.month} className="etf-year" data-dir={tone(entry.flow)} data-tick={(months.length - 1 - index) % 3 === 0 || undefined} title={`${entry.month}: ${signedMoney(entry.flow)}`}>
+          <div key={entry.month} className="etf-year" data-dir={tone(entry.flow)} data-tick={(months.length - 1 - index) % 3 === 0 || undefined} data-hover={hover === index || undefined} onPointerEnter={() => setHover(index)}>
             <span className="etf-year-value num">{Math.abs(entry.flow) >= extreme * 0.35 ? signedMoney(entry.flow) : ""}</span>
             <span className="etf-year-track">
               <span className="etf-year-bar" style={{ height: `${(Math.abs(entry.flow) / extreme) * 50}%`, [entry.flow >= 0 ? "bottom" : "top"]: "50%" } as CSSProperties} />
