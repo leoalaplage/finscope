@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { readPrefs } from "./prefs";
 import { useStoredWatchlist } from "@/components/io/watchlist";
+import { useStoredHoldings } from "@/components/io/holdings";
 import { WatchlistEditor } from "@/components/io/WatchlistEditor";
 import { delta, price } from "@/components/io/format";
 import { NewsSection } from "@/components/io/Wire";
@@ -12,7 +13,9 @@ import { Heatmap } from "./Heatmap";
 import { Indices } from "./Indices";
 import { Panel } from "./Panel";
 import { MiniEcal } from "./EarningsCal";
-import { EconBrief } from "./Economy";
+import { EconBrief, useEcon } from "./Economy";
+import { AlertsBrief } from "./Alerts";
+import { FedPanel, PortfolioGlance, RatesPanel, SessionSummary, SignalsPanel, TodayStrip, WatchEarnings, useHomeData } from "./Home";
 import { useTape } from "./quotes";
 
 const SECTORS = new Map(DEFAULT_WATCHLIST.map((company) => [company.ticker, company.sector]));
@@ -20,16 +23,22 @@ const SECTORS = new Map(DEFAULT_WATCHLIST.map((company) => [company.ticker, comp
 /**
  * The first screen: the market, the reader's list, and what is coming.
  *
- * Left, the averages, the watchlist with today's move and the calendar of its
- * next earnings; right, the heat map of the largest names over the wire and
- * what reached EDGAR today; macro last, full width. Every panel
- * is a function a reader can type (WEI, W, IMAP, EVTS, N, FIL, ECO), and every
- * panel reads an endpoint the document site already serves.
+ * Across the top, what moves the market today with its countdowns; then the
+ * session written out beside the Treasuries, the dollar and the Fed's odds;
+ * the US releases against their consensus. Left, the averages, the book at a
+ * glance, the watchlist and its earnings this week and next; right, the heat
+ * map, the alerts caught and the new highs, lows and heavy volume, then the
+ * wire and the earnings calendar. Every panel is a function a reader can type
+ * (components/term/Home.tsx for the newer ones).
  */
 export function Launchpad() {
   const tickers = useStoredWatchlist();
+  const holdings = useStoredHoldings();
   const [editing, setEditing] = useState(false);
-  const tape = useTape(tickers);
+  const followed = useMemo(() => [...new Set([...tickers, ...holdings.map((position) => position.ticker)])], [tickers, holdings]);
+  const tape = useTape(followed);
+  const home = useHomeData(followed);
+  const { data: econ, failed: econFailed } = useEcon();
   const quotes = new Map((tape?.quotes ?? []).filter((quote) => quote.kind === "equity").map((quote) => [quote.symbol, quote]));
   // Arriving from elsewhere, once a visit, the terminal opens where the reader chose on SET (components/term/prefs.ts).
   useEffect(() => {
@@ -42,9 +51,27 @@ export function Launchpad() {
 
   return (
     <div className="t-grid t-launch">
+      <Panel code="TODAY" title="What moves the market today" area="today">
+        <TodayStrip data={home} econ={econ} failed={econFailed} />
+      </Panel>
+      <Panel code="SUM" title={home.phase === "pre" ? "Before the open" : home.phase === "open" ? "The session so far" : "The session"} area="sum">
+        <SessionSummary data={home} tape={tape} econ={econ} />
+      </Panel>
+      <Panel code="RATES" title="Treasuries and the dollar" area="rates">
+        <RatesPanel data={home} />
+      </Panel>
+      <Panel code="FED" title="Fed · rate odds from futures" area="fed">
+        <FedPanel data={home} />
+      </Panel>
+      <Panel code="ECO" title="US economy · releases against the consensus" area="eco">
+        <EconBrief />
+      </Panel>
       <div className="t-col" style={{ gridArea: "left" }}>
         <Panel code="WEI" title="Indices">
           <Indices />
+        </Panel>
+        <Panel code="PORT" title="Portfolio · today">
+          <PortfolioGlance positions={holdings} tape={tape} />
         </Panel>
         <Panel code="W" title="Watchlist" actions={<button type="button" className="t-chip" onClick={() => setEditing(true)}>Edit</button>}>
           <div className="sheet t-watch">
@@ -72,7 +99,10 @@ export function Launchpad() {
             </table>
           </div>
         </Panel>
-        <Panel code="EVTS" title="Earnings · watchlist">
+        <Panel code="EVTS" title="Earnings this week · your names">
+          <WatchEarnings data={home} tickers={followed} />
+        </Panel>
+        <Panel code="EVTS" id="evts-next" title="Next earnings · watchlist">
           <EarningsCalendar tickers={tickers} />
         </Panel>
       </div>
@@ -81,6 +111,14 @@ export function Launchpad() {
         <Panel code="IMAP" title="Today's moves">
           <Heatmap height={380} compact />
         </Panel>
+        <div className="t-duo">
+          <Panel code="ALRT" title="Alerts">
+            <AlertsBrief />
+          </Panel>
+          <Panel code="SIGS" title="52-week highs, lows and volume">
+            <SignalsPanel data={home} />
+          </Panel>
+        </div>
         <div className="t-pair">
           <Panel code="N">
             <NewsSection />
@@ -91,9 +129,6 @@ export function Launchpad() {
           </Panel>
         </div>
       </div>
-      <Panel code="ECO" title="US economy · releases against the consensus" area="eco">
-        <EconBrief />
-      </Panel>
       {editing ? <WatchlistEditor tickers={tickers} onClose={() => setEditing(false)} /> : null}
     </div>
   );

@@ -163,6 +163,45 @@ export function AlertsChip() {
   );
 }
 
+/** On HOME: what the alerts caught, the newest first, and how many since the last visit to ALRT. */
+export function AlertsBrief() {
+  const { caught, loading, rules } = useCaught();
+  const seen = useKey(SEEN_KEY);
+  const active = rules.filter((rule) => rule.enabled).length;
+  if (!rules.length && !caught.length) return <p className="t-empty">No alerts set. <a href="/t/alerts">Create one on ALRT</a>: a price, a big move, filings, insider buying or a US release.</p>;
+  if (loading) return <p className="t-empty">Reading what your alerts watch…</p>;
+  const fresh = caught.filter((alert) => !seen || alert.at > seen).length;
+  const today = new Date().toISOString().slice(0, 10);
+  const todays = caught.filter((alert) => alert.at.slice(0, 10) === today).length;
+  return (
+    <div className="t-alrt-brief">
+      <p className="t-alrt-brief-counts">
+        <span><b className={fresh ? "t-amber" : undefined}>{fresh}</b> new</span>
+        <span><b>{todays}</b> today</span>
+        <span><b>{caught.length}</b> triggered</span>
+        <span className="t-dim">{active} of {rules.length} alerts on</span>
+      </p>
+      {caught.length ? (
+        <div className="sheet">
+          <table>
+            <tbody>
+              {caught.slice(0, 6).map((alert, index) => (
+                <tr key={`${idOf(alert)}-${index}`} data-fresh={!seen || alert.at > seen || undefined}>
+                  <td className="key">{alert.ticker ? <a href={`/t/s/${encodeURIComponent(alert.ticker)}`}>{alert.ticker}</a> : <a href="/t/eco">US</a>}</td>
+                  <td className="t-dim">{KINDS[alert.kind]}</td>
+                  <td className="t-alrt-brief-what">{alert.title}</td>
+                  <td className="t-dim">{alert.kind === "note" || alert.kind === "price" ? "now" : alert.kind === "move" ? "today" : shortDate(alert.at.slice(0, 10))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : <p className="t-empty">Nothing triggered in the last two weeks.</p>}
+      <p className="t-study-note"><a href="/t/alerts">All alerts and rules · ALRT</a></p>
+    </div>
+  );
+}
+
 /** The ALRT screen. */
 export function Alerts() {
   const { caught, loading, followed, rules, setRules } = useCaught();
