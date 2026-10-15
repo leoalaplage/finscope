@@ -78,7 +78,7 @@ function FunctionKeys({ ticker }: { ticker: string | null }) {
    * key after the last chapter opens the comparison. Elsewhere the digit is
    * the function's place in the bar.
    */
-  const functions = ticker ? COMPANY_FUNCTIONS : GLOBAL_FUNCTIONS.filter((spec) => spec.code !== "HELP");
+  const functions = ticker ? COMPANY_FUNCTIONS : GLOBAL_FUNCTIONS.filter((spec) => spec.code !== "HELP" && spec.code !== "TOUR");
   const hrefs = functions.map((spec) => (ticker
     ? hrefFor({ kind: "company", ticker, fn: spec.code as never })
     : hrefFor({ kind: "global", fn: spec.code as never })));

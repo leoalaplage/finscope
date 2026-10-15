@@ -203,6 +203,7 @@ export function TermSettings() {
           ) : (
             <div className="t-set-row"><span className="t-set-label">Not signed in</span><span className="t-dim">Everything stays in this browser.</span><a className="t-chip" href="/t/account">Sign in or create an account</a></div>
           )}
+          <div className="t-set-row"><span className="t-set-label">Welcome tour</span><span className="t-dim">What a new reader sees on a first visit.</span><a className="t-chip" href="/t/welcome">View the tour</a></div>
         </div>
       </Panel>
 

@@ -8,7 +8,7 @@
  */
 
 export type CompanyFunction = "DES" | "GP" | "EVT" | "NOTE" | "FA" | "GR" | "GF" | "SEG" | "KPI" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "PEER" | "DCF" | "DVD" | "DDIS" | "FS" | "COMP";
-export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "BT" | "ECAL" | "ECO" | "INSB" | "ALRT" | "ACCT" | "SET" | "HELP";
+export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "BT" | "ECAL" | "ECO" | "INSB" | "ALRT" | "ACCT" | "SET" | "TOUR" | "HELP";
 
 export interface FunctionSpec<Code extends string> {
   code: Code;
@@ -71,6 +71,7 @@ export const GLOBAL_FUNCTIONS: FunctionSpec<GlobalFunction>[] = [
   { code: "ALRT", name: "Alerts" },
   { code: "ACCT", name: "Account, sync and email alerts" },
   { code: "SET", name: "Settings and what this device keeps" },
+  { code: "TOUR", name: "The welcome tour" },
   { code: "HELP", name: "Commands" },
 ];
 
@@ -109,19 +110,22 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
   ACCOUNT: "ACCT", LOGIN: "ACCT", SIGNIN: "ACCT", SYNC: "ACCT",
   BUYS: "INSB", INSIDERS: "INSB", CLUSTER: "INSB",
   SETTINGS: "SET", PREFS: "SET",
+  WELCOME: "TOUR", ONBOARDING: "TOUR", GUIDE: "TOUR", INTRO: "TOUR",
   "?": "HELP",
 };
 
 /**
- * The launchpad's own panels, each a code a reader can type from anywhere:
- * the averages, the heat map, the earnings calendar, today's filings, macro.
+ * The launchpad's own panels, each a code a reader can type from anywhere.
+ * ECO is not one of them: it is a screen of its own (/t/eco), and the words
+ * that mean it — CPI, JOBS, FED — must reach it rather than HOME's brief.
  */
 export const LAUNCHPAD_PANELS: FunctionSpec<string>[] = [
+  { code: "SUM", name: "The session, written out" },
+  { code: "RATES", name: "Treasuries and the dollar" },
   { code: "WEI", name: "World equity indices" },
   { code: "IMAP", name: "Heat map" },
+  { code: "SIGS", name: "52-week highs, lows and volume" },
   { code: "EVTS", name: "Earnings calendar" },
-  { code: "FIL", name: "Filed today" },
-  { code: "ECO", name: "Macro" },
 ];
 const PANEL_CODES = new Set(LAUNCHPAD_PANELS.map((spec) => spec.code));
 
@@ -218,6 +222,7 @@ export function hrefFor(command: Command): string | null {
         case "ALRT": return "/t/alerts";
         case "ACCT": return "/t/account";
         case "SET": return "/t/settings";
+        case "TOUR": return "/t/welcome";
         case "BT": return command.ticker ? `/t/backtest?s=${encodeURIComponent(command.ticker)}` : "/t/backtest";
         case "HELP": return null;
       }

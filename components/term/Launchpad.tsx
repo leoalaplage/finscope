@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { readPrefs } from "./prefs";
+import { markOnboarded, ONBOARDED_KEY } from "./Welcome";
 import { useStoredWatchlist } from "@/components/io/watchlist";
 import { useStoredHoldings } from "@/components/io/holdings";
 import { WatchlistEditor } from "@/components/io/WatchlistEditor";
@@ -41,6 +42,18 @@ export function Launchpad() {
   const quotes = new Map((tape?.quotes ?? []).filter((quote) => quote.kind === "equity").map((quote) => [quote.symbol, quote]));
   // Arriving from elsewhere, once a visit, the terminal opens where the reader chose on SET (components/term/prefs.ts).
   useEffect(() => {
+    /*
+     * A first visit opens the tour, once. A reader with anything already kept
+     * here — a list, a book, alerts, preferences — is not new: they are marked
+     * as toured and left where they are.
+     */
+    try {
+      if (!localStorage.getItem(ONBOARDED_KEY) && !navigator.webdriver) {
+        const known = Object.keys(localStorage).some((key) => key.startsWith("finscope.") && key !== ONBOARDED_KEY);
+        if (!known) { window.location.replace("/t/welcome"); return; }
+        markOnboarded();
+      }
+    } catch { /* No storage: no tour, no harm. */ }
     const start = readPrefs().start;
     if (start === "/t") return;
     let arrived = true;

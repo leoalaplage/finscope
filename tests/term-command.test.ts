@@ -131,3 +131,17 @@ describe("the company function bar, in the page's order", () => {
     }
   });
 });
+
+describe("the welcome tour", () => {
+  it("opens on TOUR and its plain-word aliases", () => {
+    for (const word of ["TOUR", "welcome", "onboarding", "guide"]) expect(hrefFor(parseCommand(word))).toBe("/t/welcome");
+  });
+});
+
+describe("the economy is a screen, not a HOME panel", () => {
+  it("sends ECO and the words that mean it to /t/eco, and HOME's own panels to HOME", () => {
+    for (const word of ["ECO", "CPI", "jobs", "FED", "macro"]) expect(hrefFor(parseCommand(word))).toBe("/t/eco");
+    expect(hrefFor(parseCommand("SUM"))).toBe("/t#sum");
+    expect(hrefFor(parseCommand("IMAP"))).toBe("/t#imap");
+  });
+});
