@@ -13,7 +13,7 @@ import { GoogleMark } from "@/components/io/AccountPage";
  * visitor sees it, so the tour loads at once and asks the data for nothing. Opened once on a first visit (components/term/Launchpad.tsx,
  * ONBOARDED_KEY); always on /t/welcome, TOUR, or SET.
  *
- * Tenqay will be paid — Professional monthly or yearly (PRICES), Enterprise by agreement; while in beta the
+ * Tenqay will be paid, monthly or yearly (PRICES); while in beta the
  * account is optional and everything is free — no payment is taken yet.
  */
 
@@ -22,42 +22,21 @@ export const markOnboarded = () => { try { localStorage.setItem(ONBOARDED_KEY, n
 
 const STEPS = ["Welcome", "Markets", "Companies", "KPIs and segments", "Charts", "Portfolio", "Plans"] as const;
 
-/** Professional, in US dollars, as Léo set it (2026-10-15). The annual saving and monthly equivalent are worked out, not typed. */
+/** The two plans, in US dollars, as Léo set them (2026-10-15). The annual saving and monthly equivalent are worked out, not typed. */
 const PRICES = { monthly: 29.99, annual: 299.99 } as const;
 const dollars = (value: number) => `$${value.toFixed(2)}`;
 const SAVING = Math.round((1 - PRICES.annual / (PRICES.monthly * 12)) * 100);
-/** Where enterprise enquiries go: an address on Tenqay's own domain, forwarded by Cloudflare Email Routing. */
-const SALES = "sales@tenqay.com";
 
-const PRO_FEATURES = [
+/** What every plan holds: the same product, billed monthly or yearly. */
+const INCLUDED = [
   "Real-time markets, rates and Fed expectations",
   "Fundamentals for every listed company, from SEC filings",
   "Operating KPIs, segments and ten-year history",
   "Technical and fundamental charting",
   "Screener and backtesting",
   "Portfolio analytics and valuation models",
-  "Alerts by browser and email, synced across devices",
-];
-const ENTERPRISE_FEATURES = [
-  "Everything in Professional",
-  "Multiple seats under one agreement",
-  "Volume pricing",
-  "Invoice billing",
-  "Priority support",
-  "Onboarding for your team",
-  "Coverage and data requests",
-];
-/** The comparison under the plans: one row a capability, what each plan holds. */
-const COMPARE: Array<[string, string, string]> = [
-  ["Market data, rates and macro", "✓", "✓"],
-  ["Company fundamentals and filings", "✓", "✓"],
-  ["Operating KPIs and segment data", "✓", "✓"],
-  ["Charting, screening and backtesting", "✓", "✓"],
-  ["Portfolio analytics and alerts", "✓", "✓"],
-  ["Seats", "1", "Multiple"],
-  ["Billing", "Card, monthly or annual", "Invoice, annual"],
-  ["Support", "Email", "Priority"],
-  ["Team onboarding", "—", "✓"],
+  "Alerts by browser and email",
+  "Sync across devices",
 ];
 
 export function Welcome() {
@@ -199,7 +178,6 @@ function Shot({ url, label, src, alt, ratio }: { url: string; label?: string; sr
 
 function PlansStep({ onFinish }: { onFinish: (href?: string) => void }) {
   const { account, providers } = useAccount();
-  const [billing, setBilling] = useState<"monthly" | "annual">("annual");
   const [address, setAddress] = useState("");
   const [sent, setSent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -209,49 +187,35 @@ function PlansStep({ onFinish }: { onFinish: (href?: string) => void }) {
     try { await emailSignInLink(address.trim(), back); setSent(address.trim()); } catch (failure) { setError(failure instanceof Error ? failure.message : "The link could not be sent."); }
   };
   const toSignup = () => document.getElementById("t-plans-signup")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  const cta = account
+    ? <button type="button" className="t-wel-cta t-plan-cta" onClick={() => onFinish()}>Open the terminal</button>
+    : <button type="button" className="t-wel-cta t-plan-cta" onClick={toSignup}>Start with the beta</button>;
   return (
     <div className="t-plans">
       <header className="t-plans-head">
         <h2>Plans and pricing</h2>
-        <p>Complimentary access during the beta. Paid plans begin at launch; no payment is taken today.</p>
-        <div className="t-plans-toggle" role="group" aria-label="Billing period">
-          <button type="button" aria-pressed={billing === "monthly"} onClick={() => setBilling("monthly")}>Monthly</button>
-          <button type="button" aria-pressed={billing === "annual"} onClick={() => setBilling("annual")}>Annual <span>Save {SAVING}%</span></button>
-        </div>
+        <p>One product, billed monthly or annually. Complimentary access during the beta; no payment is taken today.</p>
       </header>
 
       <div className="t-plans-grid">
-        <article className="t-plan" data-tier="pro">
-          <div className="t-plan-top">
-            <h3>Professional</h3>
-            <p>For individual investors and analysts</p>
-          </div>
-          <div className="t-plan-price">
-            {billing === "monthly" ? <><b>{dollars(PRICES.monthly)}</b><span>/ month</span></> : <><b>{dollars(PRICES.annual / 12)}</b><span>/ month</span></>}
-          </div>
-          <p className="t-plan-billed">{billing === "monthly" ? "Billed monthly" : `${dollars(PRICES.annual)} billed annually`}</p>
-          {account
-            ? <button type="button" className="t-wel-cta t-plan-cta" onClick={() => onFinish()}>Open the terminal</button>
-            : <button type="button" className="t-wel-cta t-plan-cta" onClick={toSignup}>Start with the beta</button>}
-          <ul>{PRO_FEATURES.map((feature) => <li key={feature}>{feature}</li>)}</ul>
+        <article className="t-plan" data-tier="monthly">
+          <div className="t-plan-top"><h3>Monthly</h3><p>Billed every month</p></div>
+          <div className="t-plan-price"><b>{dollars(PRICES.monthly)}</b><span>/ month</span></div>
+          <p className="t-plan-billed">{dollars(PRICES.monthly * 12)} over twelve months</p>
+          {cta}
         </article>
-
-        <article className="t-plan" data-tier="enterprise">
-          <div className="t-plan-top">
-            <h3>Enterprise</h3>
-            <p>For teams, advisory firms and institutions</p>
-          </div>
-          <div className="t-plan-price"><b>Custom</b></div>
-          <p className="t-plan-billed">Annual agreement · volume pricing</p>
-          <a className="t-wel-ghost t-plan-cta" href={`mailto:${SALES}?subject=${encodeURIComponent("Tenqay Enterprise")}`}>Contact sales</a>
-          <ul>{ENTERPRISE_FEATURES.map((feature) => <li key={feature}>{feature}</li>)}</ul>
+        <article className="t-plan" data-tier="annual">
+          <div className="t-plan-top"><h3>Annual <span className="t-plan-save">Save {SAVING}%</span></h3><p>Billed once a year</p></div>
+          <div className="t-plan-price"><b>{dollars(PRICES.annual)}</b><span>/ year</span></div>
+          <p className="t-plan-billed">{dollars(PRICES.annual / 12)} per month</p>
+          {cta}
         </article>
       </div>
 
-      <table className="t-plans-compare">
-        <thead><tr><th>Compare plans</th><th>Professional</th><th>Enterprise</th></tr></thead>
-        <tbody>{COMPARE.map(([row, pro, enterprise]) => <tr key={row}><th>{row}</th><td>{pro}</td><td>{enterprise}</td></tr>)}</tbody>
-      </table>
+      <div className="t-plans-included">
+        <h3>Included in every plan</h3>
+        <ul>{INCLUDED.map((item) => <li key={item}>{item}</li>)}</ul>
+      </div>
 
       <section className="t-plans-signup" id="t-plans-signup" aria-label="Account">
         {account ? (
