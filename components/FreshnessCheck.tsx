@@ -63,7 +63,7 @@ export function FreshnessCheck({ tickers }: { tickers: string[] }) {
       </button>
     </div>
     <p className="section-note">
-      Compares the last period Tenkay holds for each company against the most recent report that company
+      Compares the last period Tenqay holds for each company against the most recent report that company
       has actually filed with the SEC. Nothing here reads our own cache to decide whether our own cache is
       current — that is the reasoning that let a published quarter go unnoticed.
     </p>

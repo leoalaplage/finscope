@@ -300,7 +300,7 @@ async function worksheet(xlsx: ArrayBuffer, isWanted: (name: string) => boolean)
 /* --- Fetching ------------------------------------------------------------- */
 
 /** Some publishers refuse a request with no agent; every one of them accepts an honest one. */
-const HEADERS = { "User-Agent": "Tenkay/1.0 (+https://finscope-financial-research.leoalaplage.workers.dev)" };
+const HEADERS = { "User-Agent": "Tenqay/1.0 (+https://tenqay.com)" };
 
 /** How much history each feed is asked for: five years to draw, and a month of margin. */
 export function historyStart(now = new Date()) {

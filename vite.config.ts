@@ -44,6 +44,13 @@ const localBindingConfig = {
   // is the supported way to invoke yourself, and it keeps the property the
   // design wants — a real second invocation with its own CPU budget.
   services: [{ binding: "SELF", service: "finscope-financial-research" }],
+  // The site's own domain, served by this Worker (Cloudflare provisions the DNS record and certificate).
+  routes: [
+    { pattern: "tenqay.com", custom_domain: true },
+    { pattern: "www.tenqay.com", custom_domain: true },
+  ],
+  // Kept on, so the former address answers — with a redirect to tenqay.com (lib/terminal-switch.ts) — rather than a 404.
+  workers_dev: true,
   d1_databases: d1
     ? [
         {

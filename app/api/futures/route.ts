@@ -26,7 +26,7 @@ export interface FutureRow { id: string; label: string; group: "futures" | "cryp
 async function build(): Promise<FutureRow[]> {
   const symbols = FUTURES.map((item) => item.id).join(",");
   const response = await fetch(`https://query1.finance.yahoo.com/v7/finance/spark?symbols=${encodeURIComponent(symbols)}&range=1mo&interval=1d`, {
-    headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 Tenkay/1.0" },
+    headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 Tenqay/1.0" },
   });
   if (!response.ok) throw new Error(`Yahoo returned ${response.status}.`);
   const payload = await response.json() as {

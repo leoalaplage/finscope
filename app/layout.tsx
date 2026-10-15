@@ -13,9 +13,9 @@ import { AccountSync } from "@/components/io/AccountSync";
  * fails, and the site answered "Worker exceeded resource limits" instead of
  * loading. A social preview URL is not worth the front page.
  */
-const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://finscope-financial-research.leoalaplage.workers.dev";
+const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://tenqay.com";
 
-const TITLE = "Tenkay — a terminal for every US-listed company";
+const TITLE = "Tenqay — a terminal for every US-listed company";
 const DESCRIPTION = "Filed financials, operating figures, valuation, insider buying and the market for every company that files with the SEC, in one terminal.";
 
 /**

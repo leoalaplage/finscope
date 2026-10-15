@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://finscope-financial-research.leoalaplage.workers.dev";
+const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://tenqay.com";
 
 export default function robots(): MetadataRoute.Robots {
   return {

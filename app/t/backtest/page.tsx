@@ -6,7 +6,7 @@ import { TermShell } from "@/components/term/TermShell";
 
 export const dynamic = "force-static";
 export const metadata: Metadata = {
-  title: "Backtest a trading rule · Tenkay",
+  title: "Backtest a trading rule · Tenqay",
   description: "Test a technical rule on daily prices: entries, exits, drawdown and the trades it would have made.",
   alternates: { canonical: "/t/backtest" },
 };

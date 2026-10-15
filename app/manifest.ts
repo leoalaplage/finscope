@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Tenkay",
-    short_name: "Tenkay",
+    name: "Tenqay",
+    short_name: "Tenqay",
     description: "Filed financials, market prices and valuation for US-listed companies.",
     start_url: "/",
     display: "standalone",

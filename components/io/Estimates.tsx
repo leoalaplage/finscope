@@ -188,7 +188,7 @@ function Revisions({ estimates, history, currency }: { estimates: EstimatesData;
           <text className="estimates-tick" x={width - right} y={height - 4} textAnchor="end">{shortDate(points.at(-1)!.date)}</text>
         </svg>
       ) : (
-        <p className="stat-note">Tenkay records the consensus every day; the line for fiscal year {year} draws once a few days are kept{points.length ? ` (${points.length} so far, since ${shortDate(points[0].date)})` : ""}.</p>
+        <p className="stat-note">Tenqay records the consensus every day; the line for fiscal year {year} draws once a few days are kept{points.length ? ` (${points.length} so far, since ${shortDate(points[0].date)})` : ""}.</p>
       )}
     </div>
   );

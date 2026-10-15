@@ -10,7 +10,7 @@ import { Shell } from "@/components/io/Shell";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "Chart — Tenkay",
+  title: "Chart — Tenqay",
   description: "Candlestick charts with moving averages, Bollinger Bands, RSI, MACD and Fibonacci retracements.",
 };
 

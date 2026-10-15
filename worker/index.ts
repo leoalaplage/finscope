@@ -10,7 +10,7 @@ import { snapshotEstimatesSlice } from "../lib/estimates-store";
 import { insiderBuyingSlice } from "../lib/insider-buying";
 import { buildAllUniverseSlice } from "../lib/universe-all";
 import { emailAlertsSlice } from "../lib/email-alerts";
-import { terminalRedirect } from "../lib/terminal-switch";
+import { canonicalRedirect } from "../lib/terminal-switch";
 import { primeSegmentsSlice } from "../lib/segments/store";
 import { refreshAuditReport } from "../lib/coverage-audit";
 import { warmExtraSlice } from "../lib/warm-extra";
@@ -39,7 +39,7 @@ interface ExecutionContext {
 
 interface ScheduledEvent { cron: string; scheduledTime: number }
 
-const DEFAULT_ORIGIN = "https://finscope-financial-research.leoalaplage.workers.dev";
+const DEFAULT_ORIGIN = "https://tenqay.com";
 
 /**
  * The schedule that watches EDGAR, as written in vite.config.ts.
@@ -62,10 +62,10 @@ const worker = {
     setRuntimeBindings(env, ctx);
     const url = new URL(request.url);
 
-    // The former document site's pages lead to the terminal (lib/terminal-switch.ts).
+    // tenqay.com is the address, and the former document site's pages lead to the terminal (lib/terminal-switch.ts).
     if (request.method === "GET" || request.method === "HEAD") {
-      const target = terminalRedirect(url.pathname);
-      if (target) return Response.redirect(`${url.origin}${target}${url.search}`, 307);
+      const target = canonicalRedirect(url);
+      if (target) return Response.redirect(target, new URL(target).host === url.host ? 307 : 301);
     }
 
     if (url.pathname === "/_vinext/image") {

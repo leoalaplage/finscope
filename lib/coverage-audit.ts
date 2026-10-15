@@ -444,7 +444,7 @@ export function summariseAudits(
 }
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const SEC_HEADERS = { "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com", Accept: "application/json" };
+const SEC_HEADERS = { "User-Agent": process.env.SEC_USER_AGENT || "Tenqay research application contact@example.com", Accept: "application/json" };
 
 /**
  * Gathers the day's report, if the last one is a day old.

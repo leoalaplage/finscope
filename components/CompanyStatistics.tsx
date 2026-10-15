@@ -13,7 +13,7 @@ import type { CompanyDataset, PricePoint } from "@/lib/types";
  * estimates provider, and a number with no source does not belong next to ones
  * that carry an accession number.
  */
-const FORWARD_NOTE = "Forward multiples, price targets and estimated growth are analyst consensus figures. Tenkay reports only filed facts and matched market prices, so they are absent rather than guessed.";
+const FORWARD_NOTE = "Forward multiples, price targets and estimated growth are analyst consensus figures. Tenqay reports only filed facts and matched market prices, so they are absent rather than guessed.";
 
 function StatValue({ stat, currency, highlight }: { stat: Stat; currency: string; highlight?: boolean }) {
   const text = formatStat(stat.value, stat.format, currency);

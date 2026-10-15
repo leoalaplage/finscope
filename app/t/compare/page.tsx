@@ -8,7 +8,7 @@ import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 
 export const dynamic = "force-static";
 export const metadata: Metadata = {
-  title: "Compare companies side by side · Tenkay",
+  title: "Compare companies side by side · Tenqay",
   description: "Compare US-listed companies on their filed financials, growth, margins and valuation.",
   alternates: { canonical: "/t/compare" },
 };

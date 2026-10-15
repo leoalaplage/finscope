@@ -16,7 +16,7 @@ export async function GET() {
       const curves: TreasuryCurve[] = [];
       // January needs December's curves for its month ago.
       for (const each of new Date().getUTCMonth() < 2 ? [year - 1, year] : [year]) {
-        const response = await fetch(feed(each), { headers: { Accept: "application/xml", "User-Agent": "Mozilla/5.0 Tenkay/1.0" } });
+        const response = await fetch(feed(each), { headers: { Accept: "application/xml", "User-Agent": "Mozilla/5.0 Tenqay/1.0" } });
         if (!response.ok) throw new Error(`The Treasury returned ${response.status}.`);
         curves.push(...parseTreasuryCurves(await response.text()));
       }

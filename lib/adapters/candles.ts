@@ -187,7 +187,7 @@ export async function fetchCandles(symbol: string, interval: CandleInterval, lon
   const path = `/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${start}&period2=${now}&interval=${YAHOO_INTERVAL[interval]}&includePrePost=false`;
   let lastStatus = 0;
   for (const base of BASE_URLS()) {
-    const response = await fetch(`${base}${path}`, { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 Tenkay/1.0" } });
+    const response = await fetch(`${base}${path}`, { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 Tenqay/1.0" } });
     lastStatus = response.status;
     if (!response.ok) continue;
     const candles = candlesFromChart(await response.json(), interval);

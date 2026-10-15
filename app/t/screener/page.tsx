@@ -8,7 +8,7 @@ import { TermShell } from "@/components/term/TermShell";
 
 export const dynamic = "force-static";
 export const metadata: Metadata = {
-  title: "Stock screener — every US-listed company · Tenkay",
+  title: "Stock screener — every US-listed company · Tenqay",
   description: "Screen the S&P 500, the 1,000 largest US companies or every listed one on filed fundamentals, valuation, analysts' consensus and technicals.",
   alternates: { canonical: "/t/screener" },
 };

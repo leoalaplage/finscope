@@ -12,7 +12,7 @@ import { FilingsSection, NewsSection } from "@/components/io/Wire";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "Market — Tenkay",
+  title: "Market — Tenqay",
   description: "Track the S&P 500, Nasdaq Composite and Dow Jones across the main market timeframes.",
 };
 

@@ -64,7 +64,7 @@ export interface Watch {
 
 export type Watches = Record<string, Watch>;
 
-const agent = () => process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com";
+const agent = () => process.env.SEC_USER_AGENT || "Tenqay research application contact@example.com";
 
 /**
  * The filings EDGAR has just accepted, from its own feed.

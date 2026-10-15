@@ -8,7 +8,7 @@ import { cachedJson } from "@/lib/market-cache";
  * The opening sentences of each item of one 8-K, read from the filing itself
  * when a reader opens the event. A filing never changes, so each is read once.
  */
-const SEC_AGENT = () => process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com";
+const SEC_AGENT = () => process.env.SEC_USER_AGENT || "Tenqay research application contact@example.com";
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;

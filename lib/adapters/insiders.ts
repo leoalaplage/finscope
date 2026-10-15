@@ -17,7 +17,7 @@ import { secFetch } from "./sec-fetch";
  * less of the thing they run. The two are separated here and never summed.
  */
 
-const SEC_AGENT = () => process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com";
+const SEC_AGENT = () => process.env.SEC_USER_AGENT || "Tenqay research application contact@example.com";
 
 /** How many recent Form 4s are read for one company. */
 export const INSIDER_FILING_LIMIT = 40;

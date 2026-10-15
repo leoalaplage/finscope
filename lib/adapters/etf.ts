@@ -105,7 +105,7 @@ export interface EtfProfile {
 /** What a ticker that is not a filing company is, when it is not a fund that reports holdings either. */
 export interface NotReported { ticker: string; kind: "unreported"; reason: string }
 
-const UA = () => ({ "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com" });
+const UA = () => ({ "User-Agent": process.env.SEC_USER_AGENT || "Tenqay research application contact@example.com" });
 
 /* --- Parsing, pure ------------------------------------------------------- */
 

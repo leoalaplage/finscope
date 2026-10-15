@@ -6,8 +6,8 @@ import { Status } from "@/components/io/Status";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "Data status — Tenkay",
-  description: "What Tenkay holds for every company in the S&P 500, checked daily against the SEC.",
+  title: "Data status — Tenqay",
+  description: "What Tenqay holds for every company in the S&P 500, checked daily against the SEC.",
 };
 
 export default function StatusRoute() {

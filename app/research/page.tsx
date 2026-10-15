@@ -16,7 +16,7 @@ import { APPLE_DATASET } from "@/lib/demo-data";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "Tenkay — Simple, auditable financial research",
+  title: "Tenqay — Simple, auditable financial research",
   description: "Research companies, compare financial metrics and build a traceable DCF in one focused workspace.",
 };
 

@@ -572,7 +572,7 @@ export function Portfolio() {
               <ExportMenu
                 name="finscope-portfolio"
                 rows={valued.positions.map((position) => ({ ticker: position.ticker, shares: position.shares, price: position.price, value: position.value, weight: position.weight, costBasis: position.costBasis, profitPercent: position.profitPercent, filingPeriod: position.summary?.periodLabel ?? null, filingDate: position.summary?.periodEnd ?? null }))}
-                provenance={["Tenkay portfolio · SEC-filed company summaries", "Market prices carry their own as-of time", "Portfolio stored locally on this device"]}
+                provenance={["Tenqay portfolio · SEC-filed company summaries", "Market prices carry their own as-of time", "Portfolio stored locally on this device"]}
               />
             </div>
           ) : null}
@@ -651,7 +651,7 @@ function Notes({
       ? `No price for ${unpriced.join(", ")}, so ${unpriced.length === 1 ? "it is" : "they are"} left out of the value and the weights.`
       : null,
     foreign.length
-      ? `${foreign.join(", ")} ${foreign.length === 1 ? "is quoted" : "are quoted"} in another currency. Tenkay never converts a filed figure, so ${foreign.length === 1 ? "it is" : "they are"} listed and left out of the totals.`
+      ? `${foreign.join(", ")} ${foreign.length === 1 ? "is quoted" : "are quoted"} in another currency. Tenqay never converts a filed figure, so ${foreign.length === 1 ? "it is" : "they are"} listed and left out of the totals.`
       : null,
   ].filter((note): note is string => note != null);
   return <>{notes.map((note) => <p className="stat-note" key={note} style={{ marginTop: 10 }}>{note}</p>)}</>;
@@ -796,7 +796,7 @@ export function Empty({ onOpen, onExample }: { onOpen: () => void; onExample: ()
   return (
     <div className="guided-empty portfolio-empty">
       <p className="lead num">See what the portfolio owns underneath the tickers</p>
-      <p>Add a ticker, shares and optionally the price paid. Tenkay then reads the public filings and market prices locally.</p>
+      <p>Add a ticker, shares and optionally the price paid. Tenqay then reads the public filings and market prices locally.</p>
       <div className="empty-benefits"><div><strong>Concentration</strong><span>Largest company, sector and effective number of holdings.</span></div><div><strong>Look-through cash</strong><span>Your share of revenue, free cash flow and valuation.</span></div><div><strong>Quality and benchmark</strong><span>Weighted grade, risk flags and a comparison with the S&amp;P 500.</span></div></div>
       <div className="empty-actions"><button className="watchlist-save" type="button" onClick={onOpen}>Add holdings</button><button className="metric-toggle" type="button" onClick={onExample}>Try an example</button></div>
       <p className="stat-note">You can paste rows copied from a broker or CSV. The example is saved only on this device and can be cleared immediately.</p>

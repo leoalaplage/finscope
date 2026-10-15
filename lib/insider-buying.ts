@@ -67,7 +67,7 @@ const PER_RUN = 80;
 /** Beyond the S&P 500, the days queued: what a cluster is made of, not a backlog nobody will read. */
 const WIDE_BACKFILL_DAYS = 14;
 const MAX_QUEUE = 6000;
-const SEC_AGENT = () => process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com";
+const SEC_AGENT = () => process.env.SEC_USER_AGENT || "Tenqay research application contact@example.com";
 const DAY = 86_400_000;
 const iso = (date: Date) => date.toISOString().slice(0, 10);
 

@@ -160,7 +160,7 @@ function SignedOut({ supported, busy, run, notice }: { supported: boolean; busy:
             </div>
           </div>
         )}
-        <p className="stat-note acct-fineprint">Without an account nothing changes: everything stays in this browser, as before. Tenkay keeps only what is listed under Sync, never your passkey&apos;s private half, and you can take it away or delete it at any time.</p>
+        <p className="stat-note acct-fineprint">Without an account nothing changes: everything stays in this browser, as before. Tenqay keeps only what is listed under Sync, never your passkey&apos;s private half, and you can take it away or delete it at any time.</p>
       </div>
     </main>
   );
@@ -251,7 +251,7 @@ function Alerts({ email, emailService, busy, run }: {
   const changed = address.trim().toLowerCase() !== (email?.address ?? "") && address.trim().length > 0;
   return (
     <Section id="alerts" title="Email alerts" lede="One email a day after the US close, only when something changed for the companies in your watchlists, portfolio and notes.">
-      {!emailService ? <p className="acct-notice">Email delivery is not switched on for Tenkay yet. Your address and choice are kept; the first email goes out once it is.</p> : null}
+      {!emailService ? <p className="acct-notice">Email delivery is not switched on for Tenqay yet. Your address and choice are kept; the first email goes out once it is.</p> : null}
       <form className="acct-inline" onSubmit={(event) => { event.preventDefault(); if (changed) void run(() => saveEmail(address, email?.alerts ?? true), emailService ? "Saved. Follow the link we have just sent to confirm the address." : "Address saved."); }}>
         <label className="acct-field acct-grow">
           <span className="label">Email address</span>

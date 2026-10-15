@@ -16,7 +16,7 @@ export interface BacklogPoint { end: string; value: number; filed: string; form:
 
 const CONCEPT = "RevenueRemainingPerformanceObligation";
 const HEADERS = () => ({
-  "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com",
+  "User-Agent": process.env.SEC_USER_AGENT || "Tenqay research application contact@example.com",
   Accept: "application/json",
 });
 

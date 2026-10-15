@@ -15,7 +15,7 @@ import { Shell } from "@/components/io/Shell";
 export async function generateMetadata({ params }: { params: Promise<{ ticker: string }> }): Promise<Metadata> {
   const { ticker } = await params;
   const symbol = ticker.toUpperCase().slice(0, 12);
-  const title = `${symbol} — Tenkay`;
+  const title = `${symbol} — Tenqay`;
   const description = `Filed financials, market price and valuation for ${symbol}, read from SEC XBRL.`;
   return {
     title,

@@ -202,7 +202,7 @@ function KpiCard({ card, rows, dataset, onOpen }: {
       title: `${dataset.company.ticker} · ${card.title}`,
       subtitle: net != null ? `${dataset.company.name} · ${headline.label} ${headline.display}`
         : summary?.value == null ? dataset.company.name : `${dataset.company.name} · ${summary.label} ${summary.display}`,
-      footer: `Tenkay · SEC filings to ${drawn.at(-1)?.label ?? ""}`,
+      footer: `Tenqay · SEC filings to ${drawn.at(-1)?.label ?? ""}`,
     });
   }
 

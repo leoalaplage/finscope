@@ -97,7 +97,7 @@ export function priceDrivers(periods: FinancialPeriod[], pricesByPeriodEnd: Reco
   const usable = priceable(periods).flatMap((period) => {
     const quoted = pricesByPeriodEnd[period.periodEnd];
     if (quoted && quoted.currency !== period.currency) {
-      foreignQuote = `The share price is quoted in ${quoted.currency} and the statements are filed in ${period.currency}. Tenkay does not convert, so this split is withheld.`;
+      foreignQuote = `The share price is quoted in ${quoted.currency} and the statements are filed in ${period.currency}. Tenqay does not convert, so this split is withheld.`;
     }
     const point = priceOf(period);
     return point ? [{ period, point }] : [];

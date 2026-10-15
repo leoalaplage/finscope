@@ -17,7 +17,7 @@ import { readFirstSheet } from "../xlsx-read";
 
 // The address the published links redirect to, asked for directly: one request rather than two per file.
 const BASE = "https://www.ssga.com/library-content/products/fund-data/etfs/us";
-const HEADERS = { "User-Agent": "Mozilla/5.0 (compatible; Tenkay research; one request per fund per day)" };
+const HEADERS = { "User-Agent": "Mozilla/5.0 (compatible; Tenqay research; one request per fund per day)" };
 
 export interface IssuerHolding { name: string; ticker: string | null; cusip: string | null; weight: number; shares: number | null; currency: string | null }
 export interface IssuerHoldings { asOf: string; holdings: IssuerHolding[]; source: string }

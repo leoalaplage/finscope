@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { UNIVERSE } from "@/lib/universe";
 
-const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://finscope-financial-research.leoalaplage.workers.dev";
+const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://tenqay.com";
 
 /**
  * The terminal's public screens and the S&P 500's company pages. The reader's

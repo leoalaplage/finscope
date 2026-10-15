@@ -185,7 +185,7 @@ function Disagreements({ entries, compared }: { entries: Disagreement[]; compare
       {entries.length ? (
         <div className="sheet">
           <table>
-            <thead><tr><th className="key" scope="col">Company</th><th scope="col">Measure</th><th scope="col">Period</th><th scope="col">Tenkay</th><th scope="col">SEC frame</th><th scope="col">Gap</th></tr></thead>
+            <thead><tr><th className="key" scope="col">Company</th><th scope="col">Measure</th><th scope="col">Period</th><th scope="col">Tenqay</th><th scope="col">SEC frame</th><th scope="col">Gap</th></tr></thead>
             <tbody>
               {entries.map((entry) => (
                 <tr key={`${entry.ticker}-${entry.measure}`}>

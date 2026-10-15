@@ -18,3 +18,19 @@ export function terminalRedirect(pathname: string): string | null {
   if (TO_LAUNCHPAD.has(pathname)) return "/t";
   return terminalHref(pathname);
 }
+
+/**
+ * The site lives at tenqay.com: the Worker's own address and www lead there,
+ * pages only — the API answers on every address, so the timer's own calls and
+ * anything still pointed at the old address keep working.
+ */
+export const CANONICAL_HOST = "tenqay.com";
+
+export function canonicalRedirect(url: URL): string | null {
+  const elsewhere = url.hostname === `www.${CANONICAL_HOST}` || url.hostname.endsWith(".workers.dev");
+  const path = terminalRedirect(url.pathname);
+  if (elsewhere && !url.pathname.startsWith("/api/") && !url.pathname.startsWith("/_next/")) {
+    return `https://${CANONICAL_HOST}${path ?? url.pathname}${url.search}`;
+  }
+  return path ? `${url.origin}${path}${url.search}` : null;
+}

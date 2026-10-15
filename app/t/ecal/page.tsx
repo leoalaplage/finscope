@@ -6,7 +6,7 @@ import { TermShell } from "@/components/term/TermShell";
 
 export const dynamic = "force-static";
 export const metadata: Metadata = {
-  title: "Earnings calendar · Tenkay",
+  title: "Earnings calendar · Tenqay",
   description: "Upcoming earnings for US-listed companies, with the analysts' consensus where it is published.",
   alternates: { canonical: "/t/ecal" },
 };

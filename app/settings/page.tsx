@@ -6,8 +6,8 @@ import { Shell } from "@/components/io/Shell";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "Settings — Tenkay",
-  description: "Appearance, privacy and local-data settings for Tenkay.",
+  title: "Settings — Tenqay",
+  description: "Appearance, privacy and local-data settings for Tenqay.",
 };
 
 export default function SettingsPage() {

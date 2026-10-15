@@ -14,7 +14,7 @@ import { Shell } from "@/components/io/Shell";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "Portfolio — Tenkay",
+  title: "Portfolio — Tenqay",
   description: "What you own, read through to the revenue and free cash flow of the businesses underneath it.",
 };
 

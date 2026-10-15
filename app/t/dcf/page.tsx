@@ -8,7 +8,7 @@ import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 
 export const dynamic = "force-static";
 export const metadata: Metadata = {
-  title: "DCF calculator from SEC filings · Tenkay",
+  title: "DCF calculator from SEC filings · Tenqay",
   description: "A discounted cash flow model built from a company's own filings, with the drivers you choose.",
   alternates: { canonical: "/t/dcf" },
 };

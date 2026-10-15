@@ -10,7 +10,7 @@ import { TICKER_PATTERN } from "@/lib/market-profile";
  * tags, or its notes added up by year, from its latest 10-K. Kept a week —
  * it changes once a year.
  */
-const SEC_AGENT = () => process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com";
+const SEC_AGENT = () => process.env.SEC_USER_AGENT || "Tenqay research application contact@example.com";
 const json = async <T,>(url: string): Promise<T | null> => {
   const response = await secFetch(url, { headers: { "User-Agent": SEC_AGENT(), Accept: "application/json" } });
   if (response.status === 404) { await response.body?.cancel(); return null; }
