@@ -59,7 +59,7 @@ export function Dividends({ view, price }: { view: IoCompanyView; price: number 
     series: [
       { spec: { id: "regular", label: "Regular dividend", kind: "bar", axis: "left", color: "var(--c2)", value: () => null }, values: shown.map((entry) => entry.regular), colors: shown.map((entry) => (entry.complete ? null : "var(--ink-3)")) },
       ...(shown.some((entry) => entry.special > 0) ? [{ spec: { id: "special", label: "Special", kind: "bar" as const, axis: "left" as const, color: "var(--c5)", value: () => null }, values: shown.map((entry) => entry.special || null) }] : []),
-      { spec: { id: "growth", label: "Rate growth on a year (right)", kind: "line", axis: "right", color: "var(--amber)", value: () => null }, values: growth },
+      { spec: { id: "growth", label: "Rate growth on a year (right)", kind: "line", axis: "right", color: "var(--chart-amber, var(--amber))", value: () => null }, values: growth },
     ],
   };
   const preset: Preset = { id: "dividends", title: "Dividend a share, by year", left: "perShare", right: "percent", series: data.series.map((entry) => entry.spec) };

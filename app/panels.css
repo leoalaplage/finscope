@@ -27,7 +27,7 @@
   position: absolute; top: 6px; z-index: 2; display: grid; gap: 2px; min-width: 170px; padding: 5px 8px; pointer-events: none;
   background: var(--panel-tip, #14171c); border: 1px solid var(--line-strong); font-size: var(--fs-micro); box-shadow: var(--panel-tip-shadow, 0 4px 14px rgba(0, 0, 0, .5));
 }
-.t-gf-tip b { color: var(--amber); font-weight: 600; }
+.t-gf-tip b { color: var(--chart-amber, var(--amber)); font-weight: 600; }
 .t-gf-tip span { display: flex; align-items: center; gap: 6px; color: var(--ink-2); white-space: nowrap; }
 .t-gf-tip i { width: 8px; height: 8px; flex: none; }
 .t-gf-tip em { margin-left: auto; padding-left: 10px; font-style: normal; color: var(--ink); font-variant-numeric: tabular-nums; }
