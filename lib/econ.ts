@@ -175,8 +175,30 @@ async function detectOffset(today: string): Promise<number> {
   return (JSON.parse(body) as { offset: number }).offset;
 }
 
+/**
+ * Whether a market-moving release is due or just out: from five minutes
+ * before to twenty-five after one of today's. The calendar is then read
+ * every fifteen seconds rather than every minute.
+ */
+export function releaseWindow(events: Array<Pick<EconEvent, "date" | "time" | "importance">>, now: number): boolean {
+  return events.some((event) => {
+    if (event.importance !== "high" || !event.time) return false;
+    const at = newYorkEpoch(event.date, event.time);
+    return now >= at - 5 * 60_000 && now <= at + 25 * 60_000;
+  });
+}
+
+/** Today's events, read straight from Nasdaq around a release, held fifteen seconds in this isolate. */
+let live: { date: string; at: number; events: EconEvent[] } | null = null;
+
 /** One New York day's events: kept six hours once past, a minute on the day itself, an hour ahead. */
-async function eventsOn(date: string, today: string, offset: number): Promise<EconEvent[]> {
+async function eventsOn(date: string, today: string, offset: number, hot = false): Promise<EconEvent[]> {
+  if (hot && date === today) {
+    if (live && live.date === date && Date.now() - live.at < 15_000) return live.events;
+    const events = eventsFrom(await nasdaqDay(shift(date, offset)), date);
+    live = { date, at: Date.now(), events };
+    return events;
+  }
   const ttl = date < today ? 6 * 3600 : date === today ? 60 : 3600;
   const { body } = await cachedJson(`econ-day:v2:${date}`, ttl, async () => eventsFrom(await nasdaqDay(shift(date, offset)), date),
     (value) => (date === today ? "brief" : value.length ? "full" : "partial"));
@@ -184,13 +206,16 @@ async function eventsOn(date: string, today: string, offset: number): Promise<Ec
 }
 
 /** Every US event from `back` days ago to `ahead` days on, oldest first. */
-export async function econCalendar(back = 7, ahead = 14, now = new Date()): Promise<{ today: string; events: EconEvent[] }> {
+export async function econCalendar(back = 7, ahead = 14, now = new Date()): Promise<{ today: string; live: boolean; events: EconEvent[] }> {
   const today = newYorkDate(now);
   const offset = await detectOffset(today);
   const dates = Array.from({ length: back + ahead + 1 }, (_, index) => shift(today, index - back))
     .filter((date) => { const day = new Date(`${date}T12:00:00Z`).getUTCDay(); return day !== 0 && day !== 6; });
-  const days = await Promise.all(dates.map((date) => eventsOn(date, today, offset).catch(() => [] as EconEvent[])));
-  return { today, events: days.flat().sort((left, right) => `${left.date} ${left.time ?? "00:00"}`.localeCompare(`${right.date} ${right.time ?? "00:00"}`)) };
+  // Today first, from the store: if a release is due or just out, today is read again straight from Nasdaq.
+  const stored = await eventsOn(today, today, offset).catch(() => [] as EconEvent[]);
+  const hot = releaseWindow(stored, now.getTime());
+  const days = await Promise.all(dates.map((date) => (date === today ? (hot ? eventsOn(date, today, offset, true).catch(() => stored) : Promise.resolve(stored)) : eventsOn(date, today, offset).catch(() => [] as EconEvent[]))));
+  return { today, live: hot, events: days.flat().sort((left, right) => `${left.date} ${left.time ?? "00:00"}`.localeCompare(`${right.date} ${right.time ?? "00:00"}`)) };
 }
 
 /* --- How the market took it ------------------------------------------------- */
@@ -247,18 +272,8 @@ export async function reactions(events: EconEvent[], now = Date.now()): Promise<
 
 /* --- The official series, for the charts ------------------------------------ */
 
-export const BLS_SERIES = [
-  { id: "CUUR0000SA0", label: "CPI", transform: "yoy" },
-  { id: "CUUR0000SA0L1E", label: "Core CPI", transform: "yoy" },
-  { id: "CUSR0000SA0", label: "CPI, month on month", transform: "mom" },
-  { id: "CUSR0000SA0L1E", label: "Core CPI, month on month", transform: "mom" },
-  { id: "WPUFD4", label: "PPI final demand", transform: "yoy" },
-  { id: "LNS14000000", label: "Unemployment rate", transform: "level" },
-  { id: "CES0000000001", label: "Nonfarm payrolls, change", transform: "diff" },
-  { id: "CES0500000003", label: "Average hourly earnings", transform: "yoy" },
-] as const;
-
-export interface EconSeries { id: string; label: string; unit: "percent" | "thousands"; points: Array<{ period: string; value: number }>; latest: string | null }
+export { BLS_SERIES, seriesForEvent, type EconSeries } from "./econ-series";
+import { BLS_SERIES, type EconSeries } from "./econ-series";
 
 interface BlsObservation { year: string; period: string; value: string }
 
@@ -282,26 +297,47 @@ export function transformSeries(observations: BlsObservation[], transform: "yoy"
   });
 }
 
-/** The series, read in one request to the BLS, kept six hours. */
+/** The BLS releases that bring new figures to these series. */
+const SERIES_RELEASES = /^(Consumer Price Index|Employment Situation|Producer Price Index|Job Openings and Labor Turnover Survey)$/;
+
+/**
+ * The last of those releases before now, and whether it is recent: within
+ * three hours of one, the series are read every two minutes (the BLS's API
+ * has a new month within moments of 08:30), otherwise every six hours.
+ */
+export function seriesFreshness(releases: BlsRelease[], now: number): { stamp: string; ttl: number } {
+  const past = releases.filter((release) => SERIES_RELEASES.test(release.name)).map((release) => ({ ...release, at: newYorkEpoch(release.date, release.time) }))
+    .filter((release) => release.at <= now).sort((left, right) => left.at - right.at).at(-1);
+  if (!past) return { stamp: "none", ttl: 6 * 3600 };
+  return { stamp: `${past.date}T${past.time}`, ttl: now - past.at < 3 * 3_600_000 ? 120 : 6 * 3600 };
+}
+
+/**
+ * The series, twenty years of them, in one request to the BLS (with a free
+ * key, BLS_API_KEY: an unregistered allowance is shared by every site on the
+ * same Cloudflare address). Kept six hours, or two minutes for three hours
+ * after a release, under a key that changes with each release.
+ */
 export async function blsSeries(now = new Date()): Promise<EconSeries[]> {
-  const { body } = await cachedJson("bls-series:v1", 6 * 3600, async () => {
+  const releases = await fetchBlsCalendar().catch(() => [] as BlsRelease[]);
+  const { stamp, ttl } = seriesFreshness(releases, now.getTime());
+  const { body } = await cachedJson(`bls-series:v2:${stamp}`, ttl, async () => {
     const year = now.getUTCFullYear();
+    const key = runtimeSecret("BLS_API_KEY");
     const response = await fetch("https://api.bls.gov/publicAPI/v2/timeseries/data/", {
       method: "POST",
       headers: { "Content-Type": "application/json", "User-Agent": BLS_AGENT() },
-      // A free registration key (BLS_API_KEY) lifts the daily allowance, which unregistered is shared by every
-      // site on the same Cloudflare address and spent early in the day.
-      body: JSON.stringify({ seriesid: BLS_SERIES.map((series) => series.id), startyear: String(year - 6), endyear: String(year), ...(runtimeSecret("BLS_API_KEY") ? { registrationkey: runtimeSecret("BLS_API_KEY") } : {}) }),
+      body: JSON.stringify({ seriesid: [...new Set(BLS_SERIES.map((series) => series.bls))], startyear: String(year - (key ? 19 : 9)), endyear: String(year), ...(key ? { registrationkey: key } : {}) }),
     });
     if (!response.ok) { await response.body?.cancel(); throw new Error(`The BLS answered ${response.status}.`); }
     const data = await response.json() as { status?: string; message?: string[]; Results?: { series?: Array<{ seriesID: string; data: BlsObservation[] }> } };
     if (data.status !== "REQUEST_SUCCEEDED") throw new Error(`The BLS refused: ${(data.message ?? []).join(" ") || data.status}`);
     return BLS_SERIES.flatMap((spec): EconSeries[] => {
-      const found = data.Results?.series?.find((series) => series.seriesID === spec.id);
+      const found = data.Results?.series?.find((series) => series.seriesID === spec.bls);
       if (!found) return [];
-      const points = transformSeries(found.data, spec.transform).slice(-60);
-      return [{ id: spec.id, label: spec.label, unit: spec.transform === "diff" ? "thousands" : "percent", points, latest: points.at(-1)?.period ?? null }];
+      const points = transformSeries(found.data, spec.transform);
+      return [{ id: spec.id, label: spec.label, unit: spec.unit, points, latest: points.at(-1)?.period ?? null }];
     });
-  }, (value) => (value.length ? "full" : "empty"));
+  }, (value) => (value.length ? (ttl < 3600 ? "brief" : "full") : "empty"));
   return JSON.parse(body) as EconSeries[];
 }

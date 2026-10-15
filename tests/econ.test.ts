@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blsCalendar, eventsFrom, moveAround, nasdaqOffset, newYorkEpoch, parseFigure, surpriseOf, transformSeries } from "../lib/econ";
+import { blsCalendar, eventsFrom, moveAround, nasdaqOffset, newYorkEpoch, parseFigure, releaseWindow, seriesForEvent, seriesFreshness, surpriseOf, transformSeries } from "../lib/econ";
 
 describe("the US economic calendar", () => {
   it("reads Nasdaq's rows: US only, the noise left out, a monthly and a yearly CPI told apart", () => {
@@ -41,5 +41,31 @@ describe("the US economic calendar", () => {
     ];
     expect(transformSeries(rows, "mom")).toEqual([{ period: "2026-09", value: 0.65 }]);
     expect(transformSeries(rows, "yoy")).toEqual([{ period: "2026-09", value: 3.54 }]);
+  });
+});
+
+describe("as soon as it is out", () => {
+  it("reads every fifteen seconds from five minutes before a market-moving release to twenty-five after", () => {
+    const cpi = [{ date: "2026-10-14", time: "08:30", importance: "high" as const }];
+    expect(releaseWindow(cpi, Date.parse("2026-10-14T12:26:00Z"))).toBe(true);
+    expect(releaseWindow(cpi, Date.parse("2026-10-14T12:54:00Z"))).toBe(true);
+    expect(releaseWindow(cpi, Date.parse("2026-10-14T13:10:00Z"))).toBe(false);
+    expect(releaseWindow([{ ...cpi[0], importance: "low" as const }], Date.parse("2026-10-14T12:31:00Z"))).toBe(false);
+  });
+
+  it("reads the official series every two minutes for three hours after a BLS release, under a key of its own", () => {
+    const releases = [{ date: "2026-10-14", time: "08:30", name: "Consumer Price Index" }, { date: "2026-10-14", time: "08:30", name: "Real Earnings" }];
+    expect(seriesFreshness(releases, Date.parse("2026-10-14T13:00:00Z"))).toEqual({ stamp: "2026-10-14T08:30", ttl: 120 });
+    expect(seriesFreshness(releases, Date.parse("2026-10-15T09:00:00Z")).ttl).toBe(21_600);
+    expect(seriesFreshness(releases, Date.parse("2026-10-14T12:00:00Z")).stamp).toBe("none");
+  });
+
+  it("knows which events have an official history", () => {
+    expect(seriesForEvent("CPI, y/y")).toBe("CUUR0000SA0");
+    expect(seriesForEvent("Core PPI, m/m")).toBe("WPSFD49104");
+    expect(seriesForEvent("Nonfarm Payrolls")).toBe("CES0000000001");
+    expect(seriesForEvent("Average Hourly Earnings (YoY)")).toBe("CES0500000003");
+    expect(seriesForEvent("Average Hourly Earnings")).toBe("CES0500000003:mom");
+    expect(seriesForEvent("Retail Sales, m/m")).toBeNull();
   });
 });
