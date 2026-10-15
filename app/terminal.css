@@ -1547,7 +1547,10 @@ body:has(.io.term) { background: #0d1012; }
 .t-wel-plan { display: grid; gap: 6px; padding: 18px; border: 1px solid var(--line-strong); }
 .t-wel-plan[data-plan="annual"] { border-color: var(--amber-dim); }
 .t-wel-plan b { color: var(--ink); font-size: var(--fs-lg); }
-.t-wel-price { color: var(--amber); font-size: 18px; font-weight: 600; }
+.t-wel-price { color: var(--amber); font-size: 24px; font-weight: 600; }
+.t-wel-price small { color: var(--ink-3); font-size: var(--fs-xs); font-weight: 400; }
+.t-wel-plan b { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.t-wel-save { padding: 1px 6px; color: var(--amber-ink); background: var(--amber); font-size: var(--fs-micro); font-weight: 700; }
 .t-wel-plan small { color: var(--ink-3); font-size: var(--fs-xs); }
 .t-wel-included { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .t-wel-included li { color: var(--ink-2); font-size: var(--fs-xs); }

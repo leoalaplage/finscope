@@ -16,8 +16,8 @@ import { MarketBoard } from "./MarketBoard";
  * than described. Opened once on a first visit (components/term/Launchpad.tsx,
  * ONBOARDED_KEY); always on /t/welcome, TOUR, or SET.
  *
- * Tenqay will be paid, monthly or yearly; while it is in beta the account is
- * optional and free, and the plans are shown without a price (PLANS).
+ * Tenqay will be paid, monthly or yearly (PLANS); while it is in beta the
+ * account is optional and everything is free — no payment is taken yet.
  */
 
 export const ONBOARDED_KEY = "finscope.term.onboarded.v1";
@@ -25,11 +25,13 @@ export const markOnboarded = () => { try { localStorage.setItem(ONBOARDED_KEY, n
 
 const STEPS = ["Tenqay", "Markets", "Companies", "Account"] as const;
 
-/** The plans to come. Prices are set at launch; until then each reads "at launch", never a guessed figure. */
-const PLANS: Array<{ id: "monthly" | "annual"; name: string; price: string | null; period: string; note: string }> = [
-  { id: "monthly", name: "Monthly", price: null, period: "per month", note: "Billed every month" },
-  { id: "annual", name: "Annual", price: null, period: "per year", note: "Billed once a year" },
+/** The plans, in euros, as Léo set them (2026-10-15). The annual saving and monthly equivalent are worked out, not typed. */
+const PLANS: Array<{ id: "monthly" | "annual"; name: string; amount: number; months: number; period: string }> = [
+  { id: "monthly", name: "Monthly", amount: 29.99, months: 1, period: "per month" },
+  { id: "annual", name: "Annual", amount: 299.99, months: 12, period: "per year" },
 ];
+const euros = (value: number) => `€${value.toFixed(2)}`;
+const MONTHLY = PLANS.find((plan) => plan.id === "monthly")!;
 
 const INCLUDED = ["Every US-listed company, from its filings", "Operating KPIs, segments, 10 years of figures", "Markets, rates, the Fed and the US economy, live", "Screener, backtests, DCF, portfolio and alerts"];
 
@@ -198,13 +200,16 @@ function AccountStep({ onFinish }: { onFinish: (href?: string) => void }) {
       <div className="t-wel-plans">
         <p className="t-wel-beta">Free during the beta · no card needed</p>
         <div className="t-wel-plan-row">
-          {PLANS.map((plan) => (
-            <div key={plan.id} className="t-wel-plan" data-plan={plan.id}>
-              <b>{plan.name}</b>
-              <span className="t-wel-price">{plan.price ?? "Price at launch"}</span>
-              <small>{plan.price ? plan.period : plan.note}</small>
-            </div>
-          ))}
+          {PLANS.map((plan) => {
+            const saving = plan.months > 1 ? 1 - plan.amount / (MONTHLY.amount * plan.months) : null;
+            return (
+              <div key={plan.id} className="t-wel-plan" data-plan={plan.id}>
+                <b>{plan.name}{saving ? <span className="t-wel-save">Save {Math.round(saving * 100)}%</span> : null}</b>
+                <span className="t-wel-price">{euros(plan.amount)}<small> {plan.period}</small></span>
+                <small>{plan.months > 1 ? `${euros(plan.amount / plan.months)} a month, billed once a year` : "Billed every month"}</small>
+              </div>
+            );
+          })}
         </div>
         <ul className="t-wel-included">{INCLUDED.map((item) => <li key={item}>{item}</li>)}</ul>
       </div>
