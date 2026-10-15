@@ -67,7 +67,7 @@ export function Welcome() {
         </div>
 
         <section className="t-wel-body" aria-live="polite">
-          {step === 0 ? <Intro onNext={() => go(1)} /> : null}
+          {step === 0 ? <Intro onNext={() => go(1)} onPlans={() => go(last)} /> : null}
           {step === 1 ? (
             <Screen title="Market overview" line="Real-time indices, futures, rates, currencies, sector performance and market breadth.">
               <Shot url="tenqay.com/t/market" src="/tour/market.webp" alt="The market screen" />
@@ -113,13 +113,33 @@ export function Welcome() {
   );
 }
 
-function Intro({ onNext }: { onNext: () => void }) {
+/**
+ * Page one, as the established platforms open theirs: the positioning, who it
+ * is for, one primary action with the terms beside it, the plans one click
+ * away, where the data comes from — and the product itself, not a picture of
+ * a mood.
+ */
+function Intro({ onNext, onPlans }: { onNext: () => void; onPlans: () => void }) {
   return (
-    <div className="t-wel-intro">
-      <p className="t-wel-mark">TENQAY</p>
-      <h1>Market intelligence.</h1>
-      <p className="t-wel-sub">Real-time market data, company fundamentals and macroeconomic analysis in a single platform.</p>
-      <button type="button" className="t-wel-cta t-wel-big" onClick={onNext}>Get started</button>
+    <div className="t-wel-hero">
+      <div className="t-wel-hero-text">
+        <p className="t-wel-mark">TENQAY</p>
+        <h1>Market intelligence.</h1>
+        <p className="t-wel-sub">Live markets, company fundamentals and macroeconomic data in one terminal — for individual investors and professionals.</p>
+        <div className="t-wel-hero-actions">
+          <button type="button" className="t-wel-cta t-wel-big" onClick={onNext}>Get started</button>
+          <button type="button" className="t-wel-ghost t-wel-big" onClick={onPlans}>View plans</button>
+        </div>
+        <p className="t-wel-terms">Free during the beta · No payment required</p>
+        <ul className="t-wel-points">
+          <li>Fundamentals sourced from SEC filings</li>
+          <li>Operating KPIs and segment data</li>
+          <li>Real-time markets, rates and Fed expectations</li>
+          <li>Charting, screening, portfolio analytics and alerts</li>
+        </ul>
+        <p className="t-wel-sources">Data from SEC EDGAR, the Federal Reserve, the Bureau of Labor Statistics and the Bureau of Economic Analysis.</p>
+      </div>
+      <Shot url="tenqay.com/t/s/NVDA" src="/tour/company.webp" alt="Nvidia's company page in Tenqay" />
     </div>
   );
 }

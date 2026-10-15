@@ -1553,8 +1553,21 @@ body:has(.io.term) { background: #0d1012; }
 .t-wel-included li { color: var(--ink-2); font-size: var(--fs-xs); }
 .t-wel-included li::before { content: "✓  "; color: var(--amber); }
 .t-wel-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 6px; }
+.t-wel-hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px; align-items: center; }
+.t-wel-hero-text { display: grid; gap: 18px; justify-items: start; }
+.t-wel-hero-text h1 { margin: 0; font-size: clamp(32px, 3.3vw, 46px); line-height: 1.08; font-weight: 600; color: var(--ink); letter-spacing: -.02em; }
+.t-wel-hero-text .t-wel-sub { font-size: var(--fs-xl); line-height: 1.5; color: var(--ink-2); max-width: 46ch; }
+.t-wel-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.t-wel-terms { margin-top: -8px !important; font-size: var(--fs-xs); color: var(--ink-3); }
+.t-wel-points { display: grid; gap: 7px; margin: 4px 0 0; padding: 0; list-style: none; }
+.t-wel-points li { color: var(--ink); font-size: var(--fs-md); }
+.t-wel-points li::before { content: "✓  "; color: var(--amber); }
+.t-wel-sources { padding-top: 14px; border-top: 1px solid var(--line-strong); font-size: var(--fs-xs); color: var(--ink-3); max-width: 52ch; }
+.t-wel-hero .t-wel-shot-view { max-height: none; }
 @media (max-width: 900px) {
   .t-wel { padding: 16px 16px 24px; }
+  .t-wel-hero { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .t-wel-hero-text h1 { font-size: 34px; }
   .t-wel-intro h1 { font-size: 30px; }
   .t-wel-pair, .t-wel-account { grid-template-columns: minmax(0, 1fr); }
   .t-wel-signup, .t-wel-plans { padding: 18px; }
