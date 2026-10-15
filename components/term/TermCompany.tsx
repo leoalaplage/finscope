@@ -2,7 +2,7 @@
 
 import { Etf } from "@/components/io/Etf";
 import { About } from "@/components/io/About";
-import { useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { stated } from "@/lib/sector";
 import { useCompany } from "@/components/io/use-company";
 import { useCompanyChart } from "@/components/io/use-company-chart";
@@ -71,6 +71,29 @@ export function TermCompany({ ticker }: { ticker: string }) {
   const [detail, setDetail] = useState<{ ticker: string; key: VerdictKey | null; height: number | null }>({ ticker, key: null, height: null });
   const column = useRef<HTMLDivElement>(null);
   const openDetail = detail.ticker === ticker ? detail.key : null;
+  /*
+   * The description under the graph is as tall as SC beside it, so the graph
+   * ends level with DES. Measured on what SC holds, not on the panel — the
+   * column stretches its last panel, and measuring that would feed back into
+   * the row it stretches to.
+   */
+  const [aboutHeight, setAboutHeight] = useState<number | null>(null);
+  const ready = state.kind === "ready";
+  useEffect(() => {
+    const panel = column.current?.querySelector<HTMLElement>("#sc");
+    const content = panel?.querySelector<HTMLElement>(".verdict");
+    if (!panel || !content) return;
+    const measure = () => {
+      const body = panel.querySelector<HTMLElement>(".t-panel-body");
+      const chrome = body ? panel.getBoundingClientRect().height - body.getBoundingClientRect().height : 0;
+      const pad = body ? parseFloat(getComputedStyle(body).paddingTop) + parseFloat(getComputedStyle(body).paddingBottom) : 0;
+      setAboutHeight(Math.round(chrome + pad + content.getBoundingClientRect().height));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [ready, ticker]);
   const {
     selectedMetrics, selectMetric, range, setRange, frequency, chooseFrequency,
     rebased, setRebased, withPrice, setWithPrice, valuation,
@@ -146,7 +169,8 @@ export function TermCompany({ ticker }: { ticker: string }) {
 
       <div className="t-grid t-company">
         <Chapter area="c-top" number={1} title="Snapshot" />
-        <Panel code="GP" area="gp" className="t-fill t-gp">
+        <div className="t-gcol" style={{ gridArea: "gp", "--about": aboutHeight ? `${aboutHeight}px` : undefined } as CSSProperties}>
+        <Panel code="GP" className="t-fill t-gp">
           <PriceSection
             ticker={company.ticker}
             currency={quote?.currency ?? company.currency}
@@ -166,6 +190,12 @@ export function TermCompany({ ticker }: { ticker: string }) {
             surface="terminal"
           />
         </Panel>
+        {/* What the company is: Wikipedia's lead where the filer is linked to an article, its annual report otherwise (lib/description.ts). */}
+        <Panel code="DES" id="about" title={`About ${company.name}`} className="t-about">
+          <div className="t-panel-pad"><About ticker={company.ticker} /></div>
+          {description ? <p className="t-panel-pad t-dim t-about-fallback">{description}</p> : null}
+        </Panel>
+        </div>
 
         {/*
           * One column beside the graph, and the two always the same height: the
@@ -181,9 +211,6 @@ export function TermCompany({ ticker }: { ticker: string }) {
           <Panel code="DES" title="Key statistics" className="t-side"
             actions={view.current ? <span>{view.current.label}</span> : null}
           >
-            {/* The company's own description where its report can be read; the registry's line otherwise. */}
-            <div className="t-panel-pad"><About ticker={company.ticker} /></div>
-            {description ? <p className="t-panel-pad t-dim t-about-fallback">{description}</p> : null}
             <KeyStatistics view={view} quote={valuationQuote} />
             <Stats view={view} quote={valuationQuote} notesOnly />
           </Panel>

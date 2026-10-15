@@ -315,6 +315,19 @@ body:has(.io.term) { background: #050608; }
 .t-gp .price-frame .price-chart { flex: 1 1 auto; height: auto; min-height: clamp(200px, 30vw, 300px); }
 .t-gp .candle-chart { flex: 1 1 auto; display: flex; flex-direction: column; }
 .t-gp .candle-body { flex: 1 1 auto; height: auto; min-height: clamp(340px, 58vh, 620px); }
+/* The graph over the company's description: the description as tall as SC beside it, scrolling if it says more. */
+.t-gcol { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.t-gcol > .t-gp { flex: 1 1 auto; }
+.t-about .about { margin: 0; max-width: none; }
+.t-about .about-text { display: block; -webkit-line-clamp: unset; }
+.t-about .about-foot > .metric-toggle { display: none; }
+@media (min-width: 1101px) {
+  /* The graph's own floor lowered here: the band is DES's height, and the graph meets it rather than setting it. */
+  .t-gcol .t-gp .candle-body { min-height: 300px; }
+  .t-gcol .t-gp .price-frame .price-chart { min-height: 200px; }
+  .t-gcol > .t-about { flex: none; height: var(--about, auto); display: flex; flex-direction: column; }
+  .t-gcol > .t-about > .t-panel-body { flex: 1 1 0; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+}
 /* A panel the column stretches keeps its content at the top. */
 .t-mcol > .t-panel:last-child { display: flex; flex-direction: column; }
 /* Stacked, nothing sets the band: the last panel takes its own height, up to a limit, and the graph its usual one. */

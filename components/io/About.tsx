@@ -15,7 +15,7 @@ export function About({ ticker, fallback = null }: { ticker: string; fallback?: 
   useEffect(() => {
     if (fallback) return;
     const controller = new AbortController();
-    fetch(`/api/description/${encodeURIComponent(ticker)}`, { signal: controller.signal })
+    fetch(`/api/description/${encodeURIComponent(ticker)}?v=2`, { signal: controller.signal })
       .then((response) => (response.ok ? response.json() as Promise<Description | null> : null))
       .then((value) => { if (!controller.signal.aborted) setAnswer({ ticker, value }); })
       .catch(() => { if (!controller.signal.aborted) setAnswer({ ticker, value: null }); });

@@ -127,6 +127,9 @@
 .etf-cell[data-span="side"] { grid-column: span 2; display: grid; gap: 16px; align-content: start; }
 .etf-cell[data-span="half"] { grid-column: span 3; align-self: stretch; display: grid; }
 .etf-cell .etf-cell { grid-column: auto; }
+.etf-gcol { display: flex; flex-direction: column; gap: 16px; }
+.etf-term .etf-gcol { gap: 2px; }
+.etf-gcol .about { margin: 0; max-width: none; }
 .etf-box > .section-head { margin-bottom: 8px; }
 .etf-box-note { margin-top: 6px; }
 .etf-pad { padding: 6px 8px; }
@@ -297,3 +300,5 @@
 .etf-bar:hover { background: var(--fill); }
 .etf-bar:hover .etf-bar-name, .etf-bar:hover .etf-bar-value { color: var(--ink); }
 .etf-bar:hover .etf-bar-track > span { filter: brightness(1.25); }
+/* A fund with no description to show: no empty panel under the graph. */
+.etf-gcol > .etf-cell:has(.etf-pad:empty) { display: none; }

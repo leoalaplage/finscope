@@ -53,3 +53,11 @@ describe("DES key statistics", () => {
     expect(find(bare, "Profile", "Revenue")).toBeCloseTo(100 * 1.1 ** 10, 6);
   });
 });
+
+import { leadText } from "../lib/description";
+describe("a Wikipedia lead as a description", () => {
+  it("keeps whole paragraphs up to the limit, and the first whatever its length", () => {
+    expect(leadText("One.\nTwo.\n\nThree.", 12)).toBe("One.\n\nTwo.");
+    expect(leadText("A long first paragraph.\nMore.", 5)).toBe("A long first paragraph.");
+  });
+});

@@ -123,16 +123,19 @@ export function Etf({ ticker, surface = "site" }: { ticker: string; surface?: Su
     </header>
   );
 
+  const about = fund?.prospectus?.objective
+    ? <About ticker={ticker} fallback={{ text: fund.prospectus.objective, source: `Prospectus filed ${shortDate(fund.prospectus.filed)} · the fund's own words`, url: fund.prospectus.url }} />
+    : profile ? <About ticker={ticker} /> : null;
   const body = (
     <>
-      {/* What it is, first: the prospectus's objective, or the trust's own description where it files none. */}
-      {fund?.prospectus?.objective
-        ? <About ticker={ticker} fallback={{ text: fund.prospectus.objective, source: `Prospectus filed ${shortDate(fund.prospectus.filed)} · the fund's own words`, url: fund.prospectus.url }} />
-        : profile ? <About ticker={ticker} /> : null}
       <div className="etf-grid">
-        <Box surface={surface} code="GP" title="Price" span="wide">
-          <MarketPriceSection ticker={ticker} currency={currency} range={range} onRange={setRange} chartPage={surface === "terminal" ? "/t/chart" : "/chart"} surface={surface} />
-        </Box>
+        {/* The price, and under it what the fund is: the prospectus's objective, or the trust's own description where it files none. */}
+        <div className="etf-cell etf-gcol" data-span="wide">
+          <Box surface={surface} code="GP" title="Price" span="wide">
+            <MarketPriceSection ticker={ticker} currency={currency} range={range} onRange={setRange} chartPage={surface === "terminal" ? "/t/chart" : "/chart"} surface={surface} />
+          </Box>
+          {about ? <Box surface={surface} code="DES" title="About the fund" span="wide">{about}</Box> : null}
+        </div>
         {fund
           ? <FundView fund={fund} surface={surface} allHoldings={allHoldings} onAll={() => setAllHoldings((value) => !value)} />
           : <div className="etf-cell" data-span="side"><Box surface={surface} code="DES" title="Key statistics" span="side"><p className="stat-note">{loaded.kind === "failed" ? loaded.message : profile?.kind === "unreported" ? profile.reason : "Reading the fund's filings…"}</p></Box></div>}
