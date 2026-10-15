@@ -6,7 +6,7 @@ import { COMPANY_FUNCTIONS, GLOBAL_FUNCTIONS, hrefFor, parseCommand } from "@/li
 import { useStoredWatchlist, writeWatchlist } from "@/components/io/watchlist";
 import { useAccount } from "@/components/io/account";
 import { useCompany } from "@/components/io/use-company";
-import { delta, money, price } from "@/components/io/format";
+import { compact, delta, money, price } from "@/components/io/format";
 import { readPrefs, START_SCREENS, writePrefs } from "./prefs";
 import { Indices } from "./Indices";
 import { Heatmap } from "./Heatmap";
@@ -28,9 +28,33 @@ import { useWidth } from "./use-width";
 export const ONBOARDED_KEY = "finscope.term.onboarded.v1";
 export const markOnboarded = () => { try { localStorage.setItem(ONBOARDED_KEY, new Date().toISOString()); } catch { /* Shown again next time. */ } };
 
-const STEPS = ["Welcome", "Command line", "Screens", "A company", "Your list", "Alerts", "Ready"] as const;
+const STEPS = ["Welcome", "Command line", "Screens", "Hard-to-find data", "A company", "Your list", "Alerts", "Ready"] as const;
 const TRY = ["AAPL GP", "NVDA DCF", "DAL KPI", "ECO", "MSFT EE"];
-const CHAPTERS = ["Snapshot", "Business", "Results", "Valuation", "Ownership", "Record"];
+/** What each chapter of a company page holds, in the reader's words. */
+const CHAPTERS: Array<{ title: string; holds: string }> = [
+  { title: "Snapshot", holds: "Price, key statistics, quality grade, description" },
+  { title: "Business", holds: "Segments, geography, operating KPIs, 10 years of figures" },
+  { title: "Results", holds: "Last quarter vs consensus, estimates, reaction, seasonality" },
+  { title: "Valuation", holds: "Multiples in history, peers, your own DCF, dividends" },
+  { title: "Ownership", holds: "Insider trades (Form 4), 13F institutional holders" },
+  { title: "Record", holds: "Debt maturities, 8-K events, your notes, every statement" },
+];
+
+/** What is inside, beyond the screens: the features a reader would otherwise pay for or piece together. */
+const FEATURES: Array<{ code: string; title: string; line: string }> = [
+  { code: "KPI", title: "Operating KPIs", line: "Seat miles, bookings, members — read from releases" },
+  { code: "SEG", title: "Segments", line: "Revenue and profit by business and region" },
+  { code: "INSB", title: "Insider clusters", line: "Several insiders buying the same week" },
+  { code: "HDS", title: "13F holders", line: "Who owns it, who added, who sold" },
+  { code: "DDIS", title: "Debt wall", line: "What falls due, year by year, from the 10-K" },
+  { code: "DCF", title: "Your DCF", line: "Your assumptions, a sensitivity grid, saved" },
+  { code: "ERX", title: "Earnings reaction", line: "How the stock moved after each release" },
+  { code: "EST", title: "Consensus", line: "EPS estimates, revisions, price targets" },
+  { code: "EVT", title: "8-K events", line: "Leadership changes, deals, red flags" },
+  { code: "FED", title: "Fed odds", line: "Each FOMC meeting, priced from futures" },
+  { code: "SCRN", title: "Screener", line: "1,000 US stocks on filings and technicals" },
+  { code: "BT", title: "Backtest", line: "Test a rule on years of daily prices" },
+];
 
 export function Welcome() {
   const [step, setStep] = useState(0);
@@ -68,10 +92,11 @@ export function Welcome() {
         {step === 0 ? <Intro /> : null}
         {step === 1 ? <CommandStep /> : null}
         {step === 2 ? <ScreensStep /> : null}
-        {step === 3 ? <CompanyStep /> : null}
-        {step === 4 ? <ListStep /> : null}
-        {step === 5 ? <AlertsStep /> : null}
-        {step === 6 ? <ReadyStep onFinish={finish} /> : null}
+        {step === 3 ? <DataStep /> : null}
+        {step === 4 ? <CompanyStep /> : null}
+        {step === 5 ? <ListStep /> : null}
+        {step === 6 ? <AlertsStep /> : null}
+        {step === 7 ? <ReadyStep onFinish={finish} /> : null}
       </section>
 
       <footer className="t-wel-foot">
@@ -170,6 +195,169 @@ function ScreensStep() {
   );
 }
 
+/* ---------- Hard-to-find data, live ---------- */
+
+const KPI_COMPANIES: Array<{ ticker: string; cik: string }> = [
+  { ticker: "DAL", cik: "0000027904" }, { ticker: "UBER", cik: "0001543151" }, { ticker: "COST", cik: "0000909832" },
+];
+
+function DataStep() {
+  return (
+    <>
+      <Lead title="Data you won't find elsewhere">Read from the filings themselves — the figures most sites leave out.</Lead>
+      <div className="t-wel-data">
+        <KpiCard />
+        <InsiderCard />
+        <DebtCard />
+      </div>
+      <div className="t-wel-features">
+        {FEATURES.map((feature) => (
+          <div key={feature.code}><span className="t-code">{feature.code}</span><b>{feature.title}</b><small>{feature.line}</small></div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+interface KpiSeries { name: string; unit: string; scale: string | null; points: Array<{ end: string; value: number }> }
+
+function KpiCard() {
+  const [company, setCompany] = useState(KPI_COMPANIES[0]);
+  const [answer, setAnswer] = useState<{ ticker: string; kpis: KpiSeries[] | null } | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/io/${company.ticker}/kpis?cik=${company.cik}`, { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() as Promise<{ kpis: KpiSeries[] }> : null))
+      .then((body) => setAnswer({ ticker: company.ticker, kpis: body?.kpis ?? null }))
+      .catch(() => { if (!controller.signal.aborted) setAnswer({ ticker: company.ticker, kpis: null }); });
+    return () => controller.abort();
+  }, [company]);
+  const kpis = answer?.ticker === company.ticker ? answer.kpis : undefined;
+  const shown = (kpis ?? []).filter((kpi) => kpi.points.length >= 3).slice(0, 4);
+  const write = (kpi: KpiSeries, value: number) => {
+    const scaled = value * (kpi.scale === "millions" ? 1e6 : kpi.scale === "thousands" ? 1e3 : kpi.scale === "billions" ? 1e9 : 1);
+    if (kpi.unit === "currency") return Math.abs(scaled) >= 1e3 ? money(scaled, "USD") : `$${value.toFixed(2)}`;
+    if (kpi.unit === "percent") return `${(value * (Math.abs(value) <= 1 ? 100 : 1)).toFixed(1)}%`;
+    return Math.abs(scaled) >= 1e4 ? compact(scaled) : scaled.toLocaleString("en-US", { maximumFractionDigits: 1 });
+  };
+  return (
+    <Live code="KPI" title="Operating figures, from earnings releases" href={`/t/s/${company.ticker}#kpi`}>
+      <div className="t-wel-chips t-wel-pad">
+        {KPI_COMPANIES.map((each) => <button key={each.ticker} type="button" className="t-chip" aria-pressed={company.ticker === each.ticker} onClick={() => setCompany(each)}>{each.ticker}</button>)}
+      </div>
+      {kpis === undefined ? <p className="t-empty">Reading the releases…</p> : !shown.length ? <p className="t-empty">No figures read for this company just now.</p> : (
+        <div className="t-wel-kpis">
+          {shown.map((kpi) => {
+            const points = [...kpi.points].sort((a, b) => a.end.localeCompare(b.end));
+            const last = points.at(-1)!;
+            const yearAgo = [...points].reverse().find((point) => Date.parse(last.end) - Date.parse(point.end) > 300 * 86_400_000);
+            const change = yearAgo && yearAgo.value ? last.value / yearAgo.value - 1 : null;
+            return (
+              <div key={kpi.name} className="t-wel-kpi">
+                <span className="t-wel-kpi-name" title={kpi.name}>{kpi.name.replace(/\s*·\s*GAAP$/, "")}</span>
+                <b>{write(kpi, last.value)}</b>
+                <span data-dir={change == null ? undefined : change < 0 ? "down" : "up"}>{change == null ? "" : `${delta(change, 1)} y/y`}</span>
+                <Spark values={points.map((point) => point.value)} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Live>
+  );
+}
+
+function Spark({ values }: { values: number[] }) {
+  const width = 90, height = 26;
+  const low = Math.min(...values), high = Math.max(...values);
+  const path = values.map((value, index) => `${index ? "L" : "M"}${((index / Math.max(values.length - 1, 1)) * width).toFixed(1)} ${(2 + (1 - (value - low) / (high - low || 1)) * (height - 4)).toFixed(1)}`).join("");
+  return <svg width={width} height={height} className="t-wel-spark" aria-hidden="true"><path d={path} /></svg>;
+}
+
+interface Purchase { ticker: string; owner: string; role: string; date: string; value: number }
+interface Cluster { ticker: string; buyers: number; value: number; to: string }
+
+function InsiderCard() {
+  const [answer, setAnswer] = useState<{ purchases: Purchase[]; clusters: Cluster[] } | null | undefined>(undefined);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/insider-buying", { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() as Promise<{ purchases: Purchase[]; clusters: Cluster[] }> : null))
+      .then((body) => setAnswer(body))
+      .catch(() => { if (!controller.signal.aborted) setAnswer(null); });
+    return () => controller.abort();
+  }, []);
+  // One bar a company: what its insiders bought together over the weeks read, the largest six.
+  const top = answer ? Object.values(answer.purchases.reduce<Record<string, { ticker: string; value: number; buyers: Set<string>; last: string }>>((byTicker, purchase) => {
+    const entry = byTicker[purchase.ticker] ??= { ticker: purchase.ticker, value: 0, buyers: new Set(), last: purchase.date };
+    entry.value += purchase.value; entry.buyers.add(purchase.owner); if (purchase.date > entry.last) entry.last = purchase.date;
+    return byTicker;
+  }, {})).sort((a, b) => b.value - a.value).slice(0, 6) : [];
+  const largest = Math.max(1, ...top.map((entry) => entry.value));
+  return (
+    <Live code="INSB" title="Insiders buying their own shares · Form 4" href="/t/insiders">
+      {answer === undefined ? <p className="t-empty">Reading Form 4 filings…</p> : answer === null ? <p className="t-empty">The filings could not be read just now.</p> : (
+        <>
+          {answer.clusters[0] ? (
+            <p className="t-wel-pad t-wel-callout"><b>{answer.clusters[0].ticker}</b>: {answer.clusters[0].buyers} insiders bought together ({money(answer.clusters[0].value, "USD")})</p>
+          ) : null}
+          <div className="t-wel-bars">
+            {top.map((entry) => (
+              <a key={entry.ticker} href={`/t/s/${entry.ticker}#ins`} target="_blank" rel="noreferrer" title={`${entry.buyers.size} insider${entry.buyers.size > 1 ? "s" : ""} · last ${entry.last}`}>
+                <b>{entry.ticker}</b>
+                {/* A square-root scale: one holder's block purchase would otherwise flatten every other bar. */}
+                <span className="t-wel-bar-track"><span style={{ width: `${Math.sqrt(entry.value / largest) * 100}%` }} /></span>
+                <span>{money(entry.value, "USD")}<small className="t-dim"> · {entry.buyers.size}</small></span>
+              </a>
+            ))}
+          </div>
+        </>
+      )}
+    </Live>
+  );
+}
+
+interface Maturities { asOf: string; form: string; buckets: Array<{ label: string; value: number }>; total: number }
+
+function DebtCard() {
+  const [ticker, setTicker] = useState("DAL");
+  const ciks: Record<string, string> = { DAL: "0000027904", UBER: "0001543151", COST: "0000909832" };
+  const [answer, setAnswer] = useState<{ ticker: string; maturities: Maturities | null } | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/io/${ticker}/debt-maturities?cik=${ciks[ticker]}`, { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() as Promise<{ maturities: Maturities | null }> : null))
+      .then((body) => setAnswer({ ticker, maturities: body?.maturities ?? null }))
+      .catch(() => { if (!controller.signal.aborted) setAnswer({ ticker, maturities: null }); });
+    return () => controller.abort();
+    // The CIKs are fixed alongside the tickers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticker]);
+  const maturities = answer?.ticker === ticker ? answer.maturities : undefined;
+  const largest = Math.max(1, ...(maturities?.buckets ?? []).map((bucket) => bucket.value));
+  return (
+    <Live code="DDIS" title="When the debt falls due · from the 10-K" href={`/t/s/${ticker}#ddis`}>
+      <div className="t-wel-chips t-wel-pad">
+        {Object.keys(ciks).map((each) => <button key={each} type="button" className="t-chip" aria-pressed={ticker === each} onClick={() => setTicker(each)}>{each}</button>)}
+      </div>
+      {maturities === undefined ? <p className="t-empty">Reading the annual report…</p> : maturities === null ? <p className="t-empty">No schedule filed for this company.</p> : (
+        <>
+          <div className="t-wel-wall">
+            {maturities.buckets.map((bucket) => (
+              <div key={bucket.label} title={`${bucket.label}: ${money(bucket.value, "USD")}`}>
+                <span className="t-wel-wall-value">{money(bucket.value, "USD")}</span>
+                <span className="t-wel-wall-bar" style={{ height: `${Math.max(2, (bucket.value / largest) * 100)}%` }} />
+                <span className="t-wel-wall-label">{bucket.label.replace("After ", "> ")}</span>
+              </div>
+            ))}
+          </div>
+          <p className="t-wel-pad t-dim t-wel-small">{money(maturities.total, "USD")} in all · {maturities.form} at {maturities.asOf}</p>
+        </>
+      )}
+    </Live>
+  );
+}
+
 function CompanyStep() {
   const [ticker, setTicker] = useState("AAPL");
   return (
@@ -181,8 +369,12 @@ function CompanyStep() {
       </div>
       <CompanyGlimpse key={ticker} ticker={ticker} />
       <div className="t-wel-codes t-wel-chapters">
-        {CHAPTERS.map((title, index) => (
-          <div key={title}><b>{index + 1} {title}</b><span>{COMPANY_FUNCTIONS.filter((spec) => spec.chapter === index + 1).map((spec) => spec.code).join(" · ")}</span></div>
+        {CHAPTERS.map((chapter, index) => (
+          <div key={chapter.title}>
+            <b>{index + 1} {chapter.title}</b>
+            <small>{chapter.holds}</small>
+            <span>{COMPANY_FUNCTIONS.filter((spec) => spec.chapter === index + 1).map((spec) => spec.code).join(" · ")}</span>
+          </div>
         ))}
       </div>
     </>

@@ -1589,3 +1589,34 @@ body:has(.io.term) { background: #0d1012; }
   .t-wel-hello h1 { font-size: 23px; }
   .t-wel-account { margin-top: 0; }
 }
+.t-wel-pad { padding: 6px 10px; }
+.t-wel-data { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr); gap: 6px; align-items: stretch; }
+.t-wel-kpis { display: grid; gap: 1px; padding: 0 10px 8px; }
+.t-wel-kpi { display: grid; grid-template-columns: minmax(0, 1fr) auto 11ch 90px; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.t-wel-kpi-name { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-wel-kpi b { color: var(--ink); font-size: var(--fs-md); }
+.t-wel-kpi [data-dir="up"] { color: var(--gain); }
+.t-wel-kpi [data-dir="down"] { color: var(--loss); }
+.t-wel-spark path { fill: none; stroke: var(--plot); stroke-width: 1.5; }
+.t-wel-callout { margin: 0 !important; color: var(--ink) !important; font-size: var(--fs-xs); border-bottom: 1px solid var(--line); }
+.t-wel-callout b { color: var(--amber); }
+.t-wel-bars { display: grid; gap: 2px; padding: 6px 10px 8px; }
+.t-wel-bars a { display: grid; grid-template-columns: 6ch minmax(0, 1fr) 11ch; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--ink-2); text-decoration: none; font-variant-numeric: tabular-nums; }
+.term .t-wel-bars a:hover { color: var(--ink); }
+.t-wel-bars b { color: var(--ink); }
+.t-wel-bar-track { height: 8px; background: var(--fill); }
+.t-wel-bar-track > span { display: block; height: 100%; background: var(--gain); }
+.t-wel-bars a > span:last-child { text-align: right; }
+.t-wel-wall { display: flex; align-items: stretch; gap: 6px; height: 170px; padding: 6px 10px 0; }
+.t-wel-wall > div { flex: 1; display: grid; grid-template-rows: auto 1fr auto; justify-items: stretch; gap: 3px; min-width: 0; }
+.t-wel-wall > div { display: flex; flex-direction: column; justify-content: flex-end; }
+.t-wel-wall-value { font-size: 10px; color: var(--ink-2); text-align: center; white-space: nowrap; }
+.t-wel-wall-bar { display: block; background: var(--chart-amber); min-height: 2px; }
+.t-wel-wall-label { font-size: 10px; color: var(--ink-3); text-align: center; white-space: nowrap; }
+.t-wel-features { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 2px; background: var(--line); border: 1px solid var(--line); }
+.t-wel-features > div { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "code title" "code line"; column-gap: 8px; padding: 7px 10px; background: var(--raise); }
+.t-wel-features .t-code { grid-area: code; align-self: start; }
+.t-wel-features b { grid-area: title; color: var(--ink); font-size: var(--fs-xs); }
+.t-wel-features small { grid-area: line; color: var(--ink-3); font-size: var(--fs-micro); line-height: 1.4; }
+.t-wel-chapters small { color: var(--ink-2); font-size: var(--fs-micro); line-height: 1.4; }
+@media (max-width: 900px) { .t-wel-data { grid-template-columns: minmax(0, 1fr); } .t-wel-kpi { grid-template-columns: minmax(0, 1fr) auto 11ch; } .t-wel-kpi svg { display: none; } }
