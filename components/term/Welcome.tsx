@@ -37,7 +37,7 @@ const PLANS: Array<{ id: "monthly" | "annual"; name: string; amount: number; mon
 const dollars = (value: number) => `$${value.toFixed(2)}`;
 const MONTHLY = PLANS.find((plan) => plan.id === "monthly")!;
 
-const INCLUDED = ["Markets, rates, the Fed and the economy, live", "Every listed company, read from its filings", "Operating KPIs, segments, ten years of figures", "Pro charts, fundamental charts, screener, backtests", "Portfolio, DCF, alerts on every device"];
+const INCLUDED = ["Real-time market data, rates and macroeconomic releases", "Fundamentals for every listed company, sourced from SEC filings", "Operating KPIs, segment data and ten-year financial history", "Technical and fundamental charting, screening and backtesting", "Portfolio analytics, valuation models and alerts across devices"];
 
 export function Welcome() {
   const [step, setStep] = useState(0);
@@ -76,17 +76,17 @@ export function Welcome() {
         <section className="t-wel-body" aria-live="polite">
           {step === 0 ? <Intro onNext={() => go(1)} /> : null}
           {step === 1 ? (
-            <Screen title="The whole market, on one screen" line="Indices, futures, rates, sectors, breadth and movers — live.">
+            <Screen title="Market overview" line="Real-time indices, futures, rates, currencies, sector performance and market breadth.">
               <Shot url="tenqay.com/t/market"><MarketBoard /></Shot>
             </Screen>
           ) : null}
           {step === 2 ? (
-            <Screen title="Every company, from its filings" line="Price, key statistics, quality grade and what the company does.">
+            <Screen title="Company analysis" line="Pricing, key statistics, quality scoring and company profiles, sourced from SEC filings.">
               <Shot url="tenqay.com/t/s/NVDA"><TermCompany ticker="NVDA" /></Shot>
             </Screen>
           ) : null}
           {step === 3 ? (
-            <Screen title="The figures other sites leave out" line="Operating KPIs from earnings releases, and revenue by segment and region.">
+            <Screen title="Operating KPIs and segment data" line="Company-reported operating metrics and segment breakdowns, extracted from earnings releases and filings.">
               <div className="t-wel-pair">
                 <Shot url="tenqay.com/t/s/DAL#kpi" label="Operating KPIs · Delta"><div className="t-panel-pad"><OperatingKpis ticker="DAL" cik="0000027904" /></div></Shot>
                 <Shot url="tenqay.com/t/s/AAPL#seg" label="Segments · Apple"><Segments ticker="AAPL" cik="0000320193" /></Shot>
@@ -94,7 +94,7 @@ export function Welcome() {
             </Screen>
           ) : null}
           {step === 4 ? (
-            <Screen title="Charts, technical and fundamental" line="Candles, studies and drawings in layouts you keep — and ten years of filed figures, charted.">
+            <Screen title="Technical and fundamental charting" line="Advanced charting with indicators and drawing tools, alongside ten years of reported financials.">
               <div className="t-wel-pair">
                 <Shot url="tenqay.com/t/chart" label="Chart workspace"><ChartWorkspace /></Shot>
                 <Shot url="tenqay.com/t/s/NVDA#gf" label="Fundamental charts · Nvidia"><CompanyCharts ticker="NVDA" /></Shot>
@@ -102,7 +102,7 @@ export function Welcome() {
             </Screen>
           ) : null}
           {step === 5 ? (
-            <Screen title="Your portfolio, as a risk desk reads it" line="Performance against the S&P 500, risk, income, rebalancing — from your trades.">
+            <Screen title="Portfolio analytics" line="Performance against benchmarks, risk metrics, income and rebalancing, built from your transactions.">
               <Shot url="tenqay.com/t/portfolio"><TermPortfolio /></Shot>
             </Screen>
           ) : null}
@@ -124,8 +124,8 @@ function Intro({ onNext }: { onNext: () => void }) {
   return (
     <div className="t-wel-intro">
       <p className="t-wel-mark">TENQAY</p>
-      <h1>One terminal for markets and companies.</h1>
-      <p className="t-wel-sub">Live markets, company filings and the economy — in one place, on one black screen.</p>
+      <h1>Market intelligence for every investor.</h1>
+      <p className="t-wel-sub">Real-time market data, company fundamentals and macroeconomic analysis in a single platform.</p>
       <button type="button" className="t-wel-cta t-wel-big" onClick={onNext}>Get started</button>
     </div>
   );
@@ -175,14 +175,14 @@ function AccountStep({ onFinish }: { onFinish: (href?: string) => void }) {
       <div className="t-wel-signup">
         {account ? (
           <>
-            <h2>You&apos;re in, {account.name}.</h2>
-            <p>Your list, portfolio, notes and alerts now follow you to every device.</p>
+            <h2>Welcome, {account.name}</h2>
+            <p>Your watchlists, portfolios and alerts are now synchronised across your devices.</p>
             <button type="button" className="t-wel-cta t-wel-big" onClick={() => onFinish()}>Open the terminal →</button>
           </>
         ) : (
           <>
             <h2>Create your account</h2>
-            <p>Keep your list, portfolio and alerts on every device.</p>
+            <p>Synchronise your watchlists, portfolios and alerts across your devices.</p>
             {providers.google ? <button type="button" className="t-wel-google" onClick={() => continueWith("google", back)}><GoogleMark />Continue with Google</button> : null}
             {providers.email ? (
               sent ? <p className="t-wel-sent">Check your inbox: a sign-in link is on its way to <b>{sent}</b>.</p> : (
@@ -198,7 +198,7 @@ function AccountStep({ onFinish }: { onFinish: (href?: string) => void }) {
         )}
       </div>
       <div className="t-wel-plans">
-        <p className="t-wel-beta">Free during the beta · no card needed</p>
+        <p className="t-wel-beta">Complimentary access during the beta · No payment required</p>
         <div className="t-wel-plan-row">
           {PLANS.map((plan) => {
             const saving = plan.months > 1 ? 1 - plan.amount / (MONTHLY.amount * plan.months) : null;
