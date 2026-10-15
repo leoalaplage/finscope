@@ -179,7 +179,7 @@ function watermarkOf(symbol: string, name?: string | null): string {
 
 export function CandleChart({
   candles, interval, loading, error, label, studies = NO_STUDIES, compact = false,
-  drawings, tool = "cursor", onDrawingsChange, zoomable = false, logScale = false, compare, benchmark, openOn,
+  drawings, tool = "cursor", onDrawingsChange, zoomable = false, logScale = false, compare, benchmark, openOn, ohlc = true,
 }: {
   candles: Candles | null;
   interval: CandleInterval;
@@ -214,6 +214,8 @@ export function CandleChart({
    * is still read, so the averages are settled on the first candle shown.
    */
   openOn?: number;
+  /** The candle's open, high, low and close in the legend; off where the screen has no room for them. */
+  ohlc?: boolean;
 }) {
   const clipId = `candle-clip-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
@@ -574,10 +576,14 @@ export function CandleChart({
       {view && at != null ? (
         <>
           <span className="dim">{dateText(view.t[at], interval)}</span>
-          <span>O <b>{price(view.o[at])}</b></span>
-          <span>H <b>{price(view.h[at])}</b></span>
-          <span>L <b>{price(view.l[at])}</b></span>
-          <span>C <b>{price(view.c[at])}</b></span>
+          {ohlc ? (
+            <>
+              <span>O <b>{price(view.o[at])}</b></span>
+              <span>H <b>{price(view.h[at])}</b></span>
+              <span>L <b>{price(view.l[at])}</b></span>
+              <span>C <b>{price(view.c[at])}</b></span>
+            </>
+          ) : null}
           {move != null && before ? <b data-tone={tone(move)}>{signed(move)} ({percent(move / before)})</b> : null}
           {showEma ? CHART_EMAS.map((period, index) => (
             <span key={period} className="candle-legend-ema">

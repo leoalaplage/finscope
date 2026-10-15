@@ -417,7 +417,7 @@ export function MarketBoard() {
           ) : (
             <CandleChart
               candles={candles.candles} interval={period.interval} loading={candles.loading} error={candles.error} openOn={openOn || undefined}
-              studies={CHART_STUDIES} zoomable label={`${chartName}, ${period.title.toLowerCase()}`}
+              studies={CHART_STUDIES} zoomable ohlc={false} label={`${chartName}, ${period.title.toLowerCase()}`}
             />
           )}
         </div>
