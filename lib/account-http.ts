@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentAccount, publicAccount, sessionCookie, type Account } from "./accounts";
 import { emailConfigured } from "./email";
+import { providerReady } from "./oauth";
 
 /** Shared by the account routes: same-origin checks, answers that never cache. */
 export const NO_STORE = { "Cache-Control": "no-store" };
@@ -14,7 +15,12 @@ export function sameOrigin(request: Request): boolean {
 export const refuse = (message: string, status = 400) => NextResponse.json({ error: message }, { status, headers: NO_STORE });
 
 export function accountAnswer(account: Account | null, token?: string | null, request?: Request) {
-  const response = NextResponse.json({ account: account ? publicAccount(account) : null, emailService: emailConfigured() }, { headers: NO_STORE });
+  const response = NextResponse.json({
+    account: account ? publicAccount(account) : null,
+    emailService: emailConfigured(),
+    // The ways in this site offers now: each provider once its secrets are set, the emailed link once email is.
+    providers: { google: providerReady("google"), microsoft: providerReady("microsoft"), email: emailConfigured() },
+  }, { headers: NO_STORE });
   if (token !== undefined && request) response.headers.append("Set-Cookie", sessionCookie(token, request));
   return response;
 }

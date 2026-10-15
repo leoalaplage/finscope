@@ -11,12 +11,14 @@ import type { SyncedData } from "@/lib/account-sync";
  * page, and again after anything that changes it.
  */
 
-export interface AccountState { loaded: boolean; account: PublicAccount | null; emailService: boolean }
+export interface SignInProviders { google: boolean; microsoft: boolean; email: boolean }
+export interface AccountState { loaded: boolean; account: PublicAccount | null; emailService: boolean; providers: SignInProviders }
+const NO_PROVIDERS: SignInProviders = { google: false, microsoft: false, email: false };
 
 const EVENT = "finscope:account";
-let state: AccountState = { loaded: false, account: null, emailService: false };
+let state: AccountState = { loaded: false, account: null, emailService: false, providers: NO_PROVIDERS };
 let asking: Promise<void> | null = null;
-const SERVER_STATE: AccountState = { loaded: false, account: null, emailService: false };
+const SERVER_STATE: AccountState = { loaded: false, account: null, emailService: false, providers: NO_PROVIDERS };
 
 function set(next: AccountState) {
   state = next;
@@ -30,7 +32,8 @@ async function json<T>(path: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
-const take = (body: { account: PublicAccount | null; emailService: boolean }) => set({ loaded: true, account: body.account, emailService: body.emailService });
+const take = (body: { account: PublicAccount | null; emailService: boolean; providers?: SignInProviders }) =>
+  set({ loaded: true, account: body.account, emailService: body.emailService, providers: body.providers ?? state.providers });
 
 export function refreshAccount(): Promise<void> {
   asking ??= json<{ account: PublicAccount | null; emailService: boolean }>("/api/account")
@@ -71,6 +74,20 @@ export async function signIn(): Promise<void> {
   const { options, challengeId } = await json<{ options: Parameters<typeof startAuthentication>[0]["optionsJSON"]; challengeId: string }>("/api/account/login/options", { method: "POST", body: "{}" });
   const response = await startAuthentication({ optionsJSON: options });
   take(await json("/api/account/login/verify", { method: "POST", body: JSON.stringify({ challengeId, response }) }));
+}
+
+/** "Continue with Google / Microsoft": a full-page trip to the provider and back (app/api/account/oauth). */
+export function continueWith(provider: "google" | "microsoft", next = "/t/account") {
+  window.location.assign(`/api/account/oauth/${provider}/start?next=${encodeURIComponent(next)}`);
+}
+
+/** "Continue with email": a sign-in link sent to the address. */
+export async function emailSignInLink(address: string, next = "/t/account"): Promise<void> {
+  await json("/api/account/email-login", { method: "POST", body: JSON.stringify({ address, next }) });
+}
+
+export async function disconnectIdentity(provider: string, subject: string): Promise<void> {
+  take(await json(`/api/account/identity?provider=${encodeURIComponent(provider)}&subject=${encodeURIComponent(subject)}`, { method: "DELETE" }));
 }
 
 export async function signOut(): Promise<void> {

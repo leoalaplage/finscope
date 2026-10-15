@@ -3,8 +3,8 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { DATA_LIMIT, describeSynced, SYNCED_KEYS, SYNCED_LABELS, type SyncedData, type SyncedKey } from "@/lib/account-sync";
 import {
-  accountData, createPasskey, deleteAccount, passkeyError, passkeysSupported, removePasskey, renameAccount, renamePasskey,
-  saveEmail, signIn, signOut, useAccount,
+  accountData, continueWith, createPasskey, deleteAccount, disconnectIdentity, emailSignInLink, passkeyError, passkeysSupported, removePasskey,
+  renameAccount, renamePasskey, saveEmail, signIn, signOut, useAccount, type SignInProviders,
 } from "./account";
 import { SYNC_EVENT, syncNow, syncStatus } from "./AccountSync";
 
@@ -33,10 +33,12 @@ type Message = { tone: "ok" | "error"; text: string } | null;
  * the passkeys that sign them in, and their data — to take away or to delete.
  */
 export function AccountPage() {
-  const { loaded, account, emailService } = useAccount();
+  const { loaded, account, emailService, providers } = useAccount();
   const sync = useSyncExternalStore(subscribeSync, syncStatus, () => NO_SYNC);
   const supported = useSyncExternalStore(noop, passkeysSupported, () => true);
   const linked = useSyncExternalStore(noop, () => new URLSearchParams(window.location.search).get("email"), () => null);
+  // Back from Google, Microsoft or an emailed link (app/api/account/oauth, app/api/account/email-login).
+  const signinState = useSyncExternalStore(noop, () => window.location.search, () => "");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<Message>(null);
 
@@ -49,7 +51,12 @@ export function AccountPage() {
 
   const linkMessage: Message = linked === "verified" ? { tone: "ok", text: "Your address is confirmed. The daily email is on." }
     : linked === "expired" ? { tone: "error", text: "That confirmation link has expired or was already used. Save the address again to get a new one." } : null;
-  const shown = message ?? linkMessage;
+  const query = new URLSearchParams(signinState);
+  const signinMessage: Message = query.get("signin") === "ok" ? { tone: "ok", text: "Signed in. Your work is being brought to this browser." }
+    : query.get("signin") === "linked" ? { tone: "ok", text: "Connected: you can now sign in this way too." }
+    : query.get("signin") === "unavailable" ? { tone: "error", text: "That way of signing in is not available yet." }
+    : query.get("signin") === "error" ? { tone: "error", text: query.get("reason") ?? "The sign-in failed. Try again." } : null;
+  const shown = message ?? linkMessage ?? signinMessage;
   const notice = <p className="acct-notice" data-tone={shown?.tone} role="status" aria-live="polite">{shown?.text ?? ""}</p>;
 
   if (!loaded) {
@@ -60,7 +67,7 @@ export function AccountPage() {
     );
   }
 
-  if (!account) return <SignedOut supported={supported} busy={busy} run={run} notice={notice} />;
+  if (!account) return <SignedOut supported={supported} providers={providers} busy={busy} run={run} notice={notice} />;
 
   const initial = account.name.trim().charAt(0).toUpperCase() || "F";
   return (
@@ -88,14 +95,14 @@ export function AccountPage() {
           <a href="#profile">Profile</a>
           <a href="#sync">Sync</a>
           <a href="#alerts">Email alerts</a>
-          <a href="#security">Security</a>
+          <a href="#security">Sign-in</a>
           <a href="#data">Your data</a>
         </nav>
         <div className="settings-content">
           <Profile key={`profile-${account.name}`} name={account.name} created={account.created} id={account.id} busy={busy} run={run} />
           <Sync syncState={sync.state} syncAt={sync.at} syncError={sync.error} />
           <Alerts key={`alerts-${account.email?.address ?? ""}`} email={account.email} emailService={emailService} busy={busy} run={run} />
-          <Security passkeys={account.passkeys} supported={supported} busy={busy} run={run} />
+          <Security passkeys={account.passkeys} identities={account.identities ?? []} providers={providers} supported={supported} busy={busy} run={run} />
           <DataSection name={account.name} busy={busy} run={run} />
         </div>
       </div>
@@ -121,8 +128,32 @@ function Section({ id, title, lede, children }: { id: string; title: string; led
 
 /* --- Signed out ----------------------------------------------------------- */
 
-function SignedOut({ supported, busy, run, notice }: { supported: boolean; busy: boolean; run: Run; notice: React.ReactNode }) {
-  const [name, setName] = useState("");
+/** The providers' own marks, as their sign-in guidelines ask. */
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
+  );
+}
+function MicrosoftMark() {
+  return (
+    <svg viewBox="0 0 21 21" width="16" height="16" aria-hidden="true">
+      <rect x="1" y="1" width="9" height="9" fill="#F25022" /><rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+      <rect x="1" y="11" width="9" height="9" fill="#00A4EF" /><rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+    </svg>
+  );
+}
+
+function SignedOut({ supported, providers, busy, run, notice }: { supported: boolean; providers: SignInProviders; busy: boolean; run: Run; notice: React.ReactNode }) {
+  const [address, setAddress] = useState("");
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [passkeyName, setPasskeyName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const social = providers.google || providers.microsoft;
   return (
     <main className="wrap settings-page acct" id="main-content" tabIndex={-1}>
       <header className="head settings-head">
@@ -133,35 +164,53 @@ function SignedOut({ supported, busy, run, notice }: { supported: boolean; busy:
         <p className="head-note">Free · no password</p>
       </header>
       {notice}
-      <div className="acct-welcome">
-        <ul className="acct-benefits">
+      <div className="acct-signin">
+        <div className="acct-signin-card">
+          <h2>Sign in or create an account</h2>
+          <p>One step: a new account is made the first time, with what this browser holds today.</p>
+          {social ? (
+            <div className="acct-providers">
+              {providers.google ? <button type="button" className="acct-provider" disabled={busy} onClick={() => continueWith("google")}><GoogleMark />Continue with Google</button> : null}
+              {providers.microsoft ? <button type="button" className="acct-provider" disabled={busy} onClick={() => continueWith("microsoft")}><MicrosoftMark />Continue with Microsoft</button> : null}
+            </div>
+          ) : null}
+          {providers.email ? (
+            <>
+              {social ? <div className="acct-or"><span>or</span></div> : null}
+              {sentTo ? (
+                <p className="acct-sent">Check your inbox: a sign-in link is on its way to <strong>{sentTo}</strong>. It works once, for fifteen minutes. <button type="button" className="acct-link" onClick={() => setSentTo(null)}>Use another address</button></p>
+              ) : (
+                <form className="acct-email-form" onSubmit={(event) => { event.preventDefault(); const to = address.trim(); void run(() => emailSignInLink(to).then(() => setSentTo(to))); }}>
+                  <input className="field" type="email" required value={address} placeholder="you@example.com" autoComplete="email" aria-label="Email address" onChange={(event) => setAddress(event.target.value)} />
+                  <button type="submit" className="acct-btn acct-btn-primary" disabled={busy || !address.trim()}>Continue with email</button>
+                </form>
+              )}
+            </>
+          ) : null}
+          {supported ? (
+            <>
+              <div className="acct-or"><span>{social || providers.email ? "or with a passkey" : "with a passkey"}</span></div>
+              <div className="acct-passkey-row">
+                <button type="button" className="acct-btn" disabled={busy} onClick={() => { void run(signIn, "Signed in. Your work is being brought to this browser."); }}>Sign in with a passkey</button>
+                <button type="button" className="acct-link" onClick={() => setCreating((open) => !open)}>{creating ? "Cancel" : "New here? Create one with a passkey"}</button>
+              </div>
+              {creating ? (
+                <form className="acct-email-form" onSubmit={(event) => { event.preventDefault(); void run(() => createPasskey(passkeyName), "Account created. This browser's work is saved to it."); }}>
+                  <input className="field" type="text" value={passkeyName} maxLength={40} placeholder="Display name, e.g. Léo" autoComplete="nickname" aria-label="Display name" onChange={(event) => setPasskeyName(event.target.value)} />
+                  <button type="submit" className="acct-btn acct-btn-primary" disabled={busy}>Create with a passkey</button>
+                </form>
+              ) : null}
+            </>
+          ) : null}
+          <p className="acct-terms">By continuing you agree that Tenqay keeps your account and what is listed under Sync. Research information only, not investment advice.</p>
+        </div>
+        <ul className="acct-benefits acct-benefits-side">
           <li><strong>Sync</strong><span>Watchlists, portfolio, notes, saved screens and the terminal&apos;s layout, the same on your phone and your computer.</span></li>
-          <li><strong>Daily email</strong><span>Once a day after the US close, only when something changed for the companies you follow: results, filings, leadership changes, insider purchases.</span></li>
-          <li><strong>Passkeys</strong><span>You sign in with your device&apos;s own lock: Face ID, Touch ID, Windows Hello or a security key. No password to choose, forget or leak.</span></li>
+          <li><strong>Daily email</strong><span>Once a day after the US close, only when something changed for the companies you follow.</span></li>
+          <li><strong>No password</strong><span>Google, Microsoft, a link by email or your device&apos;s own lock. Nothing to remember, nothing to leak.</span></li>
         </ul>
-
-        {!supported ? (
-          <p className="acct-notice" data-tone="error">This browser cannot use passkeys. Any recent Safari, Chrome, Edge or Firefox can.</p>
-        ) : (
-          <div className="acct-cards">
-            <div className="acct-card">
-              <h2>Sign in</h2>
-              <p>With the passkey you made on this device, or one your Apple or Google account carries from another.</p>
-              <button type="button" className="acct-btn acct-btn-primary" disabled={busy} onClick={() => { void run(signIn, "Signed in. Your work is being brought to this browser."); }}>Sign in with a passkey</button>
-            </div>
-            <div className="acct-card">
-              <h2>Create an account</h2>
-              <p>What this browser holds today is saved to it straight away.</p>
-              <label className="acct-field">
-                <span className="label">Display name</span>
-                <input className="field" type="text" value={name} maxLength={40} placeholder="e.g. Léo" autoComplete="nickname" onChange={(event) => setName(event.target.value)} />
-              </label>
-              <button type="button" className="acct-btn acct-btn-primary" disabled={busy} onClick={() => { void run(() => createPasskey(name), "Account created. This browser's work is saved to it."); }}>Create with a passkey</button>
-            </div>
-          </div>
-        )}
-        <p className="stat-note acct-fineprint">Without an account nothing changes: everything stays in this browser, as before. Tenqay keeps only what is listed under Sync, never your passkey&apos;s private half, and you can take it away or delete it at any time.</p>
       </div>
+      <p className="stat-note acct-fineprint">Without an account nothing changes: everything stays in this browser, as before. You can take your data away or delete the account at any time.</p>
     </main>
   );
 }
@@ -285,13 +334,33 @@ function Alerts({ email, emailService, busy, run }: {
 
 /* --- Security --------------------------------------------------------------- */
 
-function Security({ passkeys, supported, busy, run }: {
-  passkeys: Array<{ id: string; label: string; created: string; lastUsed: string | null }>; supported: boolean; busy: boolean; run: Run;
+const PROVIDER_NAMES: Record<string, string> = { google: "Google", microsoft: "Microsoft", email: "Email link" };
+
+function Security({ passkeys, identities, providers, supported, busy, run }: {
+  passkeys: Array<{ id: string; label: string; created: string; lastUsed: string | null }>;
+  identities: Array<{ provider: string; subject: string; email: string | null; added: string; lastUsed: string | null }>;
+  providers: SignInProviders; supported: boolean; busy: boolean; run: Run;
 }) {
   const [editing, setEditing] = useState<{ id: string; label: string } | null>(null);
+  const methods = passkeys.length + identities.length;
+  const connected = new Set(identities.map((identity) => identity.provider));
   return (
-    <Section id="security" title="Security" lede="The passkeys that can sign in to this account. Add one on each device you use, so losing one never locks you out.">
+    <Section id="security" title="Sign-in methods" lede="Every way you can sign in to this account. Keep two, so losing one never locks you out.">
       <ul className="acct-passkeys">
+        {identities.map((identity) => (
+          <li key={`${identity.provider}-${identity.subject}`}>
+            <div className="acct-passkey acct-method">
+              <span className="acct-method-mark" aria-hidden="true">{identity.provider === "google" ? <GoogleMark /> : identity.provider === "microsoft" ? <MicrosoftMark /> : "@"}</span>
+              <div>
+                <strong>{PROVIDER_NAMES[identity.provider] ?? identity.provider}{identity.email ? ` · ${identity.email}` : ""}</strong>
+                <span>Connected {day(identity.added)} · {identity.lastUsed ? `last used ${moment(identity.lastUsed)}` : "not used yet"}</span>
+              </div>
+            </div>
+            {methods > 1 ? (
+              <button type="button" className="acct-btn acct-btn-danger" disabled={busy} onClick={() => { if (window.confirm(`Disconnect ${PROVIDER_NAMES[identity.provider]}? You will no longer sign in that way.`)) void run(() => disconnectIdentity(identity.provider, identity.subject), "Disconnected."); }}>Disconnect</button>
+            ) : null}
+          </li>
+        ))}
         {passkeys.map((passkey) => (
           <li key={passkey.id}>
             {editing?.id === passkey.id ? (
@@ -302,13 +371,16 @@ function Security({ passkeys, supported, busy, run }: {
               </form>
             ) : (
               <>
-                <div className="acct-passkey">
-                  <strong>{passkey.label}</strong>
-                  <span>Added {day(passkey.created)} · {passkey.lastUsed ? `last used ${moment(passkey.lastUsed)}` : "not used to sign in yet"}</span>
+                <div className="acct-passkey acct-method">
+                  <span className="acct-method-mark" aria-hidden="true">⌘</span>
+                  <div>
+                    <strong>Passkey · {passkey.label}</strong>
+                    <span>Added {day(passkey.created)} · {passkey.lastUsed ? `last used ${moment(passkey.lastUsed)}` : "not used to sign in yet"}</span>
+                  </div>
                 </div>
                 <div className="acct-inline">
                   <button type="button" className="acct-btn" disabled={busy} onClick={() => setEditing({ id: passkey.id, label: passkey.label })}>Rename</button>
-                  {passkeys.length > 1 ? (
+                  {methods > 1 ? (
                     <button type="button" className="acct-btn acct-btn-danger" disabled={busy} onClick={() => { if (window.confirm(`Remove "${passkey.label}"? That device will no longer sign in.`)) void run(() => removePasskey(passkey.id), "Passkey removed."); }}>Remove</button>
                   ) : null}
                 </div>
@@ -317,8 +389,12 @@ function Security({ passkeys, supported, busy, run }: {
           </li>
         ))}
       </ul>
-      <button type="button" className="acct-btn acct-btn-primary" disabled={busy || !supported} onClick={() => { void run(() => createPasskey(), "Passkey added. This device can now sign in on its own."); }}>Add a passkey on this device</button>
-      <p className="stat-note">Passkeys kept by iCloud Keychain or Google Password Manager follow your account to your other devices.</p>
+      <div className="acct-inline">
+        {providers.google && !connected.has("google") ? <button type="button" className="acct-provider acct-provider-small" disabled={busy} onClick={() => continueWith("google")}><GoogleMark />Connect Google</button> : null}
+        {providers.microsoft && !connected.has("microsoft") ? <button type="button" className="acct-provider acct-provider-small" disabled={busy} onClick={() => continueWith("microsoft")}><MicrosoftMark />Connect Microsoft</button> : null}
+        <button type="button" className="acct-btn" disabled={busy || !supported} onClick={() => { void run(() => createPasskey(), "Passkey added. This device can now sign in on its own."); }}>Add a passkey on this device</button>
+      </div>
+      <p className="stat-note">Connecting Google or Microsoft lets you sign in with them; Tenqay never sees their password. Passkeys kept by iCloud Keychain or Google Password Manager follow you to your other devices.</p>
     </Section>
   );
 }
@@ -333,7 +409,7 @@ function DataSection({ name, busy, run }: { name: string; busy: boolean; run: Ru
     const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), account: (account as { account: unknown }).account, items }, null, 2)], { type: "application/json" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `finscope-account-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `tenqay-account-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     URL.revokeObjectURL(link.href);
   };

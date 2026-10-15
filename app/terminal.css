@@ -1287,3 +1287,10 @@ body:has(.io.term) { background: #050608; }
 .t-page .acct-benefits strong { color: var(--amber); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: var(--track-label); }
 .t-page .acct-notice { padding-inline: 8px; }
 @media (max-width: 760px) { .t-page .settings-layout { grid-template-columns: 1fr; } }
+.t-page .acct-signin { padding: 8px; border: 1px solid var(--line); gap: 16px; }
+.t-page .acct-signin-card { border-radius: 0; border-color: var(--line); background: var(--panel, transparent); }
+.t-page .acct-signin-card h2 { color: var(--amber); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-page .acct-provider { border-radius: 0; background: #fff; color: #1f1f1f; border-color: #dadce0; font-family: var(--sans, system-ui); font-size: 13px; letter-spacing: 0; text-transform: none; }
+.t-page .acct-provider:hover:not(:disabled) { background: #f2f2f2; border-color: #dadce0; }
+.t-page .acct-email-form .acct-btn, .t-page .acct-email-form .field { height: 34px; }
+.t-page .acct-method-mark, .t-page .acct-sent { border-radius: 0; }

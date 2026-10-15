@@ -33,11 +33,17 @@ export interface StoredCredential {
 
 export interface AccountEmail { address: string; verified: boolean; alerts: boolean; lastSent: string | null }
 
+/** Another way in: an account at Google or Microsoft, or an email address that receives a sign-in link. */
+export type IdentityProvider = "google" | "microsoft" | "email";
+export interface Identity { provider: IdentityProvider; subject: string; email: string | null; added: string; lastUsed?: string }
+
 export interface Account {
   id: string;
   name: string;
   created: string;
   credentials: StoredCredential[];
+  /** Sign-in through Google, Microsoft or an emailed link; older accounts have none. */
+  identities?: Identity[];
   email: AccountEmail | null;
 }
 
@@ -47,6 +53,7 @@ export interface PublicAccount {
   name: string;
   created: string;
   passkeys: Array<{ id: string; label: string; created: string; lastUsed: string | null }>;
+  identities: Array<{ provider: IdentityProvider; subject: string; email: string | null; added: string; lastUsed: string | null }>;
   email: AccountEmail | null;
 }
 
@@ -59,6 +66,7 @@ const credentialKey = (id: string) => `account-credential:v1:${id}`;
 const sessionKey = (token: string) => `account-session:v1:${token}`;
 const challengeKey = (id: string) => `account-challenge:v1:${id}`;
 export const dataKey = (id: string) => `account-data:v1:${id}`;
+const identityKey = (provider: IdentityProvider, subject: string) => `account-identity:v1:${provider}:${subject}`;
 export const SUBSCRIBERS_KEY = "account-alert-subscribers:v1";
 
 function store(): KVNamespace {
@@ -77,6 +85,7 @@ const fromBase64Url = (text: string) => Uint8Array.from(atob(text.replace(/-/g, 
 export const publicAccount = (account: Account): PublicAccount => ({
   id: account.id, name: account.name, created: account.created, email: account.email,
   passkeys: account.credentials.map((credential) => ({ id: credential.id, label: credential.label, created: credential.created, lastUsed: credential.lastUsed ?? null })),
+  identities: (account.identities ?? []).map((identity) => ({ ...identity, lastUsed: identity.lastUsed ?? null })),
 });
 
 export async function readAccount(id: string): Promise<Account | null> {
@@ -235,8 +244,11 @@ export async function renamePasskey(account: Account, credentialId: string, labe
   return account;
 }
 
+/** Every way in an account has: its passkeys and its identities. One must remain. */
+export const signInMethods = (account: Account) => account.credentials.length + (account.identities?.length ?? 0);
+
 export async function removePasskey(account: Account, credentialId: string): Promise<Account> {
-  if (account.credentials.length <= 1) throw new Error("An account keeps at least one passkey: delete the account instead.");
+  if (signInMethods(account) <= 1) throw new Error("An account keeps at least one way to sign in: add another first, or delete the account.");
   account.credentials = account.credentials.filter((credential) => credential.id !== credentialId);
   await store().delete(credentialKey(credentialId));
   await writeAccount(account);
@@ -246,6 +258,7 @@ export async function removePasskey(account: Account, credentialId: string): Pro
 /** Everything the account holds, gone: passkeys, data, its place on the email list. */
 export async function deleteAccount(account: Account, request: Request): Promise<void> {
   await Promise.all(account.credentials.map((credential) => store().delete(credentialKey(credential.id))));
+  await Promise.all((account.identities ?? []).map((identity) => store().delete(identityKey(identity.provider, identity.subject))));
   await store().delete(dataKey(account.id));
   await writeAccount({ ...account, email: null });
   await store().delete(accountKey(account.id));
@@ -285,4 +298,74 @@ export async function verifyEmail(token: string): Promise<Account | null> {
   await writeAccount(account);
   await store().delete(verifyKey(token));
   return account;
+}
+
+/* --- Identities: Google, Microsoft, an emailed link ------------------------- */
+
+/**
+ * The account an identity signs in to, made on its first use. Signed in
+ * already, the identity is added to that account instead — "connect Google".
+ * Never matched to another account by its email address alone: an address
+ * proves nothing about who holds an account here.
+ */
+export async function accountForIdentity(found: { provider: IdentityProvider; subject: string; email: string | null; emailVerified: boolean; name: string | null }, signedIn: Account | null): Promise<Account> {
+  const now = new Date().toISOString();
+  const linked = await store().get(identityKey(found.provider, found.subject));
+  if (linked) {
+    const account = await readAccount(linked);
+    if (account) {
+      if (signedIn && signedIn.id !== account.id) throw new Error("This sign-in already belongs to another Tenqay account.");
+      const identity = account.identities?.find((entry) => entry.provider === found.provider && entry.subject === found.subject);
+      if (identity) identity.lastUsed = now;
+      await writeAccount(account);
+      return account;
+    }
+  }
+  const identity: Identity = { provider: found.provider, subject: found.subject, email: found.email, added: now, lastUsed: now };
+  const chosen = (found.name ?? "").trim().replace(/\s+/g, " ").slice(0, 40);
+  const account: Account = signedIn ?? {
+    id: randomId(16), created: now, credentials: [],
+    name: NAME_PATTERN.test(chosen) ? chosen : (found.email?.split("@")[0]?.slice(0, 40) || "Tenqay reader"),
+    // A provider's verified address is the account's, confirmed; the daily email stays off until asked for.
+    email: found.email && found.emailVerified ? { address: found.email.toLowerCase(), verified: true, alerts: false, lastSent: null } : null,
+  };
+  if (!NAME_PATTERN.test(account.name)) account.name = "Tenqay reader";
+  account.identities = [...(account.identities ?? []).filter((entry) => !(entry.provider === found.provider && entry.subject === found.subject)), identity];
+  if (!account.email && found.email && found.emailVerified) account.email = { address: found.email.toLowerCase(), verified: true, alerts: false, lastSent: null };
+  await store().put(identityKey(found.provider, found.subject), account.id);
+  await writeAccount(account);
+  return account;
+}
+
+export async function removeIdentity(account: Account, provider: IdentityProvider, subject: string): Promise<Account> {
+  if (signInMethods(account) <= 1) throw new Error("An account keeps at least one way to sign in: add another first, or delete the account.");
+  account.identities = (account.identities ?? []).filter((entry) => !(entry.provider === provider && entry.subject === subject));
+  await store().delete(identityKey(provider, subject));
+  await writeAccount(account);
+  return account;
+}
+
+/* --- Short-lived tokens: an OAuth round trip, an emailed sign-in link ------- */
+
+export async function keepToken<T>(kind: string, value: T, seconds: number): Promise<string> {
+  const token = randomId(24);
+  await store().put(`account-token:v1:${kind}:${token}`, JSON.stringify(value), { expirationTtl: Math.max(60, seconds) });
+  return token;
+}
+
+/** Used once: read and forgotten. */
+export async function takeToken<T>(kind: string, token: string): Promise<T | null> {
+  if (!/^[A-Za-z0-9_-]{20,}$/.test(token)) return null;
+  const key = `account-token:v1:${kind}:${token}`;
+  const value = await store().get<T>(key, "json").catch(() => null);
+  if (value) await store().delete(key);
+  return value;
+}
+
+/** At most one emailed link a minute to an address: the button cannot be made to spam someone. */
+export async function emailLinkAllowed(address: string): Promise<boolean> {
+  const key = `account-email-throttle:v1:${address}`;
+  if (await store().get(key)) return false;
+  await store().put(key, "1", { expirationTtl: 60 });
+  return true;
 }

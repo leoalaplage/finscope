@@ -13,10 +13,15 @@ export interface RuntimeBindings {
   /** Secrets the site's owner sets with `wrangler secret put`; see lib/email.ts. */
   RESEND_API_KEY?: string;
   ALERTS_FROM?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  MICROSOFT_CLIENT_ID?: string;
+  MICROSOFT_CLIENT_SECRET?: string;
 }
 
 /** A secret from the Worker's bindings, or from the process where the runtime puts them there. */
-export function runtimeSecret(name: "RESEND_API_KEY" | "ALERTS_FROM"): string | null {
+export type SecretName = "RESEND_API_KEY" | "ALERTS_FROM" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "MICROSOFT_CLIENT_ID" | "MICROSOFT_CLIENT_SECRET";
+export function runtimeSecret(name: SecretName): string | null {
   const bound = bindings[name];
   if (typeof bound === "string" && bound) return bound;
   const fromProcess = typeof process !== "undefined" ? process.env?.[name] : undefined;

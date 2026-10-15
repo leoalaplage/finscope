@@ -2624,3 +2624,33 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 @media (max-width: 1100px) {
   .performance-split { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
+
+/* Sign-in (components/io/AccountPage.tsx, SignedOut). */
+.acct-signin { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: calc(var(--u) * 10); align-items: start; padding-top: calc(var(--u) * 6); border-top: 1px solid var(--line-strong); }
+.acct-signin-card { display: grid; gap: calc(var(--u) * 3); padding: calc(var(--u) * 6); border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--raise, var(--bg)); }
+.acct-signin-card h2 { margin: 0; font: 600 var(--fs-md) var(--mono); }
+.acct-signin-card > p { margin: 0; font: var(--fs-xs)/1.55 var(--mono); color: var(--ink-3); }
+.acct-providers { display: grid; gap: calc(var(--u) * 2); margin-top: calc(var(--u) * 2); }
+.acct-provider {
+  display: flex; align-items: center; justify-content: center; gap: 10px; height: 40px; padding: 0 14px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--bg); color: var(--ink);
+  font: 500 var(--fs-xs) var(--mono); cursor: pointer; transition: border-color .12s ease, background .12s ease;
+}
+.acct-provider:hover:not(:disabled) { border-color: var(--ink); background: var(--fill); }
+.acct-provider:disabled { opacity: .5; }
+.acct-provider-small { height: 30px; }
+.acct-or { display: flex; align-items: center; gap: 10px; color: var(--ink-3); font: var(--fs-micro) var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+.acct-or::before, .acct-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.acct-email-form { display: grid; gap: calc(var(--u) * 2); }
+.acct-email-form .field { width: 100%; height: 40px; }
+.acct-email-form .acct-btn { height: 40px; }
+.acct-passkey-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.acct-link { padding: 0; border: 0; background: none; color: var(--ink-2); font: var(--fs-micro) var(--mono); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.acct-link:hover { color: var(--ink); }
+.acct-sent { margin: 0; padding: calc(var(--u) * 3); border: 1px solid var(--line); border-radius: var(--radius); font: var(--fs-xs)/1.6 var(--mono); color: var(--ink-2); }
+.acct-terms { margin: calc(var(--u) * 2) 0 0; font: var(--fs-micro)/1.5 var(--mono); color: var(--ink-3); }
+.acct-benefits-side { grid-template-columns: 1fr; gap: calc(var(--u) * 5); padding-top: calc(var(--u) * 2); }
+.acct-method { display: flex; align-items: center; gap: 10px; }
+.acct-method > div { display: grid; gap: 3px; min-width: 0; }
+.acct-method-mark { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: var(--radius); font: 600 var(--fs-xs) var(--mono); color: var(--ink-2); }
+@media (max-width: 760px) { .acct-signin { grid-template-columns: 1fr; } }
