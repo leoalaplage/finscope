@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blsCalendar, eventsFrom, moveAround, nasdaqOffset, newYorkEpoch, parseFigure, releaseWindow, seriesForEvent, seriesFreshness, surpriseOf, transformSeries } from "../lib/econ";
+import { blsCalendar, eventsFrom, transformPoints, umichPoints, moveAround, nasdaqOffset, newYorkEpoch, parseFigure, releaseWindow, seriesForEvent, seriesFreshness, surpriseOf, transformSeries } from "../lib/econ";
 
 describe("the US economic calendar", () => {
   it("reads Nasdaq's rows: US only, the noise left out, a monthly and a yearly CPI told apart", () => {
@@ -67,5 +67,24 @@ describe("as soon as it is out", () => {
     expect(seriesForEvent("Average Hourly Earnings (YoY)")).toBe("CES0500000003");
     expect(seriesForEvent("Average Hourly Earnings")).toBe("CES0500000003:mom");
     expect(seriesForEvent("Retail Sales, m/m")).toBeNull();
+  });
+});
+
+describe("the other publishers", () => {
+  it("pairs Nasdaq's two PCE rows whatever their case, and links them, GDP and sentiment to their series", () => {
+    const rows = [
+      { gmt: "08:30", country: "United States", eventName: "PCE price index", actual: "0.3%", consensus: "0.4%", previous: "0.2%" },
+      { gmt: "08:30", country: "United States", eventName: "PCE Price index", actual: "3.4%", consensus: "3.7%", previous: "3.3%" },
+    ];
+    const names = eventsFrom(rows, "2026-09-30").map((event) => event.name);
+    expect(names).toEqual(["PCE Price Index, m/m", "PCE Price Index, y/y"]);
+    expect(seriesForEvent("PCE Price Index, y/y")).toBe("BEA:DPCERG-M");
+    expect(seriesForEvent("GDP")).toBe("BEA:A191RL-Q");
+    expect(seriesForEvent("Michigan Consumer Sentiment")).toBe("UMICH:ICS");
+  });
+
+  it("reads Michigan's file and transforms monthly points like the BLS's", () => {
+    expect(umichPoints("Month,YYYY,ICS_ALL\nAugust,2026,51.7\nSeptember,2026,48.1\n")).toEqual([{ period: "2026-08", value: 51.7 }, { period: "2026-09", value: 48.1 }]);
+    expect(transformPoints([{ period: "2026-07", value: 22117708 }, { period: "2026-08", value: 22308527 }], "mom")).toEqual([{ period: "2026-08", value: 0.86 }]);
   });
 });

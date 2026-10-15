@@ -22,7 +22,27 @@ export const BLS_SERIES = [
   { id: "JTS000000000000000JOL", bls: "JTS000000000000000JOL", label: "JOLTS job openings", transform: "level", unit: "thousands" },
 ] as const;
 
-export interface EconSeries { id: string; label: string; unit: "percent" | "thousands"; points: Array<{ period: string; value: number }>; latest: string | null }
+/**
+ * The series published by others: the Bureau of Economic Analysis (PCE
+ * prices, GDP, personal income and spending), read from DBnomics' mirror of
+ * its tables (the BEA's own API wants a key), and the University of
+ * Michigan's consumer sentiment, from its own file.
+ */
+export const OTHER_SERIES = [
+  { id: "BEA:DPCERG-M", source: "bea", path: "BEA/NIPA-T20804/DPCERG-M", label: "PCE prices, y/y", transform: "yoy", unit: "percent" },
+  { id: "BEA:DPCERG-M:mom", source: "bea", path: "BEA/NIPA-T20804/DPCERG-M", label: "PCE prices, m/m", transform: "mom", unit: "percent" },
+  { id: "BEA:DPCCRG-M", source: "bea", path: "BEA/NIPA-T20804/DPCCRG-M", label: "Core PCE prices, y/y", transform: "yoy", unit: "percent" },
+  { id: "BEA:DPCCRG-M:mom", source: "bea", path: "BEA/NIPA-T20804/DPCCRG-M", label: "Core PCE prices, m/m", transform: "mom", unit: "percent" },
+  { id: "BEA:A191RL-Q", source: "bea", path: "BEA/NIPA-T10101/A191RL-Q", label: "Real GDP, quarter on quarter annualised", transform: "level", unit: "percent" },
+  { id: "BEA:A065RC-M:mom", source: "bea", path: "BEA/NIPA-T20600/A065RC-M", label: "Personal income, m/m", transform: "mom", unit: "percent" },
+  { id: "BEA:DPCERC-M:mom", source: "bea", path: "BEA/NIPA-T20600/DPCERC-M", label: "Personal spending, m/m", transform: "mom", unit: "percent" },
+  { id: "UMICH:ICS", source: "umich", path: "https://www.sca.isr.umich.edu/files/tbmics.csv", label: "Michigan consumer sentiment", transform: "level", unit: "index" },
+] as const;
+
+/** Every series a history can be opened on, by id. */
+export const ALL_SERIES: ReadonlyArray<{ id: string; label: string; transform: string; unit: string; bls?: string; path?: string; source?: string }> = [...BLS_SERIES, ...OTHER_SERIES];
+
+export interface EconSeries { id: string; label: string; unit: "percent" | "thousands" | "index"; points: Array<{ period: string; value: number }>; latest: string | null }
 
 /** The official series a calendar event is the headline of, where there is one. */
 export function seriesForEvent(name: string): string | null {
@@ -36,6 +56,11 @@ export function seriesForEvent(name: string): string | null {
     [/^Average Hourly Earnings \(YoY\)$|^Average Hourly Earnings, y\/y$/i, "CES0500000003"],
     [/^Average Hourly Earnings(?:, m\/m| \(MoM\))?$/i, "CES0500000003:mom"],
     [/^JOLTS Job Openings$/i, "JTS000000000000000JOL"],
+    [/^PCE Price Index, y\/y$/i, "BEA:DPCERG-M"], [/^PCE Price Index, m\/m$/i, "BEA:DPCERG-M:mom"],
+    [/^Core PCE Price Index, y\/y$/i, "BEA:DPCCRG-M"], [/^Core PCE Price Index, m\/m$/i, "BEA:DPCCRG-M:mom"],
+    [/^GDP$/i, "BEA:A191RL-Q"],
+    [/^Personal Income$/i, "BEA:A065RC-M:mom"], [/^Personal Spending$/i, "BEA:DPCERC-M:mom"],
+    [/^Michigan Consumer Sentiment$/i, "UMICH:ICS"],
   ];
   return rules.find(([pattern]) => pattern.test(name.trim()))?.[1] ?? null;
 }

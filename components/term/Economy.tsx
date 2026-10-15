@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { EconEvent, Reaction } from "@/lib/econ";
-import { BLS_SERIES, seriesForEvent, type EconSeries } from "@/lib/econ-series";
+import { ALL_SERIES, seriesForEvent, type EconSeries } from "@/lib/econ-series";
 import type { ChartData, Preset } from "@/lib/term/fundamental-charts";
 import { ComboChart } from "./FundamentalCharts";
 import { Panel } from "./Panel";
@@ -26,6 +26,12 @@ const dayLabel = (date: string, today: string) => {
   if (diff === -1) return "Yesterday";
   if (diff === 1) return "Tomorrow";
   return `${WEEKDAYS[day.getUTCDay()]} ${day.getUTCDate()} ${MONTHS[day.getUTCMonth()]}`;
+};
+/** "2026-09" → "Sep 26"; "2026-Q2" → "Q2 26". `full` writes the year whole. */
+const periodLabel = (period: string, full = false) => {
+  const quarter = /^(\d{4})-Q(\d)$/.exec(period);
+  if (quarter) return `Q${quarter[2]} ${full ? quarter[1] : quarter[1].slice(2)}`;
+  return `${MONTHS[Number(period.slice(5, 7)) - 1]} ${full ? period.slice(0, 4) : period.slice(2, 4)}`;
 };
 const signedPercent = (value: number | null) => (value == null ? "—" : `${value >= 0 ? "+" : "−"}${Math.abs(value * 100).toFixed(2)}%`);
 const signedBp = (value: number | null) => (value == null ? "—" : `${value >= 0 ? "+" : "−"}${Math.abs(value)} bp`);
@@ -53,7 +59,8 @@ export function useEcon(): { data: Calendar | null; failed: boolean } {
 /** The official series, read once a page and shared by every chart and history on it. */
 let seriesRequest: Promise<{ series: EconSeries[]; error?: string }> | null = null;
 function loadSeries() {
-  seriesRequest ??= fetch("/api/econ/series").then((response) => response.json() as Promise<{ series: EconSeries[]; error?: string }>)
+  // Versioned: a browser holding the answer from before the BEA and Michigan series asks again.
+  seriesRequest ??= fetch("/api/econ/series?v=2").then((response) => response.json() as Promise<{ series: EconSeries[]; error?: string }>)
     .catch(() => ({ series: [], error: "The Bureau of Labor Statistics did not answer." }));
   return seriesRequest;
 }
@@ -235,8 +242,8 @@ function EconCharts({ series }: { series: EconSeries[] }) {
       title, note,
       preset: { id: title, title, left: unit, series: specs },
       data: {
-        labels: periods.map((period) => `${MONTHS[Number(period.slice(5)) - 1]} ${period.slice(2, 4)}`),
-        names: periods.map((period) => `${MONTHS[Number(period.slice(5)) - 1]} ${period.slice(0, 4)}`),
+        labels: periods.map((period) => periodLabel(period)),
+        names: periods.map((period) => periodLabel(period, true)),
         series: found.map((entry, index) => ({
           spec: specs[index],
           values: periods.map((period) => {
@@ -249,6 +256,8 @@ function EconCharts({ series }: { series: EconSeries[] }) {
   };
   add("Inflation · year on year", [{ id: "CUUR0000SA0", kind: "line", color: COLORS.amber }, { id: "CUUR0000SA0L1E", kind: "line", color: COLORS.blue }, { id: "WPUFD4", kind: "line", color: COLORS.violet }], "percent", 60, "CPI, core CPI (without food and energy) and PPI final demand, change on a year earlier.");
   add("Inflation · month on month", [{ id: "CUSR0000SA0", kind: "bar", color: COLORS.amber }, { id: "CUSR0000SA0L1E", kind: "line", color: COLORS.blue }], "percent", 24, "Seasonally adjusted, change on the month before.");
+  add("Inflation · PCE, the Fed's measure", [{ id: "BEA:DPCERG-M", kind: "line", color: COLORS.amber }, { id: "BEA:DPCCRG-M", kind: "line", color: COLORS.blue }], "percent", 60, "Personal consumption expenditures prices, and without food and energy, change on a year earlier (BEA).");
+  add("Growth · real GDP", [{ id: "BEA:A191RL-Q", kind: "bar", color: COLORS.teal, label: "Real GDP, q/q annualised" }], "percent", 24, "Change on the quarter before, at an annual rate (BEA). Last 24 quarters.");
   add("Jobs · payrolls added", [{ id: "CES0000000001", kind: "bar", color: COLORS.teal, label: "Nonfarm payrolls, monthly change" }], "shares", 36, "Change in nonfarm payroll employment, seasonally adjusted.");
   add("Jobs · unemployment and wages", [{ id: "LNS14000000", kind: "line", color: COLORS.amber }, { id: "CES0500000003", kind: "line", color: COLORS.blue, label: "Average hourly earnings, y/y" }], "percent", 60, "Unemployment rate, and average hourly earnings on a year earlier.");
   return (
@@ -263,7 +272,7 @@ function EconCharts({ series }: { series: EconSeries[] }) {
           <p className="t-study-note">{chart.note}</p>
         </figure>
       ))}
-      <p className="t-study-note t-eco-source">Source: U.S. Bureau of Labor Statistics, as published. Latest month {series.map((entry) => entry.latest).filter(Boolean).sort().at(-1)}.</p>
+      <p className="t-study-note t-eco-source">Sources: U.S. Bureau of Labor Statistics; Bureau of Economic Analysis (through DBnomics, which carries a release within a day); University of Michigan. As published; revisions replace first estimates.</p>
     </div>
   );
 }
@@ -274,7 +283,7 @@ const RANGES = [{ years: 2, label: "2Y" }, { years: 5, label: "5Y" }, { years: 1
 function EconHistory({ name, events, onClose }: { name: string; events: EconEvent[]; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const id = seriesForEvent(name);
-  const spec = BLS_SERIES.find((entry) => entry.id === id);
+  const spec = ALL_SERIES.find((entry) => entry.id === id);
   const [body, setBody] = useState<{ series: EconSeries[]; error?: string } | null>(null);
   const [years, setYears] = useState(5);
   useEffect(() => {
@@ -284,19 +293,20 @@ function EconHistory({ name, events, onClose }: { name: string; events: EconEven
     return () => { alive = false; };
   }, []);
   const series = body?.series.find((entry) => entry.id === id) ?? null;
-  const points = series ? series.points.slice(-years * 12) : [];
+  const quarterly = /-Q\d$/.test(series?.latest ?? "");
+  const points = series ? series.points.slice(-years * (quarterly ? 4 : 12)) : [];
   const percent = series?.unit === "percent";
   const latest = series?.points.at(-1) ?? null;
   const before = series?.points.at(-2) ?? null;
   const values = points.map((point) => point.value);
-  const format = (value: number | null | undefined) => (value == null ? "—" : percent ? `${value.toFixed(2)}%` : series?.id === "JTS000000000000000JOL" ? `${(value / 1000).toFixed(2)}M` : `${value >= 0 ? "+" : "−"}${Math.abs(Math.round(value)).toLocaleString("en-US")}K`);
-  const kind: "bar" | "line" = spec && (spec.transform === "mom" || spec.transform === "diff") ? "bar" : "line";
+  const format = (value: number | null | undefined) => (value == null ? "—" : percent ? `${value.toFixed(2)}%` : series?.unit === "index" ? value.toFixed(1) : series?.id === "JTS000000000000000JOL" ? `${(value / 1000).toFixed(2)}M` : `${value >= 0 ? "+" : "−"}${Math.abs(Math.round(value)).toLocaleString("en-US")}K`);
+  const kind: "bar" | "line" = spec && (spec.transform === "mom" || spec.transform === "diff" || quarterly) ? "bar" : "line";
   const chartSpec = { id: id ?? "series", label: spec?.label ?? name, kind, axis: "left" as const, color: "var(--amber, #ffa028)", value: () => null };
   const preset: Preset = { id: `history-${id}`, title: spec?.label ?? name, left: percent ? "percent" : "shares", series: [chartSpec] };
   const data: ChartData = {
-    labels: points.map((point) => `${MONTHS[Number(point.period.slice(5)) - 1]} ${point.period.slice(2, 4)}`),
-    names: points.map((point) => `${MONTHS[Number(point.period.slice(5)) - 1]} ${point.period.slice(0, 4)}`),
-    series: [{ spec: chartSpec, values: points.map((point) => (percent ? point.value / 100 : point.value * 1000)) }],
+    labels: points.map((point) => periodLabel(point.period)),
+    names: points.map((point) => periodLabel(point.period, true)),
+    series: [{ spec: chartSpec, values: points.map((point) => (percent ? point.value / 100 : series?.unit === "index" ? point.value : point.value * 1000)) }],
   };
   const prints = events.filter((event) => event.name === name && event.actual).reverse();
 
@@ -311,11 +321,11 @@ function EconHistory({ name, events, onClose }: { name: string; events: EconEven
         <button type="button" className="t-chip" onClick={() => dialog.current?.close()} aria-label="Close">Close</button>
       </header>
       <div className="t-panel-pad">
-        {body == null ? <p className="t-empty">Reading the Bureau of Labor Statistics…</p> : !series ? <p className="t-empty">The Bureau of Labor Statistics did not hand over this series just now.</p> : (
+        {body == null ? <p className="t-empty">Reading the official series…</p> : !series ? <p className="t-empty">The publisher did not hand over this series just now.</p> : (
           <>
             <div className="t-eco-hist-stats">
-              <div><span>Latest · {latest ? `${MONTHS[Number(latest.period.slice(5)) - 1]} ${latest.period.slice(0, 4)}` : "—"}</span><b>{format(latest?.value)}</b></div>
-              <div><span>Month before</span><b>{format(before?.value)}</b></div>
+              <div><span>Latest · {latest ? periodLabel(latest.period, true) : "—"}</span><b>{format(latest?.value)}</b></div>
+              <div><span>{quarterly ? "Quarter before" : "Month before"}</span><b>{format(before?.value)}</b></div>
               <div><span>High · {years}Y</span><b>{format(values.length ? Math.max(...values) : null)}</b></div>
               <div><span>Low · {years}Y</span><b>{format(values.length ? Math.min(...values) : null)}</b></div>
               <div><span>Average · {years}Y</span><b>{format(values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null)}</b></div>
@@ -329,7 +339,12 @@ function EconHistory({ name, events, onClose }: { name: string; events: EconEven
                 </table>
               </div>
             ) : null}
-            <p className="t-study-note">Monthly, as the U.S. Bureau of Labor Statistics publishes it{spec ? <> (<a href={`https://data.bls.gov/timeseries/${spec.bls}`} target="_blank" rel="noreferrer">series {spec.bls} ↗</a>)</> : null}; {spec?.transform === "yoy" ? "the change on the same month a year earlier" : spec?.transform === "mom" ? "the change on the month before, seasonally adjusted" : spec?.transform === "diff" ? "the change in the number employed on the month before, in thousands" : "as printed"}. Revised figures replace the first estimates.</p>
+            <p className="t-study-note">
+              {spec?.bls ? <>As the U.S. Bureau of Labor Statistics publishes it (<a href={`https://data.bls.gov/timeseries/${spec.bls}`} target="_blank" rel="noreferrer">series {spec.bls} ↗</a>)</>
+                : spec?.source === "bea" ? <>As the Bureau of Economic Analysis publishes it, through DBnomics (<a href={`https://db.nomics.world/${spec.path}`} target="_blank" rel="noreferrer">{spec.path} ↗</a>), which carries a release within a day</>
+                : <>As the University of Michigan&apos;s Surveys of Consumers publish it (<a href="https://www.sca.isr.umich.edu/" target="_blank" rel="noreferrer">sca.isr.umich.edu ↗</a>)</>}
+              ; {spec?.transform === "yoy" ? "the change on the same month a year earlier" : spec?.transform === "mom" ? "the change on the month before, seasonally adjusted" : spec?.transform === "diff" ? "the change in the number employed on the month before, in thousands" : quarterly ? "the change on the quarter before, at an annual rate" : "as printed"}. Revised figures replace the first estimates.
+            </p>
           </>
         )}
       </div>

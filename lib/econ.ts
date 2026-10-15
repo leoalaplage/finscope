@@ -71,7 +71,11 @@ interface NasdaqRow { gmt?: string; country?: string; eventName?: string; actual
  */
 export function namePairs(events: EconEvent[]): EconEvent[] {
   const groups = new Map<string, EconEvent[]>();
-  for (const event of events) groups.set(`${event.time}|${event.name}`, [...(groups.get(`${event.time}|${event.name}`) ?? []), event]);
+  // "PCE price index" and "PCE Price index" are one pair: the case differs, not the measure.
+  for (const event of events) {
+    const key = `${event.time}|${event.name.toLowerCase()}`;
+    groups.set(key, [...(groups.get(key) ?? []), event]);
+  }
   for (const group of groups.values()) {
     if (group.length !== 2) continue;
     const size = (event: EconEvent) => {
@@ -81,8 +85,10 @@ export function namePairs(events: EconEvent[]): EconEvent[] {
     const [first, second] = group, a = size(first), b = size(second);
     if (a == null || b == null || a === b) continue;
     const [yearly, monthly] = a > b ? [first, second] : [second, first];
-    yearly.name = `${yearly.name}, y/y`;
-    monthly.name = `${monthly.name}, m/m`;
+    // One spelling for both, its words capitalised: "PCE Price Index".
+    const name = first.name.replace(/\b([a-z])/g, (letter) => letter.toUpperCase());
+    yearly.name = `${name}, y/y`;
+    monthly.name = `${name}, m/m`;
   }
   return events;
 }
@@ -272,8 +278,8 @@ export async function reactions(events: EconEvent[], now = Date.now()): Promise<
 
 /* --- The official series, for the charts ------------------------------------ */
 
-export { BLS_SERIES, seriesForEvent, type EconSeries } from "./econ-series";
-import { BLS_SERIES, type EconSeries } from "./econ-series";
+export { BLS_SERIES, OTHER_SERIES, seriesForEvent, type EconSeries } from "./econ-series";
+import { BLS_SERIES, OTHER_SERIES, type EconSeries } from "./econ-series";
 
 interface BlsObservation { year: string; period: string; value: string }
 
@@ -339,5 +345,53 @@ export async function blsSeries(now = new Date()): Promise<EconSeries[]> {
       return [{ id: spec.id, label: spec.label, unit: spec.unit, points, latest: points.at(-1)?.period ?? null }];
     });
   }, (value) => (value.length ? (ttl < 3600 ? "brief" : "full") : "empty"));
+  return JSON.parse(body) as EconSeries[];
+}
+
+/* --- The other publishers: the BEA through DBnomics, the University of Michigan --- */
+
+/** Pure: "YYYY-MM" monthly points, transformed as the BLS's are. */
+export function transformPoints(points: Array<{ period: string; value: number }>, transform: "yoy" | "mom" | "level" | "diff") {
+  return transformSeries(points.flatMap((point) => {
+    const match = /^(\d{4})-(\d{2})$/.exec(point.period);
+    return match ? [{ year: match[1], period: `M${match[2]}`, value: String(point.value) }] : [];
+  }), transform);
+}
+
+/** Pure: the University of Michigan's file ("Month,YYYY,ICS_ALL"), as monthly points. */
+export function umichPoints(csv: string): Array<{ period: string; value: number }> {
+  const months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  return csv.split(/\r?\n/).flatMap((line) => {
+    const [month, year, value] = line.split(",").map((cell) => cell.trim());
+    const index = months.indexOf((month ?? "").toLowerCase());
+    const number = Number(value);
+    return index >= 0 && /^\d{4}$/.test(year ?? "") && value && Number.isFinite(number) ? [{ period: `${year}-${String(index + 1).padStart(2, "0")}`, value: number }] : [];
+  });
+}
+
+async function dbnomics(path: string): Promise<Array<{ period: string; value: number }>> {
+  const response = await fetch(`https://api.db.nomics.world/v22/series/${path}?observations=1`, { headers: { Accept: "application/json" } });
+  if (!response.ok) { await response.body?.cancel(); throw new Error(`DBnomics answered ${response.status}.`); }
+  const doc = (await response.json() as { series?: { docs?: Array<{ period?: string[]; value?: Array<number | string | null> }> } }).series?.docs?.[0];
+  return (doc?.period ?? []).flatMap((period, index) => {
+    const value = Number(doc?.value?.[index]);
+    return Number.isFinite(value) && doc?.value?.[index] !== "NA" ? [{ period, value }] : [];
+  });
+}
+
+/** The BEA's and Michigan's series, kept six hours (DBnomics carries a BEA release within a day of it). */
+export async function otherSeries(): Promise<EconSeries[]> {
+  const { body } = await cachedJson("econ-other-series:v1", 6 * 3600, async () => {
+    const paths = [...new Set(OTHER_SERIES.filter((spec) => spec.source === "bea").map((spec) => spec.path))];
+    const bea = new Map(await Promise.all(paths.map(async (path) => [path, await dbnomics(path).catch(() => [])] as const)));
+    const umich = await fetch(OTHER_SERIES.find((spec) => spec.source === "umich")!.path, { headers: { "User-Agent": BLS_AGENT() } })
+      .then((response) => (response.ok ? response.text() : "")).then(umichPoints).catch(() => []);
+    return OTHER_SERIES.flatMap((spec): EconSeries[] => {
+      const raw = spec.source === "bea" ? bea.get(spec.path) ?? [] : umich;
+      // GDP is quarterly ("2026-Q2") and already a rate; the rest are monthly levels to transform.
+      const points = /-Q\d$/.test(raw.at(-1)?.period ?? "") ? raw.slice(-160) : transformPoints(raw, spec.transform).slice(-240);
+      return points.length ? [{ id: spec.id, label: spec.label, unit: spec.unit, points, latest: points.at(-1)?.period ?? null }] : [];
+    });
+  }, (value) => (value.length ? "full" : "empty"));
   return JSON.parse(body) as EconSeries[];
 }
