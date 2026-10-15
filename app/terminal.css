@@ -1493,7 +1493,7 @@ body:has(.io.term) { background: #0d1012; }
 /* TOUR · the welcome tour (components/term/Welcome.tsx): on black, without the terminal's frame; each step a live screenshot. */
 :root body .io.term.t-tour { --bg: #000; --raise: #0a0a0b; --fill: #141416; --head: #060607; --line: #1a1a1d; --line-strong: #2a2a2e; min-height: 100vh; background: #000; }
 :root:has(.t-tour), :root[data-theme]:has(.t-tour), body:has(.t-tour) { background: #000; }
-.t-wel { width: 100%; max-width: 1240px; margin: 0 auto; padding: 22px 20px 28px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.t-wel { width: 100%; max-width: 1240px; min-height: 100vh; margin: 0 auto; padding: 22px 20px 28px; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 14px; }
 .t-wel-progress { height: 3px; background: var(--line-strong); }
 .t-wel-progress > span { display: block; height: 100%; background: var(--amber); transition: width .25s ease; }
 .t-wel-meta { display: flex; justify-content: space-between; align-items: center; color: var(--ink-3); font-size: var(--fs-xs); }
@@ -1505,9 +1505,10 @@ body:has(.io.term) { background: #0d1012; }
 .term .t-wel-cta:hover { color: var(--amber-ink); background: #fff27a; }
 .t-wel-cta:disabled { opacity: .45; cursor: default; }
 .t-wel-big { padding: 13px 34px; font-size: var(--fs-lg); }
-.t-wel-body { min-height: 600px; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; }
+/* Each step centred in the height the window has, the progress above and the buttons below. */
+.t-wel-body { display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; padding: 10px 0; }
 .t-wel-body p { margin: 0; }
-.t-wel-intro { display: grid; justify-items: center; gap: 20px; padding: 110px 0 60px; text-align: center; }
+.t-wel-intro { display: grid; justify-items: center; gap: 20px; text-align: center; }
 .t-wel-mark { padding: 4px 14px; color: var(--amber-ink); background: var(--amber); font-weight: 700; letter-spacing: .16em; font-size: 18px; }
 .t-wel-intro h1 { margin: 0; max-width: 18ch; font-size: 46px; line-height: 1.08; font-weight: 600; color: var(--ink); letter-spacing: -.01em; }
 .t-wel-sub { max-width: 52ch; font-size: var(--fs-xl); line-height: 1.5; color: var(--ink-2); }
@@ -1527,7 +1528,7 @@ body:has(.io.term) { background: #0d1012; }
 .t-wel-shot-view::after { content: ""; position: absolute; inset: auto 0 0 0; height: 80px; background: linear-gradient(transparent, #000); }
 .t-wel-shot-page { width: calc(100% / .62); transform: scale(.62); transform-origin: 0 0; }
 .t-wel-pair .t-wel-shot-page { width: calc(100% / .72); transform: scale(.72); }
-.t-wel-account { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; padding-top: 40px; }
+.t-wel-account { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .t-wel-signup, .t-wel-plans { display: grid; gap: 14px; align-content: start; padding: 28px; border: 1px solid var(--line-strong); border-radius: 8px; }
 .t-wel-signup h2 { margin: 0; font-size: 26px; font-weight: 600; color: var(--ink); }
 .t-wel-signup > p { color: var(--ink-2); font-size: var(--fs-md); }
@@ -1555,10 +1556,8 @@ body:has(.io.term) { background: #0d1012; }
 .t-wel-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 6px; }
 @media (max-width: 900px) {
   .t-wel { padding: 16px 16px 24px; }
-  .t-wel-intro { padding: 60px 0 30px; }
   .t-wel-intro h1 { font-size: 30px; }
   .t-wel-pair, .t-wel-account { grid-template-columns: minmax(0, 1fr); }
-  .t-wel-account { padding-top: 10px; }
   .t-wel-signup, .t-wel-plans { padding: 18px; }
   .t-wel-shot-view, .t-wel-pair .t-wel-shot-view { height: 360px; }
   .t-wel-shot-page, .t-wel-pair .t-wel-shot-page { width: calc(100% / .36); transform: scale(.36); }

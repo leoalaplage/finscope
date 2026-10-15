@@ -29,12 +29,12 @@ export const markOnboarded = () => { try { localStorage.setItem(ONBOARDED_KEY, n
 
 const STEPS = ["Welcome", "Markets", "Companies", "KPIs and segments", "Charts", "Portfolio", "Account"] as const;
 
-/** The plans, in euros, as Léo set them (2026-10-15). The annual saving and monthly equivalent are worked out, not typed. */
+/** The plans, in US dollars, as Léo set them (2026-10-15). The annual saving and monthly equivalent are worked out, not typed. */
 const PLANS: Array<{ id: "monthly" | "annual"; name: string; amount: number; months: number; period: string }> = [
   { id: "monthly", name: "Monthly", amount: 29.99, months: 1, period: "per month" },
   { id: "annual", name: "Annual", amount: 299.99, months: 12, period: "per year" },
 ];
-const euros = (value: number) => `€${value.toFixed(2)}`;
+const dollars = (value: number) => `$${value.toFixed(2)}`;
 const MONTHLY = PLANS.find((plan) => plan.id === "monthly")!;
 
 const INCLUDED = ["Markets, rates, the Fed and the economy, live", "Every listed company, read from its filings", "Operating KPIs, segments, ten years of figures", "Pro charts, fundamental charts, screener, backtests", "Portfolio, DCF, alerts on every device"];
@@ -69,18 +69,19 @@ export function Welcome() {
         </div>
         <div className="t-wel-meta">
           <span>Step {step + 1} of {STEPS.length}</span>
-          <button type="button" className="t-wel-later" onClick={() => finish()}>Skip</button>
+          {/* Skipping lands on the plans: every new reader sees them before the terminal. */}
+          {step < last ? <button type="button" className="t-wel-later" onClick={() => go(last)}>Skip</button> : <span />}
         </div>
 
         <section className="t-wel-body" aria-live="polite">
           {step === 0 ? <Intro onNext={() => go(1)} /> : null}
           {step === 1 ? (
-            <Screen title="The whole market, on one screen" line="Indices, futures, rates, sectors, breadth and movers — live." href="/t/market">
+            <Screen title="The whole market, on one screen" line="Indices, futures, rates, sectors, breadth and movers — live.">
               <Shot url="tenqay.com/t/market"><MarketBoard /></Shot>
             </Screen>
           ) : null}
           {step === 2 ? (
-            <Screen title="Every company, from its filings" line="Price, key statistics, quality grade and what the company does." href="/t/s/NVDA">
+            <Screen title="Every company, from its filings" line="Price, key statistics, quality grade and what the company does.">
               <Shot url="tenqay.com/t/s/NVDA"><TermCompany ticker="NVDA" /></Shot>
             </Screen>
           ) : null}
@@ -93,7 +94,7 @@ export function Welcome() {
             </Screen>
           ) : null}
           {step === 4 ? (
-            <Screen title="Charts, technical and fundamental" line="Candles, studies and drawings in layouts you keep — and ten years of filed figures, charted." href="/t/chart">
+            <Screen title="Charts, technical and fundamental" line="Candles, studies and drawings in layouts you keep — and ten years of filed figures, charted.">
               <div className="t-wel-pair">
                 <Shot url="tenqay.com/t/chart" label="Chart workspace"><ChartWorkspace /></Shot>
                 <Shot url="tenqay.com/t/s/NVDA#gf" label="Fundamental charts · Nvidia"><CompanyCharts ticker="NVDA" /></Shot>
@@ -101,7 +102,7 @@ export function Welcome() {
             </Screen>
           ) : null}
           {step === 5 ? (
-            <Screen title="Your portfolio, as a risk desk reads it" line="Performance against the S&P 500, risk, income, rebalancing — from your trades." href="/t/portfolio">
+            <Screen title="Your portfolio, as a risk desk reads it" line="Performance against the S&P 500, risk, income, rebalancing — from your trades.">
               <Shot url="tenqay.com/t/portfolio"><TermPortfolio /></Shot>
             </Screen>
           ) : null}
@@ -130,12 +131,11 @@ function Intro({ onNext }: { onNext: () => void }) {
   );
 }
 
-function Screen({ title, line, href, children }: { title: string; line: string; href?: string; children: ReactNode }) {
+function Screen({ title, line, children }: { title: string; line: string; children: ReactNode }) {
   return (
     <div className="t-wel-screen">
       <div className="t-wel-title">
         <div><h2>{title}</h2><p>{line}</p></div>
-        {href ? <a className="t-wel-ghost" href={href} target="_blank" rel="noreferrer">Open ↗</a> : null}
       </div>
       {children}
     </div>
@@ -205,8 +205,8 @@ function AccountStep({ onFinish }: { onFinish: (href?: string) => void }) {
             return (
               <div key={plan.id} className="t-wel-plan" data-plan={plan.id}>
                 <b>{plan.name}{saving ? <span className="t-wel-save">Save {Math.round(saving * 100)}%</span> : null}</b>
-                <span className="t-wel-price">{euros(plan.amount)}<small> {plan.period}</small></span>
-                <small>{plan.months > 1 ? `${euros(plan.amount / plan.months)} a month, billed once a year` : "Billed every month"}</small>
+                <span className="t-wel-price">{dollars(plan.amount)}<small> {plan.period}</small></span>
+                <small>{plan.months > 1 ? `${dollars(plan.amount / plan.months)} a month, billed once a year` : "Billed every month"}</small>
               </div>
             );
           })}
