@@ -58,7 +58,8 @@ function latest(view: IoCompanyView, key: string): Denominator {
 
 const headline = (view: IoCompanyView): IoPeriod | null => view.ttm ?? view.annual[view.annual.length - 1] ?? null;
 
-export function Stats({ view, quote }: { view: IoCompanyView; quote: IoQuote | null }) {
+/** `notesOnly`: the sentences under the strip without the strip, where the figures are drawn elsewhere (KeyStatistics). */
+export function Stats({ view, quote, notesOnly = false }: { view: IoCompanyView; quote: IoQuote | null; notesOnly?: boolean }) {
   const basis = view.basis;
   const period = headline(view);
   const price = quote?.price ?? null;
@@ -177,6 +178,7 @@ export function Stats({ view, quote }: { view: IoCompanyView; quote: IoQuote | n
       .map((entry) => `${entry.name} is from ${entry.from.label}: the later period reports none.`),
   ].filter(Boolean);
 
+  if (notesOnly) return notes.length ? <div className="t-keystats-notes">{notes.map((note) => <p className="stat-note" key={note}>{note}</p>)}</div> : null;
   return (
     <section className="section" id="valuation" style={{ borderTop: 0, paddingTop: 0 }}>
       <div className={rows.length === 7 ? "grid-ruled stats stats-seven" : "grid-ruled stats"}>

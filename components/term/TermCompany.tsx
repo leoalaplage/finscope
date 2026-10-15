@@ -8,6 +8,7 @@ import { useCompany } from "@/components/io/use-company";
 import { useCompanyChart } from "@/components/io/use-company-chart";
 import { PriceSection } from "@/components/io/PriceSection";
 import { Stats } from "@/components/io/Stats";
+import { KeyStatistics } from "@/components/io/KeyStatistics";
 import { Verdict, type VerdictKey } from "@/components/io/Verdict";
 import { Score, useCompanyScore } from "@/components/io/Score";
 import { Health } from "@/components/io/Health";
@@ -183,7 +184,8 @@ export function TermCompany({ ticker }: { ticker: string }) {
             {/* The company's own description where its report can be read; the registry's line otherwise. */}
             <div className="t-panel-pad"><About ticker={company.ticker} /></div>
             {description ? <p className="t-panel-pad t-dim t-about-fallback">{description}</p> : null}
-            <Stats view={view} quote={valuationQuote} />
+            <KeyStatistics view={view} quote={valuationQuote} />
+            <Stats view={view} quote={valuationQuote} notesOnly />
           </Panel>
 
           <Panel code="SC" className="t-side">

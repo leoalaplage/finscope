@@ -116,10 +116,6 @@ export function EarningsCalendar({ tickers }: { tickers: string[] }) {
           })}
         </tbody>
       </table>
-      <p className="t-study-note">
-        Amber dates are announced (☀ before the open, ☾ after the close); ~dates are expected from each filer&apos;s past 8-K releases, ± a week.
-        Full calendar: <a href="/t/ecal">ECAL</a>.
-      </p>
     </div>
   );
 }

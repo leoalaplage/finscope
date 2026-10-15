@@ -20,6 +20,23 @@ import { hrefFor, parseCommand, suggestFunctions, type Command } from "@/lib/ter
 
 interface Match { ticker: string; name: string }
 interface Suggestion { key: string; code: string; name: string; kind: string; command: string }
+interface Recent { command: string; name: string | null }
+
+/** The last three places the line took the reader, offered when it is focused empty. Kept on this device. */
+const RECENT_KEY = "finscope.term.recent-commands.v1";
+const RECENT_COUNT = 3;
+function readRecent(): Recent[] {
+  try {
+    const value = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") as unknown;
+    return Array.isArray(value) ? value.filter((entry): entry is Recent => typeof entry?.command === "string").slice(0, RECENT_COUNT) : [];
+  } catch { return []; }
+}
+function remember(entry: Recent) {
+  try {
+    const kept = [entry, ...readRecent().filter((each) => each.command !== entry.command)].slice(0, RECENT_COUNT);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(kept));
+  } catch { /* Not kept: private browsing. */ }
+}
 
 export function CommandLine({ current, onHelp }: { current: string | null; onHelp: () => void }) {
   const listId = useId();
@@ -29,6 +46,8 @@ export function CommandLine({ current, onHelp }: { current: string | null; onHel
   const [active, setActive] = useState(-1);
   const [answer, setAnswer] = useState<{ query: string; matches: Match[] }>({ query: "", matches: [] });
   const [error, setError] = useState<{ text: string; message: string } | null>(null);
+  // Read once, in the browser; the list only draws once the line has focus, so the server's empty one never shows.
+  const [recent] = useState<Recent[]>(() => (typeof window === "undefined" ? [] : readRecent()));
 
   const parsed = parseCommand(text, current);
   // A name is looked up; so is a lone word that might be the start of one.
@@ -37,11 +56,14 @@ export function CommandLine({ current, onHelp }: { current: string | null; onHel
       : "";
   const matches = answer.query === lookup ? answer.matches : [];
 
-  const suggestions: Suggestion[] = [
-    ...suggestFunctions(text, current).map((spec) => ({ key: `fn-${spec.command}`, code: spec.code, name: spec.name, kind: "FUNCTION", command: spec.command })),
-    ...matches.map((match) => ({ key: `eq-${match.ticker}`, code: match.ticker, name: match.name, kind: "EQUITY", command: match.ticker })),
-  ].slice(0, 12);
-  const showing = open && text.trim().length > 0 && suggestions.length > 0;
+  const empty = text.trim().length === 0;
+  const suggestions: Suggestion[] = empty
+    ? recent.map((entry) => ({ key: `re-${entry.command}`, code: entry.command, name: entry.name ?? "", kind: "RECENT", command: entry.command }))
+    : [
+      ...suggestFunctions(text, current).map((spec) => ({ key: `fn-${spec.command}`, code: spec.code, name: spec.name, kind: "FUNCTION", command: spec.command })),
+      ...matches.map((match) => ({ key: `eq-${match.ticker}`, code: match.ticker, name: match.name, kind: "EQUITY", command: match.ticker })),
+    ].slice(0, 12);
+  const showing = open && suggestions.length > 0;
   const message = error?.text === text ? error.message : null;
 
   useEffect(() => {
@@ -87,7 +109,8 @@ export function CommandLine({ current, onHelp }: { current: string | null; onHel
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const run = (command: Command, typed: string) => {
+  const nameOf = (ticker: string) => matches.find((match) => match.ticker === ticker)?.name ?? recent.find((entry) => entry.command === ticker)?.name ?? null;
+  const run = (command: Command, typed: string, said: string = typed) => {
     if (command.kind === "empty") return;
     if (command.kind === "global" && command.fn === "HELP") {
       setText("");
@@ -105,7 +128,7 @@ export function CommandLine({ current, onHelp }: { current: string | null; onHel
         setError({ text: typed, message: answer.query === lookup ? "No security found" : "Searching…" });
         return;
       }
-      go(`/t/s/${encodeURIComponent(ticker)}`);
+      go(`/t/s/${encodeURIComponent(ticker)}`, { command: ticker, name: nameOf(ticker) });
       return;
     }
     /*
@@ -116,14 +139,16 @@ export function CommandLine({ current, onHelp }: { current: string | null; onHel
      */
     if (command.kind === "company" && command.fn === "DES" && answer.query === lookup && matches.length) {
       const ticker = chooseSymbol(command.ticker, matches) ?? command.ticker;
-      go(`/t/s/${encodeURIComponent(ticker)}`);
+      go(`/t/s/${encodeURIComponent(ticker)}`, { command: ticker, name: nameOf(ticker) });
       return;
     }
     const href = hrefFor(command);
-    if (href) go(href);
+    const words = said.trim().toUpperCase().replace(/\s+/g, " ");
+    if (href) go(href, words ? { command: words, name: nameOf(words.split(" ")[0]) } : null);
   };
 
-  const go = (href: string) => {
+  const go = (href: string, entry: Recent | null) => {
+    if (entry) remember(entry);
     setOpen(false);
     setText("");
     field.current?.blur();
@@ -135,7 +160,7 @@ export function CommandLine({ current, onHelp }: { current: string | null; onHel
   const execute = () => {
     const chosen = showing && active >= 0 ? suggestions[active] : null;
     const typed = chosen ? chosen.command : text;
-    run(parseCommand(typed, current), text);
+    run(parseCommand(typed, current), text, typed);
   };
 
   return (
@@ -186,7 +211,7 @@ export function CommandLine({ current, onHelp }: { current: string | null; onHel
         <button type="submit" className="t-cmd-go" aria-label="Run command"><kbd>&lt;GO&gt;</kbd></button>
       </form>
       {showing ? (
-        <div className="t-cmd-list" id={listId} role="listbox">
+        <div className="t-cmd-list" id={listId} role="listbox" aria-label={empty ? "Recent" : "Suggestions"}>
           {suggestions.map((suggestion, index) => (
             <button
               type="button"
@@ -196,7 +221,7 @@ export function CommandLine({ current, onHelp }: { current: string | null; onHel
               role="option"
               aria-selected={index === active}
               onPointerDown={(event) => event.preventDefault()}
-              onClick={() => run(parseCommand(suggestion.command, current), text)}
+              onClick={() => run(parseCommand(suggestion.command, current), text, suggestion.command)}
               onPointerEnter={() => setActive(index)}
             >
               <span className="t-sug-code">{suggestion.code}</span>

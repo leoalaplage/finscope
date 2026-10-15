@@ -240,7 +240,8 @@ export function RatesPanel({ data }: { data: HomeData }) {
           ))}
         </tbody>
       </table>
-      <p className="t-study-note">{rates.live ? "Live" : `As of ${rates.asOf}`} · {rates.source}. Curve: <a href="/t/market">MKT</a></p>
+      {/* Live needs no note; the Treasury's fallback is one reading a day, and says which. */}
+      {rates.live ? null : <p className="t-study-note">As of {rates.asOf} · {rates.source}</p>}
     </div>
   );
 }
@@ -284,7 +285,6 @@ export function FedPanel({ data }: { data: HomeData }) {
           </tbody>
         </table>
       </div>
-      <p className="t-study-note">Each meeting&apos;s own move, read from CBOT 30-day fed funds futures the way CME&apos;s FedWatch reads them; the range counts every meeting up to it. An estimate from prices, not a forecast.</p>
     </div>
   );
 }
@@ -326,7 +326,6 @@ export function SessionSummary({ data, tape, econ }: { data: HomeData; tape: Tap
   return (
     <div className="t-summary">
       {lines.map((line) => <p key={line}>{line}</p>)}
-      <p className="t-study-note">Written from the figures on this screen, in fixed templates: no figure is guessed, and a sentence without its numbers is left out.</p>
     </div>
   );
 }

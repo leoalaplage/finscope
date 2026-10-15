@@ -242,6 +242,9 @@ function KeyFigures({ fund, surface, analytics }: { fund: EtfProfile; surface: S
   );
 }
 
+/** A year's return in a narrow box: whole per cent, "+33". */
+const shortPct = (value: number) => `${value < 0 ? "−" : "+"}${Math.abs(value * 100).toFixed(0)}`;
+
 function CalendarYears({ fund }: { fund: EtfProfile }) {
   const returns = fund.prospectus!.returns;
   const extreme = Math.max(0.01, ...returns.calendar.map((entry) => Math.abs(entry.fund)));
@@ -249,11 +252,12 @@ function CalendarYears({ fund }: { fund: EtfProfile }) {
     <div className="etf-years" role="img" aria-label={`Calendar-year returns: ${returns.calendar.map((entry) => `${entry.year} ${signedPct(entry.fund)}`).join(", ")}`}>
       {returns.calendar.map((entry) => (
         <div key={entry.year} className="etf-year" data-dir={tone(entry.fund)}>
-          <span className="etf-year-value num">{signedPct(entry.fund)}</span>
+          {/* Two writings of each figure, the short one for a narrow box (app/io.css, @container). */}
+          <span className="etf-year-value num"><span className="etf-long">{signedPct(entry.fund)}</span><span className="etf-short">{shortPct(entry.fund)}</span></span>
           <span className="etf-year-track">
             <span className="etf-year-bar" style={{ height: `${(Math.abs(entry.fund) / extreme) * 50}%`, [entry.fund >= 0 ? "bottom" : "top"]: "50%" } as CSSProperties} />
           </span>
-          <span className="etf-year-label">{entry.year}</span>
+          <span className="etf-year-label"><span className="etf-long">{entry.year}</span><span className="etf-short">&apos;{String(entry.year).slice(2)}</span></span>
         </div>
       ))}
     </div>
@@ -357,8 +361,8 @@ function FlowsBody({ fund }: { fund: EtfProfile }) {
         })}
       </div>
       <div className="etf-years etf-flows" role="img" aria-label={`Monthly net flows: ${months.map((entry) => `${entry.month} ${signedMoney(entry.flow)}`).join(", ")}`}>
-        {months.map((entry) => (
-          <div key={entry.month} className="etf-year" data-dir={tone(entry.flow)} title={`${entry.month}: ${signedMoney(entry.flow)}`}>
+        {months.map((entry, index) => (
+          <div key={entry.month} className="etf-year" data-dir={tone(entry.flow)} data-tick={(months.length - 1 - index) % 3 === 0 || undefined} title={`${entry.month}: ${signedMoney(entry.flow)}`}>
             <span className="etf-year-value num">{Math.abs(entry.flow) >= extreme * 0.35 ? signedMoney(entry.flow) : ""}</span>
             <span className="etf-year-track">
               <span className="etf-year-bar" style={{ height: `${(Math.abs(entry.flow) / extreme) * 50}%`, [entry.flow >= 0 ? "bottom" : "top"]: "50%" } as CSSProperties} />

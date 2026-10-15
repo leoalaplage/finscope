@@ -165,7 +165,8 @@
 .fund-heat-tile b { font-size: 11px; font-weight: 700; }
 .fund-heat-tile span { font-size: 10px; opacity: .92; font-variant-numeric: tabular-nums; }
 
-.etf-growth svg { display: block; overflow: visible; }
+.etf-growth { min-width: 0; }
+.etf-growth svg { display: block; max-width: 100%; overflow: visible; }
 .etf-growth-base { stroke: var(--line-strong); stroke-dasharray: 3 4; }
 .etf-growth-fund { fill: none; stroke: var(--c1); stroke-width: 2; }
 .etf-growth-bench { fill: none; stroke: var(--ink-3); stroke-width: 1.25; }

@@ -2428,9 +2428,6 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 @media (max-width: 640px) {
   .etf-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .etf-chart { height: 300px; }
-  .etf-years { height: 180px; gap: 3px; padding: 8px; }
-  .etf-year-value { font-size: var(--fs-micro); }
-  .etf-holding-name { max-width: 16ch; }
 }
 .etf-flow-sums { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: calc(var(--u) * 3); border: 1px solid var(--line); border-radius: var(--radius); }
 .etf-flow-sums > div { display: grid; gap: 4px; padding: 10px 12px; }
@@ -2442,12 +2439,29 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .etf-bar-pair { grid-template-columns: minmax(0, 7rem) minmax(0, 1fr) 9ch minmax(0, 1fr) 9ch; }
 .etf-bar-track[data-dir="up"] > span { background: var(--gain); }
 .etf-bar-track[data-dir="down"] > span { background: var(--loss); }
-@media (max-width: 640px) {
-  .etf-flow-sums { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .etf-flow-sums > div + div { border-left: 0; border-top: 1px solid var(--line); }
+/*
+ * Narrow by the box, not by the screen: in the terminal a fund's charts sit in
+ * half and side columns of a wide screen, where a viewport query never fires
+ * and ten years of labels ran into each other. Every .etf-cell is a container.
+ */
+.etf-short { display: none; }
+@container (max-width: 620px) {
+  .etf-years { height: 180px; gap: 3px; padding: 8px; }
+  .etf-year-value { font-size: var(--fs-micro); }
+  .etf-holding-name { max-width: 16ch; }
+  .etf-flow-sums { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .etf-flow-sums > div + div { border-left: 0; }
   .etf-flows .etf-year-value { display: none; }
+  .etf-flows .etf-year:not([data-tick]) .etf-year-label { visibility: hidden; }
   .etf-bar-pair { grid-template-columns: minmax(0, 5rem) minmax(0, 1fr) 8ch; }
   .etf-bar-pair > :nth-child(4), .etf-bar-pair > :nth-child(5) { grid-column: 2 / span 1; }
+  .etf-bar-pair > :nth-child(5) { grid-column: 3 / span 1; }
+}
+@container (max-width: 480px) {
+  .etf-years .etf-long { display: none; }
+  .etf-years .etf-short { display: inline; }
+  .etf-flow-sums { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .etf-bar { grid-template-columns: minmax(0, 7rem) minmax(0, 1fr) 6ch; gap: 6px; }
 }
 
 /* --- What a company or fund is (components/io/About.tsx) ----------------- */
@@ -2474,7 +2488,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .etf-risk-stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .etf-risk-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: calc(var(--u) * 6); margin-top: calc(var(--u) * 4); align-items: start; }
 .etf-drawdown { margin: 0; min-width: 0; }
-.etf-drawdown svg { display: block; border-bottom: 1px solid var(--line); }
+.etf-drawdown svg { display: block; max-width: 100%; border-bottom: 1px solid var(--line); }
 .etf-drawdown-zero { stroke: var(--line-strong); }
 .etf-drawdown-area { fill: color-mix(in srgb, var(--loss) 18%, transparent); }
 .etf-drawdown-line { fill: none; stroke: var(--loss); stroke-width: 1.25; }
@@ -2492,7 +2506,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .etf-risks dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px 24px; margin: 10px 0 0; }
 .etf-risks dt { font-weight: 600; font-size: var(--fs-sm); }
 .etf-risks dd { margin: 2px 0 0; color: var(--ink-2); font-size: var(--fs-sm); line-height: 1.5; }
-@media (max-width: 900px) {
+@container (max-width: 900px) {
   .etf-score, .etf-risk-body { grid-template-columns: minmax(0, 1fr); }
   .etf-score-pillars .qs-pillar { grid-template-columns: 9rem minmax(0, 1fr) 3ch; }
   .etf-score-reading { grid-column: 1 / -1; }
