@@ -39,15 +39,15 @@
   --page: none;
   --radius: 0;
 
-  --bg: #0f0e0b;
-  --raise: #15140f;
-  --fill: #1c1a15;
-  --line: #201e18;
-  --line-strong: #322f27;
+  --bg: #060605;
+  --raise: #0d0c0a;
+  --fill: #151410;
+  --line: #1a1915;
+  --line-strong: #2a2822;
   --ink: #ece9e2;
   --ink-2: #a8a397;
   --ink-3: #75705f;
-  --inverse: #0f0e0b;
+  --inverse: #060605;
   /*
    * Charts are not the accent: gold is the terminal's own voice, and a screen
    * of gold plots under gold headings reads as one colour. A plot is violet by
@@ -71,10 +71,10 @@
 
   /* The accent, Tenqay's identity: signal gold (the names stay: every rule reads --amber). */
   --amber: #e9c46a;
-  --amber-ink: #0f0e0b;
+  --amber-ink: #060605;
   --amber-dim: rgba(233, 196, 106, .55);
   --cyan: #c4b5fd;
-  --head: #14130f;
+  --head: #0c0b09;
 
   color-scheme: dark;
   font-size: var(--fs-md);
@@ -84,8 +84,8 @@
 }
 
 /* The page behind the page, whatever the document site's theme says. */
-:root:has(.io.term), :root[data-theme]:has(.io.term) { background: #0f0e0b; }
-body:has(.io.term) { background: #0f0e0b; }
+:root:has(.io.term), :root[data-theme]:has(.io.term) { background: #060605; }
+body:has(.io.term) { background: #060605; }
 
 .term ::selection { background: var(--amber); color: var(--amber-ink); }
 .term :focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; border-radius: 0; }

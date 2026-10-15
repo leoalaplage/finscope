@@ -985,7 +985,7 @@ describe("the redesign", () => {
     const icon = readFileSync(new URL("../public/favicon.svg", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/terminal.css", import.meta.url), "utf8");
     expect(icon).toContain("#e9c46a");
-    expect(icon).toContain("#0f0e0b");
+    expect(icon).toContain("#060605");
     expect(css).toContain("--amber: #e9c46a;");
     // No accent of before, and no data blue the accent could be taken for.
     for (const old of ["255, 160, 40", "212, 250, 76", "92, 214, 247", "#4ea8ff", "#5fb8ff"]) expect(css).not.toContain(old);

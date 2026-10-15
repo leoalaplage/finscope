@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Filed financials, market prices and valuation for US-listed companies.",
     start_url: "/t",
     display: "standalone",
-    background_color: "#0f0e0b",
-    theme_color: "#0f0e0b",
+    background_color: "#060605",
+    theme_color: "#060605",
     icons: [
       { src: "/favicon.svg", sizes: "any", type: "image/svg+xml" },
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
