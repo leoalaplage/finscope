@@ -80,7 +80,7 @@ export function OperatingKpis({ ticker, cik }: { ticker: string; cik: string }) 
   const current = answer?.key === key ? answer : null;
   if (!current) return <p className="t-empty">Reading the releases and the 10-Qs of the last two years… the first reading takes a few seconds.</p>;
   if (current.failed || !current.data) {
-    return <p className="t-empty">EDGAR did not answer just now. <button type="button" className="segments-retry" onClick={() => setAttempt((count) => count + 1)}>Try again</button></p>;
+    return <p className="t-empty">EDGAR is temporarily unavailable. <button type="button" className="segments-retry" onClick={() => setAttempt((count) => count + 1)}>Try again</button></p>;
   }
   const { kpis, early } = current.data;
   if (!kpis.length) return <p className="t-empty">No operating figure in this company&apos;s releases and 10-Qs could be proven against the same table a year apart.</p>;

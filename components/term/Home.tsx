@@ -98,7 +98,7 @@ const meetingLabel = (date: string) => `${MONTHS[Number(date.slice(5, 7)) - 1]} 
 
 export function PortfolioGlance({ positions, tape }: { positions: Position[]; tape: Tape | null }) {
   if (!positions.length) {
-    return <p className="t-empty">No holdings yet. <a href="/t/portfolio">Add your positions on PORT</a> to see the book&apos;s day here.</p>;
+    return <p className="t-empty">No positions. <a href="/t/portfolio">Add holdings in PORT</a> to track daily performance.</p>;
   }
   const quotes = new Map((tape?.quotes ?? []).filter((quote) => quote.kind === "equity").map((quote) => [quote.symbol, quote]));
   const lines = positions.flatMap((position) => {
@@ -108,7 +108,7 @@ export function PortfolioGlance({ positions, tape }: { positions: Position[]; ta
     const before = quote.changePercent == null ? null : value / (1 + quote.changePercent);
     return [{ ticker: position.ticker, value, day: before == null ? null : value - before, change: quote.changePercent, cost: position.cost == null ? null : position.cost * position.shares }];
   });
-  if (!lines.length) return <p className="t-empty">{tape ? "No price for the holdings just now." : "Pricing the book…"}</p>;
+  if (!lines.length) return <p className="t-empty">{tape ? "Prices unavailable." : "Loading prices…"}</p>;
   const value = lines.reduce((sum, line) => sum + line.value, 0);
   const moved = lines.filter((line) => line.day != null);
   const day = moved.reduce((sum, line) => sum + line.day!, 0);
@@ -127,8 +127,8 @@ export function PortfolioGlance({ positions, tape }: { positions: Position[]; ta
         {gain != null ? <div><span className="t-dim">Unrealised{costed.length < lines.length ? "*" : ""}</span><b data-dir={dir(gain)}>{gain >= 0 ? "+" : "−"}{money(Math.abs(gain), "USD")}</b><span data-dir={dir(gain)}>{delta(costBase ? gain / costBase : null)}</span></div> : null}
       </div>
       <div className="t-glance-movers">
-        <Contributors title="Adding most" lines={up} />
-        <Contributors title="Costing most" lines={down} />
+        <Contributors title="Top contributors" lines={up} />
+        <Contributors title="Top detractors" lines={down} />
       </div>
       <p className="t-study-note">
         {lines.length} positions priced{missing ? `, ${missing} without a price` : ""}{gain != null && costed.length < lines.length ? "; *unrealised gain on the positions with a cost entered" : ""}. <a href="/t/portfolio">PORT</a>
@@ -153,13 +153,13 @@ function Contributors({ title, lines }: { title: string; lines: Array<{ ticker: 
 /* ---------- EVTS: the reader's names reporting this week ---------- */
 
 export function WatchEarnings({ data, tickers }: { data: HomeData; tickers: string[] }) {
-  if (data.earnings === undefined) return <p className="t-empty">Reading this week&apos;s calendar…</p>;
-  if (data.earnings === null) return <p className="t-empty">The earnings calendar could not be read just now.</p>;
+  if (data.earnings === undefined) return <p className="t-empty">Loading the earnings calendar…</p>;
+  if (data.earnings === null) return <p className="t-empty">The earnings calendar is temporarily unavailable.</p>;
   const week = weekOf(data.today);
   const followed = new Set(tickers);
   const rows = (data.earnings.days ?? []).filter((entry) => entry.date >= week.from && entry.date <= week.to)
     .flatMap((entry) => entry.rows.filter((row) => followed.has(row.ticker)).map((row) => ({ ...row, date: entry.date })));
-  if (!rows.length) return <p className="t-empty">None of your names reports this week ({shortDate(week.from)} – {shortDate(week.to)}). <a href="/t/ecal">ECAL</a></p>;
+  if (!rows.length) return <p className="t-empty">No watchlist company reports this week ({shortDate(week.from)} – {shortDate(week.to)}). <a href="/t/ecal">ECAL</a></p>;
   return (
     <div className="sheet t-week-earnings">
       <table>
@@ -188,7 +188,7 @@ export function SignalsPanel({ data }: { data: HomeData }) {
   const [tab, setTab] = useState<"highs" | "lows" | "volume">("highs");
   const signals = data.signals;
   if (signals === undefined) return <p className="t-empty">Reading the index…</p>;
-  if (signals === null) return <p className="t-empty">The scanner&apos;s snapshot is being built.</p>;
+  if (signals === null) return <p className="t-empty">Data is being prepared.</p>;
   const list: Signal[] = signals[tab];
   return (
     <div className="t-sigs">
@@ -214,7 +214,7 @@ export function SignalsPanel({ data }: { data: HomeData }) {
           </table>
         </div>
       ) : <p className="t-empty">None {tab === "volume" ? "trading twice their usual volume" : `at a new 52-week ${tab === "highs" ? "high" : "low"}`}.</p>}
-      <p className="t-study-note">S&amp;P 500, your names first (★). Today&apos;s highs and lows from the half-hourly prices; volume from the last whole session{signals.session ? ` (${shortDate(signals.session)})` : ""}. <a href="/t/screener">SCRN</a></p>
+      <p className="t-study-note">S&amp;P 500 constituents; watchlist names first (★). Today&apos;s highs and lows from the half-hourly prices; volume from the last whole session{signals.session ? ` (${shortDate(signals.session)})` : ""}. <a href="/t/screener">SCRN</a></p>
     </div>
   );
 }
@@ -223,8 +223,8 @@ export function SignalsPanel({ data }: { data: HomeData }) {
 
 export function RatesPanel({ data }: { data: HomeData }) {
   const rates = data.rates;
-  if (rates === undefined) return <p className="t-empty">Reading the Treasury market…</p>;
-  if (rates === null) return <p className="t-empty">No rates source answered just now.</p>;
+  if (rates === undefined) return <p className="t-empty">Loading Treasury data…</p>;
+  if (rates === null) return <p className="t-empty">Rates data is temporarily unavailable.</p>;
   return (
     <div className="sheet t-rates">
       <table>
@@ -250,8 +250,8 @@ export function RatesPanel({ data }: { data: HomeData }) {
 
 export function FedPanel({ data }: { data: HomeData }) {
   const fed = data.fed;
-  if (fed === undefined) return <p className="t-empty">Reading the fed funds futures…</p>;
-  if (fed === null) return <p className="t-empty">The futures or the New York Fed did not answer just now.</p>;
+  if (fed === undefined) return <p className="t-empty">Loading fed funds futures…</p>;
+  if (fed === null) return <p className="t-empty">Fed funds futures data is temporarily unavailable.</p>;
   const split = (odds: Record<string, number>) => ({
     cut: Object.entries(odds).filter(([move]) => Number(move) < 0).reduce((sum, [, p]) => sum + p, 0),
     hold: odds["0"] ?? 0,
@@ -322,7 +322,7 @@ export function SessionSummary({ data, tape, econ }: { data: HomeData; tape: Tap
       signals: data.signals ? { highs: data.signals.counts.highs, lows: data.signals.counts.lows } : null,
     });
   }, [data, tape, econ]);
-  if (!lines.length) return <p className="t-empty">Writing the session from the numbers…</p>;
+  if (!lines.length) return <p className="t-empty">Loading the market summary…</p>;
   return (
     <div className="t-summary">
       {lines.map((line) => <p key={line}>{line}</p>)}

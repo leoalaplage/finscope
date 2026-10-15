@@ -100,18 +100,18 @@ describe("the session written out", () => {
   };
   it("writes every sentence from the numbers it was given", () => {
     const lines = sessionSummary(base);
-    expect(lines[0]).toBe("Stocks are lower: the S&P 500 −1.10%, the Nasdaq −1.88% and the Dow −0.09%.");
-    expect(lines[1]).toBe("Underneath, 60 of 120 S&P 500 members rose: an even split. Energy led (median +1.0%) and Technology lagged (−2.6%).");
+    expect(lines[0]).toBe("US equities are lower: the S&P 500 −1.10%, the Nasdaq −1.88% and the Dow −0.09%.");
+    expect(lines[1]).toBe("Breadth: 60 of 120 S&P 500 constituents advanced (balanced). Energy led (median +1.0%) and Technology lagged (−2.6%).");
     expect(lines).toContain("Treasury yields are lower: the 10-year at 5.08% (−10 bp), the 2-year at 4.73% (−7 bp); the curve flattens to +35 bp 2s10s.");
     expect(lines).toContain("The dollar index falls 0.31% to 98.50.");
     expect(lines).toContain("CPI, y/y came in at 3.7% against 3.6% expected — above the consensus; S&P futures moved −0.68% in the half hour after.");
-    expect(lines).toContain("Results: 1 of 2 reporting today beat the consensus on earnings per share; the widest gaps TSM +4.2% and UAL −1.1%.");
-    expect(lines).toContain("12 S&P 500 members set a new 52-week high and 4 a new low (the last session's and today's).");
-    expect(lines).toContain("For the Fed on Oct 28, futures price 30% odds of a hike.");
+    expect(lines).toContain("Earnings: 1 of 2 companies reporting today beat EPS consensus; largest surprises: TSM +4.2% and UAL −1.1%.");
+    expect(lines).toContain("52-week highs: 12 S&P 500 constituents; 52-week lows: 4 (the last session's and today's).");
+    expect(lines).toContain("FOMC Oct 28: fed funds futures imply a 30% probability of a hike.");
   });
   it("leads with the futures before the open, and leaves out what it has no numbers for", () => {
     const lines = sessionSummary({ ...base, phase: "pre", members: [], rates: [], releases: [], results: [], fed: null, signals: null });
-    expect(lines).toEqual(["Before the open, futures point lower: S&P fut −0.33%."]);
+    expect(lines).toEqual(["Pre-market, US index futures are lower: S&P fut −0.33%."]);
   });
 });
 

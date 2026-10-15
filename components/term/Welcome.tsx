@@ -124,7 +124,7 @@ function Intro({ onNext }: { onNext: () => void }) {
   return (
     <div className="t-wel-intro">
       <p className="t-wel-mark">TENQAY</p>
-      <h1>Market intelligence for every investor.</h1>
+      <h1>Market intelligence.</h1>
       <p className="t-wel-sub">Real-time market data, company fundamentals and macroeconomic analysis in a single platform.</p>
       <button type="button" className="t-wel-cta t-wel-big" onClick={onNext}>Get started</button>
     </div>
@@ -157,7 +157,7 @@ function Shot({ url, label, children }: { url: string; label?: string; children:
 function CompanyCharts({ ticker }: { ticker: string }) {
   const { state } = useCompany(ticker);
   if (state.kind === "ready") return <FundamentalCharts view={state.view} />;
-  return <p className="t-empty">{state.kind === "failed" ? "The filings could not be read just now." : `Reading ${ticker}'s filings…`}</p>;
+  return <p className="t-empty">{state.kind === "failed" ? "The filings is temporarily unavailable." : `Reading ${ticker}'s filings…`}</p>;
 }
 
 function AccountStep({ onFinish }: { onFinish: (href?: string) => void }) {

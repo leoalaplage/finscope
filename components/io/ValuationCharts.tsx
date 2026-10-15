@@ -62,7 +62,7 @@ export function ValuationCharts({ view, quote }: { view: IoCompanyView; quote: I
   const shown = points.filter((point) => point.date >= from);
 
   if (!current) return <section className="section valuation-charts"><p className="stat-note">Pricing ten years of month-ends against the figures public on each…</p></section>;
-  if (!current.prices) return <section className="section valuation-charts"><p className="stat-note">The price history could not be read just now.</p></section>;
+  if (!current.prices) return <section className="section valuation-charts"><p className="stat-note">The price history is temporarily unavailable.</p></section>;
 
   const charts = MULTIPLES.flatMap((spec) => {
     const values = shown.map((point) => point.values[spec.key] ?? null);

@@ -71,7 +71,7 @@ export function EarningsCalendar({ tickers }: { tickers: string[] }) {
 
   const rows = answer?.key === key ? answer.rows : undefined;
   if (rows === undefined) return <p className="t-empty">Reading the SEC index…</p>;
-  if (rows === null) return <p className="t-empty">The SEC index could not be read just now.</p>;
+  if (rows === null) return <p className="t-empty">The SEC index is temporarily unavailable.</p>;
 
   return (
     <div className="sheet t-calendar">

@@ -184,7 +184,7 @@ function YieldCurve() {
     return () => controller.abort();
   }, []);
   if (answer === undefined) return <p className="t-empty">Reading the Treasury curve…</p>;
-  if (!answer || answer.now.points.length < 2) return <p className="t-empty">The Treasury curve could not be read just now.</p>;
+  if (!answer || answer.now.points.length < 2) return <p className="t-empty">The Treasury curve is temporarily unavailable.</p>;
   const before = new Map((answer.monthAgo?.points ?? []).map((point) => [point.label, point.value]));
   const points = answer.now.points.map((point) => ({ ...point, before: before.get(point.label) ?? null }));
   const values = points.flatMap((point) => [point.value, point.before ?? point.value]);
@@ -434,7 +434,7 @@ export function MarketBoard() {
         </Panel>
       </div>
 
-      <Panel code="SECT" title="Sectors · median move" area="sect" className="t-fill" actions={<RankChip rank={rankOf("sect")} onRank={setRank("sect")} column="d1" names={Object.fromEntries(SECTOR_COLUMNS)} />}>
+      <Panel code="SECT" title="Sectors · median performance" area="sect" className="t-fill" actions={<RankChip rank={rankOf("sect")} onRank={setRank("sect")} column="d1" names={Object.fromEntries(SECTOR_COLUMNS)} />}>
         <div className="sheet t-sectors">
           <table>
             <thead>

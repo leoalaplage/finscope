@@ -42,7 +42,7 @@ export function Dividends({ view, price }: { view: IoCompanyView; price: number 
   const payoutCash = paid != null && fcf != null && fcf > 0 ? Math.abs(paid) / fcf : null;
 
   if (payments === undefined) return <p className="t-empty">Reading the dividend record…</p>;
-  if (payments === null) return <p className="t-empty">The dividend record could not be read just now.</p>;
+  if (payments === null) return <p className="t-empty">The dividend record is temporarily unavailable.</p>;
   if (!record || (!record.annualRate && record.trailing === 0)) {
     return <p className="t-empty">{payments.length ? `No dividend paid since ${shortDate(payments.at(-1)!.date)}.` : "This company has paid no dividend in the last 25 years."}</p>;
   }

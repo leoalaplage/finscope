@@ -49,7 +49,7 @@ export function NewsList() {
 
   // A wire nobody can reach says so, rather than leaving the reader who
   // chose this tab looking at an empty panel.
-  if (state.kind === "absent") return <p className="stat-note wire-caption">The wire could not be read just now.</p>;
+  if (state.kind === "absent") return <p className="stat-note wire-caption">The wire is temporarily unavailable.</p>;
 
   return (
     <>

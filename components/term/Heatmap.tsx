@@ -134,7 +134,7 @@ export function Heatmap({ height = 600, compact = false }: { height?: number; co
         onPointerMove={onMove} onPointerLeave={() => setHover(null)}
       >
         {!companies && !failed ? <p className="t-empty">Loading the index…</p> : null}
-        {failed && !companies ? <p className="t-empty">The map could not be read just now.</p> : null}
+        {failed && !companies ? <p className="t-empty">The map is temporarily unavailable.</p> : null}
         {map.map((block) => (
           <div key={block.name} className="t-heat-sector" style={{ left: block.x, top: block.y, width: block.width, height: block.height }}>
             {block.header ? (

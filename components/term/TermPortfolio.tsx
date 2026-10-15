@@ -409,7 +409,7 @@ export function TermPortfolio() {
           </p>
         </Panel>
 
-        <Panel code="KPI" title="The book in figures" area="kpi" className="t-fill">
+        <Panel code="KPI" title="Key metrics" area="kpi" className="t-fill">
           <div className="t-pf-kpis">
             {kpis.map((kpi) => (
               <div className="t-pf-kpi" key={kpi.label}>
@@ -475,7 +475,7 @@ export function TermPortfolio() {
           {feed.pending.length ? <p className="t-study-note">{feed.pending.join(", ")} still being read from the filings: priced, but without grade or look-through figures yet.</p> : null}
         </Panel>
 
-        <Panel code="IMAP" id="pf-map" title="The book as a map · size by value, colour by today's move" area="map">
+        <Panel code="IMAP" id="pf-map" title="Holdings map · sized by value, coloured by daily change" area="map">
           <HoldingsMap items={valued.positions.filter((position) => position.value != null).map((position) => ({
             ticker: position.ticker, sector: stated(position.sector) ?? "Not classified", value: position.value!, weight: position.weight ?? 0,
             change: feed.quotes[position.ticker]?.changePercent ?? null,
@@ -489,14 +489,14 @@ export function TermPortfolio() {
           </p>
         </Panel>
 
-        <Panel code="ATTR" title={`What each holding added · ${span}`} area="contrib">
+        <Panel code="ATTR" title={`Return attribution · ${span}`} area="contrib">
           {perf?.contrib.length ? (
             <Bars rows={perf.contrib.map((row) => ({ label: row.ticker, value: row.money, note: `${pct(row.ret)} on the holding · ${pct(row.share, 2)} of the book`, href: `/t/s/${encodeURIComponent(row.ticker)}` }))} format={signedMoney} />
           ) : <p className="t-empty">Reading prices…</p>}
           <p className="t-study-note">Shares held × the change in each price since {perf ? shortDate(perf.from) : "the start of the window"}; the parts add up to the book&apos;s own change.</p>
         </Panel>
 
-        <Panel code="RISK" title="Where the risk sits · share of the book's variance, 1Y" area="risk">
+        <Panel code="RISK" title="Risk contribution · share of portfolio variance, 1Y" area="risk">
           {risk && Object.keys(risk.riskShare).length ? (
             <Bars rows={Object.entries(risk.riskShare).sort((left, right) => right[1] - left[1]).map(([ticker, share]) => ({
               label: ticker, value: share, color: holdingColor.get(ticker), note: `${plain(share)} of the risk for ${plain(valued.positions.find((position) => position.ticker === ticker)?.weight)} of the money`,
@@ -505,7 +505,7 @@ export function TermPortfolio() {
           <p className="t-study-note">Weight × covariance with the book, over the book&apos;s variance. A holding whose share of the risk is well above its share of the money is where the book is exposed.</p>
         </Panel>
 
-        <Panel code="CORR" title="How the holdings move together · daily, 1Y" area="corr">
+        <Panel code="CORR" title="Correlation matrix · daily returns, 1Y" area="corr">
           {risk?.correlationTickers.length ? <CorrelationMatrix tickers={risk.correlationTickers} matrix={risk.matrix} /> : <p className="t-empty">Reading prices…</p>}
           <p className="t-study-note">Correlation of daily returns: red moves together, blue moves apart. The twelve largest holdings.</p>
         </Panel>
@@ -521,7 +521,7 @@ export function TermPortfolio() {
           <p className="t-study-note">The trailing year&apos;s dividends at today&apos;s holdings, read from how far each adjusted close drifted from the close. {income.annual > 0 ? `${money(income.annual, BASE)} a year, ${money(income.annual / 12, BASE)} a month.` : ""}</p>
         </Panel>
 
-        <Panel code="EVTS" title="Holdings reporting · next three weeks" area="evts">
+        <Panel code="EVTS" title="Upcoming earnings · next three weeks" area="evts">
           {feed.earnings == null ? <p className="t-empty">Reading the calendar…</p> : feed.earnings.length ? (
             <div className="sheet">
               <table>
@@ -543,7 +543,7 @@ export function TermPortfolio() {
           <p className="t-study-note">Dates as the companies announced them, via Nasdaq; the consensus is the analysts&apos;, not a filed figure.</p>
         </Panel>
 
-        <Panel code="STRS" title="Stress test · through each holding's beta" area="stress">
+        <Panel code="STRS" title="Stress test · beta-adjusted scenarios" area="stress">
           <div className="sheet">
             <table>
               <thead><tr><th className="key">Scenario</th><th>Book</th><th>Money</th></tr></thead>
@@ -562,7 +562,7 @@ export function TermPortfolio() {
         </Panel>
 
         {dated ? (
-          <Panel code="CAP" title="Value against money put in" area="cap">
+          <Panel code="CAP" title="Portfolio value vs. net contributions" area="cap">
             <CapitalChart
               values={(series.weekly?.values ?? []).filter((point) => !sinceStart || point.date >= sinceStart)}
               invested={investedTimeline(trades)}

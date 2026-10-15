@@ -27,7 +27,7 @@ export function DebtMaturities({ view }: { view: IoCompanyView }) {
 
   const current = answer?.key === key ? answer : null;
   if (!current) return <p className="t-empty">Reading the latest 10-K…</p>;
-  if (current.failed) return <p className="t-empty">The filing could not be read just now.</p>;
+  if (current.failed) return <p className="t-empty">The filing is temporarily unavailable.</p>;
   const schedule = current.schedule;
   if (!schedule) return <p className="t-empty">The latest 10-K does not tag when the debt falls due, by year or note by note.</p>;
 

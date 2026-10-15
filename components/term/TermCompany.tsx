@@ -252,7 +252,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
         <Panel code="SEG" title="Segments" area="seg">
           <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
         </Panel>
-        <Panel code="KPI" title="Operating figures" area="kpi">
+        <Panel code="KPI" title="Operating KPIs" area="kpi">
           <div className="t-panel-pad"><OperatingKpis key={`kpi-${company.ticker}`} ticker={company.ticker} cik={company.cik} /></div>
         </Panel>
         {/* The figures and their growth side by side, one height: twelve small multiples fill the figures' half as the growth table fills its own. */}
@@ -282,7 +282,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
           * last panel of each stack takes the difference.
           */}
         <div className="t-mcol" style={{ gridArea: "left" }}>
-          <Panel code="ERX" title="Reaction to releases">
+          <Panel code="ERX" title="Earnings reaction">
             <EarningsReaction key={`erx-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
           </Panel>
         </div>
@@ -297,7 +297,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
           {/* The multiples through time, each against its own median and range. */}
           <ValuationCharts key={`valc-${company.ticker}`} view={view} quote={valuationQuote} />
         </Panel>
-        <Panel code="PEER" title="Against peers" area="peer">
+        <Panel code="PEER" title="Peer comparison" area="peer">
           <div className="t-panel-pad"><PeerValuation key={`peer-${company.ticker}`} view={view} quote={valuationQuote} /></div>
         </Panel>
         <Panel code="DCF" title="Discounted cash flow" area="dcf">
@@ -323,7 +323,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
         <Panel code="EVT" title="Corporate events" area="evt">
           <div className="t-panel-pad"><CompanyEvents key={`evt-${company.ticker}`} ticker={company.ticker} cik={company.cik} /></div>
         </Panel>
-        <Panel code="NOTE" title="Your notes" area="note">
+        <Panel code="NOTE" title="Notes" area="note">
           <div className="t-panel-pad"><ThesisNotes key={`note-${company.ticker}`} view={view} quote={quote} /></div>
         </Panel>
         <Panel code="FS" area="st">

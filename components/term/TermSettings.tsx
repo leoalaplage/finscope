@@ -207,7 +207,7 @@ export function TermSettings() {
         </div>
       </Panel>
 
-      <Panel code="SET" title="Kept on this device" area="kept" actions={
+      <Panel code="SET" title="Local data" area="kept" actions={
         <div className="t-alrt-actions">
           <button type="button" className="t-chip" onClick={exportAll}>Export everything</button>
           <button type="button" className="t-chip" onClick={() => file.current?.click()}>Restore from a file</button>

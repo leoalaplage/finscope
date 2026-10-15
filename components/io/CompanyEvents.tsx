@@ -50,7 +50,7 @@ export function CompanyEvents({ ticker, cik }: { ticker: string; cik: string }) 
   }, [events]);
 
   if (events === undefined) return <p className="t-empty">Reading the SEC index…</p>;
-  if (events === null) return <p className="t-empty">The SEC index could not be read just now. Try again in a minute.</p>;
+  if (events === null) return <p className="t-empty">The SEC index is temporarily unavailable. Try again in a minute.</p>;
   if (!events.length) return <p className="t-empty">Nothing filed in the last two years.</p>;
 
   const chosen = events.filter((event) => filter === "all" || (filter === "flag" ? event.flag : event.category === filter));

@@ -52,7 +52,7 @@ export function AccountPage() {
   const linkMessage: Message = linked === "verified" ? { tone: "ok", text: "Your address is confirmed. The daily email is on." }
     : linked === "expired" ? { tone: "error", text: "That confirmation link has expired or was already used. Save the address again to get a new one." } : null;
   const query = new URLSearchParams(signinState);
-  const signinMessage: Message = query.get("signin") === "ok" ? { tone: "ok", text: "Signed in. Your work is being brought to this browser." }
+  const signinMessage: Message = query.get("signin") === "ok" ? { tone: "ok", text: "Signed in. Your data is syncing to this browser." }
     : query.get("signin") === "linked" ? { tone: "ok", text: "Connected: you can now sign in this way too." }
     : query.get("signin") === "unavailable" ? { tone: "error", text: "That way of signing in is not available yet." }
     : query.get("signin") === "error" ? { tone: "error", text: query.get("reason") ?? "The sign-in failed. Try again." } : null;
@@ -165,15 +165,15 @@ function SignedOut({ supported, providers, busy, run, notice }: { supported: boo
       <header className="head settings-head">
         <div className="head-id">
           <h1 className="head-ticker">Account</h1>
-          <p className="head-name">Your work on every device, and a daily email of what changed</p>
+          <p className="head-name">Cross-device sync and daily email alerts</p>
         </div>
-        <p className="head-note">Free · no password to remember</p>
+        <p className="head-note">Passwordless sign-in</p>
       </header>
       {notice}
       <div className="acct-signin">
         <div className="acct-signin-card">
           <h2>Sign in or create an account</h2>
-          <p>One step: a new account is made the first time, with what this browser holds today.</p>
+          <p>New accounts are created on first sign-in and include the data stored in this browser.</p>
           {social ? (
             <div className="acct-providers">
               {providers.google ? <button type="button" className="acct-provider" disabled={busy} onClick={() => continueWith("google")}><GoogleMark />Continue with Google</button> : null}
@@ -198,7 +198,7 @@ function SignedOut({ supported, providers, busy, run, notice }: { supported: boo
             <>
               <div className="acct-or"><span>{social || providers.email ? "or with a passkey" : "with a passkey"}</span></div>
               <div className="acct-passkey-row">
-                <button type="button" className="acct-btn" disabled={busy} onClick={() => { void run(signIn, "Signed in. Your work is being brought to this browser."); }}>Sign in with a passkey</button>
+                <button type="button" className="acct-btn" disabled={busy} onClick={() => { void run(signIn, "Signed in. Your data is syncing to this browser."); }}>Sign in with a passkey</button>
                 <button type="button" className="acct-link" onClick={() => setCreating((open) => !open)}>{creating ? "Cancel" : "New here? Create one with a passkey"}</button>
               </div>
               {creating ? (
@@ -214,7 +214,7 @@ function SignedOut({ supported, providers, busy, run, notice }: { supported: boo
         <ul className="acct-benefits acct-benefits-side">
           <li><strong>Sync</strong><span>Watchlists, portfolio, notes, saved screens and the terminal&apos;s layout, the same on your phone and your computer.</span></li>
           <li><strong>Daily email</strong><span>Once a day after the US close, only when something changed for the companies you follow.</span></li>
-          <li><strong>No password</strong><span>Google, Apple, a link by email or your device&apos;s own lock. Nothing to remember, nothing to leak.</span></li>
+          <li><strong>No password</strong><span>Google, Apple, a link by email or your device&apos;s own lock. No password to manage.</span></li>
         </ul>
       </div>
       <p className="stat-note acct-fineprint">Without an account nothing changes: everything stays in this browser, as before. You can take your data away or delete the account at any time.</p>
@@ -270,7 +270,7 @@ function Sync({ syncState, syncAt, syncError }: { syncState: string; syncAt: str
         </p>
         <button type="button" className="acct-btn" onClick={syncNow}>Sync now</button>
       </div>
-      {failed ? <p className="acct-notice" data-tone="error">The account&apos;s copy could not be read just now.</p> : !items ? <p className="stat-note">Reading what the account holds…</p> : (
+      {failed ? <p className="acct-notice" data-tone="error">Account data is temporarily unavailable.</p> : !items ? <p className="stat-note">Reading what the account holds…</p> : (
         <>
           <div className="acct-table" role="table" aria-label="What the account keeps">
             <div className="acct-row acct-row-head" role="row"><span role="columnheader">Kept</span><span role="columnheader">Holds</span><span role="columnheader">Size</span><span role="columnheader">Changed</span></div>

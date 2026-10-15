@@ -84,7 +84,7 @@ export function FilingsList() {
     return () => controller.abort();
   }, []);
 
-  if (state.kind === "absent") return <p className="stat-note wire-caption">EDGAR could not be read just now.</p>;
+  if (state.kind === "absent") return <p className="stat-note wire-caption">EDGAR is temporarily unavailable.</p>;
 
   return (
     <>

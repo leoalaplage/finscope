@@ -177,7 +177,7 @@ function Help({ open, onClose }: { open: boolean; onClose: () => void }) {
             <dt>/ ⌘K</dt><dd>Command line</dd>
             <dt>⌥1–⌥0</dt><dd>Function keys</dd>
             <dt>TAB</dt><dd>Complete</dd>
-            <dt>↑ ↓ ⏎</dt><dd>Walk a table, open the row</dd>
+            <dt>↑ ↓ ⏎</dt><dd>Navigate table rows; open the selected row</dd>
             <dt>ESC</dt><dd>Close, clear</dd>
           </dl>
           <h3 style={{ marginTop: 12 }}>Examples</h3>
@@ -325,7 +325,7 @@ export function TermShell({ ticker = null, bare = false, children }: {
             <AlertsChip />
             <AccountChip />
             <button type="button" onClick={() => setHelpOpen(true)} className="t-amber">HELP</button>
-            <a href="/t/settings" title="Settings and what this device keeps">SET</a>
+            <a href="/t/settings" title="Settings and local data">SET</a>
           </div>
         </div>
         {prefs.tape ? <Tape /> : null}

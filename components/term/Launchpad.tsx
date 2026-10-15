@@ -63,20 +63,20 @@ export function Launchpad() {
 
   return (
     <div className="t-grid t-launch">
-      <Panel code="SUM" title={home.phase === "pre" ? "Before the open" : home.phase === "open" ? "The session so far" : "The session"} area="sum">
+      <Panel code="SUM" title={home.phase === "pre" ? "Market summary · pre-market" : home.phase === "open" ? "Market summary · intraday" : "Market summary"} area="sum">
         <SessionSummary data={home} tape={tape} econ={econ} />
       </Panel>
       <Panel code="RATES" title="Treasuries and the dollar" area="rates">
         <RatesPanel data={home} />
       </Panel>
-      <Panel code="FED" title="Fed · rate odds from futures" area="fed">
+      <Panel code="FED" title="FOMC · implied rate probabilities" area="fed">
         <FedPanel data={home} />
       </Panel>
       <div className="t-col" style={{ gridArea: "left" }}>
         <Panel code="WEI" title="Indices">
           <Indices />
         </Panel>
-        <Panel code="PORT" title="Portfolio · today">
+        <Panel code="PORT" title="Portfolio · daily performance">
           <PortfolioGlance positions={holdings} tape={tape} />
         </Panel>
         <Panel code="W" title="Watchlist" actions={<button type="button" className="t-chip" onClick={() => setEditing(true)}>Edit</button>}>
@@ -105,16 +105,16 @@ export function Launchpad() {
             </table>
           </div>
         </Panel>
-        <Panel code="EVTS" id="evts-next" title="Next earnings · watchlist">
+        <Panel code="EVTS" id="evts-next" title="Watchlist · upcoming earnings">
           <EarningsCalendar tickers={tickers} />
         </Panel>
       </div>
 
       <div className="t-col" style={{ gridArea: "right" }}>
-        <Panel code="ECO" title="US economy · releases against the consensus">
+        <Panel code="ECO" title="US economic releases vs. consensus">
           <EconBrief />
         </Panel>
-        <Panel code="IMAP" title="Today's moves">
+        <Panel code="IMAP" title="S&P 500 heat map">
           <Heatmap height={380} compact />
         </Panel>
         {/* Two columns to the bottom: the alerts over the wire, and the signals over the earnings. */}
@@ -128,7 +128,7 @@ export function Launchpad() {
             </Panel>
           </div>
           <div className="t-stack">
-            <Panel code="SIGS" title="52-week highs, lows and volume">
+            <Panel code="SIGS" title="52-week highs, lows and unusual volume">
               <SignalsPanel data={home} />
             </Panel>
             <Panel code="EVTS" title="Earnings this week">

@@ -117,8 +117,8 @@ export function Rotation() {
           </tbody>
         </table>
       </div>
-      {paths && !paths.length ? <p className="t-empty">The sector funds could not be read just now.</p> : null}
-      {!paths ? <p className="t-empty">Reading twelve price histories…</p> : null}
+      {paths && !paths.length ? <p className="t-empty">Sector fund data is temporarily unavailable.</p> : null}
+      {!paths ? <p className="t-empty">Loading price data…</p> : null}
     </div>
   );
 }

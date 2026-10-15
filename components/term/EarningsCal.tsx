@@ -121,7 +121,7 @@ export function EarningsCal() {
             {days ? `${weekRows.length} reporting` : "Loading…"} · ☀ before the open · ☾ after the close · est = analysts&apos; consensus EPS · green beat, red miss
           </span>
         </div>
-        {days === null ? <p className="t-empty">The calendar could not be read just now.</p> : null}
+        {days === null ? <p className="t-empty">The calendar is temporarily unavailable.</p> : null}
         <div className="t-ecal-week">
           {(days ?? []).map((day) => {
             const rows = shown(day.rows);
@@ -156,7 +156,7 @@ export function EarningsCal() {
         </div>
       </Panel>
 
-      <Panel code="ECAL" id="ecal-list" title="This week, in detail" area="list">
+      <Panel code="ECAL" id="ecal-list" title="This week · detail" area="list">
         {weekRows.length ? (
           <div className="sheet t-ecal-list">
             <table>
@@ -231,7 +231,7 @@ export function MiniEcal() {
         </div>
         <a className="t-chip" href="/t/ecal">ECAL ›</a>
       </div>
-      {days === null ? <p className="t-empty">The calendar could not be read just now.</p> : null}
+      {days === null ? <p className="t-empty">The calendar is temporarily unavailable.</p> : null}
       {days === undefined ? <p className="t-empty">Loading…</p> : null}
       <div className="t-miniecal-days">
         {(days ?? []).slice(0, 3).map((day) => {

@@ -31,7 +31,7 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   { code: "GP", name: "Price graph", chapter: 1 },
   // 2 · The business
   { code: "SEG", name: "Segments", chapter: 2 },
-  { code: "KPI", name: "Operating figures", chapter: 2 },
+  { code: "KPI", name: "Operating KPIs", chapter: 2 },
   { code: "FA", name: "Financial analysis", chapter: 2 },
   { code: "GR", name: "Growth", chapter: 2 },
   { code: "GF", name: "Fundamental charts", chapter: 2 },
@@ -39,11 +39,11 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   { code: "EE", name: "Latest quarter", chapter: 3 },
   { code: "EST", name: "Estimates", chapter: 3 },
   { code: "RPT", name: "Quarterly history", chapter: 3 },
-  { code: "ERX", name: "Reaction to releases", chapter: 3 },
+  { code: "ERX", name: "Earnings reaction", chapter: 3 },
   { code: "SEAS", name: "Seasonality", chapter: 3 },
   // 4 · The valuation
   { code: "VAL", name: "Valuation multiples", chapter: 4 },
-  { code: "PEER", name: "Against peers", chapter: 4 },
+  { code: "PEER", name: "Peer comparison", chapter: 4 },
   { code: "DCF", name: "Discounted cash flow", chapter: 4 },
   { code: "DVD", name: "Dividends", chapter: 4 },
   // 5 · Ownership
@@ -52,7 +52,7 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   // 6 · The accounts
   { code: "DDIS", name: "Debt maturities", chapter: 6 },
   { code: "EVT", name: "Corporate events", chapter: 6 },
-  { code: "NOTE", name: "Your notes", chapter: 6 },
+  { code: "NOTE", name: "Notes", chapter: 6 },
   { code: "FS", name: "Financial statements", chapter: 6 },
   // A screen of its own, after the page.
   { code: "COMP", name: "Compare" },
@@ -70,8 +70,8 @@ export const GLOBAL_FUNCTIONS: FunctionSpec<GlobalFunction>[] = [
   { code: "INSB", name: "Insider buying" },
   { code: "ALRT", name: "Alerts" },
   { code: "ACCT", name: "Account, sync and email alerts" },
-  { code: "SET", name: "Settings and what this device keeps" },
-  { code: "TOUR", name: "The welcome tour" },
+  { code: "SET", name: "Settings and local data" },
+  { code: "TOUR", name: "Product tour" },
   { code: "HELP", name: "Commands" },
 ];
 
@@ -120,7 +120,7 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
  * that mean it — CPI, JOBS, FED — must reach it rather than HOME's brief.
  */
 export const LAUNCHPAD_PANELS: FunctionSpec<string>[] = [
-  { code: "SUM", name: "The session, written out" },
+  { code: "SUM", name: "Market summary" },
   { code: "RATES", name: "Treasuries and the dollar" },
   { code: "WEI", name: "World equity indices" },
   { code: "IMAP", name: "Heat map" },

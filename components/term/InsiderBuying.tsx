@@ -48,7 +48,7 @@ export function InsiderBuying() {
           </div>
         </>
       }>
-        {answer === undefined ? <p className="t-empty">Reading the Form 4s…</p> : answer === null ? <p className="t-empty">The insider record could not be read just now.</p> : (
+        {answer === undefined ? <p className="t-empty">Reading the Form 4s…</p> : answer === null ? <p className="t-empty">Insider filings are temporarily unavailable.</p> : (
           <div className="t-panel-pad t-insb-body">
             <div className="grid-ruled stats dvd-strip">
               <Stat label="Clusters" value={String(clusters.length)} note="Two or more insiders, one stock, a fortnight" />

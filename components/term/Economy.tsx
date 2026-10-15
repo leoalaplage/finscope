@@ -100,7 +100,7 @@ function ReactionLine({ reaction }: { reaction: Reaction | undefined }) {
 export function EconBrief() {
   const { data, failed } = useEcon();
   const [history, setHistory] = useState<string | null>(null);
-  if (failed) return <p className="t-empty">The economic calendar could not be read just now.</p>;
+  if (failed) return <p className="t-empty">The economic calendar is temporarily unavailable.</p>;
   if (!data) return <p className="t-empty">Reading the economic calendar…</p>;
   const out = released(data).slice(0, 6);
   const next = coming(data).slice(0, 5);
@@ -166,8 +166,8 @@ export function EconomyScreen() {
   return (
     <div className="t-grid t-eco">
       {history && data ? <EconHistory name={history} events={data.events} onClose={() => setHistory(null)} /> : null}
-      <Panel code="ECO" title="Just released · United States" actions={data?.live ? <span className="t-eco-live" title="A market-moving release is due or just out: read every fifteen seconds">LIVE · 15 s</span> : null}>
-        {failed ? <p className="t-empty">The economic calendar could not be read just now.</p> : !data ? <p className="t-empty">Reading the economic calendar…</p> : (
+      <Panel code="ECO" title="Latest releases · United States" actions={data?.live ? <span className="t-eco-live" title="A market-moving release is due or just out: read every fifteen seconds">LIVE · 15 s</span> : null}>
+        {failed ? <p className="t-empty">The economic calendar is temporarily unavailable.</p> : !data ? <p className="t-empty">Reading the economic calendar…</p> : (
           <div className="t-eco-cards">
             {released(data).length ? released(data).slice(0, 8).map((event) => (
               <article key={`${event.date}-${event.time}-${event.name}`} className="t-eco-card" data-surprise={event.surprise ?? undefined}>
@@ -187,7 +187,7 @@ export function EconomyScreen() {
           {IMPORTANCE.map((entry) => <button key={entry.id} type="button" aria-pressed={level === entry.id} onClick={() => setLevel(entry.id)}>{entry.label}</button>)}
         </div>
       }>
-        {!data ? <p className="t-empty">{failed ? "The economic calendar could not be read just now." : "Reading the economic calendar…"}</p> : (
+        {!data ? <p className="t-empty">{failed ? "The economic calendar is temporarily unavailable." : "Reading the economic calendar…"}</p> : (
           <div className="sheet t-eco-calendar">
             <table>
               <thead><tr><th className="key">Time</th><th className="key">Event</th><th>Actual</th><th>Consensus</th><th>Previous</th><th>S&amp;P fut · 10Y, 30 min</th></tr></thead>
@@ -215,9 +215,9 @@ export function EconomyScreen() {
         <p className="t-study-note">Times, prints and consensus from Nasdaq&apos;s public economic calendar (the consensus is the economists&apos;, a forecast); the market move is the S&amp;P 500 futures (ES) and the 10-year Treasury yield from the last price before the release to thirty minutes after it. Hover an event for what it measures; click an underlined one for its history.</p>
       </Panel>
 
-      <Panel code="USD" title="US data · official series">
+      <Panel code="USD" title="US economic data · official series">
         {series == null ? <p className="t-empty">Reading the Bureau of Labor Statistics…</p> : !series.series.length ? (
-          <p className="t-empty">The Bureau of Labor Statistics did not hand over its series just now{series.error && /threshold/i.test(series.error) ? ": its free allowance for this server is spent for today" : ""}. The latest prints are in the calendar above.</p>
+          <p className="t-empty">BLS data is temporarily unavailable{series.error && /threshold/i.test(series.error) ? ": its free allowance for this server is spent for today" : ""}. The latest prints are in the calendar above.</p>
         ) : <EconCharts series={series.series} />}
       </Panel>
 
@@ -321,7 +321,7 @@ function EconHistory({ name, events, onClose }: { name: string; events: EconEven
         <button type="button" className="t-chip" onClick={() => dialog.current?.close()} aria-label="Close">Close</button>
       </header>
       <div className="t-panel-pad">
-        {body == null ? <p className="t-empty">Reading the official series…</p> : !series ? <p className="t-empty">The publisher did not hand over this series just now.</p> : (
+        {body == null ? <p className="t-empty">Reading the official series…</p> : !series ? <p className="t-empty">This series is temporarily unavailable.</p> : (
           <>
             <div className="t-eco-hist-stats">
               <div><span>Latest · {latest ? periodLabel(latest.period, true) : "—"}</span><b>{format(latest?.value)}</b></div>

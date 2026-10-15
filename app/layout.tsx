@@ -15,7 +15,7 @@ import { AccountSync } from "@/components/io/AccountSync";
  */
 const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://tenqay.com";
 
-const TITLE = "Tenqay — a terminal for every US-listed company";
+const TITLE = "Tenqay — Market intelligence";
 const DESCRIPTION = "Filed financials, operating figures, valuation, insider buying and the market for every company that files with the SEC, in one terminal.";
 
 /**

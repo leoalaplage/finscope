@@ -53,9 +53,9 @@ export function sessionSummary(input: SummaryInput): string[] {
 
   // The averages, or before the open their futures.
   if (input.phase === "pre" && futures.length) {
-    out.push(`Before the open, futures point ${direction(futures[0].change)}: ${list(futures.slice(0, 3).map((future) => `${future.label} ${pct(future.change, 2)}`))}.`);
+    out.push(`Pre-market, US index futures are ${direction(futures[0].change)}: ${list(futures.slice(0, 3).map((future) => `${future.label} ${pct(future.change, 2)}`))}.`);
   } else if (priced.length) {
-    const lead = { open: "Stocks are", after: "Stocks closed", closed: "In the last session stocks closed", pre: "Stocks closed" }[input.phase];
+    const lead = { open: "US equities are", after: "US equities closed", closed: "In the last session, US equities closed", pre: "US equities closed" }[input.phase];
     out.push(`${lead} ${direction(priced[0].change)}: ${list(priced.slice(0, 3).map((index) => `the ${index.label} ${pct(index.change, 2)}`))}.`);
   }
   const yesterday = input.phase === "pre" ? " yesterday" : "";
@@ -65,7 +65,7 @@ export function sessionSummary(input: SummaryInput): string[] {
   if (moved.length >= 100) {
     const up = moved.filter((member) => member.change > 0).length;
     const share = up / moved.length;
-    const tone = share >= 0.7 ? "broad gains" : share <= 0.3 ? "broad losses" : share >= 0.55 ? "more rising than falling" : share <= 0.45 ? "more falling than rising" : "an even split";
+    const tone = share >= 0.7 ? "broad-based gains" : share <= 0.3 ? "broad-based declines" : share >= 0.55 ? "advancers ahead" : share <= 0.45 ? "decliners ahead" : "balanced";
     const sectors = [...new Set(moved.map((member) => member.sector))].flatMap((sector) => {
       const middle = median(moved.filter((member) => member.sector === sector).map((member) => member.change));
       return middle == null || moved.filter((member) => member.sector === sector).length < 5 ? [] : [{ sector, middle }];
@@ -73,12 +73,12 @@ export function sessionSummary(input: SummaryInput): string[] {
     const sectorLine = sectors.length >= 2 && sectors[0].middle - sectors.at(-1)!.middle >= 0.005
       ? ` ${sectors[0].sector} led (median ${pct(sectors[0].middle)}) and ${sectors.at(-1)!.sector} lagged (${pct(sectors.at(-1)!.middle)}).`
       : "";
-    out.push(`Underneath, ${up} of ${moved.length} S&P 500 members rose${yesterday}: ${tone}.${sectorLine}`);
+    out.push(`Breadth: ${up} of ${moved.length} S&P 500 constituents advanced${yesterday} (${tone}).${sectorLine}`);
 
     // The largest companies that moved most: the top fifty by value, the two moves at either end.
     const largest = moved.filter((member) => member.cap != null).sort((a, b) => b.cap! - a.cap!).slice(0, 50);
     const big = [...largest].sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).filter((member) => Math.abs(member.change) >= 0.02).slice(0, 4);
-    if (big.length) out.push(`Among the fifty largest, the big moves${yesterday}: ${list(big.map((member) => `${member.ticker} ${pct(member.change)}`))}.`);
+    if (big.length) out.push(`Largest moves among the 50 largest constituents${yesterday}: ${list(big.map((member) => `${member.ticker} ${pct(member.change)}`))}.`);
   }
 
   // Treasuries and the dollar.
@@ -108,19 +108,19 @@ export function sessionSummary(input: SummaryInput): string[] {
   if (reported.length) {
     const beats = reported.filter((result) => result.surprise > 0).length;
     const notable = [...reported].sort((a, b) => Math.abs(b.surprise) - Math.abs(a.surprise)).slice(0, 3);
-    out.push(`Results: ${beats} of ${reported.length} reporting today beat the consensus on earnings per share; the widest gaps ${list(notable.map((result) => `${result.ticker} ${result.surprise > 0 ? "+" : MINUS}${Math.abs(result.surprise).toFixed(1)}%`))}.`);
+    out.push(`Earnings: ${beats} of ${reported.length} companies reporting today beat EPS consensus; largest surprises: ${list(notable.map((result) => `${result.ticker} ${result.surprise > 0 ? "+" : MINUS}${Math.abs(result.surprise).toFixed(1)}%`))}.`);
   }
 
   if (input.signals && (input.signals.highs || input.signals.lows)) {
     const when = input.phase === "open" ? " (the last session's and today's)" : input.phase === "pre" ? " in the last session" : "";
-    out.push(`${input.signals.highs} S&P 500 members set a new 52-week high and ${input.signals.lows} a new low${when}.`);
+    out.push(`52-week highs: ${input.signals.highs} S&P 500 constituents; 52-week lows: ${input.signals.lows}${when}.`);
   }
 
   // The Fed, as the futures price its next decision.
   if (input.fed) {
     const { date, hike, cut } = input.fed;
-    const odds = hike >= 0.05 ? `${Math.round(hike * 100)}% odds of a hike` : cut >= 0.05 ? `${Math.round(cut * 100)}% odds of a cut` : "no change all but certain";
-    out.push(`For the Fed on ${day(date)}, futures price ${odds}.`);
+    const odds = hike >= 0.05 ? `a ${Math.round(hike * 100)}% probability of a hike` : cut >= 0.05 ? `a ${Math.round(cut * 100)}% probability of a cut` : "no change";
+    out.push(`FOMC ${day(date)}: fed funds futures imply ${odds}.`);
   }
   return out;
 }

@@ -169,7 +169,7 @@ export function AlertsBrief() {
   const seen = useKey(SEEN_KEY);
   const active = rules.filter((rule) => rule.enabled).length;
   if (!rules.length && !caught.length) return <p className="t-empty">No alerts set. <a href="/t/alerts">Create one on ALRT</a>: a price, a big move, filings, insider buying or a US release.</p>;
-  if (loading) return <p className="t-empty">Reading what your alerts watch…</p>;
+  if (loading) return <p className="t-empty">Loading alerts…</p>;
   const fresh = caught.filter((alert) => !seen || alert.at > seen).length;
   const today = new Date().toISOString().slice(0, 10);
   const todays = caught.filter((alert) => alert.at.slice(0, 10) === today).length;
@@ -196,7 +196,7 @@ export function AlertsBrief() {
             </tbody>
           </table>
         </div>
-      ) : <p className="t-empty">Nothing triggered in the last two weeks.</p>}
+      ) : <p className="t-empty">No alerts triggered in the last two weeks.</p>}
       <p className="t-study-note"><a href="/t/alerts">All alerts and rules · ALRT</a></p>
     </div>
   );
@@ -244,7 +244,7 @@ export function Alerts() {
   return (
     <div className="t-grid t-insb">
       {/* The alerts themselves first, each with its switch, Edit and Delete in sight; what they caught below. */}
-      <Panel code="ALRT" title={`My alerts · ${rules.length}`} actions={
+      <Panel code="ALRT" title={`Alert rules · ${rules.length}`} actions={
         <div className="t-alrt-actions">
           <button type="button" className="t-chip t-alrt-new" onClick={() => setEditing(newRule("price", followed[0] ?? null))}>+ New alert</button>
           <button type="button" className="t-chip" aria-pressed={notify} onClick={() => { void toggleNotify(); }}>{notify ? "Browser notifications on" : "Notify me in this browser"}</button>
@@ -262,7 +262,7 @@ export function Alerts() {
 
       <Panel code="ALRT" id="alrt-caught" title={`Triggered · ${loading ? "…" : caught.length}`}>
         <div className="t-panel-pad t-insb-body">
-          {loading ? <p className="t-empty">Reading the filings, prices and releases your alerts watch…</p> : (
+          {loading ? <p className="t-empty">Loading alerts…</p> : (
             <>
               <div className="seg" role="group" aria-label="Kind">
                 <button type="button" aria-pressed={kind === "all"} onClick={() => setKind("all")}>All <span>{caught.length}</span></button>
@@ -296,7 +296,7 @@ export function Alerts() {
                     </tbody>
                   </table>
                 </div>
-              ) : <p className="t-empty">{rules.some((rule) => rule.enabled) ? "Nothing caught in the last two weeks." : "Every alert is paused or deleted. Add one with + New alert."}</p>}
+              ) : <p className="t-empty">{rules.some((rule) => rule.enabled) ? "No alerts triggered in the last two weeks." : "All alert rules are paused. Create one with + New alert."}</p>}
               <p className="t-study-note">Filings and insider purchases of the last two weeks, prices and moves as they stand, US releases of the last week, for the alerts above{followed.length ? `; "everything you follow" is ${followed.length} companies (watchlists, portfolio, notes)` : ""}. Checked every five minutes while the terminal is open.</p>
             </>
           )}
@@ -309,7 +309,7 @@ export function Alerts() {
 function RuleList({ rules, onEdit, onToggle, onRearm, onDelete, onReset }: {
   rules: AlertRule[]; onEdit: (rule: AlertRule) => void; onToggle: (rule: AlertRule) => void; onRearm: (rule: AlertRule) => void; onDelete: (rule: AlertRule) => void; onReset: () => void;
 }) {
-  if (!rules.length) return <p className="t-empty">No alerts. Add one with + New alert, or <button type="button" className="t-alrt-link" onClick={onReset}>bring back the defaults</button>.</p>;
+  if (!rules.length) return <p className="t-empty">No alerts. Add one with + New alert, or <button type="button" className="t-alrt-link" onClick={onReset}>restore the default rules</button>.</p>;
   return (
     <>
       <div className="sheet t-alrt-rules">
