@@ -1603,7 +1603,9 @@ body:has(.io.term) { background: #0d1012; }
 }
 
 /* MKT · the watchlist as monthly candles, one panel a company, three to a row (components/term/WatchlistCharts.tsx). */
-.t-wcharts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
+.t-wcharts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 2px; }
+.t-wcharts-panel > .t-panel-body { background: var(--line); }
+.t-wchart .t-panel-head { min-height: 0; }
 .t-wchart .t-panel-body { padding: 0 4px 4px; }
 .t-wchart .candle-body { height: 260px; min-height: 0; }
 .t-wchart-move[data-dir="up"] { color: var(--gain); }

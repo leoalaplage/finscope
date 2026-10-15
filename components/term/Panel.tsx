@@ -35,10 +35,11 @@ export function Panel({
   const style = { "--t-code": JSON.stringify(code), gridArea: area } as CSSProperties;
   return (
     <section className={className ? `t-panel ${className}` : "t-panel"} id={id ?? code.toLowerCase()} style={style} aria-label={title}>
-      {title ? (
+      {/* A title, even an empty one, draws the header: the code and the actions with nothing between them. */}
+      {title != null ? (
         <header className="t-panel-head">
           <span className="t-code">{code}</span>
-          <h2>{title}</h2>
+          {title ? <h2>{title}</h2> : null}
           {actions ? <div className="t-panel-actions">{actions}</div> : null}
         </header>
       ) : null}

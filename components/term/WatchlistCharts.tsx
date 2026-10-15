@@ -4,21 +4,30 @@ import { useEffect, useRef, useState } from "react";
 import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import { CandleChart, lastMoveOf, percent, price, useCandles } from "@/components/io/CandleChart";
 import { useStoredWatchlist } from "@/components/io/watchlist";
+import type { Study } from "@/lib/io/technicals";
 import { Panel } from "./Panel";
 
 /**
- * MKT · the watchlist as monthly candles, one panel a company, three to a
- * row, under the watchlist's performance. A panel asks for its candles only
+ * MKT · the watchlist as monthly candles with their 20, 50 and 200-period
+ * EMAs, the last six years on screen, one panel a company, three to a row,
+ * under the watchlist's performance. A panel asks for its candles only
  * once it nears the screen: a list of sixty would otherwise be sixty requests
  * before the reader has scrolled past the first row.
  */
+/** Six years of months on screen; the averages are taken over the whole history behind them. */
+const MONTHS_SHOWN = 72;
+const STUDIES: ReadonlySet<Study> = new Set<Study>(["ema"]);
+
 export function WatchlistCharts({ area }: { area: string }) {
   const tickers = useStoredWatchlist();
   if (!tickers.length) return null;
   return (
-    <div className="t-wcharts" style={{ gridArea: area }}>
-      {tickers.map((ticker) => <WatchlistChart key={ticker} ticker={ticker} />)}
-    </div>
+    <Panel code="WCH" title={`Watchlist · monthly charts · ${tickers.length} companies`} area={area} className="t-wcharts-panel"
+      actions={<span>Monthly candles · EMA 20 · 50 · 200 · last 6 years</span>}>
+      <div className="t-wcharts">
+        {tickers.map((ticker) => <WatchlistChart key={ticker} ticker={ticker} />)}
+      </div>
+    </Panel>
   );
 }
 
@@ -39,7 +48,7 @@ function WatchlistChart({ ticker }: { ticker: string }) {
   return (
     <div ref={frame} className="t-wchart-frame">
       <Panel
-        code={ticker} id={`wch-${ticker.toLowerCase()}`} title="Monthly" className="t-wchart"
+        code={ticker} id={`wch-${ticker.toLowerCase()}`} title="" className="t-wchart"
         actions={latest ? (
           <span>
             {price(latest.close)}{" "}
@@ -48,7 +57,7 @@ function WatchlistChart({ ticker }: { ticker: string }) {
           </span>
         ) : <a href={`/t/s/${encodeURIComponent(ticker)}`}>Open</a>}
       >
-        <CandleChart compact candles={candles} interval="1mo" loading={loading || !near} error={error} label={`${ticker}, ${INTERVAL_TITLES["1mo"].toLowerCase()} candles`} />
+        <CandleChart compact candles={candles} interval="1mo" studies={STUDIES} openOn={MONTHS_SHOWN} loading={loading || !near} error={error} label={`${ticker}, ${INTERVAL_TITLES["1mo"].toLowerCase()} candles`} />
       </Panel>
     </div>
   );
