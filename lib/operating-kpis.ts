@@ -17,7 +17,7 @@ import { datasetCache } from "./runtime-env";
  * once is not taken for a measure.
  */
 
-const SEC_AGENT = () => process.env.SEC_USER_AGENT || "FinScope research application contact@example.com";
+const SEC_AGENT = () => process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com";
 const DAY = 86_400_000;
 const RELEASES = 9;
 const QUARTERLIES = 7;

@@ -19,7 +19,7 @@ export { isScope, SCOPES, type Scope } from "./scopes";
 
 interface ExchangeList { fields: string[]; data: Array<Array<string | number | null>> }
 
-const SEC_AGENT = () => process.env.SEC_USER_AGENT || "FinScope research application contact@example.com";
+const SEC_AGENT = () => process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com";
 /** A preferred share, a warrant, a right or a unit: the filer's other listings, not its common stock. */
 const NOT_COMMON = /[-.](W|WS|WT|U|UN|R|RT|P[A-Z]?)$|^[A-Z]{4}[WRU]$/;
 /** An investment product, by its name: never a company with statements to score. */

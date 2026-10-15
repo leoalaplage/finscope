@@ -14,7 +14,7 @@ import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "Compare — FinScope.io",
+  title: "Compare — Tenkay",
   description: "Read the same filed figures across several US-listed companies at once.",
 };
 

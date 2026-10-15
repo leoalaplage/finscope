@@ -13,7 +13,7 @@ import { Shell } from "@/components/io/Shell";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "QS Screener — FinScope.io",
+  title: "QS Screener — Tenkay",
   description: "Four pillars, a weighted score and a letter grade over the companies you follow.",
 };
 

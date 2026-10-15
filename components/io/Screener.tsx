@@ -519,7 +519,7 @@ function SourceAudit({ imported, native, pasted }: { imported: Feed; native: Sta
       <div className="section-head">
         <div>
           <h2 className="label" id="source-audit-title">Source comparison</h2>
-          <p className="stat-note">The imported values stay untouched. FinScope remains a separate SEC-based score; neither source fills the other’s gaps.</p>
+          <p className="stat-note">The imported values stay untouched. Tenkay remains a separate SEC-based score; neither source fills the other’s gaps.</p>
         </div>
         <span className="label">{sourceName}</span>
       </div>
@@ -529,12 +529,12 @@ function SourceAudit({ imported, native, pasted }: { imported: Feed; native: Sta
       ) : native.kind === "failed" ? (
         <p className="stat-note">Native comparison unavailable: {native.message}</p>
       ) : !pairs.length ? (
-        <p className="stat-note">No imported ticker is also present in your current FinScope watchlist.</p>
+        <p className="stat-note">No imported ticker is also present in your current Tenkay watchlist.</p>
       ) : (
         <>
           <div className="sheet source-audit-sheet">
             <table>
-              <thead><tr><th className="key">Company</th><th>FinScope · SEC</th><th>{sourceName}</th><th>Difference</th><th>Inputs that differ</th></tr></thead>
+              <thead><tr><th className="key">Company</th><th>Tenkay · SEC</th><th>{sourceName}</th><th>Difference</th><th>Inputs that differ</th></tr></thead>
               <tbody>
                 {pairs.map(({ ticker, core, external }) => {
                   const changed = QS_METRICS.filter((metric) => materiallyDifferent(core.brut[metric.cle], external.brut[metric.cle])).length;
@@ -563,7 +563,7 @@ function SourceAudit({ imported, native, pasted }: { imported: Feed; native: Sta
               </div>
               <div className="sheet">
                 <table>
-                  <thead><tr><th className="key">Measure</th><th>FinScope · SEC</th><th>{sourceName}</th><th>FinScope metric score</th><th>Imported metric score</th></tr></thead>
+                  <thead><tr><th className="key">Measure</th><th>Tenkay · SEC</th><th>{sourceName}</th><th>Tenkay metric score</th><th>Imported metric score</th></tr></thead>
                   <tbody>
                     {differences.map((metric) => (
                       <tr key={metric.cle}>
@@ -577,7 +577,7 @@ function SourceAudit({ imported, native, pasted }: { imported: Feed; native: Sta
                   </tbody>
                 </table>
               </div>
-              {fiscalCompatible ? <p className="stat-note source-caveat">Fiscal.ai exports may define Levered FCF differently from FinScope’s historical FCF (operating cash flow − capex). Both values are preserved and shown; they are never silently substituted.</p> : null}
+              {fiscalCompatible ? <p className="stat-note source-caveat">Fiscal.ai exports may define Levered FCF differently from Tenkay’s historical FCF (operating cash flow − capex). Both values are preserved and shown; they are never silently substituted.</p> : null}
             </div>
           ) : null}
         </>

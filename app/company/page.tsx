@@ -6,7 +6,7 @@ import { Shell } from "@/components/io/Shell";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "Company — FinScope.io",
+  title: "Company — Tenkay",
   description: "Return to the last company you viewed on this device.",
 };
 

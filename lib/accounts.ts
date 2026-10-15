@@ -52,7 +52,7 @@ export interface PublicAccount {
 
 export const SESSION_COOKIE = "fs_session";
 const SESSION_DAYS = 60;
-const RP_NAME = "FinScope";
+const RP_NAME = "Tenkay";
 
 const accountKey = (id: string) => `account:v1:${id}`;
 const credentialKey = (id: string) => `account-credential:v1:${id}`;
@@ -156,7 +156,7 @@ export async function registrationOptions(request: Request, signedIn: Account | 
   const rp = relyingParty(request);
   const accountId = signedIn?.id ?? randomId(16);
   const chosen = name.trim().replace(/\s+/g, " ");
-  const accountName = signedIn?.name ?? (NAME_PATTERN.test(chosen) ? chosen : "FinScope reader");
+  const accountName = signedIn?.name ?? (NAME_PATTERN.test(chosen) ? chosen : "Tenkay reader");
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
     rpID: rp.id,
@@ -180,7 +180,7 @@ export async function completeRegistration(request: Request, signedIn: Account |
   const { credential } = verification.registrationInfo;
   if (await store().get(credentialKey(credential.id))) throw new Error("This passkey is already registered.");
   const now = new Date().toISOString();
-  const account: Account = signedIn ?? (await readAccount(challenge.accountId)) ?? { id: challenge.accountId, name: challenge.name ?? "FinScope reader", created: now, credentials: [], email: null };
+  const account: Account = signedIn ?? (await readAccount(challenge.accountId)) ?? { id: challenge.accountId, name: challenge.name ?? "Tenkay reader", created: now, credentials: [], email: null };
   account.credentials.push({ id: credential.id, publicKey: toBase64Url(credential.publicKey), counter: credential.counter, transports: credential.transports, created: now, label: label.slice(0, 60) || "Passkey" });
   await store().put(credentialKey(credential.id), account.id);
   await writeAccount(account);
@@ -201,7 +201,7 @@ export async function completeAuthentication(request: Request, challengeId: stri
   const accountId = await store().get(credentialKey(response.id));
   const account = accountId ? await readAccount(accountId) : null;
   const credential = account?.credentials.find((entry) => entry.id === response.id);
-  if (!account || !credential) throw new Error("This passkey belongs to no FinScope account. It may have been removed.");
+  if (!account || !credential) throw new Error("This passkey belongs to no Tenkay account. It may have been removed.");
   const rp = relyingParty(request);
   const verification = await verifyAuthenticationResponse({
     response, expectedChallenge: challenge.challenge, expectedOrigin: rp.origin, expectedRPID: rp.id, requireUserVerification: false,

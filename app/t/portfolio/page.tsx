@@ -5,7 +5,7 @@ import { TermPortfolio } from "@/components/term/TermPortfolio";
 import { TermShell } from "@/components/term/TermShell";
 
 export const dynamic = "force-static";
-export const metadata: Metadata = { title: "PORT · FinScope Terminal", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "PORT · Tenkay", robots: { index: false, follow: false } };
 
 /** The book, as a risk desk reads it (components/term/TermPortfolio.tsx). */
 export default function TerminalPortfolio() {

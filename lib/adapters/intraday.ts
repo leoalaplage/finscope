@@ -143,7 +143,7 @@ export async function fetchIntraday(symbol: string, name: string): Promise<Intra
   let lastStatus = 0;
   for (const base of BASE_URLS()) {
     const response = await fetch(`${base}${path}`, {
-      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 FinScope/1.0" },
+      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 Tenkay/1.0" },
     });
     lastStatus = response.status;
     if (!response.ok) continue;
@@ -291,7 +291,7 @@ export async function fetchMarketWindow(symbol: string, name: string, range: Mar
   let lastStatus = 0;
   for (const base of BASE_URLS()) {
     const response = await fetch(`${base}${path}`, {
-      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 FinScope/1.0" },
+      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 Tenkay/1.0" },
     });
     lastStatus = response.status;
     if (!response.ok) continue;

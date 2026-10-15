@@ -14,8 +14,8 @@ export async function POST(request: Request) {
     const { account: updated, verifyToken } = await setEmail(account, address, body.alerts !== false);
     if (verifyToken && emailConfigured()) {
       const link = `${new URL(request.url).origin}/api/account/email/verify?token=${verifyToken}`;
-      await sendEmail(plainEmail(updated.email!.address, "Confirm your email for FinScope alerts", "Confirm your email",
-        ["Follow the link to receive a daily email of what changed for the companies you follow on FinScope.", "If you did not ask for this, ignore this message: nothing will be sent."],
+      await sendEmail(plainEmail(updated.email!.address, "Confirm your email for Tenkay alerts", "Confirm your email",
+        ["Follow the link to receive a daily email of what changed for the companies you follow on Tenkay.", "If you did not ask for this, ignore this message: nothing will be sent."],
         { href: link, label: "Confirm this address" }));
     }
     return accountAnswer(updated);

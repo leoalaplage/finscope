@@ -15,7 +15,7 @@ import { cachedJson } from "./market-cache";
 export interface Description { text: string; source: "10-K" | "20-F" | "40-F" | "Wikipedia"; url: string; filed: string | null }
 
 const MONTH = 30 * 86_400;
-const AGENT = "FinScope research (finscope.io)";
+const AGENT = "Tenkay research (finscope.io)";
 
 async function fromWikipedia(cik: string): Promise<Description | null> {
   const query = `SELECT ?article WHERE { ?item wdt:P5531 "${cik.padStart(10, "0")}" . ?article schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> . } LIMIT 1`;

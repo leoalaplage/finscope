@@ -14,7 +14,7 @@ import { Launchpad } from "@/components/term/Launchpad";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "FinScope — a terminal for every US-listed company",
+  title: "Tenkay — a terminal for every US-listed company",
   description: "Filed financials, operating figures, valuation, insider buying and the market for every company that files with the SEC, in one terminal.",
   alternates: { canonical: "/t" },
 };

@@ -44,7 +44,7 @@ async function readBls(): Promise<MacroIndicator[]> {
     const year = new Date().getUTCFullYear();
     const response = await fetch("https://api.bls.gov/publicAPI/v2/timeseries/data/", {
       method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": "FinScope/1.0 macro dashboard" },
+      headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": "Tenkay/1.0 macro dashboard" },
       body: JSON.stringify({ seriesid: configurations.map((item) => item.series), startyear: String(year - 2), endyear: String(year) }),
       signal: AbortSignal.timeout(8_000),
     });
@@ -114,7 +114,7 @@ async function readWorldBank(country: MacroCountry): Promise<MacroIndicator[]> {
     const sourceUrl = `https://data.worldbank.org/indicator/${series}`;
     try {
       const response = await fetch(`https://api.worldbank.org/v2/country/${country.worldBank}/indicator/${series}?format=json&per_page=10&date=${year - 8}:${year}`, {
-        headers: { Accept: "application/json", "User-Agent": "FinScope/1.0 macro dashboard" },
+        headers: { Accept: "application/json", "User-Agent": "Tenkay/1.0 macro dashboard" },
         signal: AbortSignal.timeout(8_000),
       });
       if (!response.ok) throw new Error(`World Bank returned ${response.status}.`);
@@ -134,7 +134,7 @@ async function readEurostat(country: MacroCountry): Promise<MacroIndicator[]> {
     const urls = eurostatUrls(dataset, country.eurostat, parameters, definition.frequency);
     try {
       const response = await fetch(urls.api, {
-        headers: { Accept: "application/json", "User-Agent": "FinScope/1.0 macro dashboard" },
+        headers: { Accept: "application/json", "User-Agent": "Tenkay/1.0 macro dashboard" },
         signal: AbortSignal.timeout(8_000),
       });
       if (!response.ok) throw new Error(`Eurostat returned ${response.status}.`);
@@ -182,7 +182,7 @@ async function readOecdEconomic(country: MacroCountry): Promise<MacroIndicator[]
       for (const dataflow of dataflows) {
         const url = `https://sdmx.oecd.org/public/rest/data/${dataflow}/${key(country.oecd as string)}?startPeriod=${start}&dimensionAtObservation=AllDimensions&format=csvfile`;
         const response = await fetch(url, {
-          headers: { Accept: "text/csv", "User-Agent": "FinScope/1.0 macro dashboard" },
+          headers: { Accept: "text/csv", "User-Agent": "Tenkay/1.0 macro dashboard" },
           signal: AbortSignal.timeout(8_000),
         });
         if (!response.ok) continue;
@@ -239,7 +239,7 @@ async function readTreasury(): Promise<MacroIndicator[]> {
     const year = new Date().getUTCFullYear();
     const url = `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=${year}`;
     const response = await fetch(url, {
-      headers: { Accept: "application/xml", "User-Agent": "Mozilla/5.0 FinScope/1.0" },
+      headers: { Accept: "application/xml", "User-Agent": "Mozilla/5.0 Tenkay/1.0" },
       signal: AbortSignal.timeout(8_000),
     });
     if (!response.ok) throw new Error(`U.S. Treasury returned ${response.status}.`);

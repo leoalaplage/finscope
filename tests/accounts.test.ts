@@ -61,7 +61,7 @@ describe("the daily email", () => {
   it("is never sent empty, and escapes what the filings say", () => {
     expect(alertEmail("a@b.co", [], "https://finscope.test", "2026-10-13")).toBeNull();
     const email = alertEmail("a@b.co", [alert("DAL", "Results <b>Q3</b>"), alert("UAL", "8-K")], "https://finscope.test", "2026-10-13")!;
-    expect(email.subject).toBe("FinScope · 2 alerts on DAL, UAL");
+    expect(email.subject).toBe("Tenkay · 2 alerts on DAL, UAL");
     expect(email.html).toContain("Results &lt;b&gt;Q3&lt;/b&gt;");
     expect(email.text).toContain("https://finscope.test/t/account");
   });

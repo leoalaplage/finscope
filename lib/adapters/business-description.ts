@@ -15,7 +15,7 @@
 
 export interface BusinessDescription { text: string; form: string; filed: string; url: string }
 
-const HEADERS = () => ({ "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" });
+const HEADERS = () => ({ "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com" });
 
 const decode = (text: string) => text
   .replace(/&nbsp;|&#160;|&#xa0;/gi, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"")

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { secFetch } from "./sec-fetch";
 import { namesQuarterEnd, readReleaseFigures, releaseDocuments, type ReleaseAnchors, type ReleaseCheck, type ReleaseFigures } from "./earnings-release";
 
-const SEC_AGENT = () => process.env.SEC_USER_AGENT || "FinScope research application contact@example.com";
+const SEC_AGENT = () => process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com";
 
 const EarningsSubmissionsSchema = z.object({
   filings: z.object({

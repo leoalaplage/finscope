@@ -237,7 +237,7 @@ function KeyFigures({ fund, surface, analytics }: { fund: EtfProfile; surface: S
           ))}
         </dl>
       </Box>
-      <Box surface={surface} code="SCORE" title="FinScope fund score" span="side"><FundScoreBody score={analytics.score} /></Box>
+      <Box surface={surface} code="SCORE" title="Tenkay fund score" span="side"><FundScoreBody score={analytics.score} /></Box>
     </>
   );
 }

@@ -14,7 +14,7 @@ export async function fetchDividendHistory(symbol: string, years = 25): Promise<
   const path = `/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${start}&period2=${end}&interval=1wk&events=div%2Csplits`;
   let status = 0;
   for (const base of BASES()) {
-    const response = await fetch(`${base}${path}`, { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 FinScope/1.0" } });
+    const response = await fetch(`${base}${path}`, { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 Tenkay/1.0" } });
     status = response.status;
     if (!response.ok) { await response.body?.cancel(); continue; }
     const body = await response.json() as { chart?: { result?: Array<{ meta?: { currency?: string }; events?: { dividends?: Record<string, { amount?: number; date?: number }> } }> } };

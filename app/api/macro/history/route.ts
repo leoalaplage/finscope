@@ -105,7 +105,7 @@ function unique(points: MacroObservation[]) {
 async function text(url: string, accept: string) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const response = await fetch(url, {
-      headers: { Accept: accept, "User-Agent": "FinScope/1.0 macro history" },
+      headers: { Accept: accept, "User-Agent": "Tenkay/1.0 macro history" },
       signal: AbortSignal.timeout(12_000),
     });
     if (response.ok) return response.text();
@@ -124,7 +124,7 @@ async function text(url: string, accept: string) {
 
 async function json(url: string) {
   const response = await fetch(url, {
-    headers: { Accept: "application/json", "User-Agent": "FinScope/1.0 macro history" },
+    headers: { Accept: "application/json", "User-Agent": "Tenkay/1.0 macro history" },
     signal: AbortSignal.timeout(12_000),
   });
   if (!response.ok) throw new Error(`Official source returned ${response.status}.`);
@@ -146,7 +146,7 @@ async function blsHistory(definition: MacroSeriesDefinition, range: HistoryRange
   for (const chunk of chunks) {
     const url = `https://api.bls.gov/publicAPI/v2/timeseries/data/${series}?startyear=${chunk.start}&endyear=${chunk.end}`;
     const response = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": "FinScope/1.0 macro history" },
+      headers: { Accept: "application/json", "User-Agent": "Tenkay/1.0 macro history" },
       signal: AbortSignal.timeout(12_000),
     });
     if (!response.ok) throw new Error(`BLS returned ${response.status}.`);

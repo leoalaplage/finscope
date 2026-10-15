@@ -25,7 +25,7 @@ const PATIENT = [1000, 3000, 6000];
 const SPACING_MS = 250;
 const pause = () => new Promise((resolve) => setTimeout(resolve, SPACING_MS));
 
-const HEADERS = () => ({ "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" });
+const HEADERS = () => ({ "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com" });
 
 interface IndexItem { name: string }
 

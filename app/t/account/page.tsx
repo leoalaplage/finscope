@@ -6,7 +6,7 @@ import { TermPage } from "@/components/term/TermPage";
 import { TermShell } from "@/components/term/TermShell";
 
 export const dynamic = "force-static";
-export const metadata: Metadata = { title: "ACCT · FinScope Terminal", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "ACCT · Tenkay", robots: { index: false, follow: false } };
 
 /** The reader's account — profile, sync, email alerts, passkeys, data — as a terminal screen (components/io/AccountPage.tsx). */
 export default function TerminalAccount() {

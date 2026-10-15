@@ -6,8 +6,8 @@ import { Shell } from "@/components/io/Shell";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "Settings — FinScope.io",
-  description: "Appearance, privacy and local-data settings for FinScope.",
+  title: "Settings — Tenkay",
+  description: "Appearance, privacy and local-data settings for Tenkay.",
 };
 
 export default function SettingsPage() {

@@ -5,7 +5,7 @@ import { TermSettings } from "@/components/term/TermSettings";
 import { TermShell } from "@/components/term/TermShell";
 
 export const dynamic = "force-static";
-export const metadata: Metadata = { title: "SET · FinScope Terminal", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "SET · Tenkay", robots: { index: false, follow: false } };
 
 /** The terminal's settings (components/term/TermSettings.tsx). */
 export default function TerminalSettings() {

@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "FinScope.io",
-    short_name: "FinScope",
+    name: "Tenkay",
+    short_name: "Tenkay",
     description: "Filed financials, market prices and valuation for US-listed companies.",
     start_url: "/",
     display: "standalone",

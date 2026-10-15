@@ -7,7 +7,7 @@ import { cachedJson } from "./market-cache";
  * read of its SEC index kept a quarter of an hour: the EVT panel and the
  * alerts read the same copy.
  */
-const SEC_AGENT = () => process.env.SEC_USER_AGENT || "FinScope research application contact@example.com";
+const SEC_AGENT = () => process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com";
 
 /**
  * Forms a company's index lists whether it is the subject or the filer: Bank

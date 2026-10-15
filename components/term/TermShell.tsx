@@ -314,7 +314,7 @@ export function TermShell({ ticker = null, bare = false, children }: {
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <div className="t-top">
         <div className="t-bar">
-          <a className="t-brand" href="/t" aria-label="FinScope terminal home"><span className="t-brand-long">FINSCOPE</span><span className="t-brand-short" aria-hidden="true">FS</span></a>
+          <a className="t-brand" href="/t" aria-label="Tenkay terminal home"><span className="t-brand-long">TENKAY</span><span className="t-brand-short" aria-hidden="true">TK</span></a>
           <CommandLine current={ticker} onHelp={() => setHelpOpen(true)} />
           <div className="t-bar-right">
             <AlertsChip />

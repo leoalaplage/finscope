@@ -90,7 +90,7 @@ export function marketBasis(period: FinancialPeriod, point: PricePoint | null | 
   if (point.currency !== period.currency) {
     return {
       basis: null,
-      reason: `The share price is quoted in ${point.currency} and the statements are filed in ${period.currency}. FinScope does not convert filed figures, so market capitalisation and every multiple built on it are withheld for this company.`,
+      reason: `The share price is quoted in ${point.currency} and the statements are filed in ${period.currency}. Tenkay does not convert filed figures, so market capitalisation and every multiple built on it are withheld for this company.`,
     };
   }
   const count = shareCount(period);

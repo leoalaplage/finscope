@@ -11,7 +11,7 @@ import { ChartWorkspace } from "@/components/term/ChartWorkspace";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "Stock charts with studies and drawings · FinScope",
+  title: "Stock charts with studies and drawings · Tenkay",
   description: "Daily and intraday charts for US stocks, with moving averages, RSI, MACD, Ichimoku, volume profile, comparisons and drawings.",
   alternates: { canonical: "/t/chart" },
 };

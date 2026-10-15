@@ -20,7 +20,7 @@ const DAY = 86_400_000;
 export function alertEmail(to: string, alerts: Alert[], site: string, since: string): Email | null {
   if (!alerts.length) return null;
   const tickers = [...new Set(alerts.map((alert) => alert.ticker))];
-  const subject = `FinScope · ${alerts.length} alert${alerts.length > 1 ? "s" : ""} on ${tickers.slice(0, 4).join(", ")}${tickers.length > 4 ? ` and ${tickers.length - 4} more` : ""}`;
+  const subject = `Tenkay · ${alerts.length} alert${alerts.length > 1 ? "s" : ""} on ${tickers.slice(0, 4).join(", ")}${tickers.length > 4 ? ` and ${tickers.length - 4} more` : ""}`;
   const rows = alerts.slice(0, 60).map((alert) => `<tr>
 <td style="padding:6px 8px;border-bottom:1px solid #ececed;white-space:nowrap;color:#6f6f76">${escapeHtml(alert.at.slice(0, 10))}</td>
 <td style="padding:6px 8px;border-bottom:1px solid #ececed"><a href="${escapeHtml(`${site}/t/s/${encodeURIComponent(alert.ticker)}`)}" style="color:#08080a;font-weight:600">${escapeHtml(alert.ticker)}</a></td>

@@ -96,7 +96,7 @@ export async function filingsForLatestDay(now = new Date(), lookBack = 5): Promi
   for (let back = 0; back <= lookBack; back++) {
     const day = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - back));
     const response = await fetch(dailyIndexUrl(day), {
-      headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" },
+      headers: { "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com" },
     });
     if (!response.ok) continue;
     const filings = parseDailyIndex(await response.text())

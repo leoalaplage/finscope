@@ -68,7 +68,7 @@ async function monthOfCloses(symbols: string[]): Promise<Map<string, number[]>> 
     try {
       const response = await fetch(
         `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${encodeURIComponent(slice.join(","))}&range=1mo&interval=1d`,
-        { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 FinScope/1.0" } },
+        { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 Tenkay/1.0" } },
       );
       if (!response.ok) continue;
       const payload = await response.json() as { spark?: { result?: Array<{ symbol: string; response: Array<{ close?: Array<number | null>; indicators?: { quote?: Array<{ close?: Array<number | null> }> } }> }> } };

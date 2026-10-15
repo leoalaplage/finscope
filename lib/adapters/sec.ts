@@ -15,7 +15,7 @@ type FilingFactLike = FilingFact;
 const COMPANY_CAPEX_TAG = "CapitalExpenditures";
 /** Revenue read as goods plus services, in the "company" taxonomy (see `revenueFromParts`). */
 const COMPANY_REVENUE_TAG = "RevenueFromGoodsAndServices";
-const SEC_HEADERS = () => ({ "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" });
+const SEC_HEADERS = () => ({ "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com" });
 
 const STANDARD_CAPEX_TAGS = [
   "PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForProceedsFromProductiveAssets",
@@ -1927,7 +1927,7 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
      * carry, which is a different sentence and points at a different fix.
      */
     throw new Error(spaces.includes("ifrs-full") && !spaces.includes("us-gaap")
-      ? `${parsed.entityName} reports under IFRS, and none of the IFRS concepts FinScope reads appear in its filings. Its statements cannot be normalized yet.`
+      ? `${parsed.entityName} reports under IFRS, and none of the IFRS concepts Tenkay reads appear in its filings. Its statements cannot be normalized yet.`
       : `No standardized facts were found for ${parsed.entityName} on Forms 10-K, 10-Q, 20-F or 40-F.`);
   }
 
@@ -1941,7 +1941,7 @@ export function normalizeSecPayload(payload: unknown, ticker: string, retrievedA
     // ones actually applied rather than only the hand-verified ones.
     company: { ...company, stockSplits }, periods: [...annual, ...quarterly, ...ttm], retrievedAt,
     warnings: [
-      ...(payloadIdentityMismatch ? [`SEC identity mismatch: the ticker registry identifies ${company.name}, while Company Facts labels the payload ${parsed.entityName}. FinScope retains the ticker-to-CIK registry identity.`] : []),
+      ...(payloadIdentityMismatch ? [`SEC identity mismatch: the ticker registry identifies ${company.name}, while Company Facts labels the payload ${parsed.entityName}. Tenkay retains the ticker-to-CIK registry identity.`] : []),
       "Quarterly cash-flow facts may be isolated from year-to-date disclosures; every derived quarter is marked calculated with its source accessions.",
       ...(withheld.length ? [`${withheld.length} quarterly figure${withheld.length === 1 ? " was" : "s were"} withheld as implausible against the quarters either side and a year earlier, most often a fourth quarter subtracted across a restatement: ${withheld.slice(0, 6).join(", ")}${withheld.length > 6 ? "…" : ""}.`] : []),
       ttm.length ? `TTM is available through ${ttm.at(-1)!.periodEnd} from four consecutive fiscal quarters.`
@@ -1967,7 +1967,7 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
   if (!company.cik) throw new Error(company.resolutionNote || "No reliable regulatory identifier is available for this instrument.");
   const retrievedAt = new Date().toISOString();
   const response = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${company.cik}.json`, {
-    headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com", Accept: "application/json" },
+    headers: { "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com", Accept: "application/json" },
     next: { revalidate: 21_600 },
   });
   if (!response.ok) throw new Error(`SEC returned ${response.status}.`);
@@ -1987,7 +1987,7 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
   if (successor && successor.reads === company.cik) {
     try {
       const listed = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${successor.listed}.json`, {
-        headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com", Accept: "application/json" },
+        headers: { "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com", Accept: "application/json" },
       });
       if (listed.ok) facts = mergeFactTrees(facts, ((await listed.json()) as { facts: FactTree }).facts);
       if (successor.predecessor) notes.push(successor.why);
@@ -2007,11 +2007,11 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
     if (filing?.accession && filingIsAhead(facts, filing)) {
       const filer = Number(successor?.listed ?? company.cik);
       const folder = `https://www.sec.gov/Archives/edgar/data/${filer}/${filing.accession.replaceAll("-", "")}`;
-      const listing = await fetch(`${folder}/index.json`, { headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" } });
+      const listing = await fetch(`${folder}/index.json`, { headers: { "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com" } });
       const names = listing.ok ? ((await listing.json()) as { directory: { item: Array<{ name: string }> } }).directory.item.map((item) => item.name) : [];
       const instance = instanceDocument(names);
       if (instance) {
-        const document = await fetch(`${folder}/${instance}`, { headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" } });
+        const document = await fetch(`${folder}/${instance}`, { headers: { "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com" } });
         if (document.ok) {
           const extra = parseXbrlInstance(await document.text(), { accession: filing.accession, form: filing.form, filed: filing.filingDate });
           if (Object.keys(extra).length) {
@@ -2204,7 +2204,7 @@ export async function fetchSecCompany(ticker: string): Promise<CompanyDataset> {
 
 interface SecTickerEntry { cik_str: number; ticker: string; title: string }
 export async function searchSecCompanies(query: string) {
-  const response = await fetch("https://www.sec.gov/files/company_tickers.json", { headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com" }, next: { revalidate: 86_400 } });
+  const response = await fetch("https://www.sec.gov/files/company_tickers.json", { headers: { "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com" }, next: { revalidate: 86_400 } });
   if (!response.ok) throw new Error(`SEC company registry returned ${response.status}.`);
   const entries = Object.values(await response.json() as Record<string, SecTickerEntry>); const needle = query.trim().toUpperCase();
   // The registry is CIK-ordered. Prioritise an exact symbol before applying the
@@ -2242,7 +2242,7 @@ function exchangeFromSubmissions(exchanges: string[] | undefined): string | null
 
 async function resolveSecBusinessMetadata(cik: string) {
   const response = await fetch(`https://data.sec.gov/submissions/CIK${cik.padStart(10, "0")}.json`, {
-    headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com", Accept: "application/json" },
+    headers: { "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com", Accept: "application/json" },
     next: { revalidate: 86_400 },
   });
   if (!response.ok) throw new Error(`SEC company classification returned ${response.status}.`);
@@ -2532,7 +2532,7 @@ export async function fetchPeriodicFilings(cik: string, limit = 8): Promise<Late
 export async function fetchLatestFiling(cik: string): Promise<LatestFiling | null> {
   const padded = cik.padStart(10, "0");
   const response = await fetch(`https://data.sec.gov/submissions/CIK${padded}.json`, {
-    headers: { "User-Agent": process.env.SEC_USER_AGENT || "FinScope research application contact@example.com", Accept: "application/json" },
+    headers: { "User-Agent": process.env.SEC_USER_AGENT || "Tenkay research application contact@example.com", Accept: "application/json" },
   });
   if (!response.ok) throw new Error(`SEC returned ${response.status}.`);
   const recent = SubmissionsSchema.parse(await response.json()).filings.recent;

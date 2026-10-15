@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ ticker: s
   const name = companyByTicker(symbol)?.name ?? universeMember(symbol)?.name ?? null;
   const who = name ? `${name} (${symbol})` : symbol;
   return {
-    title: `${who} — financials, valuation and filings · FinScope`,
+    title: `${who} — financials, valuation and filings · Tenkay`,
     description: `${who}: filed financials, operating figures, earnings against the consensus, valuation, DCF, dividends, insider dealing and SEC filings.`,
     alternates: { canonical: `/t/s/${encodeURIComponent(symbol)}` },
   };

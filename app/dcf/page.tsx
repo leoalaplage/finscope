@@ -14,7 +14,7 @@ import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "DCF — FinScope.io",
+  title: "DCF — Tenkay",
   description: "What a price is asking for, what a company has delivered, and how much room is left between them.",
 };
 

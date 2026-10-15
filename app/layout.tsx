@@ -15,8 +15,8 @@ import { AccountSync } from "@/components/io/AccountSync";
  */
 const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://finscope-financial-research.leoalaplage.workers.dev";
 
-const TITLE = "FinScope.io — Every US filer. Every filed figure.";
-const DESCRIPTION = "Filed financials, market prices and valuation for any US-listed company, read from SEC XBRL.";
+const TITLE = "Tenkay — a terminal for every US-listed company";
+const DESCRIPTION = "Filed financials, operating figures, valuation, insider buying and the market for every company that files with the SEC, in one terminal.";
 
 /**
  * No stylesheet is imported here.

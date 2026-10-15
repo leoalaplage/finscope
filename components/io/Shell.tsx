@@ -109,7 +109,7 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <header className="bar">
         <div className="wrap bar-inner bar-main">
-          <a href="/" className="mark" aria-current={pathname === "/" ? "page" : undefined}>FinScope<span className="dim">.io</span></a>
+          <a href="/" className="mark" aria-current={pathname === "/" ? "page" : undefined}>Tenkay<span className="dim">.io</span></a>
           {search ? <div className="bar-desktop-search"><Search /></div> : <span className="bar-spacer" />}
           {/*
             * Plain anchors, like the wordmark beside them and the company links
