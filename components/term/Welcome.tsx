@@ -3,21 +3,14 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { continueWith, emailSignInLink, useAccount } from "@/components/io/account";
 import { GoogleMark } from "@/components/io/AccountPage";
-import { OperatingKpis } from "@/components/io/OperatingKpis";
-import { Segments } from "@/components/io/Segments";
-import { useCompany } from "@/components/io/use-company";
-import { FundamentalCharts } from "./FundamentalCharts";
-import { MarketBoard } from "./MarketBoard";
-import { ChartWorkspace } from "./ChartWorkspace";
-import { TermCompany } from "./TermCompany";
-import { TermPortfolio } from "./TermPortfolio";
 
 /**
  * TOUR: on black, without the terminal's frame — what Tenqay is, then each
- * part of it as a live screenshot: the market screen, a company page, its
- * operating KPIs and segments, the charts, the portfolio — then the account
- * and the plans. The screens are the product's own, drawn small and still,
- * so what a reader sees is what they get. Opened once on a first visit (components/term/Launchpad.tsx,
+ * part of it as a screenshot of the live product: the market screen, a
+ * company page, its operating KPIs and segments, the charts, the portfolio —
+ * then the account and the plans. The screenshots are taken from tenqay.com
+ * by scripts/tour-screenshots.mjs (public/tour/*.webp), as a first-time
+ * visitor sees it, so the tour loads at once and asks the data for nothing. Opened once on a first visit (components/term/Launchpad.tsx,
  * ONBOARDED_KEY); always on /t/welcome, TOUR, or SET.
  *
  * Tenqay will be paid, monthly or yearly (PLANS); while it is in beta the
@@ -77,33 +70,33 @@ export function Welcome() {
           {step === 0 ? <Intro onNext={() => go(1)} /> : null}
           {step === 1 ? (
             <Screen title="Market overview" line="Real-time indices, futures, rates, currencies, sector performance and market breadth.">
-              <Shot url="tenqay.com/t/market"><MarketBoard /></Shot>
+              <Shot url="tenqay.com/t/market" src="/tour/market.webp" alt="The market screen" />
             </Screen>
           ) : null}
           {step === 2 ? (
             <Screen title="Company analysis" line="Pricing, key statistics, quality scoring and company profiles, sourced from SEC filings.">
-              <Shot url="tenqay.com/t/s/NVDA"><TermCompany ticker="NVDA" /></Shot>
+              <Shot url="tenqay.com/t/s/NVDA" src="/tour/company.webp" alt="Nvidia's company page" />
             </Screen>
           ) : null}
           {step === 3 ? (
             <Screen title="Operating KPIs and segment data" line="Company-reported operating metrics and segment breakdowns, extracted from earnings releases and filings.">
               <div className="t-wel-pair">
-                <Shot url="tenqay.com/t/s/DAL#kpi" label="Operating KPIs · Delta"><div className="t-panel-pad"><OperatingKpis ticker="DAL" cik="0000027904" /></div></Shot>
-                <Shot url="tenqay.com/t/s/AAPL#seg" label="Segments · Apple"><Segments ticker="AAPL" cik="0000320193" /></Shot>
+                <Shot url="tenqay.com/t/s/DAL#kpi" label="Operating KPIs · Delta" src="/tour/kpi.webp" alt="Delta's operating KPIs" />
+                <Shot url="tenqay.com/t/s/AAPL#seg" label="Segments · Apple" src="/tour/segments.webp" alt="Apple's revenue by segment" />
               </div>
             </Screen>
           ) : null}
           {step === 4 ? (
             <Screen title="Technical and fundamental charting" line="Advanced charting with indicators and drawing tools, alongside ten years of reported financials.">
               <div className="t-wel-pair">
-                <Shot url="tenqay.com/t/chart" label="Chart workspace"><ChartWorkspace /></Shot>
-                <Shot url="tenqay.com/t/s/NVDA#gf" label="Fundamental charts · Nvidia"><CompanyCharts ticker="NVDA" /></Shot>
+                <Shot url="tenqay.com/t/chart" label="Chart workspace" src="/tour/chart.webp" alt="The chart workspace" />
+                <Shot url="tenqay.com/t/s/NVDA#gf" label="Fundamental charts · Nvidia" src="/tour/fundamentals.webp" alt="Nvidia's fundamental charts" />
               </div>
             </Screen>
           ) : null}
           {step === 5 ? (
             <Screen title="Portfolio analytics" line="Performance against benchmarks, risk metrics, income and rebalancing, built from your transactions.">
-              <Shot url="tenqay.com/t/portfolio"><TermPortfolio /></Shot>
+              <Shot url="tenqay.com/t/portfolio" src="/tour/portfolio.webp" alt="The portfolio screen" />
             </Screen>
           ) : null}
           {step === 6 ? <AccountStep onFinish={finish} /> : null}
@@ -142,22 +135,17 @@ function Screen({ title, line, children }: { title: string; line: string; childr
   );
 }
 
-/** A live screen of the terminal, drawn small and still inside a window frame: a screenshot that is never out of date. */
-function Shot({ url, label, children }: { url: string; label?: string; children: ReactNode }) {
+/** A screenshot of the terminal inside a window frame. */
+function Shot({ url, label, src, alt }: { url: string; label?: string; src: string; alt: string }) {
   return (
     <figure className="t-wel-shot">
       <figcaption><i /><i /><i /><span>{url}</span>{label ? <b>{label}</b> : null}</figcaption>
-      <div className="t-wel-shot-view" inert>
-        <div className="t-wel-shot-page">{children}</div>
+      <div className="t-wel-shot-view">
+        {/* eslint-disable-next-line @next/next/no-img-element -- a static screenshot; nothing to optimise on the Worker. */}
+        <img src={src} alt={alt} loading="eager" decoding="async" />
       </div>
     </figure>
   );
-}
-
-function CompanyCharts({ ticker }: { ticker: string }) {
-  const { state } = useCompany(ticker);
-  if (state.kind === "ready") return <FundamentalCharts view={state.view} />;
-  return <p className="t-empty">{state.kind === "failed" ? "The filings is temporarily unavailable." : `Reading ${ticker}'s filings…`}</p>;
 }
 
 function AccountStep({ onFinish }: { onFinish: (href?: string) => void }) {
