@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { continueWith, emailSignInLink, useAccount } from "@/components/io/account";
+import { openBillingPortal, startCheckout, SUPPORT_EMAIL, useBilling } from "@/components/io/billing";
 import { GoogleMark } from "@/components/io/AccountPage";
 
 /**
@@ -178,39 +179,73 @@ function Shot({ url, label, src, alt, ratio }: { url: string; label?: string; sr
 
 function PlansStep({ onFinish }: { onFinish: (href?: string) => void }) {
   const { account, providers } = useAccount();
+  const [returned] = useState(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("checkout")));
+  const billing = useBilling(returned === "success");
   const [address, setAddress] = useState("");
   const [sent, setSent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const back = "/t/welcome?step=account";
   const email = async () => {
     setError(null);
     try { await emailSignInLink(address.trim(), back); setSent(address.trim()); } catch (failure) { setError(failure instanceof Error ? failure.message : "The link could not be sent."); }
   };
   const toSignup = () => document.getElementById("t-plans-signup")?.scrollIntoView({ behavior: "smooth", block: "center" });
-  const cta = account
-    ? <button type="button" className="t-wel-cta t-plan-cta" onClick={() => onFinish()}>Open the terminal</button>
-    : <button type="button" className="t-wel-cta t-plan-cta" onClick={toSignup}>Start with the beta</button>;
+  const run = async (key: string, action: () => Promise<void>) => {
+    setError(null); setBusy(key);
+    try { await action(); } catch (failure) { setError(failure instanceof Error ? failure.message : "Billing is unavailable just now."); setBusy(null); }
+  };
+  const paid = billing?.billing ?? false;
+  const paywall = billing?.paywall ?? false;
+  const subscription = billing?.entitled ? billing.subscription : null;
+  /*
+   * What each plan's button does: open the terminal while billing is not set
+   * up (the beta), sign in first, subscribe through Stripe, or — on the plan
+   * already held — nothing but say so.
+   */
+  const cta = (plan: "monthly" | "annual") => {
+    if (subscription) {
+      return subscription.plan === plan
+        ? <button type="button" className="t-wel-ghost t-plan-cta" disabled>Current plan</button>
+        : <button type="button" className="t-wel-ghost t-plan-cta" disabled={busy != null} onClick={() => void run("portal", openBillingPortal)}>Switch plan</button>;
+    }
+    if (!paid) return account
+      ? <button type="button" className="t-wel-cta t-plan-cta" onClick={() => onFinish()}>Open the terminal</button>
+      : <button type="button" className="t-wel-cta t-plan-cta" onClick={toSignup}>Start with the beta</button>;
+    if (!account) return <button type="button" className="t-wel-cta t-plan-cta" onClick={toSignup}>Subscribe</button>;
+    return <button type="button" className="t-wel-cta t-plan-cta" disabled={busy != null} onClick={() => void run(plan, () => startCheckout(plan))}>{busy === plan ? "Opening checkout…" : "Subscribe"}</button>;
+  };
+  const renews = subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : null;
   return (
     <div className="t-plans">
       <header className="t-plans-head">
         <h2>Plans and pricing</h2>
-        <p>One product, billed monthly or annually. Complimentary access during the beta; no payment is taken today.</p>
+        <p>{paywall ? "One product, billed monthly or annually. Cancel at any time from your account." : "One product, billed monthly or annually. Complimentary access during the beta; no payment is taken today."}</p>
+        {returned === "success" ? (
+          <p className="t-plans-status" data-tone={subscription ? "ok" : undefined}>{subscription ? `Your ${subscription.plan ?? ""} subscription is active.` : "Payment received — activating your subscription…"}</p>
+        ) : returned === "cancelled" ? <p className="t-plans-status">Checkout was cancelled. No payment was taken.</p> : null}
+        {subscription && returned !== "success" ? (
+          <p className="t-plans-status" data-tone="ok">
+            {`${subscription.plan === "annual" ? "Annual" : "Monthly"} plan · ${subscription.cancelAtPeriodEnd ? "ends" : "renews"} ${renews ?? ""}`}
+          </p>
+        ) : null}
       </header>
 
       <div className="t-plans-grid">
-        <article className="t-plan" data-tier="monthly">
+        <article className="t-plan" data-tier="monthly" data-current={subscription?.plan === "monthly" || undefined}>
           <div className="t-plan-top"><h3>Monthly</h3><p>Billed every month</p></div>
           <div className="t-plan-price"><b>{dollars(PRICES.monthly)}</b><span>/ month</span></div>
           <p className="t-plan-billed">{dollars(PRICES.monthly * 12)} over twelve months</p>
-          {cta}
+          {cta("monthly")}
         </article>
-        <article className="t-plan" data-tier="annual">
+        <article className="t-plan" data-tier="annual" data-current={subscription?.plan === "annual" || undefined}>
           <div className="t-plan-top"><h3>Annual <span className="t-plan-save">Save {SAVING}%</span></h3><p>Billed once a year</p></div>
           <div className="t-plan-price"><b>{dollars(PRICES.annual)}</b><span>/ year</span></div>
           <p className="t-plan-billed">{dollars(PRICES.annual / 12)} per month</p>
-          {cta}
+          {cta("annual")}
         </article>
       </div>
+      {error ? <p className="t-wel-error t-plans-error" role="alert">{error}</p> : null}
 
       <div className="t-plans-included">
         <h3>Included in every plan</h3>
@@ -220,12 +255,18 @@ function PlansStep({ onFinish }: { onFinish: (href?: string) => void }) {
       <section className="t-plans-signup" id="t-plans-signup" aria-label="Account">
         {account ? (
           <>
-            <div><h3>Welcome, {account.name}</h3><p>Your watchlists, portfolios and alerts are synchronised across your devices.</p></div>
-            <button type="button" className="t-wel-cta" onClick={() => onFinish()}>Open the terminal</button>
+            <div>
+              <h3>Welcome, {account.name}</h3>
+              <p>{subscription || !paywall ? "Your watchlists, portfolios and alerts are synchronised across your devices." : "Choose a plan above to open the terminal."}</p>
+            </div>
+            <div className="t-plans-signin">
+              {subscription || !paywall ? <button type="button" className="t-wel-cta" onClick={() => onFinish()}>Open the terminal</button> : null}
+              {subscription ? <button type="button" className="t-wel-ghost" disabled={busy != null} onClick={() => void run("portal", openBillingPortal)}>Manage billing</button> : null}
+            </div>
           </>
         ) : (
           <>
-            <div><h3>Create your account</h3><p>Synchronise your watchlists, portfolios and alerts across your devices.</p></div>
+            <div><h3>Create your account</h3><p>{paid ? "Sign in to subscribe. Your watchlists, portfolios and alerts follow you across devices." : "Synchronise your watchlists, portfolios and alerts across your devices."}</p></div>
             <div className="t-plans-signin">
               {providers.google ? <button type="button" className="t-wel-google" onClick={() => continueWith("google", back)}><GoogleMark />Continue with Google</button> : null}
               {providers.email ? (
@@ -237,12 +278,12 @@ function PlansStep({ onFinish }: { onFinish: (href?: string) => void }) {
                 )
               ) : null}
               {error ? <p className="t-wel-error" role="alert">{error}</p> : null}
-              <button type="button" className="t-wel-later" onClick={() => onFinish()}>Continue without an account</button>
+              {paywall ? null : <button type="button" className="t-wel-later" onClick={() => onFinish()}>Continue without an account</button>}
             </div>
           </>
         )}
       </section>
-      <p className="t-plans-fine">Prices in US dollars. Applicable taxes may be added at checkout. Research information only, not investment advice.</p>
+      <p className="t-plans-fine">Prices in US dollars. Applicable taxes may be added at checkout.{paid ? " Payments are processed by Stripe." : ""} Questions: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>. Research information only, not investment advice.</p>
     </div>
   );
 }

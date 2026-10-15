@@ -7,6 +7,7 @@ import {
   renameAccount, renamePasskey, saveEmail, signIn, signOut, useAccount, type SignInProviders,
 } from "./account";
 import { SYNC_EVENT, syncNow, syncStatus } from "./AccountSync";
+import { openBillingPortal, SUPPORT_EMAIL, useBilling } from "./billing";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const day = (iso: string | null | undefined) => {
@@ -93,12 +94,14 @@ export function AccountPage() {
           <a href="#profile">Profile</a>
           <a href="#sync">Sync</a>
           <a href="#alerts">Email alerts</a>
+          <a href="#subscription">Subscription</a>
           <a href="#security">Sign-in</a>
           <a href="#data">Your data</a>
         </nav>
         <div className="settings-content">
           <Profile key={`profile-${account.name}`} name={account.name} created={account.created} id={account.id} busy={busy} run={run}
             methods={[...new Set([...(account.identities ?? []).map((identity) => ({ google: "Google", apple: "Apple", microsoft: "Microsoft", email: "Email link" })[identity.provider]), ...(account.passkeys.length ? ["Passkey"] : [])])]} />
+          <SubscriptionSection />
           <Sync syncState={sync.state} syncAt={sync.at} syncError={sync.error} />
           <Alerts key={`alerts-${account.email?.address ?? ""}`} email={account.email} emailService={emailService} busy={busy} run={run} />
           <Security passkeys={account.passkeys} identities={account.identities ?? []} providers={providers} supported={supported} busy={busy} run={run} />
@@ -219,6 +222,40 @@ function SignedOut({ supported, providers, busy, run, notice }: { supported: boo
       </div>
       <p className="stat-note acct-fineprint">Without an account nothing changes: everything stays in this browser, as before. You can take your data away or delete the account at any time.</p>
     </main>
+  );
+}
+
+/* --- Subscription --------------------------------------------------------- */
+
+/** The plan, its renewal, and Stripe's billing portal (components/io/billing.ts). */
+function SubscriptionSection() {
+  const billing = useBilling();
+  const [failure, setFailure] = useState<string | null>(null);
+  if (!billing || (!billing.billing && !billing.subscription)) {
+    return (
+      <Section id="subscription" title="Subscription" lede="Tenqay is billed monthly or annually.">
+        <p className="acct-muted">Complimentary access during the beta. <a href="/t/welcome?step=account">View plans</a></p>
+      </Section>
+    );
+  }
+  const subscription = billing.subscription;
+  const end = subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : null;
+  return (
+    <Section id="subscription" title="Subscription" lede="Your plan, its renewal, payment method and invoices.">
+      {subscription && billing.entitled ? (
+        <>
+          <p><strong>{subscription.plan === "annual" ? "Annual" : subscription.plan === "monthly" ? "Monthly" : "Active"}</strong> · {subscription.cancelAtPeriodEnd ? `ends ${end ?? ""}` : `renews ${end ?? ""}`}{subscription.status === "past_due" ? " · payment overdue" : ""}</p>
+          <button type="button" className="acct-btn" onClick={() => { setFailure(null); openBillingPortal().catch((error: unknown) => setFailure(error instanceof Error ? error.message : "Unavailable.")); }}>Manage billing</button>
+        </>
+      ) : (
+        <>
+          <p className="acct-muted">{subscription ? "Your subscription has ended." : "No active subscription."}</p>
+          <a className="acct-btn acct-btn-primary" href="/t/welcome?step=account">View plans</a>
+        </>
+      )}
+      {failure ? <p className="acct-notice" data-tone="error">{failure}</p> : null}
+      <p className="acct-muted">Questions: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a></p>
+    </Section>
   );
 }
 

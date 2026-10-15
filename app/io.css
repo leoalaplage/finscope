@@ -2674,3 +2674,5 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .acct-head-actions > * { height: 28px; box-sizing: border-box; }
 .acct-btn-link { display: inline-flex; align-items: center; text-decoration: none; }
 .acct-head-actions .acct-badge { height: 28px; border-radius: var(--radius); }
+
+.acct-muted { color: var(--ink-3); }

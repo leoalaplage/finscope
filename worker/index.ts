@@ -16,6 +16,7 @@ import { refreshAuditReport } from "../lib/coverage-audit";
 import { warmExtraSlice } from "../lib/warm-extra";
 import { COVERED_TICKERS } from "../lib/company-registry";
 import { setRuntimeBindings } from "../lib/runtime-env";
+import { admit, gateFor, paywallOn } from "../lib/paywall";
 
 interface Env {
   ASSETS: Fetcher;
@@ -66,6 +67,24 @@ const worker = {
     if (request.method === "GET" || request.method === "HEAD") {
       const target = canonicalRedirect(url);
       if (target) return Response.redirect(target, new URL(target).host === url.host ? 307 : 301);
+    }
+
+    /*
+     * The paywall (lib/paywall.ts), before anything is served: off until the
+     * owner turns it on. A page asked for without a subscription leads to the
+     * plans — the tour for a visitor, its last step for a signed-in reader —
+     * and an API call is refused, whether it came from the terminal, a link
+     * or a script.
+     */
+    if (paywallOn()) {
+      const gate = gateFor(url.pathname);
+      if (gate) {
+        const verdict = await admit(request);
+        if (!verdict.allowed) {
+          if (gate === "api") return Response.json({ error: "A Tenqay subscription is required.", plans: "/t/welcome?step=account" }, { status: 402, headers: { "Cache-Control": "no-store" } });
+          return new Response(null, { status: 302, headers: { Location: verdict.signedIn ? "/t/welcome?step=account" : "/t/welcome", "Cache-Control": "no-store" } });
+        }
+      }
     }
 
     if (url.pathname === "/_vinext/image") {

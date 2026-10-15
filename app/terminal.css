@@ -1575,6 +1575,12 @@ body:has(.io.term) { background: #0d1012; }
 .t-plans-signin { display: grid; gap: 10px; }
 .t-plans-signin .t-wel-later { justify-self: start; }
 .t-plans-fine { text-align: center; color: var(--ink-3); font-size: var(--fs-micro); }
+.t-plans-fine a { color: var(--ink-2); }
+.t-plans-status { margin-top: 4px !important; padding: 6px 14px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--ink-2) !important; font-size: var(--fs-xs) !important; }
+.t-plans-status[data-tone="ok"] { color: var(--gain) !important; border-color: color-mix(in srgb, var(--gain) 45%, transparent); }
+.t-plan[data-current] { border-color: var(--gain); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gain) 40%, transparent); }
+.t-plans-error { text-align: center; }
+.t-wel-ghost:disabled { opacity: .55; cursor: default; }
 @media (max-width: 900px) {
   .t-plans-grid, .t-plans-signup, .t-plans-included ul { grid-template-columns: minmax(0, 1fr); }
   .t-plan { padding: 20px; }

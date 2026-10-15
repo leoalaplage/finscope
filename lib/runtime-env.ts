@@ -22,11 +22,19 @@ export interface RuntimeBindings {
   APPLE_KEY_ID?: string;
   APPLE_PRIVATE_KEY?: string;
   BLS_API_KEY?: string;
+  /** Billing (lib/billing.ts) and the paywall (lib/paywall.ts). */
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_PRICE_MONTHLY?: string;
+  STRIPE_PRICE_ANNUAL?: string;
+  PAYWALL?: string;
+  INTERNAL_TOKEN?: string;
 }
 
 /** A secret from the Worker's bindings, or from the process where the runtime puts them there. */
 export type SecretName = "RESEND_API_KEY" | "ALERTS_FROM" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "MICROSOFT_CLIENT_ID" | "MICROSOFT_CLIENT_SECRET"
-  | "APPLE_CLIENT_ID" | "APPLE_TEAM_ID" | "APPLE_KEY_ID" | "APPLE_PRIVATE_KEY" | "BLS_API_KEY";
+  | "APPLE_CLIENT_ID" | "APPLE_TEAM_ID" | "APPLE_KEY_ID" | "APPLE_PRIVATE_KEY" | "BLS_API_KEY"
+  | "STRIPE_SECRET_KEY" | "STRIPE_WEBHOOK_SECRET" | "STRIPE_PRICE_MONTHLY" | "STRIPE_PRICE_ANNUAL" | "PAYWALL" | "INTERNAL_TOKEN";
 export function runtimeSecret(name: SecretName): string | null {
   const bound = bindings[name];
   if (typeof bound === "string" && bound) return bound;
@@ -79,5 +87,17 @@ export function datasetCache(): KVNamespace | null {
  * correct under `vite dev`, where the dev server does re-enter itself.
  */
 export function selfFetcher() {
-  return bindings.SELF ?? null;
+  const self = bindings.SELF;
+  if (!self) return null;
+  // A call to itself is the Worker's own: it carries the internal token, so the paywall lets it through (lib/paywall.ts).
+  return {
+    async fetch(request: Request): Promise<Response> {
+      const { INTERNAL_HEADER, internalToken } = await import("./paywall");
+      const token = await internalToken();
+      if (!token) return self.fetch(request);
+      const tagged = new Request(request);
+      tagged.headers.set(INTERNAL_HEADER, token);
+      return self.fetch(tagged);
+    },
+  };
 }

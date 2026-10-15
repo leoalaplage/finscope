@@ -247,6 +247,7 @@ export function TermSettings() {
         <div className="t-panel-pad t-about">
           <p>Filings and financial statements: SEC EDGAR. Prices: Yahoo Finance, may be delayed. Earnings dates, analysts&apos; consensus and the economic calendar: Nasdaq, labelled as forecasts wherever they appear. US official statistics: the Bureau of Labor Statistics. Treasury yields: the U.S. Treasury.</p>
           <p>Research information only, not investment advice.</p>
+          <p>Support: <a href="mailto:contact@tenqay.com">contact@tenqay.com</a></p>
         </div>
       </Panel>
 
