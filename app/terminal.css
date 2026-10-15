@@ -1490,67 +1490,102 @@ body:has(.io.term) { background: #0d1012; }
 .t-keystats-notes { padding: 0 10px 6px; }
 .t-keystats-notes .stat-note { margin: 4px 0 0; }
 
-/* TOUR · the welcome tour (components/term/Welcome.tsx). */
-.t-wel { max-width: 1180px; margin: 0 auto; padding: 10px 12px 20px; display: grid; gap: 10px; }
-.t-wel-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-.t-wel-head .t-code { flex: none; }
+/* TOUR · the welcome tour (components/term/Welcome.tsx): one line a step, over the terminal's own live panels. */
+.t-wel { max-width: 1280px; margin: 0 auto; padding: 8px 10px 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.t-wel-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 .t-wel-steps { display: flex; flex: 1 1 auto; gap: 2px; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
 .t-wel-steps button { display: flex; align-items: center; gap: 6px; padding: 3px 8px; font: inherit; font-size: var(--fs-xs); color: var(--ink-3); background: none; border: 1px solid transparent; cursor: pointer; }
 .t-wel-steps b { display: inline-grid; place-items: center; width: 16px; height: 16px; font-size: var(--fs-micro); color: var(--ink-3); border: 1px solid var(--line-strong); }
-.t-wel-steps li[data-state="done"] button { color: var(--ink-2); }
 .t-wel-steps li[data-state="done"] b { color: var(--amber-ink); background: var(--amber-dim); border-color: transparent; }
 .t-wel-steps li[data-state="now"] button { color: var(--ink); border-color: var(--line-strong); }
 .t-wel-steps li[data-state="now"] b { color: var(--amber-ink); background: var(--amber); border-color: var(--amber); }
 .t-wel-steps button:hover { color: var(--amber); }
-.t-wel-body { min-height: 440px; padding: 14px 4px; }
-.t-wel-body h1 { margin: 0 0 10px; font-size: 26px; font-weight: 600; color: var(--ink); line-height: 1.2; }
-.t-wel-body h2 { margin: 0 0 8px; font-size: var(--fs-lg); font-weight: 600; color: var(--amber); text-transform: uppercase; letter-spacing: var(--track-label); }
-.t-wel-body p { margin: 0 0 10px; max-width: 78ch; color: var(--ink-2); line-height: 1.6; font-size: var(--fs-md); }
-.t-wel-body p b { color: var(--ink); font-weight: 600; }
+.t-wel-body { min-height: 520px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; padding: 6px 0; }
+.t-wel-body p { margin: 0; color: var(--ink-2); }
 .t-wel-body code { padding: 0 4px; color: var(--amber); background: var(--raise); border: 1px solid var(--line); font: inherit; }
-.t-wel-mark { display: inline-block; margin-bottom: 14px !important; padding: 2px 10px; color: var(--amber-ink) !important; background: var(--amber); font-weight: 700; letter-spacing: .12em; font-size: var(--fs-lg) !important; }
-.t-wel-lead { font-size: var(--fs-lg) !important; color: var(--ink) !important; }
-.t-wel-small { font-size: var(--fs-xs) !important; }
-.t-wel-pillars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; margin: 18px 0; background: var(--line); border: 1px solid var(--line); }
-.t-wel-pillars > div, .t-wel-chapters > div { display: grid; gap: 6px; align-content: start; padding: 12px 14px; background: var(--raise); }
-.t-wel-pillars b, .t-wel-chapters b { color: var(--ink); font-size: var(--fs-md); }
-.t-wel-pillars span { color: var(--ink-2); font-size: var(--fs-xs); line-height: 1.6; }
-.t-wel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; align-items: start; }
-.t-wel-keys { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; color: var(--ink-2); font-size: var(--fs-xs); }
-.t-wel-keys kbd, .t-wel-body kbd { padding: 0 5px; font: inherit; color: var(--ink); background: var(--fill); border: 1px solid var(--line-strong); }
-.t-wel-try { display: grid; gap: 8px; padding: 14px; background: var(--raise); border: 1px solid var(--line); }
-.t-wel-try label { color: var(--ink-3); font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: var(--track-label); }
-.t-wel-line { display: flex; align-items: center; gap: 8px; padding: 0 10px; height: 34px; background: #000; border: 1px solid var(--amber); }
-.t-wel-line span { color: var(--amber); }
-.t-wel-line input { flex: 1; min-width: 0; height: 100%; font: inherit; font-size: var(--fs-lg); color: var(--ink); background: transparent; border: 0; outline: none; text-transform: uppercase; }
-.t-wel-reads { margin: 0 !important; color: var(--ink) !important; }
-.t-wel-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.t-wel-lead h2 { margin: 0 0 2px; font-size: 18px; font-weight: 600; color: var(--ink); }
+.t-wel-lead p { font-size: var(--fs-md); }
+.t-wel-split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 14px; align-items: start; }
+.t-wel-hello { display: grid; gap: 12px; align-content: start; padding-top: 18px; }
+.t-wel-hello h1 { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 600; color: var(--ink); }
+.t-wel-hello > p { font-size: var(--fs-lg); line-height: 1.5; }
+.t-wel-mark { justify-self: start; padding: 2px 10px; color: var(--amber-ink) !important; background: var(--amber); font-weight: 700; letter-spacing: .12em; font-size: var(--fs-lg); }
+.t-wel-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.t-wel-tags li { padding: 3px 8px; font-size: var(--fs-xs); color: var(--ink); border: 1px solid var(--line-strong); background: var(--raise); }
+.t-wel-tags li::before { content: "▸ "; color: var(--amber); }
+.t-wel-stack { display: grid; gap: 6px; }
+.t-wel-live { min-width: 0; border: 1px solid var(--line); background: var(--bg); }
+.t-wel-live > header { display: flex; align-items: center; gap: 8px; padding: 3px 8px; font-size: var(--fs-xs); color: var(--ink-2); background: var(--head); border-bottom: 1px solid var(--line); text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-wel-live > header a { margin-left: auto; color: var(--amber); text-transform: none; letter-spacing: 0; }
+.t-wel-dot { margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--gain); animation: t-eco-pulse 1.6s ease-in-out infinite; }
+.t-wel-live-body { min-width: 0; }
+.t-wel-quad { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; align-items: start; }
+.t-wel-quad .t-wel-live-body { max-height: 300px; overflow: auto; scrollbar-width: thin; }
+.t-wel-quad .t-eco-brief { grid-template-columns: minmax(0, 1fr); }
+.t-wel-codes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px; background: var(--line); border: 1px solid var(--line); }
+.t-wel-codes > a, .t-wel-codes > div { display: grid; gap: 2px; padding: 6px 10px; background: var(--raise); color: var(--ink-2); font-size: var(--fs-xs); text-decoration: none; }
+.term .t-wel-codes > a:hover { background: var(--fill); color: var(--ink); }
+.t-wel-codes b { color: var(--amber); }
+.t-wel-codes span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-wel-chapters { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.t-wel-chapters b { color: var(--ink); }
+.t-wel-chapters span { color: var(--amber); white-space: normal; }
+.t-wel-try { display: grid; gap: 10px; padding: 18px; background: var(--raise); border: 1px solid var(--line); }
+.t-wel-line { display: flex; align-items: center; gap: 10px; padding: 0 6px 0 12px; height: 46px; background: #000; border: 1px solid var(--amber); }
+.t-wel-line > span { color: var(--amber); font-size: 18px; }
+.t-wel-line input { flex: 1; width: 0; min-width: 0; height: 100%; font: inherit; font-size: 20px; color: var(--ink); background: transparent; border: 0; outline: none; text-transform: uppercase; letter-spacing: .04em; }
+.t-wel-reads { color: var(--ink) !important; font-size: var(--fs-lg); }
+.t-wel-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.t-wel-keys { display: flex; flex-wrap: wrap; gap: 6px; }
+.t-wel-keys > span { padding: 4px 8px; font-size: var(--fs-xs); color: var(--ink-2); background: var(--raise); border: 1px solid var(--line); }
+.t-wel kbd { padding: 0 5px; font: inherit; color: var(--ink); background: var(--fill); border: 1px solid var(--line-strong); }
 .t-wel .t-chip { padding: 3px 9px; font-size: var(--fs-xs); line-height: 18px; text-decoration: none; }
 .t-wel .t-chip:disabled { opacity: .4; cursor: default; }
 .t-wel .t-wel-next { color: var(--amber-ink); background: var(--amber); border-color: var(--amber); font-weight: 600; }
 .term .t-wel .t-wel-next:hover, .term .t-wel a.t-wel-next:hover { color: var(--amber-ink); background: #fff27a; border-color: #fff27a; }
-.t-wel-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 2px; margin: 12px 0; background: var(--line); border: 1px solid var(--line); }
-.t-wel-card { display: grid; gap: 6px; align-content: start; padding: 12px 14px; text-align: left; font: inherit; color: var(--ink-2); background: var(--raise); border: 0; cursor: pointer; text-decoration: none; }
-.term .t-wel-card:hover { background: var(--fill); color: var(--ink-2); }
-.t-wel-card .t-code { justify-self: start; }
-.t-wel-card b { color: var(--ink); font-size: var(--fs-md); }
-.t-wel-card span:last-child { font-size: var(--fs-xs); line-height: 1.55; }
-.t-wel-chapters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; margin: 12px 0; background: var(--line); border: 1px solid var(--line); }
-.t-wel-chapters span { display: flex; flex-wrap: wrap; gap: 4px; }
-.t-wel-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; margin: 12px 0; }
-.t-wel-picks button { display: grid; gap: 2px; padding: 7px 10px; text-align: left; font: inherit; color: var(--ink-2); background: var(--raise); border: 1px solid var(--line); cursor: pointer; }
-.t-wel-picks button b { color: var(--ink); }
-.t-wel-picks button span { font-size: var(--fs-micro); color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-wel-company { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.t-wel-figures { display: flex; flex-wrap: wrap; gap: 4px 22px; padding: 8px 10px 0; }
+.t-wel-figures > span { display: grid; }
+.t-wel-figures small { font-size: var(--fs-micro); color: var(--ink-3); text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-wel-figures b { font-size: 18px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.t-wel-figures b[data-dir="up"] { color: var(--gain); }
+.t-wel-figures b[data-dir="down"] { color: var(--loss); }
+.t-wel-chart { padding: 6px 10px 8px; min-width: 0; }
+.t-wel-chart svg { display: block; max-width: 100%; }
+.t-wel-line-up { fill: none; stroke: var(--gain); stroke-width: 1.6; }
+.t-wel-line-down { fill: none; stroke: var(--loss); stroke-width: 1.6; }
+.t-wel-area-up { fill: color-mix(in srgb, var(--gain) 12%, transparent); }
+.t-wel-area-down { fill: color-mix(in srgb, var(--loss) 12%, transparent); }
+.t-wel-bar-rev { fill: var(--plot); background: var(--plot); }
+.t-wel-bar-fcf { fill: var(--c2); background: var(--c2); }
+.t-wel-tick { fill: var(--ink-3); font-size: 10px; }
+.t-wel-legend { display: flex; align-items: center; gap: 6px; margin-top: 4px !important; font-size: var(--fs-micro); color: var(--ink-3) !important; }
+.t-wel-legend i { display: inline-block; width: 10px; height: 8px; }
+.t-wel-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px; }
+.t-wel-picks button { display: grid; grid-template-columns: 1fr auto; gap: 2px 6px; padding: 7px 9px; text-align: left; font: inherit; font-size: var(--fs-xs); color: var(--ink-2); background: var(--raise); border: 1px solid var(--line); cursor: pointer; font-variant-numeric: tabular-nums; }
+.t-wel-picks b { color: var(--ink); font-size: var(--fs-md); }
+.t-wel-pick-move { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.t-wel-picks button[data-dir="up"] .t-wel-pick-move { color: var(--gain); }
+.t-wel-picks button[data-dir="down"] .t-wel-pick-move { color: var(--loss); }
 .t-wel-picks button:hover { border-color: var(--line-strong); }
 .t-wel-picks button[aria-pressed="true"] { border-color: var(--amber); box-shadow: inset 3px 0 0 var(--amber); }
 .t-wel-picks button[aria-pressed="true"] b { color: var(--amber); }
-.t-wel-start { margin: 6px 0 10px; }
 .t-wel-ok { color: var(--gain); font-size: var(--fs-xs); }
-.t-wel-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.t-wel-account { display: grid; gap: 10px; align-content: start; margin-top: 46px; padding: 18px; background: var(--raise); border: 1px solid var(--line); }
+.t-wel-account .t-code { justify-self: start; }
+.t-wel-account b { font-size: 18px; color: var(--ink); }
+.t-wel-account .t-chip { justify-self: start; }
+.t-wel-ready { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.t-wel-ready button { display: grid; gap: 10px; justify-items: start; padding: 26px 20px; font: inherit; text-align: left; color: var(--ink); background: var(--raise); border: 1px solid var(--line); cursor: pointer; }
+.t-wel-ready button:hover { border-color: var(--amber); }
+.t-wel-ready b { font-size: 18px; font-weight: 600; }
+.t-wel-small { font-size: var(--fs-xs); }
+.t-wel-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
 @media (max-width: 900px) {
-  .t-wel-pillars, .t-wel-grid, .t-wel-chapters { grid-template-columns: minmax(0, 1fr); }
+  .t-wel-split, .t-wel-quad, .t-wel-company, .t-wel-ready { grid-template-columns: minmax(0, 1fr); }
+  .t-wel-chapters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .t-wel-steps span { display: none; }
   .t-wel-steps li[data-state="now"] span { display: inline; }
-  .t-wel-body h1 { font-size: 21px; }
-  .t-wel-foot > .t-dim { display: none; }
+  .t-wel-hello h1 { font-size: 23px; }
+  .t-wel-account { margin-top: 0; }
 }
