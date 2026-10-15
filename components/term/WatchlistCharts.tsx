@@ -64,12 +64,6 @@ function WatchlistChart({ ticker }: { ticker: string }) {
           onClick={(event) => { if (!(event.target as Element).closest("a, button")) window.location.assign(href); }}
           onKeyDown={(event) => { if (event.key === "Enter") window.location.assign(href); }}
         >
-          {/* The watermark: the ticker faint across the plot, the mark in its corner — over the chart, never in the pointer's way. */}
-          <span className="t-wmark" aria-hidden="true">{ticker}</span>
-          <span className="t-wmark-logo" aria-hidden="true">
-            {/* eslint-disable-next-line @next/next/no-img-element -- the site's own favicon, a few hundred bytes. */}
-            <img src="/favicon.svg" alt="" width={11} height={11} />TENQAY
-          </span>
           <CandleChart compact candles={candles} interval="1mo" studies={STUDIES} openOn={MONTHS_SHOWN} loading={loading || !near} error={error} label={`${ticker}, ${INTERVAL_TITLES["1mo"].toLowerCase()} candles`} />
         </div>
       </Panel>

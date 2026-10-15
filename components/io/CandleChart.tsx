@@ -165,6 +165,18 @@ export function IntervalPicker({ interval, onInterval }: { interval: CandleInter
 
 const NO_STUDIES: ReadonlySet<Study> = new Set();
 
+/** What an instrument is called in a chart's watermark: a company by its ticker, an index, a future or a coin by a short name. */
+const WATERMARKS: Record<string, string> = {
+  "^GSPC": "S&P 500", "^IXIC": "NASDAQ", "^NDX": "NASDAQ 100", "^DJI": "DOW", "^RUT": "RUSSELL 2000", "^VIX": "VIX", "^TNX": "US 10Y",
+  "ES=F": "S&P FUT", "NQ=F": "NASDAQ FUT", "YM=F": "DOW FUT", "RTY=F": "RUSSELL FUT", "CL=F": "CRUDE", "GC=F": "GOLD", "SI=F": "SILVER",
+  "BTC-USD": "BITCOIN", "ETH-USD": "ETHER", "DX-Y.NYB": "DOLLAR",
+};
+function watermarkOf(symbol: string, name?: string | null): string {
+  if (WATERMARKS[symbol]) return WATERMARKS[symbol];
+  if (/^\^|=|-USD$/.test(symbol)) return name && name.length <= 16 ? name.toUpperCase() : symbol.replace(/^\^/, "");
+  return symbol;
+}
+
 export function CandleChart({
   candles, interval, loading, error, label, studies = NO_STUDIES, compact = false,
   drawings, tool = "cursor", onDrawingsChange, zoomable = false, logScale = false, compare, benchmark, openOn,
@@ -602,6 +614,16 @@ export function CandleChart({
         onPointerCancel={() => { setDraft(null); pan.current = null; }}
         onDoubleClick={() => { if (zoomable && !drawing) setZoom(null); }}
       >
+        {/* The watermark: the symbol faint across the plot and Tenqay's mark in its corner, under the pointer's notice. */}
+        {candles?.symbol ? (
+          <>
+            <span className="candle-wmark" aria-hidden="true">{watermarkOf(candles.symbol, candles.name)}</span>
+            <span className="candle-wmark-logo" aria-hidden="true">
+              {/* eslint-disable-next-line @next/next/no-img-element -- the site's own favicon, a few hundred bytes. */}
+              <img src="/favicon.svg" alt="" width={11} height={11} />TENQAY
+            </span>
+          </>
+        ) : null}
         {view ? (
           <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
             {view.ticks.map((tick) => (
