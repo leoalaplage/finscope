@@ -168,3 +168,18 @@ export function parseNewsFeed(xml: string, limit = 24): NewsItem[] {
   }
   return items;
 }
+
+/**
+ * Pure: the wire kept deeper than the feed shows it. The feed carries its
+ * latest twenty; each read adds what is new to what was kept, newest first,
+ * one line a headline, up to `limit` and no older than `days`.
+ */
+export function mergeHeadlines<T extends { title: string; publishedAt: string | null }>(fresh: T[], kept: T[], limit: number, now = Date.now(), days = 3): T[] {
+  const seen = new Set<string>();
+  const key = (item: T) => item.title.trim().toLowerCase();
+  return [...fresh, ...kept]
+    .filter((item) => { const id = key(item); if (seen.has(id)) return false; seen.add(id); return true; })
+    .filter((item) => !item.publishedAt || now - Date.parse(item.publishedAt) < days * 86_400_000)
+    .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""))
+    .slice(0, limit);
+}

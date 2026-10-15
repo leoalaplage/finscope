@@ -291,6 +291,18 @@ export function FedPanel({ data }: { data: HomeData }) {
 
 /* ---------- SUM: the session, written out ---------- */
 
+/** A signed figure in a sentence — +0.14%, −1.1%, −10 bp — green when positive, red when negative, the rest left as written. */
+const SIGNED_FIGURE = /([+−-]\d[\d,.]*(?:\s?(?:%|bp)))/g;
+function Signed({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(SIGNED_FIGURE).map((part, index) => (index % 2
+        ? <span key={index} className="t-signed" data-dir={part.startsWith("+") ? "up" : "down"}>{part}</span>
+        : part))}
+    </>
+  );
+}
+
 export function SessionSummary({ data, tape, econ }: { data: HomeData; tape: Tape | null; econ: EconCalendar | null }) {
   const lines = useMemo(() => {
     const index = (symbol: string) => tape?.quotes.find((quote) => quote.kind === "index" && quote.symbol === symbol);
@@ -325,7 +337,7 @@ export function SessionSummary({ data, tape, econ }: { data: HomeData; tape: Tap
   if (!lines.length) return <p className="t-empty">Loading the market summary…</p>;
   return (
     <div className="t-summary">
-      {lines.map((line) => <p key={line}>{line}</p>)}
+      {lines.map((line) => <p key={line}><Signed text={line} /></p>)}
     </div>
   );
 }

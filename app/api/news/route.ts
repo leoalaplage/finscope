@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cachedJson, type Completeness } from "@/lib/market-cache";
-import { parseNewsFeed, type NewsItem } from "@/lib/news";
+import { mergeHeadlines, parseNewsFeed, type NewsItem } from "@/lib/news";
+import { datasetCache } from "@/lib/runtime-env";
 
 /**
  * What the page draws, which is less than the feed carries.
@@ -38,19 +39,26 @@ const headline = ({ title, category, publishedAt }: NewsItem): Headline => ({ ti
  */
 const FEED = "https://breakingthenews.net/news-feed.xml";
 const NEWS_SECONDS = 600;
-const ITEMS = 18;
+/** Twice what the feed shows: each read keeps what the feed has since let go (mergeHeadlines). */
+const ITEMS = 36;
+const ARCHIVE = "news:archive:v1";
 
 export async function GET() {
   try {
     const { body, hit } = await cachedJson<{ items: Headline[] }>(
-      "news:headlines:v2",
+      "news:headlines:v3",
       NEWS_SECONDS,
       async () => {
         const response = await fetch(FEED, {
           headers: { Accept: "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8" },
         });
         if (!response.ok) throw new Error(`The news feed returned ${response.status}.`);
-        return { items: parseNewsFeed(await response.text(), ITEMS).map(headline) };
+        const fresh = parseNewsFeed(await response.text(), ITEMS).map(headline);
+        const cache = datasetCache();
+        const kept = (await cache?.get<Headline[]>(ARCHIVE, "json").catch(() => null)) ?? [];
+        const items = mergeHeadlines(fresh, kept, ITEMS);
+        if (fresh.length) await cache?.put(ARCHIVE, JSON.stringify(items)).catch(() => {});
+        return { items };
       },
       // A feed that answers with no items is a feed that failed politely, and
       // storing that for ten minutes would empty the panel for ten minutes.

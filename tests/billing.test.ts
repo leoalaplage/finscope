@@ -70,3 +70,13 @@ describe("Stripe", () => {
     expect(await verifyStripeSignature(payload, null, secret, now)).toBe(false);
   });
 });
+
+import { mergeHeadlines } from "../lib/news";
+describe("the wire, kept deeper than the feed", () => {
+  it("adds what is new to what was kept, newest first, once each, within the limit and three days", () => {
+    const now = Date.parse("2026-10-15T12:00:00Z");
+    const item = (title: string, hoursAgo: number) => ({ title, publishedAt: new Date(now - hoursAgo * 3_600_000).toISOString() });
+    const merged = mergeHeadlines([item("A", 1), item("B", 2)], [item("b", 2), item("C", 5), item("Old", 100)], 3, now);
+    expect(merged.map((entry) => entry.title)).toEqual(["A", "B", "C"]);
+  });
+});

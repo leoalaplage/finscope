@@ -599,8 +599,9 @@ body:has(.io.term) { background: #0d1012; }
     "c2 c2 c2 c2 sect sect sect sect c3 c3 c3 c3"
     "eco eco eco eco eco eco eco eco eco eco eco eco"
     "rrg rrg rrg rrg rrg rrg rrg seas seas seas seas seas"
+    "imap imap imap imap imap imap imap imap imap imap imap imap"
     "perf perf perf perf perf perf perf perf perf perf perf perf"
-    "imap imap imap imap imap imap imap imap imap imap imap imap";
+    "wch wch wch wch wch wch wch wch wch wch wch wch";
 }
 /* A column of panels with no holes: the last one takes whatever height the band has left. */
 .t-mcol { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -721,8 +722,9 @@ body:has(.io.term) { background: #0d1012; }
     "eco eco eco eco eco eco eco eco eco eco eco eco"
     "rrg rrg rrg rrg rrg rrg rrg rrg rrg rrg rrg rrg"
     "seas seas seas seas seas seas seas seas seas seas seas seas"
+    "imap imap imap imap imap imap imap imap imap imap imap imap"
     "perf perf perf perf perf perf perf perf perf perf perf perf"
-    "imap imap imap imap imap imap imap imap imap imap imap imap";
+    "wch wch wch wch wch wch wch wch wch wch wch wch";
   }
   .t-market-chart .candle-body { min-height: 300px; }
   .t-studies { position: static; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -1445,6 +1447,9 @@ body:has(.io.term) { background: #0d1012; }
 .t-summary { padding: 6px 10px 8px; display: grid; gap: 5px; }
 .t-summary p:not(.t-study-note) { margin: 0; color: var(--ink); line-height: 1.45; }
 .t-summary .t-study-note { padding-inline: 0; }
+.t-summary .t-signed { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.t-summary .t-signed[data-dir="up"] { color: var(--gain); }
+.t-summary .t-signed[data-dir="down"] { color: var(--loss); }
 
 .t-rates table, .t-fed table, .t-week-earnings table, .t-sigs table, .t-alrt-brief table { width: 100%; }
 .term :is(.t-rates, .t-fed, .t-week-earnings, .t-sigs, .t-alrt-brief) :is(th, td).key { min-width: 0; }
@@ -1596,3 +1601,12 @@ body:has(.io.term) { background: #0d1012; }
   .t-wel-title { flex-wrap: wrap; align-items: flex-start; }
   .t-wel-title h2 { font-size: 21px; }
 }
+
+/* MKT · the watchlist as monthly candles, one panel a company, three to a row (components/term/WatchlistCharts.tsx). */
+.t-wcharts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
+.t-wchart .t-panel-body { padding: 0 4px 4px; }
+.t-wchart .candle-body { height: 260px; min-height: 0; }
+.t-wchart-move[data-dir="up"] { color: var(--gain); }
+.t-wchart-move[data-dir="down"] { color: var(--loss); }
+@media (max-width: 1100px) { .t-wcharts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .t-wcharts { grid-template-columns: minmax(0, 1fr); } }

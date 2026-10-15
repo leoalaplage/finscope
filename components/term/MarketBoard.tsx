@@ -15,6 +15,7 @@ import { areaFromCandles, areaFromWindow } from "@/lib/term/area-price";
 import { nextRank, ranked, type Rank } from "@/lib/term/rank";
 import { Heatmap } from "./Heatmap";
 import { Panel } from "./Panel";
+import { WatchlistCharts } from "./WatchlistCharts";
 import { Rotation } from "./Rotation";
 import { Seasonality } from "./Seasonality";
 import { EconBrief } from "./Economy";
@@ -482,12 +483,13 @@ export function MarketBoard() {
         </Panel>
       </div>
 
-      <Panel code="ECO" title="US economy · releases against the consensus" area="eco"><EconBrief /></Panel>
+      <Panel code="ECO" title="US economic releases vs. consensus" area="eco"><EconBrief /></Panel>
       <Panel code="RRG" title="Sector rotation · relative rotation graph" area="rrg"><Rotation /></Panel>
       <Panel code="SEAS" title="S&P 500 seasonality" area="seas" className="t-fill"><Seasonality symbol="^GSPC" /></Panel>
 
-      <Panel code="W" area="perf"><MarketPerformance /></Panel>
       <Panel code="IMAP" title="S&P 500 map · sized by market value" area="imap"><Heatmap height={640} /></Panel>
+      <Panel code="W" area="perf"><MarketPerformance /></Panel>
+      <WatchlistCharts area="wch" />
     </div>
   );
 }
