@@ -39,42 +39,42 @@
   --page: none;
   --radius: 0;
 
-  --bg: #0c0f14;
-  --raise: #12161d;
-  --fill: #1a1f27;
-  --line: #1d222b;
-  --line-strong: #2e3440;
-  --ink: #e6e9ef;
-  --ink-2: #9aa5b4;
-  --ink-3: #687384;
-  --inverse: #0c0f14;
+  --bg: #0f0e0b;
+  --raise: #15140f;
+  --fill: #1c1a15;
+  --line: #201e18;
+  --line-strong: #322f27;
+  --ink: #ece9e2;
+  --ink-2: #a8a397;
+  --ink-3: #75705f;
+  --inverse: #0f0e0b;
   /*
-   * Charts are not the accent: cyan is the terminal's own voice, and a screen
-   * of cyan plots under cyan headings reads as one colour. A plot is violet by
+   * Charts are not the accent: gold is the terminal's own voice, and a screen
+   * of gold plots under gold headings reads as one colour. A plot is violet by
    * default, a price green or red by which way it went, and the figures each
    * take a hue of the palette below — none of them a blue the accent could be
-   * taken for.
+   * taken for — no gold, orange or yellow among them.
    */
   --plot: #9d8cff;
   --plot-soft: rgba(157, 140, 255, .14);
   --c1: #9d8cff;
   --c2: #2dd4bf;
-  --c3: #fb923c;
+  --c3: #5cd6f7;
   --c4: #f472b6;
-  --c5: #facc15;
+  --c5: #c4b5fd;
   --c6: #fb7185;
   --c7: #e879f9;
   --c8: #a3e635;
-  --shade: rgba(92, 214, 247, .06);
+  --shade: rgba(233, 196, 106, .06);
   --gain: #2ed47d;
   --loss: #ff5149;
 
-  /* The accent, Tenqay's identity: electric cyan (the names stay: every rule reads --amber). */
-  --amber: #5cd6f7;
-  --amber-ink: #0c0f14;
-  --amber-dim: rgba(92, 214, 247, .55);
+  /* The accent, Tenqay's identity: signal gold (the names stay: every rule reads --amber). */
+  --amber: #e9c46a;
+  --amber-ink: #0f0e0b;
+  --amber-dim: rgba(233, 196, 106, .55);
   --cyan: #c4b5fd;
-  --head: #11151c;
+  --head: #14130f;
 
   color-scheme: dark;
   font-size: var(--fs-md);
@@ -84,8 +84,8 @@
 }
 
 /* The page behind the page, whatever the document site's theme says. */
-:root:has(.io.term), :root[data-theme]:has(.io.term) { background: #0c0f14; }
-body:has(.io.term) { background: #0c0f14; }
+:root:has(.io.term), :root[data-theme]:has(.io.term) { background: #0f0e0b; }
+body:has(.io.term) { background: #0f0e0b; }
 
 .term ::selection { background: var(--amber); color: var(--amber-ink); }
 .term :focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; border-radius: 0; }
@@ -481,7 +481,7 @@ body:has(.io.term) { background: #0c0f14; }
 .t-heat-legend { display: flex; justify-content: center; gap: 0; padding: 0 8px 8px; }
 .t-heat-legend span { min-width: 52px; padding: 2px 6px; text-align: center; color: #fff; font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
 
-.t-calendar tr[data-state="due"] td { background: rgba(92, 214, 247, .08); }
+.t-calendar tr[data-state="due"] td { background: rgba(233, 196, 106, .08); }
 .t-calendar td.key a { color: var(--amber); font-weight: 600; }
 .t-watch td:first-child a { color: var(--amber); font-weight: 600; }
 
@@ -585,7 +585,7 @@ body:has(.io.term) { background: #0c0f14; }
 .t-page .segmented button.active { background: var(--amber); color: var(--amber-ink); }
 
 /* The row the keyboard is on (TermShell's ↑ ↓ ⏎). */
-.term tr[data-cursor] td, .term tr[data-cursor] th { background: rgba(92, 214, 247, .14) !important; }
+.term tr[data-cursor] td, .term tr[data-cursor] th { background: rgba(233, 196, 106, .14) !important; }
 .term tr[data-cursor] td:first-child, .term tr[data-cursor] th:first-child { box-shadow: inset 2px 0 0 var(--amber); }
 
 /* --- Market screen (MKT) ---------------------------------------------- */
@@ -609,7 +609,7 @@ body:has(.io.term) { background: #0c0f14; }
  */
 .t-fill { display: flex; flex-direction: column; }
 .t-fill > .t-panel-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-.t-wei tr[data-selected] td { background: rgba(92, 214, 247, .1); }
+.t-wei tr[data-selected] td { background: rgba(233, 196, 106, .1); }
 .t-wei-pick { display: flex; gap: 8px; width: 100%; text-align: left; color: var(--ink); }
 .t-wei-pick:hover { color: var(--amber); }
 .t-wei-region { width: 3ch; color: var(--amber-dim); font-size: var(--fs-micro); }
@@ -939,7 +939,7 @@ body:has(.io.term) { background: #0c0f14; }
 .t-ecal-co[data-followed] b { color: var(--amber); }
 .term .t-ecal-co:hover { border-color: var(--cyan); }
 .t-ecal-none { padding: 6px; }
-.t-ecal-list tr[data-followed] td { background: rgba(92, 214, 247, .07); }
+.t-ecal-list tr[data-followed] td { background: rgba(233, 196, 106, .07); }
 .t-ecal-list td.key a { color: var(--amber); font-weight: 600; }
 @media (max-width: 1100px) { .t-ecal-week { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 720px) { .t-ecal-week { grid-template-columns: minmax(0, 1fr); } .t-ecal { grid-template-areas: none; } .t-ecal > * { grid-area: auto !important; } }
@@ -1369,7 +1369,7 @@ body:has(.io.term) { background: #0c0f14; }
 .t-eco-surprise[data-surprise="above"] { color: var(--amber); border-color: var(--amber-dim); }
 .t-eco-surprise[data-surprise="below"] { color: #b4a7ff; border-color: rgba(180, 167, 255, .5); }
 .t-eco-day th { padding: 6px 8px 3px; text-align: left; color: var(--amber); font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: var(--track-label); background: var(--head, transparent); }
-.t-eco-calendar tbody[data-today] .t-eco-day th { color: var(--ink); background: rgba(92, 214, 247, .12); }
+.t-eco-calendar tbody[data-today] .t-eco-day th { color: var(--ink); background: rgba(233, 196, 106, .12); }
 .t-eco-calendar tr[data-importance="low"] td { color: var(--ink-3); }
 .t-eco-dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--amber); vertical-align: 1px; }
 .t-eco-calendar td[data-dir="up"], .t-eco-calendar span[data-dir="up"], .t-eco-brief span[data-dir="up"] { color: var(--gain); }
@@ -1382,7 +1382,7 @@ body:has(.io.term) { background: #0c0f14; }
 .t-alrt-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .t-alrt-new { color: var(--amber-ink) !important; background: var(--amber) !important; border-color: var(--amber) !important; }
 .t-alrt-link { padding: 0; border: 0; background: none; color: var(--amber); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
-.t-alrt-editor { display: grid; gap: 8px; margin-bottom: 10px; padding: 10px; border: 1px solid var(--amber-dim); background: rgba(92, 214, 247, .04); }
+.t-alrt-editor { display: grid; gap: 8px; margin-bottom: 10px; padding: 10px; border: 1px solid var(--amber-dim); background: rgba(233, 196, 106, .04); }
 .t-alrt-editor h3 { margin: 0; color: var(--amber); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: var(--track-label); }
 .t-alrt-hint { margin: 0; font-size: var(--fs-micro); }
 .t-alrt-fields { display: flex; flex-wrap: wrap; gap: 8px 14px; }

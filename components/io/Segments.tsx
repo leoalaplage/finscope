@@ -14,7 +14,7 @@ import { ABSENT, edgarUrl, money, shortDate } from "./format";
  */
 
 const RESIDUAL_COLOR = "#6b7280";
-const COLORS = ["#9d8cff", "#f5a524", "#2fbf71", "#e5484d", "#a78bfa", "#14b8a6", "#f472b6", "#94a3b8", "#eab308", "#c4b5fd", "#fb923c", "#22c55e"];
+const COLORS = ["#9d8cff", "#5cd6f7", "#2fbf71", "#e5484d", "#a78bfa", "#14b8a6", "#f472b6", "#94a3b8", "#e879f9", "#c4b5fd", "#fb923c", "#22c55e"];
 
 const pct = (value: number | null, places = 1) => (value == null || !Number.isFinite(value) ? ABSENT : `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(value * 100).toFixed(places)}%`);
 const share = (value: number | null) => (value == null ? ABSENT : `${(value * 100).toFixed(1)}%`);

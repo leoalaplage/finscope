@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <!-- Tenqay: rising bars in electric cyan on the terminal's own near-black, the same in a light or a dark tab strip. -->
-  <rect width="32" height="32" rx="7" fill="#0c0f14"/>
-  <g fill="#5cd6f7">
+  <!-- Tenqay: rising bars in signal gold on the terminal's own near-black, the same in a light or a dark tab strip. -->
+  <rect width="32" height="32" rx="7" fill="#0f0e0b"/>
+  <g fill="#e9c46a">
     <rect x="5" y="19" width="4" height="7" rx="1"/>
     <rect x="11" y="15" width="4" height="11" rx="1"/>
     <rect x="17" y="11" width="4" height="15" rx="1"/>

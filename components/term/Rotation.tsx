@@ -16,7 +16,7 @@ const SECTOR_FUNDS = [
   { symbol: "XLF", name: "Financials", color: "#2dd4bf" },
   { symbol: "XLV", name: "Health care", color: "#a78bfa" },
   { symbol: "XLY", name: "Discretionary", color: "#f472b6" },
-  { symbol: "XLC", name: "Communication", color: "#facc15" },
+  { symbol: "XLC", name: "Communication", color: "#5cd6f7" },
   { symbol: "XLI", name: "Industrials", color: "#d6a77a" },
   { symbol: "XLP", name: "Staples", color: "#e879f9" },
   { symbol: "XLE", name: "Energy", color: "#fb923c" },
@@ -95,7 +95,7 @@ export function Rotation() {
               <g key={fund.symbol} opacity={dim ? 0.15 : 1} onPointerEnter={() => setFocus(fund.symbol)} onPointerLeave={() => setFocus(null)}>
                 <path d={line(fund.path)} fill="none" stroke={fund.color} strokeWidth={1.4} />
                 {fund.path.slice(0, -1).map((point) => <circle key={point.t} cx={x(point.ratio)} cy={y(point.momentum)} r={1.8} fill={fund.color} />)}
-                <circle cx={x(last.ratio)} cy={y(last.momentum)} r={5} fill={fund.color} stroke="#0c0f14" strokeWidth={1} />
+                <circle cx={x(last.ratio)} cy={y(last.momentum)} r={5} fill={fund.color} stroke="#0f0e0b" strokeWidth={1} />
                 <text x={x(last.ratio) + 7} y={y(last.momentum) + 3} className="t-rrg-tag" fill={fund.color}>{fund.symbol}</text>
               </g>
             );
