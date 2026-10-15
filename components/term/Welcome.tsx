@@ -13,24 +13,52 @@ import { GoogleMark } from "@/components/io/AccountPage";
  * visitor sees it, so the tour loads at once and asks the data for nothing. Opened once on a first visit (components/term/Launchpad.tsx,
  * ONBOARDED_KEY); always on /t/welcome, TOUR, or SET.
  *
- * Tenqay will be paid, monthly or yearly (PLANS); while it is in beta the
+ * Tenqay will be paid — Professional monthly or yearly (PRICES), Enterprise by agreement; while in beta the
  * account is optional and everything is free — no payment is taken yet.
  */
 
 export const ONBOARDED_KEY = "finscope.term.onboarded.v1";
 export const markOnboarded = () => { try { localStorage.setItem(ONBOARDED_KEY, new Date().toISOString()); } catch { /* Shown again next time. */ } };
 
-const STEPS = ["Welcome", "Markets", "Companies", "KPIs and segments", "Charts", "Portfolio", "Account"] as const;
+const STEPS = ["Welcome", "Markets", "Companies", "KPIs and segments", "Charts", "Portfolio", "Plans"] as const;
 
-/** The plans, in US dollars, as Léo set them (2026-10-15). The annual saving and monthly equivalent are worked out, not typed. */
-const PLANS: Array<{ id: "monthly" | "annual"; name: string; amount: number; months: number; period: string }> = [
-  { id: "monthly", name: "Monthly", amount: 29.99, months: 1, period: "per month" },
-  { id: "annual", name: "Annual", amount: 299.99, months: 12, period: "per year" },
-];
+/** Professional, in US dollars, as Léo set it (2026-10-15). The annual saving and monthly equivalent are worked out, not typed. */
+const PRICES = { monthly: 29.99, annual: 299.99 } as const;
 const dollars = (value: number) => `$${value.toFixed(2)}`;
-const MONTHLY = PLANS.find((plan) => plan.id === "monthly")!;
+const SAVING = Math.round((1 - PRICES.annual / (PRICES.monthly * 12)) * 100);
+/** Where enterprise enquiries go: an address on Tenqay's own domain, forwarded by Cloudflare Email Routing. */
+const SALES = "sales@tenqay.com";
 
-const INCLUDED = ["Real-time market data, rates and macroeconomic releases", "Fundamentals for every listed company, sourced from SEC filings", "Operating KPIs, segment data and ten-year financial history", "Technical and fundamental charting, screening and backtesting", "Portfolio analytics, valuation models and alerts across devices"];
+const PRO_FEATURES = [
+  "Real-time markets, rates and Fed expectations",
+  "Fundamentals for every listed company, from SEC filings",
+  "Operating KPIs, segments and ten-year history",
+  "Technical and fundamental charting",
+  "Screener and backtesting",
+  "Portfolio analytics and valuation models",
+  "Alerts by browser and email, synced across devices",
+];
+const ENTERPRISE_FEATURES = [
+  "Everything in Professional",
+  "Multiple seats under one agreement",
+  "Volume pricing",
+  "Invoice billing",
+  "Priority support",
+  "Onboarding for your team",
+  "Coverage and data requests",
+];
+/** The comparison under the plans: one row a capability, what each plan holds. */
+const COMPARE: Array<[string, string, string]> = [
+  ["Market data, rates and macro", "✓", "✓"],
+  ["Company fundamentals and filings", "✓", "✓"],
+  ["Operating KPIs and segment data", "✓", "✓"],
+  ["Charting, screening and backtesting", "✓", "✓"],
+  ["Portfolio analytics and alerts", "✓", "✓"],
+  ["Seats", "1", "Multiple"],
+  ["Billing", "Card, monthly or annual", "Invoice, annual"],
+  ["Support", "Email", "Priority"],
+  ["Team onboarding", "—", "✓"],
+];
 
 export function Welcome() {
   const [step, setStep] = useState(0);
@@ -81,16 +109,16 @@ export function Welcome() {
           {step === 3 ? (
             <Screen title="Operating KPIs and segment data" line="Company-reported operating metrics and segment breakdowns, extracted from earnings releases and filings.">
               <div className="t-wel-pair">
-                <Shot url="tenqay.com/t/s/DAL#kpi" label="Operating KPIs · Delta" src="/tour/kpi.webp" alt="Delta's operating KPIs" />
-                <Shot url="tenqay.com/t/s/AAPL#seg" label="Segments · Apple" src="/tour/segments.webp" alt="Apple's revenue by segment" />
+                <Shot url="tenqay.com/t/s/DAL#kpi" label="Operating KPIs · Delta" ratio="3 / 2" src="/tour/kpi.webp" alt="Delta's operating KPIs" />
+                <Shot url="tenqay.com/t/s/AAPL#seg" label="Segments · Apple" ratio="3 / 2" src="/tour/segments.webp" alt="Apple's revenue by segment" />
               </div>
             </Screen>
           ) : null}
           {step === 4 ? (
             <Screen title="Technical and fundamental charting" line="Advanced charting with indicators and drawing tools, alongside ten years of reported financials.">
               <div className="t-wel-pair">
-                <Shot url="tenqay.com/t/chart" label="Chart workspace" src="/tour/chart.webp" alt="The chart workspace" />
-                <Shot url="tenqay.com/t/s/NVDA#gf" label="Fundamental charts · Nvidia" src="/tour/fundamentals.webp" alt="Nvidia's fundamental charts" />
+                <Shot url="tenqay.com/t/chart" label="Chart workspace" ratio="4 / 3" src="/tour/chart.webp" alt="The chart workspace" />
+                <Shot url="tenqay.com/t/s/NVDA#gf" label="Fundamental charts · Nvidia" ratio="4 / 3" src="/tour/fundamentals.webp" alt="Nvidia's fundamental charts" />
               </div>
             </Screen>
           ) : null}
@@ -99,7 +127,7 @@ export function Welcome() {
               <Shot url="tenqay.com/t/portfolio" src="/tour/portfolio.webp" alt="The portfolio screen" />
             </Screen>
           ) : null}
-          {step === 6 ? <AccountStep onFinish={finish} /> : null}
+          {step === 6 ? <PlansStep onFinish={finish} /> : null}
         </section>
 
         {step > 0 ? (
@@ -156,11 +184,12 @@ function Screen({ title, line, children }: { title: string; line: string; childr
 }
 
 /** A screenshot of the terminal inside a window frame. */
-function Shot({ url, label, src, alt }: { url: string; label?: string; src: string; alt: string }) {
+function Shot({ url, label, src, alt, ratio }: { url: string; label?: string; src: string; alt: string; ratio?: string }) {
   return (
     <figure className="t-wel-shot">
       <figcaption><i /><i /><i /><span>{url}</span>{label ? <b>{label}</b> : null}</figcaption>
-      <div className="t-wel-shot-view">
+      {/* The image keeps its own proportions: a frame of a set ratio cuts it at the foot, never at the sides. */}
+      <div className="t-wel-shot-view" style={ratio ? { aspectRatio: ratio } : undefined} data-ratio={ratio ? true : undefined}>
         {/* eslint-disable-next-line @next/next/no-img-element -- a static screenshot; nothing to optimise on the Worker. */}
         <img src={src} alt={alt} loading="eager" decoding="async" />
       </div>
@@ -168,8 +197,9 @@ function Shot({ url, label, src, alt }: { url: string; label?: string; src: stri
   );
 }
 
-function AccountStep({ onFinish }: { onFinish: (href?: string) => void }) {
+function PlansStep({ onFinish }: { onFinish: (href?: string) => void }) {
   const { account, providers } = useAccount();
+  const [billing, setBilling] = useState<"monthly" | "annual">("annual");
   const [address, setAddress] = useState("");
   const [sent, setSent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -178,49 +208,77 @@ function AccountStep({ onFinish }: { onFinish: (href?: string) => void }) {
     setError(null);
     try { await emailSignInLink(address.trim(), back); setSent(address.trim()); } catch (failure) { setError(failure instanceof Error ? failure.message : "The link could not be sent."); }
   };
+  const toSignup = () => document.getElementById("t-plans-signup")?.scrollIntoView({ behavior: "smooth", block: "center" });
   return (
-    <div className="t-wel-account">
-      <div className="t-wel-signup">
+    <div className="t-plans">
+      <header className="t-plans-head">
+        <h2>Plans and pricing</h2>
+        <p>Complimentary access during the beta. Paid plans begin at launch; no payment is taken today.</p>
+        <div className="t-plans-toggle" role="group" aria-label="Billing period">
+          <button type="button" aria-pressed={billing === "monthly"} onClick={() => setBilling("monthly")}>Monthly</button>
+          <button type="button" aria-pressed={billing === "annual"} onClick={() => setBilling("annual")}>Annual <span>Save {SAVING}%</span></button>
+        </div>
+      </header>
+
+      <div className="t-plans-grid">
+        <article className="t-plan" data-tier="pro">
+          <div className="t-plan-top">
+            <h3>Professional</h3>
+            <p>For individual investors and analysts</p>
+          </div>
+          <div className="t-plan-price">
+            {billing === "monthly" ? <><b>{dollars(PRICES.monthly)}</b><span>/ month</span></> : <><b>{dollars(PRICES.annual / 12)}</b><span>/ month</span></>}
+          </div>
+          <p className="t-plan-billed">{billing === "monthly" ? "Billed monthly" : `${dollars(PRICES.annual)} billed annually`}</p>
+          {account
+            ? <button type="button" className="t-wel-cta t-plan-cta" onClick={() => onFinish()}>Open the terminal</button>
+            : <button type="button" className="t-wel-cta t-plan-cta" onClick={toSignup}>Start with the beta</button>}
+          <ul>{PRO_FEATURES.map((feature) => <li key={feature}>{feature}</li>)}</ul>
+        </article>
+
+        <article className="t-plan" data-tier="enterprise">
+          <div className="t-plan-top">
+            <h3>Enterprise</h3>
+            <p>For teams, advisory firms and institutions</p>
+          </div>
+          <div className="t-plan-price"><b>Custom</b></div>
+          <p className="t-plan-billed">Annual agreement · volume pricing</p>
+          <a className="t-wel-ghost t-plan-cta" href={`mailto:${SALES}?subject=${encodeURIComponent("Tenqay Enterprise")}`}>Contact sales</a>
+          <ul>{ENTERPRISE_FEATURES.map((feature) => <li key={feature}>{feature}</li>)}</ul>
+        </article>
+      </div>
+
+      <table className="t-plans-compare">
+        <thead><tr><th>Compare plans</th><th>Professional</th><th>Enterprise</th></tr></thead>
+        <tbody>{COMPARE.map(([row, pro, enterprise]) => <tr key={row}><th>{row}</th><td>{pro}</td><td>{enterprise}</td></tr>)}</tbody>
+      </table>
+
+      <section className="t-plans-signup" id="t-plans-signup" aria-label="Account">
         {account ? (
           <>
-            <h2>Welcome, {account.name}</h2>
-            <p>Your watchlists, portfolios and alerts are now synchronised across your devices.</p>
-            <button type="button" className="t-wel-cta t-wel-big" onClick={() => onFinish()}>Open the terminal →</button>
+            <div><h3>Welcome, {account.name}</h3><p>Your watchlists, portfolios and alerts are synchronised across your devices.</p></div>
+            <button type="button" className="t-wel-cta" onClick={() => onFinish()}>Open the terminal</button>
           </>
         ) : (
           <>
-            <h2>Create your account</h2>
-            <p>Synchronise your watchlists, portfolios and alerts across your devices.</p>
-            {providers.google ? <button type="button" className="t-wel-google" onClick={() => continueWith("google", back)}><GoogleMark />Continue with Google</button> : null}
-            {providers.email ? (
-              sent ? <p className="t-wel-sent">Check your inbox: a sign-in link is on its way to <b>{sent}</b>.</p> : (
-                <form className="t-wel-email" onSubmit={(event) => { event.preventDefault(); void email(); }}>
-                  <input type="email" required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="you@example.com" autoComplete="email" aria-label="Email address" />
-                  <button type="submit" className="t-wel-cta" disabled={!address.trim()}>Continue with email</button>
-                </form>
-              )
-            ) : null}
-            {error ? <p className="t-wel-error" role="alert">{error}</p> : null}
-            <button type="button" className="t-wel-later" onClick={() => onFinish()}>Continue without an account →</button>
+            <div><h3>Create your account</h3><p>Synchronise your watchlists, portfolios and alerts across your devices.</p></div>
+            <div className="t-plans-signin">
+              {providers.google ? <button type="button" className="t-wel-google" onClick={() => continueWith("google", back)}><GoogleMark />Continue with Google</button> : null}
+              {providers.email ? (
+                sent ? <p className="t-wel-sent">A sign-in link is on its way to <b>{sent}</b>.</p> : (
+                  <form className="t-wel-email" onSubmit={(event) => { event.preventDefault(); void email(); }}>
+                    <input type="email" required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="you@company.com" autoComplete="email" aria-label="Email address" />
+                    <button type="submit" className="t-wel-cta" disabled={!address.trim()}>Continue with email</button>
+                  </form>
+                )
+              ) : null}
+              {error ? <p className="t-wel-error" role="alert">{error}</p> : null}
+              <button type="button" className="t-wel-later" onClick={() => onFinish()}>Continue without an account</button>
+            </div>
           </>
         )}
-      </div>
-      <div className="t-wel-plans">
-        <p className="t-wel-beta">Complimentary access during the beta · No payment required</p>
-        <div className="t-wel-plan-row">
-          {PLANS.map((plan) => {
-            const saving = plan.months > 1 ? 1 - plan.amount / (MONTHLY.amount * plan.months) : null;
-            return (
-              <div key={plan.id} className="t-wel-plan" data-plan={plan.id}>
-                <b>{plan.name}{saving ? <span className="t-wel-save">Save {Math.round(saving * 100)}%</span> : null}</b>
-                <span className="t-wel-price">{dollars(plan.amount)}<small> {plan.period}</small></span>
-                <small>{plan.months > 1 ? `${dollars(plan.amount / plan.months)} a month, billed once a year` : "Billed every month"}</small>
-              </div>
-            );
-          })}
-        </div>
-        <ul className="t-wel-included">{INCLUDED.map((item) => <li key={item}>{item}</li>)}</ul>
-      </div>
+      </section>
+      <p className="t-plans-fine">Prices in US dollars. Applicable taxes may be added at checkout. Research information only, not investment advice.</p>
     </div>
   );
 }
