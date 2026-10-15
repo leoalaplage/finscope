@@ -102,7 +102,8 @@ body:has(.io.term) { background: #0b0d0a; }
   display: flex; align-items: center; padding-inline: 10px;
   background: var(--amber); color: var(--amber-ink); font-weight: 700; letter-spacing: .08em;
 }
-.term a.t-brand:hover { color: var(--amber-ink); }
+/* Ink on the accent, always: the document site's ".io a { color: inherit }" outranks a bare class and left the name light on lime. */
+.term a.t-brand, .term a.t-brand:hover, .term a.t-brand:visited { color: var(--amber-ink); }
 .t-bar-right { display: flex; align-items: center; gap: 12px; padding-inline: 10px; border-left: 1px solid var(--line); white-space: nowrap; }
 .t-bar-right a { color: var(--ink-3); }
 
