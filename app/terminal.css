@@ -496,7 +496,16 @@ body:has(.io.term) { background: #0d1012; }
   background: var(--head); border: 1px solid var(--line);
 }
 .t-tools { display: flex; flex-wrap: wrap; gap: 4px; }
-.t-tools button { min-width: 26px; font-size: var(--fs-md); }
+/* The drawing tools: icons at a size that reads, in the text's colour, lit when chosen. */
+.term .t-tools .seg button, .term .t-tool-options button { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 26px; padding: 0; color: var(--ink-2); }
+.term .t-tools .seg button:hover, .term .t-tool-options button:hover { color: var(--amber); }
+.term .t-tools .seg button[aria-pressed="true"], .term .t-tool-options button[aria-pressed="true"] { color: var(--inverse); background: var(--amber); }
+.term .t-tools .seg button:disabled, .term .t-tool-options button:disabled { opacity: .35; cursor: default; }
+.ti { display: block; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.ti .ti-thin { stroke-width: 1; opacity: .7; }
+.ti .ti-fill { fill: currentColor; stroke-width: 1; }
+.ti .ti-dot { fill: var(--bg); stroke-width: 1.3; }
+.term .t-tools .seg button[aria-pressed="true"] .ti-dot { fill: var(--amber); }
 .t-text-button { color: var(--ink-2); padding: 1px 6px; border: 1px solid var(--line-strong); background: var(--bg); }
 .t-text-button:hover:not(:disabled) { color: var(--amber); border-color: var(--amber); }
 .t-text-button:disabled { opacity: .4; cursor: default; }

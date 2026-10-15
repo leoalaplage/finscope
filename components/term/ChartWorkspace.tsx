@@ -7,6 +7,7 @@ import { chooseSymbol } from "@/components/io/choose-symbol";
 import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import { STUDY_GROUPS, STUDY_NAMES, type Study } from "@/lib/io/technicals";
 import { TOOL_GROUPS, TOOLS, type Drawing, type Tool } from "@/lib/term/drawings";
+import { ToolIcon } from "./ToolIcon";
 import { redoDrawings, setSymbolDrawings, undoDrawings, useDrawingStore } from "@/components/io/drawings-store";
 import {
   COMPARE_LIMIT, LAYOUTS, readWorkspaceStore, saveLayout, withSymbol, type ChartCell, type Layout, type WorkspaceStore,
@@ -269,26 +270,28 @@ export function ChartWorkspace() {
                   key={item.tool} type="button" aria-pressed={tool === item.tool} disabled={hidden && item.tool !== "cursor"}
                   title={`${item.title} · ⌥${item.key}`} aria-label={item.title} onClick={() => setTool(item.tool)}
                 >
-                  {item.label}
+                  <ToolIcon name={item.tool} />
                 </button>
               ))}
             </div>
           ))}
         </div>
-        <div className="seg" role="group" aria-label="Drawing options">
-          <button type="button" aria-pressed={magnet} title="Magnet: points snap to the open, high, low or close · ⌥G" onClick={() => setMagnet(!magnet)}>Magnet</button>
-          <button type="button" aria-pressed={hidden} title="Hide every drawing" onClick={() => { setHidden(!hidden); setTool("cursor"); }}>Hide</button>
-          <button type="button" title="Undo · ⌘Z" aria-label="Undo" onClick={() => undoDrawings()}>↶</button>
-          <button type="button" title="Redo · ⇧⌘Z" aria-label="Redo" onClick={() => redoDrawings()}>↷</button>
+        <div className="seg t-tool-options" role="group" aria-label="Drawing options">
+          <button type="button" aria-pressed={magnet} title="Magnet: points snap to the open, high, low or close · ⌥G" aria-label="Magnet" onClick={() => setMagnet(!magnet)}>
+            <ToolIcon name="magnet" />
+          </button>
+          <button type="button" aria-pressed={hidden} title="Hide every drawing" aria-label="Hide drawings" onClick={() => { setHidden(!hidden); setTool("cursor"); }}>
+            <ToolIcon name="hide" />
+          </button>
+          <button type="button" title="Undo · ⌘Z" aria-label="Undo" onClick={() => undoDrawings()}><ToolIcon name="undo" /></button>
+          <button type="button" title="Redo · ⇧⌘Z" aria-label="Redo" onClick={() => redoDrawings()}><ToolIcon name="redo" /></button>
+          <button
+            type="button" onClick={() => setDrawings(activeCell.symbol, [])} disabled={!(drawn[activeCell.symbol]?.length)}
+            title={`Remove every drawing on ${activeCell.symbol}`} aria-label={`Remove every drawing on ${activeCell.symbol}`}
+          >
+            <ToolIcon name="clear" />
+          </button>
         </div>
-        <button
-          type="button" className="t-text-button"
-          onClick={() => setDrawings(activeCell.symbol, [])}
-          disabled={!(drawn[activeCell.symbol]?.length)}
-          title={`Remove every drawing on ${activeCell.symbol}`}
-        >
-          Clear {activeCell.symbol}
-        </button>
 
         <div className="t-layouts">
           <span className="label">Layouts</span>

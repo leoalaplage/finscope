@@ -21,40 +21,40 @@ export type LineStyle = "solid" | "dashed" | "dotted";
 
 export const DRAWING_KINDS: DrawingKind[] = ["trend", "ray", "extended", "arrow", "hline", "hray", "vline", "channel", "rect", "fib", "long", "short", "range", "text", "brush"];
 
-export interface ToolSpec { tool: Tool; label: string; key: string; title: string }
+export interface ToolSpec { tool: Tool; key: string; title: string }
 
 /** The tools, in the groups the toolbar shows them in; ⌥ and the key picks one. */
 export const TOOL_GROUPS: { name: string; tools: ToolSpec[] }[] = [
-  { name: "Pointer", tools: [{ tool: "cursor", label: "↖", key: "V", title: "Cursor" }] },
+  { name: "Pointer", tools: [{ tool: "cursor", key: "V", title: "Cursor" }] },
   {
     name: "Lines",
     tools: [
-      { tool: "trend", label: "╱", key: "T", title: "Trend line" },
-      { tool: "ray", label: "↗", key: "Y", title: "Ray" },
-      { tool: "extended", label: "⤢", key: "X", title: "Extended line" },
-      { tool: "arrow", label: "➚", key: "A", title: "Arrow" },
-      { tool: "hline", label: "─", key: "H", title: "Horizontal line" },
-      { tool: "hray", label: "⟶", key: "J", title: "Horizontal ray" },
-      { tool: "vline", label: "│", key: "I", title: "Vertical line" },
-      { tool: "channel", label: "▱", key: "P", title: "Parallel channel" },
+      { tool: "trend", key: "T", title: "Trend line" },
+      { tool: "ray", key: "Y", title: "Ray" },
+      { tool: "extended", key: "X", title: "Extended line" },
+      { tool: "arrow", key: "A", title: "Arrow" },
+      { tool: "hline", key: "H", title: "Horizontal line" },
+      { tool: "hray", key: "J", title: "Horizontal ray" },
+      { tool: "vline", key: "I", title: "Vertical line" },
+      { tool: "channel", key: "P", title: "Parallel channel" },
     ],
   },
   {
     name: "Analysis",
     tools: [
-      { tool: "fib", label: "F", key: "F", title: "Fibonacci retracement" },
-      { tool: "rect", label: "▭", key: "R", title: "Rectangle" },
-      { tool: "range", label: "⇕", key: "M", title: "Price and date range" },
-      { tool: "long", label: "L", key: "L", title: "Long position" },
-      { tool: "short", label: "S", key: "S", title: "Short position" },
+      { tool: "fib", key: "F", title: "Fibonacci retracement" },
+      { tool: "rect", key: "R", title: "Rectangle" },
+      { tool: "range", key: "M", title: "Price and date range" },
+      { tool: "long", key: "L", title: "Long position" },
+      { tool: "short", key: "S", title: "Short position" },
     ],
   },
   {
     name: "Notes",
     tools: [
-      { tool: "text", label: "T̲", key: "N", title: "Text" },
-      { tool: "brush", label: "✎", key: "B", title: "Brush" },
-      { tool: "erase", label: "⌫", key: "E", title: "Erase a drawing" },
+      { tool: "text", key: "N", title: "Text" },
+      { tool: "brush", key: "B", title: "Brush" },
+      { tool: "erase", key: "E", title: "Erase a drawing" },
     ],
   },
 ];
