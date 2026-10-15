@@ -97,7 +97,8 @@ export function AccountPage() {
           <a href="#data">Your data</a>
         </nav>
         <div className="settings-content">
-          <Profile key={`profile-${account.name}`} name={account.name} created={account.created} id={account.id} busy={busy} run={run} />
+          <Profile key={`profile-${account.name}`} name={account.name} created={account.created} id={account.id} busy={busy} run={run}
+            methods={[...new Set([...(account.identities ?? []).map((identity) => ({ google: "Google", apple: "Apple", microsoft: "Microsoft", email: "Email link" })[identity.provider]), ...(account.passkeys.length ? ["Passkey"] : [])])]} />
           <Sync syncState={sync.state} syncAt={sync.at} syncError={sync.error} />
           <Alerts key={`alerts-${account.email?.address ?? ""}`} email={account.email} emailService={emailService} busy={busy} run={run} />
           <Security passkeys={account.passkeys} identities={account.identities ?? []} providers={providers} supported={supported} busy={busy} run={run} />
@@ -223,7 +224,7 @@ function SignedOut({ supported, providers, busy, run, notice }: { supported: boo
 
 /* --- Profile -------------------------------------------------------------- */
 
-function Profile({ name, created, id, busy, run }: { name: string; created: string; id: string; busy: boolean; run: Run }) {
+function Profile({ name, created, id, busy, run, methods }: { name: string; created: string; id: string; busy: boolean; run: Run; methods: string[] }) {
   const [draft, setDraft] = useState(name);
   const changed = draft.trim() !== name && draft.trim().length > 0;
   return (
@@ -239,7 +240,7 @@ function Profile({ name, created, id, busy, run }: { name: string; created: stri
       <dl className="acct-facts">
         <div><dt>Member since</dt><dd>{day(created)}</dd></div>
         <div><dt>Account ID</dt><dd className="acct-mono">{id.slice(0, 8)}…</dd></div>
-        <div><dt>Sign-in</dt><dd>Passkey only</dd></div>
+        <div><dt>Sign-in</dt><dd>{methods.join(", ") || "—"} · <a href="#security">manage</a></dd></div>
       </dl>
     </Section>
   );
