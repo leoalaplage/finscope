@@ -29,7 +29,14 @@ describe("the company page", () => {
 
 describe("Sprint 1 delivery infrastructure", () => {
   it("publishes discovery metadata and record-specific social metadata", () => {
-    expect(read("../app/sitemap.ts")).toContain("DEFAULT_WATCHLIST.map");
+    // The terminal is FinScope: its screens and the S&P 500's company pages are listed, the reader's own screens are not.
+    const sitemap = read("../app/sitemap.ts");
+    expect(sitemap).toContain("UNIVERSE.map");
+    expect(sitemap).toContain("/t/s/");
+    expect(sitemap).not.toContain("/t/account");
+    expect(read("../app/t/s/[ticker]/page.tsx")).toContain("canonical: `/t/s/");
+    expect(read("../app/t/s/[ticker]/page.tsx")).not.toContain("index: false");
+    expect(read("../app/t/account/page.tsx")).toContain("index: false");
     expect(read("../app/robots.ts")).toContain("/sitemap.xml");
     expect(read("../app/manifest.ts")).toContain('display: "standalone"');
     const metadata = read("../app/s/[ticker]/page.tsx");

@@ -7,7 +7,11 @@ import { TermShell } from "@/components/term/TermShell";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 
 export const dynamic = "force-static";
-export const metadata: Metadata = { title: "COMP · FinScope Terminal", robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  title: "Compare companies side by side · FinScope",
+  description: "Compare US-listed companies on their filed financials, growth, margins and valuation.",
+  alternates: { canonical: "/t/compare" },
+};
 
 const OPENING = DEFAULT_WATCHLIST.slice(0, 3).map((company) => company.ticker);
 

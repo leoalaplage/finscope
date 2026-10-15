@@ -7,7 +7,11 @@ import { TermPage } from "@/components/term/TermPage";
 import { TermShell } from "@/components/term/TermShell";
 
 export const dynamic = "force-static";
-export const metadata: Metadata = { title: "EQS · FinScope Terminal", robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  title: "Stock screener — every US-listed company · FinScope",
+  description: "Screen the S&P 500, the 1,000 largest US companies or every listed one on filed fundamentals, valuation, analysts' consensus and technicals.",
+  alternates: { canonical: "/t/screener" },
+};
 
 /** Custom fundamental searches and Quality Score in the terminal EQS screen. */
 export default function TerminalScreener() {

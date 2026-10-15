@@ -7,7 +7,11 @@ import { TermShell } from "@/components/term/TermShell";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 
 export const dynamic = "force-static";
-export const metadata: Metadata = { title: "DCF · FinScope Terminal", robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  title: "DCF calculator from SEC filings · FinScope",
+  description: "A discounted cash flow model built from a company's own filings, with the drivers you choose.",
+  alternates: { canonical: "/t/dcf" },
+};
 
 /** The discounted cash flow model on a screen of its own: the company page's DCF panel, full width. */
 export default function TerminalDcf() {
