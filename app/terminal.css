@@ -1606,7 +1606,11 @@ body:has(.io.term) { background: #0d1012; }
 .t-wcharts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 2px; }
 .t-wcharts-panel > .t-panel-body { background: var(--line); }
 .t-wchart .t-panel-head { min-height: 0; }
-.t-wchart-link { cursor: pointer; }
+.t-wchart-link { position: relative; cursor: pointer; }
+/* The watermark: inside the plot, clear of the price axis (46px) and the dates (18px). */
+.t-wmark { position: absolute; inset: 0 46px 18px 0; z-index: 2; display: grid; place-items: center; pointer-events: none; font-size: clamp(34px, 4.2vw, 64px); font-weight: 700; letter-spacing: .08em; color: var(--ink); opacity: .06; user-select: none; }
+.t-wmark-logo { position: absolute; right: 52px; bottom: 24px; z-index: 2; display: flex; align-items: center; gap: 4px; pointer-events: none; font-size: 9px; font-weight: 700; letter-spacing: .16em; color: var(--ink); opacity: .32; user-select: none; }
+.t-wmark-logo img { display: block; border-radius: 2px; }
 .t-wchart-link:focus-visible { outline: 1px solid var(--amber); outline-offset: -1px; }
 .t-wchart-frame:hover .t-wchart { border-color: var(--line-strong); }
 .t-wchart .t-panel-body { padding: 0 4px 4px; }
