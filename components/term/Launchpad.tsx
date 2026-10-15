@@ -104,20 +104,20 @@ export function Launchpad() {
         <Panel code="IMAP" title="Today's moves">
           <Heatmap height={380} compact />
         </Panel>
-        <div className="t-duo">
-          <Panel code="ALRT" title="Alerts">
-            <AlertsBrief />
-          </Panel>
-          <Panel code="SIGS" title="52-week highs, lows and volume">
-            <SignalsPanel data={home} />
-          </Panel>
-        </div>
+        {/* Two columns to the bottom: the alerts over the wire, and the signals over the earnings. */}
         <div className="t-pair">
-          <Panel code="N">
-            <NewsSection />
-          </Panel>
-          {/* The next three days of results, where the filings feed was: FIL is still a function, and the filings are on every company. */}
           <div className="t-stack">
+            <Panel code="ALRT" title="Alerts">
+              <AlertsBrief />
+            </Panel>
+            <Panel code="N">
+              <NewsSection />
+            </Panel>
+          </div>
+          <div className="t-stack">
+            <Panel code="SIGS" title="52-week highs, lows and volume">
+              <SignalsPanel data={home} />
+            </Panel>
             <Panel code="EVTS" title="Earnings this week">
               <WatchEarnings data={home} tickers={followed} />
             </Panel>

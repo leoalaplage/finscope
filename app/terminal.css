@@ -395,7 +395,6 @@ body:has(.io.term) { background: #050608; }
   "left left left left right right right right right right right right";
 }
 .t-stack { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 0; }
-.t-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; align-items: start; }
 .t-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; align-items: start; }
 /*
  * Side by side, the two columns end on one line: the news and the filings take
@@ -406,10 +405,11 @@ body:has(.io.term) { background: #050608; }
 @media (min-width: 1101px) {
   .t-launch { align-items: stretch; }
   .t-launch > .t-col > .t-panel:last-child { flex: 1 1 auto; }
-  .t-launch .t-pair { flex: 1 1 0; min-height: 420px; contain: size; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: stretch; }
+  .t-launch .t-pair { flex: 1 1 0; min-height: 720px; contain: size; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: stretch; }
   .t-launch .t-pair > .t-panel, .t-launch .t-pair > .t-stack > .t-panel:last-child { display: flex; flex-direction: column; min-height: 0; }
   .t-launch .t-pair > .t-panel > .t-panel-body, .t-launch .t-pair > .t-stack > .t-panel:last-child > .t-panel-body { flex: 1 1 0; min-height: 0; overflow-y: auto; }
-  .t-launch .t-pair > .t-stack > .t-panel:last-child { flex: 1 1 0; }
+  .t-launch .t-pair > .t-stack > .t-panel:last-child { flex: 1 1 0; min-height: 160px; }
+  .t-launch .t-pair > .t-stack > .t-panel:not(:last-child) { flex: none; }
 }
 .t-indices { display: grid; }
 .t-index { display: grid; grid-template-columns: minmax(0, 1fr) auto 7ch 80px; align-items: center; gap: 8px; padding: 3px 8px; border-bottom: 1px solid var(--line); }
@@ -735,15 +735,22 @@ body:has(.io.term) { background: #050608; }
   .t-cmd-go { display: none; }
   .t-bar-right { padding-inline: 8px; }
 
-  /* The launchpad in reading order: market, heat map, list, calendar, wire. */
-  .t-launch .t-col, .t-launch .t-pair { display: contents; }
-  .t-launch #wei { order: 1; }
-  .t-launch #imap { order: 2; }
-  .t-launch #w { order: 3; }
-  .t-launch #evts { order: 4; }
-  .t-launch #n { order: 5; }
-  .t-launch #fil { order: 6; }
-  .t-launch #eco { order: 7; }
+  /* The launchpad in reading order: the session, rates and Fed, releases, market, book, map, list, alerts, signals, earnings, wire. */
+  .t-launch .t-col, .t-launch .t-pair, .t-launch .t-stack { display: contents; }
+  .t-launch #sum { order: 1; }
+  .t-launch #rates { order: 2; }
+  .t-launch #fed { order: 3; }
+  .t-launch #eco { order: 4; }
+  .t-launch #wei { order: 5; }
+  .t-launch #port { order: 6; }
+  .t-launch #imap { order: 7; }
+  .t-launch #w { order: 8; }
+  .t-launch #alrt { order: 9; }
+  .t-launch #sigs { order: 10; }
+  .t-launch #evts { order: 11; }
+  .t-launch #evts-next { order: 12; }
+  .t-launch #ecal { order: 13; }
+  .t-launch #n { order: 14; }
   .t-launch #w .sheet { max-height: 60vh; overflow-y: auto; }
 
   /* Controls a thumb can hit without taking the screen. */
@@ -1449,4 +1456,3 @@ body:has(.io.term) { background: #050608; }
 .t-alrt-brief-counts b.t-amber { color: var(--amber); }
 .t-alrt-brief tr[data-fresh] td.key a { color: var(--amber); }
 .t-alrt-brief-what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0; width: 100%; }
-@media (max-width: 900px) { .t-duo { grid-template-columns: minmax(0, 1fr); } }
