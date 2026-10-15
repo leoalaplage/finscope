@@ -51,7 +51,7 @@
 .eqs-error { color: var(--loss); }
 
 .eqs-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 5px 8px; border-top: 1px solid var(--line); }
-.eqs-chip { height: 20px; padding: 0 6px; font: inherit; font-size: var(--fs-micro); color: var(--amber); background: rgba(255, 160, 40, .1); border: 1px solid var(--amber-dim); cursor: pointer; }
+.eqs-chip { height: 20px; padding: 0 6px; font: inherit; font-size: var(--fs-micro); color: var(--amber); background: rgba(212, 250, 76, .1); border: 1px solid var(--amber-dim); cursor: pointer; }
 .eqs-chip:hover { border-color: var(--loss); color: var(--loss); }
 .eqs-chip[data-invalid] { border-color: var(--loss); color: var(--loss); }
 .eqs-chip span { margin-left: 3px; }

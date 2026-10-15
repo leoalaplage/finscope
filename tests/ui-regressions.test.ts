@@ -981,11 +981,16 @@ describe("the redesign", () => {
     expect(qs).not.toContain("function reportedDebt(");
   });
 
-  it("wears a favicon drawn in the site's one ink", () => {
+  it("wears Tenqay's favicon: lime bars on the terminal's black, in every size a browser asks for", () => {
     const icon = readFileSync(new URL("../public/favicon.svg", import.meta.url), "utf8");
-    expect(icon).not.toContain("#68C4FF");
-    expect(icon).toContain("@media (prefers-color-scheme: dark)");
-    expect(icon).toContain("#08080a");
+    const css = readFileSync(new URL("../app/terminal.css", import.meta.url), "utf8");
+    expect(icon).toContain("#d4fa4c");
+    expect(icon).toContain("#0b0d0a");
+    expect(css).toContain("--amber: #d4fa4c;");
+    expect(css).not.toContain("255, 160, 40");
+    for (const file of ["favicon.ico", "favicon-32.png", "apple-touch-icon.png", "icon-192.png", "icon-512.png"]) {
+      expect(readFileSync(new URL(`../public/${file}`, import.meta.url)).length).toBeGreaterThan(100);
+    }
   });
 
   it("shows exactly nine default watchlist stocks per desktop row", () => {

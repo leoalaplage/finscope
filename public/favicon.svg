@@ -1,26 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <!--
-    One ink, like the site.
-
-    The mark that shipped with the template was a four-colour blue tile from a
-    starter kit, on a site whose first rule is that no hue carries meaning. This
-    is the same vocabulary the pages use: a block of ink, and a level drawn as a
-    row of bars knocked out of it. It inverts with the browser's own theme, so
-    the tab shows a dark tile in a light chrome and a light one in a dark one
-    rather than a bright square in the middle of the night.
-  -->
-  <style>
-    .ink { fill: #08080a; }
-    .page { fill: #ffffff; }
-    @media (prefers-color-scheme: dark) {
-      .ink { fill: #fafafa; }
-      .page { fill: #000000; }
-    }
-  </style>
-  <rect class="ink" width="32" height="32" rx="6.5"/>
-  <g class="page">
-    <rect x="6.5" y="18" width="4.5" height="7.5"/>
-    <rect x="13.75" y="13" width="4.5" height="12.5"/>
-    <rect x="21" y="6.5" width="4.5" height="19"/>
+  <!-- Tenqay: rising bars in terminal lime on the terminal's own near-black, the same in a light or a dark tab strip. -->
+  <rect width="32" height="32" rx="7" fill="#0b0d0a"/>
+  <g fill="#d4fa4c">
+    <rect x="5" y="19" width="4" height="7" rx="1"/>
+    <rect x="11" y="15" width="4" height="11" rx="1"/>
+    <rect x="17" y="11" width="4" height="15" rx="1"/>
+    <rect x="23" y="6" width="4" height="20" rx="1"/>
   </g>
 </svg>
