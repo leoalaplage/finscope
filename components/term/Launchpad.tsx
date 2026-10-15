@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { readPrefs } from "./prefs";
 import { useStoredWatchlist } from "@/components/io/watchlist";
 import { WatchlistEditor } from "@/components/io/WatchlistEditor";
 import { delta, price } from "@/components/io/format";
@@ -30,6 +31,14 @@ export function Launchpad() {
   const [editing, setEditing] = useState(false);
   const tape = useTape(tickers);
   const quotes = new Map((tape?.quotes ?? []).filter((quote) => quote.kind === "equity").map((quote) => [quote.symbol, quote]));
+  // Arriving from elsewhere, once a visit, the terminal opens where the reader chose on SET (components/term/prefs.ts).
+  useEffect(() => {
+    const start = readPrefs().start;
+    if (start === "/t") return;
+    let arrived = true;
+    try { arrived = !document.referrer.startsWith(window.location.origin) && !sessionStorage.getItem("finscope.term.started"); sessionStorage.setItem("finscope.term.started", "1"); } catch { arrived = false; }
+    if (arrived) window.location.replace(start);
+  }, []);
 
   return (
     <div className="t-grid t-launch">

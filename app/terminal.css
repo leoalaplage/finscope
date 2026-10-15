@@ -961,7 +961,23 @@ body:has(.io.term) { background: #050608; }
 
 /* --- Settings (SET) ------------------------------------------------------- */
 
-.t-settings { grid-template-areas: "kept kept kept kept kept kept kept kept about about about about"; }
+.t-settings { align-items: start; grid-template-areas:
+  "display display display display display display start start start start start start"
+  "alerts alerts alerts alerts alerts alerts account account account account account account"
+  "kept kept kept kept kept kept kept kept kept kept kept kept"
+  "keys keys keys keys keys keys about about about about about about"; }
+.t-set-message { grid-column: 1 / -1; margin: 0; padding: 6px 8px; border: 1px solid var(--amber-dim); color: var(--ink); font-size: var(--fs-xs); }
+.t-set-body { display: grid; gap: 8px; }
+.t-set-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: var(--fs-xs); }
+.t-set-label { min-width: 150px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .05em; font-size: var(--fs-micro); }
+.t-set-select { height: 24px; padding: 0 6px; font: inherit; font-size: var(--fs-xs); color: var(--ink); background: var(--panel-input, #000); border: 1px solid var(--line-strong); }
+.t-set-select:focus { outline: none; border-color: var(--amber); }
+.t-set-sample { margin: 0 0 0 160px; font-size: var(--fs-xs); color: var(--ink-2); }
+.t-set-sample [data-dir="up"] { color: var(--gain); }
+.t-set-sample [data-dir="down"] { color: var(--loss); }
+.t-set-keys p { margin: 0; font-size: var(--fs-xs); line-height: 1.7; color: var(--ink); }
+.t-set-keys code { margin-right: 6px; color: var(--amber); }
+.t-set-keys kbd { padding: 0 4px; border: 1px solid var(--line-strong); font: inherit; font-size: var(--fs-micro); }
 .t-kept th.key { color: var(--ink); font-weight: 600; white-space: nowrap; }
 .t-kept td.key { white-space: normal; min-width: 0; }
 .t-kept td.t-row-links { white-space: nowrap; }
@@ -969,7 +985,7 @@ body:has(.io.term) { background: #050608; }
 .t-about p { color: var(--ink-2); margin-bottom: 8px; }
 .t-about code { color: var(--amber); font: inherit; }
 .t-about a { color: var(--amber); }
-@media (max-width: 1100px) { .t-settings { grid-template-areas: "kept" "about"; grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1100px) { .t-settings { grid-template-areas: "display" "start" "alerts" "account" "kept" "keys" "about"; grid-template-columns: minmax(0, 1fr); } .t-set-sample { margin-left: 0; } }
 
 /*
  * A finger is not a pointer: on a touch screen the tape, the function keys,
@@ -1369,3 +1385,9 @@ body:has(.io.term) { background: #050608; }
 .t-alrt-rules td:nth-child(2), .t-alrt-rules td:nth-child(4), .t-alrt-rules td:nth-child(5),
 .t-alrt-rules th:nth-child(2), .t-alrt-rules th:nth-child(4), .t-alrt-rules th:nth-child(5) { width: 1%; white-space: nowrap; }
 .t-alrt-rules th.key, .t-alrt-rules td.key { min-width: 0; width: 1%; }
+
+/* SET: display preferences (components/term/prefs.ts). */
+:root body .io.term[data-density="compact"] { --fs-micro: 9px; --fs-xs: 10px; --fs-sm: 11px; }
+:root body .io.term[data-density="large"] { --fs-micro: 11px; --fs-xs: 13px; --fs-sm: 14px; --fs-md: 15px; }
+:root body .io.term[data-colors="blue-orange"] { --gain: #3ba1ff; --loss: #ff9a1f; }
+:root body .io.term[data-colors="mono"] { --gain: #e8e8e8; --loss: #8a8a8a; }

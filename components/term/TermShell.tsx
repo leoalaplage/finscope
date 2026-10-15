@@ -9,6 +9,7 @@ import { CommandLine } from "./CommandLine";
 import { useTape } from "./quotes";
 import { AlertsChip } from "./Alerts";
 import { AccountChip } from "./Account";
+import { useTermPrefs } from "./prefs";
 
 /**
  * The frame every terminal screen sits in.
@@ -123,12 +124,15 @@ function FunctionKeys({ ticker }: { ticker: string | null }) {
 
 function StatusLine() {
   const second = useSecond();
+  const { clock } = useTermPrefs();
   const at = second ? new Date(second * 1_000) : null;
   const state = at ? marketState(at) : null;
+  const local = at ? at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : "--:--:--";
   return (
     <footer className="t-status">
       <span className="t-status-state" data-state={state ?? undefined}>NYSE {state ?? "—"}</span>
-      <span className="t-status-clock">{at ? `${newYorkTime(at).clock} ET` : "--:--:-- ET"}</span>
+      {clock !== "local" ? <span className="t-status-clock">{at ? `${newYorkTime(at).clock} ET` : "--:--:-- ET"}</span> : null}
+      {clock !== "ny" ? <span className="t-status-clock">{local} local</span> : null}
       <span className="t-status-src">Filings · SEC EDGAR</span>
       <span className="t-status-src">Prices · Yahoo Finance, may be delayed</span>
       <span className="t-status-legal">Research information only · not investment advice · analyst estimates only where labelled</span>
@@ -306,11 +310,12 @@ export function TermShell({ ticker = null, bare = false, children }: {
   children: React.ReactNode;
 }) {
   const [helpOpen, setHelpOpen] = useState(false);
+  const prefs = useTermPrefs();
   useFocusedPanel();
   useTerminalLinks();
   useTableKeys();
   return (
-    <div className="io term">
+    <div className="io term" data-density={prefs.density} data-colors={prefs.colors}>
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <div className="t-top">
         <div className="t-bar">
@@ -323,7 +328,7 @@ export function TermShell({ ticker = null, bare = false, children }: {
             <a href="/t/settings" title="Settings and what this device keeps">SET</a>
           </div>
         </div>
-        <Tape />
+        {prefs.tape ? <Tape /> : null}
         <FunctionKeys ticker={ticker} />
       </div>
       {bare ? <div className="t-main">{children}</div> : <main className="t-main" id="main-content" tabIndex={-1}>{children}</main>}
