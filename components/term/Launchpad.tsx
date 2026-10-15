@@ -15,7 +15,7 @@ import { Panel } from "./Panel";
 import { MiniEcal } from "./EarningsCal";
 import { EconBrief, useEcon } from "./Economy";
 import { AlertsBrief } from "./Alerts";
-import { FedPanel, PortfolioGlance, RatesPanel, SessionSummary, SignalsPanel, TodayStrip, WatchEarnings, useHomeData } from "./Home";
+import { FedPanel, PortfolioGlance, RatesPanel, SessionSummary, SignalsPanel, WatchEarnings, useHomeData } from "./Home";
 import { useTape } from "./quotes";
 
 const SECTORS = new Map(DEFAULT_WATCHLIST.map((company) => [company.ticker, company.sector]));
@@ -23,12 +23,11 @@ const SECTORS = new Map(DEFAULT_WATCHLIST.map((company) => [company.ticker, comp
 /**
  * The first screen: the market, the reader's list, and what is coming.
  *
- * Across the top, what moves the market today with its countdowns; then the
- * session written out beside the Treasuries, the dollar and the Fed's odds;
- * the US releases against their consensus. Left, the averages, the book at a
- * glance, the watchlist and its earnings this week and next; right, the heat
- * map, the alerts caught and the new highs, lows and heavy volume, then the
- * wire and the earnings calendar. Every panel is a function a reader can type
+ * Across the top, the session written out beside the Treasuries, the dollar
+ * and the Fed's odds. Left, the averages, the book at a glance, the watchlist
+ * and its next earnings; right, the US releases against their consensus, the
+ * heat map, the alerts caught and the new highs, lows and heavy volume, then
+ * the wire beside the week's earnings of the reader's names and the calendar. Every panel is a function a reader can type
  * (components/term/Home.tsx for the newer ones).
  */
 export function Launchpad() {
@@ -38,7 +37,7 @@ export function Launchpad() {
   const followed = useMemo(() => [...new Set([...tickers, ...holdings.map((position) => position.ticker)])], [tickers, holdings]);
   const tape = useTape(followed);
   const home = useHomeData(followed);
-  const { data: econ, failed: econFailed } = useEcon();
+  const { data: econ } = useEcon();
   const quotes = new Map((tape?.quotes ?? []).filter((quote) => quote.kind === "equity").map((quote) => [quote.symbol, quote]));
   // Arriving from elsewhere, once a visit, the terminal opens where the reader chose on SET (components/term/prefs.ts).
   useEffect(() => {
@@ -51,9 +50,6 @@ export function Launchpad() {
 
   return (
     <div className="t-grid t-launch">
-      <Panel code="TODAY" title="What moves the market today" area="today">
-        <TodayStrip data={home} econ={econ} failed={econFailed} />
-      </Panel>
       <Panel code="SUM" title={home.phase === "pre" ? "Before the open" : home.phase === "open" ? "The session so far" : "The session"} area="sum">
         <SessionSummary data={home} tape={tape} econ={econ} />
       </Panel>
@@ -62,9 +58,6 @@ export function Launchpad() {
       </Panel>
       <Panel code="FED" title="Fed · rate odds from futures" area="fed">
         <FedPanel data={home} />
-      </Panel>
-      <Panel code="ECO" title="US economy · releases against the consensus" area="eco">
-        <EconBrief />
       </Panel>
       <div className="t-col" style={{ gridArea: "left" }}>
         <Panel code="WEI" title="Indices">
@@ -99,15 +92,15 @@ export function Launchpad() {
             </table>
           </div>
         </Panel>
-        <Panel code="EVTS" title="Earnings this week · your names">
-          <WatchEarnings data={home} tickers={followed} />
-        </Panel>
         <Panel code="EVTS" id="evts-next" title="Next earnings · watchlist">
           <EarningsCalendar tickers={tickers} />
         </Panel>
       </div>
 
       <div className="t-col" style={{ gridArea: "right" }}>
+        <Panel code="ECO" title="US economy · releases against the consensus">
+          <EconBrief />
+        </Panel>
         <Panel code="IMAP" title="Today's moves">
           <Heatmap height={380} compact />
         </Panel>
@@ -124,9 +117,14 @@ export function Launchpad() {
             <NewsSection />
           </Panel>
           {/* The next three days of results, where the filings feed was: FIL is still a function, and the filings are on every company. */}
-          <Panel code="ECAL" title="Earnings · next 3 days">
-            <MiniEcal />
-          </Panel>
+          <div className="t-stack">
+            <Panel code="EVTS" title="Earnings this week">
+              <WatchEarnings data={home} tickers={followed} />
+            </Panel>
+            <Panel code="ECAL" title="Earnings · next 3 days">
+              <MiniEcal />
+            </Panel>
+          </div>
         </div>
       </div>
       {editing ? <WatchlistEditor tickers={tickers} onClose={() => setEditing(false)} /> : null}

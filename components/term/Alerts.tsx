@@ -208,7 +208,6 @@ export function Alerts() {
   const { account } = useAccount();
   const seen = useKey(SEEN_KEY);
   const notify = useKey(NOTIFY_KEY) === "on";
-  const [tab, setTab] = useState<"caught" | "rules">("caught");
   const [kind, setKind] = useState<Caught["kind"] | "all">("all");
   const [editing, setEditing] = useState<AlertRule | null>(null);
 
@@ -228,10 +227,14 @@ export function Alerts() {
   const save = (rule: AlertRule) => {
     const exists = rules.some((entry) => entry.id === rule.id);
     setRules(exists ? rules.map((entry) => (entry.id === rule.id ? rule : entry)) : [rule, ...rules]);
-    setEditing(null); setTab("rules");
+    setEditing(null);
   };
   const update = (id: string, change: Partial<AlertRule>) => setRules(rules.map((rule) => (rule.id === id ? { ...rule, ...change } : rule)));
-  const remove = (rule: AlertRule) => { if (window.confirm(`Delete this alert?\n${describeRule(rule)}`)) setRules(rules.filter((entry) => entry.id !== rule.id)); };
+  const remove = (rule: AlertRule) => {
+    if (!window.confirm(`Delete this alert?\n${describeRule(rule)}`)) return;
+    setRules(rules.filter((entry) => entry.id !== rule.id));
+    if (editing?.id === rule.id) setEditing(null);
+  };
 
   const shown = caught.filter((alert) => kind === "all" || alert.kind === kind);
   const kinds = [...new Set(caught.map((alert) => alert.kind))];
@@ -240,51 +243,62 @@ export function Alerts() {
 
   return (
     <div className="t-grid t-insb">
-      <Panel code="ALRT" title="Alerts" actions={
+      {/* The alerts themselves first, each with its switch, Edit and Delete in sight; what they caught below. */}
+      <Panel code="ALRT" title={`My alerts · ${rules.length}`} actions={
         <div className="t-alrt-actions">
-          <div className="seg" role="group" aria-label="View">
-            <button type="button" aria-pressed={tab === "caught"} onClick={() => setTab("caught")}>Triggered <span>{caught.length}</span></button>
-            <button type="button" aria-pressed={tab === "rules"} onClick={() => setTab("rules")}>My alerts <span>{rules.length}</span></button>
-          </div>
           <button type="button" className="t-chip t-alrt-new" onClick={() => setEditing(newRule("price", followed[0] ?? null))}>+ New alert</button>
           <button type="button" className="t-chip" aria-pressed={notify} onClick={() => { void toggleNotify(); }}>{notify ? "Browser notifications on" : "Notify me in this browser"}</button>
         </div>
       }>
         <div className="t-panel-pad t-insb-body">
-          {editing ? <RuleEditor key={editing.id} rule={editing} isNew={!rules.some((entry) => entry.id === editing.id)} followed={followed} emailReady={emailReady} signedIn={!!account} onSave={save} onCancel={() => setEditing(null)} /> : null}
+          {editing ? (
+            <RuleEditor key={editing.id} rule={editing} isNew={!rules.some((entry) => entry.id === editing.id)} followed={followed} emailReady={emailReady} signedIn={!!account}
+              onSave={save} onCancel={() => setEditing(null)} onDelete={() => remove(editing)} />
+          ) : null}
+          <RuleList rules={rules} onEdit={setEditing} onToggle={(rule) => update(rule.id, { enabled: !rule.enabled })} onRearm={(rule) => update(rule.id, { armedAt: new Date().toISOString() })} onDelete={remove}
+            onReset={() => { if (window.confirm("Replace your alerts with the three default ones?")) setRules(parseRules(null)); }} />
+        </div>
+      </Panel>
 
-          {tab === "caught" ? (
-            loading ? <p className="t-empty">Reading the filings, prices and releases your alerts watch…</p> : (
-              <>
-                <div className="seg" role="group" aria-label="Kind">
-                  <button type="button" aria-pressed={kind === "all"} onClick={() => setKind("all")}>All <span>{caught.length}</span></button>
-                  {kinds.map((entry) => <button key={entry} type="button" aria-pressed={kind === entry} onClick={() => setKind(entry)}>{KINDS[entry]} <span>{caught.filter((alert) => alert.kind === entry).length}</span></button>)}
-                </div>
-                {shown.length ? (
-                  <div className="sheet">
-                    <table>
-                      <thead><tr><th className="key">When</th><th>Stock</th><th>Kind</th><th>What</th><th>Alert</th><th aria-label="Source" /></tr></thead>
-                      <tbody>
-                        {shown.map((alert, index) => (
+      <Panel code="ALRT" id="alrt-caught" title={`Triggered · ${loading ? "…" : caught.length}`}>
+        <div className="t-panel-pad t-insb-body">
+          {loading ? <p className="t-empty">Reading the filings, prices and releases your alerts watch…</p> : (
+            <>
+              <div className="seg" role="group" aria-label="Kind">
+                <button type="button" aria-pressed={kind === "all"} onClick={() => setKind("all")}>All <span>{caught.length}</span></button>
+                {kinds.map((entry) => <button key={entry} type="button" aria-pressed={kind === entry} onClick={() => setKind(entry)}>{KINDS[entry]} <span>{caught.filter((alert) => alert.kind === entry).length}</span></button>)}
+              </div>
+              {shown.length ? (
+                <div className="sheet">
+                  <table>
+                    <thead><tr><th className="key">When</th><th>Stock</th><th>Kind</th><th>What</th><th>Alert</th><th aria-label="Source" /></tr></thead>
+                    <tbody>
+                      {shown.map((alert, index) => {
+                        const rule = alert.ruleId ? ruleOf.get(alert.ruleId) : undefined;
+                        return (
                           <tr key={`${idOf(alert)}-${index}`} data-fresh={!seen || alert.at > seen || undefined} data-kind={alert.kind}>
                             <td className="key">{alert.kind === "note" || alert.kind === "price" ? "Now" : alert.kind === "move" ? "Today" : shortDate(alert.at.slice(0, 10))}</td>
                             <td>{alert.ticker ? <a href={`/t/s/${encodeURIComponent(alert.ticker)}`}>{alert.ticker}</a> : <a href="/t/eco">US</a>}</td>
                             <td><span className="events-kind" data-kind={alert.kind === "flag" ? "governance" : alert.kind === "insider" ? "financing" : alert.kind === "price" || alert.kind === "move" || alert.kind === "note" ? "deals" : "results"}>{KINDS[alert.kind]}</span></td>
                             <td>{alert.title}{alert.detail ? <span className="t-dim"> · {alert.detail}</span> : null}</td>
-                            <td className="t-dim">{alert.ruleId && ruleOf.get(alert.ruleId) ? <button type="button" className="t-alrt-link" onClick={() => setEditing(ruleOf.get(alert.ruleId!)!)}>Edit alert</button> : alert.kind === "note" ? "From your note" : ""}</td>
+                            <td className="t-dim">
+                              {rule ? (
+                                <span className="t-alrt-row-links">
+                                  <button type="button" className="t-alrt-link" onClick={() => setEditing(rule)}>Edit</button>
+                                  <button type="button" className="t-alrt-link t-alrt-delete" onClick={() => remove(rule)}>Delete</button>
+                                </span>
+                              ) : alert.kind === "note" ? "From your note" : ""}
+                            </td>
                             <td><a href={alert.url} target={alert.url.startsWith("http") ? "_blank" : undefined} rel="noreferrer">{alert.url.startsWith("http") ? "SEC ↗" : "Open"}</a></td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : <p className="t-empty">{rules.some((rule) => rule.enabled) ? "Nothing caught in the last two weeks." : "Every alert is paused or deleted. Add one with + New alert."}</p>}
-                <p className="t-study-note">Filings and insider purchases of the last two weeks, prices and moves as they stand, US releases of the last week, for the alerts under My alerts{followed.length ? `; "everything you follow" is ${followed.length} companies (watchlists, portfolio, notes)` : ""}. Checked every five minutes while the terminal is open.</p>
-              </>
-            )
-          ) : (
-            <RuleList rules={rules} onEdit={setEditing} onToggle={(rule) => update(rule.id, { enabled: !rule.enabled })} onRearm={(rule) => update(rule.id, { armedAt: new Date().toISOString() })} onDelete={remove}
-              onReset={() => { if (window.confirm("Replace your alerts with the three default ones?")) setRules(parseRules(null)); }} />
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p className="t-empty">{rules.some((rule) => rule.enabled) ? "Nothing caught in the last two weeks." : "Every alert is paused or deleted. Add one with + New alert."}</p>}
+              <p className="t-study-note">Filings and insider purchases of the last two weeks, prices and moves as they stand, US releases of the last week, for the alerts above{followed.length ? `; "everything you follow" is ${followed.length} companies (watchlists, portfolio, notes)` : ""}. Checked every five minutes while the terminal is open.</p>
+            </>
           )}
         </div>
       </Panel>
@@ -329,8 +343,8 @@ function RuleList({ rules, onEdit, onToggle, onRearm, onDelete, onReset }: {
   );
 }
 
-function RuleEditor({ rule, isNew, followed, emailReady, signedIn, onSave, onCancel }: {
-  rule: AlertRule; isNew: boolean; followed: string[]; emailReady: boolean; signedIn: boolean; onSave: (rule: AlertRule) => void; onCancel: () => void;
+function RuleEditor({ rule, isNew, followed, emailReady, signedIn, onSave, onCancel, onDelete }: {
+  rule: AlertRule; isNew: boolean; followed: string[]; emailReady: boolean; signedIn: boolean; onSave: (rule: AlertRule) => void; onCancel: () => void; onDelete: () => void;
 }) {
   const [draft, setDraft] = useState<AlertRule>(rule);
   const [tickerText, setTickerText] = useState(rule.ticker ?? "");
@@ -424,6 +438,7 @@ function RuleEditor({ rule, isNew, followed, emailReady, signedIn, onSave, onCan
 
       <div className="t-alrt-editor-actions">
         {problem ? <span className="t-alrt-problem">{problem}</span> : <span className="t-dim">{describeRule({ ...draft, ticker: draft.type === "econ" ? null : ticker || null })}</span>}
+        {isNew ? null : <button type="button" className="t-chip t-alrt-delete" onClick={onDelete}>Delete alert</button>}
         <button type="button" className="t-chip" onClick={onCancel}>Cancel</button>
         <button type="submit" className="t-chip t-alrt-new" disabled={problem != null}>Save alert</button>
       </div>

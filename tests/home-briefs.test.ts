@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fedOdds, parseFomc, zqSymbol } from "../lib/fedwatch";
 import { rateRows } from "../lib/rates";
 import { signalsOf } from "../lib/home-signals";
-import { countdown, newYorkMoment, phaseAt, sessionSummary } from "../lib/session-summary";
+import { phaseAt, sessionSummary } from "../lib/session-summary";
 
 describe("the Fed's odds from fed funds futures", () => {
   const page = `
@@ -116,16 +116,10 @@ describe("the session written out", () => {
 });
 
 describe("New York time", () => {
-  it("places a New York wall-clock time whatever the season", () => {
-    expect(new Date(newYorkMoment("2026-10-15", "08:30")).toISOString()).toBe("2026-10-15T12:30:00.000Z");
-    expect(new Date(newYorkMoment("2026-12-09", "14:00")).toISOString()).toBe("2026-12-09T19:00:00.000Z");
-  });
-  it("names the session and counts down to a moment", () => {
+  it("names the session", () => {
     expect(phaseAt(new Date("2026-10-15T12:00:00Z"))).toBe("pre");
     expect(phaseAt(new Date("2026-10-15T15:00:00Z"))).toBe("open");
     expect(phaseAt(new Date("2026-10-15T21:00:00Z"))).toBe("after");
     expect(phaseAt(new Date("2026-10-17T15:00:00Z"))).toBe("closed");
-    expect(countdown(Date.parse("2026-10-15T14:05:00Z"), Date.parse("2026-10-15T12:00:00Z"))).toBe("in 2h 05m");
-    expect(countdown(Date.parse("2026-10-15T12:00:00Z"), Date.parse("2026-10-15T12:04:00Z"))).toBe("4m ago");
   });
 });

@@ -132,20 +132,3 @@ export function phaseAt(now: Date): Phase {
   const minutes = Number(parts.hour) * 60 + Number(parts.minute);
   return minutes < 9 * 60 + 30 ? "pre" : minutes < 16 * 60 ? "open" : "after";
 }
-
-/** The moment a New York wall-clock time falls on, whatever the reader's own zone. */
-export function newYorkMoment(date: string, time: string): number {
-  const guess = Date.parse(`${date}T${time}:00Z`);
-  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(guess)).map((part) => [part.type, part.value]));
-  const shown = Date.parse(`${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:00Z`);
-  return guess + (guess - shown);
-}
-
-/** "in 2h 05m", "in 4m", "now", "2h ago". */
-export function countdown(at: number, now: number): string {
-  const minutes = Math.round((at - now) / 60_000);
-  if (Math.abs(minutes) < 1) return "now";
-  const span = Math.abs(minutes);
-  const text = span >= 60 ? `${Math.floor(span / 60)}h ${String(span % 60).padStart(2, "0")}m` : `${span}m`;
-  return minutes > 0 ? `in ${text}` : `${text} ago`;
-}

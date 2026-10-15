@@ -6,15 +6,14 @@ import type { FedWatch } from "@/lib/fedwatch";
 import type { Rates } from "@/lib/rates";
 import type { Signal, Signals } from "@/lib/home-signals";
 import type { EconEvent, Reaction } from "@/lib/econ";
-import { countdown, newYorkMoment, phaseAt, sessionSummary, type Phase } from "@/lib/session-summary";
+import { phaseAt, sessionSummary, type Phase } from "@/lib/session-summary";
 import { EARNINGS_DAY_SHAPE, type ReportTime } from "@/lib/adapters/nasdaq-earnings";
 import { delta, money, price, shortDate } from "@/components/io/format";
 import type { Tape } from "./quotes";
 
 /**
  * What HOME reads beyond its original panels, and the panels that show it:
- * the day's market-moving events with their countdowns (TODAY), the book at a
- * glance (PORT), the reader's names reporting this week against the
+ * the book at a glance (PORT), the reader's names reporting this week against the
  * consensus (EVTS), new highs, lows and heavy volume (SIGS), the Treasuries
  * and the dollar (RATES), the Fed as futures price it (FED), and the session
  * written out from those numbers (SUM, lib/session-summary.ts).
@@ -39,7 +38,7 @@ function useJson<T>(url: string | null, refreshMs: number): T | null | undefined
   return state?.url === url ? state.value : undefined;
 }
 
-/** The time now, moved on every thirty seconds, for countdowns. */
+/** The time now, moved on every thirty seconds, so the session's phase and day turn over by themselves. */
 function useNow(stepMs = 30_000) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), stepMs); return () => clearInterval(timer); }, [stepMs]);
@@ -94,105 +93,6 @@ const sign = (value: number, places = 1) => `${value < 0 ? "−" : "+"}${Math.ab
 const dir = (value: number | null | undefined) => (value == null || value === 0 ? undefined : value > 0 ? "up" : "down");
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const meetingLabel = (date: string) => `${MONTHS[Number(date.slice(5, 7)) - 1]} ${Number(date.slice(8))}`;
-
-/* ---------- TODAY: what moves the market today ---------- */
-
-interface Moment { key: string; at: number | null; time: string; label: string; detail?: string; kind: "macro" | "fed" | "earnings" | "session"; state?: "done" | "next"; surprise?: string | null; href?: string;
-  /** Placed in the day by the session it falls in, not by a published time: no countdown. */
-  approximate?: boolean }
-
-export function TodayStrip({ data, econ, failed }: { data: HomeData; econ: EconCalendar | null; failed: boolean }) {
-  const { now, today, phase } = data;
-  const moments: Moment[] = [];
-  const trading = weekday(today) !== 0 && weekday(today) !== 6;
-  if (trading) {
-    const open = newYorkMoment(today, "09:30"), close = newYorkMoment(today, "16:00");
-    if (now < open) moments.push({ key: "open", at: open, time: "09:30", label: "US open", kind: "session" });
-    else if (now < close) moments.push({ key: "close", at: close, time: "16:00", label: "US close", kind: "session" });
-  }
-  // The market-moving releases of the day, one entry a time slot: eight releases at 08:30 are one moment for a market.
-  const slots = new Map<string, EconEvent[]>();
-  for (const event of econ?.events ?? []) {
-    if (event.date !== today || !event.time) continue;
-    if (event.importance !== "high" && !/Powell|Fed Chair|FOMC|Fed Interest Rate|Beige Book/i.test(event.name)) continue;
-    slots.set(event.time, [...(slots.get(event.time) ?? []), event]);
-  }
-  for (const [time, events] of slots) {
-    const base = (name: string) => name.replace(/,\s*(?:m\/m|y\/y|q\/q|annualized|ann\.?)$/i, "").trim();
-    const names = [...new Set(events.map((event) => base(event.name)))];
-    const shown = names.filter((name) => !(/^Core /i.test(name) && names.includes(name.replace(/^Core /i, ""))));
-    const out = events.filter((event) => event.actual);
-    const lead = out.find((event) => event.surprise && event.surprise !== "inline") ?? out[0] ?? events.find((event) => event.consensus);
-    moments.push({
-      key: `e-${time}`, at: newYorkMoment(today, time), time, label: shown.join(" · "), kind: "macro",
-      detail: lead ? (lead.actual ? `${lead.name} ${lead.actual}${lead.consensus ? ` vs ${lead.consensus}` : ""}` : `${lead.name} cons. ${lead.consensus}`) : undefined,
-      state: out.length === events.length ? "done" : undefined, surprise: lead?.actual ? lead.surprise : null, href: "/t/eco",
-    });
-  }
-  // The Fed: today's decision, or the next one counted down in days.
-  const meeting = data.fed?.rows[0];
-  if (meeting?.date === today) {
-    moments.push({ key: "fomc", at: newYorkMoment(today, "14:00"), time: "14:00", label: "FOMC decision", kind: "fed", detail: oddsLine(meeting.odds) });
-    moments.push({ key: "presser", at: newYorkMoment(today, "14:30"), time: "14:30", label: "Fed press conference", kind: "fed" });
-  }
-  // The largest companies reporting today, and after the close tomorrow morning's.
-  const days = data.earnings?.days ?? [];
-  const reporting = (date: string, when: ReportTime[]) => (days.find((entry) => entry.date === date)?.rows ?? [])
-    .filter((row) => when.includes(row.time) && (row.marketCap ?? 0) >= 20e9).sort((a, b) => (b.marketCap ?? 0) - (a.marketCap ?? 0)).slice(0, 6);
-  const earningsMoment = (date: string, time: ReportTime, rows: EarningsRow[], prefix = "") => {
-    if (!rows.length) return;
-    const at = time === "before" ? newYorkMoment(date, "08:00") : time === "after" ? newYorkMoment(date, "16:05") : null;
-    moments.push({
-      key: `r-${date}-${time}`, at, time: time === "before" ? "☀ open" : time === "after" ? "☾ close" : "today", kind: "earnings",
-      label: `${prefix}${rows.map((row) => row.ticker).join(" · ")}`,
-      detail: rows.some((row) => row.surprise != null) ? rows.filter((row) => row.surprise != null).map((row) => `${row.ticker} ${sign(row.surprise!)}%`).join(" ") : "results",
-      state: rows.every((row) => row.reportedEps != null) ? "done" : undefined, href: "/t/ecal", approximate: true,
-    });
-  };
-  if (trading) {
-    earningsMoment(today, "before", reporting(today, ["before"]));
-    earningsMoment(today, "after", reporting(today, ["after"]));
-    earningsMoment(today, "unknown", reporting(today, ["unknown"]));
-  }
-  if (!trading || phase === "after") earningsMoment(nextWeekday(today), "before", reporting(nextWeekday(today), ["before"]), "Next: ");
-
-  moments.sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity));
-  const next = moments.find((moment) => moment.at != null && !moment.approximate && moment.at > now && moment.state !== "done");
-  if (next) next.state = "next";
-  if (meeting && meeting.date !== today) {
-    const days = Math.round((Date.parse(`${meeting.date}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / DAY);
-    moments.push({ key: "next-fomc", at: null, time: meetingLabel(meeting.date), label: "Next FOMC", kind: "fed", detail: `in ${days}d · ${oddsLine(meeting.odds)}`, href: "#fed" });
-  }
-
-  if (!moments.length) return <p className="t-empty">{failed ? "The calendar could not be read just now." : econ ? "Nothing market-moving scheduled today." : "Reading today's calendar…"}</p>;
-  return (
-    <ol className="t-today">
-      {moments.map((moment) => {
-        const body = (
-          <>
-            <span className="t-today-time">{moment.time}</span>
-            <span className="t-today-label">{moment.label}</span>
-            {moment.detail ? <span className="t-today-detail" data-surprise={moment.surprise ?? undefined}>{moment.detail}</span> : null}
-            {moment.state === "done" ? <span className="t-today-count">out</span> : moment.at != null && !moment.approximate ? <span className="t-today-count">{countdown(moment.at, now)}</span> : null}
-          </>
-        );
-        return (
-          <li key={moment.key} className="t-today-item" data-kind={moment.kind} data-state={moment.state}>
-            {moment.href ? <a href={moment.href}>{body}</a> : body}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-function oddsLine(odds: Record<string, number>): string {
-  const hike = Object.entries(odds).filter(([move]) => Number(move) > 0).reduce((sum, [, p]) => sum + p, 0);
-  const cut = Object.entries(odds).filter(([move]) => Number(move) < 0).reduce((sum, [, p]) => sum + p, 0);
-  if (hike >= 0.05) return `hike ${Math.round(hike * 100)}%`;
-  if (cut >= 0.05) return `cut ${Math.round(cut * 100)}%`;
-  return "hold";
-}
 
 /* ---------- PORT: the book at a glance ---------- */
 

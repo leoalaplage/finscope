@@ -20,6 +20,7 @@ import { Empty } from "@/components/io/Portfolio";
 import { saveTrades, useStoredHoldings, useStoredTrades } from "@/components/io/holdings";
 import { parseTrades } from "@/lib/transactions";
 import { BookEditor } from "./BookEditor";
+import { useAccount } from "@/components/io/account";
 import { ABSENT, money, price as writePrice, shortDate } from "@/components/io/format";
 import { Panel } from "./Panel";
 import { Bars, paletteColor, CapitalChart, CorrelationMatrix, HoldingsMap, MonthlyReturns, PerfChart, Spark, type TradeMark } from "./PortfolioCharts";
@@ -66,9 +67,25 @@ const since = (series: SeriesPoint[], from: string) => series.filter((point) => 
 
 type SortKey = "value" | "ticker" | "day" | "gain" | "year" | "risk";
 
+/** A dated example, so every time-aware figure has something to show: real companies and prices, invented trades. */
+const EXAMPLE_TRADES = [
+  "2022-01-10 BUY AAPL 40 @ 172", "2022-03-15 BUY MSFT 20 @ 288", "2022-06-16 BUY JPM 25 @ 112", "2022-10-13 BUY NVDA 60 @ 11.9",
+  "2023-02-02 BUY COST 6 @ 505", "2023-05-11 BUY KO 60 @ 63", "2023-09-20 BUY XOM 30 @ 115", "2024-02-08 BUY LLY 8 @ 740",
+  "2024-06-18 SELL NVDA 20 @ 135", "2024-11-05 BUY AAPL 10 @ 222", "2025-04-08 BUY MSFT 5 @ 355", "2025-08-01 SELL XOM 10 @ 108",
+].join("\n");
+const DEMO_TRADES = parseTrades(EXAMPLE_TRADES);
+
 export function TermPortfolio() {
   const held = useStoredHoldings();
-  const trades = useStoredTrades();
+  const ownTrades = useStoredTrades();
+  const { loaded, account } = useAccount();
+  /*
+   * Signed out with nothing kept on this device, PORT shows the example book
+   * rather than an empty page — said so in its header, never saved, and gone
+   * the moment the reader adds a holding of their own or signs in.
+   */
+  const demo = loaded && !account && !held.length && !ownTrades.length;
+  const trades = demo ? DEMO_TRADES : ownTrades;
   /*
    * Dated trades, where the reader has given them, are the book: what is held
    * is what they leave, and every figure that depends on time — the return,
@@ -297,14 +314,9 @@ export function TermPortfolio() {
   }, [valued, sort, day, risk]);
 
   const openEditor = () => setEditing(true);
-  // A dated example, so every time-aware figure has something to show.
-  const example = () => saveTrades(parseTrades([
-    "2022-01-10 BUY AAPL 40 @ 172", "2022-03-15 BUY MSFT 20 @ 288", "2022-06-16 BUY JPM 25 @ 112", "2022-10-13 BUY NVDA 60 @ 11.9",
-    "2023-02-02 BUY COST 6 @ 505", "2023-05-11 BUY KO 60 @ 63", "2023-09-20 BUY XOM 30 @ 115", "2024-02-08 BUY LLY 8 @ 740",
-    "2024-06-18 SELL NVDA 20 @ 135", "2024-11-05 BUY AAPL 10 @ 222", "2025-04-08 BUY MSFT 5 @ 355", "2025-08-01 SELL XOM 10 @ 108",
-  ].join("\n")));
+  const example = () => saveTrades(parseTrades(EXAMPLE_TRADES));
 
-  const editor = editing ? <BookEditor trades={trades} positions={held} onClose={() => setEditing(false)} /> : null;
+  const editor = editing ? <BookEditor trades={ownTrades} positions={held} onClose={() => setEditing(false)} /> : null;
 
   /* With dated trades: what was banked, what went in, and the investor's own rate. */
   const realised = Object.values(lots).reduce((sum, lot) => sum + lot.realised, 0);
@@ -330,8 +342,10 @@ export function TermPortfolio() {
       <div>
         <p className="t-head-name">Portfolio · {positions.length} {positions.length === 1 ? "holding" : "holdings"}</p>
         <div className="t-head-meta">
-          <span>{dated ? `${trades.length} dated trades since ${shortDate(sinceStart)}` : "Undated holdings"} · kept on this device</span>
-          <button type="button" className="t-chip" onClick={openEditor}>Edit · import CSV</button>
+          {demo
+            ? <span className="t-amber">Example portfolio: invented trades in real companies, at real prices. <a href="/t/account">Sign in</a> or add your own holdings to replace it.</span>
+            : <span>{dated ? `${trades.length} dated trades since ${shortDate(sinceStart)}` : "Undated holdings"} · kept on this device</span>}
+          <button type="button" className="t-chip" onClick={openEditor}>{demo ? "Add your holdings" : "Edit · import CSV"}</button>
         </div>
       </div>
       <div className="t-head-price">
