@@ -2656,3 +2656,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 @media (max-width: 760px) { .acct-signin { grid-template-columns: 1fr; } }
 .acct-provider.acct-provider-apple { color: #fff; background: #000; border-color: #000; }
 .acct-provider.acct-provider-apple:hover:not(:disabled) { background: #1d1d1f; border-color: #1d1d1f; }
+/* The header's actions share one height: the sync status, the alerts link and Sign out. */
+.acct-head-actions > * { height: 28px; box-sizing: border-box; }
+.acct-btn-link { display: inline-flex; align-items: center; text-decoration: none; }
+.acct-head-actions .acct-badge { height: 28px; border-radius: var(--radius); }

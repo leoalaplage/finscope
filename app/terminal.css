@@ -389,9 +389,10 @@ body:has(.io.term) { background: #050608; }
 .t-help-close { color: var(--ink-3); }
 
 /* Launchpad */
+/* The day's US releases first: a CPI print moves everything below it. */
 .t-launch { grid-template-areas:
-  "left left left left right right right right right right right right"
-  "eco eco eco eco eco eco eco eco eco eco eco eco";
+  "eco eco eco eco eco eco eco eco eco eco eco eco"
+  "left left left left right right right right right right right right";
 }
 .t-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; align-items: start; }
 /*
@@ -575,6 +576,7 @@ body:has(.io.term) { background: #050608; }
   grid-template-areas:
     "c1 c1 c1 c1 gp gp gp gp gp gp gp gp"
     "c2 c2 c2 c2 sect sect sect sect c3 c3 c3 c3"
+    "eco eco eco eco eco eco eco eco eco eco eco eco"
     "rrg rrg rrg rrg rrg rrg rrg seas seas seas seas seas"
     "perf perf perf perf perf perf perf perf perf perf perf perf"
     "imap imap imap imap imap imap imap imap imap imap imap imap";
@@ -683,15 +685,16 @@ body:has(.io.term) { background: #050608; }
     "src src src src src src src src src src src src";
   }
   .t-launch { grid-template-areas:
+    "eco eco eco eco eco eco eco eco eco eco eco eco"
     "right right right right right right right right right right right right"
-    "left left left left left left left left left left left left"
-    "eco eco eco eco eco eco eco eco eco eco eco eco";
+    "left left left left left left left left left left left left";
   }
   .t-chart-body { grid-template-columns: minmax(0, 1fr); }
   .t-market { grid-template-areas:
     "gp gp gp gp gp gp gp gp gp gp gp gp"
     "c1 c1 c1 c1 c1 c1 sect sect sect sect sect sect"
     "c2 c2 c2 c2 c2 c2 c3 c3 c3 c3 c3 c3"
+    "eco eco eco eco eco eco eco eco eco eco eco eco"
     "rrg rrg rrg rrg rrg rrg rrg rrg rrg rrg rrg rrg"
     "seas seas seas seas seas seas seas seas seas seas seas seas"
     "perf perf perf perf perf perf perf perf perf perf perf perf"
@@ -1296,3 +1299,35 @@ body:has(.io.term) { background: #050608; }
 .t-page .acct-method-mark, .t-page .acct-sent { border-radius: 0; }
 .t-page .acct-provider.acct-provider-apple { color: #fff; background: #000; border-color: #3a3a3c; }
 .t-page .acct-provider.acct-provider-apple:hover:not(:disabled) { background: #1d1d1f; border-color: #5a5a5e; }
+.t-page .acct-head-actions > *, .t-page .acct-head-actions .acct-badge { height: 24px; border-radius: 0; font-size: var(--fs-micro); }
+.t-page .acct-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* ECO: the US economy (components/term/Economy.tsx). */
+.t-eco { grid-template-columns: minmax(0, 1fr); }
+.t-eco-brief { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 2px; }
+.t-eco-brief table, .t-eco-calendar table { width: 100%; }
+.t-eco-brief tr[data-surprise="above"] td:nth-child(2) b, .t-eco-calendar tr[data-surprise="above"] td:nth-child(3) b { color: var(--amber); }
+.t-eco-brief tr[data-surprise="below"] td:nth-child(2) b, .t-eco-calendar tr[data-surprise="below"] td:nth-child(3) b { color: #5fb8ff; }
+.t-eco-more { grid-column: 1 / -1; padding: 4px 8px; font-size: var(--fs-micro); color: var(--amber); text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-eco-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.t-eco-card { display: grid; gap: 4px; padding: 8px 10px; background: var(--raise); align-content: start; }
+.t-eco-card header { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-xs); }
+.t-eco-card header span:first-child { color: var(--ink); font-weight: 600; }
+.t-eco-actual { font-size: 22px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.t-eco-card[data-surprise="above"] .t-eco-actual { color: var(--amber); }
+.t-eco-card[data-surprise="below"] .t-eco-actual { color: #5fb8ff; }
+.t-eco-vs, .t-eco-reaction { font-size: var(--fs-micro); color: var(--ink-2); }
+.t-eco-reaction b[data-dir="up"] { color: var(--gain); }
+.t-eco-reaction b[data-dir="down"] { color: var(--loss); }
+.t-eco-surprise { justify-self: start; padding: 1px 6px; font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: .06em; border: 1px solid var(--line-strong); color: var(--ink-2); }
+.t-eco-surprise[data-surprise="above"] { color: var(--amber); border-color: var(--amber-dim); }
+.t-eco-surprise[data-surprise="below"] { color: #5fb8ff; border-color: rgba(95, 184, 255, .5); }
+.t-eco-day th { padding: 6px 8px 3px; text-align: left; color: var(--amber); font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: var(--track-label); background: var(--head, transparent); }
+.t-eco-calendar tbody[data-today] .t-eco-day th { color: var(--ink); background: rgba(255, 160, 40, .12); }
+.t-eco-calendar tr[data-importance="low"] td { color: var(--ink-3); }
+.t-eco-dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--amber); vertical-align: 1px; }
+.t-eco-calendar td[data-dir="up"], .t-eco-calendar span[data-dir="up"], .t-eco-brief span[data-dir="up"] { color: var(--gain); }
+.t-eco-calendar span[data-dir="down"], .t-eco-brief span[data-dir="down"] { color: var(--loss); }
+.t-eco-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
+.t-eco-source { grid-column: 1 / -1; }
+@media (max-width: 900px) { .t-eco-brief, .t-eco-charts { grid-template-columns: minmax(0, 1fr); } }

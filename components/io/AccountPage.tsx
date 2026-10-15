@@ -69,22 +69,20 @@ export function AccountPage() {
 
   if (!account) return <SignedOut supported={supported} providers={providers} busy={busy} run={run} notice={notice} />;
 
-  const initial = account.name.trim().charAt(0).toUpperCase() || "F";
+  const methods = account.passkeys.length + (account.identities?.length ?? 0);
+  const via = [...new Set((account.identities ?? []).map((identity) => ({ google: "Google", apple: "Apple", microsoft: "Microsoft", email: "email link" })[identity.provider]))];
   return (
     <main className="wrap settings-page acct" id="main-content" tabIndex={-1}>
       <header className="head settings-head acct-head">
-        <div className="acct-identity">
-          <span className="acct-avatar" aria-hidden="true">{initial}</span>
-          <div className="head-id">
-            <h1 className="head-ticker">{account.name}</h1>
-            <p className="head-name">
-              Member since {day(account.created)} · {account.passkeys.length} passkey{account.passkeys.length === 1 ? "" : "s"}
-              {account.email?.verified ? " · email confirmed" : ""}
-            </p>
-          </div>
+        <div className="head-id">
+          <h1 className="head-ticker">Account</h1>
+          <p className="head-name">
+            {account.name} · member since {day(account.created)} · {methods} sign-in method{methods === 1 ? "" : "s"}{via.length ? ` (${via.join(", ")}${account.passkeys.length ? ", passkey" : ""})` : ""}
+          </p>
         </div>
         <div className="acct-head-actions">
           <SyncBadge state={sync.state} at={sync.at} />
+          <a className="acct-btn acct-btn-link" href="/t/alerts">Alerts</a>
           <button type="button" className="acct-btn" disabled={busy} onClick={() => { void run(signOut, "Signed out. This browser keeps its own copy of your work."); }}>Sign out</button>
         </div>
       </header>
@@ -331,6 +329,7 @@ function Alerts({ email, emailService, busy, run }: {
           {!email.verified ? <p className="stat-note">Nothing is sent until you follow the link in the confirmation email.</p> : null}
         </>
       ) : null}
+      <p className="stat-note"><a href="/t/alerts">Manage your alerts</a>: choose which companies and which kinds of news, add price alerts, pause or delete them.</p>
       <ul className="acct-list-plain">
         <li>Results and quarterly or annual reports</li>
         <li>Leadership changes, deals and red flags filed with the SEC</li>

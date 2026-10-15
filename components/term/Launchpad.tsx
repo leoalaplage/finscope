@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useStoredWatchlist } from "@/components/io/watchlist";
 import { WatchlistEditor } from "@/components/io/WatchlistEditor";
 import { delta, price } from "@/components/io/format";
-import { MacroSnapshot } from "@/components/io/MacroSnapshot";
 import { NewsSection } from "@/components/io/Wire";
 import { DEFAULT_WATCHLIST } from "@/lib/company-registry";
 import { EarningsCalendar } from "./EarningsCalendar";
@@ -12,6 +11,7 @@ import { Heatmap } from "./Heatmap";
 import { Indices } from "./Indices";
 import { Panel } from "./Panel";
 import { MiniEcal } from "./EarningsCal";
+import { EconBrief } from "./Economy";
 import { useTape } from "./quotes";
 
 const SECTORS = new Map(DEFAULT_WATCHLIST.map((company) => [company.ticker, company.sector]));
@@ -82,8 +82,8 @@ export function Launchpad() {
           </Panel>
         </div>
       </div>
-      <Panel code="ECO" area="eco">
-        <MacroSnapshot />
+      <Panel code="ECO" title="US economy · releases against the consensus" area="eco">
+        <EconBrief />
       </Panel>
       {editing ? <WatchlistEditor tickers={tickers} onClose={() => setEditing(false)} /> : null}
     </div>

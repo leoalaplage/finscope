@@ -17,6 +17,7 @@ import { Heatmap } from "./Heatmap";
 import { Panel } from "./Panel";
 import { Rotation } from "./Rotation";
 import { Seasonality } from "./Seasonality";
+import { EconBrief } from "./Economy";
 
 /**
  * The terminal's market screen: the world's indices and the VIX, a live chart
@@ -481,6 +482,7 @@ export function MarketBoard() {
         </Panel>
       </div>
 
+      <Panel code="ECO" title="US economy · releases against the consensus" area="eco"><EconBrief /></Panel>
       <Panel code="RRG" title="Sector rotation · relative rotation graph" area="rrg"><Rotation /></Panel>
       <Panel code="SEAS" title="S&P 500 seasonality" area="seas" className="t-fill"><Seasonality symbol="^GSPC" /></Panel>
 

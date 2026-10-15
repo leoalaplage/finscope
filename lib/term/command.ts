@@ -8,7 +8,7 @@
  */
 
 export type CompanyFunction = "DES" | "GP" | "EVT" | "NOTE" | "FA" | "GR" | "GF" | "SEG" | "KPI" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "PEER" | "DCF" | "DVD" | "DDIS" | "FS" | "COMP";
-export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "BT" | "ECAL" | "INSB" | "ALRT" | "ACCT" | "SET" | "HELP";
+export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "BT" | "ECAL" | "ECO" | "INSB" | "ALRT" | "ACCT" | "SET" | "HELP";
 
 export interface FunctionSpec<Code extends string> {
   code: Code;
@@ -66,6 +66,7 @@ export const GLOBAL_FUNCTIONS: FunctionSpec<GlobalFunction>[] = [
   { code: "CHART", name: "Chart workspace" },
   { code: "BT", name: "Backtest" },
   { code: "ECAL", name: "Earnings calendar" },
+  { code: "ECO", name: "US economy: releases, calendar, inflation, jobs" },
   { code: "INSB", name: "Insider buying" },
   { code: "ALRT", name: "Alerts" },
   { code: "ACCT", name: "Account, sync and email alerts" },
@@ -103,6 +104,7 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
   SCAN: "SCRN", SCANNER: "SCRN", TS: "SCRN",
   BACKTEST: "BT", BTST: "BT",
   EARNINGS: "ECAL", CALENDAR: "ECAL",
+  ECON: "ECO", ECONOMY: "ECO", MACRO: "ECO", CPI: "ECO", INFLATION: "ECO", JOBS: "ECO", NFP: "ECO", FED: "ECO", FOMC: "ECO",
   ALERTS: "ALRT", ALERT: "ALRT",
   ACCOUNT: "ACCT", LOGIN: "ACCT", SIGNIN: "ACCT", SYNC: "ACCT",
   BUYS: "INSB", INSIDERS: "INSB", CLUSTER: "INSB",
@@ -211,6 +213,7 @@ export function hrefFor(command: Command): string | null {
         case "PORT": return "/t/portfolio";
         case "CHART": return command.ticker ? `/t/chart?s=${encodeURIComponent(command.ticker)}` : "/t/chart";
         case "ECAL": return "/t/ecal";
+        case "ECO": return "/t/eco";
         case "INSB": return "/t/insiders";
         case "ALRT": return "/t/alerts";
         case "ACCT": return "/t/account";
