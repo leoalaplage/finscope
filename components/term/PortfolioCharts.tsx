@@ -185,7 +185,7 @@ export function Bars({ rows, format, tone = "sign" }: { rows: BarRow[]; format: 
 const correlationColor = (value: number | null) => {
   if (value == null) return "transparent";
   const strength = Math.min(1, Math.abs(value));
-  return value >= 0 ? `rgba(255, 81, 73, ${0.12 + strength * 0.6})` : `rgba(78, 168, 255, ${0.12 + strength * 0.6})`;
+  return value >= 0 ? `rgba(255, 81, 73, ${0.12 + strength * 0.6})` : `rgba(157, 140, 255, ${0.12 + strength * 0.6})`;
 };
 
 export function CorrelationMatrix({ tickers, matrix }: { tickers: string[]; matrix: Array<Array<number | null>> }) {
