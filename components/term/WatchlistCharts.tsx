@@ -45,6 +45,7 @@ function WatchlistChart({ ticker }: { ticker: string }) {
   const { candles, error, loading } = useCandles(ticker, "1mo", near);
   const latest = lastMoveOf(candles);
   const move = latest?.move != null && latest.base ? latest.move / latest.base : null;
+  const href = `/t/s/${encodeURIComponent(ticker)}`;
   return (
     <div ref={frame} className="t-wchart-frame">
       <Panel
@@ -53,11 +54,18 @@ function WatchlistChart({ ticker }: { ticker: string }) {
           <span>
             {price(latest.close)}{" "}
             {move != null ? <span className="t-wchart-move" data-dir={move < 0 ? "down" : "up"}>{percent(move)}</span> : null}
-            {" · "}<a href={`/t/s/${encodeURIComponent(ticker)}`}>Open</a>
+            {" · "}<a href={href}>Open</a>
           </span>
-        ) : <a href={`/t/s/${encodeURIComponent(ticker)}`}>Open</a>}
+        ) : <a href={href}>Open</a>}
       >
-        <CandleChart compact candles={candles} interval="1mo" studies={STUDIES} openOn={MONTHS_SHOWN} loading={loading || !near} error={error} label={`${ticker}, ${INTERVAL_TITLES["1mo"].toLowerCase()} candles`} />
+        {/* The chart opens the company's page; a link or button inside it keeps its own job. */}
+        <div
+          className="t-wchart-link" role="link" tabIndex={0} aria-label={`Open ${ticker}`}
+          onClick={(event) => { if (!(event.target as Element).closest("a, button")) window.location.assign(href); }}
+          onKeyDown={(event) => { if (event.key === "Enter") window.location.assign(href); }}
+        >
+          <CandleChart compact candles={candles} interval="1mo" studies={STUDIES} openOn={MONTHS_SHOWN} loading={loading || !near} error={error} label={`${ticker}, ${INTERVAL_TITLES["1mo"].toLowerCase()} candles`} />
+        </div>
       </Panel>
     </div>
   );
