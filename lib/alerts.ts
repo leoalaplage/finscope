@@ -20,6 +20,8 @@ export interface Alert {
   title: string;
   detail: string | null;
   url: string;
+  /** An insider purchase's size, in dollars, for a rule's minimum. */
+  value?: number | null;
 }
 
 /** The events of one company since a date that a holder would want to hear about. */
@@ -40,7 +42,7 @@ export function filingAlerts(ticker: string, events: FilingEvent[], since: strin
 
 export function insiderAlerts(purchases: InsiderPurchase[], tickers: Set<string>, since: string): Alert[] {
   return purchases.filter((purchase) => tickers.has(purchase.ticker) && purchase.filed >= since).map((purchase) => ({
-    ticker: purchase.ticker, kind: "insider" as const, at: purchase.filed,
+    ticker: purchase.ticker, kind: "insider" as const, at: purchase.filed, value: purchase.value,
     title: `${purchase.owner} bought`,
     detail: `${purchase.role}${purchase.value != null ? ` · $${Math.round(purchase.value).toLocaleString("en-US")}` : ""}`,
     url: purchase.url,

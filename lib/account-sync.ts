@@ -15,6 +15,7 @@ export const SYNCED_KEYS = [
   "finscope.io.portfolio.trades.v1",
   "finscope.io.thesis.v1",
   "finscope.io.alerts-seen.v1",
+  "finscope.io.alert-rules.v1",
   "finscope.free-screener.v1",
   "finscope.term.workspace.v1",
   "finscope.term.scan.v1",
@@ -77,6 +78,7 @@ export const SYNCED_LABELS: Record<SyncedKey, { label: string; group: "Lists" | 
   "finscope.io.portfolio.trades.v1": { label: "Portfolio trades", group: "Lists" },
   "finscope.io.thesis.v1": { label: "Notes", group: "Research" },
   "finscope.io.alerts-seen.v1": { label: "Alerts read", group: "Research" },
+  "finscope.io.alert-rules.v1": { label: "Alert rules", group: "Research" },
   "finscope.free-screener.v1": { label: "Saved screens", group: "Research" },
   "finscope.term.workspace.v1": { label: "Terminal layout", group: "Terminal" },
   "finscope.term.scan.v1": { label: "Scans", group: "Terminal" },
@@ -100,7 +102,7 @@ export function describeSynced(key: SyncedKey, raw: string | null): string | nul
   }
   const word: Partial<Record<SyncedKey, string>> = {
     "finscope.io.home-watchlist.v1": "ticker", "finscope.io.portfolio.v1": "position", "finscope.io.portfolio.trades.v1": "trade",
-    "finscope.io.thesis.v1": "note", "finscope.term.scan.v1": "scan", "finscope.term.backtest.v1": "backtest", "finscope.chart.studies": "study",
+    "finscope.io.thesis.v1": "note", "finscope.io.alert-rules.v1": "rule", "finscope.term.scan.v1": "scan", "finscope.term.backtest.v1": "backtest", "finscope.chart.studies": "study",
   };
   if (Array.isArray(value)) return plural(value.length, word[key] ?? "item");
   if (value && typeof value === "object") {

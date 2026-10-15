@@ -1331,3 +1331,41 @@ body:has(.io.term) { background: #050608; }
 .t-eco-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
 .t-eco-source { grid-column: 1 / -1; }
 @media (max-width: 900px) { .t-eco-brief, .t-eco-charts { grid-template-columns: minmax(0, 1fr); } }
+
+/* ALRT: alert rules (components/term/Alerts.tsx). */
+.t-alrt-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.t-alrt-new { color: var(--amber-ink) !important; background: var(--amber) !important; border-color: var(--amber) !important; }
+.t-alrt-link { padding: 0; border: 0; background: none; color: var(--amber); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.t-alrt-editor { display: grid; gap: 8px; margin-bottom: 10px; padding: 10px; border: 1px solid var(--amber-dim); background: rgba(255, 160, 40, .04); }
+.t-alrt-editor h3 { margin: 0; color: var(--amber); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: var(--track-label); }
+.t-alrt-hint { margin: 0; font-size: var(--fs-micro); }
+.t-alrt-fields { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.t-alrt-fields label { display: grid; gap: 3px; font-size: var(--fs-micro); color: var(--ink-2); text-transform: uppercase; letter-spacing: .05em; }
+.t-alrt-fields input, .t-alrt-fields select { height: 24px; min-width: 120px; padding: 0 6px; font: inherit; font-size: var(--fs-xs); text-transform: none; letter-spacing: 0; color: var(--ink); background: var(--panel-input, #000); border: 1px solid var(--line-strong); }
+.t-alrt-fields input:focus, .t-alrt-fields select:focus { outline: none; border-color: var(--amber); }
+.t-alrt-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; border: 0; }
+.t-alrt-checks legend { width: 100%; margin-bottom: 4px; font-size: var(--fs-micro); color: var(--ink-2); text-transform: uppercase; letter-spacing: .05em; }
+.t-alrt-checks label, .t-alrt-inline { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--ink); }
+.t-alrt-checks input, .t-alrt-inline input { accent-color: var(--amber); }
+.t-alrt-editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.t-alrt-editor-actions > span:first-child { margin-right: auto; font-size: var(--fs-micro); }
+.t-alrt-problem { color: var(--loss); }
+.t-alrt-rules table { width: 100%; }
+.t-alrt-rules tr[data-off] td:not(:first-child):not(:last-child) { color: var(--ink-3); }
+.t-alrt-row-actions > div { display: flex; gap: 4px; justify-content: flex-end; white-space: nowrap; }
+.t-alrt-delete { color: var(--loss) !important; }
+.t-alrt-fired { color: var(--amber); }
+.t-alrt-switch { position: relative; display: inline-block; width: 28px; height: 14px; cursor: pointer; }
+.t-alrt-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.t-alrt-switch span { position: absolute; inset: 0; background: var(--line-strong); transition: background .15s ease; }
+.t-alrt-switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; background: var(--ink-2); transition: transform .15s ease, background .15s ease; }
+.t-alrt-switch input:checked + span { background: var(--amber-dim); }
+.t-alrt-switch input:checked + span::after { transform: translateX(14px); background: var(--amber); }
+.t-alrt-switch input:focus-visible + span { outline: 1px solid var(--amber); outline-offset: 2px; }
+.t-alrt-rules th, .t-alrt-rules td { text-align: left; }
+.t-alrt-rules td:nth-child(3) { width: 100%; white-space: normal; }
+.t-alrt-rules td.t-alrt-row-actions { width: 1%; text-align: right; }
+.t-alrt-rules td:first-child, .t-alrt-rules th:first-child { width: 1%; }
+.t-alrt-rules td:nth-child(2), .t-alrt-rules td:nth-child(4), .t-alrt-rules td:nth-child(5),
+.t-alrt-rules th:nth-child(2), .t-alrt-rules th:nth-child(4), .t-alrt-rules th:nth-child(5) { width: 1%; white-space: nowrap; }
+.t-alrt-rules th.key, .t-alrt-rules td.key { min-width: 0; width: 1%; }
