@@ -8,31 +8,95 @@
  * seconds; a point between two candles, or past the last one, is placed by
  * interpolating the times either side, so it moves smoothly rather than
  * snapping.
+ *
+ * Drawings are kept per symbol in the browser (finscope.term.drawings.v1) and
+ * follow the account when the reader is signed in (lib/account-sync.ts).
  */
 
-export type DrawingKind = "trend" | "hline" | "fib" | "rect";
+export type DrawingKind =
+  | "trend" | "ray" | "extended" | "arrow" | "hline" | "hray" | "vline"
+  | "channel" | "rect" | "fib" | "long" | "short" | "range" | "text" | "brush";
 export type Tool = "cursor" | DrawingKind | "erase";
+export type LineStyle = "solid" | "dashed" | "dotted";
 
-export const TOOLS: { tool: Tool; label: string; key: string; title: string }[] = [
-  { tool: "cursor", label: "↖", key: "V", title: "Cursor" },
-  { tool: "trend", label: "╱", key: "T", title: "Trend line" },
-  { tool: "hline", label: "─", key: "H", title: "Horizontal level" },
-  { tool: "rect", label: "▭", key: "R", title: "Zone" },
-  { tool: "fib", label: "F", key: "F", title: "Fibonacci retracement" },
-  { tool: "erase", label: "⌫", key: "E", title: "Erase a drawing" },
+export const DRAWING_KINDS: DrawingKind[] = ["trend", "ray", "extended", "arrow", "hline", "hray", "vline", "channel", "rect", "fib", "long", "short", "range", "text", "brush"];
+
+export interface ToolSpec { tool: Tool; label: string; key: string; title: string }
+
+/** The tools, in the groups the toolbar shows them in; ⌥ and the key picks one. */
+export const TOOL_GROUPS: { name: string; tools: ToolSpec[] }[] = [
+  { name: "Pointer", tools: [{ tool: "cursor", label: "↖", key: "V", title: "Cursor" }] },
+  {
+    name: "Lines",
+    tools: [
+      { tool: "trend", label: "╱", key: "T", title: "Trend line" },
+      { tool: "ray", label: "↗", key: "Y", title: "Ray" },
+      { tool: "extended", label: "⤢", key: "X", title: "Extended line" },
+      { tool: "arrow", label: "➚", key: "A", title: "Arrow" },
+      { tool: "hline", label: "─", key: "H", title: "Horizontal line" },
+      { tool: "hray", label: "⟶", key: "J", title: "Horizontal ray" },
+      { tool: "vline", label: "│", key: "I", title: "Vertical line" },
+      { tool: "channel", label: "▱", key: "P", title: "Parallel channel" },
+    ],
+  },
+  {
+    name: "Analysis",
+    tools: [
+      { tool: "fib", label: "F", key: "F", title: "Fibonacci retracement" },
+      { tool: "rect", label: "▭", key: "R", title: "Rectangle" },
+      { tool: "range", label: "⇕", key: "M", title: "Price and date range" },
+      { tool: "long", label: "L", key: "L", title: "Long position" },
+      { tool: "short", label: "S", key: "S", title: "Short position" },
+    ],
+  },
+  {
+    name: "Notes",
+    tools: [
+      { tool: "text", label: "T̲", key: "N", title: "Text" },
+      { tool: "brush", label: "✎", key: "B", title: "Brush" },
+      { tool: "erase", label: "⌫", key: "E", title: "Erase a drawing" },
+    ],
+  },
 ];
 
+export const TOOLS: ToolSpec[] = TOOL_GROUPS.flatMap((group) => group.tools);
+
 export interface Anchor { t: number; p: number }
-export interface Drawing { id: string; kind: DrawingKind; a: Anchor; b: Anchor }
+export interface Drawing {
+  id: string;
+  kind: DrawingKind;
+  a: Anchor;
+  b: Anchor;
+  /** A third point: where a channel's parallel runs, a position's stop. */
+  c?: Anchor;
+  /** A brush's stroke. */
+  points?: Anchor[];
+  text?: string;
+  color?: string;
+  width?: 1 | 2 | 3;
+  style?: LineStyle;
+  locked?: boolean;
+}
+
+export const DRAWING_COLORS = ["#4c8dff", "#f4e74c", "#26a69a", "#ef5350", "#ff9800", "#ab47bc", "#e9edf2", "#9aa3ad"];
+export const DEFAULT_DRAWING_COLOR = DRAWING_COLORS[0];
+
+/** Drawn with a press alone; the others are drawn by dragging, or by a click at each end. */
+export const ONE_CLICK: ReadonlySet<DrawingKind> = new Set<DrawingKind>(["hline", "hray", "vline", "text", "long", "short"]);
 
 /** The ratios a drawn retracement marks, as on the automatic one. */
 export const DRAWN_FIB_RATIOS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
 
-/** The typical distance between two candles, for placing a time past either end. */
+/** The typical distance between two candles, for placing a time past either end; read once per series. */
+const steps = new WeakMap<number[], number>();
 function step(times: number[]): number {
   if (times.length < 2) return 86_400;
+  const known = steps.get(times);
+  if (known != null) return known;
   const gaps = times.slice(1).map((time, index) => time - times[index]).sort((a, b) => a - b);
-  return gaps[Math.floor(gaps.length / 2)] || 86_400;
+  const found = gaps[Math.floor(gaps.length / 2)] || 86_400;
+  steps.set(times, found);
+  return found;
 }
 
 /** A fractional candle position for a time: 2.5 is halfway between the third and fourth candle. */
@@ -69,47 +133,174 @@ export function distanceToSegment(px: number, py: number, ax: number, ay: number
   return Math.hypot(px - (ax + along * dx), py - (ay + along * dy));
 }
 
+type Point = { x: number; y: number };
+
+/** Pure: the far ends of a line through a and b, `reach` beyond each, for a ray (one way) or a line extended both ways. */
+export function lineReach(a: Point, b: Point, reach: number, both: boolean): { from: Point; to: Point } {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const length = Math.hypot(dx, dy);
+  if (length < 1e-9) return { from: a, to: b };
+  const k = reach / length;
+  return { from: both ? { x: a.x - dx * k, y: a.y - dy * k } : a, to: { x: a.x + dx * k, y: a.y + dy * k } };
+}
+
+/** Pure: a channel's parallel, the base line moved to pass through c. */
+export function channelOffset(a: Point, b: Point, c: Point): number {
+  const along = Math.abs(b.x - a.x) < 1e-9 ? a.y : a.y + ((c.x - a.x) / (b.x - a.x)) * (b.y - a.y);
+  return c.y - along;
+}
+
+/** The default stop and target of a position placed with one click, a tenth of the visible range apart. */
+export function positionAround(kind: "long" | "short", entry: Anchor, end: number, span: number): { b: Anchor; c: Anchor } {
+  const sign = kind === "long" ? 1 : -1;
+  return { b: { t: end, p: entry.p + sign * span }, c: { t: entry.t, p: entry.p - (sign * span) / 2 } };
+}
+
 /**
  * The drawing under a point, if any is within `tolerance`.
  *
  * `toScreen` maps an anchor to the same coordinates as the point, so the test
- * is done where the reader sees the drawing. A level is hit anywhere along its
- * height, a zone anywhere inside it or on its edge, a retracement on any of its
- * lines.
+ * is done where the reader sees the drawing; `box` is the plot's size in those
+ * coordinates, for the lines that run to its edge. A level is hit anywhere
+ * along its height, a filled shape anywhere inside it, a retracement on any of
+ * its lines, a note on its text.
  */
 export function drawingAt(
   drawings: Drawing[],
-  point: { x: number; y: number },
-  toScreen: (anchor: Anchor) => { x: number; y: number },
+  point: Point,
+  toScreen: (anchor: Anchor) => Point,
   tolerance: number,
+  box: { width: number; height: number } = { width: 10_000, height: 10_000 },
 ): Drawing | null {
   let best: { drawing: Drawing; distance: number } | null = null;
+  const reach = (box.width + box.height) * 2;
   for (const drawing of drawings) {
-    const a = toScreen(drawing.a);
-    const b = toScreen(drawing.b);
-    let distance: number;
-    switch (drawing.kind) {
-      case "hline":
-        distance = Math.abs(point.y - a.y);
-        break;
-      case "trend":
-        distance = distanceToSegment(point.x, point.y, a.x, a.y, b.x, b.y);
-        break;
-      case "rect": {
-        const inside = point.x >= Math.min(a.x, b.x) && point.x <= Math.max(a.x, b.x) && point.y >= Math.min(a.y, b.y) && point.y <= Math.max(a.y, b.y);
-        distance = inside ? 0 : Infinity;
-        break;
-      }
-      case "fib": {
-        const left = Math.min(a.x, b.x);
-        distance = point.x < left - tolerance ? Infinity : Math.min(...DRAWN_FIB_RATIOS.map((ratio) => Math.abs(point.y - (b.y + (a.y - b.y) * ratio))));
-        break;
-      }
-    }
-    if (distance <= tolerance && (!best || distance < best.distance)) best = { drawing, distance };
+    const distance = distanceTo(drawing, point, toScreen, tolerance, reach);
+    if (distance <= tolerance && (!best || distance <= best.distance)) best = { drawing, distance };
   }
   return best?.drawing ?? null;
 }
+
+function inside(point: Point, left: number, right: number, top: number, bottom: number, tolerance: number) {
+  return point.x >= Math.min(left, right) - tolerance && point.x <= Math.max(left, right) + tolerance
+    && point.y >= Math.min(top, bottom) - tolerance && point.y <= Math.max(top, bottom) + tolerance;
+}
+
+function distanceTo(drawing: Drawing, point: Point, toScreen: (anchor: Anchor) => Point, tolerance: number, reach: number): number {
+  const a = toScreen(drawing.a);
+  const b = toScreen(drawing.b);
+  const segment = (from: Point, to: Point) => distanceToSegment(point.x, point.y, from.x, from.y, to.x, to.y);
+  switch (drawing.kind) {
+    case "hline":
+      return Math.abs(point.y - a.y);
+    case "hray":
+      return point.x < a.x - tolerance ? Infinity : Math.abs(point.y - a.y);
+    case "vline":
+      return Math.abs(point.x - a.x);
+    case "trend":
+    case "arrow":
+      return segment(a, b);
+    case "ray":
+    case "extended": {
+      const line = lineReach(a, b, reach, drawing.kind === "extended");
+      return segment(line.from, line.to);
+    }
+    case "channel": {
+      const c = drawing.c ? toScreen(drawing.c) : a;
+      const offset = channelOffset(a, b, c);
+      const a2 = { x: a.x, y: a.y + offset };
+      const b2 = { x: b.x, y: b.y + offset };
+      const edges = Math.min(segment(a, b), segment(a2, b2));
+      // Inside the band, between its two ends.
+      const within = point.x >= Math.min(a.x, b.x) && point.x <= Math.max(a.x, b.x) && (() => {
+        const base = Math.abs(b.x - a.x) < 1e-9 ? a.y : a.y + ((point.x - a.x) / (b.x - a.x)) * (b.y - a.y);
+        return (point.y - base) * (point.y - base - offset) <= 0;
+      })();
+      return within ? Math.min(edges, tolerance / 2) : edges;
+    }
+    case "rect":
+    case "range":
+      return inside(point, a.x, b.x, a.y, b.y, 0) ? 0 : Math.min(
+        segment({ x: a.x, y: a.y }, { x: b.x, y: a.y }), segment({ x: a.x, y: b.y }, { x: b.x, y: b.y }),
+        segment({ x: a.x, y: a.y }, { x: a.x, y: b.y }), segment({ x: b.x, y: a.y }, { x: b.x, y: b.y }),
+      );
+    case "long":
+    case "short": {
+      const c = drawing.c ? toScreen(drawing.c) : a;
+      return inside(point, a.x, b.x, Math.min(b.y, c.y), Math.max(b.y, c.y), 0) ? 0 : Infinity;
+    }
+    case "fib": {
+      const left = Math.min(a.x, b.x);
+      return point.x < left - tolerance ? Infinity : Math.min(...DRAWN_FIB_RATIOS.map((ratio) => Math.abs(point.y - (b.y + (a.y - b.y) * ratio))));
+    }
+    case "text": {
+      const width = Math.max(24, (drawing.text?.length ?? 4) * 7.5 + 8);
+      return inside(point, a.x - 2, a.x + width, a.y - 16, a.y + 4, 0) ? 0 : Infinity;
+    }
+    case "brush": {
+      const points = (drawing.points ?? []).map(toScreen);
+      let nearest = Infinity;
+      for (let index = 1; index < points.length; index++) nearest = Math.min(nearest, segment(points[index - 1], points[index]));
+      return nearest;
+    }
+  }
+}
+
+/** The points a selected drawing can be reshaped by: its anchors, where the reader sees them. */
+export type HandleKey = "a" | "b" | "c";
+export function handlesOf(drawing: Drawing): HandleKey[] {
+  switch (drawing.kind) {
+    case "hline": case "hray": case "vline": case "text": return ["a"];
+    case "brush": return [];
+    case "channel": case "long": case "short": return ["a", "b", "c"];
+    default: return ["a", "b"];
+  }
+}
+
+/** Pure: every anchor of a drawing passed through `move`, for dragging a whole drawing. */
+export function mapAnchors(drawing: Drawing, move: (anchor: Anchor) => Anchor): Drawing {
+  return {
+    ...drawing,
+    a: move(drawing.a),
+    b: move(drawing.b),
+    ...(drawing.c ? { c: move(drawing.c) } : {}),
+    ...(drawing.points ? { points: drawing.points.map(move) } : {}),
+  };
+}
+
+/** Pure: a drawing with one handle moved; a position's stop stays at its entry's time. */
+export function withHandle(drawing: Drawing, handle: HandleKey, anchor: Anchor): Drawing {
+  if (drawing.kind === "hline" || drawing.kind === "hray" || drawing.kind === "vline" || drawing.kind === "text") return { ...drawing, a: anchor, b: anchor };
+  if ((drawing.kind === "long" || drawing.kind === "short") && handle === "a") {
+    return { ...drawing, a: anchor, c: drawing.c ? { t: anchor.t, p: drawing.c.p } : drawing.c };
+  }
+  if ((drawing.kind === "long" || drawing.kind === "short") && handle === "c") return { ...drawing, c: { t: drawing.a.t, p: anchor.p } };
+  return { ...drawing, [handle]: anchor };
+}
+
+/** Where a handle is drawn: a position's stop sits under its entry. */
+export function handleAnchor(drawing: Drawing, handle: HandleKey): Anchor {
+  if (handle === "c") return drawing.c ?? drawing.a;
+  return drawing[handle];
+}
+
+/** A position's figures: how far the target and the stop are from the entry, and the reward for the risk. */
+export function positionFigures(drawing: Drawing) {
+  const entry = drawing.a.p;
+  const target = drawing.b.p;
+  const stop = drawing.c?.p ?? entry;
+  const reward = Math.abs(target - entry);
+  const risk = Math.abs(entry - stop);
+  return {
+    entry, target, stop,
+    targetMove: entry ? (target - entry) / entry : 0,
+    stopMove: entry ? (stop - entry) / entry : 0,
+    ratio: risk > 0 ? reward / risk : null,
+  };
+}
+
+const anchorOk = (value: Anchor | undefined) => value != null && Number.isFinite(value.t) && Number.isFinite(value.p);
 
 /** Drawings as stored: anything malformed is dropped rather than drawn wrong. */
 export function readDrawings(text: string | null): Record<string, Drawing[]> {
@@ -122,8 +313,9 @@ export function readDrawings(text: string | null): Record<string, Drawing[]> {
       if (!Array.isArray(list)) continue;
       const kept = list.filter((item): item is Drawing => {
         const drawing = item as Drawing;
-        const anchor = (value: Anchor | undefined) => value != null && Number.isFinite(value.t) && Number.isFinite(value.p);
-        return typeof drawing?.id === "string" && ["trend", "hline", "fib", "rect"].includes(drawing.kind) && anchor(drawing.a) && anchor(drawing.b);
+        return typeof drawing?.id === "string" && DRAWING_KINDS.includes(drawing.kind) && anchorOk(drawing.a) && anchorOk(drawing.b)
+          && (drawing.c == null || anchorOk(drawing.c))
+          && (drawing.points == null || (Array.isArray(drawing.points) && drawing.points.every(anchorOk)));
       });
       if (kept.length) out[symbol] = kept;
     }

@@ -9,6 +9,7 @@ import { axesFor, fromBase } from "./selection";
 import { daysBetween, overlayWindow, positions, priceSeries, type Bar } from "./overlay";
 import { fundamentalWindow, METRIC_RANGES, metricRange, offersFrequency, priceWindow, RANGES, shapeFor, withinYears, type Frequency, type Range } from "./ranges";
 import { ABSENT, datedCagrOf, delta, formatUnit, price as writePrice, shortDate, type Unit } from "./format";
+import { useSymbolDrawings } from "./drawings-store";
 import { CandleChart, IntervalPicker, lastMoveOf, useCandles } from "./CandleChart";
 import { isValuationMetric, VALUATION_METRICS, valuationPoints, type ValuationHistoryState } from "./valuation-series";
 import { hueOf } from "@/lib/io/hue";
@@ -179,6 +180,8 @@ export function MarketPriceSection({
   const style = useSyncExternalStore(subscribePriceStyle, () => readPriceStyle(surface), () => STYLE_STORE[surface].fallback);
   const [interval, setCandleInterval] = useState<CandleInterval>(surface === "terminal" ? "1mo" : "1d");
   const candles = useCandles(ticker, interval, style === "candles");
+  // What the reader drew on this symbol on the chart page, shown here too.
+  const drawings = useSymbolDrawings(ticker);
   const latest = lastMoveOf(candles.candles);
   const key = `${ticker}|${range}`;
   const current = answer?.key === key ? answer : null;
@@ -228,7 +231,7 @@ export function MarketPriceSection({
         </div>
         <CandleChart
           candles={candles.candles} interval={interval} loading={candles.loading} error={candles.error} studies={CANDLE_STUDIES}
-          label={`${ticker}, ${INTERVAL_TITLES[interval].toLowerCase()} candles`}
+          label={`${ticker}, ${INTERVAL_TITLES[interval].toLowerCase()} candles`} drawings={drawings} movable
         />
         <p className="price-chart-link"><a href={`${chartPage}?s=${encodeURIComponent(ticker)}&i=${interval === "1d" ? "d" : interval === "1wk" ? "w" : "m"}`}>Open in Chart, with technical analysis →</a></p>
       </section>

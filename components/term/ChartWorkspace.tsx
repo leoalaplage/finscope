@@ -6,7 +6,8 @@ import type { Candles, CandleInterval } from "@/lib/adapters/candles";
 import { chooseSymbol } from "@/components/io/choose-symbol";
 import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import { STUDY_GROUPS, STUDY_NAMES, type Study } from "@/lib/io/technicals";
-import { readDrawings, TOOLS, type Drawing, type Tool } from "@/lib/term/drawings";
+import { TOOL_GROUPS, TOOLS, type Drawing, type Tool } from "@/lib/term/drawings";
+import { redoDrawings, setSymbolDrawings, undoDrawings, useDrawingStore } from "@/components/io/drawings-store";
 import {
   COMPARE_LIMIT, LAYOUTS, readWorkspaceStore, saveLayout, withSymbol, type ChartCell, type Layout, type WorkspaceStore,
 } from "@/lib/term/workspace";
@@ -49,7 +50,6 @@ function useCompared(symbols: string[], interval: CandleInterval): CompareSeries
  */
 
 const STORE_KEY = "finscope.term.workspace.v1";
-const DRAWINGS_KEY = "finscope.term.drawings.v1";
 const CHANGE_EVENT = "finscope:term-workspace";
 
 function subscribe(notify: () => void) {
@@ -64,7 +64,6 @@ function writeKey(key: string, value: unknown) {
 }
 
 const readStore = readKey(STORE_KEY);
-const readDrawn = readKey(DRAWINGS_KEY);
 
 /** A ticker typed into a chart's header, resolved the way the site's search resolves one. */
 function SymbolField({ symbol, onSymbol }: { symbol: string; onSymbol: (next: string) => void }) {
@@ -99,17 +98,19 @@ function SymbolField({ symbol, onSymbol }: { symbol: string; onSymbol: (next: st
 }
 
 function ChartCellView({
-  cell, index, active, tool, compact, drawings, onFocus, onChange, onDrawings,
+  cell, index, active, tool, magnet, compact, drawings, onFocus, onChange, onDrawings, onToolDone,
 }: {
   cell: ChartCell;
   index: number;
   active: boolean;
   tool: Tool;
+  magnet: boolean;
   compact: boolean;
   drawings: Drawing[];
+  onToolDone: () => void;
   onFocus: () => void;
   onChange: (next: ChartCell) => void;
-  onDrawings: (next: Drawing[]) => void;
+  onDrawings: ((next: Drawing[]) => void) | undefined;
 }) {
   const { candles, error, loading } = useCandles(cell.symbol, cell.interval);
   const compared = useCompared(cell.compare, cell.interval);
@@ -174,7 +175,7 @@ function ChartCellView({
       <CandleChart
         candles={candles} interval={cell.interval} loading={loading} error={error} studies={studies} compact={compact}
         label={`${cell.symbol}, ${INTERVAL_TITLES[cell.interval].toLowerCase()} candles`}
-        drawings={drawings} tool={tool} onDrawingsChange={onDrawings}
+        drawings={drawings} tool={tool} onDrawingsChange={onDrawings} onToolDone={onToolDone} magnet={magnet}
         zoomable logScale={cell.log} compare={compared} benchmark={market?.candles ?? null}
       />
     </section>
@@ -183,10 +184,11 @@ function ChartCellView({
 
 export function ChartWorkspace() {
   const storedText = useSyncExternalStore(subscribe, readStore, () => null);
-  const drawnText = useSyncExternalStore(subscribe, readDrawn, () => null);
   const store = useMemo(() => readWorkspaceStore(storedText), [storedText]);
-  const drawn = useMemo(() => readDrawings(drawnText), [drawnText]);
+  const drawn = useDrawingStore();
   const [tool, setTool] = useState<Tool>("cursor");
+  const [magnet, setMagnet] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const [naming, setNaming] = useState<string | null>(null);
 
   const workspace = store.current;
@@ -217,8 +219,16 @@ export function ChartWorkspace() {
    */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !(event.target instanceof HTMLInputElement)) { setTool("cursor"); return; }
+      const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+      if (event.key === "Escape" && !typing) { setTool("cursor"); return; }
+      // ⌘Z and ⇧⌘Z (Ctrl on other systems) undo and redo a change to the drawings.
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && event.code === "KeyZ" && !typing) {
+        event.preventDefault();
+        if (event.shiftKey) redoDrawings(); else undoDrawings();
+        return;
+      }
       if (!event.altKey || event.metaKey || event.ctrlKey) return;
+      if (event.code === "KeyG") { event.preventDefault(); setMagnet((on) => !on); return; }
       const letter = /^Key([A-Z])$/.exec(event.code)?.[1];
       const found = TOOLS.find((item) => item.key === letter);
       if (!found) return;
@@ -233,7 +243,7 @@ export function ChartWorkspace() {
     const has = activeCell.studies.includes(study);
     setCell(workspace.active, { ...activeCell, studies: has ? activeCell.studies.filter((item) => item !== study) : [...activeCell.studies, study] });
   };
-  const setDrawings = (symbol: string, next: Drawing[]) => writeKey(DRAWINGS_KEY, { ...drawn, [symbol]: next });
+  const setDrawings = (symbol: string, next: Drawing[]) => setSymbolDrawings(symbol, next);
   const shown = workspace.cells.slice(0, workspace.layout);
 
   return (
@@ -251,12 +261,25 @@ export function ChartWorkspace() {
             </button>
           ))}
         </div>
-        <div className="seg t-tools" role="group" aria-label="Drawing tools">
-          {TOOLS.map((item) => (
-            <button key={item.tool} type="button" aria-pressed={tool === item.tool} title={`${item.title} · ⌥${item.key}`} onClick={() => setTool(item.tool)}>
-              {item.label}
-            </button>
+        <div className="t-tools" role="group" aria-label="Drawing tools">
+          {TOOL_GROUPS.map((group) => (
+            <div key={group.name} className="seg" role="group" aria-label={group.name}>
+              {group.tools.map((item) => (
+                <button
+                  key={item.tool} type="button" aria-pressed={tool === item.tool} disabled={hidden && item.tool !== "cursor"}
+                  title={`${item.title} · ⌥${item.key}`} aria-label={item.title} onClick={() => setTool(item.tool)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           ))}
+        </div>
+        <div className="seg" role="group" aria-label="Drawing options">
+          <button type="button" aria-pressed={magnet} title="Magnet: points snap to the open, high, low or close · ⌥G" onClick={() => setMagnet(!magnet)}>Magnet</button>
+          <button type="button" aria-pressed={hidden} title="Hide every drawing" onClick={() => { setHidden(!hidden); setTool("cursor"); }}>Hide</button>
+          <button type="button" title="Undo · ⌘Z" aria-label="Undo" onClick={() => undoDrawings()}>↶</button>
+          <button type="button" title="Redo · ⇧⌘Z" aria-label="Redo" onClick={() => redoDrawings()}>↷</button>
         </div>
         <button
           type="button" className="t-text-button"
@@ -315,11 +338,13 @@ export function ChartWorkspace() {
               index={index}
               active={workspace.layout > 1 && index === workspace.active}
               tool={tool}
+              magnet={magnet}
               compact={workspace.layout === 4}
-              drawings={drawn[cell.symbol] ?? []}
+              drawings={hidden ? [] : drawn[cell.symbol] ?? []}
+              onToolDone={() => setTool("cursor")}
               onFocus={() => { if (index !== workspace.active) update({ active: index }); }}
               onChange={(next) => setCell(index, next)}
-              onDrawings={(next) => setDrawings(cell.symbol, next)}
+              onDrawings={hidden ? undefined : (next) => setDrawings(cell.symbol, next)}
             />
           ))}
         </div>
@@ -341,8 +366,9 @@ export function ChartWorkspace() {
             </div>
           ))}
           <p className="t-study-note">
-            Wheel to zoom, drag to pan, double-click for the latest candles. Drawings stay on the symbol across intervals
-            and layouts: {drawn[activeCell.symbol]?.length ?? 0} on {activeCell.symbol}.
+            Wheel to zoom; drag the chart to move it in any direction, the price axis to stretch it, the dates to compress it;
+            double-click to reset. Click a drawing to select, move or restyle it; Delete removes it. Drawings are saved on the
+            symbol, across intervals, layouts and visits, and on the company screen: {drawn[activeCell.symbol]?.length ?? 0} on {activeCell.symbol}.
           </p>
         </aside>
       </div>

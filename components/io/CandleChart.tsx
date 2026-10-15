@@ -9,7 +9,11 @@ import {
   parabolicSar, roc, squeeze, stochRsi, supertrend, williamsR, type Pivots,
 } from "@/lib/io/indicators-extra";
 import { CHART_PATTERN_NAMES, chartPatterns } from "@/lib/io/chart-patterns";
-import { DRAWN_FIB_RATIOS, drawingAt, indexOfTime, timeOfIndex, type Anchor, type Drawing, type Tool } from "@/lib/term/drawings";
+import {
+  channelOffset, DEFAULT_DRAWING_COLOR, DRAWING_COLORS, DRAWN_FIB_RATIOS, drawingAt, handleAnchor, handlesOf, indexOfTime, lineReach, mapAnchors,
+  ONE_CLICK, positionAround, positionFigures, timeOfIndex, withHandle, type Anchor, type Drawing, type HandleKey, type LineStyle, type Tool,
+} from "@/lib/term/drawings";
+import { clampViewport, panBy, rightMargin, shiftRange, stretchRange, ticksFor, windowOf, zoomAround, type Viewport } from "@/lib/io/chart-view";
 import {
   averageTrueRange, fairValueGaps, fibonacci, marketStructure, PIVOT_SPAN, pivots, priceOnLine,
   supportResistance, trendLines, type Study,
@@ -20,9 +24,11 @@ import {
  * company's price section, the charts under the watchlist.
  *
  * An SVG in a fixed box stretched to the container, strokes that keep their
- * width, and every word in HTML over it (see Plot.tsx). A still picture — no
- * zoom, no panning — with a crosshair that reads out the candle and the price
- * under the pointer. The studies passed in are drawn over the candles
+ * width, and every word in HTML over it (see Plot.tsx), with a crosshair that
+ * reads out the candle and the price under the pointer. Where it may move,
+ * the chart pans and zooms freely as on the desk platforms
+ * (lib/io/chart-view.ts): a drag moves it both ways, past the last candle
+ * too; a drag on the price axis stretches it, on the dates compresses it. The studies passed in are drawn over the candles
  * (lib/io/technicals.ts); a compact chart draws fewer ticks and dates, no
  * legend, and allows narrower candles so three fit side by side.
  */
@@ -77,9 +83,6 @@ const VWAP_COLOR = "#f1f1f1";
 const TENKAN_COLOR = "#4c8dff";
 const KIJUN_COLOR = "#e5484d";
 const CLOUD_COLOR = "#2bb3a3";
-
-/** Fewest candles a zoom can come down to. */
-const MIN_CANDLES = 15;
 
 /** A second symbol drawn over the first, rebased to it. */
 export interface CompareSeries { symbol: string; candles: Candles | null; color: string }
@@ -164,6 +167,8 @@ export function IntervalPicker({ interval, onInterval }: { interval: CandleInter
 }
 
 const NO_STUDIES: ReadonlySet<Study> = new Set();
+const NO_DRAWINGS: Drawing[] = [];
+const NO_TIMES: number[] = [];
 
 /** What an instrument is called in a chart's watermark: a company by its ticker, an index, a future or a coin by a short name. */
 const WATERMARKS: Record<string, string> = {
@@ -179,7 +184,8 @@ function watermarkOf(symbol: string, name?: string | null): string {
 
 export function CandleChart({
   candles, interval, loading, error, label, studies = NO_STUDIES, compact = false,
-  drawings, tool = "cursor", onDrawingsChange, zoomable = false, logScale = false, compare, benchmark, openOn, ohlc = true,
+  drawings, tool = "cursor", onDrawingsChange, onToolDone, magnet = false, zoomable = false, movable = zoomable,
+  logScale = false, compare, benchmark, openOn, ohlc = true,
 }: {
   candles: Candles | null;
   interval: CandleInterval;
@@ -196,12 +202,21 @@ export function CandleChart({
   drawings?: Drawing[];
   tool?: Tool;
   onDrawingsChange?: (next: Drawing[]) => void;
+  /** Called once a drawing is made, so the page can hand back the cursor. */
+  onToolDone?: () => void;
+  /** Points drawn snap to the nearest open, high, low or close. */
+  magnet?: boolean;
   /**
-   * The wheel zooms around the pointer, a drag pans, a double click returns
-   * to the latest candles. Off where the chart sits in a page that scrolls
-   * past it, so the wheel still scrolls the page there.
+   * The wheel zooms around the pointer. Off where the chart sits in a page
+   * that scrolls past it, so the wheel still scrolls the page there.
    */
   zoomable?: boolean;
+  /**
+   * A drag pans both ways, the axes stretch, buttons zoom, a double click
+   * returns to the latest candles. On wherever the wheel zooms; a chart in a
+   * scrolling page can move without taking the wheel.
+   */
+  movable?: boolean;
   /** Prices on a logarithmic axis, where equal moves in percent are equal distances. */
   logScale?: boolean;
   /** Other symbols drawn over this one, rebased to its first candle on screen. */
@@ -221,14 +236,15 @@ export function CandleChart({
 
   /* How wide the plot is, so a phone shows fewer, wider candles. */
   const plotRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState<number | null>(null);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   useEffect(() => {
     const element = plotRef.current;
     if (!element) return;
-    const observer = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)));
+    const observer = new ResizeObserver(([entry]) => setSize({ width: Math.round(entry.contentRect.width), height: Math.round(entry.contentRect.height) }));
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+  const width = size?.width ?? null;
 
 
   const averages = useMemo(
@@ -283,13 +299,25 @@ export function CandleChart({
   const showVwap = studies.has("vwap");
 
   /*
-   * The window on the history: how many candles, and how many of the newest
-   * are scrolled off to the right. Kept per symbol and interval, so a new one
-   * opens on its latest candles; null is the default fit.
+   * The window on the history (lib/io/chart-view.ts): how many slots across,
+   * and where the right edge stands from the last candle. Kept per symbol and
+   * interval, so a new one opens on its latest candles with a little room
+   * after them; null is that default. The price axis fits the candles on
+   * screen until the reader stretches or moves it, then holds their range.
    */
-  const seriesKey = candles ? `${candles.symbol}:${interval}:${candles.t.length}:${openOn ?? ""}` : "";
-  const [zoom, setZoom] = useState<{ key: string; count: number; end: number } | null>(null);
-  const windowed = zoomable && zoom?.key === seriesKey ? zoom : null;
+  const total = candles?.t.length ?? 0;
+  const navKey = candles ? `${candles.symbol}:${interval}:${openOn ?? ""}` : "";
+  const yKey = `${navKey}:${logScale ? "log" : "linear"}`;
+  const [nav, setNav] = useState<(Viewport & { key: string }) | null>(null);
+  const [yRange, setYRange] = useState<{ key: string; min: number; max: number } | null>(null);
+  const manual = movable && yRange?.key === yKey ? yRange : null;
+  const fit = !candles ? 0 : openOn ? Math.min(total, Math.max(2, openOn)) : candlesToShow(interval, total, width, compact ? COMPACT_CANDLE_PX : undefined);
+  const margin = movable && fit ? rightMargin(fit) : 0;
+  const held = movable && nav?.key === navKey ? nav : null;
+  const viewSpan = held ? clampViewport(held, total).span : fit + margin;
+  const viewOffset = held ? clampViewport(held, total).offset : margin;
+  const viewport = useMemo<Viewport | null>(() => (fit ? { span: viewSpan, offset: viewOffset } : null), [fit, viewSpan, viewOffset]);
+  const moveTo = (next: Viewport) => setNav({ key: navKey, ...clampViewport(next, total) });
 
   /*
    * The wheel, listened to directly: React's wheel handler is passive and
@@ -297,7 +325,7 @@ export function CandleChart({
    * around the candle under the pointer; horizontal movement, a trackpad's
    * sideways swipe, pans.
    */
-  const latest = useRef<{ key: string; count: number; end: number; total: number; from: number } | null>(null);
+  const latest = useRef<{ key: string; viewport: Viewport; total: number } | null>(null);
   useEffect(() => {
     const element = plotRef.current;
     if (!element || !zoomable) return;
@@ -306,16 +334,10 @@ export function CandleChart({
       if (!current) return;
       event.preventDefault();
       const box = element.getBoundingClientRect();
-      if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
-        const moved = (event.deltaX / box.width) * current.count;
-        setZoom({ key: current.key, count: current.count, end: Math.min(Math.max(0, current.end - moved), current.total - current.count) });
-        return;
-      }
-      const fraction = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
-      const count = Math.min(current.total, Math.max(Math.min(MIN_CANDLES, current.total), current.count * Math.exp(event.deltaY * 0.0015)));
-      const anchor = current.from + fraction * current.count;
-      const end = current.total - (anchor - fraction * count + count);
-      setZoom({ key: current.key, count, end: Math.min(Math.max(0, end), current.total - count) });
+      const next = Math.abs(event.deltaX) > Math.abs(event.deltaY)
+        ? panBy(current.viewport, current.total, (event.deltaX / box.width) * current.viewport.span)
+        : zoomAround(current.viewport, current.total, Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)), Math.exp(event.deltaY * 0.0015));
+      setNav({ key: current.key, ...next });
     };
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);
@@ -326,14 +348,11 @@ export function CandleChart({
 
   /* The candles on screen, and everything positioned from them. */
   const view = useMemo(() => {
-    if (!candles) return null;
+    if (!candles || !viewport) return null;
     const total = candles.t.length;
-    const fit = openOn ? Math.min(total, Math.max(2, openOn)) : candlesToShow(interval, total, width, compact ? COMPACT_CANDLE_PX : undefined);
-    if (!fit) return null;
-    const count = windowed ? Math.min(total, Math.max(Math.min(MIN_CANDLES, total), Math.round(windowed.count))) : fit;
-    const end = windowed ? Math.min(Math.max(0, Math.round(windowed.end)), total - count) : 0;
-    const from = total - count - end;
-    const to = total - end;
+    const { from, to, left, right } = windowOf(viewport, total);
+    if (to - from < 2) return null;
+    const count = to - from;
     const t = candles.t.slice(from, to), o = candles.o.slice(from, to), h = candles.h.slice(from, to), l = candles.l.slice(from, to), c = candles.c.slice(from, to);
     const lines = averages.map((average) => ({ period: average.period, values: average.line.slice(from, to) }));
     const smaLines = (indicators?.smas ?? []).map((average) => ({ period: average.period, values: average.line.slice(from, to) }));
@@ -424,7 +443,7 @@ export function CandleChart({
       shapes: studies.has("chartPatterns") ? chartPatterns(series, found, atr) : [],
     };
 
-    const scale = priceScale([
+    const fitted = priceScale([
       ...h, ...l,
       ...(showEma ? lines.flatMap((line) => line.values.filter((value): value is number => value != null)) : []),
       ...(showExtension && analysis.fib ? analysis.fib.extension.map((level) => level.price) : []),
@@ -440,9 +459,14 @@ export function CandleChart({
       ].filter((value): value is number => value != null) : []),
       ...compared.flatMap((line) => line.values.filter((value): value is number => value != null)),
     ], compact ? 5 : 6);
-    if (!scale) return null;
-    const slot = W / count;
-    const x = (index: number) => (index + 0.5) * slot;
+    if (!fitted) return null;
+    // The reader's own range, once they have stretched or moved the price axis.
+    const scale = manual && manual.max > manual.min
+      ? { min: manual.min, max: manual.max, ticks: ticksFor(manual.min, manual.max, compact ? 5 : 6) }
+      : fitted;
+    const slot = W / viewport.span;
+    /** Where a candle on screen stands across the plot, by its place in the slice; fractions and places past either end work too. */
+    const x = (index: number) => (index + from + 0.5 - left) * slot;
     // A logarithmic axis needs every price above zero; without that it stays linear.
     const log = logScale && scale.min > 0;
     const lnMin = Math.log(Math.max(scale.min, 1e-9));
@@ -458,14 +482,18 @@ export function CandleChart({
     const profile = studies.has("vprofile") && volume ? volumeProfile({ t, o, h, l, c, v: volume }, scale.min, scale.max, compact ? 16 : 24) : null;
     return {
       t, o, h, l, c, drawn, extra, lines, smaLines, bands, cloud, vwapLine, patterns, compared, profile, momentum, volume, analysis,
-      scale, ticks, priceAt, log, slot, x, y, count, end, from, total, key: seriesKey,
+      scale, ticks, priceAt, log, slot, x, y, count, from, total, left, right, span: viewport.span,
+      // The place in the slice at the plot's right edge, for lines drawn to it.
+      edge: right - 0.5 - from,
       previous: from > 0 ? candles.c[from - 1] : null,
+      lastClose: candles.c[total - 1],
+      lastBase: total > 1 ? candles.c[total - 2] : null,
     };
-  }, [candles, averages, indicators, ranges, interval, width, showEma, showSma, showBands, showCloud, showExtension, compact, windowed, logScale, compare, benchmark, studies, seriesKey, openOn]);
+  }, [candles, averages, indicators, ranges, interval, showEma, showSma, showBands, showCloud, showExtension, compact, viewport, manual, logScale, compare, benchmark, studies]);
 
   useEffect(() => {
-    latest.current = view ? { key: view.key, count: view.count, end: view.end, total: view.total, from: view.from } : null;
-  }, [view]);
+    latest.current = viewport && navKey ? { key: navKey, viewport, total } : null;
+  }, [viewport, navKey, total]);
 
   /* Where each study's words sit over the plot, as fractions of it. */
   const pct = (value: number, of: number) => `${Math.min(100, Math.max(0, (value / of) * 100))}%`;
@@ -478,93 +506,266 @@ export function CandleChart({
    * The crosshair: the candle under the pointer, which the vertical line snaps
    * to, and the pointer's own height, which the horizontal line follows
    * exactly — a price is read off the axis wherever the pointer is, not only
-   * at a candle's close.
+   * at a candle's close. Past the last candle the line follows the pointer.
    */
-  const [pointer, setPointer] = useState<{ index: number; y: number } | null>(null);
+  const [pointer, setPointer] = useState<{ fx: number; y: number } | null>(null);
   const onPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!view) return;
     const box = event.currentTarget.getBoundingClientRect();
-    const index = Math.floor(((event.clientX - box.left) / box.width) * view.count);
+    const fx = (event.clientX - box.left) / box.width;
     const y = (event.clientY - box.top) / box.height;
-    setPointer(index >= 0 && index < view.count && y >= 0 && y <= 1 ? { index, y } : null);
+    setPointer(fx >= 0 && fx <= 1 && y >= 0 && y <= 1 ? { fx, y } : null);
   };
-  const hover = pointer && view && pointer.index < view.count ? pointer.index : null;
+  const pointed = pointer && view ? Math.floor(view.left + pointer.fx * view.span) - view.from : null;
+  const hover = pointed != null && view && pointed >= 0 && pointed < view.count ? pointed : null;
   const pointerPrice = pointer && view ? view.priceAt(pointer.y) : null;
 
   /*
    * Drawing. A press starts a line where the pointer is, a drag stretches it,
-   * a release keeps it; a level needs only the press. Positions become a date
-   * and a price at once, so nothing drawn depends on this screen's width.
+   * a release keeps it — or a click at each end, as on the desk platforms; a
+   * level, a note or a position needs only the press. Positions become a date
+   * and a price at once, measured on the whole history, so nothing drawn
+   * depends on this screen's width or on how far it is scrolled.
+   *
+   * With the cursor, a press on a drawing selects it: its handles reshape it,
+   * a drag anywhere else on it moves it, Delete removes it, and a bar over the
+   * plot sets its colour, width and line. A press anywhere else holds the chart.
    */
-  const drawing = onDrawingsChange != null && tool !== "cursor";
-  const [draft, setDraft] = useState<Drawing | null>(null);
-  const anchorAt = (event: ReactPointerEvent<HTMLDivElement>): Anchor | null => {
-    if (!view) return null;
-    const box = event.currentTarget.getBoundingClientRect();
-    const index = ((event.clientX - box.left) / box.width) * view.count - 0.5;
-    const y = (event.clientY - box.top) / box.height;
-    return { t: timeOfIndex(view.t, index), p: view.priceAt(y) };
+  const editable = onDrawingsChange != null;
+  const drawingTool = editable && tool !== "cursor" && tool !== "erase";
+  const list = drawings ?? NO_DRAWINGS;
+  const [selected, setSelected] = useState<string | null>(null);
+  const [fresh, setFresh] = useState<string | null>(null);
+  const [live, setLive] = useState<Drawing | null>(null);
+  const [drafted, setDraft] = useState<(Drawing & { follow?: boolean }) | null>(null);
+  // A drawing begun with another tool is dropped when the tool changes.
+  const draft = drafted && drafted.kind === tool ? drafted : null;
+  type Gesture =
+    | { kind: "pan"; x: number; y: number; view: Viewport; range: { min: number; max: number }; width: number; height: number; vertical: boolean }
+    | { kind: "handle"; handle: HandleKey; original: Drawing }
+    | { kind: "move"; x: number; y: number; original: Drawing }
+    | { kind: "draft" }
+    | { kind: "brush"; x: number; y: number };
+  const gesture = useRef<Gesture | null>(null);
+  const times = candles?.t ?? NO_TIMES;
+
+  const screenOf = (anchor: Anchor) => (view ? { x: view.x(indexOfTime(times, anchor.t) - view.from), y: view.y(anchor.p) } : { x: 0, y: 0 });
+  type Box = { width: number; height: number };
+  const toPixels = (anchor: Anchor, box: Box) => { const point = screenOf(anchor); return { x: (point.x / W) * box.width, y: (point.y / H) * box.height }; };
+  /** The date and price at a point on the plot, in pixels; with the magnet, the nearest open, high, low or close. */
+  const anchorAt = (px: number, py: number, box: Box, snap: boolean): Anchor => {
+    if (!view) return { t: 0, p: 0 };
+    const index = view.left + (px / box.width) * view.span - 0.5 - view.from;
+    const price = view.priceAt(py / box.height);
+    if (snap && index > -0.5 && index < view.count - 0.5) {
+      const at = Math.min(view.count - 1, Math.max(0, Math.round(index)));
+      const nearest = [view.o[at], view.h[at], view.l[at], view.c[at]]
+        .reduce((best, value) => (Math.abs(view.y(value) - (py / box.height) * H) < Math.abs(view.y(best) - (py / box.height) * H) ? value : best));
+      return { t: view.t[at], p: nearest };
+    }
+    return { t: timeOfIndex(times, index + view.from), p: price };
   };
-  const screenOf = (anchor: Anchor) => (view ? { x: view.x(indexOfTime(view.t, anchor.t)), y: view.y(anchor.p) } : { x: 0, y: 0 });
-  /*
-   * Panning: a press with the cursor tool holds the chart, and the drag moves
-   * the window by as many candles as the pointer travelled.
-   */
-  const pan = useRef<{ x: number; end: number; count: number; width: number } | null>(null);
+  const shown = [...list.map((item) => (live && item.id === live.id ? live : item)), ...(draft ? [draft] : [])];
+  const chosen = selected ? shown.find((item) => item.id === selected) ?? null : null;
+  const hitAt = (px: number, py: number, box: Box) => drawingAt(list, { x: px, y: py }, (anchor) => toPixels(anchor, box), 7, box);
+
+  const keep = (made: Drawing) => {
+    onDrawingsChange?.([...list, made]);
+    setSelected(made.id);
+    setDraft(null);
+    if (made.kind === "text") setFresh(made.id);
+    onToolDone?.();
+  };
+  const replace = (next: Drawing) => onDrawingsChange?.(list.map((item) => (item.id === next.id ? next : item)));
+  const remove = (id: string) => { onDrawingsChange?.(list.filter((item) => item.id !== id)); setSelected(null); };
+  const finish = (drafted: Drawing & { follow?: boolean }, box: Box) => {
+    const made: Drawing = { ...drafted };
+    delete (made as { follow?: boolean }).follow;
+    if (made.kind === "channel") {
+      // The parallel opens a little under the base line; its handle sets the width.
+      const a = toPixels(made.a, box);
+      keep({ ...made, c: anchorAt(a.x, a.y + Math.max(24, box.height * 0.08), box, false) });
+      return;
+    }
+    keep(made);
+  };
+
   const onDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!drawing && zoomable && view && event.button === 0) {
-      pan.current = { x: event.clientX, end: view.end, count: view.count, width: event.currentTarget.getBoundingClientRect().width };
-      event.currentTarget.setPointerCapture(event.pointerId);
+    if (event.button !== 0 || !view) return;
+    const plot = event.currentTarget;
+    const rect = plot.getBoundingClientRect();
+    const box = { width: rect.width, height: rect.height };
+    const px = event.clientX - rect.left;
+    const py = event.clientY - rect.top;
+    if (draft?.follow) {
+      finish({ ...draft, follow: undefined, b: anchorAt(px, py, box, magnet) } as Drawing, box);
       return;
     }
-    if (!drawing || !view || !onDrawingsChange) return;
-    const anchor = anchorAt(event);
-    if (!anchor) return;
-    event.preventDefault();
-    if (tool === "erase") {
-      const box = event.currentTarget.getBoundingClientRect();
-      const toPixels = (at: Anchor) => { const point = screenOf(at); return { x: (point.x / W) * box.width, y: (point.y / H) * box.height }; };
-      const hit = drawingAt(drawings ?? [], { x: event.clientX - box.left, y: event.clientY - box.top }, toPixels, 8);
-      if (hit) onDrawingsChange((drawings ?? []).filter((item) => item.id !== hit.id));
+    if (drawingTool) {
+      event.preventDefault();
+      const anchor = anchorAt(px, py, box, magnet);
+      const kind = tool as Drawing["kind"];
+      if (ONE_CLICK.has(kind)) {
+        let made: Drawing = { id: newId(), kind, a: anchor, b: anchor };
+        if (kind === "long" || kind === "short") {
+          const end = timeOfIndex(times, indexOfTime(times, anchor.t) + Math.max(6, view.span * 0.15));
+          made = { ...made, ...positionAround(kind, anchor, end, (view.scale.max - view.scale.min) * 0.08) };
+        }
+        if (kind === "text") made = { ...made, text: "Note" };
+        keep(made);
+        return;
+      }
+      plot.setPointerCapture(event.pointerId);
+      gesture.current = kind === "brush" ? { kind: "brush", x: px, y: py } : { kind: "draft" };
+      setDraft({ id: newId(), kind, a: anchor, b: anchor, ...(kind === "brush" ? { points: [anchor] } : {}) });
       return;
     }
-    if (tool === "hline") {
-      onDrawingsChange([...(drawings ?? []), { id: newId(), kind: "hline", a: anchor, b: anchor }]);
+    if (editable && tool === "erase") {
+      const hit = hitAt(px, py, box);
+      if (hit) remove(hit.id);
       return;
     }
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setDraft({ id: newId(), kind: tool, a: anchor, b: anchor });
+    if (editable && list.length) {
+      if (chosen && !chosen.locked) {
+        const handle = handlesOf(chosen).find((key) => { const at = toPixels(handleAnchor(chosen, key), box); return Math.hypot(at.x - px, at.y - py) <= 8; });
+        if (handle) {
+          plot.setPointerCapture(event.pointerId);
+          gesture.current = { kind: "handle", handle, original: chosen };
+          return;
+        }
+      }
+      const hit = hitAt(px, py, box);
+      if (hit) {
+        setSelected(hit.id);
+        if (!hit.locked) {
+          plot.setPointerCapture(event.pointerId);
+          gesture.current = { kind: "move", x: px, y: py, original: hit };
+        }
+        return;
+      }
+    }
+    setSelected(null);
+    if (movable && viewport) {
+      plot.setPointerCapture(event.pointerId);
+      gesture.current = {
+        kind: "pan", x: event.clientX, y: event.clientY, view: viewport, range: { min: view.scale.min, max: view.scale.max },
+        width: rect.width, height: rect.height, vertical: manual != null,
+      };
+    }
   };
   const onDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     onPointer(event);
-    if (pan.current && view) {
-      const held = pan.current;
-      const moved = ((event.clientX - held.x) / held.width) * held.count;
-      setZoom({ key: view.key, count: held.count, end: Math.min(Math.max(0, held.end + moved), view.total - held.count) });
+    if (!view) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const box = { width: rect.width, height: rect.height };
+    const px = event.clientX - rect.left;
+    const py = event.clientY - rect.top;
+    const held = gesture.current;
+    if (!held) {
+      if (draft?.follow) setDraft({ ...draft, b: anchorAt(px, py, box, magnet) });
       return;
     }
-    if (!draft) return;
-    const anchor = anchorAt(event);
-    if (anchor) setDraft({ ...draft, b: anchor });
+    if (held.kind === "pan") {
+      const dx = event.clientX - held.x;
+      const dy = event.clientY - held.y;
+      moveTo(panBy(held.view, total, -(dx / held.width) * held.view.span));
+      // Up or down as well: the price axis leaves its fit and follows the hand, as on the desk platforms.
+      if (!held.vertical && Math.abs(dy) > 8) held.vertical = true;
+      if (held.vertical) setYRange({ key: yKey, ...shiftRange(held.range, dy / held.height, view.log) });
+      return;
+    }
+    if (held.kind === "handle") { setLive(withHandle(held.original, held.handle, anchorAt(px, py, box, magnet))); return; }
+    if (held.kind === "move") {
+      const dx = px - held.x;
+      const dy = py - held.y;
+      setLive(mapAnchors(held.original, (anchor) => { const at = toPixels(anchor, box); return anchorAt(at.x + dx, at.y + dy, box, false); }));
+      return;
+    }
+    if (held.kind === "draft" && draft) { setDraft({ ...draft, b: anchorAt(px, py, box, magnet) }); return; }
+    if (held.kind === "brush" && draft && Math.hypot(px - held.x, py - held.y) >= 3) {
+      held.x = px;
+      held.y = py;
+      const point = anchorAt(px, py, box, false);
+      setDraft({ ...draft, b: point, points: [...(draft.points ?? []), point] });
+    }
   };
-  const onUp = () => {
-    pan.current = null;
-    if (!draft || !onDrawingsChange) return;
-    const a = screenOf(draft.a);
-    const b = screenOf(draft.b);
-    // A click without a drag is not a line.
-    if (Math.hypot(a.x - b.x, a.y - b.y) > 4) onDrawingsChange([...(drawings ?? []), draft]);
-    setDraft(null);
+  const onUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const held = gesture.current;
+    gesture.current = null;
+    if (!held) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const box = { width: rect.width, height: rect.height };
+    if (held.kind === "handle" || held.kind === "move") {
+      if (live) replace(live);
+      setLive(null);
+      return;
+    }
+    if (held.kind === "draft" && draft) {
+      const a = toPixels(draft.a, box);
+      const b = toPixels(draft.b, box);
+      // A drag draws it; a click starts it, and the next click ends it.
+      if (Math.hypot(a.x - b.x, a.y - b.y) > 4) finish(draft, box); else setDraft({ ...draft, follow: true });
+      return;
+    }
+    if (held.kind === "brush" && draft) {
+      if ((draft.points?.length ?? 0) > 1) keep(draft); else setDraft(null);
+    }
   };
-  const shown = [...(drawings ?? []), ...(draft ? [draft] : [])];
+  const cancel = () => { gesture.current = null; setLive(null); setDraft(null); };
+
+  /* Delete removes the drawing selected, Escape lets it go — unless the reader is typing. */
+  useEffect(() => {
+    if (!selected || !editable) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        onDrawingsChange?.(list.filter((item) => item.id !== selected));
+        setSelected(null);
+      }
+      if (event.key === "Escape") setSelected(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected, editable, list, onDrawingsChange]);
+
+  /* The price axis, stretched by a drag up or down; the dates, compressed by a drag sideways. */
+  const axisDrag = useRef<{ y: number; range: { min: number; max: number } } | null>(null);
+  const datesDrag = useRef<{ x: number; view: Viewport } | null>(null);
+  const onAxisDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!movable || !view || event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    axisDrag.current = { y: event.clientY, range: { min: view.scale.min, max: view.scale.max } };
+  };
+  const onAxisMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const held = axisDrag.current;
+    if (!held || !view) return;
+    setYRange({ key: yKey, ...stretchRange(held.range, Math.exp((event.clientY - held.y) * 0.006), view.log) });
+  };
+  const onDatesDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!movable || !viewport || event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    datesDrag.current = { x: event.clientX, view: viewport };
+  };
+  const onDatesMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const held = datesDrag.current;
+    if (!held) return;
+    // The right edge holds; dragging left fits more candles, right fewer.
+    moveTo({ span: held.view.span * Math.exp(-(event.clientX - held.x) * 0.006), offset: held.view.offset });
+  };
+  const reset = () => { setNav(null); setYRange(null); };
+  const zoomBy = (factor: number) => { if (viewport) moveTo(zoomAround(viewport, total, 1, factor)); };
+  const scrollBy = (share: number) => { if (viewport) moveTo(panBy(viewport, total, viewport.span * share)); };
 
   const at = view ? Math.min(hover ?? view.count - 1, view.count - 1) : null;
   const baseOf = (index: number) => (!view ? null : index > 0 ? view.c[index - 1] : view.previous);
   const before = at != null ? baseOf(at) : null;
   const move = view && at != null && before != null ? view.c[at] - before : null;
-  const last = view ? view.count - 1 : 0;
-  const lastBase = baseOf(last);
-  const lastMove = view && lastBase != null ? view.c[last] - lastBase : null;
+  const lastMove = view && view.lastBase != null ? view.lastClose - view.lastBase : null;
+  // Pixel size of the plot, for the few marks that must not stretch with it: arrowheads.
+  const sx = size ? W / Math.max(size.width, 1) : 1;
+  const sy = size ? H / Math.max(size.height, 1) : 1;
 
   return (
   <figure
@@ -614,11 +815,11 @@ export function CandleChart({
 
     <div className="candle-body">
       <div
-        className="candle-plot" ref={plotRef} data-tool={drawing ? tool : undefined}
-        data-zoomable={zoomable || undefined}
+        className="candle-plot" ref={plotRef} data-tool={drawingTool || (editable && tool === "erase") ? tool : undefined}
+        data-zoomable={movable || undefined}
         onPointerMove={onDrag} onPointerLeave={() => setPointer(null)} onPointerDown={onDown} onPointerUp={onUp}
-        onPointerCancel={() => { setDraft(null); pan.current = null; }}
-        onDoubleClick={() => { if (zoomable && !drawing) setZoom(null); }}
+        onPointerCancel={cancel}
+        onDoubleClick={() => { if (movable && !drawingTool && !chosen) reset(); }}
       >
         {/* The watermark: the symbol faint across the plot and Tenqay's mark in its corner, under the pointer's notice. */}
         {candles?.symbol ? (
@@ -635,14 +836,14 @@ export function CandleChart({
             {view.ticks.map((tick) => (
               <line key={tick} className="candle-grid" x1={0} x2={W} y1={view.y(tick)} y2={view.y(tick)} vectorEffect="non-scaling-stroke" />
             ))}
-            {hover != null && pointer ? (
+            {pointer ? (
               <>
-                <line className="candle-cursor" x1={view.x(hover)} x2={view.x(hover)} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
+                <line className="candle-cursor" x1={hover != null ? view.x(hover) : pointer.fx * W} x2={hover != null ? view.x(hover) : pointer.fx * W} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
                 <line className="candle-cursor" x1={0} x2={W} y1={pointer.y * H} y2={pointer.y * H} vectorEffect="non-scaling-stroke" />
               </>
             ) : null}
             <defs><clipPath id={clipId}><rect x={0} y={0} width={W} height={H} /></clipPath></defs>
-            <line className="candle-last" x1={0} x2={W} y1={view.y(view.c[last])} y2={view.y(view.c[last])} vectorEffect="non-scaling-stroke" />
+            <line className="candle-last" x1={0} x2={W} y1={view.y(view.lastClose)} y2={view.y(view.lastClose)} vectorEffect="non-scaling-stroke" />
             {on("fvg") ? (
               <g clipPath={`url(#${clipId})`}>
                 {view.analysis.gaps.map((gap) => (
@@ -727,7 +928,7 @@ export function CandleChart({
               {on("trendLines") ? view.analysis.trends.map((line) => (
                 <line
                   key={`${line.kind}-${line.a.index}-${line.b.index}`} className={`study-trend study-${line.kind}`}
-                  x1={view.x(line.a.index)} y1={view.y(line.a.price)} x2={W} y2={view.y(priceOnLine(line, view.count - 0.5))}
+                  x1={view.x(line.a.index)} y1={view.y(line.a.price)} x2={W} y2={view.y(priceOnLine(line, view.edge))}
                   vectorEffect="non-scaling-stroke"
                 />
               )) : null}
@@ -832,25 +1033,13 @@ export function CandleChart({
             })() : null}
             {shown.length ? (
               <g className="drawings" clipPath={`url(#${clipId})`}>
-                {shown.map((item) => {
-                  const a = screenOf(item.a);
-                  const b = screenOf(item.b);
-                  const key = item.id + (item === draft ? "-draft" : "");
-                  if (item.kind === "hline") return <line key={key} className="drawing" x1={0} x2={W} y1={a.y} y2={a.y} vectorEffect="non-scaling-stroke" />;
-                  if (item.kind === "trend") return <line key={key} className="drawing" x1={a.x} x2={b.x} y1={a.y} y2={b.y} vectorEffect="non-scaling-stroke" />;
-                  if (item.kind === "rect") {
-                    return <rect key={key} className="drawing drawing-zone" x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)} width={Math.abs(a.x - b.x)} height={Math.abs(a.y - b.y)} vectorEffect="non-scaling-stroke" />;
-                  }
-                  return (
-                    <g key={key}>
-                      <line className="drawing drawing-swing" x1={a.x} x2={b.x} y1={a.y} y2={b.y} vectorEffect="non-scaling-stroke" />
-                      {DRAWN_FIB_RATIOS.map((ratio) => {
-                        const y = b.y + (a.y - b.y) * ratio;
-                        return <line key={ratio} className="drawing drawing-fib" x1={Math.min(a.x, b.x)} x2={W} y1={y} y2={y} vectorEffect="non-scaling-stroke" />;
-                      })}
-                    </g>
-                  );
-                })}
+                {shown.map((item) => (
+                  <DrawingMark
+                    key={item.id + (item === draft ? "-draft" : "")} item={item} chosen={item.id === selected}
+                    a={screenOf(item.a)} b={screenOf(item.b)} c={item.c ? screenOf(item.c) : null}
+                    points={item.points?.map(screenOf) ?? null} sx={sx} sy={sy}
+                  />
+                ))}
               </g>
             ) : null}
           </svg>
@@ -912,43 +1101,86 @@ export function CandleChart({
                 </span>
               );
             })) : null}
-            {shown.filter((item) => item.kind === "fib").flatMap((item) => {
-              const a = screenOf(item.a);
-              const b = screenOf(item.b);
-              return DRAWN_FIB_RATIOS.map((ratio) => {
-                const y = b.y + (a.y - b.y) * ratio;
-                return (
-                  <span key={`${item.id}-${ratio}`} className={`drawing-note ${noteSide(Math.min(a.x, b.x)) ?? ""}`} style={noteAt(Math.min(a.x, b.x), y)}>
-                    {ratioText(ratio)} {price(item.b.p + (item.a.p - item.b.p) * ratio)}
-                  </span>
-                );
-              });
-            })}
+            {shown.map((item) => (
+              <DrawingNotes
+                key={`notes-${item.id}`} item={item} a={screenOf(item.a)} b={screenOf(item.b)} c={item.c ? screenOf(item.c) : null}
+                bars={Math.round(indexOfTime(times, item.b.t) - indexOfTime(times, item.a.t))} noteAt={noteAt} noteSide={noteSide}
+              />
+            ))}
+            {chosen && !chosen.locked && chosen.id !== draft?.id ? handlesOf(chosen).map((key) => {
+              const point = screenOf(handleAnchor(chosen, key));
+              return <span key={`handle-${key}`} className="drawing-handle" style={{ left: pct(point.x, W), top: pct(point.y, H), borderColor: chosen.color ?? DEFAULT_DRAWING_COLOR }} />;
+            }) : null}
           </div>
         ) : null}
         {loading || error || (!view && candles) ? (
           <div className="candle-state">{loading ? "Loading…" : error ?? "Not enough history to draw."}</div>
         ) : null}
+        {editable && chosen && !live && chosen.id !== draft?.id ? (
+          <DrawingBar
+            drawing={chosen} focusText={fresh === chosen.id}
+            onChange={replace} onDelete={() => remove(chosen.id)}
+            onClone={() => {
+              const box = plotRef.current?.getBoundingClientRect();
+              if (!box) return;
+              const copy = { ...mapAnchors(chosen, (anchor) => { const at = toPixels(anchor, box); return anchorAt(at.x + 14, at.y + 14, box, false); }), id: newId(), locked: false };
+              onDrawingsChange?.([...list, copy]);
+              setSelected(copy.id);
+            }}
+          />
+        ) : null}
+        {movable && view ? (
+          <div className="candle-nav" onPointerDown={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
+            <button type="button" title="Zoom out" aria-label="Zoom out" onClick={() => zoomBy(1.25)}>−</button>
+            <button type="button" title="Zoom in" aria-label="Zoom in" onClick={() => zoomBy(0.8)}>+</button>
+            <button type="button" title="Scroll back" aria-label="Scroll back" onClick={() => scrollBy(-0.25)}>‹</button>
+            <button type="button" title="Scroll forward" aria-label="Scroll forward" onClick={() => scrollBy(0.25)}>›</button>
+            <button type="button" title="Reset the view · double-click" aria-label="Reset the view" onClick={reset}>⟲</button>
+          </div>
+        ) : null}
+        {movable && view && view.right < view.total ? (
+          <button
+            type="button" className="candle-latest" title="Back to the latest candle" aria-label="Back to the latest candle"
+            onPointerDown={(event) => event.stopPropagation()} onClick={() => { if (viewport) moveTo({ span: viewport.span, offset: rightMargin(viewport.span) }); }}
+          >
+            »
+          </button>
+        ) : null}
       </div>
 
-      <div className="candle-axis" aria-hidden="true">
+      <div
+        className="candle-axis candle-price-axis" aria-hidden="true" data-movable={movable || undefined}
+        onPointerDown={onAxisDown} onPointerMove={onAxisMove} onPointerUp={() => { axisDrag.current = null; }}
+        onPointerCancel={() => { axisDrag.current = null; }} onDoubleClick={() => setYRange(null)}
+      >
         {view ? (
           <>
-            {view.ticks.map((tick) => (
-              <span key={tick} style={{ top: `${(view.y(tick) / H) * 100}%` }}>{price(tick)}</span>
-            ))}
-            <span className="candle-tag" data-tone={tone(lastMove)} style={{ top: `${(view.y(view.c[last]) / H) * 100}%` }}>
-              {price(view.c[last])}
-            </span>
-            {shown.filter((item) => item.kind === "hline").map((item) => (
-              <span key={`tag-${item.id}`} className="candle-tag drawing-tag" style={{ top: `${(view.y(item.a.p) / H) * 100}%` }}>{price(item.a.p)}</span>
-            ))}
+            {view.ticks.map((tick) => {
+              const top = view.y(tick) / H;
+              return top < 0 || top > 1 ? null : <span key={tick} style={{ top: `${top * 100}%` }}>{price(tick)}</span>;
+            })}
+            {view.y(view.lastClose) >= 0 && view.y(view.lastClose) <= H ? (
+              <span className="candle-tag" data-tone={tone(lastMove)} style={{ top: `${(view.y(view.lastClose) / H) * 100}%` }}>
+                {price(view.lastClose)}
+              </span>
+            ) : null}
+            {shown.flatMap((item) => {
+              const prices = item.kind === "hline" || item.kind === "hray" ? [item.a.p]
+                : item.id === selected && item.kind !== "vline" && item.kind !== "text" && item.kind !== "brush"
+                  ? [item.a.p, item.b.p, ...(item.c ? [item.c.p] : [])] : [];
+              return prices.filter((value) => view.y(value) >= 0 && view.y(value) <= H).map((value, index) => (
+                <span key={`tag-${item.id}-${index}`} className="candle-tag drawing-tag" style={{ top: `${(view.y(value) / H) * 100}%`, background: item.color ?? DEFAULT_DRAWING_COLOR }}>{price(value)}</span>
+              ));
+            })}
             {pointer && pointerPrice != null ? (
               <span className="candle-tag candle-cross" style={{ top: `${pointer.y * 100}%` }}>{price(pointerPrice)}</span>
             ) : null}
           </>
         ) : null}
       </div>
+      {manual ? (
+        <button type="button" className="candle-auto" title="Fit the price axis to the candles again" onClick={() => setYRange(null)}>AUTO</button>
+      ) : null}
     </div>
 
     {view && view.momentum ? panes.map((pane) => (
@@ -957,12 +1189,25 @@ export function CandleChart({
         : <LowerPane key={pane} pane={pane} view={view as PaneView} at={at} hover={hover} />
     )) : null}
 
-    <div className="candle-dates" aria-hidden="true">
-      {view ? dateLabels(view.t, interval, compact ? 4 : 8).map((label) => (
-        <span key={label.index} style={{ left: `${((label.index + 0.5) / view.count) * 100}%` }}>{label.text}</span>
-      )) : null}
+    <div
+      className="candle-dates" aria-hidden="true" data-movable={movable || undefined}
+      onPointerDown={onDatesDown} onPointerMove={onDatesMove} onPointerUp={() => { datesDrag.current = null; }}
+      onPointerCancel={() => { datesDrag.current = null; }} onDoubleClick={() => setNav(null)}
+    >
+      {view ? dateLabels(view.t, interval, compact ? 4 : Math.max(4, Math.round(8 * view.count / Math.max(view.span, 1)))).map((label) => {
+        const left = view.x(label.index) / W;
+        return left < 0.02 || left > 0.98 ? null : <span key={label.index} style={{ left: `${left * 100}%` }}>{label.text}</span>;
+      }) : null}
+      {view ? shown.filter((item) => item.kind === "vline").map((item) => {
+        const left = screenOf(item.a).x / W;
+        return left < 0 || left > 1 ? null : (
+          <span key={`vtag-${item.id}`} className="candle-cross drawing-tag" style={{ left: `${left * 100}%`, background: item.color ?? DEFAULT_DRAWING_COLOR }}>
+            {dateText(Math.round(item.a.t), interval).replace("Week of ", "")}
+          </span>
+        );
+      }) : null}
       {view && hover != null ? (
-        <span className="candle-cross" style={{ left: `${((hover + 0.5) / view.count) * 100}%` }}>{dateText(view.t[hover], interval).replace("Week of ", "")}</span>
+        <span className="candle-cross" style={{ left: `${(view.x(hover) / W) * 100}%` }}>{dateText(view.t[hover], interval).replace("Week of ", "")}</span>
       ) : null}
     </div>
   </figure>
@@ -1221,6 +1466,239 @@ function ExtraLowerPane({ pane, view, panes, at, hover }: { pane: ExtraPane; vie
       <div className="candle-axis" aria-hidden="true">
         {(spec.range ? spec.guides : [top, bottom]).map((value) => <span key={value} style={{ top: `${(y(value) / PANE_H) * 100}%` }}>{spec!.format(value)}</span>)}
       </div>
+    </div>
+  );
+}
+
+/* --- The reader's drawings ------------------------------------------------- */
+
+const DASHES: Record<LineStyle, string | undefined> = { solid: undefined, dashed: "7 5", dotted: "1.5 3.5" };
+const STROKES: Record<1 | 2 | 3, number> = { 1: 1.25, 2: 2, 3: 3 };
+const TARGET_COLOR = "#26a69a";
+const STOP_COLOR = "#ef5350";
+
+type Spot = { x: number; y: number };
+
+function strokeOf(item: Drawing): React.CSSProperties {
+  return { stroke: item.color ?? DEFAULT_DRAWING_COLOR, strokeWidth: STROKES[item.width ?? 1], strokeDasharray: DASHES[item.style ?? "solid"] };
+}
+
+/**
+ * One drawing, in the plot's stretched units. The few marks that must keep
+ * their shape on any screen — an arrow's head — are worked out in pixels
+ * (`sx`, `sy`: units per pixel) and brought back.
+ */
+function DrawingMark({ item, chosen, a, b, c, points, sx, sy }: {
+  item: Drawing; chosen: boolean; a: Spot; b: Spot; c: Spot | null; points: Spot[] | null; sx: number; sy: number;
+}) {
+  const stroke = strokeOf(item);
+  const color = item.color ?? DEFAULT_DRAWING_COLOR;
+  const common = { vectorEffect: "non-scaling-stroke" as const };
+  const className = chosen ? "drawing drawing-chosen" : "drawing";
+  switch (item.kind) {
+    case "hline":
+      return <line className={className} style={stroke} x1={0} x2={W} y1={a.y} y2={a.y} {...common} />;
+    case "hray":
+      return <line className={className} style={stroke} x1={a.x} x2={W} y1={a.y} y2={a.y} {...common} />;
+    case "vline":
+      return <line className={className} style={stroke} x1={a.x} x2={a.x} y1={0} y2={H} {...common} />;
+    case "trend":
+      return <line className={className} style={stroke} x1={a.x} x2={b.x} y1={a.y} y2={b.y} {...common} />;
+    case "ray":
+    case "extended": {
+      const line = lineReach(a, b, (W + H) * 6, item.kind === "extended");
+      return <line className={className} style={stroke} x1={line.from.x} x2={line.to.x} y1={line.from.y} y2={line.to.y} {...common} />;
+    }
+    case "arrow": {
+      // The head, 11 pixels long whatever the plot's shape.
+      const dx = (b.x - a.x) / sx;
+      const dy = (b.y - a.y) / sy;
+      const length = Math.hypot(dx, dy) || 1;
+      const ux = dx / length;
+      const uy = dy / length;
+      const size = 9 + (item.width ?? 1) * 2;
+      const wing = (side: number) => `${(b.x - (ux * size - uy * size * 0.45 * side) * sx).toFixed(2)},${(b.y - (uy * size + ux * size * 0.45 * side) * sy).toFixed(2)}`;
+      return (
+        <g>
+          <line className={className} style={stroke} x1={a.x} x2={b.x - ux * size * 0.6 * sx} y1={a.y} y2={b.y - uy * size * 0.6 * sy} {...common} />
+          <polygon points={`${b.x.toFixed(2)},${b.y.toFixed(2)} ${wing(1)} ${wing(-1)}`} style={{ fill: color }} />
+        </g>
+      );
+    }
+    case "channel": {
+      const offset = channelOffset(a, b, c ?? a);
+      const a2 = { x: a.x, y: a.y + offset };
+      const b2 = { x: b.x, y: b.y + offset };
+      return (
+        <g>
+          <polygon className="drawing-fill" points={`${a.x},${a.y} ${b.x},${b.y} ${b2.x},${b2.y} ${a2.x},${a2.y}`} style={{ fill: color }} />
+          <line className={className} style={stroke} x1={a.x} x2={b.x} y1={a.y} y2={b.y} {...common} />
+          <line className={className} style={stroke} x1={a2.x} x2={b2.x} y1={a2.y} y2={b2.y} {...common} />
+          <line className="drawing drawing-mid" style={{ stroke: color }} x1={a.x} x2={b.x} y1={a.y + offset / 2} y2={b.y + offset / 2} {...common} />
+        </g>
+      );
+    }
+    case "rect":
+      return (
+        <rect className={`${className} drawing-zone`} style={{ ...stroke, fill: color }}
+          x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)} width={Math.abs(a.x - b.x)} height={Math.abs(a.y - b.y)} {...common} />
+      );
+    case "range": {
+      const up = item.b.p >= item.a.p;
+      const tint = up ? TARGET_COLOR : STOP_COLOR;
+      const middle = (a.x + b.x) / 2;
+      return (
+        <g>
+          <rect className="drawing-zone" style={{ fill: tint, stroke: "none" }} x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)} width={Math.abs(a.x - b.x)} height={Math.abs(a.y - b.y)} />
+          <line className="drawing" style={{ stroke: tint }} x1={middle} x2={middle} y1={a.y} y2={b.y} {...common} />
+          <line className="drawing" style={{ stroke: tint }} x1={a.x} x2={b.x} y1={(a.y + b.y) / 2} y2={(a.y + b.y) / 2} {...common} />
+        </g>
+      );
+    }
+    case "long":
+    case "short": {
+      const stop = c ?? a;
+      const left = Math.min(a.x, b.x);
+      const width = Math.abs(b.x - a.x);
+      return (
+        <g>
+          <rect className="drawing-position" style={{ fill: TARGET_COLOR }} x={left} width={width} y={Math.min(a.y, b.y)} height={Math.abs(a.y - b.y)} />
+          <rect className="drawing-position" style={{ fill: STOP_COLOR }} x={left} width={width} y={Math.min(a.y, stop.y)} height={Math.abs(a.y - stop.y)} />
+          <line className="drawing" style={{ stroke: "#e9edf2", strokeWidth: 1 }} x1={left} x2={left + width} y1={a.y} y2={a.y} {...common} />
+        </g>
+      );
+    }
+    case "fib":
+      return (
+        <g>
+          <line className="drawing drawing-swing" style={{ stroke: color }} x1={a.x} x2={b.x} y1={a.y} y2={b.y} {...common} />
+          {DRAWN_FIB_RATIOS.map((ratio) => {
+            const y = b.y + (a.y - b.y) * ratio;
+            return <line key={ratio} className="drawing drawing-fib" style={{ ...stroke, strokeDasharray: undefined }} x1={Math.min(a.x, b.x)} x2={W} y1={y} y2={y} {...common} />;
+          })}
+        </g>
+      );
+    case "brush":
+      return points && points.length > 1 ? (
+        <path className={className} style={{ ...stroke, strokeLinejoin: "round", strokeLinecap: "round" }}
+          d={points.map((point, index) => `${index ? "L" : "M"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join("")} {...common} />
+      ) : null;
+    case "text":
+      return null;
+  }
+}
+
+/** The words a drawing carries: a retracement's levels, a range's move, a position's target, stop and ratio, a note. */
+function DrawingNotes({ item, a, b, c, bars, noteAt, noteSide }: {
+  item: Drawing; a: Spot; b: Spot; c: Spot | null; bars: number;
+  noteAt: (x: number, y: number) => React.CSSProperties; noteSide: (x: number) => string | undefined;
+}) {
+  const color = item.color ?? DEFAULT_DRAWING_COLOR;
+  if (item.kind === "fib") {
+    const left = Math.min(a.x, b.x);
+    return (
+      <>
+        {DRAWN_FIB_RATIOS.map((ratio) => (
+          <span key={ratio} className={`drawing-note ${noteSide(left) ?? ""}`} style={{ ...noteAt(left, b.y + (a.y - b.y) * ratio), color }}>
+            {ratioText(ratio)} {price(item.b.p + (item.a.p - item.b.p) * ratio)}
+          </span>
+        ))}
+      </>
+    );
+  }
+  if (item.kind === "range") {
+    const change = item.b.p - item.a.p;
+    return (
+      <span className="drawing-label" data-tone={tone(change)} style={noteAt((a.x + b.x) / 2, Math.max(a.y, b.y))}>
+        {signed(change)} ({item.a.p ? percent(change / item.a.p) : "—"}) · {Math.abs(bars)} {Math.abs(bars) === 1 ? "bar" : "bars"}
+      </span>
+    );
+  }
+  if (item.kind === "long" || item.kind === "short") {
+    const figures = positionFigures(item);
+    const stop = c ?? a;
+    const targetAbove = b.y < a.y;
+    // Near the right edge the words are written leftwards from the box's right side, so they stay on screen.
+    const flip = noteSide(Math.min(a.x, b.x)) != null;
+    const x = flip ? Math.max(a.x, b.x) : Math.min(a.x, b.x);
+    const shift = (vertical: string) => ({ transform: `translate(${flip ? "-100%" : "0"}, ${vertical})` });
+    return (
+      <>
+        <span className="drawing-label drawing-label-left" data-tone="good" style={{ ...noteAt(x, b.y), ...shift(targetAbove ? "-100%" : "0") }}>
+          Target {price(figures.target)} ({percent(figures.targetMove)})
+        </span>
+        <span className="drawing-label drawing-label-left" data-tone="bad" style={{ ...noteAt(x, stop.y), ...shift(targetAbove ? "0" : "-100%") }}>
+          Stop {price(figures.stop)} ({percent(figures.stopMove)})
+        </span>
+        <span className="drawing-label drawing-label-left" style={{ ...noteAt(x, a.y), ...shift("-50%") }}>
+          {item.kind === "long" ? "Long" : "Short"} {price(figures.entry)}{figures.ratio != null ? ` · R:R ${figures.ratio.toFixed(2)}` : ""}
+        </span>
+      </>
+    );
+  }
+  if (item.kind === "text") {
+    return (
+      <span className="drawing-text" style={{ ...noteAt(a.x, a.y), color, fontSize: `${10 + (item.width ?? 1) * 2}px` }}>
+        {item.text || "Note"}
+      </span>
+    );
+  }
+  return null;
+}
+
+/** The bar over the plot for the drawing selected: colour, width, line, its note, lock, copy, delete. */
+function DrawingBar({ drawing, focusText, onChange, onDelete, onClone }: {
+  drawing: Drawing; focusText: boolean; onChange: (next: Drawing) => void; onDelete: () => void; onClone: () => void;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const lines = drawing.kind !== "text" && drawing.kind !== "long" && drawing.kind !== "short" && drawing.kind !== "range";
+  const commitText = () => { if (text != null && text !== drawing.text) onChange({ ...drawing, text: text.slice(0, 120) }); setText(null); };
+  return (
+    <div className="drawing-bar" role="toolbar" aria-label="Selected drawing"
+      onPointerDown={(event) => event.stopPropagation()} onPointerMove={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
+      {drawing.kind !== "long" && drawing.kind !== "short" && drawing.kind !== "range" ? (
+        <span className="drawing-swatches">
+          {DRAWING_COLORS.map((color) => (
+            <button key={color} type="button" aria-label={`Colour ${color}`} aria-pressed={(drawing.color ?? DEFAULT_DRAWING_COLOR) === color}
+              style={{ background: color }} onClick={() => onChange({ ...drawing, color })} />
+          ))}
+        </span>
+      ) : null}
+      {drawing.kind !== "long" && drawing.kind !== "short" && drawing.kind !== "range" ? (
+        <span className="seg" role="group" aria-label={drawing.kind === "text" ? "Size" : "Width"}>
+          {([1, 2, 3] as const).map((width) => (
+            <button key={width} type="button" aria-pressed={(drawing.width ?? 1) === width} onClick={() => onChange({ ...drawing, width })}
+              title={drawing.kind === "text" ? ["Small", "Medium", "Large"][width - 1] : `${width} px`}>
+              {drawing.kind === "text" ? ["S", "M", "L"][width - 1] : <i className="drawing-weight" style={{ height: STROKES[width] }} />}
+            </button>
+          ))}
+        </span>
+      ) : null}
+      {lines ? (
+        <span className="seg" role="group" aria-label="Line">
+          {(["solid", "dashed", "dotted"] as const).map((style) => (
+            <button key={style} type="button" aria-pressed={(drawing.style ?? "solid") === style} title={style[0].toUpperCase() + style.slice(1)} onClick={() => onChange({ ...drawing, style })}>
+              {style === "solid" ? "──" : style === "dashed" ? "╌╌" : "┈┈"}
+            </button>
+          ))}
+        </span>
+      ) : null}
+      {drawing.kind === "text" ? (
+        <input
+          className="drawing-text-field" value={text ?? drawing.text ?? ""} maxLength={120} aria-label="Note"
+          // The note the reader has just placed: they will want to write it.
+          // eslint-disable-next-line jsx-a11y/no-autofocus
+          autoFocus={focusText}
+          onFocus={(event) => event.currentTarget.select()}
+          onChange={(event) => setText(event.target.value)} onBlur={commitText}
+          onKeyDown={(event) => { if (event.key === "Enter") { commitText(); event.currentTarget.blur(); } if (event.key === "Escape") { setText(null); event.currentTarget.blur(); } }}
+        />
+      ) : null}
+      <button type="button" aria-pressed={drawing.locked === true} title={drawing.locked ? "Unlock" : "Lock in place"} onClick={() => onChange({ ...drawing, locked: !drawing.locked })}>
+        {drawing.locked ? "Unlock" : "Lock"}
+      </button>
+      <button type="button" title="Duplicate" onClick={onClone}>Copy</button>
+      <button type="button" className="drawing-delete" title="Delete · Del" onClick={onDelete}>Delete</button>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { distanceToSegment, drawingAt, indexOfTime, readDrawings, timeOfIndex, type Drawing } from "@/lib/term/drawings";
+import { distanceToSegment, drawingAt, indexOfTime, positionFigures, readDrawings, timeOfIndex, withHandle, type Drawing } from "@/lib/term/drawings";
 
 const DAY = 86_400;
 const days = [0, 1, 2, 3, 6].map((day) => day * DAY); // a weekend between the fourth and fifth
@@ -54,5 +54,26 @@ describe("stored drawings", () => {
     });
     expect(readDrawings(stored)).toEqual({ AAPL: [{ id: "1", kind: "hline", a: { t: 1, p: 2 }, b: { t: 1, p: 2 } }] });
     expect(readDrawings("{")).toEqual({});
+  });
+});
+
+describe("drawing tools", () => {
+  const screen = (anchor: { t: number; p: number }) => ({ x: anchor.t, y: anchor.p });
+  it("hits rays beyond their second point, vertical lines and positions", () => {
+    const at = drawingAt;
+    const read = readDrawings;
+    const drawings: Drawing[] = [
+      { id: "ray", kind: "ray", a: { t: 0, p: 0 }, b: { t: 10, p: 10 } },
+      { id: "v", kind: "vline", a: { t: 500, p: 0 }, b: { t: 500, p: 0 } },
+      { id: "long", kind: "long", a: { t: 700, p: 100 }, b: { t: 800, p: 150 }, c: { t: 700, p: 75 } },
+    ];
+    expect(at(drawings, { x: 300, y: 300 }, screen, 5, { width: 1000, height: 1000 })?.id).toBe("ray");
+    expect(at(drawings, { x: 502, y: 900 }, screen, 5)?.id).toBe("v");
+    expect(at(drawings, { x: 750, y: 80 }, screen, 5)?.id).toBe("long");
+    const moved = withHandle(drawings[2], "c", { t: 790, p: 90 });
+    expect(moved.c).toEqual({ t: 700, p: 90 });
+    expect(positionFigures(drawings[2]).ratio).toBe(2);
+    expect(Object.keys(read(JSON.stringify({ X: drawings })))).toEqual(["X"]);
+    expect(read(JSON.stringify({ X: [{ id: "bad", kind: "laser", a: { t: 1, p: 1 }, b: { t: 1, p: 1 } }] }))).toEqual({});
   });
 });

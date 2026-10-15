@@ -2042,7 +2042,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-plot[data-tool] { cursor: crosshair; touch-action: none; }
 .candle-plot[data-tool="erase"] { cursor: pointer; }
 
-.candle-pane { display: grid; grid-template-columns: minmax(0, 1fr) 64px; height: 92px; border-bottom: 1px solid var(--line); }
+.candle-pane { display: grid; grid-template-columns: minmax(0, 1fr) 64px; grid-template-rows: minmax(0, 1fr); height: 92px; border-bottom: 1px solid var(--line); }
 .candle-pane-plot { position: relative; min-width: 0; }
 .candle-pane-plot svg { display: block; width: 100%; height: 100%; }
 .candle-pane-name {
@@ -2676,3 +2676,47 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .acct-head-actions .acct-badge { height: 28px; border-radius: var(--radius); }
 
 .acct-muted { color: var(--ink-3); }
+
+/* Charts that move (components/io/CandleChart.tsx): free pan and zoom, stretchable axes, drawings that can be selected and edited. */
+.candle-body { position: relative; }
+.candle-plot[data-zoomable] svg, .candle-pane-plot svg { overflow: hidden; }
+.candle-price-axis[data-movable] { cursor: ns-resize; touch-action: none; user-select: none; }
+.candle-dates[data-movable] { cursor: ew-resize; touch-action: none; user-select: none; }
+.candle-nav { position: absolute; left: 50%; bottom: 10px; z-index: 4; display: flex; gap: 2px; transform: translateX(-50%); opacity: 0; transition: opacity .15s; }
+.candle-plot:hover .candle-nav, .candle-nav:focus-within { opacity: 1; }
+.candle-nav button, .candle-latest, .candle-auto {
+  min-width: 24px; height: 22px; padding: 0 6px; font: inherit; font-family: var(--mono); font-size: 12px; line-height: 1;
+  color: var(--ink); background: color-mix(in srgb, var(--bg, #0d1012) 86%, transparent); border: 1px solid var(--line-strong); border-radius: 3px; cursor: pointer;
+}
+.candle-nav button:hover, .candle-latest:hover, .candle-auto:hover { border-color: var(--ink-3); }
+.candle-latest { position: absolute; right: 10px; bottom: 10px; z-index: 4; }
+.candle-auto { position: absolute; right: 2px; bottom: 2px; z-index: 3; height: 18px; min-width: 0; padding: 0 5px; font-size: 9px; letter-spacing: .08em; }
+.drawing-fill { fill-opacity: .07; stroke: none; }
+.drawing-mid { stroke-dasharray: 3 4; stroke-opacity: .55; stroke-width: 1; }
+.drawing-position { fill-opacity: .17; stroke: none; }
+.study-notes .drawing-handle {
+  width: 9px; height: 9px; padding: 0; transform: translate(-50%, -50%);
+  background: var(--bg, #0d1012); border: 1.5px solid var(--draw, #4c8dff); border-radius: 50%;
+}
+.study-notes .drawing-label {
+  transform: translate(-50%, 4px); padding: 2px 5px; border-radius: 2px; white-space: nowrap;
+  color: var(--ink); background: color-mix(in srgb, var(--bg, #0d1012) 82%, transparent);
+}
+.study-notes .drawing-label-left { transform: none; margin-left: 2px; }
+.study-notes .drawing-label[data-tone="good"] { color: var(--gain); }
+.study-notes .drawing-label[data-tone="bad"] { color: var(--loss); }
+.study-notes .drawing-text { transform: translateY(-100%); font-family: var(--sans, inherit); font-weight: 600; white-space: pre; text-shadow: 0 0 3px var(--bg, #0d1012); }
+.drawing-bar {
+  position: absolute; top: 6px; left: 50%; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: calc(100% - 12px);
+  padding: 4px 6px; transform: translateX(-50%); font-size: var(--fs-micro, 10px);
+  background: color-mix(in srgb, var(--bg, #0d1012) 94%, transparent); border: 1px solid var(--line-strong); border-radius: 3px; cursor: default;
+}
+.drawing-bar > button { height: 22px; padding: 0 7px; font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line-strong); border-radius: 2px; cursor: pointer; }
+.drawing-bar > button[aria-pressed="true"] { color: var(--inverse, #000); background: var(--ink); }
+.drawing-bar .drawing-delete { color: var(--loss); }
+.drawing-bar .seg button { height: 22px; min-width: 24px; font-size: 11px; }
+.drawing-swatches { display: flex; gap: 3px; }
+.drawing-swatches button { width: 14px; height: 14px; padding: 0; border: 1px solid rgba(255, 255, 255, .25); border-radius: 50%; cursor: pointer; }
+.drawing-swatches button[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: 1px; }
+.drawing-weight { display: block; width: 14px; background: currentColor; }
+.drawing-text-field { width: 160px; height: 22px; padding: 0 6px; font: inherit; color: var(--ink); background: var(--panel-input, #000); border: 1px solid var(--line-strong); }

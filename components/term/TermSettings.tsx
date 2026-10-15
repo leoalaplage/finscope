@@ -24,7 +24,7 @@ const KEPT: Kept[] = [
   { name: "Alerts", what: "Your alert rules (ALRT) and what has been read.", keys: [RULES_KEY, "finscope.io.alerts-seen.v1", "finscope.io.alerts-notify.v1"] },
   { name: "Saved screens", what: "Screens saved on SCRN.", keys: ["finscope.free-screener.v1"] },
   { name: "Chart workspace", what: "Charts, intervals, studies and named layouts on CHART.", keys: ["finscope.term.workspace.v1", "finscope.chart.studies"] },
-  { name: "Drawings", what: "Trend lines, levels, zones and retracements drawn on each symbol.", keys: ["finscope.term.drawings.v1"] },
+  { name: "Drawings", what: "Lines, levels, channels, zones, retracements, positions and notes drawn on each symbol.", keys: ["finscope.term.drawings.v1"] },
   { name: "Scanner and backtests", what: "The last rules on SCAN and BT.", keys: ["finscope.term.scan.v1", "finscope.term.backtest.v1"] },
   { name: "Preferences", what: "The choices on this page, the chart styles and the last company opened.", keys: ["finscope.term.prefs.v1", "finscope.term.price.style", "finscope.term.market.style", "finscope.lastCompany"] },
 ];
