@@ -15,6 +15,7 @@ import {
 } from "@/lib/term/drawings";
 import { paramsOf, studyName, type StudyParams } from "@/lib/io/study-params";
 import { useChartEvents } from "./chart-events";
+import { publishCross, releaseCross, useSharedCross } from "./crosshair-sync";
 import { clampViewport, panBy, rightMargin, shiftRange, stretchRange, ticksFor, windowOf, zoomAround, type Viewport } from "@/lib/io/chart-view";
 import {
   averageTrueRange, fairValueGaps, fibonacci, marketStructure, PIVOT_SPAN, pivots, priceOnLine,
@@ -187,7 +188,7 @@ function watermarkOf(symbol: string, name?: string | null): string {
 export function CandleChart({
   candles, interval, loading, error, label, studies = NO_STUDIES, compact = false,
   drawings, tool = "cursor", onDrawingsChange, onToolDone, magnet = false, zoomable = false, movable = zoomable,
-  logScale = false, compare, benchmark, openOn, ohlc = true, params,
+  logScale = false, compare, benchmark, openOn, ohlc = true, params, crosshairGroup,
 }: {
   candles: Candles | null;
   interval: CandleInterval;
@@ -235,8 +236,11 @@ export function CandleChart({
   ohlc?: boolean;
   /** The reader's settings for the studies (lib/io/study-params.ts); the defaults where absent. */
   params?: StudyParams;
+  /** Charts of the same group show each other's crosshair, at the same time. */
+  crosshairGroup?: string;
 }) {
-  const clipId = `candle-clip-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const selfId = useId();
+  const clipId = `candle-clip-${selfId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   /* How wide the plot is, so a phone shows fewer, wider candles. */
   const plotRef = useRef<HTMLDivElement>(null);
@@ -532,7 +536,18 @@ export function CandleChart({
     setPointer(fx >= 0 && fx <= 1 && y >= 0 && y <= 1 ? { fx, y } : null);
   };
   const pointed = pointer && view ? Math.floor(view.left + pointer.fx * view.span) - view.from : null;
-  const hover = pointed != null && view && pointed >= 0 && pointed < view.count ? pointed : null;
+  const own = pointed != null && view && pointed >= 0 && pointed < view.count ? pointed : null;
+  /* The crosshair of a linked chart: this one marks the candle that holds the same time. */
+  const shared = useSharedCross(crosshairGroup, selfId);
+  const sharedIndex = !pointer && shared && view && candles ? Math.floor(indexOfTime(candles.t, shared.t) + 1e-6) - view.from : null;
+  const hover = own ?? (sharedIndex != null && sharedIndex >= 0 && sharedIndex < (view?.count ?? 0) ? sharedIndex : null);
+  const ownTime = own != null && view ? view.t[own] : null;
+  useEffect(() => {
+    if (!crosshairGroup) return;
+    if (ownTime != null) publishCross({ group: crosshairGroup, source: selfId, t: ownTime });
+    else releaseCross(selfId);
+  }, [crosshairGroup, ownTime, selfId]);
+  useEffect(() => () => releaseCross(selfId), [selfId]);
   const pointerPrice = pointer && view ? view.priceAt(pointer.y) : null;
 
   /*
@@ -893,6 +908,8 @@ export function CandleChart({
                 <line className="candle-cursor" x1={hover != null ? view.x(hover) : pointer.fx * W} x2={hover != null ? view.x(hover) : pointer.fx * W} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
                 <line className="candle-cursor" x1={0} x2={W} y1={pointer.y * H} y2={pointer.y * H} vectorEffect="non-scaling-stroke" />
               </>
+            ) : hover != null ? (
+              <line className="candle-cursor" x1={view.x(hover)} x2={view.x(hover)} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
             ) : null}
             <defs><clipPath id={clipId}><rect x={0} y={0} width={W} height={H} /></clipPath></defs>
             <line className="candle-last" x1={0} x2={W} y1={view.y(view.lastClose)} y2={view.y(view.lastClose)} vectorEffect="non-scaling-stroke" />

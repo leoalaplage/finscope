@@ -27,7 +27,10 @@ export interface ChartCell {
 }
 
 export const COMPARE_LIMIT = 3;
-export interface Workspace { layout: Layout; cells: ChartCell[]; active: number }
+/** What the charts of a layout share: a symbol typed in one, an interval picked in one, the crosshair. */
+export interface Links { symbol: boolean; interval: boolean; crosshair: boolean }
+export const DEFAULT_LINKS: Links = { symbol: false, interval: false, crosshair: true };
+export interface Workspace { layout: Layout; cells: ChartCell[]; active: number; links: Links }
 export interface SavedLayout { name: string; workspace: Workspace }
 export interface WorkspaceStore { current: Workspace; saved: SavedLayout[] }
 
@@ -44,7 +47,7 @@ export function defaultCell(symbol: string): ChartCell {
 
 export function defaultWorkspace(first?: string | null): Workspace {
   const symbols = first ? [first, ...DEFAULT_SYMBOLS.filter((symbol) => symbol !== first)] : DEFAULT_SYMBOLS;
-  return { layout: 1, cells: symbols.slice(0, CELL_COUNT).map(defaultCell), active: 0 };
+  return { layout: 1, cells: symbols.slice(0, CELL_COUNT).map(defaultCell), active: 0, links: DEFAULT_LINKS };
 }
 
 function cleanCell(value: unknown, fallback: ChartCell): ChartCell {
@@ -68,7 +71,11 @@ export function cleanWorkspace(value: unknown): Workspace {
   const layout = LAYOUTS.includes(raw.layout as Layout) ? raw.layout as Layout : fallback.layout;
   const cells = fallback.cells.map((cell, index) => cleanCell(Array.isArray(raw.cells) ? raw.cells[index] : null, cell));
   const active = Number.isInteger(raw.active) && raw.active! >= 0 && raw.active! < layout ? raw.active! : 0;
-  return { layout, cells, active };
+  const stored = (typeof raw.links === "object" && raw.links != null ? raw.links : {}) as Partial<Links>;
+  const links: Links = {
+    symbol: stored.symbol === true, interval: stored.interval === true, crosshair: stored.crosshair !== false,
+  };
+  return { layout, cells, active, links };
 }
 
 export function readWorkspaceStore(text: string | null): WorkspaceStore {
@@ -99,5 +106,22 @@ export function withSymbol(workspace: Workspace, symbol: string): Workspace {
   const upper = symbol.toUpperCase();
   if (!SYMBOL.test(upper)) return workspace;
   const cells = workspace.cells.map((cell, index) => (index === workspace.active ? { ...cell, symbol: upper } : cell));
+  return { ...workspace, cells };
+}
+
+/**
+ * A chart changed, and the charts linked to it with it: with the symbol
+ * linked, a symbol typed in one goes to every chart; with the interval
+ * linked, an interval picked in one does too.
+ */
+export function withCell(workspace: Workspace, index: number, cell: ChartCell): Workspace {
+  const before = workspace.cells[index];
+  const cells = workspace.cells.map((item, at) => {
+    if (at === index) return cell;
+    let next = item;
+    if (workspace.links.symbol && before && cell.symbol !== before.symbol) next = { ...next, symbol: cell.symbol, compare: next.compare.filter((symbol) => symbol !== cell.symbol) };
+    if (workspace.links.interval && before && cell.interval !== before.interval) next = { ...next, interval: cell.interval };
+    return next;
+  });
   return { ...workspace, cells };
 }

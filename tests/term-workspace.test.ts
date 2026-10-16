@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanWorkspace, defaultWorkspace, readWorkspaceStore, saveLayout, withSymbol } from "@/lib/term/workspace";
+import { cleanWorkspace, defaultWorkspace, readWorkspaceStore, saveLayout, withCell, withSymbol } from "@/lib/term/workspace";
 import { parseCommand, hrefFor } from "@/lib/term/command";
 
 describe("the chart workspace", () => {
@@ -50,5 +50,16 @@ describe("opening the chart workspace from the command line", () => {
     expect(hrefFor(parseCommand("backtest"))).toBe("/t/backtest");
     expect(hrefFor(parseCommand("set"))).toBe("/t/settings");
     expect(hrefFor(parseCommand("ECAL"))).toBe("/t/ecal");
+  });
+});
+
+describe("linked charts", () => {
+  it("sends a symbol or an interval to every chart only when linked", () => {
+    const base = { ...defaultWorkspace(), layout: 4 as const };
+    const typed = { ...base.cells[0], symbol: "TSLA" };
+    expect(withCell(base, 0, typed).cells.map((cell) => cell.symbol)).toEqual(["TSLA", "NVDA", "MSFT", "^GSPC"]);
+    const linked = { ...base, links: { symbol: true, interval: true, crosshair: true } };
+    expect(withCell(linked, 0, typed).cells.map((cell) => cell.symbol)).toEqual(["TSLA", "TSLA", "TSLA", "TSLA"]);
+    expect(withCell(linked, 2, { ...base.cells[2], interval: "1wk" }).cells.map((cell) => cell.interval)).toEqual(["1wk", "1wk", "1wk", "1wk"]);
   });
 });

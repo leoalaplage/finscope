@@ -11,7 +11,7 @@ import { TOOL_GROUPS, TOOLS, type Drawing, type Tool } from "@/lib/term/drawings
 import { ToolIcon } from "./ToolIcon";
 import { redoDrawings, setSymbolDrawings, undoDrawings, useDrawingStore } from "@/components/io/drawings-store";
 import {
-  COMPARE_LIMIT, LAYOUTS, readWorkspaceStore, saveLayout, withSymbol, type ChartCell, type Layout, type WorkspaceStore,
+  COMPARE_LIMIT, LAYOUTS, readWorkspaceStore, saveLayout, withCell, withSymbol, type ChartCell, type Layout, type Links, type WorkspaceStore,
 } from "@/lib/term/workspace";
 
 const COMPARE_COLORS = ["#22d3ee", "#f472b6", "#a3e635"];
@@ -123,8 +123,9 @@ function ParamField({ label, value, min, max, step, onValue }: {
 }
 
 function ChartCellView({
-  cell, index, active, tool, magnet, compact, drawings, onFocus, onChange, onDrawings, onToolDone,
+  cell, index, active, tool, magnet, compact, drawings, onFocus, onChange, onDrawings, onToolDone, crosshairGroup,
 }: {
+  crosshairGroup: string | undefined;
   cell: ChartCell;
   index: number;
   active: boolean;
@@ -201,7 +202,7 @@ function ChartCellView({
         candles={candles} interval={cell.interval} loading={loading} error={error} studies={studies} compact={compact}
         label={`${cell.symbol}, ${INTERVAL_TITLES[cell.interval].toLowerCase()} candles`}
         drawings={drawings} tool={tool} onDrawingsChange={onDrawings} onToolDone={onToolDone} magnet={magnet}
-        params={cell.params} zoomable logScale={cell.log} compare={compared} benchmark={market?.candles ?? null}
+        params={cell.params} crosshairGroup={crosshairGroup} zoomable logScale={cell.log} compare={compared} benchmark={market?.candles ?? null}
       />
     </section>
   );
@@ -219,7 +220,8 @@ export function ChartWorkspace() {
   const workspace = store.current;
   const commit = (next: WorkspaceStore) => writeKey(STORE_KEY, next);
   const update = (change: Partial<typeof workspace>) => commit({ ...store, current: { ...workspace, ...change } });
-  const setCell = (index: number, cell: ChartCell) => update({ cells: workspace.cells.map((item, at) => (at === index ? cell : item)) });
+  const setCell = (index: number, cell: ChartCell) => commit({ ...store, current: withCell(workspace, index, cell) });
+  const toggleLink = (key: keyof Links) => update({ links: { ...workspace.links, [key]: !workspace.links[key] } });
   const activeCell = workspace.cells[workspace.active] ?? workspace.cells[0];
 
   /*
@@ -286,6 +288,13 @@ export function ChartWorkspace() {
             </button>
           ))}
         </div>
+        {workspace.layout > 1 ? (
+          <div className="seg t-links" role="group" aria-label="Link the charts">
+            <button type="button" aria-pressed={workspace.links.symbol} title="A symbol typed in one chart goes to every chart" onClick={() => toggleLink("symbol")}>Symbol</button>
+            <button type="button" aria-pressed={workspace.links.interval} title="An interval picked in one chart goes to every chart" onClick={() => toggleLink("interval")}>Interval</button>
+            <button type="button" aria-pressed={workspace.links.crosshair} title="The crosshair of one chart shows on the others" onClick={() => toggleLink("crosshair")}>Crosshair</button>
+          </div>
+        ) : null}
         <div className="t-tools" role="group" aria-label="Drawing tools">
           {TOOL_GROUPS.map((group) => (
             <div key={group.name} className="seg" role="group" aria-label={group.name}>
@@ -369,6 +378,7 @@ export function ChartWorkspace() {
               compact={workspace.layout === 4}
               drawings={hidden ? [] : drawn[cell.symbol] ?? []}
               onToolDone={() => setTool("cursor")}
+              crosshairGroup={workspace.layout > 1 && workspace.links.crosshair ? "workspace" : undefined}
               onFocus={() => { if (index !== workspace.active) update({ active: index }); }}
               onChange={(next) => setCell(index, next)}
               onDrawings={hidden ? undefined : (next) => setDrawings(cell.symbol, next)}
