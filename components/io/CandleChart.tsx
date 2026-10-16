@@ -10,7 +10,7 @@ import {
 } from "@/lib/io/indicators-extra";
 import { CHART_PATTERN_NAMES, chartPatterns } from "@/lib/io/chart-patterns";
 import {
-  channelOffset, DEFAULT_DRAWING_COLOR, DRAWING_COLORS, DRAWN_FIB_RATIOS, drawingAt, handleAnchor, handlesOf, indexOfTime, lineReach, mapAnchors,
+  anchoredVwap, channelOffset, DEFAULT_DRAWING_COLOR, FIB_EXTENSION_RATIOS, pitchforkLines, regressionOver, THREE_POINTS, DRAWING_COLORS, DRAWN_FIB_RATIOS, drawingAt, handleAnchor, handlesOf, indexOfTime, lineReach, mapAnchors,
   ONE_CLICK, positionAround, positionFigures, timeOfIndex, withHandle, type Anchor, type Drawing, type HandleKey, type LineStyle, type Tool,
 } from "@/lib/term/drawings";
 import { paramsOf, studyName, type StudyParams } from "@/lib/io/study-params";
@@ -589,7 +589,9 @@ export function CandleChart({
   const [selected, setSelected] = useState<string | null>(null);
   const [fresh, setFresh] = useState<string | null>(null);
   const [live, setLive] = useState<Drawing | null>(null);
-  const [drafted, setDraft] = useState<(Drawing & { follow?: boolean }) | null>(null);
+  /** A drawing being made: `follow` while a click waits for the next point, `third` while a three-point drawing waits for its last. */
+  type Draft = Drawing & { follow?: boolean; third?: boolean };
+  const [drafted, setDraft] = useState<Draft | null>(null);
   // A drawing begun with another tool is dropped when the tool changes.
   const draft = drafted && drafted.kind === tool ? drafted : null;
   type Gesture =
@@ -619,7 +621,41 @@ export function CandleChart({
   };
   const shown = [...list.map((item) => (live && item.id === live.id ? live : item)), ...(draft ? [draft] : [])];
   const chosen = selected ? shown.find((item) => item.id === selected) ?? null : null;
-  const hitAt = (px: number, py: number, box: Box) => drawingAt(list, { x: px, y: py }, (anchor) => toPixels(anchor, box), 7, box);
+  /*
+   * The drawings worked out from the candles rather than from their points
+   * alone: an anchored VWAP's line, a regression channel's three lines.
+   */
+  const derivedOf = (item: Drawing): { line?: Anchor[]; regression?: { mid: [Anchor, Anchor]; up: [Anchor, Anchor]; low: [Anchor, Anchor] } } => {
+    if (!candles) return {};
+    if (item.kind === "avwap") return { line: anchoredVwap(candles, item.a.t) };
+    if (item.kind === "regression") {
+      const found = regressionOver(candles, item.a.t, item.b.t);
+      if (!found) return {};
+      const band = found.deviation * 2;
+      return {
+        regression: {
+          mid: [found.a, found.b],
+          up: [{ t: found.a.t, p: found.a.p + band }, { t: found.b.t, p: found.b.p + band }],
+          low: [{ t: found.a.t, p: found.a.p - band }, { t: found.b.t, p: found.b.p - band }],
+        },
+      };
+    }
+    return {};
+  };
+  /** What the pointer is tested against: a derived drawing by the lines it shows. */
+  const hitShape = (item: Drawing): Drawing => {
+    const derived = derivedOf(item);
+    if (derived.line) return { ...item, points: derived.line };
+    if (derived.regression) {
+      const { up, low } = derived.regression;
+      return { ...item, points: [up[0], up[1], low[1], low[0], up[0]] };
+    }
+    return item;
+  };
+  const hitAt = (px: number, py: number, box: Box) => {
+    const hit = drawingAt(list.map(hitShape), { x: px, y: py }, (anchor) => toPixels(anchor, box), 7, box);
+    return hit ? list.find((item) => item.id === hit.id) ?? null : null;
+  };
 
   const keep = (made: Drawing) => {
     onDrawingsChange?.([...list, made]);
@@ -630,9 +666,15 @@ export function CandleChart({
   };
   const replace = (next: Drawing) => onDrawingsChange?.(list.map((item) => (item.id === next.id ? next : item)));
   const remove = (id: string) => { onDrawingsChange?.(list.filter((item) => item.id !== id)); setSelected(null); };
-  const finish = (drafted: Drawing & { follow?: boolean }, box: Box) => {
+  const finish = (drafted: Draft, box: Box) => {
     const made: Drawing = { ...drafted };
-    delete (made as { follow?: boolean }).follow;
+    delete (made as Draft).follow;
+    delete (made as Draft).third;
+    // A pitchfork or an extension has a third point still to come: it follows the pointer until the next click.
+    if (THREE_POINTS.has(made.kind) && !drafted.third) {
+      setDraft({ ...made, c: made.b, follow: true, third: true });
+      return;
+    }
     if (made.kind === "channel") {
       // The parallel opens a little under the base line; its handle sets the width.
       const a = toPixels(made.a, box);
@@ -650,7 +692,8 @@ export function CandleChart({
     const px = event.clientX - rect.left;
     const py = event.clientY - rect.top;
     if (draft?.follow) {
-      finish({ ...draft, follow: undefined, b: anchorAt(px, py, box, magnet) } as Drawing, box);
+      const anchor = anchorAt(px, py, box, magnet);
+      finish(draft.third ? { ...draft, c: anchor } : { ...draft, b: anchor }, box);
       return;
     }
     if (drawingTool) {
@@ -714,7 +757,10 @@ export function CandleChart({
     const py = event.clientY - rect.top;
     const held = gesture.current;
     if (!held) {
-      if (draft?.follow) setDraft({ ...draft, b: anchorAt(px, py, box, magnet) });
+      if (draft?.follow) {
+        const anchor = anchorAt(px, py, box, magnet);
+        setDraft(draft.third ? { ...draft, c: anchor } : { ...draft, b: anchor });
+      }
       return;
     }
     if (held.kind === "pan") {
@@ -1133,7 +1179,11 @@ export function CandleChart({
                   <DrawingMark
                     key={item.id + (item === draft ? "-draft" : "")} item={item} chosen={item.id === selected}
                     a={screenOf(item.a)} b={screenOf(item.b)} c={item.c ? screenOf(item.c) : null}
-                    points={item.points?.map(screenOf) ?? null} sx={sx} sy={sy}
+                    points={(derivedOf(item).line ?? item.points)?.map(screenOf) ?? null} sx={sx} sy={sy}
+                    regression={(() => {
+                      const found = derivedOf(item).regression;
+                      return found ? { mid: found.mid.map(screenOf), up: found.up.map(screenOf), low: found.low.map(screenOf) } as RegressionSpots : null;
+                    })()}
                   />
                 ))}
               </g>
@@ -1200,6 +1250,7 @@ export function CandleChart({
             {shown.map((item) => (
               <DrawingNotes
                 key={`notes-${item.id}`} item={item} a={screenOf(item.a)} b={screenOf(item.b)} c={item.c ? screenOf(item.c) : null}
+                last={(() => { const line = derivedOf(item).line; return line?.length ? { at: screenOf(line[line.length - 1]), p: line[line.length - 1].p } : null; })()}
                 bars={Math.round(indexOfTime(times, item.b.t) - indexOfTime(times, item.a.t))} noteAt={noteAt} noteSide={noteSide}
               />
             ))}
@@ -1280,7 +1331,7 @@ export function CandleChart({
             ) : null}
             {shown.flatMap((item) => {
               const prices = item.kind === "hline" || item.kind === "hray" ? [item.a.p]
-                : item.id === selected && item.kind !== "vline" && item.kind !== "text" && item.kind !== "brush"
+                : item.id === selected && !["vline", "text", "brush", "avwap", "regression"].includes(item.kind)
                   ? [item.a.p, item.b.p, ...(item.c ? [item.c.p] : [])] : [];
               return prices.filter((value) => view.y(value) >= 0 && view.y(value) <= H).map((value, index) => (
                 <span key={`tag-${item.id}-${index}`} className="candle-tag drawing-tag" style={{ top: `${(view.y(value) / H) * 100}%`, background: item.color ?? DEFAULT_DRAWING_COLOR }}>{price(value)}</span>
@@ -1636,8 +1687,10 @@ function strokeOf(item: Drawing): React.CSSProperties {
  * their shape on any screen — an arrow's head — are worked out in pixels
  * (`sx`, `sy`: units per pixel) and brought back.
  */
-function DrawingMark({ item, chosen, a, b, c, points, sx, sy }: {
-  item: Drawing; chosen: boolean; a: Spot; b: Spot; c: Spot | null; points: Spot[] | null; sx: number; sy: number;
+type RegressionSpots = { mid: [Spot, Spot]; up: [Spot, Spot]; low: [Spot, Spot] };
+
+function DrawingMark({ item, chosen, a, b, c, points, regression, sx, sy }: {
+  item: Drawing; chosen: boolean; a: Spot; b: Spot; c: Spot | null; points: Spot[] | null; regression: RegressionSpots | null; sx: number; sy: number;
 }) {
   const stroke = strokeOf(item);
   const color = item.color ?? DEFAULT_DRAWING_COLOR;
@@ -1726,6 +1779,40 @@ function DrawingMark({ item, chosen, a, b, c, points, sx, sy }: {
           })}
         </g>
       );
+    case "pitchfork": {
+      const [median, upper, lower] = pitchforkLines(a, b, c ?? b, (W + H) * 6);
+      return (
+        <g>
+          <polygon className="drawing-fill" points={`${upper.from.x},${upper.from.y} ${upper.to.x},${upper.to.y} ${lower.to.x},${lower.to.y} ${lower.from.x},${lower.from.y}`} style={{ fill: color }} />
+          <line className={className} style={stroke} x1={median.from.x} x2={median.to.x} y1={median.from.y} y2={median.to.y} {...common} />
+          <line className={className} style={stroke} x1={upper.from.x} x2={upper.to.x} y1={upper.from.y} y2={upper.to.y} {...common} />
+          <line className={className} style={stroke} x1={lower.from.x} x2={lower.to.x} y1={lower.from.y} y2={lower.to.y} {...common} />
+          <line className="drawing drawing-mid" style={{ stroke: color }} x1={b.x} x2={(c ?? b).x} y1={b.y} y2={(c ?? b).y} {...common} />
+        </g>
+      );
+    }
+    case "fibext": {
+      const end = c ?? b;
+      return (
+        <g>
+          <path className="drawing drawing-swing" style={{ stroke: color }} d={`M${a.x} ${a.y}L${b.x} ${b.y}L${end.x} ${end.y}`} {...common} />
+          {FIB_EXTENSION_RATIOS.map((ratio) => {
+            const y = end.y + (b.y - a.y) * ratio;
+            return <line key={ratio} className="drawing drawing-fib" style={{ ...stroke, strokeDasharray: undefined }} x1={end.x} x2={W} y1={y} y2={y} {...common} />;
+          })}
+        </g>
+      );
+    }
+    case "regression":
+      return regression ? (
+        <g>
+          <polygon className="drawing-fill" points={`${regression.up[0].x},${regression.up[0].y} ${regression.up[1].x},${regression.up[1].y} ${regression.low[1].x},${regression.low[1].y} ${regression.low[0].x},${regression.low[0].y}`} style={{ fill: color }} />
+          <line className={className} style={stroke} x1={regression.mid[0].x} x2={regression.mid[1].x} y1={regression.mid[0].y} y2={regression.mid[1].y} {...common} />
+          <line className="drawing drawing-mid" style={{ stroke: color }} x1={regression.up[0].x} x2={regression.up[1].x} y1={regression.up[0].y} y2={regression.up[1].y} {...common} />
+          <line className="drawing drawing-mid" style={{ stroke: color }} x1={regression.low[0].x} x2={regression.low[1].x} y1={regression.low[0].y} y2={regression.low[1].y} {...common} />
+        </g>
+      ) : null;
+    case "avwap":
     case "brush":
       return points && points.length > 1 ? (
         <path className={className} style={{ ...stroke, strokeLinejoin: "round", strokeLinecap: "round" }}
@@ -1737,8 +1824,8 @@ function DrawingMark({ item, chosen, a, b, c, points, sx, sy }: {
 }
 
 /** The words a drawing carries: a retracement's levels, a range's move, a position's target, stop and ratio, a note. */
-function DrawingNotes({ item, a, b, c, bars, noteAt, noteSide }: {
-  item: Drawing; a: Spot; b: Spot; c: Spot | null; bars: number;
+function DrawingNotes({ item, a, b, c, last, bars, noteAt, noteSide }: {
+  item: Drawing; a: Spot; b: Spot; c: Spot | null; last: { at: Spot; p: number } | null; bars: number;
   noteAt: (x: number, y: number) => React.CSSProperties; noteSide: (x: number) => string | undefined;
 }) {
   const color = item.color ?? DEFAULT_DRAWING_COLOR;
@@ -1753,6 +1840,21 @@ function DrawingNotes({ item, a, b, c, bars, noteAt, noteSide }: {
         ))}
       </>
     );
+  }
+  if (item.kind === "fibext") {
+    const end = c ?? b;
+    return (
+      <>
+        {FIB_EXTENSION_RATIOS.map((ratio) => (
+          <span key={ratio} className={`drawing-note ${noteSide(end.x) ?? ""}`} style={{ ...noteAt(end.x, end.y + (b.y - a.y) * ratio), color }}>
+            {ratioText(ratio)} {price((item.c ?? item.b).p + (item.b.p - item.a.p) * ratio)}
+          </span>
+        ))}
+      </>
+    );
+  }
+  if (item.kind === "avwap" && last) {
+    return <span className="drawing-note study-note-flip" style={{ ...noteAt(last.at.x, last.at.y), color }}>AVWAP {price(last.p)}</span>;
   }
   if (item.kind === "range") {
     const change = item.b.p - item.a.p;

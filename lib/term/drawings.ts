@@ -15,11 +15,14 @@
 
 export type DrawingKind =
   | "trend" | "ray" | "extended" | "arrow" | "hline" | "hray" | "vline"
-  | "channel" | "rect" | "fib" | "long" | "short" | "range" | "text" | "brush";
+  | "channel" | "pitchfork" | "regression" | "rect" | "fib" | "fibext" | "avwap" | "long" | "short" | "range" | "text" | "brush";
 export type Tool = "cursor" | DrawingKind | "erase";
 export type LineStyle = "solid" | "dashed" | "dotted";
 
-export const DRAWING_KINDS: DrawingKind[] = ["trend", "ray", "extended", "arrow", "hline", "hray", "vline", "channel", "rect", "fib", "long", "short", "range", "text", "brush"];
+export const DRAWING_KINDS: DrawingKind[] = [
+  "trend", "ray", "extended", "arrow", "hline", "hray", "vline", "channel", "pitchfork", "regression",
+  "rect", "fib", "fibext", "avwap", "long", "short", "range", "text", "brush",
+];
 
 export interface ToolSpec { tool: Tool; key: string; title: string }
 
@@ -37,12 +40,16 @@ export const TOOL_GROUPS: { name: string; tools: ToolSpec[] }[] = [
       { tool: "hray", key: "J", title: "Horizontal ray" },
       { tool: "vline", key: "I", title: "Vertical line" },
       { tool: "channel", key: "P", title: "Parallel channel" },
+      { tool: "pitchfork", key: "K", title: "Pitchfork (Andrews)" },
+      { tool: "regression", key: "Q", title: "Regression channel" },
     ],
   },
   {
     name: "Analysis",
     tools: [
       { tool: "fib", key: "F", title: "Fibonacci retracement" },
+      { tool: "fibext", key: "D", title: "Trend-based Fibonacci extension" },
+      { tool: "avwap", key: "W", title: "Anchored VWAP" },
       { tool: "rect", key: "R", title: "Rectangle" },
       { tool: "range", key: "M", title: "Price and date range" },
       { tool: "long", key: "L", title: "Long position" },
@@ -82,7 +89,13 @@ export const DRAWING_COLORS = ["#4c8dff", "#f4e74c", "#26a69a", "#ef5350", "#ff9
 export const DEFAULT_DRAWING_COLOR = DRAWING_COLORS[0];
 
 /** Drawn with a press alone; the others are drawn by dragging, or by a click at each end. */
-export const ONE_CLICK: ReadonlySet<DrawingKind> = new Set<DrawingKind>(["hline", "hray", "vline", "text", "long", "short"]);
+export const ONE_CLICK: ReadonlySet<DrawingKind> = new Set<DrawingKind>(["hline", "hray", "vline", "text", "long", "short", "avwap"]);
+
+/** Drawn with three points: the first two by a drag or two clicks, the third by one more click. */
+export const THREE_POINTS: ReadonlySet<DrawingKind> = new Set<DrawingKind>(["pitchfork", "fibext"]);
+
+/** The levels a trend-based extension marks, from the end of the pullback. */
+export const FIB_EXTENSION_RATIOS = [0, 0.382, 0.618, 1, 1.272, 1.618, 2.618];
 
 /** The ratios a drawn retracement marks, as on the automatic one. */
 export const DRAWN_FIB_RATIOS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
@@ -238,6 +251,18 @@ function distanceTo(drawing: Drawing, point: Point, toScreen: (anchor: Anchor) =
       const width = Math.max(24, (drawing.text?.length ?? 4) * 7.5 + 8);
       return inside(point, a.x - 2, a.x + width, a.y - 16, a.y + 4, 0) ? 0 : Infinity;
     }
+    case "pitchfork": {
+      const c = drawing.c ? toScreen(drawing.c) : b;
+      const lines = pitchforkLines(a, b, c, reach);
+      return Math.min(segment(b, c), ...lines.map((line) => segment(line.from, line.to)));
+    }
+    case "fibext": {
+      const c = drawing.c ? toScreen(drawing.c) : b;
+      if (point.x < c.x - tolerance) return Infinity;
+      return Math.min(...FIB_EXTENSION_RATIOS.map((ratio) => Math.abs(point.y - (c.y + (b.y - a.y) * ratio))), segment(a, b), segment(b, c));
+    }
+    case "regression":
+    case "avwap":
     case "brush": {
       const points = (drawing.points ?? []).map(toScreen);
       let nearest = Infinity;
@@ -247,13 +272,81 @@ function distanceTo(drawing: Drawing, point: Point, toScreen: (anchor: Anchor) =
   }
 }
 
+/**
+ * Pure: an Andrews pitchfork's three lines — the median from the pivot through
+ * the middle of the two reactions, and a tine through each reaction parallel
+ * to it — run `reach` past their start.
+ */
+export function pitchforkLines(a: Point, b: Point, c: Point, reach: number): Array<{ from: Point; to: Point }> {
+  const middle = { x: (b.x + c.x) / 2, y: (b.y + c.y) / 2 };
+  const median = lineReach(a, middle, reach, false);
+  const dx = median.to.x - a.x;
+  const dy = median.to.y - a.y;
+  return [median, { from: b, to: { x: b.x + dx, y: b.y + dy } }, { from: c, to: { x: c.x + dx, y: c.y + dy } }];
+}
+
+/** The candle a time falls in: the last that opened by then. */
+function candleAt(times: number[], t: number): number {
+  if (!times.length || t < times[0]) return 0;
+  let low = 0;
+  let high = times.length - 1;
+  if (times[high] <= t) return high;
+  while (high - low > 1) {
+    const middle = (low + high) >> 1;
+    if (times[middle] <= t) low = middle; else high = middle;
+  }
+  return low;
+}
+
+/** Pure: the volume-weighted average price from the candle a time falls in to the last one, at each candle's time. */
+export function anchoredVwap(bars: { t: number[]; h: number[]; l: number[]; c: number[]; v?: number[] }, t: number): Anchor[] {
+  const start = candleAt(bars.t, t);
+  const out: Anchor[] = [];
+  let weighted = 0;
+  let volume = 0;
+  for (let index = start; index < bars.t.length; index++) {
+    const typical = (bars.h[index] + bars.l[index] + bars.c[index]) / 3;
+    const traded = bars.v?.[index] && bars.v[index] > 0 ? bars.v[index] : 1;
+    weighted += typical * traded;
+    volume += traded;
+    out.push({ t: bars.t[index], p: weighted / volume });
+  }
+  return out;
+}
+
+/**
+ * Pure: the least-squares line through the closes between two times, and how
+ * far the closes stray from it (one standard deviation); the channel is drawn
+ * two of them either side.
+ */
+export function regressionOver(bars: { t: number[]; c: number[] }, from: number, to: number): { a: Anchor; b: Anchor; deviation: number } | null {
+  const first = candleAt(bars.t, Math.min(from, to));
+  const last = candleAt(bars.t, Math.max(from, to));
+  const n = last - first + 1;
+  if (n < 2) return null;
+  let sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (let index = first; index <= last; index++) {
+    const x = index - first;
+    sx += x; sy += bars.c[index]; sxx += x * x; sxy += x * bars.c[index];
+  }
+  const slope = (n * sxy - sx * sy) / (n * sxx - sx * sx || 1);
+  const intercept = (sy - slope * sx) / n;
+  let squares = 0;
+  for (let index = first; index <= last; index++) squares += (bars.c[index] - (intercept + slope * (index - first))) ** 2;
+  return {
+    a: { t: bars.t[first], p: intercept },
+    b: { t: bars.t[last], p: intercept + slope * (n - 1) },
+    deviation: Math.sqrt(squares / n),
+  };
+}
+
 /** The points a selected drawing can be reshaped by: its anchors, where the reader sees them. */
 export type HandleKey = "a" | "b" | "c";
 export function handlesOf(drawing: Drawing): HandleKey[] {
   switch (drawing.kind) {
-    case "hline": case "hray": case "vline": case "text": return ["a"];
+    case "hline": case "hray": case "vline": case "text": case "avwap": return ["a"];
     case "brush": return [];
-    case "channel": case "long": case "short": return ["a", "b", "c"];
+    case "channel": case "long": case "short": case "pitchfork": case "fibext": return ["a", "b", "c"];
     default: return ["a", "b"];
   }
 }
@@ -271,7 +364,7 @@ export function mapAnchors(drawing: Drawing, move: (anchor: Anchor) => Anchor): 
 
 /** Pure: a drawing with one handle moved; a position's stop stays at its entry's time. */
 export function withHandle(drawing: Drawing, handle: HandleKey, anchor: Anchor): Drawing {
-  if (drawing.kind === "hline" || drawing.kind === "hray" || drawing.kind === "vline" || drawing.kind === "text") return { ...drawing, a: anchor, b: anchor };
+  if (drawing.kind === "hline" || drawing.kind === "hray" || drawing.kind === "vline" || drawing.kind === "text" || drawing.kind === "avwap") return { ...drawing, a: anchor, b: anchor };
   if ((drawing.kind === "long" || drawing.kind === "short") && handle === "a") {
     return { ...drawing, a: anchor, c: drawing.c ? { t: anchor.t, p: drawing.c.p } : drawing.c };
   }

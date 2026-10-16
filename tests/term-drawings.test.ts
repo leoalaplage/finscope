@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { distanceToSegment, drawingAt, indexOfTime, positionFigures, readDrawings, timeOfIndex, withHandle, type Drawing } from "@/lib/term/drawings";
+import { anchoredVwap, distanceToSegment, drawingAt, indexOfTime, positionFigures, readDrawings, timeOfIndex, withHandle, pitchforkLines, regressionOver, type Drawing } from "@/lib/term/drawings";
 
 const DAY = 86_400;
 const days = [0, 1, 2, 3, 6].map((day) => day * DAY); // a weekend between the fourth and fifth
@@ -75,5 +75,22 @@ describe("drawing tools", () => {
     expect(positionFigures(drawings[2]).ratio).toBe(2);
     expect(Object.keys(read(JSON.stringify({ X: drawings })))).toEqual(["X"]);
     expect(read(JSON.stringify({ X: [{ id: "bad", kind: "laser", a: { t: 1, p: 1 }, b: { t: 1, p: 1 } }] }))).toEqual({});
+  });
+});
+
+describe("drawings worked out from the candles", () => {
+  it("anchors a VWAP at the candle a time falls in, and fits a regression through the closes", () => {
+    const bars = { t: [0, 10, 20, 30], h: [11, 12, 13, 14], l: [9, 10, 11, 12], c: [10, 11, 12, 13], v: [100, 100, 100, 300] };
+    const vwap = anchoredVwap(bars, 15);
+    expect(vwap.map((point) => point.t)).toEqual([10, 20, 30]);
+    expect(vwap[0].p).toBeCloseTo(11);
+    expect(vwap[2].p).toBeCloseTo((11 * 100 + 12 * 100 + 13 * 300) / 500);
+    const fit = regressionOver(bars, 0, 30)!;
+    expect(fit.a.p).toBeCloseTo(10);
+    expect(fit.b.p).toBeCloseTo(13);
+    expect(fit.deviation).toBeCloseTo(0);
+    const [median] = pitchforkLines({ x: 0, y: 0 }, { x: 10, y: -10 }, { x: 10, y: 10 }, 100);
+    expect(median.to.y).toBeCloseTo(0);
+    expect(median.to.x).toBeCloseTo(100);
   });
 });
