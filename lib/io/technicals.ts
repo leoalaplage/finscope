@@ -395,6 +395,7 @@ export const STUDIES = [
   "fibRetracement", "fibExtension", "fvg", "trendLines", "levels", "structure", "orderBlocks", "patterns", "chartPatterns",
   "volume", "rsi", "macd", "stoch", "atr", "rs",
   "adx", "obv", "cmf", "mfi", "willr", "cci", "roc", "stochrsi", "aroon", "squeeze",
+  "earnings", "dividends",
 ] as const;
 export type Study = (typeof STUDIES)[number];
 
@@ -437,6 +438,8 @@ export const STUDY_NAMES: Record<Study, string> = {
   stochrsi: "Stochastic RSI 14 · 3 · 3",
   aroon: "Aroon 25",
   squeeze: "TTM squeeze 20",
+  earnings: "Earnings releases",
+  dividends: "Dividends",
 };
 
 /**
@@ -446,12 +449,13 @@ export const STUDY_NAMES: Record<Study, string> = {
  */
 export const STUDY_GROUPS: { name: string; studies: Study[] }[] = [
   { name: "Candles", studies: ["heikinAshi"] },
+  { name: "Company events", studies: ["earnings", "dividends"] },
   { name: "Overlays", studies: ["ema", "sma", "bollinger", "ichimoku", "vwap", "vprofile", "keltner", "donchian", "supertrend", "psar", "hma", "pivots"] },
   { name: "Auto analysis", studies: ["chartPatterns", "patterns", "fibRetracement", "fibExtension", "trendLines", "levels", "fvg", "structure", "orderBlocks"] },
   { name: "Lower panes", studies: ["volume", "rsi", "macd", "stoch", "atr", "rs", "adx", "squeeze", "stochrsi", "willr", "cci", "roc", "aroon", "obv", "cmf", "mfi"] },
 ];
 
-export const DEFAULT_STUDIES: ReadonlySet<Study> = new Set<Study>(["ema", "fibRetracement", "trendLines", "chartPatterns"]);
+export const DEFAULT_STUDIES: ReadonlySet<Study> = new Set<Study>(["ema", "fibRetracement", "trendLines", "chartPatterns", "earnings", "dividends"]);
 
 /** The studies a stored list names, in their own order; the default when nothing usable is stored. */
 export function readStudies(text: string | null): Set<Study> {

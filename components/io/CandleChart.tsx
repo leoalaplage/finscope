@@ -14,6 +14,7 @@ import {
   ONE_CLICK, positionAround, positionFigures, timeOfIndex, withHandle, type Anchor, type Drawing, type HandleKey, type LineStyle, type Tool,
 } from "@/lib/term/drawings";
 import { paramsOf, studyName, type StudyParams } from "@/lib/io/study-params";
+import { useChartEvents } from "./chart-events";
 import { clampViewport, panBy, rightMargin, shiftRange, stretchRange, ticksFor, windowOf, zoomAround, type Viewport } from "@/lib/io/chart-view";
 import {
   averageTrueRange, fairValueGaps, fibonacci, marketStructure, PIVOT_SPAN, pivots, priceOnLine,
@@ -781,6 +782,43 @@ export function CandleChart({
   const sx = size ? W / Math.max(size.width, 1) : 1;
   const sy = size ? H / Math.max(size.height, 1) : 1;
 
+  /*
+   * Earnings releases and dividends under the candles they fell in, read from
+   * the company's SEC index and its dividend history. On daily candles an
+   * earnings marker gives the move from the close before the release to the
+   * close after it, so a release before the open and one after the close read
+   * alike; a dividend gives what it paid and what that was of the price.
+   */
+  const companyEvents = useChartEvents(candles?.symbol ?? "", !compact && (studies.has("earnings") || studies.has("dividends")));
+  const markers = useMemo(() => {
+    if (!candles || !view || !companyEvents.length) return [];
+    const daily = interval === "1d";
+    const found: Array<{ key: string; kind: "earnings" | "dividend"; local: number; date: string; note: string; tone?: "good" | "bad" }> = [];
+    for (const event of companyEvents) {
+      if (event.kind === "earnings" ? !studies.has("earnings") : !studies.has("dividends")) continue;
+      const end = Date.parse(`${event.date}T23:59:59Z`) / 1000;
+      if (!Number.isFinite(end) || end < candles.t[0]) continue;
+      // The last candle that opened by the end of that day.
+      let low = 0, high = candles.t.length - 1;
+      if (candles.t[high] <= end) low = high;
+      else while (high - low > 1) { const middle = (low + high) >> 1; if (candles.t[middle] <= end) low = middle; else high = middle; }
+      const local = low - view.from;
+      if (local < 0 || local >= view.count) continue;
+      if (event.kind === "earnings") {
+        const before = daily && low > 0 ? candles.c[low - 1] : null;
+        const after = daily && low + 1 < candles.c.length ? candles.c[low + 1] : null;
+        const move = before && after ? after / before - 1 : null;
+        found.push({ key: `e-${event.date}`, kind: "earnings", local, date: event.date, note: move == null ? "Earnings release" : `Earnings release · ${percent(move)} close to close`, tone: move == null ? undefined : move >= 0 ? "good" : "bad" });
+      } else {
+        const close = candles.c[low];
+        found.push({ key: `d-${event.date}`, kind: "dividend", local, date: event.date, note: `Dividend ${price(event.amount)}${close ? ` · ${((event.amount ?? 0) / close * 100).toFixed(2)}% of the price` : ""}` });
+      }
+    }
+    return found;
+  }, [candles, view, companyEvents, studies, interval]);
+  const [markedKey, setMarked] = useState<string | null>(null);
+  const marked = markers.find((item) => item.key === markedKey) ?? null;
+
   return (
   <figure
     className="candle-chart" data-size={compact ? "compact" : undefined} aria-label={label}
@@ -1129,6 +1167,24 @@ export function CandleChart({
         ) : null}
         {loading || error || (!view && candles) ? (
           <div className="candle-state">{loading ? "Loading…" : error ?? "Not enough history to draw."}</div>
+        ) : null}
+        {view && markers.length ? (
+          <div className="candle-events">
+            {markers.map((item) => (
+              <span
+                key={item.key} className="candle-event" data-kind={item.kind} style={{ left: pct(view.x(item.local), W) }}
+                onPointerEnter={() => setMarked(item.key)} onPointerLeave={() => setMarked(null)}
+                aria-label={`${item.note}, ${item.date}`} role="img"
+              >
+                {item.kind === "earnings" ? "E" : "D"}
+              </span>
+            ))}
+            {marked ? (
+              <span className="candle-event-card" data-tone={marked.tone} style={{ left: `clamp(130px, ${pct(view.x(marked.local), W)}, calc(100% - 130px))` }}>
+                <b>{dateText(Date.parse(`${marked.date}T12:00:00Z`) / 1000, "1d")}</b> {marked.note}
+              </span>
+            ) : null}
+          </div>
         ) : null}
         {editable && chosen && !live && chosen.id !== draft?.id ? (
           <DrawingBar

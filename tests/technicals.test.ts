@@ -189,10 +189,10 @@ describe("market structure", () => {
 });
 
 describe("the reader's choice of studies", () => {
-  it("defaults to averages, retracement, trend lines and chart patterns, and trusts only names it knows", () => {
-    expect([...readStudies(null)]).toEqual(["ema", "fibRetracement", "trendLines", "chartPatterns"]);
+  it("defaults to averages, retracement, trend lines, chart patterns and company events, and trusts only names it knows", () => {
+    expect([...readStudies(null)]).toEqual(["ema", "fibRetracement", "trendLines", "chartPatterns", "earnings", "dividends"]);
     expect([...readStudies("[]")]).toEqual([]);
     expect([...readStudies('["fvg","nope","ema"]')]).toEqual(["ema", "fvg"]);
-    expect([...readStudies("{bad")]).toEqual(["ema", "fibRetracement", "trendLines", "chartPatterns"]);
+    expect([...readStudies("{bad")]).toEqual(["ema", "fibRetracement", "trendLines", "chartPatterns", "earnings", "dividends"]);
   });
 });

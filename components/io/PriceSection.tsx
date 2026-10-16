@@ -120,7 +120,7 @@ function RangePicker({ range, onRange, offered = RANGES }: { range: Range; onRan
  */
 type PriceStyle = "area" | "candles";
 const PRICE_STYLE_EVENT = "finscope:price-style";
-const CANDLE_STUDIES = new Set(["ema"] as const);
+const CANDLE_STUDIES = new Set(["ema", "earnings", "dividends"] as const);
 /**
  * The document site opens on the area and the terminal on monthly candles, so
  * each keeps its own choice: a reader's "Area" on one is not the other's.
