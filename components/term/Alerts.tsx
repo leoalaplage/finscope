@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { Alert } from "@/lib/alerts";
 import type { EconEvent } from "@/lib/econ";
 import {
-  describeRule, ECON_TOPICS, evaluate, FILING_KINDS, newRule, parseRules, quoteTickers, ruleTickers, RULES_KEY,
+  describeRule, ECON_TOPICS, evaluate, FILING_KINDS, firesOnce, newRule, parseRules, quoteTickers, ruleTickers, RULES_KEY,
   type AlertRule, type Fired, type FilingKind, type RuleType,
 } from "@/lib/alert-rules";
 import { useStoredWatchlist } from "@/components/io/watchlist";
@@ -29,7 +29,7 @@ const NOTIFY_KEY = "finscope.io.alerts-notify.v1";
 const EVENT = "finscope:alerts";
 const REFRESH_MS = 5 * 60_000;
 const KINDS: Record<Fired["kind"] | "note", string> = {
-  price: "Price", move: "Big move", econ: "Economy", note: "Your note",
+  price: "Price", move: "Big move", econ: "Economy", note: "Your note", line: "Chart line",
   results: "Results", report: "Report", leadership: "Leadership", flag: "Red flag", insider: "Insider buy", deal: "Deal",
 };
 const TYPES: Array<{ id: RuleType; label: string; hint: string }> = [
@@ -103,7 +103,7 @@ function useCaught(): { caught: Caught[]; loading: boolean; followed: string[]; 
 
   // A price alert fires once: marked as fired the first time it is seen, until the reader sets it again.
   useEffect(() => {
-    const spent = new Set(fired.filter((entry) => entry.kind === "price").map((entry) => entry.ruleId));
+    const spent = new Set(fired.filter((entry) => firesOnce(entry.kind)).map((entry) => entry.ruleId));
     if (!spent.size) return;
     const now = new Date().toISOString();
     if (rules.some((rule) => spent.has(rule.id) && (rule.firedAt == null || (rule.armedAt != null && rule.armedAt > rule.firedAt)))) {
@@ -317,18 +317,20 @@ function RuleList({ rules, onEdit, onToggle, onRearm, onDelete, onReset }: {
           <thead><tr><th className="key">On</th><th>Type</th><th>Alert</th><th>Sent to</th><th>Status</th><th aria-label="Actions" /></tr></thead>
           <tbody>
             {rules.map((rule) => {
-              const spent = rule.type === "price" && rule.firedAt != null && (!rule.armedAt || rule.armedAt <= rule.firedAt);
+              const spent = firesOnce(rule.type) && rule.firedAt != null && (!rule.armedAt || rule.armedAt <= rule.firedAt);
               return (
                 <tr key={rule.id} data-off={!rule.enabled || undefined}>
                   <td className="key"><label className="t-alrt-switch"><input type="checkbox" checked={rule.enabled} onChange={() => onToggle(rule)} aria-label={rule.enabled ? "Pause this alert" : "Turn this alert on"} /><span aria-hidden="true" /></label></td>
-                  <td>{TYPES.find((type) => type.id === rule.type)?.label}</td>
+                  <td>{TYPES.find((type) => type.id === rule.type)?.label ?? (rule.type === "line" ? "Chart line" : rule.type)}</td>
                   <td>{rule.label ? <b>{rule.label} · </b> : null}{describeRule(rule)}</td>
                   <td className="t-dim">{[rule.channels.browser ? "Terminal" : null, rule.channels.email ? "Email" : null].filter(Boolean).join(" · ") || "Nowhere"}</td>
                   <td>{!rule.enabled ? <span className="t-dim">Paused</span> : spent ? <span className="t-alrt-fired">Triggered {shortDate(rule.firedAt!.slice(0, 10))}</span> : <span className="t-dim">Watching</span>}</td>
                   <td className="t-alrt-row-actions">
                     <div>
                       {spent ? <button type="button" className="t-chip" onClick={() => onRearm(rule)}>Set again</button> : null}
-                      <button type="button" className="t-chip" onClick={() => onEdit(rule)}>Edit</button>
+                      {rule.type === "line" && rule.ticker
+                        ? <a className="t-chip" href={`/t/chart?s=${encodeURIComponent(rule.ticker)}`}>Chart</a>
+                        : <button type="button" className="t-chip" onClick={() => onEdit(rule)}>Edit</button>}
                       <button type="button" className="t-chip t-alrt-delete" onClick={() => onDelete(rule)}>Delete</button>
                     </div>
                   </td>

@@ -11,7 +11,15 @@ import type { EconEvent } from "./econ";
  * Pure: what fires is decided here from what the caller has read.
  */
 
-export type RuleType = "price" | "move" | "filings" | "insider" | "econ";
+export type RuleType = "price" | "move" | "filings" | "insider" | "econ" | "line";
+
+/**
+ * A line drawn on a chart, as an alert keeps it: its two points (a time in
+ * seconds and a price), how far it runs, and whether the chart was
+ * logarithmic, where a straight line is straight in the logarithm of price.
+ */
+export type LineReach = "level" | "hray" | "segment" | "ray" | "extended";
+export interface AlertLine { reach: LineReach; a: { t: number; p: number }; b: { t: number; p: number }; log: boolean }
 export type FilingKind = "results" | "report" | "leadership" | "deal" | "flag";
 
 export const FILING_KINDS: Array<{ id: FilingKind; label: string }> = [
@@ -57,6 +65,52 @@ export interface AlertRule {
   firedAt?: string | null;
   armedAt?: string | null;
   label?: string;
+  /** A chart line's alert: the line, and the drawing it was set on. */
+  line?: AlertLine;
+  drawingId?: string;
+}
+
+/**
+ * Pure: time counted in trading days — weekdays only — so a line drawn across
+ * daily candles, which skip weekends, runs on to the same slope it shows.
+ */
+export function tradingDays(seconds: number): number {
+  const days = seconds / 86_400;
+  const whole = Math.floor(days);
+  const monday = whole + 3; // 1 January 1970 was a Thursday.
+  const weeks = Math.floor(monday / 7);
+  const weekday = ((monday % 7) + 7) % 7;
+  return weeks * 5 + Math.min(weekday, 5) + (weekday < 5 ? days - whole : 0);
+}
+
+/** Pure: where a chart line stands at a moment, or null when it does not reach that moment. */
+export function lineLevel(line: AlertLine, at: Date): number | null {
+  if (line.reach === "level") return line.a.p;
+  const now = at.getTime() / 1000;
+  if (line.reach === "hray") return now >= line.a.t ? line.a.p : null;
+  const x0 = tradingDays(line.a.t);
+  const x1 = tradingDays(line.b.t);
+  const x = tradingDays(now);
+  if (Math.abs(x1 - x0) < 1e-9) return null;
+  const along = (x - x0) / (x1 - x0);
+  if (line.reach === "segment" && (along < 0 || along > 1)) return null;
+  if (line.reach === "ray" && along < 0) return null;
+  if (line.log && line.a.p > 0 && line.b.p > 0) return Math.exp(Math.log(line.a.p) + (Math.log(line.b.p) - Math.log(line.a.p)) * along);
+  return line.a.p + (line.b.p - line.a.p) * along;
+}
+
+const LINE_NAMES: Record<LineReach, string> = { level: "horizontal line", hray: "horizontal ray", segment: "trend line", ray: "ray", extended: "extended line" };
+
+function cleanLine(value: unknown): AlertLine | undefined {
+  const line = value as Partial<AlertLine> | null;
+  const point = (p: unknown) => {
+    const q = p as { t?: unknown; p?: unknown } | null;
+    return q && typeof q.t === "number" && Number.isFinite(q.t) && typeof q.p === "number" && Number.isFinite(q.p) ? { t: q.t, p: q.p } : null;
+  };
+  if (!line || !["level", "hray", "segment", "ray", "extended"].includes(line.reach as string)) return undefined;
+  const a = point(line.a);
+  const b = point(line.b);
+  return a && b ? { reach: line.reach as LineReach, a, b, log: line.log === true } : undefined;
 }
 
 export const RULES_KEY = "finscope.io.alert-rules.v1";
@@ -94,9 +148,11 @@ export function parseRules(raw: string | null): AlertRule[] {
   return value.slice(0, RULE_LIMIT).flatMap((entry): AlertRule[] => {
     if (!entry || typeof entry !== "object") return [];
     const rule = entry as Partial<AlertRule>;
-    if (typeof rule.id !== "string" || !["price", "move", "filings", "insider", "econ"].includes(rule.type as string)) return [];
+    if (typeof rule.id !== "string" || !["price", "move", "filings", "insider", "econ", "line"].includes(rule.type as string)) return [];
     const ticker = typeof rule.ticker === "string" && TICKER.test(rule.ticker.toUpperCase()) ? rule.ticker.toUpperCase() : null;
-    if ((rule.type === "price" || rule.type === "move") && !ticker) return [];
+    if ((rule.type === "price" || rule.type === "move" || rule.type === "line") && !ticker) return [];
+    const line = rule.type === "line" ? cleanLine(rule.line) : undefined;
+    if (rule.type === "line" && !line) return [];
     return [{
       id: rule.id, type: rule.type!, enabled: rule.enabled !== false, created: typeof rule.created === "string" ? rule.created : new Date(0).toISOString(), ticker,
       ...(rule.type === "price" ? { direction: rule.direction === "below" ? "below" as const : "above" as const, level: typeof rule.level === "number" && rule.level > 0 ? rule.level : undefined } : {}),
@@ -108,6 +164,7 @@ export function parseRules(raw: string | null): AlertRule[] {
       firedAt: typeof rule.firedAt === "string" ? rule.firedAt : null,
       armedAt: typeof rule.armedAt === "string" ? rule.armedAt : null,
       ...(typeof rule.label === "string" && rule.label.trim() ? { label: rule.label.trim().slice(0, 80) } : {}),
+      ...(rule.type === "line" ? { line, direction: rule.direction === "below" ? "below" as const : "above" as const, ...(typeof rule.drawingId === "string" ? { drawingId: rule.drawingId } : {}) } : {}),
     }];
   });
 }
@@ -126,6 +183,7 @@ export function describeRule(rule: AlertRule): string {
       return `${what} · ${who}`;
     }
     case "insider": return `Insider purchases${rule.minValue ? ` from ${money(rule.minValue)}` : ""} · ${who}`;
+    case "line": return `${rule.ticker} ${rule.direction === "below" ? "falls below" : "rises above"} your ${rule.line ? LINE_NAMES[rule.line.reach] : "line"}${rule.line?.reach === "level" ? ` at ${money(rule.line.a.p)}` : ""}`;
     case "econ": return `${(rule.topics ?? []).map((topic) => ECON_TOPICS.find((entry) => entry.id === topic)?.label).filter(Boolean).join(", ") || "No release chosen"}${rule.onlySurprise ? " · only when it misses the consensus" : ""}`;
   }
 }
@@ -141,12 +199,15 @@ export function ruleTickers(rules: AlertRule[], followed: string[]): string[] {
 }
 
 /** The companies whose price the rules need. */
-export const quoteTickers = (rules: AlertRule[]) => [...new Set(rules.filter((rule) => rule.enabled && (rule.type === "price" || rule.type === "move") && rule.ticker).map((rule) => rule.ticker!))];
+export const quoteTickers = (rules: AlertRule[]) => [...new Set(rules.filter((rule) => rule.enabled && (rule.type === "price" || rule.type === "move" || rule.type === "line") && rule.ticker).map((rule) => rule.ticker!))];
+
+/** Alerts that fire once, until the reader sets them again: a price level, a chart line. */
+export const firesOnce = (type: RuleType | string) => type === "price" || type === "line";
 
 export interface Fired {
   ruleId: string;
   ticker: string | null;
-  kind: "price" | "move" | "econ" | Alert["kind"];
+  kind: "price" | "move" | "econ" | "line" | Alert["kind"];
   at: string;
   title: string;
   detail: string | null;
@@ -176,6 +237,19 @@ export function evaluate(rules: AlertRule[], inputs: Inputs): Fired[] {
       const met = price != null && (rule.direction === "below" ? price <= rule.level : price >= rule.level);
       const spent = rule.firedAt != null && (!rule.armedAt || rule.armedAt <= rule.firedAt);
       if (met && !spent) fired.push({ ruleId: rule.id, ticker: rule.ticker, kind: "price", at: inputs.now.toISOString(), title: `${rule.direction === "below" ? "Fell below" : "Rose above"} ${money(rule.level)}`, detail: `At ${money(price!)}`, url: `/t/s/${encodeURIComponent(rule.ticker)}` });
+    }
+    if (rule.type === "line" && rule.ticker && rule.line) {
+      const price = inputs.quotes[rule.ticker]?.price;
+      const level = lineLevel(rule.line, inputs.now);
+      const met = price != null && level != null && (rule.direction === "below" ? price <= level : price >= level);
+      const spent = rule.firedAt != null && (!rule.armedAt || rule.armedAt <= rule.firedAt);
+      if (met && !spent) {
+        fired.push({
+          ruleId: rule.id, ticker: rule.ticker, kind: "line", at: inputs.now.toISOString(),
+          title: `${rule.direction === "below" ? "Fell below" : "Rose above"} your ${LINE_NAMES[rule.line.reach]}`,
+          detail: `At ${money(price!)}, the line at ${money(level!)}`, url: `/t/chart?s=${encodeURIComponent(rule.ticker)}`,
+        });
+      }
     }
     if (rule.type === "move" && rule.ticker && rule.movePct != null) {
       const change = inputs.quotes[rule.ticker]?.changePercent;

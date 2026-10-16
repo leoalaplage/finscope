@@ -1,5 +1,5 @@
 import { alertsFor } from "./alerts-feed";
-import { evaluate, parseRules, quoteTickers, ruleTickers, RULES_KEY, type Fired } from "./alert-rules";
+import { evaluate, firesOnce, parseRules, quoteTickers, ruleTickers, RULES_KEY, type Fired } from "./alert-rules";
 import { econCalendar } from "./econ";
 import { fetchQuotes } from "./adapters/spark";
 import { dataKey, readAccount, SUBSCRIBERS_KEY, writeAccount, type Account } from "./accounts";
@@ -17,7 +17,7 @@ import { datasetCache } from "./runtime-env";
 
 const KINDS: Record<Fired["kind"], string> = {
   results: "Results", report: "Report", leadership: "Leadership", flag: "Red flag", insider: "Insider buy", deal: "Deal",
-  price: "Price", move: "Big move", econ: "Economy",
+  price: "Price", move: "Big move", econ: "Economy", line: "Chart line",
 };
 const PER_RUN = 25;
 const DAY = 86_400_000;
@@ -80,14 +80,14 @@ export async function emailAlertsSlice(site: string, now = new Date()): Promise<
     // A price alert is emailed once; the state says which have been (until the reader sets them again).
     const stateKey = `account-alert-state:v1:${id}`;
     const state = (await cache.get<{ fired: Record<string, string> }>(stateKey, "json").catch(() => null)) ?? { fired: {} };
-    const armed = rules.map((rule) => (rule.type === "price" && state.fired[rule.id] && (!rule.armedAt || rule.armedAt <= state.fired[rule.id]) ? { ...rule, firedAt: state.fired[rule.id] } : rule));
+    const armed = rules.map((rule) => (firesOnce(rule.type) && state.fired[rule.id] && (!rule.armedAt || rule.armedAt <= state.fired[rule.id]) ? { ...rule, firedAt: state.fired[rule.id] } : rule));
     const caught = evaluate(armed, {
       followed, alerts, econ, now,
       quotes: Object.fromEntries([...quotes].map(([ticker, quote]) => [ticker, { price: quote.price ?? null, changePercent: quote.changePercent ?? null }])),
     });
     // Since the last email to the second, so nothing is sent twice; a price or a move as it stands now.
-    const fresh = caught.filter((alert) => alert.kind === "price" || alert.kind === "move" || !account.email!.lastSent || alert.at > account.email!.lastSent);
-    for (const alert of fresh) if (alert.kind === "price") state.fired[alert.ruleId] = now.toISOString();
+    const fresh = caught.filter((alert) => firesOnce(alert.kind) || alert.kind === "move" || !account.email!.lastSent || alert.at > account.email!.lastSent);
+    for (const alert of fresh) if (firesOnce(alert.kind)) state.fired[alert.ruleId] = now.toISOString();
     const email = alertEmail(account.email!.address, fresh, site, since);
     if (email) {
       const result = await sendEmail(email);

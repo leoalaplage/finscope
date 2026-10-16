@@ -15,6 +15,7 @@ import {
 } from "@/lib/term/drawings";
 import { paramsOf, studyName, type StudyParams } from "@/lib/io/study-params";
 import { useChartEvents } from "./chart-events";
+import { canAlert } from "./line-alerts";
 import { publishCross, releaseCross, useSharedCross } from "./crosshair-sync";
 import { setPaneHeight, usePaneHeights } from "./pane-heights";
 import { clampViewport, panBy, rightMargin, shiftRange, stretchRange, ticksFor, windowOf, zoomAround, type Viewport } from "@/lib/io/chart-view";
@@ -189,7 +190,7 @@ function watermarkOf(symbol: string, name?: string | null): string {
 export function CandleChart({
   candles, interval, loading, error, label, studies = NO_STUDIES, compact = false,
   drawings, tool = "cursor", onDrawingsChange, onToolDone, magnet = false, zoomable = false, movable = zoomable,
-  logScale = false, percentScale = false, compare, benchmark, openOn, ohlc = true, params, crosshairGroup, onPickTime,
+  logScale = false, percentScale = false, compare, benchmark, openOn, ohlc = true, params, crosshairGroup, onPickTime, alerted, onLineAlert,
 }: {
   candles: Candles | null;
   interval: CandleInterval;
@@ -243,6 +244,9 @@ export function CandleChart({
   crosshairGroup?: string;
   /** While set, a click on the plot picks the candle under it (a replay's start) and does nothing else. */
   onPickTime?: (time: number) => void;
+  /** The drawings with an alert, and how to set or remove one (components/io/line-alerts.ts). */
+  alerted?: ReadonlySet<string>;
+  onLineAlert?: (drawing: Drawing, lastPrice: number) => void;
 }) {
   const selfId = useId();
   const clipId = `candle-clip-${selfId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -1292,6 +1296,10 @@ export function CandleChart({
         {editable && chosen && !live && chosen.id !== draft?.id ? (
           <DrawingBar
             drawing={chosen} focusText={fresh === chosen.id}
+            alert={onLineAlert && canAlert(chosen.kind) && candles ? {
+              on: alerted?.has(chosen.id) === true,
+              toggle: () => onLineAlert(chosen, candles.c[candles.c.length - 1]),
+            } : null}
             onChange={replace} onDelete={() => remove(chosen.id)}
             onClone={() => {
               const box = plotRef.current?.getBoundingClientRect();
@@ -1905,8 +1913,9 @@ function DrawingNotes({ item, a, b, c, last, bars, noteAt, noteSide }: {
 }
 
 /** The bar over the plot for the drawing selected: colour, width, line, its note, lock, copy, delete. */
-function DrawingBar({ drawing, focusText, onChange, onDelete, onClone }: {
-  drawing: Drawing; focusText: boolean; onChange: (next: Drawing) => void; onDelete: () => void; onClone: () => void;
+function DrawingBar({ drawing, focusText, alert, onChange, onDelete, onClone }: {
+  drawing: Drawing; focusText: boolean; alert: { on: boolean; toggle: () => void } | null;
+  onChange: (next: Drawing) => void; onDelete: () => void; onClone: () => void;
 }) {
   const [text, setText] = useState<string | null>(null);
   const lines = drawing.kind !== "text" && drawing.kind !== "long" && drawing.kind !== "short" && drawing.kind !== "range";
@@ -1951,6 +1960,11 @@ function DrawingBar({ drawing, focusText, onChange, onDelete, onClone }: {
           onChange={(event) => setText(event.target.value)} onBlur={commitText}
           onKeyDown={(event) => { if (event.key === "Enter") { commitText(); event.currentTarget.blur(); } if (event.key === "Escape") { setText(null); event.currentTarget.blur(); } }}
         />
+      ) : null}
+      {alert ? (
+        <button type="button" aria-pressed={alert.on} title={alert.on ? "Remove the alert on this line" : "Alert when the price crosses this line (ALRT, and by email if on)"} onClick={alert.toggle}>
+          {alert.on ? "Alert on" : "Alert"}
+        </button>
       ) : null}
       <button type="button" aria-pressed={drawing.locked === true} title={drawing.locked ? "Unlock" : "Lock in place"} onClick={() => onChange({ ...drawing, locked: !drawing.locked })}>
         {drawing.locked ? "Unlock" : "Lock"}

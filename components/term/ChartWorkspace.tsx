@@ -9,6 +9,7 @@ import { STUDY_GROUPS, STUDY_NAMES, type Study } from "@/lib/io/technicals";
 import { isDefault, paramsOf, STUDY_PARAMS, studyName, withParams } from "@/lib/io/study-params";
 import { TOOL_GROUPS, TOOLS, type Drawing, type Tool } from "@/lib/term/drawings";
 import { ToolIcon } from "./ToolIcon";
+import { syncLineAlerts, toggleLineAlert, useAlertedDrawings } from "@/components/io/line-alerts";
 import { redoDrawings, setSymbolDrawings, undoDrawings, useDrawingStore } from "@/components/io/drawings-store";
 import {
   COMPARE_LIMIT, LAYOUTS, readWorkspaceStore, saveLayout, withCell, withSymbol, type ChartCell, type Layout, type Links, type WorkspaceStore,
@@ -215,6 +216,7 @@ function ChartCellView({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [replaying, total, onReplay]);
+  const alerted = useAlertedDrawings();
   const compared = useCompared(cell.compare, cell.interval);
   // The market, read only when the relative-strength pane is open.
   const [market] = useCompared(cell.studies.includes("rs") ? ["^GSPC"] : [], cell.interval);
@@ -284,8 +286,10 @@ function ChartCellView({
       <CandleChart
         candles={candles} interval={cell.interval} loading={loading} error={error} studies={studies} compact={compact}
         label={`${cell.symbol}, ${INTERVAL_TITLES[cell.interval].toLowerCase()} candles`}
-        drawings={drawings} tool={tool} onDrawingsChange={onDrawings} onToolDone={onToolDone} magnet={magnet}
+        drawings={drawings} tool={tool}
+        onDrawingsChange={onDrawings ? (next) => { onDrawings(next); syncLineAlerts(cell.symbol, next, cell.log, allCandles?.c[allCandles.c.length - 1] ?? null); } : undefined} onToolDone={onToolDone} magnet={magnet}
         params={cell.params} crosshairGroup={crosshairGroup} zoomable
+        alerted={alerted} onLineAlert={(drawing, last) => toggleLineAlert(cell.symbol, drawing, last, cell.log)}
         onPickTime={replay && replay.end == null && allCandles ? (time) => {
           const at = allCandles.t.indexOf(time);
           if (at >= 0) onReplay((current) => current && { ...current, end: Math.max(2, at + 1) });

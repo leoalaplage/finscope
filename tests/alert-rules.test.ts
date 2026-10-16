@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultRules, describeRule, evaluate, newRule, parseRules, ruleTickers, type AlertRule } from "../lib/alert-rules";
+import { defaultRules, describeRule, evaluate, lineLevel, newRule, parseRules, ruleTickers, tradingDays, type AlertRule } from "../lib/alert-rules";
 import type { EconEvent } from "../lib/econ";
 
 const now = new Date("2026-10-15T15:00:00Z");
@@ -52,5 +52,36 @@ describe("alert rules", () => {
     expect(evaluate([rule], { ...base, econ }).map((entry) => entry.title)).toEqual(["CPI, y/y: 3.7%"]);
     expect(evaluate([{ ...rule, onlySurprise: false }], { ...base, econ })).toHaveLength(2);
     expect(describeRule(rule)).toBe("Inflation (CPI), Retail sales · only when it misses the consensus");
+  });
+});
+
+describe("alerts on chart lines", () => {
+  const day = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 1000;
+  it("counts trading days, skipping weekends", () => {
+    // Friday to the next Monday is one trading day.
+    expect(tradingDays(day("2026-10-12")) - tradingDays(day("2026-10-09"))).toBe(1);
+    expect(tradingDays(day("2026-10-16")) - tradingDays(day("2026-10-12"))).toBe(4);
+  });
+
+  it("extends a trend line on trading days, and only as far as it runs", () => {
+    const line = { reach: "ray" as const, a: { t: day("2026-10-05"), p: 100 }, b: { t: day("2026-10-09"), p: 104 }, log: false };
+    // Two trading days on from Friday is Tuesday: 4 + 2 = 6 trading days from the start, 1 a day.
+    expect(lineLevel(line, new Date("2026-10-13T00:00:00Z"))).toBeCloseTo(106);
+    expect(lineLevel({ ...line, reach: "segment" }, new Date("2026-10-13T00:00:00Z"))).toBeNull();
+    expect(lineLevel({ ...line, reach: "ray" }, new Date("2026-10-01T00:00:00Z"))).toBeNull();
+    expect(lineLevel({ ...line, reach: "level" }, new Date())).toBe(100);
+  });
+
+  it("fires once when the price crosses the line, and keeps only well-formed line rules", () => {
+    const rule = {
+      ...newRule("line", "AAPL"), direction: "above" as const,
+      line: { reach: "extended" as const, a: { t: day("2026-10-05"), p: 100 }, b: { t: day("2026-10-09"), p: 104 }, log: false },
+    };
+    const inputs = { followed: [], alerts: [], econ: [], now: new Date("2026-10-13T00:00:00Z"), quotes: { AAPL: { price: 107, changePercent: 0 } } };
+    expect(evaluate([rule], inputs).map((fired) => fired.kind)).toEqual(["line"]);
+    expect(evaluate([{ ...rule, firedAt: "2026-10-12T00:00:00Z" }], inputs)).toEqual([]);
+    expect(evaluate([rule], { ...inputs, quotes: { AAPL: { price: 105, changePercent: 0 } } })).toEqual([]);
+    expect(parseRules(JSON.stringify([rule]))[0].line?.reach).toBe("extended");
+    expect(parseRules(JSON.stringify([{ ...rule, line: { reach: "laser" } }]))).toEqual([]);
   });
 });
