@@ -189,7 +189,7 @@ function watermarkOf(symbol: string, name?: string | null): string {
 export function CandleChart({
   candles, interval, loading, error, label, studies = NO_STUDIES, compact = false,
   drawings, tool = "cursor", onDrawingsChange, onToolDone, magnet = false, zoomable = false, movable = zoomable,
-  logScale = false, percentScale = false, compare, benchmark, openOn, ohlc = true, params, crosshairGroup,
+  logScale = false, percentScale = false, compare, benchmark, openOn, ohlc = true, params, crosshairGroup, onPickTime,
 }: {
   candles: Candles | null;
   interval: CandleInterval;
@@ -241,6 +241,8 @@ export function CandleChart({
   params?: StudyParams;
   /** Charts of the same group show each other's crosshair, at the same time. */
   crosshairGroup?: string;
+  /** While set, a click on the plot picks the candle under it (a replay's start) and does nothing else. */
+  onPickTime?: (time: number) => void;
 }) {
   const selfId = useId();
   const clipId = `candle-clip-${selfId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -691,6 +693,11 @@ export function CandleChart({
     const box = { width: rect.width, height: rect.height };
     const px = event.clientX - rect.left;
     const py = event.clientY - rect.top;
+    if (onPickTime) {
+      const local = Math.min(view.count - 1, Math.max(0, Math.floor(view.left + (px / rect.width) * view.span) - view.from));
+      onPickTime(view.t[local]);
+      return;
+    }
     if (draft?.follow) {
       const anchor = anchorAt(px, py, box, magnet);
       finish(draft.third ? { ...draft, c: anchor } : { ...draft, b: anchor }, box);
@@ -955,7 +962,7 @@ export function CandleChart({
 
     <div className="candle-body">
       <div
-        className="candle-plot" ref={plotRef} data-tool={drawingTool || (editable && tool === "erase") ? tool : undefined}
+        className="candle-plot" ref={plotRef} data-tool={onPickTime ? "pick" : drawingTool || (editable && tool === "erase") ? tool : undefined}
         data-zoomable={movable || undefined}
         onPointerMove={onDrag} onPointerLeave={() => setPointer(null)} onPointerDown={onDown} onPointerUp={onUp}
         onPointerCancel={cancel}
@@ -1263,6 +1270,7 @@ export function CandleChart({
         {loading || error || (!view && candles) ? (
           <div className="candle-state">{loading ? "Loading…" : error ?? "Not enough history to draw."}</div>
         ) : null}
+        {onPickTime && view ? <div className="candle-pick-note">Click the candle to replay from</div> : null}
         {view && markers.length ? (
           <div className="candle-events">
             {markers.map((item) => (

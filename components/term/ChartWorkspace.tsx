@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
 import { CandleChart, IntervalPicker, lastMoveOf, percent, price, tone, useCandles, type CompareSeries } from "@/components/io/CandleChart";
 import type { Candles, CandleInterval } from "@/lib/adapters/candles";
 import { chooseSymbol } from "@/components/io/choose-symbol";
-import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
+import { dateText, INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import { STUDY_GROUPS, STUDY_NAMES, type Study } from "@/lib/io/technicals";
 import { isDefault, paramsOf, STUDY_PARAMS, studyName, withParams } from "@/lib/io/study-params";
 import { TOOL_GROUPS, TOOLS, type Drawing, type Tool } from "@/lib/term/drawings";
@@ -122,10 +122,61 @@ function ParamField({ label, value, min, max, step, onValue }: {
   );
 }
 
+/**
+ * Bar replay: the chart cut at a candle the reader picks, then dealt forward
+ * one candle at a time, by hand or at a pace. Every study is read again on the
+ * candles dealt so far, so nothing on screen knows what came next.
+ */
+export interface Replay { cell: number; end: number | null; playing: boolean; speed: 1 | 3 | 10 }
+const REPLAY_MS: Record<Replay["speed"], number> = { 1: 1000, 3: 330, 10: 100 };
+
+/** Candles up to `end`, the rest of the history unknown. */
+function cutCandles(candles: Candles, end: number): Candles {
+  const cut = <T,>(values: T[] | undefined) => values?.slice(0, end);
+  return { ...candles, t: cut(candles.t)!, o: cut(candles.o)!, h: cut(candles.h)!, l: cut(candles.l)!, c: cut(candles.c)!, v: cut(candles.v) };
+}
+
+function ReplayBar({ replay, onReplay, candles, total, interval }: {
+  replay: Replay; onReplay: Dispatch<SetStateAction<Replay | null>>; candles: Candles | null; total: number; interval: CandleInterval;
+}) {
+  const end = replay.end;
+  const step = (by: number) => onReplay((current) => (current && current.end != null ? { ...current, end: Math.min(total, Math.max(2, current.end + by)) } : current));
+  return (
+    <div className="t-replay" role="toolbar" aria-label="Bar replay">
+      <span className="t-replay-tag">REPLAY</span>
+      {end == null ? (
+        <span className="t-replay-note">Click a candle on the chart to replay from it.</span>
+      ) : (
+        <>
+          <span className="t-replay-note">
+            {candles?.t[end - 1] != null ? dateText(candles.t[end - 1], interval) : ""} · {total - end} {total - end === 1 ? "candle" : "candles"} ahead
+          </span>
+          <div className="seg">
+            <button type="button" title="Pick another start" onClick={() => onReplay((current) => current && { ...current, end: null, playing: false })}>Start</button>
+            <button type="button" title="One candle back" aria-label="One candle back" onClick={() => step(-1)}>◀</button>
+            <button type="button" aria-pressed={replay.playing} title={replay.playing ? "Pause" : "Play"} onClick={() => onReplay((current) => current && { ...current, playing: !current.playing })} disabled={end >= total}>
+              {replay.playing ? "Pause" : "Play"}
+            </button>
+            <button type="button" title="One candle forward · ⇧→" aria-label="One candle forward" onClick={() => step(1)} disabled={end >= total}>▶</button>
+          </div>
+          <div className="seg" role="group" aria-label="Pace">
+            {([1, 3, 10] as const).map((speed) => (
+              <button key={speed} type="button" aria-pressed={replay.speed === speed} title={`${REPLAY_MS[speed] / 1000} s a candle`} onClick={() => onReplay((current) => current && { ...current, speed })}>{speed}×</button>
+            ))}
+          </div>
+        </>
+      )}
+      <button type="button" className="t-text-button" onClick={() => onReplay(null)}>Exit replay</button>
+    </div>
+  );
+}
+
 function ChartCellView({
-  cell, index, active, tool, magnet, compact, drawings, onFocus, onChange, onDrawings, onToolDone, crosshairGroup,
+  cell, index, active, tool, magnet, compact, drawings, onFocus, onChange, onDrawings, onToolDone, crosshairGroup, replay, onReplay,
 }: {
   crosshairGroup: string | undefined;
+  replay: Replay | null;
+  onReplay: Dispatch<SetStateAction<Replay | null>>;
   cell: ChartCell;
   index: number;
   active: boolean;
@@ -138,7 +189,32 @@ function ChartCellView({
   onChange: (next: ChartCell) => void;
   onDrawings: ((next: Drawing[]) => void) | undefined;
 }) {
-  const { candles, error, loading } = useCandles(cell.symbol, cell.interval);
+  const { candles: allCandles, error, loading } = useCandles(cell.symbol, cell.interval);
+  const total = allCandles?.t.length ?? 0;
+  const replayEnd = replay?.end != null ? Math.min(replay.end, total) : null;
+  const candles = useMemo(() => (allCandles && replayEnd != null ? cutCandles(allCandles, replayEnd) : allCandles), [allCandles, replayEnd]);
+  /* The replay's pace, and ⇧→ for one more candle. */
+  const playing = replay?.playing === true;
+  const pace = replay ? REPLAY_MS[replay.speed] : 0;
+  useEffect(() => {
+    if (!playing) return;
+    const timer = setInterval(() => onReplay((current) => {
+      if (!current || current.end == null) return current;
+      return current.end >= total ? { ...current, playing: false } : { ...current, end: current.end + 1 };
+    }), pace);
+    return () => clearInterval(timer);
+  }, [playing, pace, total, onReplay]);
+  const replaying = replay?.end != null;
+  useEffect(() => {
+    if (!replaying) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || !event.shiftKey || event.key !== "ArrowRight") return;
+      event.preventDefault();
+      onReplay((current) => (current && current.end != null ? { ...current, end: Math.min(total, current.end + 1) } : current));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [replaying, total, onReplay]);
   const compared = useCompared(cell.compare, cell.interval);
   // The market, read only when the relative-strength pane is open.
   const [market] = useCompared(cell.studies.includes("rs") ? ["^GSPC"] : [], cell.interval);
@@ -204,11 +280,16 @@ function ChartCellView({
           {company ? <a href={`/t/s/${encodeURIComponent(cell.symbol)}`} title="Company screen">DES</a> : null}
         </div>
       </header>
+      {replay ? <ReplayBar replay={replay} onReplay={onReplay} candles={allCandles} total={total} interval={cell.interval} /> : null}
       <CandleChart
         candles={candles} interval={cell.interval} loading={loading} error={error} studies={studies} compact={compact}
         label={`${cell.symbol}, ${INTERVAL_TITLES[cell.interval].toLowerCase()} candles`}
         drawings={drawings} tool={tool} onDrawingsChange={onDrawings} onToolDone={onToolDone} magnet={magnet}
-        params={cell.params} crosshairGroup={crosshairGroup} zoomable logScale={cell.log} percentScale={cell.percent} compare={compared} benchmark={market?.candles ?? null}
+        params={cell.params} crosshairGroup={crosshairGroup} zoomable
+        onPickTime={replay && replay.end == null && allCandles ? (time) => {
+          const at = allCandles.t.indexOf(time);
+          if (at >= 0) onReplay((current) => current && { ...current, end: Math.max(2, at + 1) });
+        } : undefined} logScale={cell.log} percentScale={cell.percent} compare={compared} benchmark={market?.candles ?? null}
       />
     </section>
   );
@@ -220,6 +301,7 @@ export function ChartWorkspace() {
   const drawn = useDrawingStore();
   const [tool, setTool] = useState<Tool>("cursor");
   const [magnet, setMagnet] = useState(false);
+  const [replay, setReplay] = useState<Replay | null>(null);
   const [hidden, setHidden] = useState(false);
   const [naming, setNaming] = useState<string | null>(null);
 
@@ -322,6 +404,12 @@ export function ChartWorkspace() {
           <button type="button" aria-pressed={hidden} title="Hide every drawing" aria-label="Hide drawings" onClick={() => { setHidden(!hidden); setTool("cursor"); }}>
             <ToolIcon name="hide" />
           </button>
+          <button
+            type="button" aria-pressed={replay != null} title="Bar replay: replay the chart in focus from a candle you pick" aria-label="Bar replay"
+            onClick={() => setReplay((current) => (current ? null : { cell: workspace.active, end: null, playing: false, speed: 1 }))}
+          >
+            <ToolIcon name="replay" />
+          </button>
           <button type="button" title="Undo · ⌘Z" aria-label="Undo" onClick={() => undoDrawings()}><ToolIcon name="undo" /></button>
           <button type="button" title="Redo · ⇧⌘Z" aria-label="Redo" onClick={() => redoDrawings()}><ToolIcon name="redo" /></button>
           <button
@@ -385,6 +473,8 @@ export function ChartWorkspace() {
               drawings={hidden ? [] : drawn[cell.symbol] ?? []}
               onToolDone={() => setTool("cursor")}
               crosshairGroup={workspace.layout > 1 && workspace.links.crosshair ? "workspace" : undefined}
+              replay={replay?.cell === index ? replay : null}
+              onReplay={setReplay}
               onFocus={() => { if (index !== workspace.active) update({ active: index }); }}
               onChange={(next) => setCell(index, next)}
               onDrawings={hidden ? undefined : (next) => setDrawings(cell.symbol, next)}

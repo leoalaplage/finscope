@@ -2742,3 +2742,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-pane { position: relative; }
 .candle-pane-grip { position: absolute; left: 0; right: 0; top: -4px; z-index: 4; height: 8px; cursor: ns-resize; touch-action: none; }
 .candle-pane-grip:hover { background: linear-gradient(transparent 3px, var(--line-strong) 3px, var(--line-strong) 5px, transparent 5px); }
+.candle-plot[data-tool="pick"] { cursor: col-resize; }
+.candle-pick-note {
+  position: absolute; top: 8px; left: 50%; z-index: 5; transform: translateX(-50%); padding: 3px 8px; pointer-events: none;
+  font-size: var(--fs-micro); color: var(--inverse, #000); background: var(--amber, #f4e74c); border-radius: 2px;
+}

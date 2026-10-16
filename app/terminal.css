@@ -1642,3 +1642,10 @@ body:has(.io.term) { background: #0d1012; }
 .term .candle-chart[data-size="compact"] .candle-wmark { font-size: clamp(34px, 4.2vw, 64px); opacity: .06; }
 .term .candle-wmark-logo { position: absolute; right: 8px; bottom: 6px; z-index: 2; display: flex; align-items: center; gap: 4px; pointer-events: none; user-select: none; font-size: 9px; font-weight: 700; letter-spacing: .16em; color: var(--ink); opacity: .32; }
 .term .candle-wmark-logo img { display: block; border-radius: 2px; }
+
+/* Bar replay (components/term/ChartWorkspace.tsx). */
+.t-replay { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 8px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--amber) 7%, var(--bg)); font-size: var(--fs-xs); }
+.t-replay-tag { padding: 1px 6px; font-weight: 700; letter-spacing: .08em; color: var(--inverse); background: var(--amber); }
+.t-replay-note { color: var(--ink-2); font-family: var(--mono); }
+.t-replay .seg button { min-width: 30px; }
+.t-replay .t-text-button { margin-left: auto; }
