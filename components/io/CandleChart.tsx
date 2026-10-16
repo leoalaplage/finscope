@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { CANDLE_INTERVALS, isIntraday, type Candles, type CandleInterval } from "@/lib/adapters/candles";
 import { candlesToShow, dateLabels, dateText, INTERVAL_NAMES, INTERVAL_TITLES, priceScale } from "@/lib/io/candle-chart";
-import { bollinger, CHART_EMAS, ema, ichimoku, macd, patternsAt, PATTERN_NAMES, rsi, sma, stochastic, volumeProfile, vwap, type Line } from "@/lib/io/indicators";
+import { bollinger, ema, ichimoku, macd, patternsAt, PATTERN_NAMES, rsi, sma, stochastic, volumeProfile, vwap, type Line } from "@/lib/io/indicators";
 import {
   adx, aroon, chaikinMoneyFlow, cci, donchian, floorPivots, heikinAshi, hullMa, keltner, moneyFlowIndex, obv,
   parabolicSar, roc, squeeze, stochRsi, supertrend, williamsR, type Pivots,
@@ -13,6 +13,7 @@ import {
   channelOffset, DEFAULT_DRAWING_COLOR, DRAWING_COLORS, DRAWN_FIB_RATIOS, drawingAt, handleAnchor, handlesOf, indexOfTime, lineReach, mapAnchors,
   ONE_CLICK, positionAround, positionFigures, timeOfIndex, withHandle, type Anchor, type Drawing, type HandleKey, type LineStyle, type Tool,
 } from "@/lib/term/drawings";
+import { paramsOf, studyName, type StudyParams } from "@/lib/io/study-params";
 import { clampViewport, panBy, rightMargin, shiftRange, stretchRange, ticksFor, windowOf, zoomAround, type Viewport } from "@/lib/io/chart-view";
 import {
   averageTrueRange, fairValueGaps, fibonacci, marketStructure, PIVOT_SPAN, pivots, priceOnLine,
@@ -36,13 +37,13 @@ import {
 const W = 1000;
 const H = 460;
 
-const EMA_COLORS: Record<(typeof CHART_EMAS)[number], string> = { 20: "#e8a33d", 50: "#4c8dff", 200: "#b06cf0" };
+/** The averages' colours, fastest first, whatever periods the reader set. */
+const EMA_COLORS = ["#e8a33d", "#4c8dff", "#b06cf0"];
 
 const COMPACT_CANDLE_PX = 1.6;
 
-/** The simple averages, the ones a golden cross is read from. */
-const CHART_SMAS = [50, 200] as const;
-const SMA_COLORS: Record<(typeof CHART_SMAS)[number], string> = { 50: "#3fb7c9", 200: "#e05fa0" };
+/** The simple averages, the ones a golden cross is read from, fastest first. */
+const SMA_COLORS = ["#3fb7c9", "#e05fa0"];
 const BAND_COLOR = "#7d8ad6";
 
 /** The lower panes, each in a box of its own height and the chart's width. */
@@ -185,7 +186,7 @@ function watermarkOf(symbol: string, name?: string | null): string {
 export function CandleChart({
   candles, interval, loading, error, label, studies = NO_STUDIES, compact = false,
   drawings, tool = "cursor", onDrawingsChange, onToolDone, magnet = false, zoomable = false, movable = zoomable,
-  logScale = false, compare, benchmark, openOn, ohlc = true,
+  logScale = false, compare, benchmark, openOn, ohlc = true, params,
 }: {
   candles: Candles | null;
   interval: CandleInterval;
@@ -231,6 +232,8 @@ export function CandleChart({
   openOn?: number;
   /** The candle's open, high, low and close in the legend; off where the screen has no room for them. */
   ohlc?: boolean;
+  /** The reader's settings for the studies (lib/io/study-params.ts); the defaults where absent. */
+  params?: StudyParams;
 }) {
   const clipId = `candle-clip-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
@@ -247,10 +250,14 @@ export function CandleChart({
   const width = size?.width ?? null;
 
 
+  /* Each study with the reader's settings (lib/io/study-params.ts), the defaults where they changed none. */
+  const set = (study: Study) => paramsOf(params, study);
+  const emaPeriods = set("ema").join(",");
   const averages = useMemo(
-    () => CHART_EMAS.map((period) => ({ period, line: candles ? ema(candles.c, period) : ([] as Line) })),
-    [candles],
+    () => emaPeriods.split(",").map(Number).map((period) => ({ period, line: candles ? ema(candles.c, period) : ([] as Line) })),
+    [candles, emaPeriods],
   );
+  // The analysis measures its tolerances in 14-period ranges; the ATR pane follows the reader's period.
   const ranges = useMemo(() => (candles ? averageTrueRange(candles) : []), [candles]);
   /*
    * Every other indicator, read over the whole history and cut to the candles
@@ -259,37 +266,44 @@ export function CandleChart({
    */
   const indicators = useMemo(() => {
     if (!candles) return null;
+    const of = (study: Study) => paramsOf(params, study);
+    const [bandPeriod, bandWidth] = of("bollinger");
+    const [macdFast, macdSlow, macdSignal] = of("macd");
+    const [stochK, stochSmooth, stochD] = of("stoch");
+    const [tenkan, kijun, senkou] = of("ichimoku");
+    const [atrPeriod] = of("atr");
     return {
-      smas: CHART_SMAS.map((period) => ({ period, line: sma(candles.c, period) })),
-      bands: bollinger(candles.c),
-      rsi: rsi(candles.c),
-      macd: macd(candles.c),
-      stoch: stochastic(candles),
-      cloud: ichimoku(candles),
+      smas: of("sma").map((period) => ({ period, line: sma(candles.c, period) })),
+      bands: bollinger(candles.c, bandPeriod, bandWidth),
+      rsi: rsi(candles.c, of("rsi")[0]),
+      macd: macd(candles.c, macdFast, macdSlow, macdSignal),
+      stoch: stochastic(candles, stochK, stochSmooth, stochD),
+      cloud: ichimoku(candles, tenkan, kijun, senkou),
+      atr: atrPeriod === 14 ? null : averageTrueRange(candles, atrPeriod),
       sessionVwap: isIntraday(interval) ? vwap(candles, true) : null,
       trend: sma(candles.c, 10),
       // The rest of the toolkit (lib/io/indicators-extra.ts), each read only when it is on.
-      keltner: studies.has("keltner") ? keltner(candles) : null,
-      donchian: studies.has("donchian") ? donchian(candles) : null,
-      supertrend: studies.has("supertrend") ? supertrend(candles) : null,
-      psar: studies.has("psar") ? parabolicSar(candles) : null,
-      hma: studies.has("hma") ? hullMa(candles.c) : null,
+      keltner: studies.has("keltner") ? keltner(candles, ...(of("keltner") as [number, number, number])) : null,
+      donchian: studies.has("donchian") ? donchian(candles, of("donchian")[0]) : null,
+      supertrend: studies.has("supertrend") ? supertrend(candles, ...(of("supertrend") as [number, number])) : null,
+      psar: studies.has("psar") ? parabolicSar(candles, ...(of("psar") as [number, number])) : null,
+      hma: studies.has("hma") ? hullMa(candles.c, of("hma")[0]) : null,
       pivots: studies.has("pivots") ? pivotLevels(candles, interval) : null,
       heikin: studies.has("heikinAshi") ? heikinAshi(candles) : null,
       extra: {
-        adx: studies.has("adx") ? adx(candles) : null,
-        squeeze: studies.has("squeeze") ? squeeze(candles) : null,
-        stochrsi: studies.has("stochrsi") ? stochRsi(candles.c) : null,
-        willr: studies.has("willr") ? williamsR(candles) : null,
-        cci: studies.has("cci") ? cci(candles) : null,
-        roc: studies.has("roc") ? roc(candles.c) : null,
-        aroon: studies.has("aroon") ? aroon(candles) : null,
+        adx: studies.has("adx") ? adx(candles, of("adx")[0]) : null,
+        squeeze: studies.has("squeeze") ? squeeze(candles, of("squeeze")[0]) : null,
+        stochrsi: studies.has("stochrsi") ? stochRsi(candles.c, ...(of("stochrsi") as [number, number, number])) : null,
+        willr: studies.has("willr") ? williamsR(candles, of("willr")[0]) : null,
+        cci: studies.has("cci") ? cci(candles, of("cci")[0]) : null,
+        roc: studies.has("roc") ? roc(candles.c, of("roc")[0]) : null,
+        aroon: studies.has("aroon") ? aroon(candles, of("aroon")[0]) : null,
         obv: studies.has("obv") ? obv(candles) : null,
-        cmf: studies.has("cmf") ? chaikinMoneyFlow(candles) : null,
-        mfi: studies.has("mfi") ? moneyFlowIndex(candles) : null,
+        cmf: studies.has("cmf") ? chaikinMoneyFlow(candles, of("cmf")[0]) : null,
+        mfi: studies.has("mfi") ? moneyFlowIndex(candles, of("mfi")[0]) : null,
       },
     };
-  }, [candles, interval, studies]);
+  }, [candles, interval, studies, params]);
   const on = (study: Study) => studies.has(study);
   const showEma = studies.has("ema");
   const showExtension = studies.has("fibExtension");
@@ -372,7 +386,7 @@ export function CandleChart({
     const momentum = indicators ? {
       rs: rsLine,
       stochK: indicators.stoch.k.slice(from, to), stochD: indicators.stoch.d.slice(from, to),
-      atr: ranges.slice(from, to),
+      atr: (indicators.atr ?? ranges).slice(from, to),
       rsi: indicators.rsi.slice(from, to),
       macd: indicators.macd.macd.slice(from, to), signal: indicators.macd.signal.slice(from, to), histogram: indicators.macd.histogram.slice(from, to),
     } : null;
@@ -479,7 +493,7 @@ export function CandleChart({
       ? (fraction: number) => Math.exp(lnMax - fraction * (lnMax - lnMin))
       : (fraction: number) => scale.max - fraction * (scale.max - scale.min);
     const ticks = log ? logTicks(scale.min, scale.max, compact ? 5 : 7) : scale.ticks;
-    const profile = studies.has("vprofile") && volume ? volumeProfile({ t, o, h, l, c, v: volume }, scale.min, scale.max, compact ? 16 : 24) : null;
+    const profile = studies.has("vprofile") && volume ? volumeProfile({ t, o, h, l, c, v: volume }, scale.min, scale.max, compact ? 16 : paramsOf(params, "vprofile")[0]) : null;
     return {
       t, o, h, l, c, drawn, extra, lines, smaLines, bands, cloud, vwapLine, patterns, compared, profile, momentum, volume, analysis,
       scale, ticks, priceAt, log, slot, x, y, count, from, total, left, right, span: viewport.span,
@@ -489,7 +503,7 @@ export function CandleChart({
       lastClose: candles.c[total - 1],
       lastBase: total > 1 ? candles.c[total - 2] : null,
     };
-  }, [candles, averages, indicators, ranges, interval, showEma, showSma, showBands, showCloud, showExtension, compact, viewport, manual, logScale, compare, benchmark, studies]);
+  }, [candles, averages, indicators, ranges, interval, showEma, showSma, showBands, showCloud, showExtension, compact, viewport, manual, logScale, compare, benchmark, studies, params]);
 
   useEffect(() => {
     latest.current = viewport && navKey ? { key: navKey, viewport, total } : null;
@@ -786,9 +800,9 @@ export function CandleChart({
             </>
           ) : null}
           {move != null && before ? <b data-tone={tone(move)}>{signed(move)} ({percent(move / before)})</b> : null}
-          {showEma ? CHART_EMAS.map((period, index) => (
-            <span key={period} className="candle-legend-ema">
-              <i style={{ background: EMA_COLORS[period] }} aria-hidden="true" />EMA {period} <b>{price(view.lines[index].values[at])}</b>
+          {showEma ? view.lines.map((line, index) => (
+            <span key={index} className="candle-legend-ema">
+              <i style={{ background: EMA_COLORS[index % EMA_COLORS.length] }} aria-hidden="true" />EMA {line.period} <b>{price(line.values[at])}</b>
             </span>
           )) : null}
           {showVwap ? (
@@ -933,7 +947,7 @@ export function CandleChart({
                 />
               )) : null}
             </g>
-            {showEma ? view.lines.map((line) => {
+            {showEma ? view.lines.map((line, index) => {
               let path = "";
               let open = false;
               line.values.forEach((value, index) => {
@@ -942,12 +956,12 @@ export function CandleChart({
                 open = true;
               });
               return path ? (
-                <path key={line.period} className="candle-ema" d={path} style={{ stroke: EMA_COLORS[line.period] }} vectorEffect="non-scaling-stroke" />
+                <path key={index} className="candle-ema" d={path} style={{ stroke: EMA_COLORS[index % EMA_COLORS.length] }} vectorEffect="non-scaling-stroke" />
               ) : null;
             }) : null}
-            {showSma ? view.smaLines.map((line) => {
+            {showSma ? view.smaLines.map((line, index) => {
               const path = pathOf(line.values, view.x, view.y);
-              return path ? <path key={`sma-${line.period}`} className="candle-ema" d={path} style={{ stroke: SMA_COLORS[line.period] }} vectorEffect="non-scaling-stroke" /> : null;
+              return path ? <path key={`sma-${index}`} className="candle-ema" d={path} style={{ stroke: SMA_COLORS[index % SMA_COLORS.length] }} vectorEffect="non-scaling-stroke" /> : null;
             }) : null}
             {showBands && view.bands ? (
               <g className="study-bands" style={{ stroke: BAND_COLOR, fill: BAND_COLOR }}>
@@ -1185,8 +1199,8 @@ export function CandleChart({
 
     {view && view.momentum ? panes.map((pane) => (
       (EXTRA_PANES as Pane[]).includes(pane)
-        ? <ExtraLowerPane key={pane} pane={pane as ExtraPane} view={view as PaneView} panes={view.extra?.panes ?? null} at={at} hover={hover} />
-        : <LowerPane key={pane} pane={pane} view={view as PaneView} at={at} hover={hover} />
+        ? <ExtraLowerPane key={pane} pane={pane as ExtraPane} name={paneName(pane, params)} view={view as PaneView} panes={view.extra?.panes ?? null} at={at} hover={hover} />
+        : <LowerPane key={pane} pane={pane} name={paneName(pane, params)} view={view as PaneView} at={at} hover={hover} />
     )) : null}
 
     <div
@@ -1236,6 +1250,12 @@ function bandPath(upper: Line, lower: Line, x: (index: number) => number, y: (va
   return `${top}${bottom}Z`;
 }
 
+/** A pane's name with the reader's settings: "RSI 9" once the period is 9. */
+const paneName = (pane: Pane, params: StudyParams | undefined) => {
+  const name = studyName(pane, params, PANE_NAMES[pane]);
+  return name === PANE_NAMES[pane] ? name : name.toUpperCase().replace("RELATIVE STRENGTH", "RS").replace("STOCHASTIC", "STOCH");
+};
+
 const PANE_NAMES: Record<Pane, string> = {
   volume: "VOL", rsi: "RSI 14", macd: "MACD 12 26 9", stoch: "STOCH 14 3 3", atr: "ATR 14", rs: "RS vs S&P 500",
   adx: "ADX 14 · +DI · −DI", squeeze: "SQUEEZE 20", stochrsi: "STOCH RSI 14 3 3", willr: "WILLIAMS %R 14", cci: "CCI 20",
@@ -1262,7 +1282,7 @@ const compactNumber = (value: number) =>
  * lines; MACD as its line, its signal and the histogram of the gap. Each reads
  * out the value at the candle the crosshair is on, or the last one.
  */
-function LowerPane({ pane, view, at, hover }: { pane: Pane; view: PaneView; at: number | null; hover: number | null }) {
+function LowerPane({ pane, name, view, at, hover }: { pane: Pane; name: string; view: PaneView; at: number | null; hover: number | null }) {
   const { momentum } = view;
   let body: React.ReactNode = null;
   let ticks: { value: number; text: string }[] = [];
@@ -1385,7 +1405,7 @@ function LowerPane({ pane, view, at, hover }: { pane: Pane; view: PaneView; at: 
   return (
     <div className="candle-pane" data-pane={pane}>
       <div className="candle-pane-plot">
-        <span className="candle-pane-name">{PANE_NAMES[pane]} {readout}</span>
+        <span className="candle-pane-name">{name} {readout}</span>
         <svg viewBox={`0 0 ${W} ${PANE_H}`} preserveAspectRatio="none" aria-hidden="true">
           {body}
           {hover != null ? <line className="candle-cursor" x1={view.x(hover)} x2={view.x(hover)} y1={0} y2={PANE_H} vectorEffect="non-scaling-stroke" /> : null}
@@ -1413,7 +1433,7 @@ type ExtraPanes = {
  * description each: their lines, the levels that mean something on their
  * scale, and a histogram where the indicator is one.
  */
-function ExtraLowerPane({ pane, view, panes, at, hover }: { pane: ExtraPane; view: PaneView; panes: ExtraPanes | null; at: number | null; hover: number | null }) {
+function ExtraLowerPane({ pane, name, view, panes, at, hover }: { pane: ExtraPane; name: string; view: PaneView; panes: ExtraPanes | null; at: number | null; hover: number | null }) {
   if (!panes) return null;
   type Spec = { lines: Array<{ values: Line; className: string }>; bars?: Line; dots?: Array<boolean | null>; range: [number, number] | null; guides: number[]; zone?: [number, number]; format: (value: number) => string };
   const fixed = (places: number) => (value: number) => value.toFixed(places);
@@ -1441,7 +1461,7 @@ function ExtraLowerPane({ pane, view, panes, at, hover }: { pane: ExtraPane; vie
     <div className="candle-pane" data-pane={pane}>
       <div className="candle-pane-plot">
         <span className="candle-pane-name">
-          {PANE_NAMES[pane]}{" "}
+          {name}{" "}
           {readouts.map((value, index) => (value == null ? null : <b key={index} className={`${spec!.lines[index].className}-text`}>{spec!.format(value)} </b>))}
           {barAt != null ? <b data-tone={barAt >= 0 ? "good" : "bad"}>{spec.format(barAt)}</b> : null}
           {pane === "squeeze" && at != null && spec.dots?.[at] != null ? <b data-tone={spec.dots[at] ? "bad" : "good"}> {spec.dots[at] ? "on" : "fired"}</b> : null}

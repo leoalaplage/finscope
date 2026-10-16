@@ -13,7 +13,7 @@ describe("the chart workspace", () => {
   it("repairs whatever the browser hands back", () => {
     const repaired = cleanWorkspace({ layout: 3, cells: [{ symbol: "msft", interval: "2h", studies: ["rsi", "astrology"] }], active: 9 });
     expect(repaired.layout).toBe(1);
-    expect(repaired.cells[0]).toEqual({ symbol: "MSFT", interval: "1d", studies: ["rsi"], log: false, compare: [] });
+    expect(repaired.cells[0]).toEqual({ symbol: "MSFT", interval: "1d", studies: ["rsi"], log: false, compare: [], params: {} });
     const compared = cleanWorkspace({ cells: [{ symbol: "AAPL", compare: ["msft", "AAPL", "msft", "^gspc", "nvda", "amd"], log: true }] });
     expect(compared.cells[0].compare).toEqual(["MSFT", "^GSPC", "NVDA"]);
     expect(compared.cells[0].log).toBe(true);

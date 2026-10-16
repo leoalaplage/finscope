@@ -542,6 +542,12 @@ body:has(.io.term) { background: #0d1012; }
 .t-study { display: flex; align-items: center; gap: 6px; padding: 1px 0; color: var(--ink-2); cursor: pointer; }
 .t-study:hover { color: var(--amber); }
 .t-study input { accent-color: var(--amber); margin: 0; }
+/* A study's settings, under it once it is on. */
+.t-study-params { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 2px 0 5px 20px; }
+.t-param { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-3); font-size: var(--fs-micro); }
+.t-param input { width: 52px; height: 20px; padding: 0 4px; font: inherit; font-family: var(--mono); color: var(--ink); background: var(--panel-input, #000); border: 1px solid var(--line-strong); }
+.t-param input:focus { border-color: var(--amber); outline: none; }
+.t-study-params .t-text-button { font-size: var(--fs-micro); }
 .t-study-note { padding: 6px 8px; color: var(--ink-3); font-size: var(--fs-micro); }
 
 /* --- Borrowed pages (TermPage): screener, compare, DCF, portfolio, market -- */

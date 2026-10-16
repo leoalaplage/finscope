@@ -6,6 +6,7 @@ import type { Candles, CandleInterval } from "@/lib/adapters/candles";
 import { chooseSymbol } from "@/components/io/choose-symbol";
 import { INTERVAL_TITLES } from "@/lib/io/candle-chart";
 import { STUDY_GROUPS, STUDY_NAMES, type Study } from "@/lib/io/technicals";
+import { isDefault, paramsOf, STUDY_PARAMS, studyName, withParams } from "@/lib/io/study-params";
 import { TOOL_GROUPS, TOOLS, type Drawing, type Tool } from "@/lib/term/drawings";
 import { ToolIcon } from "./ToolIcon";
 import { redoDrawings, setSymbolDrawings, undoDrawings, useDrawingStore } from "@/components/io/drawings-store";
@@ -98,6 +99,29 @@ function SymbolField({ symbol, onSymbol }: { symbol: string; onSymbol: (next: st
   );
 }
 
+/** One setting of a study: typed, then kept on Enter or when the field is left; a value out of bounds is brought inside them. */
+function ParamField({ label, value, min, max, step, onValue }: {
+  label: string; value: number; min: number; max: number; step: number; onValue: (value: number) => void;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const keep = () => {
+    if (text == null) return;
+    const parsed = Number(text.replace(",", "."));
+    setText(null);
+    if (Number.isFinite(parsed) && parsed !== value) onValue(parsed);
+  };
+  return (
+    <label className="t-param">
+      <span>{label}</span>
+      <input
+        type="number" inputMode="decimal" min={min} max={max} step={step} value={text ?? String(value)}
+        onChange={(event) => setText(event.target.value)} onBlur={keep}
+        onKeyDown={(event) => { if (event.key === "Enter") { keep(); event.currentTarget.blur(); } if (event.key === "Escape") setText(null); }}
+      />
+    </label>
+  );
+}
+
 function ChartCellView({
   cell, index, active, tool, magnet, compact, drawings, onFocus, onChange, onDrawings, onToolDone,
 }: {
@@ -177,7 +201,7 @@ function ChartCellView({
         candles={candles} interval={cell.interval} loading={loading} error={error} studies={studies} compact={compact}
         label={`${cell.symbol}, ${INTERVAL_TITLES[cell.interval].toLowerCase()} candles`}
         drawings={drawings} tool={tool} onDrawingsChange={onDrawings} onToolDone={onToolDone} magnet={magnet}
-        zoomable logScale={cell.log} compare={compared} benchmark={market?.candles ?? null}
+        params={cell.params} zoomable logScale={cell.log} compare={compared} benchmark={market?.candles ?? null}
       />
     </section>
   );
@@ -360,12 +384,33 @@ export function ChartWorkspace() {
           {STUDY_GROUPS.map((group) => (
             <div className="t-study-group" key={group.name}>
               <h3>{group.name}</h3>
-              {group.studies.map((study) => (
-                <label key={study} className="t-study">
-                  <input type="checkbox" checked={activeCell.studies.includes(study)} onChange={() => toggleStudy(study)} />
-                  <span>{STUDY_NAMES[study]}</span>
-                </label>
-              ))}
+              {group.studies.map((study) => {
+                const checked = activeCell.studies.includes(study);
+                const specs = STUDY_PARAMS[study];
+                const values = paramsOf(activeCell.params, study);
+                const setParams = (next: number[] | null) => setCell(workspace.active, { ...activeCell, params: withParams(activeCell.params, study, next) });
+                return (
+                  <div key={study} className="t-study-row">
+                    <label className="t-study">
+                      <input type="checkbox" checked={checked} onChange={() => toggleStudy(study)} />
+                      <span>{studyName(study, activeCell.params, STUDY_NAMES[study])}</span>
+                    </label>
+                    {checked && specs ? (
+                      <div className="t-study-params">
+                        {specs.map((spec, index) => (
+                          <ParamField
+                            key={`${study}-${index}-${values[index]}`} label={spec.label} value={values[index]} min={spec.min} max={spec.max} step={spec.step}
+                            onValue={(value) => setParams(values.map((item, at) => (at === index ? value : item)))}
+                          />
+                        ))}
+                        {!isDefault(activeCell.params, study) ? (
+                          <button type="button" className="t-text-button" title="Back to the default settings" onClick={() => setParams(null)}>Reset</button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           ))}
           <p className="t-study-note">

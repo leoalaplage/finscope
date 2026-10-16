@@ -1,5 +1,6 @@
 import { CANDLE_INTERVALS, type CandleInterval } from "@/lib/adapters/candles";
 import { DEFAULT_STUDIES, STUDIES, type Study } from "@/lib/io/technicals";
+import { cleanParams, type StudyParams } from "@/lib/io/study-params";
 
 /**
  * The chart workspace as a value: how many charts, what each shows, which one
@@ -21,6 +22,8 @@ export interface ChartCell {
   log: boolean;
   /** Other symbols drawn over this one, rebased to it; three at most. */
   compare: string[];
+  /** The studies' settings where the reader changed them (lib/io/study-params.ts). */
+  params: StudyParams;
 }
 
 export const COMPARE_LIMIT = 3;
@@ -36,7 +39,7 @@ export const SAVED_LIMIT = 20;
 const DEFAULT_SYMBOLS = ["AAPL", "NVDA", "MSFT", "^GSPC"];
 
 export function defaultCell(symbol: string): ChartCell {
-  return { symbol, interval: "1d", studies: [...DEFAULT_STUDIES, "volume"], log: false, compare: [] };
+  return { symbol, interval: "1d", studies: [...DEFAULT_STUDIES, "volume"], log: false, compare: [], params: {} };
 }
 
 export function defaultWorkspace(first?: string | null): Workspace {
@@ -55,7 +58,7 @@ function cleanCell(value: unknown, fallback: ChartCell): ChartCell {
     ? [...new Set(cell.compare.filter((item): item is string => typeof item === "string").map((item) => item.toUpperCase()))]
       .filter((item) => SYMBOL.test(item) && item !== symbol).slice(0, COMPARE_LIMIT)
     : [];
-  return { symbol, interval, studies, log, compare };
+  return { symbol, interval, studies, log, compare, params: cleanParams(cell.params) };
 }
 
 export function cleanWorkspace(value: unknown): Workspace {
