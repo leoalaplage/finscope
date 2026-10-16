@@ -2747,3 +2747,8 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   position: absolute; top: 8px; left: 50%; z-index: 5; transform: translateX(-50%); padding: 3px 8px; pointer-events: none;
   font-size: var(--fs-micro); color: var(--inverse, #000); background: var(--amber, #f4e74c); border-radius: 2px;
 }
+/* The candles drawn as paths (CandlePaths in components/io/CandleChart.tsx). */
+.candle-up .candle-wick { fill: none; stroke: var(--gain); stroke-width: 1; }
+.candle-up .candle-fill { fill: var(--gain); }
+.candle-down .candle-wick { fill: none; stroke: var(--loss); stroke-width: 1; }
+.candle-down .candle-fill { fill: var(--loss); }

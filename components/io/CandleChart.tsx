@@ -461,13 +461,14 @@ export function CandleChart({
     const series = { t, o, h, l, c };
     const atrs = ranges.slice(from, to);
     const atr = [...atrs].reverse().find((value): value is number => value != null) ?? (Math.max(...h) - Math.min(...l)) / 20;
-    const found = pivots(series, PIVOT_SPAN[interval]);
+    // Each reading only when its study is on: a pan recomputes them all, on every frame.
+    const found = studies.has("trendLines") || studies.has("levels") || studies.has("chartPatterns") ? pivots(series, PIVOT_SPAN[interval]) : [];
     const analysis = {
-      fib: fibonacci(series, PIVOT_SPAN[interval]),
-      gaps: fairValueGaps(series, atrs),
-      trends: trendLines(series, found, atr),
-      levels: supportResistance(series, found, atr),
-      structure: marketStructure(series, PIVOT_SPAN[interval]),
+      fib: studies.has("fibRetracement") || studies.has("fibExtension") ? fibonacci(series, PIVOT_SPAN[interval]) : null,
+      gaps: studies.has("fvg") ? fairValueGaps(series, atrs) : [],
+      trends: studies.has("trendLines") ? trendLines(series, found, atr) : [],
+      levels: studies.has("levels") ? supportResistance(series, found, atr) : [],
+      structure: studies.has("structure") || studies.has("orderBlocks") ? marketStructure(series, PIVOT_SPAN[interval]) : { breaks: [], blocks: [] },
       shapes: studies.has("chartPatterns") ? chartPatterns(series, found, atr) : [],
     };
 
@@ -1020,18 +1021,7 @@ export function CandleChart({
                 ))}
               </g>
             ) : null}
-            {view.drawn.c.map((close, index) => {
-              const open = view.drawn.o[index];
-              const top = view.y(Math.max(open, close));
-              const bottom = view.y(Math.min(open, close));
-              const width = view.slot * 0.64;
-              return (
-                <g key={view.t[index]} className={close >= open ? "candle-up" : "candle-down"}>
-                  <line x1={view.x(index)} x2={view.x(index)} y1={view.y(view.drawn.h[index])} y2={view.y(view.drawn.l[index])} vectorEffect="non-scaling-stroke" />
-                  <rect x={view.x(index) - width / 2} y={top} width={width} height={Math.max(bottom - top, 0.8)} />
-                </g>
-              );
-            })}
+            <CandlePaths view={view} />
             <g clipPath={`url(#${clipId})`}>
               {on("structure") ? view.analysis.structure.breaks.map((item) => (
                 <line
@@ -1396,6 +1386,44 @@ export function CandleChart({
   );
 }
 
+/**
+ * The candles as four paths — wicks and bodies, up and down — rather than two
+ * elements a candle: a chart zoomed out on a few thousand candles stays one
+ * frame a move.
+ */
+function CandlePaths({ view }: { view: { drawn: { o: number[]; h: number[]; l: number[]; c: number[] }; x: (index: number) => number; y: (value: number) => number; slot: number } }) {
+  const width = view.slot * 0.64;
+  let upWicks = "", downWicks = "", upBodies = "", downBodies = "";
+  view.drawn.c.forEach((close, index) => {
+    const open = view.drawn.o[index];
+    const x = view.x(index);
+    const top = view.y(Math.max(open, close));
+    const height = Math.max(view.y(Math.min(open, close)) - top, 0.8);
+    const wick = `M${x.toFixed(2)} ${view.y(view.drawn.h[index]).toFixed(2)}V${view.y(view.drawn.l[index]).toFixed(2)}`;
+    const body = `M${(x - width / 2).toFixed(2)} ${top.toFixed(2)}h${width.toFixed(2)}v${height.toFixed(2)}h${(-width).toFixed(2)}Z`;
+    if (close >= open) { upWicks += wick; upBodies += body; } else { downWicks += wick; downBodies += body; }
+  });
+  return (
+    <>
+      <g className="candle-up"><path className="candle-wick" d={upWicks} vectorEffect="non-scaling-stroke" /><path className="candle-fill" d={upBodies} /></g>
+      <g className="candle-down"><path className="candle-wick" d={downWicks} vectorEffect="non-scaling-stroke" /><path className="candle-fill" d={downBodies} /></g>
+    </>
+  );
+}
+
+/** Bars from a base, as two paths: those `up` says are up, and the rest. */
+function barPaths(values: Array<number | null>, up: (index: number) => boolean, view: { x: (index: number) => number; slot: number }, y: (value: number) => number, base: number) {
+  const width = view.slot * 0.64;
+  let rising = "", falling = "";
+  values.forEach((value, index) => {
+    if (value == null) return;
+    const top = Math.min(y(value), base);
+    const bar = `M${(view.x(index) - width / 2).toFixed(2)} ${top.toFixed(2)}h${width.toFixed(2)}v${Math.max(Math.abs(base - y(value)), 0.5).toFixed(2)}h${(-width).toFixed(2)}Z`;
+    if (up(index)) rising += bar; else falling += bar;
+  });
+  return { up: rising, down: falling };
+}
+
 /** A line through the values that exist, broken where they do not. */
 function pathOf(values: Line, x: (index: number) => number, y: (value: number) => number): string {
   let path = "";
@@ -1484,12 +1512,8 @@ function LowerPane({ pane, name, height, resizable, view, at, hover }: {
     const volume = view.volume;
     const top = Math.max(...volume, 1);
     y = (value) => PANE_H - (value / top) * PANE_H * 0.92;
-    body = volume.map((value, index) => (
-      <rect
-        key={index} className={view.c[index] >= view.o[index] ? "pane-up" : "pane-down"}
-        x={view.x(index) - view.slot * 0.32} width={view.slot * 0.64} y={y(value)} height={PANE_H - y(value)}
-      />
-    ));
+    const bars = barPaths(volume, (index) => view.c[index] >= view.o[index], view, y, PANE_H);
+    body = <><path className="pane-up" d={bars.up} /><path className="pane-down" d={bars.down} /></>;
     ticks = [{ value: top, text: compactNumber(top) }];
     readout = at != null ? <b>{compactNumber(volume[at])}</b> : null;
   }
@@ -1518,12 +1542,10 @@ function LowerPane({ pane, name, height, resizable, view, at, hover }: {
     body = (
       <>
         <line className="pane-guide" x1={0} x2={W} y1={y(0)} y2={y(0)} vectorEffect="non-scaling-stroke" />
-        {momentum.histogram.map((value, index) => (value == null ? null : (
-          <rect
-            key={index} className={value >= 0 ? "pane-up" : "pane-down"}
-            x={view.x(index) - view.slot * 0.32} width={view.slot * 0.64} y={Math.min(y(value), y(0))} height={Math.abs(y(value) - y(0))}
-          />
-        )))}
+        {(() => {
+          const bars = barPaths(momentum.histogram, (index) => (momentum.histogram[index] ?? 0) >= 0, view, y, y(0));
+          return <><path className="pane-up" d={bars.up} /><path className="pane-down" d={bars.down} /></>;
+        })()}
         {macdPath ? <path className="pane-line pane-macd" d={macdPath} vectorEffect="non-scaling-stroke" /> : null}
         {signalPath ? <path className="pane-line pane-signal" d={signalPath} vectorEffect="non-scaling-stroke" /> : null}
       </>
@@ -1664,10 +1686,11 @@ function ExtraLowerPane({ pane, name, height, resizable, view, panes, at, hover 
         <svg viewBox={`0 0 ${W} ${PANE_H}`} preserveAspectRatio="none" aria-hidden="true">
           {spec.zone ? <rect className="pane-zone" x={0} width={W} y={y(spec.zone[1])} height={y(spec.zone[0]) - y(spec.zone[1])} /> : null}
           {spec.guides.map((level) => <line key={level} className="pane-guide" x1={0} x2={W} y1={y(level)} y2={y(level)} vectorEffect="non-scaling-stroke" />)}
-          {spec.bars ? spec.bars.map((value, index) => (value == null ? null : (
-            <rect key={index} className={value >= 0 ? "pane-up" : "pane-down"}
-              x={view.x(index) - view.slot * 0.32} width={view.slot * 0.64} y={Math.min(y(value), zero)} height={Math.max(Math.abs(y(value) - zero), 0.5)} />
-          ))) : null}
+          {spec.bars ? (() => {
+            const values = spec.bars;
+            const bars = barPaths(values, (index) => (values[index] ?? 0) >= 0, view, y, zero);
+            return <><path className="pane-up" d={bars.up} /><path className="pane-down" d={bars.down} /></>;
+          })() : null}
           {spec.dots ? spec.dots.map((on, index) => (on == null ? null : (
             <line key={`d${index}`} className={on ? "pane-squeeze-on" : "pane-squeeze-off"} x1={view.x(index) - view.slot * 0.2} x2={view.x(index) + view.slot * 0.2} y1={zero} y2={zero} vectorEffect="non-scaling-stroke" />
           ))) : null}
