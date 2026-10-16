@@ -16,6 +16,7 @@ import {
 import { paramsOf, studyName, type StudyParams } from "@/lib/io/study-params";
 import { useChartEvents } from "./chart-events";
 import { publishCross, releaseCross, useSharedCross } from "./crosshair-sync";
+import { setPaneHeight, usePaneHeights } from "./pane-heights";
 import { clampViewport, panBy, rightMargin, shiftRange, stretchRange, ticksFor, windowOf, zoomAround, type Viewport } from "@/lib/io/chart-view";
 import {
   averageTrueRange, fairValueGaps, fibonacci, marketStructure, PIVOT_SPAN, pivots, priceOnLine,
@@ -188,7 +189,7 @@ function watermarkOf(symbol: string, name?: string | null): string {
 export function CandleChart({
   candles, interval, loading, error, label, studies = NO_STUDIES, compact = false,
   drawings, tool = "cursor", onDrawingsChange, onToolDone, magnet = false, zoomable = false, movable = zoomable,
-  logScale = false, compare, benchmark, openOn, ohlc = true, params, crosshairGroup,
+  logScale = false, percentScale = false, compare, benchmark, openOn, ohlc = true, params, crosshairGroup,
 }: {
   candles: Candles | null;
   interval: CandleInterval;
@@ -222,6 +223,8 @@ export function CandleChart({
   movable?: boolean;
   /** Prices on a logarithmic axis, where equal moves in percent are equal distances. */
   logScale?: boolean;
+  /** The axis in percent from the first candle on screen, as the platforms' percentage scale reads. */
+  percentScale?: boolean;
   /** Other symbols drawn over this one, rebased to its first candle on screen. */
   compare?: CompareSeries[];
   /** The market this symbol is measured against in the relative-strength pane. */
@@ -497,18 +500,37 @@ export function CandleChart({
     const priceAt = log
       ? (fraction: number) => Math.exp(lnMax - fraction * (lnMax - lnMin))
       : (fraction: number) => scale.max - fraction * (scale.max - scale.min);
-    const ticks = log ? logTicks(scale.min, scale.max, compact ? 5 : 7) : scale.ticks;
+    // On the percentage scale the ticks fall on round percentages from the first close on screen.
+    const base = c[0];
+    const percentOn = percentScale && !log && base > 0;
+    const ticks = percentOn
+      ? ticksFor((scale.min / base - 1) * 100, (scale.max / base - 1) * 100, compact ? 5 : 6).map((value) => base * (1 + value / 100))
+      : log ? logTicks(scale.min, scale.max, compact ? 5 : 7) : scale.ticks;
+    /**
+     * A price as the axis writes it: itself, or its distance from the first
+     * close in percent — the ticks to the places their spacing needs, a single
+     * price (the last close, the pointer) to two.
+     */
+    const tickStep = ticks.length > 1 ? Math.abs((ticks[1] - ticks[0]) / base) * 100 : 1;
+    const tickPlaces = tickStep >= 1 ? 0 : tickStep >= 0.1 ? 1 : 2;
+    const axisText = (value: number, exact = false) => {
+      if (!percentOn) return price(value);
+      const change = (value / base - 1) * 100;
+      const places = exact ? 2 : tickPlaces;
+      if (Math.abs(change) < 0.5 * 10 ** -places) return `${(0).toFixed(places)}%`;
+      return `${change > 0 ? "+" : "−"}${Math.abs(change).toFixed(places)}%`;
+    };
     const profile = studies.has("vprofile") && volume ? volumeProfile({ t, o, h, l, c, v: volume }, scale.min, scale.max, compact ? 16 : paramsOf(params, "vprofile")[0]) : null;
     return {
       t, o, h, l, c, drawn, extra, lines, smaLines, bands, cloud, vwapLine, patterns, compared, profile, momentum, volume, analysis,
-      scale, ticks, priceAt, log, slot, x, y, count, from, total, left, right, span: viewport.span,
+      scale, ticks, axisText, percentOn, priceAt, log, slot, x, y, count, from, total, left, right, span: viewport.span,
       // The place in the slice at the plot's right edge, for lines drawn to it.
       edge: right - 0.5 - from,
       previous: from > 0 ? candles.c[from - 1] : null,
       lastClose: candles.c[total - 1],
       lastBase: total > 1 ? candles.c[total - 2] : null,
     };
-  }, [candles, averages, indicators, ranges, interval, showEma, showSma, showBands, showCloud, showExtension, compact, viewport, manual, logScale, compare, benchmark, studies, params]);
+  }, [candles, averages, indicators, ranges, interval, showEma, showSma, showBands, showCloud, showExtension, compact, viewport, manual, logScale, compare, benchmark, studies, params, percentScale]);
 
   useEffect(() => {
     latest.current = viewport && navKey ? { key: navKey, viewport, total } : null;
@@ -804,6 +826,11 @@ export function CandleChart({
    * close after it, so a release before the open and one after the close read
    * alike; a dividend gives what it paid and what that was of the price.
    */
+  /* Lower panes the reader resized: the candles give up what the panes take. */
+  const paneHeights = usePaneHeights();
+  const resizable = movable && !compact;
+  const paneExtra = resizable ? panes.reduce((sum, pane) => sum + ((paneHeights[pane] ?? PANE_DEFAULT_PX) - PANE_DEFAULT_PX), 0) : 0;
+
   const companyEvents = useChartEvents(candles?.symbol ?? "", !compact && (studies.has("earnings") || studies.has("dividends")));
   const markers = useMemo(() => {
     if (!candles || !view || !companyEvents.length) return [];
@@ -838,7 +865,7 @@ export function CandleChart({
   <figure
     className="candle-chart" data-size={compact ? "compact" : undefined} aria-label={label}
     // How many lower panes are open, so a page with a fixed height can give the candles what is left.
-    style={{ "--panes": panes.length } as React.CSSProperties}
+    style={{ "--panes": panes.length, "--panes-extra": `${paneExtra}px` } as React.CSSProperties}
   >
     {compact ? null : <div className="candle-legend">
       {view && at != null ? (
@@ -875,7 +902,7 @@ export function CandleChart({
               </span>
             );
           })}
-          {view.log ? <span className="dim">LOG</span> : null}
+          {view.log ? <span className="dim">LOG</span> : view.percentOn ? <span className="dim">% from {dateText(view.t[0], interval)}</span> : null}
         </>
       ) : null}
     </div>}
@@ -1244,11 +1271,11 @@ export function CandleChart({
           <>
             {view.ticks.map((tick) => {
               const top = view.y(tick) / H;
-              return top < 0 || top > 1 ? null : <span key={tick} style={{ top: `${top * 100}%` }}>{price(tick)}</span>;
+              return top < 0 || top > 1 ? null : <span key={tick} style={{ top: `${top * 100}%` }}>{view.axisText(tick)}</span>;
             })}
             {view.y(view.lastClose) >= 0 && view.y(view.lastClose) <= H ? (
               <span className="candle-tag" data-tone={tone(lastMove)} style={{ top: `${(view.y(view.lastClose) / H) * 100}%` }}>
-                {price(view.lastClose)}
+                {view.axisText(view.lastClose, true)}
               </span>
             ) : null}
             {shown.flatMap((item) => {
@@ -1260,7 +1287,7 @@ export function CandleChart({
               ));
             })}
             {pointer && pointerPrice != null ? (
-              <span className="candle-tag candle-cross" style={{ top: `${pointer.y * 100}%` }}>{price(pointerPrice)}</span>
+              <span className="candle-tag candle-cross" style={{ top: `${pointer.y * 100}%` }}>{view.axisText(pointerPrice, true)}</span>
             ) : null}
           </>
         ) : null}
@@ -1272,8 +1299,8 @@ export function CandleChart({
 
     {view && view.momentum ? panes.map((pane) => (
       (EXTRA_PANES as Pane[]).includes(pane)
-        ? <ExtraLowerPane key={pane} pane={pane as ExtraPane} name={paneName(pane, params)} view={view as PaneView} panes={view.extra?.panes ?? null} at={at} hover={hover} />
-        : <LowerPane key={pane} pane={pane} name={paneName(pane, params)} view={view as PaneView} at={at} hover={hover} />
+        ? <ExtraLowerPane key={pane} pane={pane as ExtraPane} name={paneName(pane, params)} height={resizable ? paneHeights[pane] : undefined} resizable={resizable} view={view as PaneView} panes={view.extra?.panes ?? null} at={at} hover={hover} />
+        : <LowerPane key={pane} pane={pane} name={paneName(pane, params)} height={resizable ? paneHeights[pane] : undefined} resizable={resizable} view={view as PaneView} at={at} hover={hover} />
     )) : null}
 
     <div
@@ -1323,6 +1350,28 @@ function bandPath(upper: Line, lower: Line, x: (index: number) => number, y: (va
   return `${top}${bottom}Z`;
 }
 
+/** A lower pane's height before the reader drags it (app/io.css). */
+const PANE_DEFAULT_PX = 92;
+
+/** The top edge of a lower pane: dragged up, the pane grows and the candles give up the room; a double click puts it back. */
+function PaneGrip({ pane }: { pane: string }) {
+  const held = useRef<{ y: number; height: number } | null>(null);
+  return (
+    <div
+      className="candle-pane-grip" title="Drag to resize · double-click to reset" aria-hidden="true"
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.currentTarget.setPointerCapture(event.pointerId);
+        held.current = { y: event.clientY, height: event.currentTarget.parentElement?.getBoundingClientRect().height ?? PANE_DEFAULT_PX };
+      }}
+      onPointerMove={(event) => { if (held.current) setPaneHeight(pane, held.current.height - (event.clientY - held.current.y)); }}
+      onPointerUp={() => { held.current = null; }}
+      onPointerCancel={() => { held.current = null; }}
+      onDoubleClick={() => setPaneHeight(pane, null)}
+    />
+  );
+}
+
 /** A pane's name with the reader's settings: "RSI 9" once the period is 9. */
 const paneName = (pane: Pane, params: StudyParams | undefined) => {
   const name = studyName(pane, params, PANE_NAMES[pane]);
@@ -1355,7 +1404,9 @@ const compactNumber = (value: number) =>
  * lines; MACD as its line, its signal and the histogram of the gap. Each reads
  * out the value at the candle the crosshair is on, or the last one.
  */
-function LowerPane({ pane, name, view, at, hover }: { pane: Pane; name: string; view: PaneView; at: number | null; hover: number | null }) {
+function LowerPane({ pane, name, height, resizable, view, at, hover }: {
+  pane: Pane; name: string; height: number | undefined; resizable: boolean; view: PaneView; at: number | null; hover: number | null;
+}) {
   const { momentum } = view;
   let body: React.ReactNode = null;
   let ticks: { value: number; text: string }[] = [];
@@ -1476,7 +1527,8 @@ function LowerPane({ pane, name, view, at, hover }: { pane: Pane; name: string; 
 
   if (!body) return null;
   return (
-    <div className="candle-pane" data-pane={pane}>
+    <div className="candle-pane" data-pane={pane} style={height ? { height } : undefined}>
+      {resizable ? <PaneGrip pane={pane} /> : null}
       <div className="candle-pane-plot">
         <span className="candle-pane-name">{name} {readout}</span>
         <svg viewBox={`0 0 ${W} ${PANE_H}`} preserveAspectRatio="none" aria-hidden="true">
@@ -1506,7 +1558,9 @@ type ExtraPanes = {
  * description each: their lines, the levels that mean something on their
  * scale, and a histogram where the indicator is one.
  */
-function ExtraLowerPane({ pane, name, view, panes, at, hover }: { pane: ExtraPane; name: string; view: PaneView; panes: ExtraPanes | null; at: number | null; hover: number | null }) {
+function ExtraLowerPane({ pane, name, height, resizable, view, panes, at, hover }: {
+  pane: ExtraPane; name: string; height: number | undefined; resizable: boolean; view: PaneView; panes: ExtraPanes | null; at: number | null; hover: number | null;
+}) {
   if (!panes) return null;
   type Spec = { lines: Array<{ values: Line; className: string }>; bars?: Line; dots?: Array<boolean | null>; range: [number, number] | null; guides: number[]; zone?: [number, number]; format: (value: number) => string };
   const fixed = (places: number) => (value: number) => value.toFixed(places);
@@ -1531,7 +1585,8 @@ function ExtraLowerPane({ pane, name, view, panes, at, hover }: { pane: ExtraPan
   const readouts = spec.lines.map((line) => (at != null ? line.values[at] : null));
   const barAt = at != null && spec.bars ? spec.bars[at] : null;
   return (
-    <div className="candle-pane" data-pane={pane}>
+    <div className="candle-pane" data-pane={pane} style={height ? { height } : undefined}>
+      {resizable ? <PaneGrip pane={pane} /> : null}
       <div className="candle-pane-plot">
         <span className="candle-pane-name">
           {name}{" "}

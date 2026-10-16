@@ -20,6 +20,8 @@ export interface ChartCell {
   studies: Study[];
   /** Prices on a logarithmic axis. */
   log: boolean;
+  /** The axis in percent from the first candle on screen; never with the logarithmic one. */
+  percent: boolean;
   /** Other symbols drawn over this one, rebased to it; three at most. */
   compare: string[];
   /** The studies' settings where the reader changed them (lib/io/study-params.ts). */
@@ -42,7 +44,7 @@ export const SAVED_LIMIT = 20;
 const DEFAULT_SYMBOLS = ["AAPL", "NVDA", "MSFT", "^GSPC"];
 
 export function defaultCell(symbol: string): ChartCell {
-  return { symbol, interval: "1d", studies: [...DEFAULT_STUDIES, "volume"], log: false, compare: [], params: {} };
+  return { symbol, interval: "1d", studies: [...DEFAULT_STUDIES, "volume"], log: false, percent: false, compare: [], params: {} };
 }
 
 export function defaultWorkspace(first?: string | null): Workspace {
@@ -61,7 +63,7 @@ function cleanCell(value: unknown, fallback: ChartCell): ChartCell {
     ? [...new Set(cell.compare.filter((item): item is string => typeof item === "string").map((item) => item.toUpperCase()))]
       .filter((item) => SYMBOL.test(item) && item !== symbol).slice(0, COMPARE_LIMIT)
     : [];
-  return { symbol, interval, studies, log, compare, params: cleanParams(cell.params) };
+  return { symbol, interval, studies, log, percent: cell.percent === true && !log, compare, params: cleanParams(cell.params) };
 }
 
 export function cleanWorkspace(value: unknown): Workspace {

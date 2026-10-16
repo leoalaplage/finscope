@@ -190,9 +190,15 @@ function ChartCellView({
           ) : null}
           <button
             type="button" className="t-chip" aria-pressed={cell.log} title="Logarithmic price axis"
-            onClick={() => onChange({ ...cell, log: !cell.log })}
+            onClick={() => onChange({ ...cell, log: !cell.log, percent: false })}
           >
             LOG
+          </button>
+          <button
+            type="button" className="t-chip" aria-pressed={cell.percent} title="Price axis in percent from the first candle on screen"
+            onClick={() => onChange({ ...cell, percent: !cell.percent, log: false })}
+          >
+            %
           </button>
           <IntervalPicker interval={cell.interval} onInterval={(interval) => onChange({ ...cell, interval })} />
           {company ? <a href={`/t/s/${encodeURIComponent(cell.symbol)}`} title="Company screen">DES</a> : null}
@@ -202,7 +208,7 @@ function ChartCellView({
         candles={candles} interval={cell.interval} loading={loading} error={error} studies={studies} compact={compact}
         label={`${cell.symbol}, ${INTERVAL_TITLES[cell.interval].toLowerCase()} candles`}
         drawings={drawings} tool={tool} onDrawingsChange={onDrawings} onToolDone={onToolDone} magnet={magnet}
-        params={cell.params} crosshairGroup={crosshairGroup} zoomable logScale={cell.log} compare={compared} benchmark={market?.candles ?? null}
+        params={cell.params} crosshairGroup={crosshairGroup} zoomable logScale={cell.log} percentScale={cell.percent} compare={compared} benchmark={market?.candles ?? null}
       />
     </section>
   );

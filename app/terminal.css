@@ -532,8 +532,8 @@ body:has(.io.term) { background: #0d1012; }
 .t-chart-last em[data-tone="bad"] { color: var(--loss); }
 .t-chart-cell .candle-chart { padding: 4px 4px 0; }
 /* The candles take the height the open panes leave, so a screen of studies still fits the window. */
-.t-charts[data-layout="1"] .candle-body, .t-charts[data-layout="2"] .candle-body { height: clamp(240px, calc(100vh - 300px - var(--panes, 0) * 92px), 760px); }
-.t-charts[data-layout="4"] .candle-body { height: clamp(140px, calc(50vh - 190px - var(--panes, 0) * 60px), 380px); }
+.t-charts[data-layout="1"] .candle-body, .t-charts[data-layout="2"] .candle-body { height: clamp(240px, calc(100vh - 300px - var(--panes, 0) * 92px - var(--panes-extra, 0px)), 760px); }
+.t-charts[data-layout="4"] .candle-body { height: clamp(140px, calc(50vh - 190px - var(--panes, 0) * 60px - var(--panes-extra, 0px)), 380px); }
 .t-charts[data-layout="4"] .candle-pane { height: 60px; }
 
 .t-studies { position: sticky; top: 92px; background: var(--bg); border: 1px solid var(--line); }
