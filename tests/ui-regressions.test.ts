@@ -983,17 +983,18 @@ describe("the redesign", () => {
     expect(qs).not.toContain("function reportedDebt(");
   });
 
-  it("wears Tenqay's identity: acid yellow on the terminal's black, favicons in every size a browser asks for", () => {
+  it("wears Tenqay's identity: gold on navy, favicons in every size a browser asks for", () => {
     const icon = readFileSync(new URL("../public/favicon.svg", import.meta.url), "utf8");
     const css = readFileSync(new URL("../app/terminal.css", import.meta.url), "utf8");
-    expect(icon).toContain("#f4e74c");
-    expect(icon).toContain("#0d1012");
-    expect(css).toContain("--amber: #f4e74c;");
+    expect(icon).toContain("#f5c451");
+    expect(icon).toContain("#0a1222");
+    expect(css).toContain("--amber: #f5c451;");
+    expect(css).toContain("--bg: #0a1222;");
     // The charts keep their own colours, whatever the accent.
     expect(css).toContain("--plot: #4ea8ff;");
     expect(css).toContain("--chart-amber: #ffa028;");
     // No accent of before.
-    for (const old of ["212, 250, 76", "92, 214, 247", "233, 196, 106"]) expect(css).not.toContain(old);
+    for (const old of ["212, 250, 76", "92, 214, 247", "233, 196, 106", "244, 231, 76", "#f4e74c"]) expect(css).not.toContain(old);
     for (const file of ["favicon.ico", "favicon-32.png", "apple-touch-icon.png", "icon-192.png", "icon-512.png"]) {
       expect(readFileSync(new URL(`../public/${file}`, import.meta.url)).length).toBeGreaterThan(100);
     }
