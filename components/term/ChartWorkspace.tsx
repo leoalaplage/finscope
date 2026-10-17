@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
-import { exportChartPng } from "@/components/io/chart-export";
+import { copyChartPng, exportChartPng } from "@/components/io/chart-export";
 import { CandleChart, IntervalPicker, lastMoveOf, percent, price, tone, useCandles, type CompareSeries } from "@/components/io/CandleChart";
 import type { Candles, CandleInterval } from "@/lib/adapters/candles";
 import { chooseSymbol } from "@/components/io/choose-symbol";
@@ -340,20 +340,44 @@ export function ChartWorkspace() {
     return () => document.documentElement.classList.remove("t-noscroll");
   }, [fixedHeight]);
 
-  /** The chart in focus, saved as a picture with its studies, drawings and watermark. */
+  /** The chart in focus as a picture with its studies, drawings and watermark: saved as a file, or copied. */
+  const [copied, setCopied] = useState<"done" | "failed" | null>(null);
+  const pictureOf = () => {
+    const at = workspace.layout > 1 ? workspace.active : 0;
+    const cell = space.current?.querySelectorAll<HTMLElement>(".t-chart-cell")[at];
+    const figure = cell?.querySelector<HTMLElement>(".candle-chart");
+    const name = cell?.querySelector(".t-chart-name")?.textContent ?? "";
+    const title = {
+      symbol: activeCell.symbol,
+      detail: [name, INTERVAL_TITLES[activeCell.interval], activeCell.log ? "Log scale" : activeCell.percent ? "Percent scale" : ""].filter(Boolean).join(" · "),
+    };
+    return figure ? { figure, title } : null;
+  };
   const exportActive = async () => {
-    const figure = space.current?.querySelectorAll<HTMLElement>(".t-chart-cell")[workspace.layout > 1 ? workspace.active : 0]?.querySelector<HTMLElement>(".candle-chart");
-    if (!figure || exporting) return;
+    const picture = pictureOf();
+    if (!picture || exporting) return;
     setExporting(true);
     try {
-      const name = space.current?.querySelectorAll<HTMLElement>(".t-chart-cell .t-chart-name")[workspace.layout > 1 ? workspace.active : 0]?.textContent ?? "";
-      await exportChartPng(figure, `${activeCell.symbol.replace(/[^A-Za-z0-9.-]/g, "")}-${activeCell.interval}-${new Date().toISOString().slice(0, 10)}.png`, {
-        symbol: activeCell.symbol, detail: [name, INTERVAL_TITLES[activeCell.interval], activeCell.log ? "Log scale" : activeCell.percent ? "Percent scale" : ""].filter(Boolean).join(" · "),
-      });
+      await exportChartPng(picture.figure, `${activeCell.symbol.replace(/[^A-Za-z0-9.-]/g, "")}-${activeCell.interval}-${new Date().toISOString().slice(0, 10)}.png`, picture.title);
     } finally {
       setExporting(false);
     }
   };
+  const copyActive = async () => {
+    const picture = pictureOf();
+    if (!picture || exporting) return;
+    setExporting(true);
+    try {
+      await copyChartPng(picture.figure, picture.title);
+      setCopied("done");
+    } catch {
+      setCopied("failed");
+    } finally {
+      setExporting(false);
+      setTimeout(() => setCopied(null), 2500);
+    }
+  };
+
   const [hidden, setHidden] = useState(false);
   const [naming, setNaming] = useState<string | null>(null);
 
@@ -465,6 +489,13 @@ export function ChartWorkspace() {
           <button type="button" title="Save the chart in focus as a PNG picture" aria-label="Save as PNG" onClick={() => { void exportActive(); }} disabled={exporting}>
             <ToolIcon name="camera" />
           </button>
+          <button
+            type="button" aria-label="Copy the chart as a picture" disabled={exporting}
+            title={copied === "done" ? "Copied: paste it anywhere" : copied === "failed" ? "This browser did not allow the copy" : "Copy the chart in focus as a picture, to paste anywhere"}
+            onClick={() => { void copyActive(); }} data-copied={copied ?? undefined}
+          >
+            <ToolIcon name={copied === "done" ? "check" : "copy"} />
+          </button>
           <button type="button" title="Undo · ⌘Z" aria-label="Undo" onClick={() => undoDrawings()}><ToolIcon name="undo" /></button>
           <button type="button" title="Redo · ⇧⌘Z" aria-label="Redo" onClick={() => redoDrawings()}><ToolIcon name="redo" /></button>
           <button
@@ -475,7 +506,6 @@ export function ChartWorkspace() {
           </button>
         </div>
 
-        <button type="button" className="t-chip t-ind-toggle" aria-pressed={panelOpen} title={panelOpen ? "Hide the studies panel" : "Show the studies panel"} onClick={() => setPanelOpen(!panelOpen)}>IND</button>
         <div className="t-layouts">
           <span className="label">Layouts</span>
           {store.saved.length ? (
@@ -513,6 +543,12 @@ export function ChartWorkspace() {
             </select>
           ) : null}
         </div>
+        <button
+          type="button" className="t-chip t-ind-toggle" aria-pressed={!panelOpen}
+          title={panelOpen ? "Hide the studies panel" : "Show the studies panel"} onClick={() => setPanelOpen(!panelOpen)}
+        >
+          {panelOpen ? "Hide IND" : "Show IND"}
+        </button>
       </div>
 
       <div className="t-chart-body" data-panel={panelOpen ? "open" : "closed"}>

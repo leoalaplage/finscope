@@ -509,7 +509,7 @@ body:has(.io.term) { background: #0d1012; }
 .t-text-button { color: var(--ink-2); padding: 1px 6px; border: 1px solid var(--line-strong); background: var(--bg); }
 .t-text-button:hover:not(:disabled) { color: var(--amber); border-color: var(--amber); }
 .t-text-button:disabled { opacity: .4; cursor: default; }
-.t-layouts { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.t-layouts { display: flex; align-items: center; gap: 6px; }
 .t-layouts form { display: flex; gap: 4px; }
 .t-layouts input, .t-layouts select, .t-symbol input {
   font: inherit; font-size: var(--fs-xs); color: var(--amber); background: #000; border: 1px solid var(--line-strong); padding: 1px 6px; border-radius: 0;
@@ -1664,4 +1664,6 @@ html.t-noscroll, html.t-noscroll body { overflow: hidden; }
 .t-studies .t-panel-head { position: sticky; top: 0; z-index: 1; background: var(--head); }
 .t-studies-hide { margin-left: auto; padding: 0 4px; color: var(--ink-3); background: none; border: 0; cursor: pointer; }
 .t-studies-hide:hover { color: var(--amber); }
-.t-ind-toggle { font-weight: 700; }
+/* At the toolbar's right end, above the panel it hides. */
+.t-ind-toggle { margin-left: auto; font-weight: 700; white-space: nowrap; }
+.term .t-tool-options button[data-copied="done"] { color: var(--gain); }
