@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Estimates } from "@/lib/estimates";
 import type { IoCompanyView } from "@/lib/io/view";
 import { keyStatistics, type StatRow } from "@/lib/io/key-statistics";
+import { isValuationMetric } from "./valuation-series";
 import type { IoQuote } from "./quote";
 import { ABSENT, compact, money, percent, price as writePrice } from "./format";
 
@@ -13,7 +14,11 @@ import { ABSENT, compact, money, percent, price as writePrice } from "./format";
  * enterprise value are struck exactly as on the tiles they replace
  * (components/io/Stats.tsx), whose notes still say what each figure rests on.
  */
-export function KeyStatistics({ view, quote }: { view: IoCompanyView; quote: IoQuote | null }) {
+export function KeyStatistics({ view, quote, shown = [], onShow }: {
+  view: IoCompanyView; quote: IoQuote | null;
+  /** The measures the price chart draws now, and how to put one there in the price's place. */
+  shown?: string[]; onShow?: (metric: string) => void;
+}) {
   const basis = view.basis;
   const price = quote?.price ?? null;
   const currency = basis?.currency ?? view.company.currency;
@@ -59,12 +64,24 @@ export function KeyStatistics({ view, quote }: { view: IoCompanyView; quote: IoQ
         <section key={block.title} className="t-keystats-block" aria-label={block.title}>
           <h3>{block.title}</h3>
           <dl>
-            {block.rows.map((row) => (
-              <div key={row.label} title={row.title}>
-                <dt>{row.label}</dt>
-                <dd data-neg={row.kind === "percent" && row.value != null && row.value < 0 || undefined}>{write(row)}</dd>
-              </div>
-            ))}
+            {block.rows.map((row) => {
+              // A figure whose series this page can draw: a click puts it in the chart above, a second click the price back.
+              const drawable = onShow && row.metric && (isValuationMetric(row.metric) || view.metrics.some((metric) => metric.key === row.metric)) ? row.metric : null;
+              const on = drawable != null && shown.length === 1 && shown[0] === drawable;
+              return (
+                <div
+                  key={row.label} title={drawable ? `${row.title ? `${row.title}. ` : ""}${on ? "Back to the price" : "Chart it in place of the price"}` : row.title}
+                  {...(drawable ? {
+                    role: "button", tabIndex: 0, "data-drawable": true, "aria-pressed": on,
+                    onClick: () => onShow!(drawable),
+                    onKeyDown: (event: React.KeyboardEvent) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onShow!(drawable); } },
+                  } : {})}
+                >
+                  <dt>{row.label}</dt>
+                  <dd data-neg={row.kind === "percent" && row.value != null && row.value < 0 || undefined}>{write(row)}</dd>
+                </div>
+              );
+            })}
           </dl>
         </section>
       ))}

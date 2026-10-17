@@ -16,7 +16,11 @@ import type { IoCompanyView, IoPeriod } from "./view";
  */
 
 export type StatKind = "money" | "count" | "percent" | "multiple" | "price";
-export interface StatRow { label: string; value: number | null; kind: StatKind; title?: string }
+export interface StatRow {
+  label: string; value: number | null; kind: StatKind; title?: string;
+  /** The series behind the figure, which the price chart can draw in its place (a filed measure, or a multiple through time). */
+  metric?: string;
+}
 export interface StatBlock { title: string; rows: StatRow[] }
 
 /** Within two years: past that a figure carried forward is history, not the company's (components/io/Stats.tsx). */
@@ -83,35 +87,35 @@ export function keyStatistics(input: {
     { title: "Profile", rows: [
       { label: "Market cap", value: marketCap, kind: "money" },
       { label: "EV", value: enterpriseValue, kind: "money" },
-      { label: "Shares out", value: input.shares, kind: "count" },
-      { label: "Revenue", value: revenue, kind: "money" },
-      { label: "Net income", value: earnings, kind: "money" },
-      { label: "FCF", value: value("freeCashFlow"), kind: "money" },
+      { label: "Shares out", value: input.shares, kind: "count", metric: "dilutedShares" },
+      { label: "Revenue", value: revenue, kind: "money", metric: "revenue" },
+      { label: "Net income", value: earnings, kind: "money", metric: "netIncome" },
+      { label: "FCF", value: value("freeCashFlow"), kind: "money", metric: "freeCashFlow" },
     ] },
     { title: "Margins", rows: [
-      { label: "Gross", value: value("grossMargin"), kind: "percent" },
-      { label: "EBITDA", value: value("ebitdaMargin"), kind: "percent" },
-      { label: "Operating", value: value("operatingMargin"), kind: "percent" },
-      { label: "Pre-tax", value: value("pretaxMargin"), kind: "percent" },
-      { label: "Net", value: value("netMargin"), kind: "percent" },
-      { label: "FCF", value: value("freeCashFlowMargin"), kind: "percent" },
+      { label: "Gross", value: value("grossMargin"), kind: "percent", metric: "grossMargin" },
+      { label: "EBITDA", value: value("ebitdaMargin"), kind: "percent", metric: "ebitdaMargin" },
+      { label: "Operating", value: value("operatingMargin"), kind: "percent", metric: "operatingMargin" },
+      { label: "Pre-tax", value: value("pretaxMargin"), kind: "percent", metric: "pretaxMargin" },
+      { label: "Net", value: value("netMargin"), kind: "percent", metric: "netMargin" },
+      { label: "FCF", value: value("freeCashFlowMargin"), kind: "percent", metric: "freeCashFlowMargin" },
     ] },
     { title: "Returns · 5Y avg", rows: [
-      { label: "ROA", value: fiveYearAverage(view, "returnOnAssets"), kind: "percent" },
-      { label: "ROTA", value: fiveYearAverage(view, "returnOnTangibleAssets"), kind: "percent" },
-      { label: "ROE", value: fiveYearAverage(view, "returnOnEquity"), kind: "percent" },
-      { label: "ROCE", value: fiveYearAverage(view, "returnOnCapitalEmployed"), kind: "percent" },
-      { label: "ROIC", value: fiveYearAverage(view, "roic"), kind: "percent" },
+      { label: "ROA", value: fiveYearAverage(view, "returnOnAssets"), kind: "percent", metric: "returnOnAssets" },
+      { label: "ROTA", value: fiveYearAverage(view, "returnOnTangibleAssets"), kind: "percent", metric: "returnOnTangibleAssets" },
+      { label: "ROE", value: fiveYearAverage(view, "returnOnEquity"), kind: "percent", metric: "returnOnEquity" },
+      { label: "ROCE", value: fiveYearAverage(view, "returnOnCapitalEmployed"), kind: "percent", metric: "returnOnCapitalEmployed" },
+      { label: "ROIC", value: fiveYearAverage(view, "roic"), kind: "percent", metric: "roic" },
     ] },
     { title: "Valuation · TTM", rows: [
-      { label: "P/E", value: multipleOf(marketCap, earnings), kind: "multiple" },
-      { label: "P/B", value: multipleOf(marketCap, equity), kind: "multiple" },
-      { label: "P/S", value: multipleOf(marketCap, revenue), kind: "multiple" },
-      { label: "EV/Sales", value: multipleOf(enterpriseValue, revenue), kind: "multiple" },
-      { label: "EV/EBITDA", value: multipleOf(enterpriseValue, value("ebitda")), kind: "multiple" },
-      { label: "EV/Gross profit", value: multipleOf(enterpriseValue, value("grossProfit")), kind: "multiple" },
-      { label: "P/FCF", value: multipleOf(marketCap, value("freeCashFlow")), kind: "multiple" },
-      { label: "FCF yield", value: multipleOf(value("freeCashFlow"), marketCap), kind: "percent" },
+      { label: "P/E", value: multipleOf(marketCap, earnings), kind: "multiple", metric: "priceToEarnings" },
+      { label: "P/B", value: multipleOf(marketCap, equity), kind: "multiple", metric: "priceToBook" },
+      { label: "P/S", value: multipleOf(marketCap, revenue), kind: "multiple", metric: "priceToSales" },
+      { label: "EV/Sales", value: multipleOf(enterpriseValue, revenue), kind: "multiple", metric: "enterpriseToSales" },
+      { label: "EV/EBITDA", value: multipleOf(enterpriseValue, value("ebitda")), kind: "multiple", metric: "enterpriseToEbitda" },
+      { label: "EV/Gross profit", value: multipleOf(enterpriseValue, value("grossProfit")), kind: "multiple", metric: "enterpriseToGrossProfit" },
+      { label: "P/FCF", value: multipleOf(marketCap, value("freeCashFlow")), kind: "multiple", metric: "priceToFreeCashFlow" },
+      { label: "FCF yield", value: multipleOf(value("freeCashFlow"), marketCap), kind: "percent", metric: "freeCashFlowYield" },
     ] },
     { title: "Valuation · NTM", rows: [
       { label: "Price target", value: input.estimates?.target?.mean ?? null, kind: "price", title: "The analysts' mean target" },
@@ -120,31 +124,31 @@ export function keyStatistics(input: {
       { label: "PEG", value: forward?.peg ?? null, kind: "multiple", title: "Forward P/E over the EPS growth expected from this fiscal year to the next" },
     ] },
     { title: "Financial health", rows: [
-      { label: "Cash", value: value("liquidAssets") ?? value("cashAndEquivalents"), kind: "money", title: "Cash and short-term investments" },
-      { label: "Net debt", value: view.basis?.netDebt ?? null, kind: "money" },
-      { label: "Debt/Equity", value: equity != null && equity > 0 ? value("debtToEquity") : null, kind: "multiple" },
-      { label: "Net debt/EBITDA", value: value("netDebtToEbitda"), kind: "multiple" },
-      { label: "EBIT/Interest", value: value("interestCoverage"), kind: "multiple" },
-      { label: "Current ratio", value: value("currentRatio"), kind: "multiple" },
+      { label: "Cash", value: value("liquidAssets") ?? value("cashAndEquivalents"), kind: "money", title: "Cash and short-term investments", metric: "liquidAssets" },
+      { label: "Net debt", value: view.basis?.netDebt ?? null, kind: "money", metric: "netDebt" },
+      { label: "Debt/Equity", value: equity != null && equity > 0 ? value("debtToEquity") : null, kind: "multiple", metric: "debtToEquity" },
+      { label: "Net debt/EBITDA", value: value("netDebtToEbitda"), kind: "multiple", metric: "netDebtToEbitda" },
+      { label: "EBIT/Interest", value: value("interestCoverage"), kind: "multiple", metric: "interestCoverage" },
+      { label: "Current ratio", value: value("currentRatio"), kind: "multiple", metric: "currentRatio" },
     ] },
     { title: "Growth · CAGR", rows: [
-      { label: "Revenue 3Y", value: cagr(view, "revenue", 3), kind: "percent" },
-      { label: "Revenue 5Y", value: cagr(view, "revenue", 5), kind: "percent" },
-      { label: "Revenue 10Y", value: cagr(view, "revenue", 10), kind: "percent" },
-      { label: "Dil. EPS 3Y", value: cagr(view, "netIncomePerShare", 3), kind: "percent" },
-      { label: "Dil. EPS 5Y", value: cagr(view, "netIncomePerShare", 5), kind: "percent" },
-      { label: "Dil. EPS 10Y", value: cagr(view, "netIncomePerShare", 10), kind: "percent" },
-      { label: "FCF 5Y", value: cagr(view, "freeCashFlow", 5), kind: "percent" },
-      { label: "Shares 5Y", value: cagr(view, "dilutedShares", 5), kind: "percent" },
+      { label: "Revenue 3Y", value: cagr(view, "revenue", 3), kind: "percent", metric: "revenue" },
+      { label: "Revenue 5Y", value: cagr(view, "revenue", 5), kind: "percent", metric: "revenue" },
+      { label: "Revenue 10Y", value: cagr(view, "revenue", 10), kind: "percent", metric: "revenue" },
+      { label: "Dil. EPS 3Y", value: cagr(view, "netIncomePerShare", 3), kind: "percent", metric: "netIncomePerShare" },
+      { label: "Dil. EPS 5Y", value: cagr(view, "netIncomePerShare", 5), kind: "percent", metric: "netIncomePerShare" },
+      { label: "Dil. EPS 10Y", value: cagr(view, "netIncomePerShare", 10), kind: "percent", metric: "netIncomePerShare" },
+      { label: "FCF 5Y", value: cagr(view, "freeCashFlow", 5), kind: "percent", metric: "freeCashFlow" },
+      { label: "Shares 5Y", value: cagr(view, "dilutedShares", 5), kind: "percent", metric: "dilutedShares" },
       { label: "EPS fwd 2Y", value: epsForward, kind: "percent", title: years.length >= 3 ? `Consensus EPS, FY ${years[0].fiscalEnd} to FY ${years[2].fiscalEnd}` : undefined },
     ] },
     { title: "Dividends", rows: [
-      { label: "Yield", value: multipleOf(dividends == null ? null : Math.abs(dividends), marketCap), kind: "percent" },
-      { label: "Payout", value: value("dividendPayout"), kind: "percent" },
-      { label: "DPS", value: value("dividendsPerShare"), kind: "price" },
-      { label: "DPS growth 3Y", value: cagr(view, "dividendsPerShare", 3), kind: "percent" },
-      { label: "DPS growth 5Y", value: cagr(view, "dividendsPerShare", 5), kind: "percent" },
-      { label: "DPS growth 10Y", value: cagr(view, "dividendsPerShare", 10), kind: "percent" },
+      { label: "Yield", value: multipleOf(dividends == null ? null : Math.abs(dividends), marketCap), kind: "percent", metric: "dividendYield" },
+      { label: "Payout", value: value("dividendPayout"), kind: "percent", metric: "dividendPayout" },
+      { label: "DPS", value: value("dividendsPerShare"), kind: "price", metric: "dividendsPerShare" },
+      { label: "DPS growth 3Y", value: cagr(view, "dividendsPerShare", 3), kind: "percent", metric: "dividendsPerShare" },
+      { label: "DPS growth 5Y", value: cagr(view, "dividendsPerShare", 5), kind: "percent", metric: "dividendsPerShare" },
+      { label: "DPS growth 10Y", value: cagr(view, "dividendsPerShare", 10), kind: "percent", metric: "dividendsPerShare" },
     ] },
   ];
   // Only what could be struck; a block with nothing in it goes.

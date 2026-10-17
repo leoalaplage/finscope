@@ -75,6 +75,7 @@ describe("historical valuation ranges", () => {
       metrics: {
         enterpriseToFreeCashFlow: value, priceToFreeCashFlow: value, freeCashFlowYield: 1 / value,
         dividendYield: null, buybackYield: null, shareholderYield: null,
+        priceToEarnings: null, priceToSales: null, priceToBook: null, enterpriseToSales: null, enterpriseToEbitda: null, enterpriseToGrossProfit: null,
       },
     });
     const history = [make("2017-02-10", 10), make("2022-02-10", 20), make("2025-02-10", 30)];

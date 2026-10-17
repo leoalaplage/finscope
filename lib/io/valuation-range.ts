@@ -2,7 +2,8 @@ import type { IoPeriod } from "./view";
 
 export type HistoricalValuationMetric =
   | "enterpriseToFreeCashFlow" | "priceToFreeCashFlow" | "freeCashFlowYield"
-  | "dividendYield" | "buybackYield" | "shareholderYield";
+  | "dividendYield" | "buybackYield" | "shareholderYield"
+  | "priceToEarnings" | "priceToSales" | "priceToBook" | "enterpriseToSales" | "enterpriseToEbitda" | "enterpriseToGrossProfit";
 
 export interface ValuationPrice {
   price: number;
@@ -98,6 +99,13 @@ export function historicalValuationPoint(period: IoPeriod, price: ValuationPrice
       dividendYield: signedRatio(dividends, marketCap),
       buybackYield: signedRatio(netBuybacks, marketCap),
       shareholderYield: signedRatio(summed(dividends, netBuybacks), marketCap),
+      // The multiples Key statistics states today, struck the same way at each filing (a loss or a negative book: none).
+      priceToEarnings: positiveRatio(marketCap, period.values.netIncome ?? null),
+      priceToSales: positiveRatio(marketCap, period.values.revenue ?? null),
+      priceToBook: positiveRatio(marketCap, period.values.totalEquity ?? null),
+      enterpriseToSales: positiveRatio(enterpriseValue, period.values.revenue ?? null),
+      enterpriseToEbitda: positiveRatio(enterpriseValue, period.values.ebitda ?? null),
+      enterpriseToGrossProfit: positiveRatio(enterpriseValue, period.values.grossProfit ?? null),
     },
   };
 }

@@ -95,7 +95,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
     return () => observer.disconnect();
   }, [ready, ticker]);
   const {
-    selectedMetrics, selectMetric, range, setRange, frequency, chooseFrequency,
+    selectedMetrics, selectMetric, showMetric, range, setRange, frequency, chooseFrequency,
     rebased, setRebased, withPrice, setWithPrice, valuation,
   } = useCompanyChart(ticker, state, quote);
 
@@ -211,7 +211,7 @@ export function TermCompany({ ticker }: { ticker: string }) {
           <Panel code="DES" title="Key statistics" className="t-side"
             actions={view.current ? <span>{view.current.label}</span> : null}
           >
-            <KeyStatistics view={view} quote={valuationQuote} />
+            <KeyStatistics view={view} quote={valuationQuote} shown={selectedMetrics} onShow={showMetric} />
             <Stats view={view} quote={valuationQuote} notesOnly />
           </Panel>
 

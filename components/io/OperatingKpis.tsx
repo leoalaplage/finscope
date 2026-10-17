@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { KpiPoint, OperatingKpi, OperatingKpis as Kpis } from "@/lib/operating-kpis";
 import { ABSENT, shortDate } from "./format";
+import { ComboChart } from "@/components/term/FundamentalCharts";
+import type { AxisUnit, ChartData, Preset, SeriesSpec } from "@/lib/term/fundamental-charts";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const quarterLabel = (end: string) => `${MONTHS[Number(end.slice(5, 7)) - 1]} ${end.slice(2, 4)}`;
@@ -35,28 +37,31 @@ function change(kpi: OperatingKpi, latest: KpiPoint, before: KpiPoint | null): {
   return { text: `${growth >= 0 ? "+" : "−"}${Math.abs(growth * 100).toFixed(1)}% on a year`, tone: growth > 0 ? "up" : growth < 0 ? "down" : undefined };
 }
 
-/** Bars, one a quarter, the newest the darkest; a quarter read from the release before its 10-Q is outlined. */
-function Bars({ kpi }: { kpi: OperatingKpi }) {
-  const values = kpi.points.map((point) => point.value);
-  const top = Math.max(...values, 0);
-  const bottom = Math.min(...values, 0);
-  // A rate or a level that moves within a narrow band is drawn from near its low, so the movement shows.
-  const floor = bottom >= 0 && top > 0 && Math.min(...values) / top > 0.6 ? Math.min(...values) * 0.9 : bottom;
-  const span = top - floor || 1;
-  const width = 100 / kpi.points.length;
-  return (
-    <svg className="kpi-bars" viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label={`${kpi.name}, ${kpi.points.length} quarters`}>
-      {kpi.points.map((point, index) => {
-        const height = Math.max(1, ((point.value - floor) / span) * 38);
-        return (
-          <rect key={point.end} x={index * width + width * 0.12} width={width * 0.76} y={40 - height} height={height}
-            data-latest={index === kpi.points.length - 1 || undefined} data-early={point.early || undefined}>
-            <title>{`${quarterLabel(point.end)} · ${kpiValue(kpi, point)}${point.early ? " · from the release, before the 10-Q" : ""}`}</title>
-          </rect>
-        );
-      })}
-    </svg>
-  );
+const SCALES: Record<string, number> = { thousands: 1e3, millions: 1e6, billions: 1e9, trillions: 1e12 };
+const FULL_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/**
+ * A KPI as the fundamental charts draw a measure (components/term/FundamentalCharts.tsx): bars a quarter on a real
+ * axis, its figures in absolute units so the axis reads $540B or 1.6M, and the quarter under the pointer named. A
+ * quarter read from the release before its 10-Q is drawn in the lighter shade.
+ */
+function kpiChart(kpi: OperatingKpi): { preset: Preset; data: ChartData } {
+  const left: AxisUnit = kpi.unit === "percent" ? "percent" : kpi.unit === "currency" ? "currency" : "shares";
+  const factor = kpi.unit === "percent" ? 0.01 : SCALES[kpi.scale ?? ""] ?? 1;
+  const spec: SeriesSpec = { id: kpi.id, label: kpi.name, kind: "bar", axis: "left", color: "var(--c1)", value: () => null };
+  return {
+    preset: { id: kpi.id, title: kpi.name, left, series: [spec], shadeNegative: kpi.points.some((point) => point.value < 0) },
+    data: {
+      labels: kpi.points.map((point) => quarterLabel(point.end)),
+      names: kpi.points.map((point) => `Quarter to ${FULL_MONTHS[Number(point.end.slice(5, 7)) - 1]} ${point.end.slice(0, 4)}${point.early ? " · from the release" : ""}`),
+      series: [{ spec, values: kpi.points.map((point) => point.value * factor), colors: kpi.points.map((point) => (point.early ? "color-mix(in srgb, var(--c1) 45%, transparent)" : null)) }],
+    },
+  };
+}
+
+function KpiChart({ kpi }: { kpi: OperatingKpi }) {
+  const { preset, data } = useMemo(() => kpiChart(kpi), [kpi]);
+  return <ComboChart preset={preset} data={data} currency="USD" height={170} />;
 }
 
 /**
@@ -99,21 +104,21 @@ export function OperatingKpis({ ticker, cik, frame = (body) => body }: {
           const latest = kpi.points.at(-1)!;
           const moved = change(kpi, latest, yearBefore(kpi.points, latest));
           return (
-            <figure key={kpi.id} className="kpi-card">
-              <figcaption title={kpi.name}>{kpi.name}</figcaption>
+            <figure key={kpi.id} className="t-gf-card kpi-card">
+              <figcaption title={kpi.name}><h3>{kpi.name}</h3></figcaption>
               <div className="kpi-figure">
                 <b>{kpiValue(kpi, latest)}</b>
+                <span className="kpi-change" data-dir={moved.tone}>{moved.text}</span>
                 <span className="t-dim">{quarterLabel(latest.end)}{latest.early ? " · release" : ""}</span>
               </div>
-              <span className="kpi-change" data-dir={moved.tone}>{moved.text || " "}</span>
-              <Bars kpi={kpi} />
+              <KpiChart kpi={kpi} />
               <a className="kpi-source" href={latest.url} target="_blank" rel="noreferrer">{latest.source === "release" ? "Release" : "10-Q"} {shortDate(latest.filed)} ↗</a>
             </figure>
           );
         })}
       </div>
       <p className="t-study-note">
-        As the company prints them in its earnings releases and its 10-Qs, in their tables or their sentences, which no XBRL tag covers. Each figure is proven against the document a year before: the same row printing it again as the year-ago figure, the change on the year a sentence states, or the same measure under the same heading. A quarter two documents disagree on is left out. The outlined bar is a quarter read from the release, before its 10-Q.
+        As the company prints them in its earnings releases and its 10-Qs, in their tables or their sentences, which no XBRL tag covers. Each figure is proven against the document a year before: the same row printing it again as the year-ago figure, the change on the year a sentence states, or the same measure under the same heading. A quarter two documents disagree on is left out. A lighter bar is a quarter read from the release, before its 10-Q.
       </p>
     </div>
   );

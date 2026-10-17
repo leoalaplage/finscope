@@ -148,6 +148,15 @@ export function useCompanyChart(ticker: string, state: CompanyState, quote: IoQu
     setOverride({ range: "MAX", frequency: "ttm" });
   };
 
+  /** One measure in the price chart's place, or the price again when it is the one already shown (Key statistics). */
+  const showMetric = (metric: string) => {
+    if (selectedMetrics.length === 1 && selectedMetrics[0] === metric) { setSelection({ ticker, metrics: [] }); return; }
+    setSelection({ ticker, metrics: [metric] });
+    if (selectedMetrics.length) return;
+    setRange("MAX");
+    setOverride({ range: "MAX", frequency: "ttm" });
+  };
+
   const frequency: Frequency = override?.range === range ? override.frequency : fundamentalWindow(range).frequency;
   const chooseFrequency = (next: Frequency) => setOverride({ range, frequency: next });
 
@@ -156,7 +165,7 @@ export function useCompanyChart(ticker: string, state: CompanyState, quote: IoQu
   }, [selectedMetrics, range, frequency, rebased, withPrice]);
 
   return {
-    selectedMetrics, selectMetric, range, setRange, frequency, chooseFrequency,
+    selectedMetrics, selectMetric, showMetric, range, setRange, frequency, chooseFrequency,
     rebased, setRebased, withPrice, setWithPrice, valuation,
   };
 }

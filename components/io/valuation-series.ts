@@ -39,6 +39,12 @@ export const VALUATION_METRICS: Array<IoMetric & { key: HistoricalValuationMetri
   { key: "dividendYield", label: "Dividend yield", short: "Dividend yield", unit: "percent", formula: "Trailing dividends paid ÷ market capitalisation, at each filing date", percent: true, group: "return" },
   { key: "buybackYield", label: "Buyback yield", short: "Buyback yield", unit: "percent", formula: "Trailing repurchases less issuance ÷ market capitalisation; negative where a company issued more stock than it retired", percent: true, group: "return" },
   { key: "shareholderYield", label: "Shareholder yield", short: "Shareholder yield", unit: "percent", formula: "Trailing dividends plus net repurchases ÷ market capitalisation, at each filing date", percent: true, group: "return" },
+  { key: "priceToEarnings", label: "Price / earnings", short: "P / E", unit: "ratio", formula: "Market capitalisation ÷ trailing net income, at each filing date", percent: false, group: "price" },
+  { key: "priceToSales", label: "Price / sales", short: "P / S", unit: "ratio", formula: "Market capitalisation ÷ trailing revenue, at each filing date", percent: false, group: "price" },
+  { key: "priceToBook", label: "Price / book", short: "P / B", unit: "ratio", formula: "Market capitalisation ÷ total equity, at each filing date", percent: false, group: "price" },
+  { key: "enterpriseToSales", label: "EV / sales", short: "EV / Sales", unit: "ratio", formula: "Enterprise value ÷ trailing revenue, at each filing date", percent: false, group: "price" },
+  { key: "enterpriseToEbitda", label: "EV / EBITDA", short: "EV / EBITDA", unit: "ratio", formula: "Enterprise value ÷ trailing EBITDA, at each filing date", percent: false, group: "price" },
+  { key: "enterpriseToGrossProfit", label: "EV / gross profit", short: "EV / GP", unit: "ratio", formula: "Enterprise value ÷ trailing gross profit, at each filing date", percent: false, group: "price" },
 ];
 
 const KEYS = new Set<string>(VALUATION_METRICS.map((metric) => metric.key));
