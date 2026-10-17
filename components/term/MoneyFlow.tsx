@@ -34,7 +34,8 @@ const SOURCE_COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(
 const MAX_SOURCES = 7;
 const SOURCE = "source:";
 const LABEL_ROOM = 150;
-const SOURCE_ROOM = 170;
+/** About the advance of one character of the 11px label, to keep a revenue line's name inside the drawing. */
+const CHARACTER = 6.8;
 
 type Statement = "income" | "cash";
 type Filing = "quarter" | "year";
@@ -110,10 +111,11 @@ function Diagram({ diagram, base, width }: { diagram: StatementDiagram; base: st
   const color = (id: string) => (sources.includes(id) ? SOURCE_COLORS[sources.indexOf(id) % SOURCE_COLORS.length] : TONE[tone[id] ?? "neutral"]);
   const height = Math.round(Math.min(520, Math.max(300, width * 0.42, sources.length * 46)));
   const layout = useMemo(() => layoutSankey(diagram.flows, {
-    width, height, nodeWidth: 8, nodePadding: 18, margin: 12, labelRoom: LABEL_ROOM, leftRoom: sources.length ? SOURCE_ROOM : 0,
+    width, height, nodeWidth: 8, nodePadding: 18, margin: 12, labelRoom: LABEL_ROOM,
+    leftRoom: sources.length ? Math.min(260, 14 + CHARACTER * Math.max(...sources.map((id) => label[id]?.length ?? 0))) : 0,
     // A revenue's lines in the order of their size; the statement's own nodes by what they are.
     rank: (id) => (sources.includes(id) ? sources.indexOf(id) : RANK[tone[id] ?? "neutral"] ?? 3),
-  }), [diagram, tone, sources, width, height]);
+  }), [diagram, tone, label, sources, width, height]);
   const total = diagram.values[base] ?? 0;
   if (!layout.nodes.length) return <p className="t-empty">This filing does not carry enough lines to draw the flow.</p>;
   return (
