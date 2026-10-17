@@ -26,7 +26,15 @@ export interface KpiRow {
   label: string;
   /** The heading the row sits under in its table ("Asia-Pacific (APAC)"), where there is one. */
   section: string | null;
+  /**
+   * What the whole table is about, where the document says it: the heading printed just above the table ("Walmart
+   * U.S. Segment", "U.S. comparable sales results") or the table's own first heading over its labels ("Sam's Club
+   * U.S. | Q2 FY27 | Q2 FY26").
+   */
+  caption?: string | null;
   unit: KpiUnit;
+  /** The table's scale is said of its dollars ("U.S. dollars in millions"), not of the counts printed in it. */
+  dollarScale?: boolean;
   /** "millions", "thousands", where the row or its table says so. */
   scale: string | null;
   values: Array<KpiCell | null>;
@@ -57,7 +65,9 @@ export interface KpiReading {
   key: string;
   label: string;
   section: string | null;
+  caption?: string | null;
   unit: KpiUnit;
+  dollarScale?: boolean;
   scale: string | null;
   /** The column's own heading when it names a measure rather than a period ("Rooms", "Sales growth"). */
   measure: string | null;
@@ -111,6 +121,31 @@ const QUARTERLY = /\b(?:three|thirteen|twelve|sixteen|13|12|16)[- ](?:months|wee
 /** A row that makes a table one of the statements, or a breakdown of them. */
 const STATEMENT_ROW = /^total (?:net )?(?:operating )?(?:revenues?|sales)$|^(?:net )?revenues?$|^net sales$|^operating (?:income|loss|profit)|^income (?:\(loss\) )?from operations|^net (?:income|earnings|loss)\b|^total (?:costs and )?(?:operating )?(?:costs and )?expenses?\b|^total assets$|^total liabilities|^net cash (?:provided|used|from)|^gross (?:profit|margin)$|^cost of (?:sales|revenues?|goods)|^income before|^(?:provision for|benefit from) income taxes|^total current (?:assets|liabilities)/i;
 
+/** A line above a table that only says the units or the period, not what the table is about. */
+const CAPTION_NOTE = /^\(?(?:\$|(?:(?:u\.s\. )?dollars?|amounts?|in|figures)\b).*\b(?:millions|thousands|billions)\b|^\(?unaudited\)?$|^\(?continued\)?$|^\(?in (?:millions|thousands|billions)|\bended\b|^as of\b|^table of contents$|^page \d+$|^\d{1,3}$|^(?:np|n\/m|nm)\b.*not (?:provided|meaningful)/i;
+
+/**
+ * The heading printed just above a table, where it is one: a short line, not a sentence of the text. The lines that
+ * only give the units, the period or a page number are passed over; a paragraph ends the search.
+ */
+export function tableCaption(before: string): string | null {
+  const blocks = before.split(/<\/(?:p|div|h\d|li|tr|table|caption|center)\s*>|<br\s*\/?\s*>/i).map(plain).filter((block) => /[a-z]/i.test(block));
+  for (let index = blocks.length - 1, read = 0; index >= 0 && read < 4; index--, read++) {
+    const block = blocks[index].replace(/\s*\(\d{1,2}\)$/, "").trim();
+    if (CAPTION_NOTE.test(block) || /^(?:\d+|[a-z])\s/.test(block) && block.length > 60) continue;
+    if (block.length > 90 || (/[.;:]$/.test(block) && block.split(" ").length > 6)) return null;
+    if (!/[a-z]{3}/i.test(block)) continue;
+    return block.replace(/[:\s]+$/, "");
+  }
+  return null;
+}
+
+/** A unit of volume or energy printed in a column of its own. */
+const PHYSICAL_UNIT = /^(?:mb\/?d|m{0,2}boe(?:d|\/d|pd)?|m{0,2}bbls?(?:d|\/d)?|bpd|m{0,2}cf(?:e|d|\/d)?|bcfe?|mmbtus?|[kmg]whs?|mw|(?:metric )?tons|tonnes)$/i;
+
+/** A row that states a change and nothing of what changed: "Percentage change from comparable period" under "Net sales". */
+const SUBJECTLESS = /^(?:(?:f\/?x[- ]neutral|constant[- ]currency|ex-?fx)\s+)?(?:(?:y\/y|yoy|year[- ]over[- ]year)\s+)?(?:(?:percentage|percent|%)\s*)?(?:change|increase|decrease|growth|increase\s*\/\s*\(?decrease\)?)(?:\s+(?:from|over|vs\.?|versus|compared (?:to|with)|on)\b.*)?$/i;
+
 export const normalise = (text: string) => text.toLowerCase()
   .replace(/\(\s*(?:\d{1,2}|[a-z]|[ivx]+)\s*\)|[*†‡§]+/g, " ")
   .replace(/\s\d{1,2}$/, " ")
@@ -122,13 +157,23 @@ export const normalise = (text: string) => text.toLowerCase()
 export function kpiRows(html: string): KpiRow[] {
   const rows: KpiRow[] = [];
   const seen = new Map<string, number>();
+  let lastEnd = 0;
   for (const table of html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)) {
+    const at0 = table.index ?? 0;
+    const above = tableCaption(html.slice(Math.max(lastEnd, at0 - 4000), at0));
+    lastEnd = at0 + table[0].length;
+    // The first heading over the labels, when the headings beside it are periods ("Walmart U.S. | Q2 FY27 | Q2 FY26").
+    let headed: string | null = null;
+    let figured = false;
+    let lastLabel: string | null = null;
     let header: string[] = [];
     // Headings that span several columns each: "Net stores opened (closed)" over two, "Stores open as of" over two more.
     let spanning: string[] | null = null;
     let section: string | null = null;
     let sectionUnit: KpiUnit | null = null;
     let tableScale: string | null = null;
+    let dollarScale = false;
+    let countsScaled = false;
     const start = rows.length;
     let financial = false;
     let adjusted = 0;
@@ -139,17 +184,35 @@ export function kpiRows(html: string): KpiRow[] {
       if (!raw.length) continue;
       const numeric = raw.filter((cell) => cellNumber(cell) && !/^(19|20)\d\d$/.test(cell.trim()));
       if (!numeric.length) {
-        tableScale = SCALE.exec(raw.join(" "))?.[1]?.toLowerCase() ?? tableScale;
+        const scaled = SCALE.exec(raw.join(" "));
+        if (scaled) {
+          const note = raw.join(" ");
+          tableScale = scaled[1].toLowerCase();
+          dollarScale = /\$|dollars?\b|amounts/i.test(note);
+          // "In millions, except percentages": its counts are in millions too, unless it excepts them ("except store data").
+          countsScaled = !dollarScale && !/except\b.*\b(?:stores?|units?|employees|members|data|counts?|numbers?|statistics|operating|square|locations|restaurants|customers|subscribers|accounts)\b/i.test(note);
+        }
         words += ` ${raw.join(" ")}`;
         // A row of words: the columns' headings when there are several, a heading over the rows below when one.
-        if (raw.length > 1) { header = raw; if (!spanning) spanning = raw; }
+        if (raw.length > 1) {
+          header = raw; if (!spanning) spanning = raw;
+          if (!figured && !headed && /[a-z]{3}/i.test(raw[0]) && raw[0].length <= 60 && !/^units?\b[\s*()\d]*$/i.test(raw[0]) && !SPAN_PERIOD.test(raw[0]) && !CAPTION_NOTE.test(raw[0]) && !NOT_THE_FIGURE.test(raw[0])
+            && raw.slice(1).some((cell) => SPAN_PERIOD.test(cell))) headed = raw[0].replace(/(?:\s*\((?:\d{1,2}|[a-z])\))+$/, "");
+        }
         // A heading that only names the period or the units ("Three Months Ended June 30,") is not a heading over the rows.
         else if (/[a-z]{3}/i.test(raw[0]) && raw[0].length <= 90 && !/ended|^as of|unaudited|^\(?in (?:millions|thousands)|^\(?(?:dollars|\$|amounts?) in (?:millions|thousands|billions)|^\(?(?:millions|thousands|billions)\b,? except|^(?:19|20)\d\d$|^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2},?(?: (?:19|20)\d\d)?$/i.test(raw[0])) { section = raw[0].replace(/:$/, "").replace(/(?:\s*\((?:\d{1,2}|[a-z])\))+$/, ""); sectionUnit = null; }
         continue;
       }
       const at = raw.findIndex((cell) => /[a-z]{3}/i.test(cell));
       if (at < 0) continue;
-      const label = raw[at].replace(/(?:\s*\((?:\d{1,2}|[a-z])\))+\s*$|\s+\d$/, "").replace(/:$/, "").trim();
+      figured = true;
+      let printed = raw[at].replace(/(?:\s*\((?:\d{1,2}|[a-z])\))+\s*$|\s+\d$/, "").replace(/:$/, "").trim();
+      // A unit printed in a column of its own beside the label ("Net Oil-Equivalent Production | MBOED | 2,077") is the label's.
+      if (raw[at + 1] && PHYSICAL_UNIT.test(raw[at + 1].trim())) printed = `${printed} (${raw[at + 1].trim()})`;
+      // A change with no subject is the change of the row above it.
+      const label = SUBJECTLESS.test(printed) && lastLabel ? `${lastLabel}, ${/^.[a-z]/.test(printed) ? printed[0].toLowerCase() : printed[0]}${printed.slice(1)}` : printed;
+      if (!SUBJECTLESS.test(printed)) lastLabel = printed;
+      const caption = headed ?? above;
       if (STATEMENT_ROW.test(normalise(label)) || STATEMENT.test(label)) financial = true;
       labelled++;
       if (ADJUSTED.test(label)) adjusted++;
@@ -177,11 +240,12 @@ export function kpiRows(html: string): KpiRow[] {
         headings.forEach((heading, index) => {
           const value = values[index];
           if (!value || !OPERATING.test(heading) || STATEMENT.test(heading) || ADJUSTED.test(heading)) return;
-          const base = `${section ? normalise(section) : ""}|${normalise(label)}|${normalise(heading)}`;
+          let base = `${section ? normalise(section) : ""}|${normalise(label)}|${normalise(heading)}`;
+          if (seen.has(base) && caption) base = `${normalise(caption)}~${base}`;
           const occurrence = (seen.get(base) ?? 0) + 1;
           seen.set(base, occurrence);
           rows.push({
-            key: occurrence > 1 ? `${base}#${occurrence}` : base, label, section, unit: rate ? "percent" : "count",
+            key: occurrence > 1 ? `${base}#${occurrence}` : base, label, section, caption, unit: rate ? "percent" : "count",
             scale: SCALE.exec(label)?.[1]?.toLowerCase() ?? null, values: [value], excluded: new Set(), financial: false,
             headings: [heading], group: heading, quarterly: false, form: "single",
           });
@@ -215,7 +279,8 @@ export function kpiRows(html: string): KpiRow[] {
       if (unit === "count" && !people && !SCALE.test(label) && amountTable && tableScale && !OPERATING_COUNT.test(label)) unit = "currency";
       // Only under a heading that is itself a measure, and only from a rate to an amount or back: a property's or a
       // region's name heads all its rows, and a "$" printed on the first row only does not change what is counted.
-      if (section && sectionUnit && (unit === "percent") !== (sectionUnit === "percent") && OPERATING.test(section)) section = null;
+      // A heading over ratios ("Percentage of net sales") does not head the counts printed after them.
+      if (section && sectionUnit && (unit === "percent") !== (sectionUnit === "percent") && (OPERATING.test(section) || /percent|%|\bratios?\b|\bmargins?\b/i.test(section))) section = null;
       // A statement prints its "$" on a block's first row only: the rows below it under one heading are amounts too.
       const inherited = section != null && sectionUnit === "currency" && unit === "count" && !SCALE.test(label);
       if (inherited && !people) unit = "currency";
@@ -223,16 +288,19 @@ export function kpiRows(html: string): KpiRow[] {
       if (section && !sectionUnit) sectionUnit = unit;
       // "Comparable sales increase" one year, "increase/(decrease)" the next: the same row.
       const keyed = (text: string) => normalise(text).replace(/\b(?:increase|decrease|growth|change)\b|\//g, " ").replace(/\s+/g, " ").trim();
-      const base = `${section ? keyed(section) : ""}|${keyed(label)}${group ? `|${keyed(group)}` : ""}`;
+      let base = `${section ? keyed(section) : ""}|${keyed(label)}${group ? `|${keyed(group)}` : ""}`;
+      // The same row in another table (Walmart prints "Transactions" for each segment): told apart by the table's caption.
+      if (seen.has(base) && caption) base = `${keyed(caption)}~${base}`;
       const occurrence = (seen.get(base) ?? 0) + 1;
       seen.set(base, occurrence);
       rows.push({
         key: occurrence > 1 ? `${base}#${occurrence}` : base,
-        label, section,
+        label, section, caption, dollarScale,
         unit,
         // A table's "in millions" is said of its amounts; a count says its own scale in its label.
         // A figure per unit (RevPAR, a price per gallon) is in units, whatever the table's amounts are in.
-        scale: SCALE.exec(label)?.[1]?.toLowerCase() ?? (unit === "currency" && (currency || inherited || amountTable) && !PER_UNIT.test(label) ? tableScale : null),
+        scale: SCALE.exec(label)?.[1]?.toLowerCase() ?? (unit === "currency" && (currency || inherited || amountTable) && !PER_UNIT.test(label) ? tableScale
+          : unit === "count" && countsScaled && !PER_UNIT.test(label) ? tableScale : null),
         values, excluded, financial: false, headings, group, quarterly: false,
       });
     }
@@ -258,7 +326,7 @@ export function kpiRows(html: string): KpiRow[] {
  * read from what it files, and a release's version of them is the release
  * reader's business.
  */
-const OPERATING = new RegExp([
+export const OPERATING = new RegExp([
   "member", "subscri", "customer", "user", "account", "deliveries", "units?\\b", "unit volume", "stores?\\b", "restaurant", "locations?\\b",
   "warehouse", "clubs?\\b", "propert", "rooms?\\b", "occupanc", "revpar", "average daily rate", "\\badr\\b", "load factor", "passenger",
   "available seat", "\\basms?\\b", "\\brpms?\\b", "\\btrasm\\b", "\\bcasm", "\\brasm", "yield", "backlog", "bookings?\\b", "orders?\\b",
@@ -329,7 +397,7 @@ export function anchorRow(newer: KpiRow, older: KpiRow): KpiReading | null {
     if (newer.unit !== "percent" && yearAgo.value !== 0 && (current.value / yearAgo.value > 5 || current.value / yearAgo.value < 0.2)) return null;
     const heading = newer.headings?.[column] ?? null;
     const measure = newer.group ?? (heading && !PERIOD.test(heading) && !/millions|thousands|billions|dollars|unaudited|\$/i.test(heading) && /[a-z]{3}/i.test(heading) ? heading : null);
-    return { key: newer.key, label: newer.label, section: newer.section, unit: newer.unit, scale: newer.scale ?? older.scale, measure, current, yearAgo };
+    return { key: newer.key, label: newer.label, section: newer.section, caption: newer.caption ?? null, dollarScale: newer.dollarScale, unit: newer.unit, scale: newer.scale ?? older.scale, measure, current, yearAgo };
   };
   // Five quarters or more side by side (Chipotle and the banks five, Amazon six): the year-ago quarter is four
   // columns from the newest, newest first or oldest first — and the older document prints it as its own newest.
@@ -412,7 +480,7 @@ function anchorStated(newer: KpiRow, older: KpiRow): KpiReading | null {
   const current = newer.values[0];
   const yearAgo = older.values[0];
   if (!current || !yearAgo) return null;
-  const reading: KpiReading = { key: newer.key, label: newer.label, section: newer.section, unit: newer.unit, scale: newer.scale ?? older.scale, measure: newer.group, current, yearAgo };
+  const reading: KpiReading = { key: newer.key, label: newer.label, section: newer.section, caption: newer.caption ?? null, dollarScale: newer.dollarScale, unit: newer.unit, scale: newer.scale ?? older.scale, measure: newer.group, current, yearAgo };
   if (newer.unit === "percent") return newer.form === "text" ? reading : null;
   const now = absolute(newer, current), before = absolute(older, yearAgo);
   if (!(now > 0 && before > 0) || now / before > 5 || now / before < 0.2) return null;

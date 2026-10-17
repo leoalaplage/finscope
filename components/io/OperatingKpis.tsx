@@ -9,9 +9,15 @@ import type { AxisUnit, ChartData, Preset, SeriesSpec } from "@/lib/term/fundame
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const quarterLabel = (end: string) => `${MONTHS[Number(end.slice(5, 7)) - 1]} ${end.slice(2, 4)}`;
 
-/** As the company printed it: its decimals, its unit, and its scale where the label does not already say it. */
-export function kpiValue(kpi: Pick<OperatingKpi, "unit" | "scale" | "name">, point: Pick<KpiPoint, "value" | "decimals"> | null | undefined): string {
+/** As the company printed it: its decimals, its unit, and its scale where the label does not already say it; then what a count counts ("4,615 units", "1.1B sq ft", "48.2¢"). */
+export function kpiValue(kpi: Pick<OperatingKpi, "unit" | "scale" | "name" | "suffix">, point: Pick<KpiPoint, "value" | "decimals"> | null | undefined): string {
   if (!point) return ABSENT;
+  const figure = kpiFigure(kpi, point);
+  if (!kpi.suffix || kpi.unit === "percent") return figure;
+  return kpi.suffix === "¢" || kpi.suffix.startsWith("/") ? `${figure}${kpi.suffix}` : `${figure} ${kpi.suffix}`;
+}
+
+function kpiFigure(kpi: Pick<OperatingKpi, "unit" | "scale">, point: Pick<KpiPoint, "value" | "decimals">): string {
   const digits = Math.abs(point.value).toLocaleString("en-US", { minimumFractionDigits: point.decimals, maximumFractionDigits: point.decimals });
   const sign = point.value < 0 ? "−" : "";
   if (kpi.unit === "percent") return `${sign}${digits}%`;

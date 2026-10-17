@@ -1,6 +1,7 @@
 import { anchorDocuments, isOperating, kpiRank, kpiRows, kpiSentences, normalise, type KpiCell, type KpiReading, type KpiRow, type KpiUnit } from "./adapters/kpi-tables";
 import { releaseDocuments } from "./adapters/earnings-release";
 import { secFetch } from "./adapters/sec-fetch";
+import { describeKpi } from "./kpi-names";
 import { cachedJson } from "./market-cache";
 import { datasetCache } from "./runtime-env";
 
@@ -46,10 +47,12 @@ export interface KpiPoint { end: string; value: number; decimals: number; source
 
 export interface OperatingKpi {
   id: string;
-  /** As the company prints it, with the heading above it where the label alone does not say what it counts. */
+  /** What it measures, whose and on what basis, put together from what the company prints (lib/kpi-names.ts). */
   name: string;
   unit: KpiUnit;
   scale: string | null;
+  /** After the figure: what a count counts ("stores", "sq ft") or the unit of a price ("¢"). Absent from older readings. */
+  suffix?: string | null;
   points: KpiPoint[];
 }
 
@@ -212,14 +215,30 @@ export function assembleKpis(pairs: Array<{ newer: KpiDocument; older: KpiDocume
     if (renamed) for (const end of entry.proofs) renamed.proofs.add(end);
     for (const [end, point] of entry.points) if (!into.points.has(end) && !into.disputed.has(end)) into.points.set(end, point);
   }
+  // Named the same way for every company; a figure whose text says nothing of what it measures is not shown.
+  const described: Array<{ entry: Building; description: NonNullable<ReturnType<typeof describeKpi>> }> = [];
+  for (const entry of kept) {
+    const { label, section, caption, measure, unit, scale, dollarScale } = entry.reading;
+    const description = describeKpi({ caption, section, label, measure, unit, scale, dollarScale, values: [...entry.points.values()].map((point) => point.value) });
+    if (!description) continue;
+    // Two rows that come out under one name are one measure printed twice (a release and its supplement): one card.
+    const same = described.find((other) => other.description.name === description.name && other.description.unit === description.unit);
+    if (same) {
+      if (![...entry.points].some(([end, point]) => same.entry.points.has(end) && same.entry.points.get(end)!.value !== point.value)) {
+        for (const [end, point] of entry.points) if (!same.entry.points.has(end)) same.entry.points.set(end, point);
+      }
+      continue;
+    }
+    described.push({ entry, description });
+  }
   /*
    * The best first, and five at most under one heading: a hotel group's forty brands, room by room, would
    * otherwise fill the page before its RevPAR. Within a rank, the order the documents print them in.
    */
   const perHeading = new Map<string, number>();
   const perLabel = new Map<string, number>();
-  const chosen = kept
-    .map((entry, index) => ({ entry, index, rank: kpiRank(entry.reading) }))
+  const chosen = described
+    .map((item, index) => ({ ...item, index, rank: kpiRank(item.entry.reading) }))
     .sort((left, right) => left.rank - right.rank || left.index - right.index)
     .filter(({ entry }) => {
       // And three at most of one label under different headings: "Rooms" brand after brand.
@@ -232,25 +251,12 @@ export function assembleKpis(pairs: Array<{ newer: KpiDocument; older: KpiDocume
       const count = (perHeading.get(heading) ?? 0) + 1;
       perHeading.set(heading, count);
       return count <= 5;
-    })
-    .map(({ entry }) => entry);
-  // The heading is always named: "Postpaid phone customers" under "Net customer additions" is not a count of customers.
-  return chosen.slice(0, MAX_SERIES).map((entry) => {
-    const { label, section, measure, unit, scale } = entry.reading;
-    // A heading that says nothing of what is counted ("Other", "Supplemental") is left off.
-    const named = section && !/^(?:other|others|all other|supplemental(?: information)?|additional information|key metrics|metrics|operating (?:data|metrics|statistics)|statistics|business metrics|selected metrics(?: and ratios)?)$/i.test(section.trim())
-      && !/\bended\b|\bmonths\b|^\(/i.test(section) ? section : null;
-    // "Number of" over "Branches" reads as one phrase: "Number of branches".
-    const joined = named && /\b(?:of|by|in)$/i.test(named.trim()) && unit === "count";
-    const name = joined
-      ? `${named!.trim()} ${label[0].toLowerCase()}${label.slice(1)}${measure ? ` · ${measure}` : ""}`
-      : `${named && !/\b(?:of|by|in)$/i.test(named.trim()) ? `${named} · ` : ""}${label}${measure ? ` · ${measure}` : ""}`;
-    return {
-      id: `${entry.family}|${entry.reading.key}|${measure ?? ""}`,
-      name: tidyName(name), unit, scale,
-      points: [...entry.points.values()].sort((left, right) => left.end.localeCompare(right.end)),
-    };
-  });
+    });
+  return chosen.slice(0, MAX_SERIES).map(({ entry, description }) => ({
+    id: `${entry.family}|${entry.reading.key}|${entry.reading.measure ?? ""}`,
+    name: description.name, unit: description.unit, scale: description.scale, suffix: description.suffix,
+    points: [...entry.points.values()].sort((left, right) => left.end.localeCompare(right.end)),
+  }));
 }
 
 /** The operating rows of one document, kept by accession: a filing does not change. */
@@ -270,9 +276,10 @@ async function paced(): Promise<void> {
 
 async function filingRows(filing: KpiFiling, release: boolean): Promise<{ rows: KpiRow[]; url: string } | null> {
   const cache = datasetCache();
+  // v5: each row carries its table's caption (the heading above it), and a change with no subject takes the row above's.
   // v4: measures under their own column heading, figures stated in sentences, quarterly trends tables, constant-currency
   // growth and business metrics printed in statement tables (kept rows are filtered by isOperating before they are stored).
-  const key = `kpi-rows:v4:${filing.accession}`;
+  const key = `kpi-rows:v5:${filing.accession}`;
   const stored = await cache?.get<{ rows: StoredRow[]; url: string }>(key, "json").catch(() => null);
   if (stored) return { url: stored.url, rows: stored.rows.map((row) => ({ ...row, excluded: new Set(row.excluded) })) };
   const headers = { "User-Agent": SEC_AGENT() };
@@ -360,18 +367,7 @@ export function kpiFamily(name: string): string {
   return name.toLowerCase();
 }
 
-/** A name as a card can hold it: Amazon's "Net sales -- Y/Y growth, excluding F/X" is its "Net sales · growth ex-FX". */
-export function tidyName(name: string): string {
-  return name
-    .replace(/\s+--\s+/g, " · ")
-    .replace(/\bTTM Y\/Y growth(?: \(decline\))?,? excluding F\/X\b/gi, "TTM growth ex-FX")
-    .replace(/\bY\/Y growth(?: \(decline\))?,? excluding F\/X\b/gi, "growth ex-FX")
-    .replace(/\bF\/X Neutral Y\/Y % Growth\b/gi, "growth ex-FX")
-    .replace(/\bY\/Y (?:% )?growth(?: \(decline\))?\b/gi, "growth")
-    .replace(/\s*\((?:full-time and part-time; )?excludes contractors (?:&|and) temporary personnel\)/i, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
+export { tidyName } from "./kpi-names";
 
 /** A company's operating figures, rebuilt when it files a release or a 10-Q and kept until then. */
 export async function operatingKpis(cik: string): Promise<OperatingKpis> {
@@ -386,8 +382,8 @@ export async function operatingKpis(cik: string): Promise<OperatingKpis> {
   });
   const { documents, filedEnds } = JSON.parse(listed) as { documents: KpiDocument[]; filedEnds: string[] };
   const basis = documents.map((document) => document.accession.slice(-8)).join("");
-  // v8: a quarter is "before its 10-Q" only after the last one filed. v7: two overlapping quarters prove a table of six and more, and names are tidied. v6: the readings of kpi-rows v4 (sentences, measure columns, quarterly trends). v5: tables of six quarters and more, and headcounts printed under a "$ in millions" heading (Amazon's employees), and no "Other ·" before a name.
-  const { body } = await cachedJson(`operating-kpis:v8:${padded}:${basis.length > 200 ? basis.slice(0, 200) : basis}`, 30 * 86_400, async (): Promise<OperatingKpis> => {
+  // v9: names, units and suffixes from lib/kpi-names.ts, and rows told apart by their table's caption. v8: a quarter is "before its 10-Q" only after the last one filed. v7: two overlapping quarters prove a table of six and more, and names are tidied. v6: the readings of kpi-rows v4 (sentences, measure columns, quarterly trends). v5: tables of six quarters and more, and headcounts printed under a "$ in millions" heading (Amazon's employees), and no "Other ·" before a name.
+  const { body } = await cachedJson(`operating-kpis:v9:${padded}:${basis.length > 200 ? basis.slice(0, 200) : basis}`, 30 * 86_400, async (): Promise<OperatingKpis> => {
     const pairs = yearApart(documents);
     const needed = [...new Map(pairs.flat().map((document) => [document.accession, document])).values()];
     const read = new Map<string, { rows: KpiRow[]; url: string }>();
