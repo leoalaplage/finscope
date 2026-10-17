@@ -1,3 +1,4 @@
+import type { Customer } from "./customers";
 import { memberName, type SegmentAxis, type SegmentFact, type SegmentMeasure } from "./xbrl";
 
 /**
@@ -69,6 +70,8 @@ export interface SegmentData {
   filings: SegmentFiling[];
   series: SegmentSeries[];
   stacks: SegmentStack[];
+  /** The customers the reports name as a tenth or more of revenue or receivables (lib/segments/customers.ts); absent before build 4. */
+  customers?: Customer[];
   /** False when a report could not be read: kept, but rebuilt soon. */
   complete?: boolean;
   /** The rules it was built with (SEGMENTS_BUILD); an older build is served and rebuilt behind. */
@@ -79,8 +82,9 @@ export interface SegmentData {
  * 2: fourth quarters on their quarters' basis, renamed lines joined.
  * 3: operating income stacked on its segments when the unallocated line stops being tagged;
  *    a seasonal fourth quarter checked against the year before; six years of reports.
+ * 4: the customers each report names (SPLC), read from the same instances.
  */
-export const SEGMENTS_BUILD = 3;
+export const SEGMENTS_BUILD = 4;
 
 const DAY = 86_400_000;
 const days = (start: string, end: string) => Math.round((Date.parse(end) - Date.parse(start)) / DAY) + 1;

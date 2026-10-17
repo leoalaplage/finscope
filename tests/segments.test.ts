@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { buildSegments, largestPartition, trailingTwelve } from "@/lib/segments/build";
 import { parseLabels, parseSegmentFacts, memberName, type SegmentFact } from "@/lib/segments/xbrl";
 import { pickDocuments, withPredecessor } from "@/lib/segments/source";
-import { KNOWN_SUCCESSORS, PREDECESSORS, universeMember } from "@/lib/universe";
+import { KNOWN_SUCCESSORS, PREDECESSORS, UNIVERSE, universeMember } from "@/lib/universe";
+import { FILED_NAMES } from "@/lib/universe-names";
+import { buildCustomers, customerKind, matchCompany, parseCustomerFacts } from "@/lib/segments/customers";
+import { edgesOf, suppliersFrom, type Edge } from "@/lib/segments/relations";
 import { backlogCards, segmentChart, segmentRows, segmentViews } from "@/lib/segments/view";
 import { segmentCharts } from "@/lib/segments/charts";
 
@@ -351,5 +354,125 @@ describe("a successor's reports, then its predecessor's", () => {
       expect(predecessor.notice.length, ticker).toBeGreaterThan(10);
     }
     for (const [ticker, known] of Object.entries(KNOWN_SUCCESSORS)) expect(PREDECESSORS[ticker]?.cik, ticker).toBe(known.reads);
+  });
+});
+
+describe("customers (SPLC)", () => {
+  const ctx = (id: string, dims: Array<[string, string]>, period: string) =>
+    `<context id="${id}"><entity><identifier scheme="x">1</identifier><segment>${dims.map(([axis, member]) => `<xbrldi:explicitMember dimension="${axis}">${member}</xbrldi:explicitMember>`).join("")}</segment></entity><period>${period}</period></context>`;
+  const year = (start: string, end: string) => `<startDate>${start}</startDate><endDate>${end}</endDate>`;
+  const TYPE: [string, string] = ["us-gaap:ConcentrationRiskByTypeAxis", "us-gaap:CustomerConcentrationRiskMember"];
+  const SALES: [string, string] = ["us-gaap:ConcentrationRiskByBenchmarkAxis", "us-gaap:SalesRevenueNetMember"];
+  const RECEIVABLES: [string, string] = ["us-gaap:ConcentrationRiskByBenchmarkAxis", "us-gaap:AccountsReceivableMember"];
+  const KO: [string, string] = ["srt:MajorCustomersAxis", "ball:TheCocaColaCompanyMember"];
+  /** A trimmed instance in the shape Ball's 10-K writes its customers. */
+  const CUSTOMERS = `<?xml version="1.0"?>
+<xbrl xmlns="http://www.xbrl.org/2003/instance" xmlns:xbrldi="http://xbrl.org/2006/xbrldi">
+${ctx("ko25", [TYPE, SALES, KO], year("2025-01-01", "2025-12-31"))}
+${ctx("ko24", [TYPE, SALES, KO], year("2024-01-01", "2024-12-31"))}
+${ctx("koAr", [TYPE, RECEIVABLES, KO], "<instant>2025-12-31</instant>")}
+${ctx("koSeg", [TYPE, SALES, KO, ["us-gaap:StatementBusinessSegmentsAxis", "ball:BeverageNorthAmericaMember"]], year("2025-01-01", "2025-12-31"))}
+${ctx("geo", [["us-gaap:ConcentrationRiskByTypeAxis", "us-gaap:GeographicConcentrationRiskMember"], SALES, ["srt:MajorCustomersAxis", "ball:EuropeMember"]], year("2025-01-01", "2025-12-31"))}
+${ctx("anon", [TYPE, SALES, ["srt:MajorCustomersAxis", "ball:CustomerAMember"]], year("2025-01-01", "2025-12-31"))}
+${ctx("res", [["srt:MajorCustomersAxis", "ball:ResidentialMember"]], year("2025-01-01", "2025-12-31"))}
+${ctx("wmt", [["srt:MajorCustomersAxis", "ball:WalmartMember"]], year("2025-01-01", "2025-12-31"))}
+${ctx("mkt", [["srt:MajorCustomersAxis", "ball:TechnologyMember"]], year("2025-01-01", "2025-12-31"))}
+<unit id="pure"><measure>xbrli:pure</measure></unit>
+<unit id="usd"><measure>iso4217:USD</measure></unit>
+<us-gaap:ConcentrationRiskPercentage1 contextRef="ko25" unitRef="pure" decimals="2">0.14</us-gaap:ConcentrationRiskPercentage1>
+<us-gaap:ConcentrationRiskPercentage1 contextRef="ko24" unitRef="pure" decimals="2">0.13</us-gaap:ConcentrationRiskPercentage1>
+<us-gaap:ConcentrationRiskPercentage1 contextRef="koAr" unitRef="pure" decimals="2">0.09</us-gaap:ConcentrationRiskPercentage1>
+<us-gaap:ConcentrationRiskPercentage1 contextRef="koSeg" unitRef="pure" decimals="2">0.40</us-gaap:ConcentrationRiskPercentage1>
+<us-gaap:ConcentrationRiskPercentage1 contextRef="geo" unitRef="pure" decimals="2">0.30</us-gaap:ConcentrationRiskPercentage1>
+<us-gaap:ConcentrationRiskPercentage1 contextRef="anon" unitRef="pure" decimals="2">0.11</us-gaap:ConcentrationRiskPercentage1>
+<us-gaap:Revenues contextRef="res" unitRef="usd" decimals="-6">5000000000</us-gaap:Revenues>
+<us-gaap:Revenues contextRef="wmt" unitRef="usd" decimals="-6">2000000000</us-gaap:Revenues>
+<us-gaap:Revenues contextRef="mkt" unitRef="usd" decimals="-6">3000000000</us-gaap:Revenues>
+</xbrl>`;
+  const tenK = { accession: "0000009389-26-000010", filed: "2026-02-18", form: "10-K" };
+  const companies = [
+    { ticker: "KO", name: "Coca-Cola Company (The)", aliases: ["COCA COLA CO"] },
+    { ticker: "WMT", name: "Walmart", aliases: ["Walmart Inc.", "WAL MART STORES INC"] },
+    { ticker: "VZ", name: "Verizon", aliases: ["VERIZON COMMUNICATIONS INC"] },
+    { ticker: "TMUS", name: "T-Mobile US", aliases: ["T-Mobile US, Inc."] },
+    { ticker: "T", name: "AT&T", aliases: ["AT&T INC."] },
+    { ticker: "SO", name: "Southern Company", aliases: ["SOUTHERN CO"] },
+    { ticker: "GM", name: "General Motors", aliases: ["GENERAL MOTORS CO"] },
+    { ticker: "GOOGL", name: "Alphabet Inc. (Class A)" },
+    { ticker: "GOOG", name: "Alphabet Inc. (Class C)" },
+    { ticker: "COR", name: "Cencora", aliases: ["Cencora, Inc.", "AMERISOURCEBERGEN CORP"] },
+    { ticker: "BALL", name: "Ball Corporation" },
+  ];
+
+  it("reads a customer's share of revenue and of receivables, and nothing scoped to a segment or another kind of concentration", () => {
+    const facts = parseCustomerFacts(CUSTOMERS, tenK);
+    const shares = facts.filter((fact) => fact.measure === "share");
+    expect(shares.map((fact) => `${fact.member} ${fact.benchmark} ${fact.end} ${fact.value}`).sort()).toEqual([
+      "ball:CustomerAMember revenue 2025-12-31 0.11",
+      "ball:TheCocaColaCompanyMember receivables 2025-12-31 0.09",
+      "ball:TheCocaColaCompanyMember revenue 2024-12-31 0.13",
+      "ball:TheCocaColaCompanyMember revenue 2025-12-31 0.14",
+    ]);
+    expect(facts.filter((fact) => fact.measure === "revenue").map((fact) => fact.member).sort()).toEqual(["ball:ResidentialMember", "ball:TechnologyMember", "ball:WalmartMember"]);
+  });
+
+  it("keeps named, unnamed and linked customers, and drops classes and revenue no filing called a concentration", () => {
+    const labels = new Map([["ball:TheCocaColaCompanyMember", "The Coca-Cola Company"], ["ball:CustomerAMember", "Customer A"], ["ball:WalmartMember", "Walmart Inc."], ["ball:TechnologyMember", "Technology"], ["ball:ResidentialMember", "Residential"]]);
+    const customers = buildCustomers(parseCustomerFacts(CUSTOMERS, tenK), labels, companies, { self: "BALL", totals: new Map([["2025-12-31", 12_000_000_000]]) });
+    expect(customers.map((customer) => [customer.label, customer.kind, customer.ticker])).toEqual([
+      ["Walmart Inc.", "named", "WMT"],
+      ["The Coca-Cola Company", "named", "KO"],
+      ["Customer A", "unnamed", null],
+    ]);
+    const ko = customers.find((customer) => customer.ticker === "KO")!;
+    expect(ko.annual.map((point) => [point.end, point.share])).toEqual([["2024-12-31", 0.13], ["2025-12-31", 0.14]]);
+    expect(ko.receivables).toEqual([{ end: "2025-12-31", share: 0.09, accession: tenK.accession }]);
+    // Walmart's share is worked out from its revenue and the company's, and says so.
+    const walmart = customers.find((customer) => customer.ticker === "WMT")!.annual[0];
+    expect(walmart.share).toBeCloseTo(2 / 12, 6);
+    expect(walmart.derived).toBe(true);
+  });
+
+  it("tells a named customer from an unnamed one, a group and a class", () => {
+    const cases: Array<[string, string]> = [
+      ["Customer A", "unnamed"], ["Customer1", "unnamed"], ["Major Customer One", "unnamed"], ["Second Largest Customer", "unnamed"],
+      ["One Customer", "unnamed"], ["Distributor 2", "unnamed"], ["Reseller B", "unnamed"], ["Top Customer One", "unnamed"], ["One Holding Company", "unnamed"],
+      ["Ten Largest Customers", "group"], ["Top10 Customers", "group"], ["Three Customer", "group"], ["Four Distributors", "group"], ["Three Largest US Wholesale Customers", "group"],
+      ["Residential", "class"], ["Manufacturing Customers", "class"], ["Other Customers", "class"], ["Non-US Government", "class"], ["No customer", "class"],
+      ["Walmart Inc.", "named"], ["AT&T Mobility", "named"], ["Red Bull GmbH and affiliates", "named"], ["U.S. Government", "named"],
+      ["Taiwan Semiconductor Manufacturing Company Limited", "named"], ["Public Works and Government Services Canada", "named"],
+    ];
+    for (const [label, kind] of cases) expect([label, customerKind(label)]).toEqual([label, kind]);
+  });
+
+  it("links a customer only by a member's name, never by resemblance", () => {
+    expect(matchCompany("Verizon Wireless", companies)).toBe("VZ");
+    expect(matchCompany("AT&T Mobility", companies)).toBe("T");
+    expect(matchCompany("T-Mobile", companies)).toBe("TMUS");
+    expect(matchCompany("Wal-Mart Stores, Inc.", companies)).toBe("WMT");
+    expect(matchCompany("Walmart Stores Inc", companies)).toBe("WMT");
+    expect(matchCompany("Walmart Inc. and Affiliates", companies)).toBe("WMT");
+    expect(matchCompany("AmerisourceBergen Corporation", companies)).toBe("COR");
+    expect(matchCompany("The Coca-Cola Company", companies)).toBe("KO");
+    expect(matchCompany("Alphabet Inc.", companies)).toBe("GOOG");
+    expect(matchCompany("Southern California Edison", companies)).toBeNull();
+    expect(matchCompany("General Dynamics", companies)).toBeNull();
+    expect(matchCompany("Coca-Cola Europacific Partners", companies)).toBeNull();
+    expect(matchCompany("Verizon and AT&T", companies)).toBeNull();
+  });
+
+  it("turns each company's named customers round into the customer's suppliers", () => {
+    const labels = new Map([["ball:TheCocaColaCompanyMember", "The Coca-Cola Company"], ["ball:CustomerAMember", "Customer A"], ["ball:WalmartMember", "Walmart Inc."]]);
+    const edges = edgesOf(buildCustomers(parseCustomerFacts(CUSTOMERS, tenK), labels, companies, { self: "BALL", totals: new Map([["2025-12-31", 12_000_000_000]]) }));
+    // Only index members, each with its latest figures; Customer A links to no one.
+    expect(edges).toEqual([["WMT", 0.1667, "2025-12-31", null, null], ["KO", 0.14, "2025-12-31", 0.09, "2025-12-31"]]);
+    expect(JSON.stringify({ e: edges }).length).toBeLessThan(1024);
+    const index = new Map([["BALL", edges], ["CCEP", [["KO", 0.2, "2025-12-31", null, null]] as Edge[]], ["X", []]]);
+    expect(suppliersFrom(index, "KO").map((supplier) => [supplier.ticker, supplier.share])).toEqual([["CCEP", 0.2], ["BALL", 0.14]]);
+    expect(suppliersFrom(index, "PEP")).toEqual([]);
+  });
+
+  it("knows every member of the index under the names it files under", () => {
+    for (const member of UNIVERSE) expect(FILED_NAMES[member.ticker]?.length, member.ticker).toBeGreaterThan(0);
   });
 });

@@ -39,6 +39,7 @@ import { OperatingKpis } from "@/components/io/OperatingKpis";
 import { Reports } from "@/components/io/Reports";
 import { Panel } from "./Panel";
 import { Seasonality } from "./Seasonality";
+import { SupplyChain } from "./SupplyChain";
 
 /** The reading an answer at a glance opens, under a code of its own. */
 const DETAIL_CODES: Record<VerdictKey, string> = { quality: "QS", health: "HLTH", valuation: "PG", growth: "FCF" };
@@ -251,6 +252,12 @@ export function TermCompany({ ticker }: { ticker: string }) {
         <Chapter area="c-biz" number={2} title="Business" />
         <Panel code="SEG" title="Segments" area="seg">
           <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
+        </Panel>
+        <Panel code="SPLC" title="Customers and suppliers" area="splc">
+          <div className="t-panel-pad"><SupplyChain key={`splc-${company.ticker}`} ticker={company.ticker} /></div>
+        </Panel>
+        <Panel code="SPLC" title="Customers and suppliers" area="splc">
+          <div className="t-panel-pad"><SupplyChain key={`splc-${company.ticker}`} ticker={company.ticker} /></div>
         </Panel>
         {/* Only where the company's documents prove a figure: most companies print none the reader can trust. */}
         <OperatingKpis

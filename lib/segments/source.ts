@@ -1,5 +1,8 @@
 import { secFetch } from "../adapters/sec-fetch";
 import { buildSegments, type SegmentData, type SegmentFiling } from "./build";
+import { FILED_NAMES } from "../universe-names";
+import { UNIVERSE } from "../universe";
+import { buildCustomers, parseCustomerFacts, type CustomerFact } from "./customers";
 import { parseLabels, parseSegmentFacts, type SegmentFact } from "./xbrl";
 
 /**
@@ -126,6 +129,7 @@ export async function fetchSegments(ticker: string, cik: string, limit = 24, pre
     } catch { /* The successor's own reports still stand. */ }
   }
   const facts: SegmentFact[] = [];
+  const customerFacts: CustomerFact[] = [];
   const labels = new Map<string, string>();
   const read: SegmentFiling[] = [];
   let attempted = 0;
@@ -150,6 +154,7 @@ export async function fetchSegments(ticker: string, cik: string, limit = 24, pre
       if (!instance) continue;
       const filing = { accession: report.accession, filed: report.filed, form: report.form };
       facts.push(...parseSegmentFacts(instance, filing));
+      customerFacts.push(...parseCustomerFacts(instance, filing));
       if (documents.labels) {
         const linkbase = await text(`${folder}/${documents.labels}`);
         if (linkbase) for (const [member, name] of parseLabels(linkbase)) if (!labels.has(member)) labels.set(member, name);
@@ -159,5 +164,12 @@ export async function fetchSegments(ticker: string, cik: string, limit = 24, pre
       // A report that cannot be read is left out; the list of reports read says so.
     }
   }
-  return { ...buildSegments({ ticker, cik, facts, labels, filings: read }), complete: read.length === attempted };
+  const segments = buildSegments({ ticker, cik, facts, labels, filings: read });
+  // The company's revenue a year, for a customer whose filing gives its revenue and no share.
+  const totals = new Map((segments.series.find((series) => series.axis === "total" && series.measure === "revenue")?.annual ?? []).map((point) => [point.end, point.value]));
+  const customers = buildCustomers(customerFacts, labels, KNOWN_COMPANIES, { self: ticker.toUpperCase(), totals });
+  return { ...segments, customers, complete: read.length === attempted };
 }
+
+/** The index's members under every name they have filed under, for a customer's name to be matched against. */
+const KNOWN_COMPANIES = UNIVERSE.map((member) => ({ ticker: member.ticker, name: member.name, aliases: FILED_NAMES[member.ticker] }));

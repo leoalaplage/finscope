@@ -2,6 +2,7 @@ import { searchSecCompanies } from "../adapters/sec";
 import { datasetCache, keepAlive, selfFetcher } from "../runtime-env";
 import { PREDECESSORS, UNIVERSE, universeMember } from "../universe";
 import { SEGMENTS_BUILD, type SegmentData } from "./build";
+import { recordCustomers } from "./relations";
 import { fetchSegments } from "./source";
 
 /**
@@ -52,6 +53,8 @@ export async function buildAndStore(ticker: string, reports = FULL_REPORTS): Pro
   // Nor a reader's short build the timer's long one, while that is recent and built on the same rules.
   if (held && (held.build ?? 1) >= SEGMENTS_BUILD && held.filings.length > data.filings.length && Date.now() - Date.parse(held.builtAt) < LONG_STANDS_MS) return held;
   await datasetCache()?.put(segmentsKey(ticker), JSON.stringify(data), { expirationTtl: KEEP_SECONDS }).catch(() => undefined);
+  // The customers it names, for their pages to list it as a supplier (lib/segments/relations.ts).
+  if (data.customers) await recordCustomers(ticker, data.customers);
   return data;
 }
 
