@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { CANDLE_INTERVALS, isIntraday, type Candles, type CandleInterval } from "@/lib/adapters/candles";
 import { candlesToShow, dateLabels, dateText, INTERVAL_NAMES, INTERVAL_TITLES, priceScale } from "@/lib/io/candle-chart";
 import { bollinger, ema, ichimoku, macd, patternsAt, PATTERN_NAMES, rsi, sma, stochastic, valueArea, volumeProfile, volumeSources, vwap, type Line } from "@/lib/io/indicators";
@@ -1019,8 +1020,7 @@ export function CandleChart({
           <>
             <span className="candle-wmark" aria-hidden="true">{watermarkOf(candles.symbol, candles.name)}</span>
             <span className="candle-wmark-logo" aria-hidden="true">
-              {/* eslint-disable-next-line @next/next/no-img-element -- the site's own favicon, a few hundred bytes. */}
-              <img src="/favicon.svg" alt="" width={11} height={11} />TENQAY
+              <BrandLogo decorative />
             </span>
           </>
         ) : null}

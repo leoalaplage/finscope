@@ -1,0 +1,23 @@
+/* Tenqay's mark and wordmark (components/BrandLogo.tsx): sized by where they sit, inked by the text around them. */
+.brand-logo { display: inline-block; flex: none; max-width: 100%; vertical-align: middle; overflow: visible; }
+.brand-logo .brand-acc { fill: var(--brand-accent, #f5c451); }
+.brand-mark { width: 24px; height: 24px; }
+.brand-lockup { width: 97px; height: 24px; }
+.brand-wordmark { width: 90px; height: 20px; }
+.brand-signature { width: 172px; height: 22px; }
+
+/* Where it sits. */
+.t-brand { --brand-accent: currentColor; }
+.t-brand .brand-lockup { width: 89px; height: 22px; }
+.t-brand .brand-mark { width: 22px; height: 22px; }
+.t-wel-mark .brand-signature { display: block; width: 312px; height: 40px; }
+.term .candle-wmark-logo .brand-lockup { display: block; width: 57px; height: 14px; }
+.t-gf-brand { color: var(--ink); opacity: .16; pointer-events: none; }
+.t-flow-wmark .brand-logo { color: var(--ink); }
+.t-flow-wmark-big { opacity: .045; }
+.t-flow-wmark-big .brand-acc { fill: currentColor; }
+.t-flow-wmark-logo { opacity: .32; }
+.mark .brand-lockup, .wordmark .brand-lockup { display: block; width: 105px; height: 26px; }
+.wordmark:has(.brand-logo)::before { display: none; }
+.candle-export-source { display: inline-flex; align-items: center; gap: 10px; }
+.candle-export-source > svg { flex: none; }

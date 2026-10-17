@@ -2,6 +2,7 @@
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { HeaderSearch } from "./HeaderSearch";
+import { BrandLogo } from "./BrandLogo";
 import { Explainer } from "./Explainer";
 import { getJson } from "@/lib/fetch-json";
 // `change` here is the local ratio helper; the formatter is imported under
@@ -443,7 +444,7 @@ export function FinanceApp({ initialData }: { initialData: CompanyDataset }) {
   }
 
   return <div className="site-shell">
-    <header className="site-header"><button className="wordmark" onClick={() => navigate("companies")}>Tenqay</button><nav aria-label="Main navigation" ref={navRef}>{NAV.map((item) => <button key={item.key} className={view === item.key && !secondary ? "active" : ""} onClick={() => navigate(item.key)}>{item.label}</button>)}</nav><span className="header-company">{/* Not on the page that is itself a search field. */}{view !== "search" && <HeaderSearch watchlist={watchlist} onOpen={openCompany} onAdd={addAndOpen}/>}<button className="header-ticker" title={`Open ${dataset.company.ticker}`} onClick={() => openCompany(dataset.company.ticker)}>{dataset.company.ticker}</button><button className="theme-toggle" aria-label="Switch between the light and dark theme" title="Switch between the light and dark theme" onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}/></span></header>
+    <header className="site-header"><button className="wordmark" aria-label="Tenqay home" onClick={() => navigate("companies")}><BrandLogo decorative /></button><nav aria-label="Main navigation" ref={navRef}>{NAV.map((item) => <button key={item.key} className={view === item.key && !secondary ? "active" : ""} onClick={() => navigate(item.key)}>{item.label}</button>)}</nav><span className="header-company">{/* Not on the page that is itself a search field. */}{view !== "search" && <HeaderSearch watchlist={watchlist} onOpen={openCompany} onAdd={addAndOpen}/>}<button className="header-ticker" title={`Open ${dataset.company.ticker}`} onClick={() => openCompany(dataset.company.ticker)}>{dataset.company.ticker}</button><button className="theme-toggle" aria-label="Switch between the light and dark theme" title="Switch between the light and dark theme" onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}/></span></header>
     {error && <div className="global-message" role="alert"><span><b>Could not load company.</b> {error}. Existing data remains available.</span><button onClick={() => setError("")}>Dismiss</button></div>}
     <main className="site-main">
       {secondary === "quality" && <SecondaryHeading title="Data Quality" onBack={closePanel}/>} {secondary === "quality" && <Suspense fallback={<SkeletonTable label="the data quality report"/>}><DataQuality dataset={dataset} onRefresh={(next) => { setDataset(next); setDatasets((current) => ({ ...current, [next.company.ticker]: next })); }}/></Suspense>}

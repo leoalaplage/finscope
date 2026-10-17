@@ -1546,7 +1546,8 @@ body:has(.io.term) { background: #0a1222; }
 .t-wel-body { display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; padding: 10px 0; }
 .t-wel-body p { margin: 0; }
 .t-wel-intro { display: grid; justify-items: center; gap: 20px; text-align: center; }
-.t-wel-mark { padding: 4px 14px; color: var(--amber-ink); background: var(--amber); font-weight: 700; letter-spacing: .16em; font-size: 18px; }
+/* The signature, TENQAY | RESEARCH, in ink with its gold rule (app/brand.css sizes it). */
+.t-wel-mark { margin: 0; color: var(--ink); }
 .t-wel-intro h1 { margin: 0; max-width: 18ch; font-size: 46px; line-height: 1.08; font-weight: 600; color: var(--ink); letter-spacing: -.01em; }
 .t-wel-sub { max-width: 52ch; font-size: var(--fs-xl); line-height: 1.5; color: var(--ink-2); }
 .t-wel-screen { display: grid; gap: 14px; }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { useWidth } from "./use-width";
+import { BrandLogo } from "@/components/BrandLogo";
 import type { IoCompanyView } from "@/lib/io/view";
 import type { SegmentData } from "@/lib/segments/build";
 import { segmentCharts } from "@/lib/segments/charts";
@@ -241,6 +242,8 @@ export function ComboChart({ preset, data, currency, height }: { preset: Preset;
               </g>
             );
           })}
+          {/* Tenqay's mark in the plot's corner, as on every chart, faint and under the pointer's notice. */}
+          <BrandLogo decorative className="t-gf-brand" x={plotRight - 66} y={plotTop + 4} width={62} height={16} />
           <rect className="t-gf-catch" x={plotLeft} y={plotTop} width={plotRight - plotLeft} height={plotBottom - plotTop}
             onPointerMove={pick} onPointerDown={pick} onPointerLeave={() => setHover(null)} />
         </svg>

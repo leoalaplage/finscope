@@ -10,6 +10,7 @@ import { useTape } from "./quotes";
 import { AlertsChip } from "./Alerts";
 import { AccountChip } from "./Account";
 import { useTermPrefs } from "./prefs";
+import { BrandLogo } from "@/components/BrandLogo";
 
 /**
  * The frame every terminal screen sits in.
@@ -319,7 +320,7 @@ export function TermShell({ ticker = null, bare = false, children }: {
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <div className="t-top">
         <div className="t-bar">
-          <a className="t-brand" href="/t" aria-label="Tenqay terminal home"><span className="t-brand-long">TENQAY</span><span className="t-brand-short" aria-hidden="true">TQ</span></a>
+          <a className="t-brand" href="/t" aria-label="Tenqay terminal home"><BrandLogo decorative className="t-brand-long" /><BrandLogo decorative variant="mark" className="t-brand-short" /></a>
           <CommandLine current={ticker} onHelp={() => setHelpOpen(true)} />
           <div className="t-bar-right">
             <AlertsChip />

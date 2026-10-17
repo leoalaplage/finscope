@@ -334,7 +334,4 @@ body:has(.t-panel#fa):not(:has(.t-panel#splc)) .t-fn a[href$="#splc"] { display:
 .t-flow-name { font-weight: 600; }
 .t-flow-value { font-size: 10px; fill: var(--ink-2); font-variant-numeric: tabular-nums; }
 .t-flow-wmark { pointer-events: none; user-select: none; }
-.t-flow-wmark text { fill: var(--ink); opacity: .045; font-weight: 700; letter-spacing: .08em; }
-.t-flow-wmark .t-flow-wmark-logo { font-size: 9px; letter-spacing: .16em; opacity: .32; }
-.t-flow-wmark image { opacity: .32; }
 .t-flow-notes { margin: 0; padding-left: 16px; font-size: var(--fs-micro); }

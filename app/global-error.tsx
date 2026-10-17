@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { isStaleBuild, reloadForNewBuild } from "@/lib/stale-build";
+import { BrandLogo } from "@/components/BrandLogo";
 
 /**
  * What replaces the whole page when it cannot be drawn.
@@ -20,7 +21,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
     <html lang="en" data-theme="dark">
       <body style={{ margin: 0, minHeight: "100vh", display: "grid", placeItems: "center", background: "#050608", color: "#e8e6e1", font: "13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace" }}>
         <main style={{ maxWidth: 420, padding: 24 }}>
-          <p style={{ margin: 0, color: "#ffa028", letterSpacing: ".08em", textTransform: "uppercase", fontSize: 11 }}>Tenqay</p>
+          <p style={{ margin: 0, color: "#e8edf6" }}><BrandLogo style={{ width: 130, height: 32 }} /></p>
           <h1 style={{ margin: "8px 0", fontSize: 18, fontWeight: 600 }}>
             {stale ? "A new version was just published" : "This page couldn't load"}
           </h1>

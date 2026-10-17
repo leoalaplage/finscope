@@ -8,6 +8,7 @@ import type { SegmentData } from "@/lib/segments/build";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import type { MetricKey } from "@/lib/types";
 import { useWidth } from "./use-width";
+import { BrandLogo } from "@/components/BrandLogo";
 
 /**
  * FLOW: where the money came from and where it went, in the latest 10-Q and
@@ -122,9 +123,8 @@ function Diagram({ diagram, base, width }: { diagram: StatementDiagram; base: st
     <svg className="t-flow-svg" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${diagram.periodLabel}: where the money came from and went`}>
       {/* The watermark, as on every chart: Tenqay faint across the flow and its mark in the corner, under the ribbons' notice. */}
       <g className="t-flow-wmark" aria-hidden="true">
-        <text x={width / 2} y={height / 2} textAnchor="middle" dominantBaseline="middle" fontSize={Math.round(Math.min(120, width / 9))}>TENQAY</text>
-        <image href="/favicon.svg" x={width - 74} y={height - 17} width={11} height={11} />
-        <text className="t-flow-wmark-logo" x={width - 59} y={height - 8}>TENQAY</text>
+        <BrandLogo decorative variant="wordmark" className="t-flow-wmark-big" x={width / 2 - Math.min(560, width * 0.5) / 2} y={height / 2 - Math.min(560, width * 0.5) * 0.112} width={Math.min(560, width * 0.5)} height={Math.min(560, width * 0.5) * 0.224} />
+        <BrandLogo decorative className="t-flow-wmark-logo" x={width - 72} y={height - 22} width={65} height={16} />
       </g>
       <g>
         {layout.links.map((link) => {

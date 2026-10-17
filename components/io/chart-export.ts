@@ -1,5 +1,7 @@
 "use client";
 
+import { brandSvg } from "@/lib/brand-art.mjs";
+
 /**
  * A chart as a picture: the figure as the reader sees it — candles, studies,
  * lower panes, drawings, dates, the symbol's watermark and Tenqay's mark —
@@ -22,7 +24,11 @@ async function renderChart(figure: HTMLElement, title: { symbol: string; detail:
   detail.textContent = title.detail;
   const source = document.createElement("span");
   source.className = "candle-export-source";
-  source.textContent = `tenqay.com · ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
+  // Tenqay's lockup, then the address and the day: a picture shared alone still says where it was made.
+  const logo = new DOMParser().parseFromString(brandSvg("lockup", "currentColor"), "image/svg+xml").documentElement;
+  logo.setAttribute("width", "65"); logo.setAttribute("height", "16");
+  source.appendChild(logo);
+  source.appendChild(document.createTextNode(`tenqay.com · ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`));
   // appendChild and insertBefore: the Worker's types give append and prepend another meaning.
   for (const part of [symbol, detail, source]) head.appendChild(part);
   figure.insertBefore(head, figure.firstChild);

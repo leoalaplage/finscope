@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { continueWith, emailSignInLink, useAccount } from "@/components/io/account";
 import { openBillingPortal, startCheckout, SUPPORT_EMAIL, useBilling } from "@/components/io/billing";
 import { GoogleMark } from "@/components/io/AccountPage";
+import { BrandLogo } from "@/components/BrandLogo";
 
 /**
  * TOUR: on black, without the terminal's frame — what Tenqay is, then each
@@ -131,7 +132,7 @@ function Intro({ onNext, onPlans }: { onNext: () => void; onPlans: () => void })
   return (
     <div className="t-wel-hero">
       <div className="t-wel-hero-text">
-        <p className="t-wel-mark">TENQAY</p>
+        <p className="t-wel-mark"><BrandLogo variant="signature" /></p>
         <h1>Market intelligence.</h1>
         <p className="t-wel-sub">Live markets, company fundamentals and macroeconomic data in one terminal — for individual investors and professionals.</p>
         <div className="t-wel-hero-actions">

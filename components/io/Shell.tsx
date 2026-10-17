@@ -10,6 +10,7 @@ import { onCompany, useRememberedCompany } from "./remembered";
 import { Search } from "./Search";
 import { readTheme, setTheme, subscribeTheme, type Theme } from "./theme";
 import { useAccount } from "./account";
+import { BrandLogo } from "@/components/BrandLogo";
 
 /**
  * The document's own attribute is the state, and React subscribes to it.
@@ -109,7 +110,7 @@ export function Shell({ children, search = true }: { children: React.ReactNode; 
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <header className="bar">
         <div className="wrap bar-inner bar-main">
-          <a href="/" className="mark" aria-current={pathname === "/" ? "page" : undefined}>Tenqay<span className="dim">.com</span></a>
+          <a href="/" className="mark" aria-label="Tenqay home" aria-current={pathname === "/" ? "page" : undefined}><BrandLogo decorative /></a>
           {search ? <div className="bar-desktop-search"><Search /></div> : <span className="bar-spacer" />}
           {/*
             * Plain anchors, like the wordmark beside them and the company links
