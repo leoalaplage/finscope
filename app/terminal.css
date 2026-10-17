@@ -1507,7 +1507,8 @@ body:has(.io.term) { background: #0d1012; }
 .t-keystats-block dt { color: var(--ink-2); white-space: nowrap; }
 .t-keystats-block dd { margin: 0; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .t-keystats-block dd[data-neg] { color: var(--loss); }
-.t-keystats-block dl > div[title] dt { text-decoration: underline dotted var(--ink-3); text-underline-offset: 2px; }
+/* Underlined: only the figures a click draws in the chart above. */
+.t-keystats-block dl > div[data-drawable] dt { text-decoration: underline dotted var(--ink-3); text-underline-offset: 2px; }
 .t-keystats-notes { padding: 0 10px 6px; }
 .t-keystats-notes .stat-note { margin: 4px 0 0; }
 

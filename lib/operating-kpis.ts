@@ -342,6 +342,21 @@ async function withEarlierReleases(recent: Recent, cik: string): Promise<void> {
   } catch { /* the year the index holds is read as before */ }
 }
 
+const GENERIC = new Set(["segment", "segments", "net", "sales", "revenue", "revenues", "total", "number", "of", "growth", "ex-fx", "on", "the", "year", "ttm", "y/y", "consolidated", "and", "in", "thousands", "millions", "billions"]);
+
+/**
+ * What a figure belongs to, by the first word of its name that says so: Amazon's "AWS Segment · Net sales · growth
+ * ex-FX" and "AWS segment sales · Growth on the year" are both AWS's; "Net Sales · Advertising services" is the
+ * advertising business's, the heading "Net Sales" naming nothing of its own.
+ */
+export function kpiFamily(name: string): string {
+  for (const part of name.split(" · ")) {
+    const words = part.toLowerCase().replace(/\([^)]*\)/g, " ").replace(/[^a-z0-9&/\- ]/g, " ").split(/\s+/).filter((word) => word && !GENERIC.has(word));
+    if (words.length) return words[0];
+  }
+  return name.toLowerCase();
+}
+
 /** A name as a card can hold it: Amazon's "Net sales -- Y/Y growth, excluding F/X" is its "Net sales · growth ex-FX". */
 export function tidyName(name: string): string {
   return name

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { anchorDocuments, isOperating, kpiRows, kpiSentences } from "../lib/adapters/kpi-tables";
-import { assembleKpis, kpiDocuments, nextQuarterEnd, tidyName, yearApart, yearToDate, type KpiDocument, type KpiPoint } from "../lib/operating-kpis";
+import { assembleKpis, kpiDocuments, kpiFamily, nextQuarterEnd, tidyName, yearApart, yearToDate, type KpiDocument, type KpiPoint } from "../lib/operating-kpis";
 
 const table = (title: string, rows: string[][], header = ["", "2026", "2025", "% Change"]) =>
   `<table><tr><td>${title}</td></tr><tr>${header.map((cell) => `<td>${cell}</td>`).join("")}</tr>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</table>`;
@@ -163,5 +163,16 @@ describe("names a card can hold", () => {
     expect(tidyName("WW net sales -- TTM Y/Y growth, excluding F/X")).toBe("WW net sales · TTM growth ex-FX");
     expect(tidyName("EMEA · F/X Neutral Y/Y % Growth")).toBe("EMEA · growth ex-FX");
     expect(tidyName("Employees (full-time and part-time; excludes contractors & temporary personnel)")).toBe("Employees");
+  });
+});
+
+describe("the families a company's figures fall into", () => {
+  it("puts a business's figures together, whatever heading or sentence they come from", () => {
+    const names = [
+      "AWS Segment · Net sales · growth ex-FX", "AWS segment sales · Growth on the year", "AWS Segment · Operating income · growth ex-FX",
+      "Net Sales · Advertising services · growth ex-FX", "WW net sales · growth ex-FX", "WW paid units · growth",
+      "Number of active digital customers (in thousands)", "Number of active mobile customers (in thousands)", "Employees",
+    ];
+    expect(names.map(kpiFamily)).toEqual(["aws", "aws", "aws", "advertising", "ww", "ww", "active", "active", "employees"]);
   });
 });

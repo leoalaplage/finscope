@@ -266,7 +266,12 @@
 .kpi { display: grid; gap: 10px; }
 .kpi-early { margin: 0; color: var(--ink-2); font-size: var(--fs-xs); }
 /* The fundamental charts' cards (.t-gf-card), smaller: a KPI is one series. */
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 2px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
+@media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .kpi-grid { grid-template-columns: minmax(0, 1fr); } }
+/* The family's colour on the card's edge, so the cards of one business read as one group. */
+.kpi-card { border-top: 2px solid var(--kpi, var(--line)) !important; }
+.kpi-more { display: block; margin: 6px auto 0; }
 .kpi-card { display: grid; gap: 3px; margin: 0; padding: 8px 10px; background: var(--raise, var(--bg)); min-width: 0; }
 /* Two lines for a name: "AWS Segment · Net sales · growth ex-FX" must be read whole. */
 .kpi-card figcaption h3 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.5em; overflow: hidden; line-height: 1.25; }

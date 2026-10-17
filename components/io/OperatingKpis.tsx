@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { KpiPoint, OperatingKpi, OperatingKpis as Kpis } from "@/lib/operating-kpis";
+import { kpiFamily, type KpiPoint, type OperatingKpi, type OperatingKpis as Kpis } from "@/lib/operating-kpis";
 import { ABSENT, shortDate } from "./format";
 import { ComboChart } from "@/components/term/FundamentalCharts";
 import type { AxisUnit, ChartData, Preset, SeriesSpec } from "@/lib/term/fundamental-charts";
@@ -45,24 +45,54 @@ const FULL_MONTHS = ["January", "February", "March", "April", "May", "June", "Ju
  * axis, its figures in absolute units so the axis reads $540B or 1.6M, and the quarter under the pointer named. A
  * quarter read from the release before its 10-Q is drawn in the lighter shade.
  */
-function kpiChart(kpi: OperatingKpi): { preset: Preset; data: ChartData } {
+function kpiChart(kpi: OperatingKpi, color: string): { preset: Preset; data: ChartData } {
   const left: AxisUnit = kpi.unit === "percent" ? "percent" : kpi.unit === "currency" ? "currency" : "shares";
   const factor = kpi.unit === "percent" ? 0.01 : SCALES[kpi.scale ?? ""] ?? 1;
-  const spec: SeriesSpec = { id: kpi.id, label: kpi.name, kind: "bar", axis: "left", color: "var(--c1)", value: () => null };
+  const bar: SeriesSpec = { id: kpi.id, label: kpi.name, kind: "bar", axis: "left", color, value: () => null };
+  // The change on the same quarter a year before, as the fundamental charts' "Revenue & growth" draws it — for a
+  // count or an amount; a rate's own change is already what it says.
+  const growth = kpi.unit === "percent" ? null : kpi.points.map((point) => {
+    const before = yearBefore(kpi.points, point);
+    return before && before.value > 0 && point.value >= 0 ? point.value / before.value - 1 : null;
+  });
+  const line: SeriesSpec = { id: `${kpi.id}:growth`, label: "YoY growth", kind: "line", axis: "right", color: "var(--c5)", value: () => null };
+  const drawsGrowth = growth != null && growth.filter((value) => value != null).length >= 2;
   return {
-    preset: { id: kpi.id, title: kpi.name, left, series: [spec], shadeNegative: kpi.points.some((point) => point.value < 0) },
+    preset: { id: kpi.id, title: kpi.name, left, ...(drawsGrowth ? { right: "percent" as AxisUnit } : {}), series: drawsGrowth ? [bar, line] : [bar], shadeNegative: kpi.points.some((point) => point.value < 0) },
     data: {
       labels: kpi.points.map((point) => quarterLabel(point.end)),
       names: kpi.points.map((point) => `Quarter to ${FULL_MONTHS[Number(point.end.slice(5, 7)) - 1]} ${point.end.slice(0, 4)}${point.early ? " · from the release" : ""}`),
-      series: [{ spec, values: kpi.points.map((point) => point.value * factor), colors: kpi.points.map((point) => (point.early ? "color-mix(in srgb, var(--c1) 45%, transparent)" : null)) }],
+      series: [
+        { spec: bar, values: kpi.points.map((point) => point.value * factor), colors: kpi.points.map((point) => (point.early ? `color-mix(in srgb, ${color} 45%, transparent)` : null)) },
+        ...(drawsGrowth ? [{ spec: line, values: growth! }] : []),
+      ],
     },
   };
 }
 
-function KpiChart({ kpi }: { kpi: OperatingKpi }) {
-  const { preset, data } = useMemo(() => kpiChart(kpi), [kpi]);
-  return <ComboChart preset={preset} data={data} currency="USD" height={170} />;
+/** The bars' colours, a family each; yellow is the growth line's, as on the fundamental charts. */
+// Twelve, so a company's businesses rarely share one: the chart palette, then five more that none of it is near.
+const PALETTE = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--c6)", "var(--c7)", "var(--c8)", "#fb923c", "#f87171", "#22d3ee", "#94a3b8", "#c4b5fd"];
+function KpiChart({ kpi, color }: { kpi: OperatingKpi; color: string }) {
+  const { preset, data } = useMemo(() => kpiChart(kpi, color), [kpi, color]);
+  return (
+    <>
+      <ComboChart preset={preset} data={data} currency="USD" height={170} />
+      {data.series.length > 1 ? (
+        <ul className="t-gf-legend">
+          {data.series.map((entry) => (
+            <li key={entry.spec.id} data-kind={entry.spec.kind} style={{ "--key": entry.spec.color } as React.CSSProperties}>
+              <i aria-hidden="true" />{entry.spec.kind === "bar" ? "Figure" : entry.spec.label}{entry.spec.axis === "right" ? <span className="t-dim"> (right)</span> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </>
+  );
 }
+
+/** A row of cards before "Show all". */
+const FIRST_ROW = 4;
 
 /**
  * KPI: what the company runs itself by, quarter by quarter, as it prints it
@@ -76,6 +106,7 @@ export function OperatingKpis({ ticker, cik, frame = (body) => body }: {
 }) {
   const [answer, setAnswer] = useState<{ key: string; data: Kpis | null; failed: boolean } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [expanded, setExpanded] = useState(false);
   const key = `${ticker}:${cik}`;
   useEffect(() => {
     const controller = new AbortController();
@@ -91,8 +122,14 @@ export function OperatingKpis({ ticker, cik, frame = (body) => body }: {
   if (current.failed || !current.data) {
     return frame(<p className="t-empty">EDGAR is temporarily unavailable. <button type="button" className="segments-retry" onClick={() => setAttempt((count) => count + 1)}>Try again</button></p>);
   }
-  const { kpis, early } = current.data;
-  if (!kpis.length) return null;
+  const { early } = current.data;
+  if (!current.data.kpis.length) return null;
+  // A family's figures side by side, in the order the first of each is printed, each family in its colour.
+  const families: string[] = [];
+  for (const kpi of current.data.kpis) { const family = kpiFamily(kpi.name); if (!families.includes(family)) families.push(family); }
+  const kpis = [...current.data.kpis].sort((left, right) => families.indexOf(kpiFamily(left.name)) - families.indexOf(kpiFamily(right.name)));
+  const colorOf = (kpi: OperatingKpi) => PALETTE[families.indexOf(kpiFamily(kpi.name)) % PALETTE.length];
+  const shown = expanded ? kpis : kpis.slice(0, FIRST_ROW);
 
   return frame(
     <div className="kpi">
@@ -100,23 +137,28 @@ export function OperatingKpis({ ticker, cik, frame = (body) => body }: {
         <p className="kpi-early">The {quarterLabel(early.end)} quarter is read from the release filed {shortDate(early.filed)}, before its 10-Q. <a href={early.url} target="_blank" rel="noreferrer">The release ↗</a></p>
       ) : null}
       <div className="kpi-grid">
-        {kpis.map((kpi) => {
+        {shown.map((kpi) => {
           const latest = kpi.points.at(-1)!;
           const moved = change(kpi, latest, yearBefore(kpi.points, latest));
           return (
-            <figure key={kpi.id} className="t-gf-card kpi-card">
+            <figure key={kpi.id} className="t-gf-card kpi-card" style={{ "--kpi": colorOf(kpi) } as React.CSSProperties}>
               <figcaption title={kpi.name}><h3>{kpi.name}</h3></figcaption>
               <div className="kpi-figure">
                 <b>{kpiValue(kpi, latest)}</b>
                 <span className="kpi-change" data-dir={moved.tone}>{moved.text}</span>
                 <span className="t-dim">{quarterLabel(latest.end)}{latest.early ? " · release" : ""}</span>
               </div>
-              <KpiChart kpi={kpi} />
+              <KpiChart kpi={kpi} color={colorOf(kpi)} />
               <a className="kpi-source" href={latest.url} target="_blank" rel="noreferrer">{latest.source === "release" ? "Release" : "10-Q"} {shortDate(latest.filed)} ↗</a>
             </figure>
           );
         })}
       </div>
+      {kpis.length > FIRST_ROW ? (
+        <button type="button" className="t-text-button kpi-more" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+          {expanded ? "Show fewer" : `Show all ${kpis.length} KPIs`}
+        </button>
+      ) : null}
       <p className="t-study-note">
         As the company prints them in its earnings releases and its 10-Qs, in their tables or their sentences, which no XBRL tag covers. Each figure is proven against the document a year before: the same row printing it again as the year-ago figure, the change on the year a sentence states, or the same measure under the same heading. A quarter two documents disagree on is left out. A lighter bar is a quarter read from the release, before its 10-Q.
       </p>
