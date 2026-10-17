@@ -2761,6 +2761,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-up .candle-fill { fill: var(--candle-up, var(--gain)); }
 .candle-down .candle-wick { fill: none; stroke: var(--candle-down, var(--loss)); stroke-width: 1; }
 .candle-down .candle-fill { fill: var(--candle-down, var(--loss)); }
+.candle-fill[data-outlined] { stroke: var(--candle-edge, none); stroke-width: 1; }
 /* The title line a chart picture carries (components/io/chart-export.ts). */
 .candle-export-head { display: flex; align-items: baseline; gap: 10px; padding: 6px 4px 8px; font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
 .candle-export-head b { color: var(--amber, #f5c451); font-size: 15px; letter-spacing: .02em; }

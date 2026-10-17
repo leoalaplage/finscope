@@ -68,9 +68,14 @@
   --shade: rgba(245, 196, 81, .06);
   --gain: #2ed47d;
   --loss: #ff5149;
-  /* The candles, a shade lighter than a figure's gain and loss: a very light green and a light red read better as bodies on navy. */
-  --candle-up: #a6f5c8;
-  --candle-down: #ff8079;
+  /*
+   * The candles' own green and red, brighter than a figure's gain and loss,
+   * with black outlines (app/io.css). Léo's colours are Display P3; a browser
+   * without wide colour draws the nearest sRGB.
+   */
+  --candle-up: #03ff0e;
+  --candle-down: #ff0008;
+  --candle-edge: #000;
 
   --chart-amber: #ffa028;
   --chart-amber-dim: rgba(255, 160, 40, .55);
@@ -86,6 +91,10 @@
   line-height: 1.35;
   display: flex;
   flex-direction: column;
+}
+
+@supports (color: color(display-p3 0 1 0)) {
+  :root body .io.term { --candle-up: color(display-p3 .012 1 .055); --candle-down: color(display-p3 1 0 .031); }
 }
 
 /* The page behind the page, whatever the document site's theme says. */
