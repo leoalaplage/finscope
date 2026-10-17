@@ -113,7 +113,7 @@ export function OperatingKpis({ ticker, cik, frame = (body) => body }: {
         })}
       </div>
       <p className="t-study-note">
-        As the company prints them in its earnings releases and its 10-Qs, which no XBRL tag covers. A figure is kept only where the same row, a year later, prints it again as the year-ago figure, digit for digit; a quarter two documents disagree on is left out. The outlined bar is a quarter read from the release, before its 10-Q.
+        As the company prints them in its earnings releases and its 10-Qs, in their tables or their sentences, which no XBRL tag covers. Each figure is proven against the document a year before: the same row printing it again as the year-ago figure, the change on the year a sentence states, or the same measure under the same heading. A quarter two documents disagree on is left out. The outlined bar is a quarter read from the release, before its 10-Q.
       </p>
     </div>
   );
