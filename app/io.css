@@ -1958,10 +1958,10 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-grid { stroke: var(--line); stroke-width: 1; }
 .candle-cursor { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 3; }
 .candle-last { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 1 3; }
-.candle-up line { stroke: var(--gain); stroke-width: 1; }
-.candle-up rect { fill: var(--gain); }
-.candle-down line { stroke: var(--loss); stroke-width: 1; }
-.candle-down rect { fill: var(--loss); }
+.candle-up line { stroke: var(--candle-up, var(--gain)); stroke-width: 1; }
+.candle-up rect { fill: var(--candle-up, var(--gain)); }
+.candle-down line { stroke: var(--candle-down, var(--loss)); stroke-width: 1; }
+.candle-down rect { fill: var(--candle-down, var(--loss)); }
 .candle-ema { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
 .candle-state { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; color: var(--ink-3); font-size: var(--fs-sm); }
 .candle-axis { position: relative; }
@@ -2757,10 +2757,10 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
   font-size: var(--fs-micro); color: var(--inverse, #000); background: var(--amber, #f5c451); border-radius: 2px;
 }
 /* The candles drawn as paths (CandlePaths in components/io/CandleChart.tsx). */
-.candle-up .candle-wick { fill: none; stroke: var(--gain); stroke-width: 1; }
-.candle-up .candle-fill { fill: var(--gain); }
-.candle-down .candle-wick { fill: none; stroke: var(--loss); stroke-width: 1; }
-.candle-down .candle-fill { fill: var(--loss); }
+.candle-up .candle-wick { fill: none; stroke: var(--candle-up, var(--gain)); stroke-width: 1; }
+.candle-up .candle-fill { fill: var(--candle-up, var(--gain)); }
+.candle-down .candle-wick { fill: none; stroke: var(--candle-down, var(--loss)); stroke-width: 1; }
+.candle-down .candle-fill { fill: var(--candle-down, var(--loss)); }
 /* The title line a chart picture carries (components/io/chart-export.ts). */
 .candle-export-head { display: flex; align-items: baseline; gap: 10px; padding: 6px 4px 8px; font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
 .candle-export-head b { color: var(--amber, #f5c451); font-size: 15px; letter-spacing: .02em; }
