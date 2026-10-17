@@ -1,4 +1,4 @@
-import { anchorDocuments, isOperating, kpiRows, normalise, type KpiCell, type KpiReading, type KpiRow, type KpiUnit } from "./adapters/kpi-tables";
+import { anchorDocuments, isOperating, kpiRank, kpiRows, kpiSentences, normalise, type KpiCell, type KpiReading, type KpiRow, type KpiUnit } from "./adapters/kpi-tables";
 import { releaseDocuments } from "./adapters/earnings-release";
 import { secFetch } from "./adapters/sec-fetch";
 import { cachedJson } from "./market-cache";
@@ -85,7 +85,14 @@ export function kpiDocuments(recent: Recent, cik: string): KpiDocument[] {
   const base = (accession: string) => `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replace(/-/g, "")}/`;
   const ends = [...new Set(recent.form.flatMap((form, index) => ((form === "10-Q" || form === "10-K") && recent.reportDate[index] ? [recent.reportDate[index]] : [])))].sort().reverse();
   if (!ends.length) return [];
-  const known = [nextQuarterEnd(ends[0]), ...ends];
+  // The quarters a release can report: those filed, the one after the last, and the same quarters one and two years
+  // back for a filer whose index of recent filings reaches less than two years (JPMorgan files 26,000 a year).
+  const yearBack = (end: string, years: number) => {
+    const date = new Date(`${end}T00:00:00Z`);
+    const monthEnd = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate() === date.getUTCDate();
+    return monthEnd ? iso(Date.UTC(date.getUTCFullYear() - years, date.getUTCMonth() + 1, 0)) : iso(date.getTime() - years * 364 * DAY);
+  };
+  const known = [...new Set([nextQuarterEnd(ends[0]), ...ends, ...ends.flatMap((end) => [yearBack(end, 1), yearBack(end, 2)])])].sort().reverse();
   const quarterlies: KpiDocument[] = [];
   const releases = new Map<string, KpiFiling[]>();
   for (let index = 0; index < recent.form.length; index++) {
@@ -93,7 +100,7 @@ export function kpiDocuments(recent: Recent, cik: string): KpiDocument[] {
     const accession = recent.accessionNumber[index];
     const filed = recent.filingDate[index];
     if (!accession || !filed) continue;
-    const filing: KpiFiling = { accession, filed, base: base(accession), primary: recent.primaryDocument?.[index] ?? null };
+    const filing: KpiFiling = { accession, filed, base: base(accession), primary: recent.primaryDocument?.[index] || null };
     if (form === "10-Q" && recent.reportDate[index] && quarterlies.length < QUARTERLIES) {
       quarterlies.push({ accession, form: "10-Q", filed, end: recent.reportDate[index], filings: [filing] });
     }
@@ -202,15 +209,42 @@ export function assembleKpis(pairs: Array<{ newer: KpiDocument; older: KpiDocume
     if (renamed) for (const end of entry.proofs) renamed.proofs.add(end);
     for (const [end, point] of entry.points) if (!into.points.has(end) && !into.disputed.has(end)) into.points.set(end, point);
   }
+  /*
+   * The best first, and five at most under one heading: a hotel group's forty brands, room by room, would
+   * otherwise fill the page before its RevPAR. Within a rank, the order the documents print them in.
+   */
+  const perHeading = new Map<string, number>();
+  const perLabel = new Map<string, number>();
+  const chosen = kept
+    .map((entry, index) => ({ entry, index, rank: kpiRank(entry.reading) }))
+    .sort((left, right) => left.rank - right.rank || left.index - right.index)
+    .filter(({ entry }) => {
+      // And three at most of one label under different headings: "Rooms" brand after brand.
+      const label = normalise(entry.reading.label);
+      const sameLabel = (perLabel.get(label) ?? 0) + 1;
+      perLabel.set(label, sameLabel);
+      if (sameLabel > 3) return false;
+      const heading = normalise(entry.reading.section ?? entry.reading.measure ?? "");
+      if (!heading) return true;
+      const count = (perHeading.get(heading) ?? 0) + 1;
+      perHeading.set(heading, count);
+      return count <= 5;
+    })
+    .map(({ entry }) => entry);
   // The heading is always named: "Postpaid phone customers" under "Net customer additions" is not a count of customers.
-  return kept.slice(0, MAX_SERIES).map((entry) => {
+  return chosen.slice(0, MAX_SERIES).map((entry) => {
     const { label, section, measure, unit, scale } = entry.reading;
     // A heading that says nothing of what is counted ("Other", "Supplemental") is left off.
-    const named = section && !/^(?:other|others|all other|supplemental(?: information)?|additional information|key metrics|metrics|operating (?:data|metrics|statistics)|statistics)$/i.test(section.trim()) ? section : null;
-    const name = `${named ? `${named} · ` : ""}${label}${measure ? ` · ${measure}` : ""}`;
+    const named = section && !/^(?:other|others|all other|supplemental(?: information)?|additional information|key metrics|metrics|operating (?:data|metrics|statistics)|statistics|business metrics|selected metrics(?: and ratios)?)$/i.test(section.trim())
+      && !/\bended\b|\bmonths\b|^\(/i.test(section) ? section : null;
+    // "Number of" over "Branches" reads as one phrase: "Number of branches".
+    const joined = named && /\b(?:of|by|in)$/i.test(named.trim()) && unit === "count";
+    const name = joined
+      ? `${named!.trim()} ${label[0].toLowerCase()}${label.slice(1)}${measure ? ` · ${measure}` : ""}`
+      : `${named && !/\b(?:of|by|in)$/i.test(named.trim()) ? `${named} · ` : ""}${label}${measure ? ` · ${measure}` : ""}`;
     return {
       id: `${entry.family}|${entry.reading.key}|${measure ?? ""}`,
-      name, unit, scale,
+      name: tidyName(name), unit, scale,
       points: [...entry.points.values()].sort((left, right) => left.end.localeCompare(right.end)),
     };
   });
@@ -233,8 +267,9 @@ async function paced(): Promise<void> {
 
 async function filingRows(filing: KpiFiling, release: boolean): Promise<{ rows: KpiRow[]; url: string } | null> {
   const cache = datasetCache();
-  // v3: headcounts are operating rows and counts (kept rows are filtered by isOperating before they are stored).
-  const key = `kpi-rows:v3:${filing.accession}`;
+  // v4: measures under their own column heading, figures stated in sentences, quarterly trends tables, constant-currency
+  // growth and business metrics printed in statement tables (kept rows are filtered by isOperating before they are stored).
+  const key = `kpi-rows:v4:${filing.accession}`;
   const stored = await cache?.get<{ rows: StoredRow[]; url: string }>(key, "json").catch(() => null);
   if (stored) return { url: stored.url, rows: stored.rows.map((row) => ({ ...row, excluded: new Set(row.excluded) })) };
   const headers = { "User-Agent": SEC_AGENT() };
@@ -252,12 +287,15 @@ async function filingRows(filing: KpiFiling, release: boolean): Promise<{ rows: 
     await paced();
     const response = await secFetch(`${filing.base}${name}`, { headers: { ...headers, Accept: "text/html" } });
     if (!response.ok) { await response.body?.cancel(); return null; }
-    rows.push(...kpiRows((await response.text()).slice(0, 8_000_000)));
+    const html = (await response.text()).slice(0, 8_000_000);
+    rows.push(...kpiRows(html));
+    // A release says some of its figures in sentences only (Meta's daily active people).
+    if (release) rows.push(...kpiSentences(html));
   }
   // The older document of a pair is matched by key: keep every row that could be one end of a reading. A 10-Q's
   // table that does not say it reports the quarter may be the year to date (United's statistics: the period is
   // in the sentence above the table).
-  const kept = rows.filter((row) => !row.key.includes("#") && isOperating(row) && (release || row.quarterly));
+  const kept = rows.filter((row) => !row.key.includes("#") && (row.form === "text" || isOperating(row)) && (release || row.quarterly || row.form === "single"));
   const url = names[0] ? `${filing.base}${names[0]}` : filing.base;
   await cache?.put(key, JSON.stringify({ url, rows: kept.map((row) => ({ ...row, excluded: [...row.excluded] })) }), { expirationTtl: 180 * 86_400 }).catch(() => undefined);
   return { rows: kept, url };
@@ -276,20 +314,62 @@ async function documentRows(document: KpiDocument): Promise<{ rows: KpiRow[]; ur
   return { rows, url: parts[0].url };
 }
 
+/**
+ * The earnings releases further back than a filer's index of recent filings
+ * reaches. That index holds a year or a thousand filings, whichever is more:
+ * a bank that files tens of thousands of prospectuses a year (JPMorgan) has a
+ * year of it, four releases and no quarter a year apart to prove anything
+ * against. EDGAR's list of the company's 8-Ks, with their items, reaches back
+ * years in one request; its releases are added to the index read.
+ */
+async function withEarlierReleases(recent: Recent, cik: string): Promise<void> {
+  const oldest = recent.filingDate.reduce((earliest, date) => (date && date < earliest ? date : earliest), "9999");
+  if (days(iso(Date.now()), oldest) > 800) return;
+  try {
+    const response = await secFetch(`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cik}&type=8-K&dateb=&owner=include&count=100&output=atom`, { headers: { "User-Agent": SEC_AGENT(), Accept: "application/atom+xml" } });
+    if (!response.ok) { await response.body?.cancel(); return; }
+    const feed = await response.text();
+    const held = new Set(recent.accessionNumber);
+    for (const entry of feed.matchAll(/<entry>([\s\S]*?)<\/entry>/g)) {
+      const accession = /<accession-number>([^<]+)</.exec(entry[1])?.[1];
+      const filed = /<filing-date>([^<]+)</.exec(entry[1])?.[1];
+      const items = /<items-desc>([^<]+)</.exec(entry[1])?.[1] ?? "";
+      if (!accession || !filed || held.has(accession) || !/\b2\.02\b/.test(items) || /<filing-type>8-K\/A</.test(entry[1])) continue;
+      held.add(accession);
+      recent.form.push("8-K"); recent.filingDate.push(filed); recent.reportDate.push(""); recent.accessionNumber.push(accession);
+      recent.items?.push("2.02"); recent.primaryDocument?.push("");
+    }
+  } catch { /* the year the index holds is read as before */ }
+}
+
+/** A name as a card can hold it: Amazon's "Net sales -- Y/Y growth, excluding F/X" is its "Net sales · growth ex-FX". */
+export function tidyName(name: string): string {
+  return name
+    .replace(/\s+--\s+/g, " · ")
+    .replace(/\bTTM Y\/Y growth(?: \(decline\))?,? excluding F\/X\b/gi, "TTM growth ex-FX")
+    .replace(/\bY\/Y growth(?: \(decline\))?,? excluding F\/X\b/gi, "growth ex-FX")
+    .replace(/\bF\/X Neutral Y\/Y % Growth\b/gi, "growth ex-FX")
+    .replace(/\bY\/Y (?:% )?growth(?: \(decline\))?\b/gi, "growth")
+    .replace(/\s*\((?:full-time and part-time; )?excludes contractors (?:&|and) temporary personnel\)/i, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 /** A company's operating figures, rebuilt when it files a release or a 10-Q and kept until then. */
 export async function operatingKpis(cik: string): Promise<OperatingKpis> {
   const padded = cik.padStart(10, "0");
-  const { body: listed } = await cachedJson(`kpi-documents:v1:${padded}`, 1800, async () => {
+  const { body: listed } = await cachedJson(`kpi-documents:v2:${padded}`, 1800, async () => {
     const response = await secFetch(`https://data.sec.gov/submissions/CIK${padded}.json`, { headers: { "User-Agent": SEC_AGENT(), Accept: "application/json" } });
     if (!response.ok) throw new Error(`SEC returned ${response.status}.`);
     const recent = (await response.json() as { filings: { recent: Recent } }).filings.recent;
+    await withEarlierReleases(recent, padded);
     const filedEnds = recent.form.flatMap((form, index) => ((form === "10-Q" || form === "10-K") && recent.reportDate[index] ? [recent.reportDate[index]] : []));
     return { documents: kpiDocuments(recent, padded), filedEnds };
   });
   const { documents, filedEnds } = JSON.parse(listed) as { documents: KpiDocument[]; filedEnds: string[] };
   const basis = documents.map((document) => document.accession.slice(-8)).join("");
-  // v5: tables of six quarters and more, and headcounts printed under a "$ in millions" heading (Amazon's employees), and no "Other ·" before a name.
-  const { body } = await cachedJson(`operating-kpis:v5:${padded}:${basis.length > 200 ? basis.slice(0, 200) : basis}`, 30 * 86_400, async (): Promise<OperatingKpis> => {
+  // v7: two overlapping quarters prove a table of six and more, and names are tidied. v6: the readings of kpi-rows v4 (sentences, measure columns, quarterly trends). v5: tables of six quarters and more, and headcounts printed under a "$ in millions" heading (Amazon's employees), and no "Other ·" before a name.
+  const { body } = await cachedJson(`operating-kpis:v7:${padded}:${basis.length > 200 ? basis.slice(0, 200) : basis}`, 30 * 86_400, async (): Promise<OperatingKpis> => {
     const pairs = yearApart(documents);
     const needed = [...new Map(pairs.flat().map((document) => [document.accession, document])).values()];
     const read = new Map<string, { rows: KpiRow[]; url: string }>();

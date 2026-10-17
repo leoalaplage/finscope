@@ -40,6 +40,17 @@ export interface KpiRow {
   quarterly: boolean;
   /** The heading spanning the row's first figures, where it names a measure ("Net stores opened (closed)"). */
   group: string | null;
+  /**
+   * How the figure was printed. "single": one quarter's figure under a heading
+   * that names the measure, with no year-ago column (Tesla's deliveries:
+   * Production | Deliveries). "text": a sentence of the release ("DAP was 3.60
+   * billion on average for June 2026, an increase of 3% year-over-year"), with
+   * the change on a year it states, which proves the figure against the one a
+   * year before. A table row otherwise.
+   */
+  form?: "single" | "text";
+  /** A sentence's stated change on the year, in per cent. */
+  growth?: number | null;
 }
 
 export interface KpiReading {
@@ -81,14 +92,21 @@ const NOT_THE_FIGURE = /chang|variance|fav|unfav|increase|decrease|growth|adjust
 const SCALE = /\b(?:in |\()?(millions|thousands|billions)\b/i;
 /** A count of people, never an amount. */
 const HEADCOUNT = /\b(?:employees|headcount|full-time equivalents?|workforce)\b/i;
+/** Counted, never an amount: what a "Number of" row or a row of customers, branches or stores counts. */
+const COUNTED = /^number of\b|\badvisors?\b|\bbranch(?:es)?\b|\b(?:active )?(?:digital |mobile )?customers\b(?! deposits)|\bmembers\b|\bsubscribers\b|\bstores\b|\brestaurants\b|\blocations\b|\bdeliveries\b|\bunits\b(?! of)/i;
+/** What a count in an amounts table may still be: things counted, not money. */
+const OPERATING_COUNT = /units?\b|deliveries|vehicles?|stores?|restaurants?|locations?|customers?|members?|subscribers?|accounts?|branch|advisors?|employees|headcount|transactions?|trips?|nights?|rooms?|passengers?|barrels|tons?|ounces|wells?|rigs?|beds?|visits|admissions|patients?|policies|shipments?|orders?|impressions/i;
+/** A rate by its name: printed without a "%" sign it is still a percentage. */
+const RATE_NAME = /\brate\b|\byield\b|\bratio\b|\bmargin\b|delinquenc|charge-off rate|\bloss rate\b|\butilization\b|load factor|occupancy/i;
 
 /** A figure that is an amount of money by its name, whether or not its row prints the dollar sign. */
 const PRICED = /\barp[ua]\b|\barm\b|revpar|\badr\b|average daily rate|(?:revenue|price|win|sales|spend|ticket|fare) per\b|average (?:selling )?price|average ticket/i;
 /** A spanning heading that names when, not what. */
-const SPAN_PERIOD = /\b(?:three|six|nine|twelve|thirteen|sixteen|twenty-six|thirty-nine|fifty-two|\d{1,2})[- ](?:months|weeks)\b|\bquarters?\b|\byears?\b|\bended\b|^\s*(?:as of|at)\b|\b(?:19|20)\d\d\b|\bq[1-4]\b|\bfy\s?\d|^\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d|^\s*(?:current|prior|reported|actual)\b|^\(?(?:in |dollars |\$ )?(?:millions|thousands|billions)|unaudited/i;
+const SPAN_PERIOD = /\bquarterly\b|\btrends\b|\b(?:three|six|nine|twelve|thirteen|sixteen|twenty-six|thirty-nine|fifty-two|\d{1,2})[- ](?:months|weeks)\b|\bquarters?\b|\byears?\b|\bended\b|^\s*(?:as of|at)\b|\b(?:19|20)\d\d\b|\bq[1-4]\b|\bfy\s?\d|^\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d|^\s*(?:current|prior|reported|actual)\b|^\(?(?:in |dollars |\$ )?(?:millions|thousands|billions)|unaudited/i;
 const PER_UNIT = /\bper\b|price|yield|average|\bratio\b|\brate\b|\barp[ua]\b|\barm\b|revpar|\badr\b/i;
 const CUMULATIVE = /\b(?:six|nine|twelve|26|39|52|53|twenty-six|thirty-nine|fifty-two)[- ](?:months|weeks)\b|\byears? ended\b|\byear[- ]to[- ]date\b|\bfull[- ]year\b|\bfiscal year\b/i;
-const QUARTERLY = /\b(?:three|thirteen|twelve|sixteen|13|12|16)[- ](?:months|weeks)\b|\bquarters?\b|\bQ[1-4]\b/i;
+// "Quarterly trends", and quarters written 3Q26 (JPMorgan's supplement): a quarter, before the nine months beside it.
+const QUARTERLY = /\b(?:three|thirteen|twelve|sixteen|13|12|16)[- ](?:months|weeks)\b|\bquarters?\b|\bquarterly\b|\bQ[1-4]\b|\b[1-4]Q(?:\d{2}|\d{4})?\b/i;
 
 /** A row that makes a table one of the statements, or a breakdown of them. */
 const STATEMENT_ROW = /^total (?:net )?(?:operating )?(?:revenues?|sales)$|^(?:net )?revenues?$|^net sales$|^operating (?:income|loss|profit)|^income (?:\(loss\) )?from operations|^net (?:income|earnings|loss)\b|^total (?:costs and )?(?:operating )?(?:costs and )?expenses?\b|^total assets$|^total liabilities|^net cash (?:provided|used|from)|^gross (?:profit|margin)$|^cost of (?:sales|revenues?|goods)|^income before|^(?:provision for|benefit from) income taxes|^total current (?:assets|liabilities)/i;
@@ -126,7 +144,7 @@ export function kpiRows(html: string): KpiRow[] {
         // A row of words: the columns' headings when there are several, a heading over the rows below when one.
         if (raw.length > 1) { header = raw; if (!spanning) spanning = raw; }
         // A heading that only names the period or the units ("Three Months Ended June 30,") is not a heading over the rows.
-        else if (/[a-z]{3}/i.test(raw[0]) && raw[0].length <= 90 && !/ended|^as of|unaudited|^\(?in (?:millions|thousands)|^(?:19|20)\d\d$|^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2},?(?: (?:19|20)\d\d)?$/i.test(raw[0])) { section = raw[0].replace(/:$/, "").replace(/(?:\s*\((?:\d{1,2}|[a-z])\))+$/, ""); sectionUnit = null; }
+        else if (/[a-z]{3}/i.test(raw[0]) && raw[0].length <= 90 && !/ended|^as of|unaudited|^\(?in (?:millions|thousands)|^\(?(?:dollars|\$|amounts?) in (?:millions|thousands|billions)|^\(?(?:millions|thousands|billions)\b,? except|^(?:19|20)\d\d$|^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2},?(?: (?:19|20)\d\d)?$/i.test(raw[0])) { section = raw[0].replace(/:$/, "").replace(/(?:\s*\((?:\d{1,2}|[a-z])\))+$/, ""); sectionUnit = null; }
         continue;
       }
       const at = raw.findIndex((cell) => /[a-z]{3}/i.test(cell));
@@ -152,6 +170,24 @@ export function kpiRows(html: string): KpiRow[] {
       const values = columns.map((column) => (column.percent && !rate ? null : cellNumber(column.text)));
       if (!values.some(Boolean)) continue;
       const headings = header.length === columns.length ? header : header.length === columns.length + 1 ? header.slice(1) : null;
+      // Columns that are each a measure of the one quarter, no period among them (Tesla: Production | Deliveries): one
+      // row a measure, its single figure proven against the same measure a year before (anchorRow).
+      if (headings && headings.length >= 2 && headings.every((heading) => !SPAN_PERIOD.test(heading) && !NOT_THE_FIGURE.test(heading) && /[a-z]{3}/i.test(heading))
+        && headings.some((heading) => OPERATING.test(heading))) {
+        headings.forEach((heading, index) => {
+          const value = values[index];
+          if (!value || !OPERATING.test(heading) || STATEMENT.test(heading) || ADJUSTED.test(heading)) return;
+          const base = `${section ? normalise(section) : ""}|${normalise(label)}|${normalise(heading)}`;
+          const occurrence = (seen.get(base) ?? 0) + 1;
+          seen.set(base, occurrence);
+          rows.push({
+            key: occurrence > 1 ? `${base}#${occurrence}` : base, label, section, unit: rate ? "percent" : "count",
+            scale: SCALE.exec(label)?.[1]?.toLowerCase() ?? null, values: [value], excluded: new Set(), financial: false,
+            headings: [heading], group: heading, quarterly: false, form: "single",
+          });
+        });
+        continue;
+      }
       // The first two figures sit under the first spanning heading: where it names a measure rather than a period, it
       // is part of what the row counts.
       const groups = spanning && spanning.length >= 2 && spanning.length < columns.length ? spanning : null;
@@ -165,9 +201,18 @@ export function kpiRows(html: string): KpiRow[] {
       // the costs per seat mile printed after them.
       // "Systemwide", "Consolidated": the whole company, not the region printed above it (McDonald's).
       if (/^(?:systemwide|system-wide|consolidated|total company|worldwide|global|company-wide)\s+\S/i.test(label)) section = null;
-      let unit: KpiUnit = rate ? "percent" : currency || PRICED.test(label) ? "currency" : "count";
       // People are counted, whatever the table's "$ in millions" says (Amazon prints its employees in that table).
-      const people = HEADCOUNT.test(label) && !rate;
+      const people = (HEADCOUNT.test(label) || COUNTED.test(label)) && !rate && !currency;
+      // A rate printed without its "%" (JPMorgan's delinquency rates, its net yield): every figure under a hundred.
+      // Or named so by the heading above it ("30+ day delinquency rate" over "Card Services").
+      // The heading's name only over a row that names no measure of its own: "PRASM (cents)" under "Passenger load factor" is not one.
+      const ownMeasure = OPERATING.test(label) || PER_UNIT.test(label) || /cents|asm\b|\(|\$/i.test(label);
+      const unmarkedRate = !rate && (RATE_NAME.test(label) || (section != null && RATE_NAME.test(section) && !ownMeasure)) && !/\bper\b/i.test(label) && !PRICED.test(label)
+        && figures.length > 0 && figures.every((column) => Math.abs(cellNumber(column.text)?.value ?? 0) < 100);
+      let unit: KpiUnit = rate || unmarkedRate ? "percent" : currency || PRICED.test(label) ? "currency" : "count";
+      // In a table of amounts "in millions", a row that is neither a count nor its own scale is an amount (JPMorgan's loans).
+      const amountTable = /\bin (?:millions|billions)\b/i.test(words);
+      if (unit === "count" && !people && !SCALE.test(label) && amountTable && tableScale && !OPERATING_COUNT.test(label)) unit = "currency";
       // Only under a heading that is itself a measure, and only from a rate to an amount or back: a property's or a
       // region's name heads all its rows, and a "$" printed on the first row only does not change what is counted.
       if (section && sectionUnit && (unit === "percent") !== (sectionUnit === "percent") && OPERATING.test(section)) section = null;
@@ -187,7 +232,7 @@ export function kpiRows(html: string): KpiRow[] {
         unit,
         // A table's "in millions" is said of its amounts; a count says its own scale in its label.
         // A figure per unit (RevPAR, a price per gallon) is in units, whatever the table's amounts are in.
-        scale: SCALE.exec(label)?.[1]?.toLowerCase() ?? ((currency || inherited) && !PER_UNIT.test(label) ? tableScale : null),
+        scale: SCALE.exec(label)?.[1]?.toLowerCase() ?? (unit === "currency" && (currency || inherited || amountTable) && !PER_UNIT.test(label) ? tableScale : null),
         values, excluded, financial: false, headings, group, quarterly: false,
       });
     }
@@ -222,6 +267,7 @@ const OPERATING = new RegExp([
   "retention", "churn", "square f(?:ee|oo)t", "sq\\.? ?ft", "barrels", "\\bboe", "production", "\\bmcf", "\\bbcf", "tons?\\b", "ounces",
   "\\brigs?\\b", "wells?\\b", "beds?\\b", "admissions", "patients?", "visits", "enrollment", "\\blives\\b", "policies", "in force",
   "premiums? written", "assets under (?:management|custody|administration)", "\\baum\\b", "\\bauc\\b", "net (?:new )?flows", "clients?\\b",
+  "wholesales?\\b", "people served", "members served", "case volume", "unit case", "branch(?:es)?\\b", "advisors?\\b", "impressions", "price per ad", "card sales", "payments? volume", "\\bgwh\\b", "storage deployed",
   "daily active", "monthly active", "\\bdau", "\\bmau", "\\bdap\\b", "\\bmap\\b", "\\barr\\b", "annual(?:ized)? recurring", "net (?:revenue|dollar) retention",
   "installed base", "capacity", "utili[sz]ation", "fleet", "aircraft", "units sold", "average selling price", "\\basp\\b", "price per",
   "cost per", "doors", "franchise", "systemwide", "system-wide", "net adds", "net additions", "openings?\\b", "closures?\\b", "seats?\\b",
@@ -232,20 +278,32 @@ const OPERATING = new RegExp([
 ].join("|"), "i");
 
 /** A line of the statements, or a figure about the shares, the debt or the tax, whatever table it is printed in. */
-const STATEMENT = /\brevenues?\b(?! per\b)|^(?:total )?(?:net )?sales\b(?! per\b)|propert(?:y|ies),? (?:plant|and equipment)|purchases? of|fees?\b|\bstock\b|\brsus?\b|awards?\b|options?\b|additions? to|acquisitions? of|proceeds|obligation|reconciliation|\brent\b|maintenance|repairs|salaries|wages|compensation|\b(?:net )?income\b|expenses?\b|\bcost of\b|\bcosts?\b(?! per\b)|\bmargin\b|earnings|\beps\b|\bprofit\b|\btax|depreciation|amortization|ebitda|\bebit\b|cash\b|\bassets\b(?! under)|liabilit|equity|\bdebt\b|borrowing|dividend|\bshares?\b|weighted|diluted|basic|interest|impairment|restructuring|\bgains?\b|\bloss(?:es)?\b(?! ratio)|provision|receivable|payable|inventor|goodwill|capital expenditure|free cash|operating activities|investing|financing|guidance|outlook|\bbps\b|effective/i;
+const STATEMENT = /\bgranted\b|\bvested\b|forfeit|unvested|restricted (?:stock )?units?|performance (?:share )?units?|\bfacilit(?:y|ies)\b|committed capacity|unused capacity|available capacity|\brewards?\b|marketing|business development|promotion|incentives?\b|payments? made to|price per share|per share\b|\bbuybacks?\b|repurchase|\brevenues?\b(?! per\b)|^(?:total )?(?:net )?sales\b(?! per\b)|propert(?:y|ies),? (?:plant|and equipment)|purchases? of|fees?\b|\bstock\b|\brsus?\b|awards?\b|options?\b|additions? to|acquisitions? of|proceeds|obligation|reconciliation|\brent\b|maintenance|repairs|salaries|wages|compensation|\b(?:net )?income\b|expenses?\b|\bcost of\b|\bcosts?\b(?! per\b)|\bmargin\b|earnings|\beps\b|\bprofit\b|\btax|depreciation|amortization|ebitda|\bebit\b|cash\b|\bassets\b(?! under)|liabilit|equity|\bdebt\b|borrowing|dividend|\bshares?\b|weighted|diluted|basic|interest|impairment|restructuring|\bgains?\b|\bloss(?:es)?\b(?! ratio)|provision|receivable|payable|inventor|goodwill|capital expenditure|free cash|operating activities|investing|financing|guidance|outlook|\bbps\b|effective/i;
 
 /** Plainly operating, wherever it is printed: a figure per unit of something, a count in stated units, a rate the business is run by. */
-const STRONG = /\bemployees\b|\bheadcount\b|\bper (?:available|paying|member|membership|user|subscriber|customer|unit|account|occupied|passenger|square|room|gallon|trip|order|transaction|vehicle|store|restaurant|location|daily)|\((?:in )?(?:000s|thousands|millions|cents)\)|\bin (?:thousands|millions)\b|comparable|same[- ]store|occupanc|load factor|retention|churn|available seat|revpar|average daily rate|paid members|subscribers|deliveries|backlog|systemwide|system-wide|daily active|monthly active/i;
-const ADJUSTED = /adjusted|non-?gaap|excluding|\bex-|-ex\b|pro forma|see note/i;
+const STRONG = /\bemployees\b|\bheadcount\b|\bper (?:available|paying|member|membership|user|subscriber|customer|unit|account|occupied|passenger|square|room|gallon|trip|order|transaction|vehicle|store|restaurant|location|daily)|\((?:in )?(?:000s|thousands|millions|billions|trillions|cents)\)|\bin (?:thousands|millions)\b|comparable|same[- ]store|occupanc|load factor|retention|churn|available seat|revpar|average daily rate|paid members|subscribers|deliveries|backlog|systemwide|system-wide|daily active|monthly active/i;
+const ADJUSTED = /adjusted|non-?gaap|\bgaap measure|excluding|\bex-|-ex\b|pro forma|see note/i;
 
-export const isOperating = (row: Pick<KpiRow, "label" | "section" | "financial" | "unit">) => {
-  // "Total" alone says nothing of what is totalled.
-  if (!row.section && /^(?:total|other|all other|subtotal|consolidated|net)$/i.test(row.label.trim())) return false;
+/**
+ * Read wherever it is printed, statement table or not: growth at constant
+ * currency or organic, which no filed statement carries, and the client
+ * assets a bank or a broker runs its wealth business by.
+ */
+const BEYOND_STATEMENTS = /constant[- ]currency|currency[- ]neutral|f\/?x[- ]neutral|excluding (?:f\/?x|fx|foreign (?:exchange|currency)|(?:the )?(?:impact|effect)s? of (?:foreign|currency)|currency)|\borganic (?:revenue|sales|growth|net sales)|client (?:investment )?assets|assets under (?:supervision|management|custody)|remaining performance obligations?|\bc?rpo\b/i;
+
+export const isOperating = (row: Pick<KpiRow, "label" | "section" | "financial" | "unit"> & { group?: string | null }) => {
+  if (BEYOND_STATEMENTS.test(row.label) && (row.unit === "percent" || /assets|obligation/i.test(row.label))) return true;
+  // A note in brackets, or a line of a reconciliation ("Less (add)", "Plus"), is not a measure.
+  if (/^\(|^(?:less|add|plus|memo)\b/i.test(row.label.trim())) return false;
+  // "Total" alone says nothing of what is totalled — unless a heading above its figure says (Tesla's "Total" deliveries).
+  if (!row.section && !row.group && /^(?:total|other|all other|subtotal|consolidated|net)$/i.test(row.label.trim())) return false;
   if (STATEMENT.test(row.label) || ADJUSTED.test(row.label) || (row.section && (STATEMENT.test(row.section) || ADJUSTED.test(row.section)))) return false;
   // Occupancy is a rate; as an amount it is a line of costs (Chipotle's).
   if (/occupan/i.test(row.label) && row.unit !== "percent") return false;
-  if (row.financial) return STRONG.test(row.label);
-  return OPERATING.test(row.label) || (row.section != null && OPERATING.test(row.section));
+  const measure = row.group != null && OPERATING.test(row.group);
+  // In a table that prints statement lines, the row must name what it counts itself: under a heading alone it may be one of them.
+  if (row.financial) return STRONG.test(row.label) || OPERATING.test(row.label) || measure;
+  return OPERATING.test(row.label) || (row.section != null && OPERATING.test(row.section)) || measure;
 };
 
 const PERIOD = /\b(?:19|20)\d\d\b|\b\d{2}\b|months?|quarters?|weeks?|years?|ended|period|\bq[1-4]\b|\bfy|ytd|as of|current|prior|previous|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/i;
@@ -262,6 +320,7 @@ const equal = (left: KpiCell, right: KpiCell) => left.value === right.value && l
  */
 export function anchorRow(newer: KpiRow, older: KpiRow): KpiReading | null {
   if (newer.unit !== older.unit) return null;
+  if (newer.form === "text" || newer.form === "single" || older.form === "text" || older.form === "single") return anchorStated(newer, older);
   // The period and the year before it are a row's first two figures, whichever comes first; a later column is
   // another measure under a heading this reader does not see (Starbucks: stores opened, then stores open).
   const figures = (row: KpiRow) => row.values.map((cell, index) => (cell && !row.excluded.has(index) ? index : -1)).filter((index) => index >= 0);
@@ -275,16 +334,44 @@ export function anchorRow(newer: KpiRow, older: KpiRow): KpiReading | null {
   // Five quarters or more side by side (Chipotle and the banks five, Amazon six): the year-ago quarter is four
   // columns from the newest, newest first or oldest first — and the older document prints it as its own newest.
   const newerFigures = figures(newer), olderFigures = figures(older);
-  if (newerFigures.length >= 5 && olderFigures.join() === newerFigures.join()) {
-    const count = newerFigures.length;
+  /*
+   * How many of the columns are quarters: all of them where the table has no headings, else the leading ones up to
+   * the first heading printed twice — JPMorgan's five quarters are followed by changes headed "2Q26" and "3Q25",
+   * which are not two more quarters.
+   */
+  const headed = newerFigures.map((index) => newer.headings?.[index]?.trim().toLowerCase() ?? null);
+  let run = newerFigures.length;
+  if (headed.every((heading) => heading)) {
+    const met = new Set<string>();
+    run = headed.findIndex((heading) => (met.has(heading!) ? true : (met.add(heading!), false)));
+    if (run < 0) run = newerFigures.length;
+  }
+  if (run >= 5 && olderFigures.join() === newerFigures.join()) {
+    const count = run;
     const first = newerFigures[0], last = newerFigures[count - 1];
     const cell = (row: KpiRow, index: number) => row.values[index]!;
+    /*
+     * The year-ago quarter must be the older document's own. A figure too coarse to prove that alone (Amazon's paid
+     * units, +8%) must be matched by the quarter beside it as well, which both documents print in a table of six;
+     * columns past the quarters (JPMorgan's changes and nine months) are never compared.
+     */
+    const agree = (newestFirst: boolean) => {
+      const mine = (offset: number) => newerFigures[newestFirst ? 4 + offset : count - 5 - offset];
+      const theirs = (offset: number) => olderFigures[newestFirst ? offset : count - 1 - offset];
+      if (mine(0) == null || !equal(cell(newer, mine(0)), cell(older, theirs(0)))) return false;
+      // With six quarters or more two of them overlap, and both must agree: one small figure matches by chance too
+      // easily, and read the wrong way round it would give an old quarter for the newest.
+      if (count < 6 && precise(cell(older, theirs(0)), older.unit)) return true;
+      const next = mine(1), beside = theirs(1);
+      return next != null && beside != null && next >= 0 && equal(cell(newer, next), cell(older, beside));
+    };
+    const newestFirst = agree(true), oldestFirst = agree(false);
+    // Both ways round: the table does not say which, and neither is taken.
+    if (newestFirst && oldestFirst) return null;
     // Newest first: the quarter is the first column, the year before it the fifth.
-    const fifth = newerFigures[4];
-    if (equal(cell(newer, fifth), cell(older, first)) && precise(cell(older, first), older.unit)) return reading(cell(newer, first), cell(newer, fifth), first);
+    if (newestFirst) return reading(cell(newer, first), cell(newer, newerFigures[4]), first);
     // Oldest first: the quarter is the last column, the year before it four to its left.
-    const back = newerFigures[count - 5];
-    if (equal(cell(newer, back), cell(older, last)) && precise(cell(older, last), older.unit)) return reading(cell(newer, last), cell(newer, back), last);
+    if (oldestFirst) return reading(cell(newer, last), cell(newer, newerFigures[count - 5]), last);
     return null;
   }
   const olderColumns = olderFigures.slice(0, 2);
@@ -305,6 +392,130 @@ export function anchorRow(newer: KpiRow, older: KpiRow): KpiReading | null {
   return null;
 }
 
+const SCALES: Record<string, number> = { thousand: 1e3, thousands: 1e3, million: 1e6, millions: 1e6, billion: 1e9, billions: 1e9, trillion: 1e12, trillions: 1e12 };
+const absolute = (row: KpiRow, cell: KpiCell) => cell.value * (row.scale ? SCALES[row.scale] ?? 1 : 1);
+
+/**
+ * A figure printed without its year-ago beside it, proven against the same
+ * measure in the document a year before.
+ *
+ * A sentence that states its change on the year proves itself: the two
+ * figures must give that change, to the rounding of what is printed ("3.60
+ * billion, an increase of 3%" against last year's 3.48 billion). A growth rate
+ * (Meta's ad impressions, +14%) is the company's own figure each quarter, and
+ * needs only to be stated again a year on. A measure under its own column
+ * heading (Tesla's deliveries) must be printed finely and within a band of the
+ * year before's; a moved column or a misread row fails one or the other.
+ */
+function anchorStated(newer: KpiRow, older: KpiRow): KpiReading | null {
+  if (newer.form !== older.form) return null;
+  const current = newer.values[0];
+  const yearAgo = older.values[0];
+  if (!current || !yearAgo) return null;
+  const reading: KpiReading = { key: newer.key, label: newer.label, section: newer.section, unit: newer.unit, scale: newer.scale ?? older.scale, measure: newer.group, current, yearAgo };
+  if (newer.unit === "percent") return newer.form === "text" ? reading : null;
+  const now = absolute(newer, current), before = absolute(older, yearAgo);
+  if (!(now > 0 && before > 0) || now / before > 5 || now / before < 0.2) return null;
+  if (newer.form === "text") {
+    if (newer.growth == null) return null;
+    // Printed to two or three figures each side: a point and a half of slack on the stated change.
+    return Math.abs((now / before - 1) * 100 - newer.growth) <= 1.5 ? { ...reading, current: { value: now / (SCALES[reading.scale ?? ""] ?? 1), decimals: current.decimals }, yearAgo: { value: before / (SCALES[reading.scale ?? ""] ?? 1), decimals: yearAgo.decimals } } : null;
+  }
+  return precise(current, newer.unit) && precise(yearAgo, older.unit) ? reading : null;
+}
+
+/**
+ * How much a reading tells, to order a company's figures and keep the best
+ * when there are more than a page holds: the measures a business is run by
+ * first (comparable sales, RevPAR, members, deliveries, daily users), then
+ * growth at constant currency and other operating figures, then the rest.
+ */
+export function kpiRank(reading: Pick<KpiReading, "label" | "section" | "measure" | "unit">): number {
+  const name = `${reading.section ?? ""} ${reading.label} ${reading.measure ?? ""}`;
+  if (STRONG.test(name) || /revpar|daily active|monthly active|paid members|subscribers|deliveries|comparable|same[- ]store|load factor|occupanc|backlog|\bc?rpo\b/i.test(name)) return 0;
+  if (BEYOND_STATEMENTS.test(name) || OPERATING.test(reading.label)) return 1;
+  return 2;
+}
+
+/* --- Figures stated in sentences ------------------------------------------ */
+
+const NUMBER = String.raw`(\$)?\s?(\d[\d,]*(?:\.\d+)?)\s*(thousand|million|billion|trillion)?`;
+/** "<Name> – <subject> was 3.60 billion …, an increase of 3% year-over-year" and its kin. */
+const LEVEL = new RegExp(String.raw`^(?:([A-Z][\w ()&,'/.-]{2,80}?)\s+[–—-]\s+)?([A-Z][\w ()&,'/.-]{1,100}?)\s+(?:was|were|totaled|totalled|reached|stood at|grew to|increased to|decreased to|declined to)\s+(?:approximately |about |nearly |over |more than |a record )?${NUMBER}\b(.*)$`);
+const RATE = new RegExp(String.raw`^(?:([A-Z][\w ()&,'/.-]{2,80}?)\s+[–—-]\s+)?([A-Z][\w ()&,'/.-]{1,140}?)\s+(increased|decreased|grew|declined|rose|fell)\s+(?:by\s+)?(\d+(?:\.\d+)?)%(\s*\((?:up|down) (\d+(?:\.\d+)?)% in constant currency\))?`);
+/** A line of business's revenue by its own name ("Azure and other cloud services revenue"), not revenue alone. */
+const NAMED_REVENUE = /^(?!(?:total |net |our |the )?revenues?\b)[A-Z][\w ()&,'/.-]{2,80}\s(?:revenues?|sales)$/;
+const CHANGE = /\b(?:an? )?(increase|decrease|growth|decline|rise|fall) of (\d+(?:\.\d+)?)%\s*(?:year-over-year|year over year|y\/y|from|compared|versus|vs\.?)|\b(up|down) (\d+(?:\.\d+)?)%\s*(?:year-over-year|year over year|y\/y)|\brepresenting (\d+(?:\.\d+)?)% (?:year-over-year )?(growth|decline)/i;
+/** "Current remaining performance obligations ("cRPO") of $24.3 billion, representing 21% year-over-year growth" (ServiceNow). */
+const STATED_OF = new RegExp(String.raw`^(?:([A-Z][\w ()&,'/.-]{2,80}?)\s+[–—-]\s+)?([A-Z][\w ()&,'"/.-]{1,120}?)\s+of\s+${NUMBER}\b(.*)$`);
+const CONSTANT = /^(?:([A-Z][\w ()&,'/.-]{2,80}?)\s+[–—-]\s+)?([A-Z][\w ()&,'/.-]{1,60}?) on a constant currency basis would have (increased|decreased) (?:by )?(\d+(?:\.\d+)?)%/;
+
+/**
+ * The figures a release states in its sentences rather than its tables, the
+ * operating ones only (Meta: daily active people, ad impressions, average
+ * price per ad, headcount; its revenue at constant currency). Each becomes a
+ * row of one figure, keyed by what it measures, for anchorStated to prove
+ * against the year before.
+ */
+export function kpiSentences(html: string): KpiRow[] {
+  const text = plain(html.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, " ").replace(/<\/(?:p|div|li|td|tr|h\d)>/gi, " ¶ ")).replace(/[•●▪]/g, " ¶ ");
+  const rows: KpiRow[] = [];
+  const seen = new Set<string>();
+  const add = (name: string, unit: KpiUnit, cell: KpiCell, scale: string | null, growth: number | null, measure: string | null) => {
+    // "P ostpaid ARPA": a capital split from its word by the release's markup.
+    const label = name.replace(/\s+/g, " ").replace(/\b([A-Z]) (?=[a-z]{2,})/g, "$1").replace(/^(?:our|the|total)\s+/i, "").trim();
+    // Revenue as a whole, or its growth, is the statements' own figure.
+    // (At constant currency it is not: no statement carries that.)
+    if (measure !== "Growth at constant currency" && /^(?:consolidated |total |net |company |reported )*(?:net )?(?:revenues?|sales)$/i.test(label)) return;
+    const key = `text|${normalise(label)}|${measure ? normalise(measure) : ""}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    rows.push({ key, label: label[0].toUpperCase() + label.slice(1), section: null, unit, scale, values: [cell], excluded: new Set(), financial: false, headings: null, group: measure, quarterly: false, form: "text", growth });
+  };
+  for (const piece of text.split(/¶|(?<=[a-z0-9)%][.;])\s+(?=[A-Z])/)) {
+    const sentence = piece.replace(/\s+/g, " ").trim();
+    if (sentence.length < 12 || sentence.length > 400) continue;
+    const constant = CONSTANT.exec(sentence);
+    if (constant) {
+      const name = constant[2];
+      const value = Number(constant[4]) * (constant[3] === "decreased" ? -1 : 1);
+      add(`${name}`, "percent", { value, decimals: constant[4].includes(".") ? 1 : 0 }, null, null, "Growth at constant currency");
+      continue;
+    }
+    const rate = RATE.exec(sentence);
+    if (rate) {
+      const name = (rate[1] && rate[1].length <= 60 ? rate[1] : rate[2]).trim();
+      // An operating measure's growth, or a line of business's revenue growth (Microsoft's Azure), which no statement carries.
+      const business = NAMED_REVENUE.test(name);
+      if (!(business || (OPERATING.test(name) && !STATEMENT.test(name))) || ADJUSTED.test(name)) continue;
+      const sign = /decreased|declined|fell/.test(rate[3]) ? -1 : 1;
+      add(name, "percent", { value: Number(rate[4]) * sign, decimals: rate[4].includes(".") ? 1 : 0 }, null, null, "Growth on the year");
+      if (rate[6]) add(name, "percent", { value: Number(rate[6]) * (/down/.test(rate[5]) ? -1 : 1), decimals: rate[6].includes(".") ? 1 : 0 }, null, null, "Growth at constant currency");
+      continue;
+    }
+    let level = LEVEL.exec(sentence);
+    // "… of $24.3 billion, representing 21% growth": a figure introduced by "of", with its change on the year.
+    if (!level) {
+      const stated = STATED_OF.exec(sentence);
+      if (stated && /representing \d/.test(stated[6] ?? "") && (BEYOND_STATEMENTS.test(stated[2]) || OPERATING.test(stated[2]))) level = stated;
+    }
+    if (!level) continue;
+    const name = level[1] ?? level[2];
+    const subject = level[2];
+    // A count or a figure per unit, never an amount of the statements.
+    const beyond = BEYOND_STATEMENTS.test(name) || BEYOND_STATEMENTS.test(subject);
+    if (!beyond && (!(OPERATING.test(name) || OPERATING.test(subject)) || STATEMENT.test(name) || ADJUSTED.test(name) || STATEMENT.test(subject))) continue;
+    const digits = level[4].replace(/,/g, "");
+    const value = Number(digits);
+    if (!Number.isFinite(value) || value <= 0) continue;
+    const change = CHANGE.exec(level[6] ?? "");
+    const growth = change ? Number(change[2] ?? change[4] ?? change[5]) * (/decrease|decline|fall|down/i.test(change[1] ?? change[3] ?? change[6] ?? "") ? -1 : 1) : null;
+    const scale = level[5] ? `${level[5]}s` : null;
+    add(name, level[3] || PRICED.test(name) ? "currency" : "count", { value, decimals: digits.includes(".") ? digits.length - digits.indexOf(".") - 1 : 0 }, scale, growth, null);
+  }
+  return rows;
+}
+
 /** Every operating row of the newer document that the older one, a year before, proves. */
 export function anchorDocuments(newer: KpiRow[], older: KpiRow[]): KpiReading[] {
   const byKey = new Map(older.map((row) => [row.key, row]));
@@ -312,7 +523,8 @@ export function anchorDocuments(newer: KpiRow[], older: KpiRow[]): KpiReading[] 
   const printed = new Set<string>();
   for (const row of newer) {
     // A row printed twice under one heading is two measures this reader cannot tell apart (a quarter, then six months).
-    if (row.key.includes("#") || !isOperating(row)) continue;
+    // A sentence was read as an operating figure already (kpiSentences); its name may be a statement line's (revenue at constant currency).
+    if (row.key.includes("#") || (row.form !== "text" && !isOperating(row))) continue;
     const match = byKey.get(row.key);
     if (!match) continue;
     const reading = anchorRow(row, match);

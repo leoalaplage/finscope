@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { anchorDocuments, isOperating, kpiRows } from "../lib/adapters/kpi-tables";
-import { assembleKpis, kpiDocuments, nextQuarterEnd, yearApart, yearToDate, type KpiDocument, type KpiPoint } from "../lib/operating-kpis";
+import { anchorDocuments, isOperating, kpiRows, kpiSentences } from "../lib/adapters/kpi-tables";
+import { assembleKpis, kpiDocuments, nextQuarterEnd, tidyName, yearApart, yearToDate, type KpiDocument, type KpiPoint } from "../lib/operating-kpis";
 
 const table = (title: string, rows: string[][], header = ["", "2026", "2025", "% Change"]) =>
   `<table><tr><td>${title}</td></tr><tr>${header.map((cell) => `<td>${cell}</td>`).join("")}</tr>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</table>`;
@@ -106,5 +106,62 @@ describe("the documents a company's index lists", () => {
     expect(yearApart(documents).map(([newer, older]) => `${newer.form} ${newer.end}/${older.end}`)).toEqual(["release 2026-09-30/2025-09-30", "10-Q 2026-09-30/2025-09-30"]);
     expect(nextQuarterEnd("2026-09-30")).toBe("2026-12-31");
     expect(nextQuarterEnd("2026-08-30")).toBe("2026-11-29");
+  });
+});
+
+describe("figures printed beyond a plain table of two years", () => {
+  it("reads six quarters oldest first, proving a single-digit rate by every quarter both documents print", () => {
+    const head = ["", "Q1 2025", "Q2 2025", "Q3 2025", "Q4 2025", "Q1 2026", "Q2 2026"];
+    // Single digits: the year-ago quarter (8) could match by chance, so the quarter beside it (6) must match too.
+    const older = kpiRows(quarter([["WW paid units -- Y/Y growth", "9 %", "8 %", "8 %", "7 %", "6 %", "8 %"]], ["", "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024", "Q1 2025", "Q2 2025"]));
+    const newer = kpiRows(quarter([["WW paid units -- Y/Y growth", "6 %", "8 %", "9 %", "7 %", "9 %", "9 %"]], head));
+    expect(anchorDocuments(newer, older)[0]).toMatchObject({ current: { value: 9 }, yearAgo: { value: 8 } });
+    const moved = kpiRows(quarter([["WW paid units -- Y/Y growth", "5 %", "8 %", "9 %", "7 %", "9 %", "9 %"]], head));
+    expect(anchorDocuments(moved, older)).toEqual([]);
+  });
+
+  it("keeps a quarterly-trends table that prints nine months beside its quarters (3Q26)", () => {
+    const html = table("QUARTERLY TRENDS NINE MONTHS ENDED SEPTEMBER 30,", [["Number of branches", "5,164", "5,135", "5,095", "5,083", "5,018"]], ["", "3Q26", "2Q26", "1Q26", "4Q25", "3Q25"]);
+    expect(kpiRows(html).map((row) => row.label)).toEqual(["Number of branches"]);
+  });
+
+  it("reads a measure under its own column heading, proven against the same a year before", () => {
+    const head = ["", "Production", "Deliveries"];
+    const newer = kpiRows(quarter([["Model 3/Y", "457,387", "478,237"], ["Total", "464,391", "486,532"]], head));
+    const older = kpiRows(quarter([["Model 3/Y", "410,244", "373,728"], ["Total", "410,244", "384,122"]], head));
+    const readings = anchorDocuments(newer, older);
+    expect(readings.map((reading) => `${reading.label}|${reading.measure}|${reading.current.value}|${reading.yearAgo.value}`)).toEqual([
+      "Model 3/Y|Production|457387|410244", "Model 3/Y|Deliveries|478237|373728", "Total|Production|464391|410244", "Total|Deliveries|486532|384122",
+    ]);
+  });
+
+  it("reads operating figures stated in sentences, proven by the change they state", () => {
+    const say = (dap: string, change: string) => `<p>• Family daily active people (DAP) – DAP was ${dap} billion on average for June, an increase of ${change}% year-over-year.</p>
+      <p>• Ad impressions – Ad impressions delivered across our Family of Apps increased by 14% year-over-year.</p>
+      <p>• Revenue – Revenue was $60.80 billion, an increase of 28% year-over-year. Revenue on a constant currency basis would have increased by 27% year-over-year.</p>`;
+    const newer = kpiSentences(say("3.60", "3"));
+    expect(newer.map((row) => `${row.label}|${row.unit}|${row.group ?? ""}`)).toEqual([
+      "Family daily active people (DAP)|count|", "Ad impressions|percent|Growth on the year", "Revenue|percent|Growth at constant currency",
+    ]);
+    const older = kpiSentences(say("3.48", "6"));
+    expect(anchorDocuments(newer, older).map((reading) => reading.label)).toEqual(["Family daily active people (DAP)", "Ad impressions", "Revenue"]);
+    // A stated change the two figures do not give: not proven.
+    expect(anchorDocuments(kpiSentences(say("3.60", "12")), older).map((reading) => reading.label)).toEqual(["Ad impressions", "Revenue"]);
+  });
+
+  it("reads business figures in a statements table, and leaves equity awards out", () => {
+    expect(isOperating({ label: "WW seller unit mix -- % of WW paid units", section: null, financial: true, unit: "percent" })).toBe(true);
+    expect(isOperating({ label: "Net sales -- Y/Y growth, excluding F/X", section: null, financial: true, unit: "percent" })).toBe(true);
+    expect(isOperating({ label: "Number of Units", section: "Units granted", financial: true, unit: "count" })).toBe(false);
+    expect(isOperating({ label: "Total", section: null, financial: false, unit: "count", group: "Deliveries" })).toBe(true);
+  });
+});
+
+describe("names a card can hold", () => {
+  it("shortens the platforms' long growth labels", () => {
+    expect(tidyName("AWS Segment · Net sales -- Y/Y growth, excluding F/X")).toBe("AWS Segment · Net sales · growth ex-FX");
+    expect(tidyName("WW net sales -- TTM Y/Y growth, excluding F/X")).toBe("WW net sales · TTM growth ex-FX");
+    expect(tidyName("EMEA · F/X Neutral Y/Y % Growth")).toBe("EMEA · growth ex-FX");
+    expect(tidyName("Employees (full-time and part-time; excludes contractors & temporary personnel)")).toBe("Employees");
   });
 });
