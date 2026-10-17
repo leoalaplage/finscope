@@ -1062,7 +1062,7 @@ export function CandleChart({
                 ))}
               </g>
             ) : null}
-            <CandlePaths view={view} scale={width ? width / W : null} />
+            <CandlePaths view={view} />
             <g clipPath={`url(#${clipId})`}>
               {on("structure") ? view.analysis.structure.breaks.map((item) => (
                 <line
@@ -1482,14 +1482,9 @@ export function CandleChart({
  * The candles as four paths — wicks and bodies, up and down — rather than two
  * elements a candle: a chart zoomed out on a few thousand candles stays one
  * frame a move.
- *
- * A body is outlined in black while it is at least two pixels wide; below
- * that the outline would leave no colour, so a chart zoomed far out draws its
- * bodies plain.
  */
-function CandlePaths({ view, scale }: { view: { drawn: { o: number[]; h: number[]; l: number[]; c: number[] }; x: (index: number) => number; y: (value: number) => number; slot: number }; scale: number | null }) {
+function CandlePaths({ view }: { view: { drawn: { o: number[]; h: number[]; l: number[]; c: number[] }; x: (index: number) => number; y: (value: number) => number; slot: number } }) {
   const width = view.slot * 0.64;
-  const outlined = scale != null && width * scale >= 2;
   let upWicks = "", downWicks = "", upBodies = "", downBodies = "";
   view.drawn.c.forEach((close, index) => {
     const open = view.drawn.o[index];
@@ -1502,8 +1497,8 @@ function CandlePaths({ view, scale }: { view: { drawn: { o: number[]; h: number[
   });
   return (
     <>
-      <g className="candle-up"><path className="candle-wick" d={upWicks} vectorEffect="non-scaling-stroke" /><path className="candle-fill" data-outlined={outlined || undefined} d={upBodies} vectorEffect="non-scaling-stroke" /></g>
-      <g className="candle-down"><path className="candle-wick" d={downWicks} vectorEffect="non-scaling-stroke" /><path className="candle-fill" data-outlined={outlined || undefined} d={downBodies} vectorEffect="non-scaling-stroke" /></g>
+      <g className="candle-up"><path className="candle-wick" d={upWicks} vectorEffect="non-scaling-stroke" /><path className="candle-fill" d={upBodies} /></g>
+      <g className="candle-down"><path className="candle-wick" d={downWicks} vectorEffect="non-scaling-stroke" /><path className="candle-fill" d={downBodies} /></g>
     </>
   );
 }
