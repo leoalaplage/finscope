@@ -284,14 +284,31 @@ const yearLong = (start: string | null, end: string) => start != null && Math.ab
  * on the same axis, and a share nobody called a concentration is not one.
  */
 export function buildCustomers(facts: CustomerFact[], labels: Map<string, string>, companies: KnownCompany[], options: { self?: string; totals?: Map<string, number> } = {}): Customer[] {
-  const byMember = new Map<string, CustomerFact[]>();
-  for (const fact of facts) byMember.set(fact.member, [...(byMember.get(fact.member) ?? []), fact]);
-  const customers: Customer[] = [];
-  for (const [member, list] of byMember) {
+  /*
+   * One customer, however many members it was filed under: Ball's Coca-Cola
+   * bottlers are one element in one year and another the next. The same index
+   * member, or the same name once written plainly, is the same customer; the
+   * newest filing's member and words name it.
+   */
+  const who = new Map<string, { label: string; kind: CustomerKind; ticker: string | null }>();
+  for (const member of new Set(facts.map((fact) => fact.member))) {
     const label = memberName(member, labels);
     const kind = customerKind(label);
+    const matched = kind === "named" ? matchCompany(label, companies) : null;
+    who.set(member, { label, kind, ticker: matched === options.self ? null : matched });
+  }
+  const groups = new Map<string, CustomerFact[]>();
+  for (const fact of facts) {
+    const { label, kind, ticker } = who.get(fact.member)!;
     // A class of customers is a cut of revenue, not a counterparty.
     if (kind === "class") continue;
+    const key = ticker ? `ticker:${ticker}` : `${kind}:${normalName(label).join(" ")}`;
+    groups.set(key, [...(groups.get(key) ?? []), fact]);
+  }
+  const customers: Customer[] = [];
+  for (const list of groups.values()) {
+    const member = [...list].sort((left, right) => right.filed.localeCompare(left.filed))[0].member;
+    const { label, kind, ticker } = who.get(member)!;
     const latest = (items: CustomerFact[]) => [...items].sort((left, right) => right.filed.localeCompare(left.filed))[0];
     const years = new Map<string, { share: CustomerFact | null; revenue: CustomerFact | null }>();
     for (const fact of list) {
@@ -318,8 +335,6 @@ export function buildCustomers(facts: CustomerFact[], labels: Map<string, string
     }
     const receivables = [...balances.values()].sort((left, right) => left.end.localeCompare(right.end)).map((fact) => ({ end: fact.end, share: fact.value, accession: fact.accession }));
     if (!annual.some((point) => point.share != null || point.revenue != null) && !receivables.length) continue;
-    const matched = kind === "named" ? matchCompany(label, companies) : null;
-    const ticker = matched === options.self ? null : matched;
     const stated = list.some((fact) => fact.measure === "share");
     if (!stated && !ticker && !isUsGovernment(label)) continue;
     customers.push({ member, label, kind, ticker, annual, receivables });

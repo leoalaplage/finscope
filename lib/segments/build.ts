@@ -83,8 +83,9 @@ export interface SegmentData {
  * 3: operating income stacked on its segments when the unallocated line stops being tagged;
  *    a seasonal fourth quarter checked against the year before; six years of reports.
  * 4: the customers each report names (SPLC), read from the same instances.
+ * 5: labels from linkbases written without the `link:` prefix (Ball's), so members carry the filer's words.
  */
-export const SEGMENTS_BUILD = 4;
+export const SEGMENTS_BUILD = 5;
 
 const DAY = 86_400_000;
 const days = (start: string, end: string) => Math.round((Date.parse(end) - Date.parse(start)) / DAY) + 1;

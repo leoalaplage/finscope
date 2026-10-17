@@ -4,7 +4,7 @@ import { parseLabels, parseSegmentFacts, memberName, type SegmentFact } from "@/
 import { pickDocuments, withPredecessor } from "@/lib/segments/source";
 import { KNOWN_SUCCESSORS, PREDECESSORS, UNIVERSE, universeMember } from "@/lib/universe";
 import { FILED_NAMES } from "@/lib/universe-names";
-import { buildCustomers, customerKind, matchCompany, parseCustomerFacts } from "@/lib/segments/customers";
+import { buildCustomers, customerKind, matchCompany, parseCustomerFacts, type CustomerFact } from "@/lib/segments/customers";
 import { edgesOf, suppliersFrom, type Edge } from "@/lib/segments/relations";
 import { backlogCards, segmentChart, segmentRows, segmentViews } from "@/lib/segments/view";
 import { segmentCharts } from "@/lib/segments/charts";
@@ -474,5 +474,33 @@ ${ctx("mkt", [["srt:MajorCustomersAxis", "ball:TechnologyMember"]], year("2025-0
 
   it("knows every member of the index under the names it files under", () => {
     for (const member of UNIVERSE) expect(FILED_NAMES[member.ticker]?.length, member.ticker).toBeGreaterThan(0);
+  });
+});
+
+describe("customers across renamed members", () => {
+  it("joins a customer filed under two members, and reads labels written without the link prefix", () => {
+    const labels = parseLabels(`<linkbase xmlns="http://www.xbrl.org/2003/linkbase">
+<loc xlink:type="locator" xlink:href="ball-20251231.xsd#ball_TheCocaColaCompanyMember" xlink:label="ball_TheCocaColaCompanyMember" />
+<labelArc xlink:type="arc" xlink:from="ball_TheCocaColaCompanyMember" xlink:to="ball_TheCocaColaCompanyMember_lbl" />
+<label xlink:type="resource" xlink:role="http://www.xbrl.org/2003/role/documentation" xlink:label="ball_TheCocaColaCompanyMember_lbl">Represents information pertaining to the bottlers.</label>
+<label xlink:type="resource" xlink:role="http://www.xbrl.org/2003/role/label" xlink:label="ball_TheCocaColaCompanyMember_lbl">Coca-Cola Bottlers' Sales &amp; Services Company LLC and affiliates</label>
+<loc xlink:type="locator" xlink:href="ball-20221231.xsd#ball_CokeBottlersMember" xlink:label="ball_CokeBottlersMember" />
+<labelArc xlink:type="arc" xlink:from="ball_CokeBottlersMember" xlink:to="ball_CokeBottlersMember_lbl" />
+<label xlink:type="resource" xlink:role="http://www.xbrl.org/2003/role/label" xlink:label="ball_CokeBottlersMember_lbl">Coca-Cola Bottlers' Sales &amp; Services Company LLC and Affiliates</label>
+</linkbase>`);
+    expect(labels.get("ball:TheCocaColaCompanyMember")).toBe("Coca-Cola Bottlers' Sales & Services Company LLC and affiliates");
+    const fact = (member: string, end: string, value: number, filed: string): CustomerFact => ({ member, measure: "share", benchmark: "revenue", start: `${end.slice(0, 4)}-01-01`, end, value, currency: null, accession: filed, filed, form: "10-K" });
+    const customers = buildCustomers([
+      fact("ball:CokeBottlersMember", "2021-12-31", 0.1, "2022-02-20"),
+      fact("ball:CokeBottlersMember", "2022-12-31", 0.12, "2023-02-20"),
+      fact("ball:TheCocaColaCompanyMember", "2022-12-31", 0.13, "2025-02-20"),
+      fact("ball:TheCocaColaCompanyMember", "2024-12-31", 0.14, "2025-02-20"),
+    ], labels, [{ ticker: "KO", name: "Coca-Cola Company (The)", aliases: ["COCA COLA CO"] }], { self: "BALL" });
+    expect(customers).toHaveLength(1);
+    // The bottlers' cooperative is not The Coca-Cola Company: no link.
+    expect(customers[0].ticker).toBeNull();
+    expect(customers[0].member).toBe("ball:TheCocaColaCompanyMember");
+    // A year filed twice takes the later filing's figure.
+    expect(customers[0].annual.map((point) => [point.end.slice(0, 4), point.share])).toEqual([["2021", 0.1], ["2022", 0.13], ["2024", 0.14]]);
   });
 });

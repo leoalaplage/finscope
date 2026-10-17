@@ -120,11 +120,13 @@ export function parseSegmentFacts(xml: string, filing: { accession: string; file
 /**
  * Member names as the filing labels them: "goog:GoogleCloudMember" → "Google
  * Cloud". The label linkbase gives the company's own words; a member without
- * one there (a standard taxonomy member) is read from its name.
+ * one there (a standard taxonomy member) is read from its name. Linkbases are
+ * written with the `link:` prefix (Alphabet) or in the default namespace
+ * (Ball); both are read.
  */
 export function parseLabels(labelXml: string): Map<string, string> {
   const labelText = new Map<string, { text: string; role: string }[]>();
-  for (const match of labelXml.matchAll(/<link:label\b([^>]*)>([\s\S]*?)<\/link:label>/g)) {
+  for (const match of labelXml.matchAll(/<(?:link:)?label\b([^>]*)>([\s\S]*?)<\/(?:link:)?label>/g)) {
     const id = match[1].match(/xlink:label="([^"]+)"/)?.[1];
     const role = match[1].match(/xlink:role="([^"]+)"/)?.[1] ?? "";
     if (!id) continue;
@@ -132,13 +134,13 @@ export function parseLabels(labelXml: string): Map<string, string> {
     labelText.set(id, [...(labelText.get(id) ?? []), { text, role }]);
   }
   const locs = new Map<string, string>();
-  for (const match of labelXml.matchAll(/<link:loc\b([^>]*)\/?>/g)) {
+  for (const match of labelXml.matchAll(/<(?:link:)?loc\b([^>]*)\/?>/g)) {
     const href = match[1].match(/xlink:href="[^"#]*#([^"]+)"/)?.[1];
     const id = match[1].match(/xlink:label="([^"]+)"/)?.[1];
     if (href && id) locs.set(id, href);
   }
   const names = new Map<string, string>();
-  for (const match of labelXml.matchAll(/<link:labelArc\b([^>]*)\/?>/g)) {
+  for (const match of labelXml.matchAll(/<(?:link:)?labelArc\b([^>]*)\/?>/g)) {
     const from = match[1].match(/xlink:from="([^"]+)"/)?.[1];
     const to = match[1].match(/xlink:to="([^"]+)"/)?.[1];
     const element = from ? locs.get(from) : undefined;
