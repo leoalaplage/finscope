@@ -166,6 +166,7 @@ export async function GET(request: Request, context: { params: Promise<{ ticker:
 
   try {
     const view = companyView(JSON.parse(stored) as CompanyDataset);
+    if (bridged) view.dcfDataStatus = "rebuilding";
     if (!view.annual.length && !view.quarterly.length) {
       return NextResponse.json(
         { error: `${symbol} files with the SEC but publishes no XBRL statements this adapter can read.` },

@@ -33,6 +33,10 @@ import { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
  * "Building financials…" until the warm-up has been round the watchlist.
  */
 const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [
+  // v49 corrects D&A and adds operating-capital coverage. Existing research
+  // stays visible during the rebuild, but the IO route explicitly marks a
+  // bridged view so the new DCF never values an old normalization.
+  { version: "v48", shape: "s14" },
   /*
    * v44 to v46 fill revenue before the contracts standard, correct utilities'
    * capital expenditure, refuse a lone lease as total debt and keep a residual

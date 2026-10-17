@@ -272,7 +272,6 @@
 /* The family's colour on the card's edge, so the cards of one business read as one group. */
 .kpi-card { border-top: 2px solid var(--kpi, var(--line)) !important; }
 .kpi-more { display: block; margin: 6px auto 0; }
-.kpi-bar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 6px; font-size: var(--fs-micro, 10px); }
 .kpi-card { display: grid; gap: 3px; margin: 0; padding: 8px 10px; background: var(--raise, var(--bg)); min-width: 0; }
 /* Two lines for a name: "AWS Segment · Net sales · growth ex-FX" must be read whole. */
 .kpi-card figcaption h3 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.5em; overflow: hidden; line-height: 1.25; }
@@ -310,3 +309,9 @@
 .etf-bar:hover .etf-bar-track > span { filter: brightness(1.25); }
 /* A fund with no description to show: no empty panel under the graph. */
 .etf-gcol > .etf-cell:has(.etf-pad:empty) { display: none; }
+
+/* The DCF's explicit forecasts retain the terminal's compact numeric controls. */
+.dcf-table input[type="number"] { width: 8ch; max-width: 100%; padding: 3px; font: inherit; font-variant-numeric: tabular-nums; text-align: right; color: var(--amber); background: var(--panel-input, #000); border: 1px solid var(--line-strong); }
+.dcf-table input[type="number"]:focus { outline: 1px solid var(--amber); outline-offset: 1px; }
+.dcf-methodology { margin: 8px 0; padding: 6px 8px; border: 1px solid var(--line); font-size: var(--fs-xs); }
+.dcf-methodology summary { color: var(--ink-2); cursor: pointer; }

@@ -49,6 +49,7 @@ export const FORMULAS = {
   enterpriseToSales: "Enterprise value / Revenue",
   enterpriseToEbitda: "Enterprise value / EBITDA",
   enterpriseToGrossProfit: "Enterprise value / Gross profit",
+  operatingWorkingCapital: "Current assets − Cash and equivalents − Short-term investments − Current liabilities + Current interest-bearing debt",
 } as const;
 
 /**
@@ -147,6 +148,77 @@ export function liquidAssets(period: FinancialPeriod): number | null {
   if (cash == null) return null;
   const investments = valueOf(period, "shortTermInvestments");
   return cash + (investments != null && investments > 0 ? investments : 0);
+}
+
+export interface OperatingWorkingCapitalReading {
+  value: number | null;
+  /** Null means that no usable balance was reported, rather than no borrowing. */
+  currentDebt: number | null;
+  shortTermInvestments: number | null;
+  complete: boolean;
+  issues: string[];
+}
+
+/**
+ * Non-cash current assets less non-financing current liabilities.
+ *
+ * Uses one balance-sheet date and currency. Missing adjustments remain visible
+ * in the reading; they are never represented as reported zero balances. The
+ * aggregate method can retain current tax and other non-operating balances and
+ * is therefore a proxy for operating working capital, even with full coverage.
+ * Operating leases remain operating; separately identified finance leases are
+ * financing. No individual balance is inferred from total debt except where a
+ * reported total of zero proves that its current component is also zero.
+ */
+export function operatingWorkingCapitalReading(period: FinancialPeriod): OperatingWorkingCapitalReading {
+  const issues: string[] = [];
+  const read = (key: MetricKey): number | null => {
+    const fact = period.facts[key];
+    if (!fact || fact.value == null) return null;
+    if (!Number.isFinite(fact.value) || fact.value < 0 || fact.unit !== "currency" || fact.currency !== period.currency || fact.periodEnd !== period.periodEnd || fact.validation?.status === "Confirmed invalid") {
+      issues.push(`${key} is invalid or has an incompatible balance-sheet date, currency or unit.`);
+      return null;
+    }
+    return fact.value;
+  };
+  const assets = read("currentAssets");
+  const liabilities = read("currentLiabilities");
+  const cash = read("cashAndEquivalents");
+  const investments = read("shortTermInvestments");
+  const current = read("longTermDebtCurrent");
+  const shortTerm = read("shortTermBorrowings");
+  const financeLeases = read("financeLeaseLiabilityCurrent");
+  const totalDebt = read("totalDebt");
+  const currentConcept = period.facts.longTermDebtCurrent?.provenance.concept.split(":").at(-1) ?? "";
+  const shortTermConcept = period.facts.shortTermBorrowings?.provenance.concept.split(":").at(-1) ?? "";
+  const currentIsBroad = currentConcept === "DebtCurrent" || currentConcept === "CurrentBorrowings";
+  const shortTermIsBroad = shortTermConcept === "CurrentBorrowings";
+  let currentDebt: number | null;
+  let debtIncludesLeases = false;
+  if (currentIsBroad && current != null) {
+    currentDebt = current;
+    debtIncludesLeases = /(?:Capital|Finance)Lease/.test(currentConcept);
+  } else if (shortTermIsBroad && shortTerm != null) {
+    currentDebt = shortTerm;
+  } else {
+    const parts = [current, shortTerm].filter((part): part is number => part != null);
+    currentDebt = parts.length ? parts.reduce((sum, part) => sum + part, 0) : totalDebt === 0 ? 0 : null;
+    debtIncludesLeases = /(?:Capital|Finance)Lease/.test(currentConcept) && current != null;
+    if (totalDebt !== 0 && current == null) issues.push("Current maturities of long-term debt are not separately available.");
+    if (totalDebt !== 0 && shortTerm == null) issues.push("Short-term borrowings are not separately available; any unreported borrowing remains in current liabilities.");
+  }
+  if (!debtIncludesLeases && financeLeases != null) currentDebt = (currentDebt ?? 0) + financeLeases;
+  if (!debtIncludesLeases && financeLeases == null && totalDebt !== 0 && read("financeLeaseLiability") !== 0) issues.push("Current finance lease debt is not separately available; any unreported finance leases remain in current liabilities.");
+  if (investments == null) issues.push("Short-term investments are not separately available; any unreported investments remain in current assets.");
+  if (assets == null || liabilities == null || cash == null) issues.push("Current assets, current liabilities and cash are all required on the same balance-sheet basis.");
+  if (assets != null && cash != null && cash + (investments ?? 0) > assets) issues.push("Cash and short-term investments exceed current assets; the mapped balances are invalid together.");
+  if (liabilities != null && currentDebt != null && currentDebt > liabilities) issues.push("Current financing debt exceeds current liabilities; the mapped balances are invalid together.");
+  // An invalid observed adjustment must not quietly disappear into an assumed zero.
+  const invalid = issues.some((issue) => issue.includes("is invalid") || issue.includes("invalid together"));
+  const value = invalid || assets == null || liabilities == null || cash == null
+    ? null
+    : assets - cash - (investments ?? 0) - liabilities + (currentDebt ?? 0);
+  return { value, currentDebt, shortTermInvestments: investments, complete: value != null && issues.length === 0, issues };
 }
 
 /** A borrowing balance, and which filing actually stated it. */
@@ -461,6 +533,7 @@ export function capitalEmployed(period: FinancialPeriod): number | null {
 }
 
 export function derivedValue(period: FinancialPeriod, key: string): number | null {
+  if (key === "operatingWorkingCapital") return operatingWorkingCapitalReading(period).value;
   const revenue = valueOf(period, "revenue");
   const diluted = valueOf(period, "dilutedShares");
   const capex = valueOf(period, "capitalExpenditures");

@@ -295,7 +295,9 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
   // `OtherDepreciationAndAmortization` last of all: for most filers it is the
   // residual line beside a depreciation figure, not the total; Veeva files its
   // whole cash-flow charge under it, and there it is the only one.
-  depreciationAndAmortization: { namespace: "us-gaap", tags: ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment", "Depreciation", "DepreciationAmortizationAndAccretionNet", "OtherDepreciationAndAmortization"], unit: "currency" },
+  depreciationAndAmortization: { namespace: "us-gaap", tags: ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationAmortizationAndAccretionNet", "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment", "Depreciation", "OtherDepreciationAndAmortization"], unit: "currency" },
+  depreciation: { namespace: "us-gaap", tags: ["Depreciation", "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment"], unit: "currency" },
+  intangibleAmortization: { namespace: "us-gaap", tags: ["AmortizationOfIntangibleAssets"], unit: "currency" },
   totalAssets: { namespace: "us-gaap", tags: ["Assets"], unit: "currency" },
   // Goodwill and acquired intangibles are subtracted from assets for the
   // tangible-return measure: they are the price paid for past acquisitions,
@@ -498,6 +500,14 @@ function extractFacts(
       output.push(...factsUnder(namespaces, space, tag, metric, spec.unit, cik, currency, retrievedAt).map((fact) => ({ ...fact, rank })));
     }
   }
+  const da = output.filter((fact) => fact.metric === "depreciationAndAmortization");
+  const intangibleAmortization = factsUnder(namespaces, "us-gaap", "AmortizationOfIntangibleAssets", "depreciationAndAmortization", "currency", cik, currency, retrievedAt);
+  const completeDa = depreciationAndAmortizationFacts(da, intangibleAmortization);
+  if (completeDa !== da) {
+    const other = output.filter((fact) => fact.metric !== "depreciationAndAmortization");
+    output.length = 0;
+    output.push(...other, ...completeDa);
+  }
   const capex = SEC_CONCEPTS.capitalExpenditures;
   const read = (tag: string) => factsUnder(namespaces, "us-gaap", tag, "capitalExpenditures", capex.unit, cik, currency, retrievedAt);
   const isCapex = (fact: RawFinancialFact) => fact.metric === "capitalExpenditures";
@@ -534,6 +544,56 @@ function extractFacts(
     liability("OperatingLeaseLiability"),
   ));
   return anchorCoverPageShares(output);
+}
+
+const DA_TOTALS = new Set([
+  "us-gaap:DepreciationDepletionAndAmortization", "us-gaap:DepreciationAndAmortization",
+  "us-gaap:DepreciationAmortizationAndAccretionNet",
+]);
+const DEPRECIATION_PARTS = ["us-gaap:DepreciationDepletionAndAmortizationPropertyPlantAndEquipment", "us-gaap:Depreciation"];
+
+/**
+ * A depreciation-only tag is not a D&A total when acquired intangibles are
+ * amortized separately. Combine only the disjoint, standard concepts in the
+ * same filing, duration and currency. Operating-lease ROU amortization and
+ * the residual OtherDepreciationAndAmortization are deliberately not added:
+ * their overlap with operating costs cannot be inferred from their names.
+ */
+export function depreciationAndAmortizationFacts(facts: RawFinancialFact[], intangible: RawFinancialFact[]): RawFinancialFact[] {
+  const periodKey = (fact: RawFinancialFact) => `${fact.currency}|${fact.unit}|${fact.start ?? ""}|${fact.end}`;
+  const contextKey = (fact: RawFinancialFact) => `${periodKey(fact)}|${fact.accession}`;
+  const totalPeriods = new Set(facts.filter((fact) => DA_TOTALS.has(fact.concept)).map(periodKey));
+  const byContext = new Map<string, RawFinancialFact[]>();
+  for (const fact of [...facts, ...intangible]) {
+    const key = contextKey(fact);
+    const bucket = byContext.get(key);
+    if (bucket) bucket.push(fact); else byContext.set(key, [fact]);
+  }
+  // Duplicate equal contexts are harmless; conflicting values are not guessed.
+  const unique = (group: RawFinancialFact[], concept: string) => {
+    const matches = group.filter((fact) => fact.concept === concept);
+    return new Set(matches.map((fact) => fact.value)).size === 1 ? matches[0] : undefined;
+  };
+  const rebuilt: RawFinancialFact[] = [];
+  for (const group of byContext.values()) {
+    const first = group[0];
+    if (!first.start || totalPeriods.has(periodKey(first))) continue;
+    const amortization = unique(group, "us-gaap:AmortizationOfIntangibleAssets");
+    const depreciation = DEPRECIATION_PARTS.map((concept) => unique(group, concept)).find(Boolean);
+    if (!amortization || !depreciation || amortization.value < 0 || depreciation.value < 0) continue;
+    rebuilt.push({
+      ...depreciation, value: depreciation.value + amortization.value,
+      concept: "us-gaap:DepreciationAndAmortization", rank: undefined,
+      summedFrom: [depreciation.concept, amortization.concept],
+      normalizationNote: "No combined D&A total is filed for this duration. Depreciation of tangible assets and separately reported intangible-asset amortization are added from the same filing and currency. Operating-lease right-of-use amortization is not added.",
+    });
+  }
+  const rebuiltPeriods = new Set(rebuilt.map(periodKey));
+  // Keep a filed total over a later-filed narrow component of the same period.
+  return [...facts.filter((fact) => (!totalPeriods.has(periodKey(fact)) || DA_TOTALS.has(fact.concept)) && !rebuiltPeriods.has(periodKey(fact))).map((fact) => DEPRECIATION_PARTS.includes(fact.concept) ? {
+    ...fact, summedFrom: [fact.concept],
+    normalizationNote: "Partial D&A: only tangible-asset depreciation is available for this duration; separate intangible-asset amortization is not established. This is not a verified combined D&A total.",
+  } : fact), ...rebuilt];
 }
 
 const TOTAL_OPERATING_CASH_FLOW = "us-gaap:NetCashProvidedByUsedInOperatingActivities";

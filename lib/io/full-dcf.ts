@@ -193,7 +193,9 @@ export function terminalConsistency(result: DcfResult, assumptions: DcfAssumptio
     };
   }
   const last = result.projections.at(-1)!;
-  const reinvestment = last.capex - last.depreciation + last.changeInWorkingCapital;
+  const reinvestment = result.terminalReinvestment != null
+    ? result.terminalReinvestment / (1 + assumptions.terminalGrowth)
+    : last.netReinvestment ?? last.capex - last.depreciation + last.changeInWorkingCapital;
   const reinvestmentRate = last.nopat > 0 ? reinvestment / last.nopat : null;
   if (assumptions.terminalGrowth > 0 && (!known(reinvestmentRate) || reinvestmentRate <= 0)) {
     return {

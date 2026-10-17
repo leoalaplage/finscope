@@ -555,8 +555,9 @@ describe("the redesign", () => {
      * price series it already returns.
      */
     expect(dcfSource).toContain("const required = chosen ?? priced?.rate ?? .10;");
-    // On the premium the S&P 500 pays today (lib/implied-erp.ts), the long-run one where it cannot be read.
-    expect(dcfSource).toContain("costOfEquity(riskFree, returnsOf(company), returnsOf(market), premium?.premium ?? FALLBACK_PREMIUM)");
+    // Quick and full DCF use the same dated CAPM estimate and fallback policies.
+    expect(dcfSource).toContain("const risk = useCostOfEquity(ticker);");
+    expect(dcfSource).not.toContain("returnsOf(company)");
     expect(dcfSource).toContain("is this company&rsquo;s cost of equity");
     // The workings sit behind a disclosure, as the score audit has since it
     // was written: every one is worth keeping and none of them is the answer.
@@ -564,7 +565,8 @@ describe("the redesign", () => {
     expect(dcfSource).toContain("How this was struck");
     // A beta belongs to a filer, so it is carried with the ticker it was
     // measured for rather than left on screen while the next one loads.
-    expect(dcfSource).toContain("risk?.ticker === ticker ? risk.value : null");
+    const sharedRiskSource = readFileSync(new URL("../components/io/use-cost-of-equity.ts", import.meta.url), "utf8");
+    expect(sharedRiskSource).toContain("answer?.ticker === ticker ? answer.estimate : pending");
     /*
      * And the projection fades rather than falling off a cliff. A rate held
      * flat for a decade and then dropped to two and a half per cent overnight

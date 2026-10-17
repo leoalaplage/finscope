@@ -4,7 +4,7 @@ export const FLOW_METRICS: MetricKey[] = [
   "revenue", "grossProfit", "costOfRevenue", "directOperatingCosts", "directMaterialCosts", "costsAndExpenses", "operatingIncome", "netIncome", "operatingCashFlow",
   "capitalExpenditures", "stockBasedCompensation", "shareRepurchases", "shareIssuance",
   "acquisitions", "dividendsPaid",
-  "incomeBeforeTax", "incomeTaxExpense", "depreciationAndAmortization",
+  "incomeBeforeTax", "incomeTaxExpense", "depreciationAndAmortization", "depreciation", "intangibleAmortization",
   "interestExpense", "interestPaid", "dividendsPerShare",
   "researchAndDevelopment", "sellingGeneralAndAdministrative", "operatingExpenses", "otherIncomeExpense",
   // A bank's two lines of income, from which its revenue is struck where it

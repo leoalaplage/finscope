@@ -37,6 +37,13 @@ export interface DcfAssumptions {
   terminalGrowth: number;
   exitMultiple: number;
   otherClaims: number;
+  /** Optional normalized terminal-year reinvestment identity. Legacy explicit models may omit it. */
+  terminalReturnOnCapital?: number;
+  terminalTaxRate?: number;
+  /** FCFF from GAAP EBIT already expenses stock compensation. Do not also extrapolate historical dilution. */
+  stockCompensationTreatment?: "expensed" | "additional-dilution";
+  /** Net investment as a share of revenue. Used when gross spending cannot be forecast from accounting D&A. */
+  netReinvestmentPercentRevenue?: number[];
 }
 
 export interface DcfProjection {
@@ -55,6 +62,7 @@ export interface DcfProjection {
   freeCashFlowPerShare: number | null;
   discountFactor: number;
   presentValue: number;
+  netReinvestment: number;
 }
 
 export interface DcfResult {
@@ -73,6 +81,9 @@ export interface DcfResult {
    */
   valuationShares: number;
   terminalValueWeight: number | null;
+  terminalCashFlow?: number | null;
+  terminalReinvestment?: number | null;
+  dilutionAdjustment?: number;
   warnings: string[];
 }
 
@@ -89,26 +100,24 @@ function at(values: number[], index: number) { return values[index] ?? values.at
 
 export function calculateDcf(base: DcfBase, assumptions: DcfAssumptions): DcfResult {
   const warnings: string[] = [];
+  const invalid = (message: string): DcfResult => ({ projections: [], terminalValue: null, presentValueTerminal: null, presentValueForecast: 0, enterpriseValue: null, equityValue: null, intrinsicValuePerShare: null, valuationShares: base.dilutedShares, terminalValueWeight: null, warnings: [message] });
+  if (![base.revenue, base.operatingMargin, base.cash, base.debt, base.dilutedShares, assumptions.otherClaims].every(Number.isFinite)) return invalid("A required base value or equity claim is not finite.");
+  if (!Number.isFinite(assumptions.forecastYears)) return invalid("Forecast years must be finite.");
+  if (base.revenue <= 0 || base.cash < 0 || base.debt < 0 || assumptions.otherClaims < 0) return invalid("Revenue must be positive; cash, debt and other claims must be nonnegative.");
+  if (!Number.isFinite(assumptions.wacc) || assumptions.wacc <= 0) return invalid("WACC must be finite and positive for every terminal method.");
+  if (assumptions.terminalMethod === "perpetual-growth" && (!Number.isFinite(assumptions.terminalGrowth) || assumptions.terminalGrowth <= -1)) return invalid("Terminal growth must be finite and greater than −100%.");
+  if (assumptions.terminalReturnOnCapital != null && (!Number.isFinite(assumptions.terminalReturnOnCapital) || assumptions.terminalReturnOnCapital <= 0)) return invalid("Terminal return on capital must be finite and positive.");
+  if (assumptions.stockCompensationTreatment !== "expensed" && assumptions.shareChange.some(v => v > 0)) return invalid("Future share issuance requires a proceeds and equity-claims schedule. A historical dilution rate alone cannot value the existing equity.");
   const years = Math.max(1, Math.min(30, Math.round(assumptions.forecastYears)));
   if (years !== assumptions.forecastYears) warnings.push("Forecast period was constrained to 1–30 whole years.");
   if (!Number.isFinite(assumptions.wacc) || assumptions.wacc <= 0) warnings.push("WACC must be a finite positive rate.");
   if (base.dilutedShares <= 0) warnings.push("Diluted shares must be positive; per-share value is unavailable.");
   let revenue = base.revenue; let shares = base.dilutedShares; const projections: DcfProjection[] = [];
-  /**
-   * The denominator for value per share, which is not the projected share count.
-   *
-   * Free cash flow to the firm already contains every pound the business
-   * generates, including the cash a buyback spends. Shrinking the share count
-   * with that same cash credits the repurchase twice — once as cash in the
-   * numerator and again as fewer shares in the denominator. On a ten-year model
-   * at two percent of buybacks a year it lifted value per share by 22% out of
-   * nothing at all.
-   *
-   * Issuance is the opposite case and is real: shares handed to employees are a
-   * cost that never passes through free cash flow, so dilution does belong in
-   * the divisor. Hence only positive share changes compound here.
-   */
-  let valuationShares = base.dilutedShares;
+  // Current fully diluted shares divide equity value. Recurring employee awards
+  // are already expensed in GAAP operating profit. Future corporate issuance
+  // requires its own cash proceeds and equity-claims schedule, not a rate.
+  const valuationShares = base.dilutedShares;
+  const dilutionAdjustment = 0;
   let buybackAssumed = false;
   /** The first intermediate that stops being a number stops the whole model. */
   let broken: string | null = null;
@@ -119,19 +128,26 @@ export function calculateDcf(base: DcfBase, assumptions: DcfAssumptions): DcfRes
   for (let index = 0; index < years; index++) {
     const revenueGrowth = finite("revenue growth", at(assumptions.revenueGrowth, index)); revenue = finite("revenue", revenue * (1 + revenueGrowth));
     const operatingMargin = finite("operating margin", at(assumptions.operatingMargin, index)); const operatingIncome = finite("operating income", revenue * operatingMargin);
-    const taxRate = finite("tax rate", at(assumptions.taxRate, index)); const nopat = finite("NOPAT", operatingIncome * (1 - taxRate));
+    const taxRate = finite("tax rate", at(assumptions.taxRate, index));
+    if (taxRate < 0 || taxRate > 1) return invalid("Tax rates must be between 0% and 100%.");
+    if (revenueGrowth <= -1) return invalid("Revenue growth must be greater than −100%.");
+    // Losses do not generate an immediate cash tax refund without an explicit tax-loss schedule.
+    const nopat = finite("NOPAT", operatingIncome - Math.max(0, operatingIncome) * taxRate);
     const depreciation = finite("depreciation", revenue * at(assumptions.depreciationPercentRevenue, index));
     const capex = finite("capital expenditure", revenue * at(assumptions.capexPercentRevenue, index));
     const changeInWorkingCapital = finite("working-capital change", revenue * at(assumptions.workingCapitalPercentRevenue, index));
+    const netReinvestment = finite("net reinvestment", assumptions.netReinvestmentPercentRevenue
+      ? revenue * at(assumptions.netReinvestmentPercentRevenue, index) : capex - depreciation + changeInWorkingCapital);
     const freeCashFlow = finite("free cash flow", assumptions.method === "fcff"
-      ? nopat + depreciation - capex - changeInWorkingCapital
+      ? nopat - netReinvestment
       : revenue * at(assumptions.directFcfMargin, index));
     const shareChange = finite("share change", at(assumptions.shareChange, index));
+    if (shareChange <= -1) return invalid("Share change must be greater than −100%.");
     shares *= 1 + shareChange;
     if (shareChange < 0) buybackAssumed = true;
-    valuationShares *= 1 + Math.max(0, shareChange);
     const discountFactor = finite("discount factor", 1 / Math.pow(1 + assumptions.wacc, index + 1));
-    projections.push({ year: index + 1, revenueGrowth, revenue, operatingMargin, operatingIncome, taxRate, nopat, depreciation, capex, changeInWorkingCapital, freeCashFlow, dilutedShares: shares, freeCashFlowPerShare: shares > 0 && Number.isFinite(freeCashFlow) ? freeCashFlow / shares : null, discountFactor, presentValue: finite("present value", freeCashFlow * discountFactor) });
+    const presentValue = finite("present value", freeCashFlow * discountFactor);
+    projections.push({ year: index + 1, revenueGrowth, revenue, operatingMargin, operatingIncome, taxRate, nopat, depreciation, capex, changeInWorkingCapital, freeCashFlow, dilutedShares: shares, freeCashFlowPerShare: shares > 0 && Number.isFinite(freeCashFlow) ? freeCashFlow / shares : null, discountFactor, presentValue, netReinvestment });
   }
   const last = projections.at(-1)!;
   if (broken != null) {
@@ -142,14 +158,24 @@ export function calculateDcf(base: DcfBase, assumptions: DcfAssumptions): DcfRes
     warnings.push("Negative share change is ignored when dividing equity value: free cash flow already contains the cash a buyback spends, so shrinking the share count too would count it twice. Issuance still dilutes.");
   }
   let terminalValue: number | null;
+  let terminalCashFlow = last.freeCashFlow * (1 + assumptions.terminalGrowth);
+  let terminalReinvestment: number | null = null;
+  if (assumptions.terminalMethod === "perpetual-growth" && assumptions.terminalReturnOnCapital != null) {
+    const terminalTax = assumptions.terminalTaxRate ?? last.taxRate;
+    if (!Number.isFinite(terminalTax) || terminalTax < 0 || terminalTax > 1) return invalid("Terminal tax must be between 0% and 100%.");
+    const nextOperating = last.revenue * (1 + assumptions.terminalGrowth) * last.operatingMargin;
+    const nextNopat = nextOperating - Math.max(0, nextOperating) * terminalTax;
+    terminalReinvestment = nextNopat * assumptions.terminalGrowth / assumptions.terminalReturnOnCapital;
+    terminalCashFlow = nextNopat - terminalReinvestment;
+  }
   if (assumptions.terminalMethod === "perpetual-growth") {
     if (!Number.isFinite(assumptions.wacc) || assumptions.wacc <= 0) {
       terminalValue = null; warnings.push("Perpetual-growth terminal value is unavailable until WACC is positive.");
-    } else if (last.freeCashFlow <= 0) {
+    } else if (terminalCashFlow <= 0) {
       terminalValue = null; warnings.push("Perpetual-growth terminal value is unavailable because final-year FCFF is not positive.");
     } else if (assumptions.terminalGrowth >= assumptions.wacc) {
       terminalValue = null; warnings.push("Terminal growth must be lower than WACC.");
-    } else terminalValue = last.freeCashFlow * (1 + assumptions.terminalGrowth) / (assumptions.wacc - assumptions.terminalGrowth);
+    } else terminalValue = terminalCashFlow / (assumptions.wacc - assumptions.terminalGrowth);
   } else {
     if (last.freeCashFlow <= 0 || assumptions.exitMultiple <= 0 || !Number.isFinite(assumptions.exitMultiple)) {
       terminalValue = null; warnings.push("Exit-multiple terminal value requires positive final-year FCFF and a positive finite multiple.");
@@ -159,11 +185,12 @@ export function calculateDcf(base: DcfBase, assumptions: DcfAssumptions): DcfRes
   const presentValueForecast = projections.reduce((sum, projection) => sum + projection.presentValue, 0);
   const presentValueTerminal = terminalValue == null ? null : terminalValue * last.discountFactor;
   const enterpriseValue = presentValueTerminal == null ? null : presentValueForecast + presentValueTerminal;
-  const equityValue = enterpriseValue == null ? null : enterpriseValue + base.cash - base.debt - assumptions.otherClaims;
+  const equityValue = enterpriseValue == null ? null : enterpriseValue + base.cash - base.debt - assumptions.otherClaims - dilutionAdjustment;
   const intrinsicValuePerShare = equityValue == null || valuationShares <= 0 || !Number.isFinite(valuationShares) ? null : equityValue / valuationShares;
   const terminalValueWeight = enterpriseValue == null || enterpriseValue === 0 || presentValueTerminal == null ? null : presentValueTerminal / enterpriseValue;
   if (terminalValueWeight != null && terminalValueWeight > .75) warnings.push("Terminal value exceeds 75% of enterprise value; the result is highly assumption-sensitive.");
-  return { projections, terminalValue, presentValueTerminal, presentValueForecast, enterpriseValue, equityValue, intrinsicValuePerShare, valuationShares, terminalValueWeight, warnings };
+  if (assumptions.stockCompensationTreatment === "expensed" && assumptions.shareChange.some(v => v > 0)) warnings.push("Stock compensation is expensed in operating profit; no additional dilution deduction is applied. Review separately funded share issues and outstanding awards.");
+  return { projections, terminalValue, presentValueTerminal, presentValueForecast, enterpriseValue, equityValue, intrinsicValuePerShare, valuationShares, terminalValueWeight, terminalCashFlow, terminalReinvestment, dilutionAdjustment, warnings };
 }
 
 export function defaultDcfAssumptions(base: DcfBase, years = 10, scenario: ScenarioName = "base"): DcfAssumptions {
@@ -174,7 +201,7 @@ export function defaultDcfAssumptions(base: DcfBase, years = 10, scenario: Scena
   }[scenario];
   const count = Math.max(1, Math.min(30, years)); const repeat = (value: number) => Array.from({ length: count }, () => value);
   const fcfMargin = base.revenue ? base.freeCashFlow / base.revenue : 0;
-  return { method: "fcff", terminalMethod: "perpetual-growth", forecastYears: count, revenueGrowth: repeat(scenarioMap.growth), operatingMargin: repeat(scenarioMap.margin), taxRate: repeat(.21), depreciationPercentRevenue: repeat(.035), capexPercentRevenue: repeat(.04), workingCapitalPercentRevenue: repeat(.01), directFcfMargin: repeat(fcfMargin), shareChange: repeat(scenarioMap.dilution), wacc: scenarioMap.wacc, terminalGrowth: scenarioMap.terminal, exitMultiple: 18, otherClaims: 0 };
+  return { method: "fcff", terminalMethod: "perpetual-growth", forecastYears: count, revenueGrowth: repeat(scenarioMap.growth), operatingMargin: repeat(scenarioMap.margin), taxRate: repeat(.21), depreciationPercentRevenue: repeat(.035), capexPercentRevenue: repeat(.04), workingCapitalPercentRevenue: repeat(.01), directFcfMargin: repeat(fcfMargin), shareChange: repeat(0), wacc: scenarioMap.wacc, terminalGrowth: scenarioMap.terminal, exitMultiple: 18, otherClaims: 0, stockCompensationTreatment: "expensed" };
 }
 
 export function sensitivityMatrix(base: DcfBase, assumptions: DcfAssumptions, waccValues: number[], terminalValues: number[]) {

@@ -8,32 +8,25 @@ async function render(path = "/") {
   return worker.fetch(new Request(`http://localhost${path}`, { headers: { accept: "text/html" } }), { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } }, { waitUntil() {}, passThroughOnException() {} });
 }
 
-/**
- * The prerendered document, checked for the things that must survive a build.
- *
- * Assertions here are deliberately about structure rather than copy. This test
- * spent several releases failing on `>Companies<` and on two card labels that
- * had been renamed long before, which is worse than having no test: a suite
- * nobody can run green is a suite nobody reads.
- */
-test("server-renders the FinScope research workspace", async () => {
+/** The current terminal routes must survive the production Worker build. */
+test("redirects the former front door to the terminal", async () => {
   const response = await render();
-  assert.equal(response.status, 200);
-  const html = await response.text();
-  assert.match(html, /FinScope\.io — Every US filer\. Every filed figure\./);
-  // The front door: the thesis, and the field that is the whole page.
-  assert.match(html, /Every US filer\.<br\/>Every filed figure\./);
-  assert.match(html, /aria-label="Search any US-listed company"/);
-  // The default watchlist is prerendered, so the front page works without
-  // network access or Worker CPU and keeps its primary destination visible.
-  assert.match(html, /href="\/s\/NVDA">NVDA/);
-  for (const label of ["Market", "Company", "Compare", "Screener"]) {
-    assert.match(html, new RegExp(`>${label}<`), `navigation is missing ${label}`);
+  assert.equal(response.status, 307);
+  assert.equal(new URL(response.headers.get("location")).pathname, "/t");
+});
+
+test("server-renders the terminal and DCF screen without a data provider", async () => {
+  for (const path of ["/t", "/t/dcf"]) {
+    const response = await render(path);
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.match(html, /Tenqay/);
+    assert.match(html, /aria-label="Command"/);
+    assert.match(html, /<html lang="en" data-theme="dark"/);
+    assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
+    if (path === "/t/dcf") {
+      assert.match(html, /DCF calculator from SEC filings/);
+      assert.match(html, /aria-label="Ticker"/);
+    }
   }
-  assert.match(html, /href="\/settings" aria-label="Open settings"/);
-  // The default theme is stamped in the markup rather than applied by an
-  // effect, so a reader never meets a white flash before the bundle boots.
-  assert.match(html, /<html lang="en" data-theme="dark"/);
-  assert.doesNotMatch(html, /Quality overview/);
-  assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
 });

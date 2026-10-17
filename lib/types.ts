@@ -56,6 +56,8 @@ export type MetricKey =
   | "incomeBeforeTax"
   | "incomeTaxExpense"
   | "depreciationAndAmortization"
+  | "depreciation"
+  | "intangibleAmortization"
   | "dilutedEpsReported"
   | "totalEquity"
   | "longTermDebtCurrent"

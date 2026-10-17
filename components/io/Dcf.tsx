@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { IoCompanyView, IoPeriod } from "@/lib/io/view";
 import { IO_VIEW } from "@/lib/io/view-version";
 import { impliedGrowth, impliedReturn, presentValue, terminalShare } from "@/lib/io/implied-growth";
-import { costOfEquity, returnsOf, type CostOfEquity } from "@/lib/io/cost-of-equity";
 import { Search } from "./Search";
 import { rememberCompany } from "@/lib/io/last-company";
 import { useRememberedCompany } from "./remembered";
@@ -13,8 +12,7 @@ import { withinYears } from "./ranges";
 import type { IoQuote } from "./quote";
 import { ABSENT, datedCagrOf, delta, money, percent, price as writePrice } from "./format";
 import { DcfModel } from "./DcfModel";
-import { fetchMarketPremium } from "./use-cost-of-equity";
-import { FALLBACK_PREMIUM } from "@/lib/implied-erp";
+import { useCostOfEquity } from "./use-cost-of-equity";
 
 /**
  * One company, one question: what would have to be true for this price.
@@ -70,10 +68,6 @@ const POLL_LIMIT = 30;
 const TERMINAL = .025;
 /** The round numbers a reader may prefer to this company's own cost of equity. */
 const RATES = [.06, .08, .10, .12];
-/** Five years of weekly returns, which is what a beta is normally measured on. */
-const BETA_YEARS = 5;
-/** The index the beta is measured against, as this site already serves it. */
-const MARKET = "SPY";
 /** Which growth the chart is drawn at: a filed record, or the reader's own. */
 type GrowthChoice = "near" | "far" | "own";
 
@@ -201,14 +195,9 @@ export function Dcf({ initial }: { initial: string }) {
    * state the reader may already have touched.
    */
   const [chosen, setChosen] = useState<number | null>(null);
-  /*
-   * Carried with the company it was measured for.
-   *
-   * A beta belongs to a filer, and a page that keeps the last one while the
-   * next is being fetched prices Palantir at Johnson & Johnson's cost of
-   * capital for a second — which is a wrong number on screen, not a slow one.
-   */
-  const [risk, setRisk] = useState<{ ticker: string; value: CostOfEquity | null } | null>(null);
+  // The shared estimate keeps dates, diagnostics and ticker isolation consistent
+  // with the full FCFF model, including the Treasury and ERP fallback policies.
+  const risk = useCostOfEquity(ticker);
   /*
    * One growth for the whole page.
    *
@@ -328,48 +317,6 @@ export function Dcf({ initial }: { initial: string }) {
   const quote = current?.quote ?? null;
 
   /*
-   * What this company's own risk implies, from figures this site already holds.
-   *
-   * Three requests the page did not make before: five years of this company's
-   * weekly closes, the same weeks of the S&P 500, and the ten-year Treasury.
-   * They arrive after the filings and the price, and nothing waits for them —
-   * a page that cannot reach them falls back to the reader's own choice, which
-   * is what it had before.
-   */
-  useEffect(() => {
-    if (!ticker) return;
-    const controller = new AbortController();
-    const end = new Date();
-    const from = new Date(end);
-    from.setUTCFullYear(from.getUTCFullYear() - BETA_YEARS);
-    const window = `frequency=weekly&start=${from.toISOString().slice(0, 10)}&end=${end.toISOString().slice(0, 10)}`;
-    const closes = async (symbol: string) => {
-      const response = await fetch(`/api/market/${encodeURIComponent(symbol)}?${window}`, { signal: controller.signal });
-      if (!response.ok) return null;
-      const body = await response.json() as { bars?: Array<{ close?: number | null; adjustedClose?: number | null }> };
-      return (body.bars ?? []).map((bar) => bar.adjustedClose ?? bar.close ?? null);
-    };
-    (async () => {
-      try {
-        const [company, market, macro] = await Promise.all([
-          closes(ticker),
-          closes(MARKET),
-          fetch("/api/macro", { signal: controller.signal }).then((response) => response.ok ? response.json() as Promise<{ indicators?: Array<{ id: string; value: number | null }> }> : null),
-        ]);
-        if (controller.signal.aborted || !company || !market) return;
-        const yields = macro?.indicators?.find((item) => item.id === "treasury-10y")?.value ?? null;
-        const riskFree = yields == null ? null : yields / 100;
-        const premium = await fetchMarketPremium(riskFree, controller.signal);
-        if (controller.signal.aborted) return;
-        setRisk({ ticker, value: costOfEquity(riskFree, returnsOf(company), returnsOf(market), premium?.premium ?? FALLBACK_PREMIUM) });
-      } catch {
-        // The reader's own choice remains, which is what the page had before.
-      }
-    })();
-    return () => controller.abort();
-  }, [ticker]);
-
-  /*
    * The rate every figure on the page is struck at.
    *
    * The reader's if they have chosen one, this company's cost of equity if not,
@@ -377,7 +324,7 @@ export function Dcf({ initial }: { initial: string }) {
    * state, so the computed rate can arrive late without overwriting a choice
    * already made.
    */
-  const priced = risk?.ticker === ticker ? risk.value : null;
+  const priced = risk.value;
   const required = chosen ?? priced?.rate ?? .10;
   /* A computed rate has a decimal and a chosen one does not, and "7%" beside a
      control reading 7.2% is the same number written two ways. */
@@ -790,10 +737,10 @@ export function Dcf({ initial }: { initial: string }) {
                 {chosen == null && priced ? (
                   <div>
                     <dt className="label">The rate</dt>
-                    <dd>{percent(priced.rate, 1)} is this company&rsquo;s cost of equity: {percent(priced.riskFree, 2)} on the ten-year Treasury plus a beta of {priced.beta.toFixed(2)} against the S&amp;P 500 at a {percent(priced.premium, 0)} equity risk premium.</dd>
+                    <dd>{percent(priced.rate, 1)} is this company&rsquo;s cost of equity: {percent(priced.riskFree, 2)} on the ten-year Treasury{risk.riskFreeDate ? ` dated ${risk.riskFreeDate}` : ""} plus an applied beta of {priced.appliedBeta.toFixed(2)} against the S&amp;P 500 at a {percent(priced.premium, 1)} equity risk premium ({risk.premiumSource === "index-implied" ? "index-implied estimate" : "long-run assumption"}). The adjusted beta is {priced.beta.toFixed(2)}{priced.appliedBeta !== priced.beta ? ", subject to a model floor of 0.60" : ""}, measured over {risk.observations} matched weekly returns{risk.startDate && risk.endDate ? ` from ${risk.startDate} to ${risk.endDate}` : ""}.</dd>
                   </div>
                 ) : (
-                  <div><dt className="label">The rate</dt><dd>{wanted} a year, chosen by you.</dd></div>
+                  <div><dt className="label">The rate</dt><dd>{wanted} a year{chosen != null ? ", chosen by you." : !risk.settled ? " as a provisional assumption while market inputs load." : risk.unavailableReason === "risk-free-unavailable" ? " as a fallback assumption: a recent Treasury observation is unavailable." : risk.unavailableReason === "insufficient-history" ? ` as a fallback assumption: only ${risk.observations} matched weekly returns are available; at least 100 are required.` : " as a fallback assumption: a reliable company beta could not be measured."}</dd></div>
                 )}
                 <div>
                   <dt className="label">The cash</dt>

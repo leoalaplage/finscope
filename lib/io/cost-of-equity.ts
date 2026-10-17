@@ -1,23 +1,6 @@
 /**
- * What this company's own risk implies you should want from it.
- *
- * The discounted cash flow's one unfiled number used to be four buttons — six,
- * eight, ten, twelve per cent — and a reader with no view picked the middle
- * one. That is not a small detail: moving it from eight to twelve changes the
- * growth the price is asking for by seven to twelve points, so the button
- * decided the answer.
- *
- * A cost of equity is the standard way to stop guessing, and every ingredient
- * is already on this site. The risk-free rate is the ten-year Treasury, which
- * the macro page serves live. The beta is five years of weekly returns against
- * the S&P 500, both of which the market endpoint already returns. Only the
- * equity risk premium is chosen, and it is one number stated once rather than
- * four offered without explanation.
- *
- * It is still an estimate and the reader can still override it. What changes is
- * that the default is a reading of this company rather than a round number:
- * Johnson & Johnson comes out at 7.2% and Palantir at 13.7%, which is the
- * difference the buttons were pretending did not exist.
+ * USD CAPM inputs. Beta is an estimate from total returns, not an observed
+ * company fundamental. The adjustment and floor are explicit model policies.
  */
 
 /**
@@ -42,21 +25,21 @@ export function returnsOf(closes: Array<number | null | undefined>): number[] {
 }
 
 /** The fewest weeks worth regressing. Two years, give or take a holiday. */
-const SHORTEST = 100;
+export const MIN_BETA_OBSERVATIONS = 100;
 
 /**
  * The slope of this company's returns against the market's.
  *
- * Covariance over the market's variance, on the overlapping tail of the two
- * series — a company listed three years ago has three years of weeks and the
- * index has five, and regressing them from opposite ends would pair Monday
- * with Thursday for the whole run.
+ * Covariance over market variance. Numeric callers must already have aligned
+ * periods; tail alignment is retained for existing callers. Market histories
+ * must go through alignedWeeklyReturns, which matches both interval endpoints.
  */
 export function rawBeta(company: number[], market: number[]): number | null {
   const length = Math.min(company.length, market.length);
-  if (length < SHORTEST) return null;
+  if (length < MIN_BETA_OBSERVATIONS) return null;
   const left = company.slice(-length);
   const right = market.slice(-length);
+  if (left.some((value) => !Number.isFinite(value)) || right.some((value) => !Number.isFinite(value))) return null;
   const meanLeft = left.reduce((sum, value) => sum + value, 0) / length;
   const meanRight = right.reduce((sum, value) => sum + value, 0) / length;
   let covariance = 0;
@@ -68,16 +51,7 @@ export function rawBeta(company: number[], market: number[]): number | null {
   return variance > 0 ? covariance / variance : null;
 }
 
-/**
- * The same beta, pulled a third of the way towards one.
- *
- * Betas revert: a measured 0.2 is partly a real property of the business and
- * partly five years of luck, and next period's will sit closer to the market's
- * own 1.0 than this period's did. Blume's adjustment is the standard correction
- * and it is not cosmetic here — Johnson & Johnson measures 0.20 on five years
- * of weeks, which no data provider publishes and no analyst would use; adjusted
- * it is 0.47, which is what everybody else reports.
- */
+/** Blume adjustment: two thirds measured beta, one third market beta of one. */
 export function adjustedBeta(raw: number): number {
   return (2 / 3) * raw + (1 / 3);
 }
@@ -88,6 +62,8 @@ export interface CostOfEquity {
   beta: number;
   rawBeta: number;
   premium: number;
+  /** Adjusted beta after the explicit model floor; the one used in CAPM. */
+  appliedBeta: number;
   /** How many periods the beta was measured over, so the page can say. */
   observations: number;
 }
@@ -106,20 +82,67 @@ export function costOfEquity(
   premium = EQUITY_RISK_PREMIUM,
 ): CostOfEquity | null {
   if (riskFree == null || !Number.isFinite(riskFree) || riskFree < 0 || riskFree > .25) return null;
+  if (!Number.isFinite(premium) || premium <= 0 || premium > .25) return null;
   const raw = rawBeta(company, market);
   // A beta at or under nothing is not a measurement of this company's risk; the reader chooses instead.
   if (raw == null || !Number.isFinite(raw) || raw <= 0) return null;
-  /*
-   * A floor of 0.6 on the beta the rate is struck on. Five years of weekly
-   * returns put Johnson & Johnson at 0.46 and Coca-Cola at 0.56, which price
-   * their equity barely above the Treasury; no practitioner discounts a
-   * company's equity at that, and the floor keeps the measured beta on screen.
-   */
+  // The floor is a conservative product assumption, not a measured beta.
+  // Both the adjusted estimate and applied beta remain available to disclose it.
   const beta = adjustedBeta(raw);
-  const rate = riskFree + Math.max(beta, BETA_FLOOR) * premium;
-  // A negative-beta company would price below the Treasury, and a rate at or
-  // under the terminal growth makes a perpetuity infinite. Neither is a reading
-  // this page can use, so it hands the choice back rather than clamping.
-  if (!(rate > .04) || rate > .30) return null;
-  return { rate, riskFree, beta, rawBeta: raw, premium, observations: Math.min(company.length, market.length) };
+  const appliedBeta = Math.max(beta, BETA_FLOOR);
+  const rate = riskFree + appliedBeta * premium;
+  // The terminal-growth comparison belongs to the valuation engine: a valid
+  // CAPM estimate does not become invalid because a separate scenario uses g.
+  if (!(rate > 0) || rate > .30) return null;
+  return { rate, riskFree, beta, appliedBeta, rawBeta: raw, premium, observations: Math.min(company.length, market.length) };
+}
+
+
+export interface DatedClose {
+  date: string;
+  /** Split- and dividend-adjusted price, consistently used throughout. */
+  adjustedClose?: number | null;
+}
+
+export interface AlignedWeeklyReturns {
+  company: number[];
+  market: number[];
+  startDate: string | null;
+  endDate: string | null;
+}
+
+/**
+ * Match exact start AND end dates before estimating beta. Removing a missing
+ * bar and matching array tails silently regresses different weeks. A missing
+ * price invalidates its adjacent intervals; a missing week must not turn into
+ * a two-week return paired with a one-week benchmark return.
+ *
+ * This deliberately requires adjusted prices: mixing a raw close into an
+ * adjusted series would manufacture returns around splits and dividends.
+ */
+export function alignedWeeklyReturns(companyBars: DatedClose[], marketBars: DatedClose[]): AlignedWeeklyReturns {
+  const intervals = (bars: DatedClose[]) => {
+    const sorted = [...new Map(bars.filter((bar) => /^\d{4}-\d{2}-\d{2}$/.test(bar.date)).map((bar) => [bar.date, bar])).values()]
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const result = new Map<string, { value: number; start: string; end: string }>();
+    for (let index = 1; index < sorted.length; index++) {
+      const before = sorted[index - 1]; const after = sorted[index];
+      const days = (Date.parse(after.date) - Date.parse(before.date)) / 86_400_000;
+      const left = before.adjustedClose; const right = after.adjustedClose;
+      if (!(days >= 4 && days <= 10) || left == null || right == null || !Number.isFinite(left) || !Number.isFinite(right) || left <= 0 || right <= 0) continue;
+      result.set(`${before.date}/${after.date}`, { value: right / left - 1, start: before.date, end: after.date });
+    }
+    return result;
+  };
+  const company = intervals(companyBars); const market = intervals(marketBars);
+  const matched = [...company.entries()].flatMap(([key, point]) => {
+    const benchmark = market.get(key);
+    return benchmark ? [{ ...point, benchmark: benchmark.value }] : [];
+  });
+  return {
+    company: matched.map((point) => point.value),
+    market: matched.map((point) => point.benchmark),
+    startDate: matched[0]?.start ?? null,
+    endDate: matched.at(-1)?.end ?? null,
+  };
 }

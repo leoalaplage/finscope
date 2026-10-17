@@ -345,7 +345,8 @@
 // non-current), and invested capital is debt + leases + equity with the cash
 // left in, as the reference platforms measure it: Amazon's ROIC read 21%
 // against their 10–12%, a cash-rich company's capital having been netted down.
-export const KEY_VERSION = "v48";
+/** v49: separate tangible depreciation / intangible amortization and operating-WC coverage for the DCF. */
+export const KEY_VERSION = "v49";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

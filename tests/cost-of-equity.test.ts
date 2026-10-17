@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adjustedBeta, BETA_FLOOR, costOfEquity, EQUITY_RISK_PREMIUM, rawBeta, returnsOf } from "../lib/io/cost-of-equity";
+import { alignedWeeklyReturns, adjustedBeta, BETA_FLOOR, costOfEquity, EQUITY_RISK_PREMIUM, rawBeta, returnsOf } from "../lib/io/cost-of-equity";
 
 /**
  * The discounted cash flow's one unfiled number, stopped being a guess.
@@ -97,5 +97,54 @@ describe("returns from closes", () => {
     expect(returnsOf([100, null, 110])[0]).toBeCloseTo(.1, 12);
     // A close of nought is not a company that fell to nothing, it is a hole.
     expect(returnsOf([100, 0, 110])).toHaveLength(1);
+  });
+});
+
+// Date-aware regression tests protect against an economically plausible beta
+// produced from different calendar intervals when one history has missing bars.
+describe("matched weekly intervals", () => {
+  const bars = (factor: number) => {
+    let price = 100;
+    return Array.from({ length: 131 }, (_, index) => {
+      if (index) price *= 1 + (Math.sin(index / 3) * .02 + .001) * factor;
+      return { date: new Date(Date.UTC(2024, 0, 5) + index * 7 * 86_400_000).toISOString().slice(0, 10), adjustedClose: price };
+    });
+  };
+
+  it("recovers beta with different missing weeks without bridging them", () => {
+    const company = bars(1.5).filter((_, index) => index !== 30);
+    const benchmark = bars(1).filter((_, index) => index !== 70);
+    const paired = alignedWeeklyReturns(company, benchmark);
+    expect(paired.company).toHaveLength(126);
+    expect(rawBeta(paired.company, paired.market)).toBeCloseTo(1.5, 10);
+    expect(paired.startDate).toBe("2024-01-05");
+    expect(paired.endDate).toBe(bars(1).at(-1)!.date);
+  });
+
+  it("invalidates both adjacent intervals around a missing adjusted close", () => {
+    const company = bars(1.5).map((bar, index) => index === 30 ? { ...bar, adjustedClose: null } : bar);
+    const paired = alignedWeeklyReturns(company, bars(1));
+    expect(paired.company).toHaveLength(128);
+    expect(rawBeta(paired.company, paired.market)).toBeCloseTo(1.5, 10);
+  });
+
+  it("requires both endpoints to match rather than only the return date", () => {
+    const company = bars(1.5);
+    company[30] = { ...company[30], date: new Date(Date.parse(company[30].date) - 86_400_000).toISOString().slice(0, 10) };
+    expect(alignedWeeklyReturns(company, bars(1)).company).toHaveLength(128);
+  });
+
+  it("sorts histories and refuses raw closes instead of mixing adjustment conventions", () => {
+    expect(alignedWeeklyReturns(bars(1.5).reverse(), bars(1)).company).toHaveLength(130);
+    expect(alignedWeeklyReturns([{ date: "2025-01-03" }, { date: "2025-01-10" }], bars(1)).company).toEqual([]);
+  });
+
+  it("rejects non-finite regressions and premiums, and discloses applied beta", () => {
+    const invalid = [...market]; invalid[10] = NaN;
+    expect(rawBeta(times(1), invalid)).toBeNull();
+    expect(costOfEquity(.04, times(1), market, NaN)).toBeNull();
+    expect(costOfEquity(.04, times(1), market, -.01)).toBeNull();
+    expect(costOfEquity(.01, times(.2), market)!.appliedBeta).toBe(BETA_FLOOR);
+    expect(costOfEquity(.005, times(.2), market)!.rate).toBeCloseTo(.035);
   });
 });

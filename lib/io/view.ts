@@ -1,7 +1,7 @@
 import { balanceSheetIsTheBusiness, cashFlowIsTheBalanceSheet } from "../business-type";
 import { validatedDerivedValue } from "../data-quality";
 import { currentDatasetPeriod, leftBehind } from "../current-period";
-import { capitalAYearEarlier, liquidAssets, reportedDebt, returnOnAverageCapital, valueOf } from "../finance";
+import { capitalAYearEarlier, liquidAssets, operatingWorkingCapitalReading, reportedDebt, returnOnAverageCapital, valueOf, type OperatingWorkingCapitalReading } from "../finance";
 import { shareCount } from "../market-basis";
 import { METRICS, type MetricKind } from "../metrics";
 import type { CompanyDataset, FinancialPeriod } from "../types";
@@ -45,6 +45,8 @@ export interface IoPeriod {
   accession: string;
   currency: string;
   values: Record<string, number | null>;
+  /** Coverage of the aggregate operating-working-capital proxy, including missing adjustments. */
+  operatingWorkingCapitalBasis?: OperatingWorkingCapitalReading;
   /**
    * Diluted earnings per share as the filer printed it, not net income over
    * the shares: a bank's is after its preferred dividends. What a press
@@ -60,6 +62,8 @@ export interface IoPeriod {
    * here is as filed. The page shows it on the figure.
    */
   basis?: Record<string, string>;
+  /** Prevents counting subsidiary minority capital twice in an operating-capital denominator. */
+  equityIncludesMinorities?: boolean;
   /** The filed basis needed to price this period after it became public. */
   valuationBasis: {
     shares: number;
@@ -107,6 +111,8 @@ export interface IoValuationBasis {
 }
 
 export interface IoCompanyView {
+  /** Older company data may remain readable while normalization is rebuilt, but must not feed the new DCF. */
+  dcfDataStatus?: "current" | "rebuilding";
   company: {
     ticker: string;
     name: string;
@@ -156,6 +162,7 @@ const NOT_FOR_FINANCIALS = new Set([
   "freeCashFlowMargin", "freeCashFlowAfterSbcMargin", "operatingCashFlowMargin", "cashConversion",
   "netDebt", "roic", "cashReturnOnCapital", "returnOnCapitalEmployed",
   "investedCapital", "nopat", "capitalIntensity",
+  "operatingWorkingCapital",
 ]);
 
 /**
@@ -169,6 +176,7 @@ const NOT_FOR_FINANCIALS = new Set([
 const NOT_FOR_INSURERS = new Set([
   "netDebt", "roic", "cashReturnOnCapital", "returnOnCapitalEmployed",
   "investedCapital", "nopat", "capitalIntensity",
+  "operatingWorkingCapital",
 ]);
 
 const NOTHING_WITHHELD: ReadonlySet<string> = new Set<string>();
@@ -260,10 +268,19 @@ function projectPeriod(dataset: CompanyDataset, period: FinancialPeriod, withhel
   const cash = liquidAssets(period);
   const netDebt = borrowed == null || cash == null ? null : borrowed.value - cash;
   const basis: Record<string, string> = {};
+  const workingCapital = withheld.has("operatingWorkingCapital") ? null : operatingWorkingCapitalReading(period);
+  if (workingCapital?.value != null) basis.operatingWorkingCapital = "Aggregate proxy: excludes cash, reported short-term investments and current financing debt; may retain taxes and other non-operating balances.";
   for (const [key, fact] of Object.entries(period.facts)) {
     if (!fact || values[key] == null) continue;
     const provenance = fact.provenance;
-    const note = provenance.status === "calculated"
+    const partialDa = key === "depreciationAndAmortization" && ["us-gaap:Depreciation", "us-gaap:DepreciationDepletionAndAmortizationPropertyPlantAndEquipment"].includes(provenance.concept);
+    const splitDa = key === "depreciationAndAmortization" && values.depreciation != null && values.intangibleAmortization != null
+      && Math.abs(values[key]! - values.depreciation - values.intangibleAmortization) <= Math.max(1, Math.abs(values[key]!) * 1e-8);
+    const note = partialDa
+      ? "Partial D&A: tangible-asset depreciation only; a combined total including intangible-asset amortization is not established."
+      : splitDa
+      ? "Combined D&A: tangible-asset depreciation + separately reported intangible amortization; operating-lease right-of-use amortization is not added."
+      : provenance.status === "calculated"
       ? (provenance.formula ?? "Calculated from filed figures")
       : provenance.status === "restated" ? "Restated by a later filing" : null;
     if (note) basis[key] = note.length > 160 ? `${note.slice(0, 157)}…` : note;
@@ -279,6 +296,9 @@ function projectPeriod(dataset: CompanyDataset, period: FinancialPeriod, withhel
     accession: period.accession,
     currency: period.currency,
     values,
+    equityIncludesMinorities: period.facts.totalEquity?.provenance.concept === "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"
+      || period.facts.totalEquity?.provenance.concept === "ifrs-full:Equity",
+    ...(workingCapital ? { operatingWorkingCapitalBasis: workingCapital } : {}),
     reportedEps: valueOf(period, "dilutedEpsReported"),
     ...(Object.keys(basis).length ? { basis } : {}),
     valuationBasis: counted ? {

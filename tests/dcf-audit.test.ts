@@ -34,11 +34,10 @@ describe("defects found by audit", () => {
     expect(buybacks.projections.at(-1)!.dilutedShares).toBeLessThan(base.dilutedShares);
   });
 
-  it("still lets issuance dilute, because shares given away never pass through cash flow", () => {
-    const flat = calculateDcf(base, assumptions());
-    const diluted = calculateDcf(base, assumptions({ shareChange: fill(.02) }));
-    expect(diluted.intrinsicValuePerShare!).toBeLessThan(flat.intrinsicValuePerShare!);
-    expect(diluted.warnings).toEqual([]);
+  it("refuses to value future issuance without a proceeds and claims schedule", () => {
+    const result = calculateDcf(base, assumptions({ shareChange: fill(.02) }));
+    expect(result.intrinsicValuePerShare).toBeNull();
+    expect(result.warnings.join(" ")).toMatch(/proceeds and equity-claims schedule/);
   });
 
   it("stops on a non-finite intermediate instead of returning NaN", () => {
@@ -174,8 +173,10 @@ describe("the divisor is reported, not left to be inferred", () => {
     expect(result.equityValue! / result.valuationShares).toBeCloseTo(result.intrinsicValuePerShare!, 6);
   });
 
-  it("uses the projected count when the assumption only issues shares", () => {
-    const result = calculateDcf(base, assumptions({ shareChange: fill(.02) }));
-    expect(result.valuationShares).toBeCloseTo(result.projections.at(-1)!.dilutedShares, 6);
+  it("does not charge employee compensation again through the divisor", () => {
+    const result = calculateDcf(base, assumptions({ shareChange: fill(.02), stockCompensationTreatment: "expensed" }));
+    const unissued = calculateDcf(base, assumptions({ stockCompensationTreatment: "expensed" }));
+    expect(result.valuationShares).toBe(base.dilutedShares);
+    expect(result.intrinsicValuePerShare).toBeCloseTo(unissued.intrinsicValuePerShare!, 8);
   });
 });

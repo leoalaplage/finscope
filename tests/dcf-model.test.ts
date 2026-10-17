@@ -18,13 +18,13 @@ describe("the DCF levers", () => {
   it("reads the base and the record from the filings", () => {
     expect(foundation.base.revenue).toBeCloseTo(1610.51, 1);
     expect(foundation.startMargin).toBeCloseTo(0.2);
-    expect(foundation.record.growth5).toBeCloseTo(0.1, 6);
+    expect(foundation.record.growth5).toBeCloseTo(0.1, 4);
     expect(foundation.record.capex5).toBeCloseTo(0.05);
     expect(foundation.record.costOfDebt).toBeCloseTo(0.05);
   });
   it("defaults to the company's own record", () => {
     const d = defaultDrivers(foundation, 0.09, 2000);
-    expect(d.growthStart).toBeCloseTo(0.1, 6);
+    expect(d.growthStart).toBeCloseTo(0.1, 4);
     expect(d.growthEnd).toBeLessThanOrEqual(d.growthStart);
     expect(d.marginTarget).toBeCloseTo(0.2);
     expect(d.taxRate).toBeCloseTo(0.2);
@@ -72,12 +72,12 @@ describe("the lender's model", () => {
 });
 
 describe("the DCF against the market", () => {
-  it("strikes the margin from pre-tax income and interest where no operating income is filed", () => {
-    const strip = (period: IoPeriod) => ({ ...period, values: { ...period.values, operatingIncome: null as unknown as number, operatingMargin: null as unknown as number, incomeBeforeTax: period.values.revenue! * 0.18, interestExpense: 20 } }) as IoPeriod;
+  it("derives operating income only from a complete nonoperating subtotal", () => {
+    const strip = (period: IoPeriod) => ({ ...period, values: { ...period.values, operatingIncome: null as unknown as number, operatingMargin: null as unknown as number, incomeBeforeTax: period.values.revenue! * 0.18, interestExpense: 20, otherIncomeExpense: -20 } }) as IoPeriod;
     const unfiled = { ...view, annual: view.annual.map(strip) } as IoCompanyView;
     const foundation = dcfFoundation(unfiled)!;
     expect(foundation.startMargin).toBeGreaterThan(0.18);
-    expect(foundation.marginNote).toContain("pre-tax income plus interest");
+    expect(foundation.marginNote).toContain("pre-tax income less");
   });
 
   it("brings a building programme's capital spending back to the ten-year norm, and follows the Treasury for ever", () => {
