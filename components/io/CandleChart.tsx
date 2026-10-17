@@ -1483,13 +1483,13 @@ export function CandleChart({
  * elements a candle: a chart zoomed out on a few thousand candles stays one
  * frame a move.
  *
- * A body is outlined in black while it is at least three pixels wide; below
+ * A body is outlined in black while it is at least two pixels wide; below
  * that the outline would leave no colour, so a chart zoomed far out draws its
  * bodies plain.
  */
 function CandlePaths({ view, scale }: { view: { drawn: { o: number[]; h: number[]; l: number[]; c: number[] }; x: (index: number) => number; y: (value: number) => number; slot: number }; scale: number | null }) {
   const width = view.slot * 0.64;
-  const outlined = scale != null && width * scale >= 3;
+  const outlined = scale != null && width * scale >= 2;
   let upWicks = "", downWicks = "", upBodies = "", downBodies = "";
   view.drawn.c.forEach((close, index) => {
     const open = view.drawn.o[index];
