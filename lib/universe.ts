@@ -65,6 +65,45 @@ export const KNOWN_SUCCESSORS: Record<string, { listed: string; reads: string; w
   },
 };
 
+/**
+ * Members that succeeded another registrant, and the registrant they succeeded.
+ *
+ * A holding company put on top, a change of domicile, a trust turned into a
+ * corporation: the company files under a new identifier from that day, and
+ * every report before it stays under the old one. Readers that go back through
+ * a company's reports (the segments, lib/segments/source.ts) read the
+ * predecessor's for the periods before the successor's first report.
+ *
+ * Measured across the index on 17 October 2026: every member whose own
+ * identifier holds fewer than the twenty-four periodic reports the segments
+ * read, checked for a successor-issuer notice (8-K12B, 8-K12G3, or a Form 10
+ * that registers a trust's successor) and for the filer that holds its
+ * history. Twenty-seven members fall short; these nine are successors. The
+ * others are left as they are because their short history is the truth about
+ * them or because no single earlier filer is the same company:
+ * - spin-offs — GE Vernova, GE HealthCare, Solventum, Veralto, Kenvue,
+ *   Constellation Energy, FedEx Freight, Honeywell Aerospace, Qnity, Sandisk —
+ *   whose parent's reports are the parent's, not theirs;
+ * - mergers whose accounting predecessor never filed with the SEC (Smurfit
+ *   WestRock's is Smurfit Kappa, TKO's is the UFC, not WWE);
+ * - companies listed since 2020 (Reddit, Robinhood, Coinbase, AppLovin,
+ *   Airbnb, DoorDash).
+ * EDGAR does not name the predecessor in the notice's header, and only four of
+ * the nine file a document under both identifiers, so the link is measured
+ * here rather than guessed at run time.
+ */
+export const PREDECESSORS: Record<string, { cik: string; name: string; notice: string }> = {
+  XOM: { cik: "0000034088", name: "Exxon Mobil Corporation", notice: "8-K12B 0001193125-26-291990, 1 July 2026" },
+  PSKY: { cik: "0000813828", name: "Paramount Global", notice: "8-K12B 0001193125-25-175046, 7 August 2025" },
+  BLK: { cik: "0001364742", name: "BlackRock, Inc. (now BlackRock Finance, Inc.)", notice: "8-K12B 0001193125-24-229601, 1 October 2024" },
+  FERG: { cik: "0001832433", name: "Ferguson plc (now Ferguson (Jersey) Ltd)", notice: "8-K12B 0001193125-24-190512, 1 August 2024" },
+  BG: { cik: "0001144519", name: "Bunge Limited", notice: "8-K12G3 0001104659-23-113123, 1 November 2023" },
+  APO: { cik: "0001411494", name: "Apollo Global Management, Inc. (now Apollo Asset Management, Inc.)", notice: "8-K12B 0001193125-22-000274, 3 January 2022" },
+  MRVL: { cik: "0001058057", name: "Marvell Technology Group Ltd.", notice: "8-K12B 0001193125-21-122938, 20 April 2021" },
+  APA: { cik: "0000006769", name: "Apache Corporation", notice: "8-K12B 0001193125-21-063695, 1 March 2021" },
+  TPL: { cik: "0000097517", name: "Texas Pacific Land Trust", notice: "Form 10-12B 0001213900-20-042409, 14 December 2020" },
+};
+
 export interface UniverseMember {
   /** The symbol this application uses, with a dot where the SEC writes a dash. */
   ticker: string;

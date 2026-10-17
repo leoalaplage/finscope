@@ -1,6 +1,6 @@
 import { searchSecCompanies } from "../adapters/sec";
 import { datasetCache, keepAlive, selfFetcher } from "../runtime-env";
-import { UNIVERSE, universeMember } from "../universe";
+import { PREDECESSORS, UNIVERSE, universeMember } from "../universe";
 import { SEGMENTS_BUILD, type SegmentData } from "./build";
 import { fetchSegments } from "./source";
 
@@ -43,7 +43,7 @@ async function cikOf(ticker: string): Promise<string | null> {
 export async function buildAndStore(ticker: string, reports = FULL_REPORTS): Promise<SegmentData | null> {
   const cik = await cikOf(ticker);
   if (!cik) return null;
-  const data = await fetchSegments(ticker, cik, reports);
+  const data = await fetchSegments(ticker, cik, reports, PREDECESSORS[ticker.toUpperCase()]?.cik);
   // A build that read no filing is a failed read, not a company without segments.
   if (!data.filings.length) throw new Error("EDGAR did not answer.");
   const held = await datasetCache()?.get<SegmentData>(segmentsKey(ticker), "json").catch(() => null);

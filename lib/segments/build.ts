@@ -55,7 +55,11 @@ export interface SegmentStack {
   residual: number;
 }
 
-export interface SegmentFiling { accession: string; form: string; reportDate: string; filed: string }
+export interface SegmentFiling {
+  accession: string; form: string; reportDate: string; filed: string;
+  /** The filer, where it is not the company's own identifier: a predecessor's report (lib/segments/source.ts). */
+  cik?: string;
+}
 
 export interface SegmentData {
   ticker: string;

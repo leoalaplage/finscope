@@ -60,9 +60,10 @@ interface Columns { form?: string[]; filingDate?: string[]; reportDate?: string[
 /**
  * The company's last periodic reports, newest first. A bank files hundreds of
  * other forms, which push its 10-Qs off the submissions' first page, so the
- * older pages are read until enough reports are found.
+ * older pages are read until enough reports are found. `before` keeps only
+ * reports for periods ending earlier — a predecessor's, up to its successor's first.
  */
-async function periodicReports(cik: string, limit: number): Promise<SegmentFiling[]> {
+async function periodicReports(cik: string, limit: number, before?: string): Promise<SegmentFiling[]> {
   const base = "https://data.sec.gov/submissions/";
   const first = await secFetch(`${base}CIK${cik.padStart(10, "0")}.json`, { headers: { ...HEADERS(), Accept: "application/json" } }, PATIENT);
   if (!first.ok) throw new Error(`SEC returned ${first.status}.`);
@@ -71,8 +72,9 @@ async function periodicReports(cik: string, limit: number): Promise<SegmentFilin
   const take = (columns: Columns | undefined) => {
     for (let index = 0; index < (columns?.form?.length ?? 0); index++) {
       const accession = columns!.accessionNumber?.[index];
-      if (!PERIODIC.has(columns!.form![index]) || !accession) continue;
-      out.push({ accession, form: columns!.form![index], reportDate: columns!.reportDate?.[index] ?? "", filed: columns!.filingDate?.[index] ?? "" });
+      const reportDate = columns!.reportDate?.[index] ?? "";
+      if (!PERIODIC.has(columns!.form![index]) || !accession || (before && !(reportDate && reportDate < before))) continue;
+      out.push({ accession, form: columns!.form![index], reportDate, filed: columns!.filingDate?.[index] ?? "", ...(before ? { cik } : {}) });
     }
   };
   take(body.filings?.recent);
@@ -92,9 +94,37 @@ async function text(url: string): Promise<string | null> {
   return response.text();
 }
 
-export async function fetchSegments(ticker: string, cik: string, limit = 24): Promise<SegmentData> {
-  const padded = cik.replace(/^0+/, "");
-  const reports = await periodicReports(cik, limit);
+/**
+ * A successor's reports, then its predecessor's before them.
+ *
+ * A registrant that took over from another — a holding company put on top,
+ * a change of domicile, a trust become a corporation — files under a new
+ * identifier from that day, and the years before stay under the old one:
+ * ExxonMobil Holdings had one 10-Q, Exxon Mobil Corporation the six years
+ * before it. Where the successor's own reports fall short, the predecessor's
+ * fill the rest, only for periods ending before the successor's first report:
+ * a predecessor that goes on filing as a subsidiary (Apache under APA, Apollo
+ * Asset Management under Apollo) reports a different company after that day,
+ * and a report filed under both (Exxon's June 2026 quarter) is read once.
+ */
+/** The period of a company's first report: the predecessor's reports are those before it. */
+const firstPeriod = (own: SegmentFiling[]) => own.reduce((oldest, report) => (report.reportDate && report.reportDate < oldest ? report.reportDate : oldest), "9999-12-31");
+
+export function withPredecessor(own: SegmentFiling[], earlier: SegmentFiling[], limit: number): SegmentFiling[] {
+  const first = firstPeriod(own);
+  const held = new Set(own.map((report) => report.accession));
+  const before = earlier.filter((report) => report.reportDate && report.reportDate < first && !held.has(report.accession));
+  return [...own, ...before].slice(0, limit);
+}
+
+export async function fetchSegments(ticker: string, cik: string, limit = 24, predecessor?: string | null): Promise<SegmentData> {
+  const own = await periodicReports(cik, limit);
+  let reports = own;
+  if (predecessor && own.length < limit) {
+    try {
+      reports = withPredecessor(own, await periodicReports(predecessor, limit - own.length, firstPeriod(own)), limit);
+    } catch { /* The successor's own reports still stand. */ }
+  }
   const facts: SegmentFact[] = [];
   const labels = new Map<string, string>();
   const read: SegmentFiling[] = [];
@@ -102,7 +132,8 @@ export async function fetchSegments(ticker: string, cik: string, limit = 24): Pr
   let bytes = 0;
   // Newest first, so a member keeps the name the company gives it now.
   for (const [position, report] of reports.entries()) {
-    const folder = `https://www.sec.gov/Archives/edgar/data/${padded}/${report.accession.replace(/-/g, "")}`;
+    // A predecessor's report is kept under the predecessor's identifier.
+    const folder = `https://www.sec.gov/Archives/edgar/data/${Number(report.cik ?? cik)}/${report.accession.replace(/-/g, "")}`;
     attempted++;
     try {
       await pause();

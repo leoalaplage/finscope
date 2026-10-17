@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildSegments, largestPartition, trailingTwelve } from "@/lib/segments/build";
 import { parseLabels, parseSegmentFacts, memberName, type SegmentFact } from "@/lib/segments/xbrl";
-import { pickDocuments } from "@/lib/segments/source";
+import { pickDocuments, withPredecessor } from "@/lib/segments/source";
+import { KNOWN_SUCCESSORS, PREDECESSORS, universeMember } from "@/lib/universe";
 import { backlogCards, segmentChart, segmentRows, segmentViews } from "@/lib/segments/view";
 import { segmentCharts } from "@/lib/segments/charts";
 
@@ -319,5 +320,36 @@ describe("one segment within the loose match of operating income", () => {
     const chart = segmentChart(data, view, "quarterly", "operatingIncome")!;
     expect(chart.labels).toHaveLength(2);
     expect(chart.series.find((line) => /corporate/i.test(line.label))?.values.map((value) => value! / M)).toEqual([-2_056, -2_165]);
+  });
+});
+
+describe("a successor's reports, then its predecessor's", () => {
+  const report = (accession: string, reportDate: string, cik?: string) => ({ accession, form: "10-Q", reportDate, filed: reportDate, ...(cik ? { cik } : {}) });
+  // ExxonMobil Holdings: one 10-Q, filed under Exxon Mobil Corporation too.
+  const own = [report("0000034088-26-000093", "2026-06-30")];
+
+  it("fills the rest with the predecessor's reports, read once where both carry one", () => {
+    const earlier = [report("0000034088-26-000093", "2026-06-30", "0000034088"), report("0000034088-26-000067", "2026-03-31", "0000034088"), report("0000034088-26-000045", "2025-12-31", "0000034088")];
+    const reports = withPredecessor(own, earlier, 24);
+    expect(reports.map((item) => item.reportDate)).toEqual(["2026-06-30", "2026-03-31", "2025-12-31"]);
+    expect(reports.map((item) => item.cik)).toEqual([undefined, "0000034088", "0000034088"]);
+  });
+
+  it("stops at the successor's first report: a predecessor still filing as a subsidiary is another company after it", () => {
+    // Apache went on filing under APA; its 2021 quarter is Apache's, not APA's.
+    const apa = [report("0001841666-21-000001", "2021-06-30"), report("0001841666-21-000002", "2021-03-31")];
+    const apache = [report("0000006769-21-000010", "2021-06-30", "0000006769"), report("0000006769-21-000003", "2020-12-31", "0000006769"), report("0000006769-20-000040", "2020-09-30", "0000006769")];
+    expect(withPredecessor(apa, apache, 24).map((item) => item.reportDate)).toEqual(["2021-06-30", "2021-03-31", "2020-12-31", "2020-09-30"]);
+    expect(withPredecessor(apa, apache, 3)).toHaveLength(3);
+  });
+
+  it("names a predecessor only for members of the index, and agrees with the filer the statements read", () => {
+    for (const [ticker, predecessor] of Object.entries(PREDECESSORS)) {
+      expect(universeMember(ticker), ticker).not.toBeNull();
+      expect(predecessor.cik).toMatch(/^\d{10}$/);
+      expect(predecessor.cik, ticker).not.toBe(universeMember(ticker)?.cik);
+      expect(predecessor.notice.length, ticker).toBeGreaterThan(10);
+    }
+    for (const [ticker, known] of Object.entries(KNOWN_SUCCESSORS)) expect(PREDECESSORS[ticker]?.cik, ticker).toBe(known.reads);
   });
 });
