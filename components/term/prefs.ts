@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { PALETTES } from "@/lib/term/palettes";
 
 /**
  * The terminal's display preferences, kept on this device (a phone and a
@@ -20,11 +21,13 @@ export interface TermPrefs {
   tape: boolean;
   /** Where the terminal opens when arrived at from elsewhere: a screen, or a company's page. */
   start: string;
+  /** The colour palette, on trial (lib/term/palettes.ts). */
+  palette: string;
 }
 
 export const PREFS_KEY = "finscope.term.prefs.v1";
 const EVENT = "finscope:term-prefs";
-export const DEFAULT_PREFS: TermPrefs = { density: "standard", colors: "green-red", clock: "ny", tape: true, start: "/t" };
+export const DEFAULT_PREFS: TermPrefs = { density: "standard", colors: "green-red", clock: "ny", tape: true, start: "/t", palette: "acid" };
 
 export const START_SCREENS: Array<{ path: string; label: string }> = [
   { path: "/t", label: "HOME · launchpad" },
@@ -50,6 +53,7 @@ export function readPrefs(): TermPrefs {
     clock: value.clock === "local" || value.clock === "both" ? value.clock : "ny",
     tape: value.tape !== false,
     start: typeof value.start === "string" && /^\/t(?:\/[\w./-]*)?$/.test(value.start) ? value.start : "/t",
+    palette: PALETTES.some((palette) => palette.id === value.palette) ? value.palette! : "acid",
   };
   cached = { raw, prefs };
   return prefs;

@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { paletteById, paletteVariables } from "@/lib/term/palettes";
 import { COMPANY_FUNCTIONS, GLOBAL_FUNCTIONS, hrefFor, LAUNCHPAD_PANELS, terminalHref } from "@/lib/term/command";
 import { marketState, newYorkTime } from "@/lib/term/market-clock";
 import { useStoredWatchlist } from "@/components/io/watchlist";
@@ -311,11 +312,17 @@ export function TermShell({ ticker = null, bare = false, children }: {
 }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const prefs = useTermPrefs();
+  // The palette on trial: its colours as the terminal's variables, and the page behind it in its background.
+  const palette = paletteById(prefs.palette);
+  const paletteStyle = useMemo(() => paletteVariables(palette) as React.CSSProperties, [palette]);
+  useEffect(() => {
+    document.documentElement.style.setProperty("--page-bg", palette.bg);
+  }, [palette]);
   useFocusedPanel();
   useTerminalLinks();
   useTableKeys();
   return (
-    <div className="io term" data-density={prefs.density} data-colors={prefs.colors}>
+    <div className="io term" data-density={prefs.density} data-colors={prefs.colors} data-palette={prefs.palette} style={paletteStyle}>
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <div className="t-top">
         <div className="t-bar">
