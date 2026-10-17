@@ -51,6 +51,27 @@ export function flowPeriods(view: Pick<IoCompanyView, "quarterly" | "annual">): 
   };
 }
 
+/**
+ * A node that only passes its one source's whole flow on (Uber's "Revenue less cost", where no cost of revenue is
+ * filed) is the source itself: its outflows leave from the source.
+ */
+export function withoutPassThrough(diagram: StatementDiagram): StatementDiagram {
+  let flows = diagram.flows;
+  for (;;) {
+    const through = diagram.nodes.find((node) => {
+      const inflows = flows.filter((flow) => flow.target === node.id);
+      if (inflows.length !== 1) return false;
+      const outflows = flows.filter((flow) => flow.source === inflows[0].source);
+      return outflows.length === 1 && flows.some((flow) => flow.source === node.id);
+    });
+    if (!through) break;
+    const source = flows.find((flow) => flow.target === through.id)!.source;
+    flows = flows.filter((flow) => flow.target !== through.id).map((flow) => (flow.source === through.id ? { ...flow, source } : flow));
+  }
+  const used = new Set(flows.flatMap((flow) => [flow.source, flow.target]));
+  return flows === diagram.flows ? diagram : { ...diagram, flows, nodes: diagram.nodes.filter((node) => used.has(node.id)) };
+}
+
 function Diagram({ diagram, base }: { diagram: StatementDiagram; base: string }) {
   const [hovered, setHovered] = useState<string | null>(null);
   const tone = useMemo(() => Object.fromEntries(diagram.nodes.map((node) => [node.id, node.tone])), [diagram]);
@@ -102,7 +123,8 @@ export function MoneyFlow({ view }: { view: IoCompanyView }) {
   const period = (filing === "quarter" ? quarter : year) ?? quarter ?? year;
   const diagram = useMemo(() => {
     if (!period) return null;
-    return statement === "income" ? incomeStatementDiagram(reader(period)) : cashFlowDiagram(reader(period));
+    const drawn = statement === "income" ? incomeStatementDiagram(reader(period)) : cashFlowDiagram(reader(period));
+    return drawn ? withoutPassThrough(drawn) : null;
   }, [period, statement]);
   if (!quarter && !year) return <p className="t-empty">No revenue is filed for this company, so there is no flow to draw.</p>;
   const shown = period === quarter ? "quarter" : "year";

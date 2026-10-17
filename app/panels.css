@@ -328,7 +328,8 @@ body:has(.t-panel#fa):not(:has(.t-panel#splc)) .t-fn a[href$="#splc"] { display:
 .t-flow-scroll { overflow-x: auto; }
 .t-flow-svg { display: block; width: 100%; min-width: 640px; height: auto; }
 .t-flow-svg path { transition: opacity .12s ease; }
-.t-flow-label { font-size: 12px; fill: var(--ink); pointer-events: none; }
+/* A dark edge around each label keeps it legible where it crosses a ribbon. */
+.t-flow-label { font-size: 12px; fill: var(--ink); pointer-events: none; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
 .t-flow-name { font-weight: 600; }
 .t-flow-value { fill: var(--ink-2); font-variant-numeric: tabular-nums; }
 .t-flow-notes { margin: 0; padding-left: 16px; font-size: var(--fs-micro); }

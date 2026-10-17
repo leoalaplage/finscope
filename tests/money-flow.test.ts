@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { flowPeriods } from "../components/term/MoneyFlow";
+import { flowPeriods, withoutPassThrough } from "../components/term/MoneyFlow";
 import type { IoPeriod } from "../lib/io/view";
 
 const period = (label: string, end: string, fiscalQuarter: string | null, revenue: number | null): IoPeriod => ({
@@ -18,5 +18,17 @@ describe("the filings the money flow draws", () => {
 
   it("passes over a period with no revenue filed", () => {
     expect(flowPeriods({ quarterly: [period("Q1 FY2027", "2026-12-26", "Q1", null)], annual: [] })).toEqual({ quarter: null, year: null });
+  });
+});
+
+describe("a node that only passes its source's flow on", () => {
+  it("is left out, its outflows leaving from the source", () => {
+    const diagram = withoutPassThrough({
+      nodes: [{ id: "revenue", label: "Revenue", tone: "revenue" }, { id: "grossProfit", label: "Revenue less cost", tone: "profit" }, { id: "opex", label: "Other operating", tone: "cost" }, { id: "operatingIncome", label: "Operating income", tone: "profit" }],
+      flows: [{ source: "revenue", target: "grossProfit", value: 100 }, { source: "grossProfit", target: "opex", value: 80 }, { source: "grossProfit", target: "operatingIncome", value: 20 }],
+      values: {}, notes: [], currency: "USD", periodLabel: "Q2", periodEnd: "2026-06-30",
+    });
+    expect(diagram.nodes.map((node) => node.id)).toEqual(["revenue", "opex", "operatingIncome"]);
+    expect(diagram.flows).toEqual([{ source: "revenue", target: "opex", value: 80 }, { source: "revenue", target: "operatingIncome", value: 20 }]);
   });
 });
