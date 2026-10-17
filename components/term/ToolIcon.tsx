@@ -7,7 +7,7 @@ import type { Tool } from "@/lib/term/drawings";
  * too thin to read.
  */
 
-export type ToolIconName = Tool | "magnet" | "hide" | "undo" | "redo" | "clear" | "replay";
+export type ToolIconName = Tool | "magnet" | "hide" | "undo" | "redo" | "clear" | "replay" | "camera";
 
 const dot = (x: number, y: number) => <circle key={`${x}-${y}`} cx={x} cy={y} r={1.7} className="ti-dot" />;
 
@@ -38,6 +38,7 @@ const PICTURES: Record<ToolIconName, React.ReactNode> = {
   undo: <><path d="M6.5 4L3 7.5 6.5 11" /><path d="M3 7.5h7.5a4 4 0 0 1 0 8H8" /></>,
   redo: <><path d="M11.5 4L15 7.5 11.5 11" /><path d="M15 7.5H7.5a4 4 0 0 0 0 8H10" /></>,
   replay: <><path d="M3 4v10" /><path d="M6 4.5l5 4.5-5 4.5z" className="ti-fill" /><path d="M11 4.5l5 4.5-5 4.5" /></>,
+  camera: <><path d="M2.5 6h3l1.5-2h4l1.5 2h3v8.5h-13z" /><circle cx={9} cy={10} r={2.6} /></>,
   clear: <><path d="M3 5h12" /><path d="M7 5V3h4v2" /><path d="M4.5 5l1 10h7l1-10" /><path d="M7.5 8v4.5M10.5 8v4.5" className="ti-thin" /></>,
 };
 

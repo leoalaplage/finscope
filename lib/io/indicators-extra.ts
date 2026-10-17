@@ -170,12 +170,12 @@ function wma(values: Line, period: number): Line {
   return out;
 }
 
-/** Hull's moving average: little lag, little noise — WMA(2·WMA(n/2) − WMA(n), √n). */
+/** Hull's moving average: little lag, little noise — WMA(2·WMA(n/2) − WMA(n), √n), both halves rounded down as Hull and the platforms do. */
 export function hullMa(values: Line, period = 21): Line {
-  const half = wma(values, Math.max(1, Math.round(period / 2)));
+  const half = wma(values, Math.max(1, Math.floor(period / 2)));
   const full = wma(values, period);
   const raw = half.map((value, index) => (value == null || full[index] == null ? null : 2 * value - full[index]!));
-  return wma(raw, Math.max(1, Math.round(Math.sqrt(period))));
+  return wma(raw, Math.max(1, Math.floor(Math.sqrt(period))));
 }
 
 /* ---- Channels ------------------------------------------------------------ */

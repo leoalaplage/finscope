@@ -1649,3 +1649,19 @@ body:has(.io.term) { background: #0d1012; }
 .t-replay-note { color: var(--ink-2); font-family: var(--mono); }
 .t-replay .seg button { min-width: 30px; }
 .t-replay .t-text-button { margin-left: auto; }
+
+/* The chart workspace held to the window on a desktop screen: only the studies panel scrolls. */
+html.t-noscroll, html.t-noscroll body { overflow: hidden; }
+.t-chartspace[data-fixed] { overflow: hidden; }
+.t-chartspace[data-fixed] .t-chart-body { flex: 1 1 auto; min-height: 0; align-items: stretch; }
+.t-chartspace[data-fixed] .t-charts { height: 100%; min-height: 0; grid-auto-rows: minmax(0, 1fr); }
+.t-chartspace[data-fixed] .t-chart-cell { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.t-chartspace[data-fixed] .t-chart-cell .candle-chart { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.t-chartspace[data-fixed] .t-chart-cell .candle-body { flex: 1 1 0; height: auto; min-height: 80px; }
+.t-chartspace[data-fixed] .t-chart-cell .candle-legend, .t-chartspace[data-fixed] .t-chart-cell .candle-pane, .t-chartspace[data-fixed] .t-chart-cell .candle-dates { flex: none; }
+.t-chartspace[data-fixed] .t-studies { position: static; height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+.t-chart-body[data-panel="closed"] { grid-template-columns: minmax(0, 1fr); }
+.t-studies .t-panel-head { position: sticky; top: 0; z-index: 1; background: var(--head); }
+.t-studies-hide { margin-left: auto; padding: 0 4px; color: var(--ink-3); background: none; border: 0; cursor: pointer; }
+.t-studies-hide:hover { color: var(--amber); }
+.t-ind-toggle { font-weight: 700; }

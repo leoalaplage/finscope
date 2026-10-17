@@ -135,7 +135,7 @@ export function stochastic(bars: Bars, period = 14, smoothK = 3, smoothD = 3): {
   return { k, d: sma(k, smoothD) };
 }
 
-export interface Ichimoku { tenkan: Line; kijun: Line; spanA: Line; spanB: Line }
+export interface Ichimoku { tenkan: Line; kijun: Line; spanA: Line; spanB: Line; lagging: Line; shift: number }
 
 const midpoint = (bars: Bars, index: number, period: number) => {
   if (index < period - 1) return null;
@@ -149,19 +149,27 @@ const midpoint = (bars: Bars, index: number, period: number) => {
 };
 
 /**
- * Hosoda's Ichimoku: the 9- and 26-bar midpoints, and the cloud between their
- * average and the 52-bar midpoint, each plotted 26 bars ahead — so the cloud
- * under a candle is the one computed 26 bars earlier.
+ * Hosoda's Ichimoku as the reference platforms plot it: the 9- and 26-bar
+ * midpoints; the cloud between their average and the 52-bar midpoint, moved
+ * 26 bars on — the bar it is computed on counting as the first, so 25 places —
+ * and drawn that far past the last candle; and the lagging span, the close
+ * moved as far back. The spans are `shift` longer than the bars.
  */
 export function ichimoku(bars: Bars, conversion = 9, base = 26, leading = 52): Ichimoku {
+  const shift = Math.max(0, base - 1);
+  const n = bars.c.length;
   const tenkan = bars.c.map((_, index) => midpoint(bars, index, conversion));
   const kijun = bars.c.map((_, index) => midpoint(bars, index, base));
-  const spanA: Line = bars.c.map((_, index) => {
-    const from = index - base;
-    return from >= 0 && tenkan[from] != null && kijun[from] != null ? (tenkan[from]! + kijun[from]!) / 2 : null;
+  const spanA: Line = Array.from({ length: n + shift }, (_, index) => {
+    const from = index - shift;
+    return from >= 0 && from < n && tenkan[from] != null && kijun[from] != null ? (tenkan[from]! + kijun[from]!) / 2 : null;
   });
-  const spanB: Line = bars.c.map((_, index) => (index - base >= 0 ? midpoint(bars, index - base, leading) : null));
-  return { tenkan, kijun, spanA, spanB };
+  const spanB: Line = Array.from({ length: n + shift }, (_, index) => {
+    const from = index - shift;
+    return from >= 0 && from < n ? midpoint(bars, from, leading) : null;
+  });
+  const lagging: Line = bars.c.map((_, index) => (index + shift < n ? bars.c[index + shift] : null));
+  return { tenkan, kijun, spanA, spanB, lagging, shift };
 }
 
 /**
@@ -187,30 +195,82 @@ export function vwap(bars: Bars, sessions: boolean): Line {
   return out;
 }
 
-export interface ProfileBin { low: number; high: number; volume: number }
+export interface ProfileBin { low: number; high: number; volume: number; /** The part traded on bars that closed up. */ up: number }
 
 /**
- * Volume at price: each bar's volume spread evenly over the part of its range
- * that falls in each bin. The bin with the most is the point of control.
+ * Volume at price over the bars given, in `bins` rows between `low` and
+ * `high`: each bar's volume spread evenly over the part of its range that
+ * falls in each row, as the platforms build a visible-range profile. Given
+ * bars finer than the chart's own (hours under days), the spread is far
+ * closer to where the shares actually changed hands; the caller passes the
+ * finest it has (volumeSources).
  */
 export function volumeProfile(bars: Bars, low: number, high: number, bins = 24): ProfileBin[] {
   const size = (high - low) / bins;
-  const out: ProfileBin[] = Array.from({ length: bins }, (_, index) => ({ low: low + index * size, high: low + (index + 1) * size, volume: 0 }));
+  const out: ProfileBin[] = Array.from({ length: bins }, (_, index) => ({ low: low + index * size, high: low + (index + 1) * size, volume: 0, up: 0 }));
   if (!bars.v || size <= 0) return out;
   for (let index = 0; index < bars.c.length; index++) {
-    const top = bars.h[index];
-    const bottom = bars.l[index];
+    const top = Math.min(bars.h[index], high);
+    const bottom = Math.max(bars.l[index], low);
     const traded = bars.v[index] ?? 0;
-    if (!traded) continue;
-    if (top === bottom) {
-      const bin = Math.min(bins - 1, Math.max(0, Math.floor((top - low) / size)));
-      out[bin].volume += traded;
-      continue;
+    if (!traded || top < bottom) continue;
+    const rising = bars.c[index] >= bars.o[index];
+    const span = bars.h[index] - bars.l[index];
+    const first = Math.min(bins - 1, Math.max(0, Math.floor((bottom - low) / size)));
+    const last = Math.min(bins - 1, Math.max(0, Math.floor((top - low) / size)));
+    for (let bin = first; bin <= last; bin++) {
+      // A bar with no range trades at one price; otherwise in proportion to the overlap.
+      const share = span <= 0 ? 1 : Math.max(0, Math.min(bars.h[index], out[bin].high) - Math.max(bars.l[index], out[bin].low)) / span;
+      if (share <= 0) continue;
+      out[bin].volume += traded * share;
+      if (rising) out[bin].up += traded * share;
     }
-    for (const bin of out) {
-      const overlap = Math.min(top, bin.high) - Math.max(bottom, bin.low);
-      if (overlap > 0) bin.volume += traded * (overlap / (top - bottom));
+  }
+  return out;
+}
+
+/**
+ * The point of control (the row with the most volume) and the value area: the
+ * rows around it holding `share` of the volume (70% by convention), grown one
+ * row at a time toward the side with more, as Steidlmayer's market profile
+ * defines it.
+ */
+export function valueArea(bins: ProfileBin[], share = 0.7): { poc: number; from: number; to: number } | null {
+  const total = bins.reduce((sum, bin) => sum + bin.volume, 0);
+  if (!total) return null;
+  let poc = 0;
+  bins.forEach((bin, index) => { if (bin.volume > bins[poc].volume) poc = index; });
+  let from = poc, to = poc, held = bins[poc].volume;
+  while (held < total * share && (from > 0 || to < bins.length - 1)) {
+    const below = from > 0 ? bins[from - 1].volume : -1;
+    const above = to < bins.length - 1 ? bins[to + 1].volume : -1;
+    if (above >= below) { to++; held += bins[to].volume; } else { from--; held += bins[from].volume; }
+  }
+  return { poc, from, to };
+}
+
+/**
+ * The bars a profile is built from: within [start, end), the finest series
+ * first, and each coarser one only where no finer series reaches — an hour's
+ * bars for the last year of a daily chart, the days themselves before that.
+ * `series` runs from finest to coarsest; the chart's own bars come last.
+ */
+export function volumeSources(series: Bars[], start: number, end: number): Bars {
+  const out: Bars = { t: [], o: [], h: [], l: [], c: [], v: [] };
+  let covered = end;
+  for (const bars of series) {
+    if (!bars.t.length || !bars.v) continue;
+    const reach = Math.max(bars.t[0], start);
+    const finest = covered === end;
+    for (let index = 0; index < bars.t.length; index++) {
+      const t = bars.t[index];
+      if (t < start || t >= covered || t < reach) continue;
+      // A coarser bar that runs into what a finer series already covers would count that stretch twice.
+      if (!finest && (bars.t[index + 1] ?? Infinity) > covered) continue;
+      out.t.push(t); out.o.push(bars.o[index]); out.h.push(bars.h[index]); out.l.push(bars.l[index]); out.c.push(bars.c[index]); out.v!.push(bars.v[index] ?? 0);
     }
+    covered = Math.min(covered, reach);
+    if (covered <= start) break;
   }
   return out;
 }

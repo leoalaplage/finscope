@@ -36,7 +36,8 @@ describe("trend indicators", () => {
   });
   it("Hull's average lags a straight line far less than a simple average", () => {
     // WMA lags (n − 1) / 3; Hull cancels all but the last smoothing's: (5 − 1) / 3 = 1.33 points, against 10 for SMA 21.
-    expect(hullMa(bars.c.slice(0, 60), 21)[59]!).toBeCloseTo(159 - 4 / 3, 6);
+    // WMA(10) and WMA(21) as Hull rounds them down, then WMA(4): a third of a bar behind a straight line.
+    expect(hullMa(bars.c.slice(0, 60), 21)[59]!).toBeCloseTo(159 - 1 / 3, 6);
   });
 });
 

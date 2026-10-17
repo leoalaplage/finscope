@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
+import { exportChartPng } from "@/components/io/chart-export";
 import { CandleChart, IntervalPicker, lastMoveOf, percent, price, tone, useCandles, type CompareSeries } from "@/components/io/CandleChart";
 import type { Candles, CandleInterval } from "@/lib/adapters/candles";
 import { chooseSymbol } from "@/components/io/choose-symbol";
@@ -67,6 +68,9 @@ function writeKey(key: string, value: unknown) {
 }
 
 const readStore = readKey(STORE_KEY);
+/** Whether the studies panel is open: a preference of this browser. */
+const PANEL_KEY = "finscope.term.chart-panel.v1";
+const readPanel = readKey(PANEL_KEY);
 
 /** A ticker typed into a chart's header, resolved the way the site's search resolves one. */
 function SymbolField({ symbol, onSymbol }: { symbol: string; onSymbol: (next: string) => void }) {
@@ -306,6 +310,50 @@ export function ChartWorkspace() {
   const [tool, setTool] = useState<Tool>("cursor");
   const [magnet, setMagnet] = useState(false);
   const [replay, setReplay] = useState<Replay | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const panelText = useSyncExternalStore(subscribe, readPanel, () => null);
+  const panelOpen = panelText !== "closed";
+  const setPanelOpen = (open: boolean) => { try { localStorage.setItem(PANEL_KEY, open ? "open" : "closed"); } catch { /* this visit only */ } window.dispatchEvent(new Event(CHANGE_EVENT)); };
+
+  /*
+   * On a desktop screen the workspace fills the window and stays put: the
+   * charts take the height left under the terminal's bars, and only the
+   * studies panel scrolls. A phone keeps the page scrolling.
+   */
+  const space = useRef<HTMLDivElement>(null);
+  const [fixedHeight, setFixedHeight] = useState<number | null>(null);
+  useEffect(() => {
+    const fit = () => {
+      const element = space.current;
+      if (!element || window.innerWidth < 900) { setFixedHeight(null); return; }
+      const status = document.querySelector(".t-status")?.getBoundingClientRect().height ?? 0;
+      setFixedHeight(Math.max(420, Math.floor(window.innerHeight - element.getBoundingClientRect().top - window.scrollY - status - 4)));
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
+  useEffect(() => {
+    if (fixedHeight == null) return;
+    document.documentElement.classList.add("t-noscroll");
+    window.scrollTo(0, 0);
+    return () => document.documentElement.classList.remove("t-noscroll");
+  }, [fixedHeight]);
+
+  /** The chart in focus, saved as a picture with its studies, drawings and watermark. */
+  const exportActive = async () => {
+    const figure = space.current?.querySelectorAll<HTMLElement>(".t-chart-cell")[workspace.layout > 1 ? workspace.active : 0]?.querySelector<HTMLElement>(".candle-chart");
+    if (!figure || exporting) return;
+    setExporting(true);
+    try {
+      const name = space.current?.querySelectorAll<HTMLElement>(".t-chart-cell .t-chart-name")[workspace.layout > 1 ? workspace.active : 0]?.textContent ?? "";
+      await exportChartPng(figure, `${activeCell.symbol.replace(/[^A-Za-z0-9.-]/g, "")}-${activeCell.interval}-${new Date().toISOString().slice(0, 10)}.png`, {
+        symbol: activeCell.symbol, detail: [name, INTERVAL_TITLES[activeCell.interval], activeCell.log ? "Log scale" : activeCell.percent ? "Percent scale" : ""].filter(Boolean).join(" · "),
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
   const [hidden, setHidden] = useState(false);
   const [naming, setNaming] = useState<string | null>(null);
 
@@ -366,7 +414,7 @@ export function ChartWorkspace() {
   const shown = workspace.cells.slice(0, workspace.layout);
 
   return (
-    <div className="t-chartspace">
+    <div className="t-chartspace" ref={space} data-fixed={fixedHeight != null || undefined} style={fixedHeight != null ? { height: fixedHeight } : undefined}>
       <div className="t-chart-toolbar" role="toolbar" aria-label="Chart workspace">
         <span className="t-code">GP</span>
         <div className="seg" role="group" aria-label="Layout">
@@ -414,6 +462,9 @@ export function ChartWorkspace() {
           >
             <ToolIcon name="replay" />
           </button>
+          <button type="button" title="Save the chart in focus as a PNG picture" aria-label="Save as PNG" onClick={() => { void exportActive(); }} disabled={exporting}>
+            <ToolIcon name="camera" />
+          </button>
           <button type="button" title="Undo · ⌘Z" aria-label="Undo" onClick={() => undoDrawings()}><ToolIcon name="undo" /></button>
           <button type="button" title="Redo · ⇧⌘Z" aria-label="Redo" onClick={() => redoDrawings()}><ToolIcon name="redo" /></button>
           <button
@@ -424,6 +475,7 @@ export function ChartWorkspace() {
           </button>
         </div>
 
+        <button type="button" className="t-chip t-ind-toggle" aria-pressed={panelOpen} title={panelOpen ? "Hide the studies panel" : "Show the studies panel"} onClick={() => setPanelOpen(!panelOpen)}>IND</button>
         <div className="t-layouts">
           <span className="label">Layouts</span>
           {store.saved.length ? (
@@ -463,7 +515,7 @@ export function ChartWorkspace() {
         </div>
       </div>
 
-      <div className="t-chart-body">
+      <div className="t-chart-body" data-panel={panelOpen ? "open" : "closed"}>
         <div className="t-charts" data-layout={workspace.layout}>
           {shown.map((cell, index) => (
             <ChartCellView
@@ -486,10 +538,11 @@ export function ChartWorkspace() {
           ))}
         </div>
 
-        <aside className="t-studies" aria-label={`Studies on ${activeCell.symbol}`}>
+        {panelOpen ? <aside className="t-studies" aria-label={`Studies on ${activeCell.symbol}`}>
           <header className="t-panel-head">
             <span className="t-code">IND</span>
             <h2>{activeCell.symbol}</h2>
+            <button type="button" className="t-studies-hide" title="Hide the studies panel" aria-label="Hide the studies panel" onClick={() => setPanelOpen(false)}>✕</button>
           </header>
           {STUDY_GROUPS.map((group) => (
             <div className="t-study-group" key={group.name}>
@@ -528,7 +581,7 @@ export function ChartWorkspace() {
             double-click to reset. Click a drawing to select, move or restyle it; Delete removes it. Drawings are saved on the
             symbol, across intervals, layouts and visits, and on the company screen: {drawn[activeCell.symbol]?.length ?? 0} on {activeCell.symbol}.
           </p>
-        </aside>
+        </aside> : null}
       </div>
     </div>
   );

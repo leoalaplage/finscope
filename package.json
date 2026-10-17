@@ -19,6 +19,7 @@
     "@simplewebauthn/browser": "13.2.2",
     "@simplewebauthn/server": "13.3.3",
     "drizzle-orm": "0.45.2",
+    "html-to-image": "^1.11.11",
     "lucide-react": "^1.31.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",

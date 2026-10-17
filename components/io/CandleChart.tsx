@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { CANDLE_INTERVALS, isIntraday, type Candles, type CandleInterval } from "@/lib/adapters/candles";
 import { candlesToShow, dateLabels, dateText, INTERVAL_NAMES, INTERVAL_TITLES, priceScale } from "@/lib/io/candle-chart";
-import { bollinger, ema, ichimoku, macd, patternsAt, PATTERN_NAMES, rsi, sma, stochastic, volumeProfile, vwap, type Line } from "@/lib/io/indicators";
+import { bollinger, ema, ichimoku, macd, patternsAt, PATTERN_NAMES, rsi, sma, stochastic, valueArea, volumeProfile, volumeSources, vwap, type Line } from "@/lib/io/indicators";
 import {
   adx, aroon, chaikinMoneyFlow, cci, donchian, floorPivots, heikinAshi, hullMa, keltner, moneyFlowIndex, obv,
   parabolicSar, roc, squeeze, stochRsi, supertrend, williamsR, type Pivots,
@@ -85,6 +85,11 @@ function pivotLevels(candles: Candles, interval: CandleInterval): Pivots | null 
 }
 
 const VWAP_COLOR = "#f1f1f1";
+const LAGGING_COLOR = "#8bc34a";
+const POC_COLOR = "#ff5252";
+
+/** The finer bars a volume profile is built from under each interval, finest first. */
+const PROFILE_SOURCES: Record<CandleInterval, CandleInterval[]> = { "5m": [], "15m": ["5m"], "1h": ["5m", "15m"], "1d": ["1h"], "1wk": ["1h", "1d"], "1mo": ["1h", "1d"] };
 const TENKAN_COLOR = "#4c8dff";
 const KIJUN_COLOR = "#e5484d";
 const CLOUD_COLOR = "#2bb3a3";
@@ -271,6 +276,21 @@ export function CandleChart({
     () => emaPeriods.split(",").map(Number).map((period) => ({ period, line: candles ? ema(candles.c, period) : ([] as Line) })),
     [candles, emaPeriods],
   );
+  /*
+   * The volume profile reads finer bars where they exist (lib/io/indicators.ts,
+   * volumeSources): hours under a daily chart, five and fifteen minutes under
+   * an hourly one — far nearer to the prices the volume traded at than a
+   * day's volume spread over its whole range.
+   */
+  const finer = PROFILE_SOURCES[interval];
+  const profileOn = studies.has("vprofile") && !compact;
+  const fineA = useCandles(candles?.symbol ?? "", finer[0] ?? interval, profileOn && finer[0] != null && candles != null);
+  const fineB = useCandles(candles?.symbol ?? "", finer[1] ?? interval, profileOn && finer[1] != null && candles != null);
+  const fineBars = useMemo(
+    () => [finer[0] ? fineA.candles : null, finer[1] ? fineB.candles : null].filter((bars): bars is Candles => bars != null && Boolean(bars.v?.length)),
+    [finer, fineA.candles, fineB.candles],
+  );
+
   // The analysis measures its tolerances in 14-period ranges; the ATR pane follows the reader's period.
   const ranges = useMemo(() => (candles ? averageTrueRange(candles) : []), [candles]);
   /*
@@ -431,9 +451,11 @@ export function CandleChart({
     const drawn = indicators?.heikin
       ? { o: indicators.heikin.o.slice(from, to), h: indicators.heikin.h.slice(from, to), l: indicators.heikin.l.slice(from, to), c: indicators.heikin.c.slice(from, to) }
       : { o, h, l, c };
+    // The cloud runs on past the last candle, as far as it was moved forward.
     const cloud = indicators ? {
       tenkan: indicators.cloud.tenkan.slice(from, to), kijun: indicators.cloud.kijun.slice(from, to),
-      spanA: indicators.cloud.spanA.slice(from, to), spanB: indicators.cloud.spanB.slice(from, to),
+      spanA: indicators.cloud.spanA.slice(from, to + indicators.cloud.shift), spanB: indicators.cloud.spanB.slice(from, to + indicators.cloud.shift),
+      lagging: indicators.cloud.lagging.slice(from, to),
     } : null;
     // Inside the session it starts each morning; on days and longer, from the first candle on screen.
     const vwapLine = indicators?.sessionVwap ? indicators.sessionVwap.slice(from, to)
@@ -527,9 +549,21 @@ export function CandleChart({
       if (Math.abs(change) < 0.5 * 10 ** -places) return `${(0).toFixed(places)}%`;
       return `${change > 0 ? "+" : "−"}${Math.abs(change).toFixed(places)}%`;
     };
-    const profile = studies.has("vprofile") && volume ? volumeProfile({ t, o, h, l, c, v: volume }, scale.min, scale.max, compact ? 16 : paramsOf(params, "vprofile")[0]) : null;
+    /*
+     * The visible-range volume profile: the candles on screen, read from the
+     * finest bars that cover them, in rows across their own high and low.
+     */
+    const profileBars = studies.has("vprofile") && volume
+      ? volumeSources([...fineBars, { t, o, h, l, c, v: volume }], t[0], to < total ? candles.t[to] : Infinity)
+      : null;
+    const rowsLow = Math.min(...l);
+    const rowsHigh = Math.max(...h);
+    const profile = profileBars && rowsHigh > rowsLow ? volumeProfile(profileBars, rowsLow, rowsHigh, compact ? 16 : paramsOf(params, "vprofile")[0]) : null;
+    const profileArea = profile ? valueArea(profile) : null;
+    // Which bars it was read from, for the legend: the finest that reached the first candle on screen.
+    const profileFrom = profile ? (fineBars.find((bars) => bars.t[0] <= t[0])?.interval ?? (fineBars.length ? "mixed" : interval)) : null;
     return {
-      t, o, h, l, c, drawn, extra, lines, smaLines, bands, cloud, vwapLine, patterns, compared, profile, momentum, volume, analysis,
+      t, o, h, l, c, drawn, extra, lines, smaLines, bands, cloud, vwapLine, patterns, compared, profile, profileArea, profileFrom, momentum, volume, analysis,
       scale, ticks, axisText, percentOn, priceAt, log, slot, x, y, count, from, total, left, right, span: viewport.span,
       // The place in the slice at the plot's right edge, for lines drawn to it.
       edge: right - 0.5 - from,
@@ -537,7 +571,7 @@ export function CandleChart({
       lastClose: candles.c[total - 1],
       lastBase: total > 1 ? candles.c[total - 2] : null,
     };
-  }, [candles, averages, indicators, ranges, interval, showEma, showSma, showBands, showCloud, showExtension, compact, viewport, manual, logScale, compare, benchmark, studies, params, percentScale]);
+  }, [candles, averages, indicators, ranges, interval, showEma, showSma, showBands, showCloud, showExtension, compact, viewport, manual, logScale, compare, benchmark, studies, params, percentScale, fineBars]);
 
   useEffect(() => {
     latest.current = viewport && navKey ? { key: navKey, viewport, total } : null;
@@ -960,6 +994,7 @@ export function CandleChart({
               </span>
             );
           })}
+          {view.profileFrom ? <span className="dim">VP {view.profile?.length} rows · {view.profileFrom === "mixed" ? "finer bars" : `${INTERVAL_NAMES[view.profileFrom as CandleInterval] ?? view.profileFrom} bars`}</span> : null}
           {view.log ? <span className="dim">LOG</span> : view.percentOn ? <span className="dim">% from {dateText(view.t[0], interval)}</span> : null}
         </>
       ) : null}
@@ -1030,7 +1065,19 @@ export function CandleChart({
                   vectorEffect="non-scaling-stroke"
                 />
               )) : null}
-              {on("levels") ? view.analysis.levels.map((level) => (
+              {view.profile && view.profileArea ? (() => {
+              const bins = view.profile;
+              const area = view.profileArea;
+              const poc = (bins[area.poc].low + bins[area.poc].high) / 2;
+              return (
+                <>
+                  <span className="study-note-right" style={{ top: pct(view.y(poc), H), color: POC_COLOR }}>POC {price(poc)}</span>
+                  <span className="study-note-right study-profile-note" style={{ top: pct(view.y(bins[area.to].high), H) }}>VAH {price(bins[area.to].high)}</span>
+                  <span className="study-note-right study-profile-note" style={{ top: `calc(${pct(view.y(bins[area.from].low), H)} + 13px)` }}>VAL {price(bins[area.from].low)}</span>
+                </>
+              );
+            })() : null}
+            {on("levels") ? view.analysis.levels.map((level) => (
                 <line key={`level-${level.price}`} className={`study-level study-${level.kind}`} x1={0} x2={W} y1={view.y(level.price)} y2={view.y(level.price)} vectorEffect="non-scaling-stroke" />
               )) : null}
               {on("fibRetracement") && fib ? (
@@ -1102,7 +1149,10 @@ export function CandleChart({
             ) : null}
             {showCloud && view.cloud ? (
               <g className="study-cloud">
-                <path className="study-cloud-fill" d={bandPath(view.cloud.spanA, view.cloud.spanB, view.x, view.y)} style={{ fill: CLOUD_COLOR }} />
+                {/* Green where the faster span leads, red where the slower does, as the platforms shade it. */}
+                <path className="study-cloud-fill" d={bandPath(view.cloud.spanA.map((value, index) => (value != null && view.cloud!.spanB[index] != null && value >= view.cloud!.spanB[index]! ? value : null)), view.cloud.spanB, view.x, view.y)} style={{ fill: CLOUD_COLOR }} />
+                <path className="study-cloud-fill" d={bandPath(view.cloud.spanA.map((value, index) => (value != null && view.cloud!.spanB[index] != null && value < view.cloud!.spanB[index]! ? value : null)), view.cloud.spanB, view.x, view.y)} style={{ fill: KIJUN_COLOR }} />
+                <path className="candle-ema" d={pathOf(view.cloud.lagging, view.x, view.y)} style={{ stroke: LAGGING_COLOR }} vectorEffect="non-scaling-stroke" />
                 <path className="study-cloud-edge" d={pathOf(view.cloud.spanA, view.x, view.y)} style={{ stroke: CLOUD_COLOR }} vectorEffect="non-scaling-stroke" />
                 <path className="study-cloud-edge" d={pathOf(view.cloud.spanB, view.x, view.y)} style={{ stroke: KIJUN_COLOR }} vectorEffect="non-scaling-stroke" />
                 <path className="candle-ema" d={pathOf(view.cloud.tenkan, view.x, view.y)} style={{ stroke: TENKAN_COLOR }} vectorEffect="non-scaling-stroke" />
@@ -1159,18 +1209,29 @@ export function CandleChart({
             ))}
             {view.profile ? (() => {
               const most = Math.max(...view.profile.map((bin) => bin.volume), 1);
+              const area = view.profileArea;
               return (
                 <g className="study-profile">
                   {view.profile.map((bin, index) => {
                     const top = view.y(bin.high);
-                    const width = (bin.volume / most) * W * 0.22;
+                    const height = Math.max(view.y(bin.low) - top - 0.6, 0.5);
+                    const width = (bin.volume / most) * W * 0.24;
+                    const upWidth = bin.volume ? width * (bin.up / bin.volume) : 0;
+                    const inside = area != null && index >= area.from && index <= area.to;
                     return (
-                      <rect
-                        key={index} className={bin.volume === most ? "study-profile-poc" : undefined}
-                        x={W - width} width={width} y={top} height={Math.max(view.y(bin.low) - top - 0.5, 0.5)}
-                      />
+                      <g key={index} data-area={inside || undefined}>
+                        <rect className="study-profile-up" x={W - width} width={upWidth} y={top} height={height} />
+                        <rect className="study-profile-down" x={W - width + upWidth} width={width - upWidth} y={top} height={height} />
+                      </g>
                     );
                   })}
+                  {area ? (
+                    <>
+                      <line className="study-profile-poc" x1={0} x2={W} y1={view.y((view.profile[area.poc].low + view.profile[area.poc].high) / 2)} y2={view.y((view.profile[area.poc].low + view.profile[area.poc].high) / 2)} style={{ stroke: POC_COLOR }} vectorEffect="non-scaling-stroke" />
+                      <line className="study-profile-edge" x1={W * 0.76} x2={W} y1={view.y(view.profile[area.to].high)} y2={view.y(view.profile[area.to].high)} vectorEffect="non-scaling-stroke" />
+                      <line className="study-profile-edge" x1={W * 0.76} x2={W} y1={view.y(view.profile[area.from].low)} y2={view.y(view.profile[area.from].low)} vectorEffect="non-scaling-stroke" />
+                    </>
+                  ) : null}
                 </g>
               );
             })() : null}
@@ -1219,6 +1280,18 @@ export function CandleChart({
                 {block.direction === "bullish" ? "Bull OB" : "Bear OB"}
               </span>
             )) : null}
+            {view.profile && view.profileArea ? (() => {
+              const bins = view.profile;
+              const area = view.profileArea;
+              const poc = (bins[area.poc].low + bins[area.poc].high) / 2;
+              return (
+                <>
+                  <span className="study-note-right" style={{ top: pct(view.y(poc), H), color: POC_COLOR }}>POC {price(poc)}</span>
+                  <span className="study-note-right study-profile-note" style={{ top: pct(view.y(bins[area.to].high), H) }}>VAH {price(bins[area.to].high)}</span>
+                  <span className="study-note-right study-profile-note" style={{ top: `calc(${pct(view.y(bins[area.from].low), H)} + 13px)` }}>VAL {price(bins[area.from].low)}</span>
+                </>
+              );
+            })() : null}
             {on("levels") ? view.analysis.levels.map((level) => (
               <span key={`level-${level.price}`} className="study-note-right" data-tone={level.kind === "support" ? "good" : "bad"} style={{ top: pct(view.y(level.price), H) }}>
                 {level.kind === "support" ? "S" : "R"} {price(level.price)} · {level.touches}×
@@ -1438,11 +1511,18 @@ function pathOf(values: Line, x: (index: number) => number, y: (value: number) =
 
 /** The area between two lines, over the stretch where both exist. */
 function bandPath(upper: Line, lower: Line, x: (index: number) => number, y: (value: number) => number): string {
-  const indices = upper.map((value, index) => (value != null && lower[index] != null ? index : -1)).filter((index) => index >= 0);
-  if (indices.length < 2) return "";
-  const top = indices.map((index, position) => `${position ? "L" : "M"}${x(index).toFixed(2)} ${y(upper[index]!).toFixed(2)}`).join("");
-  const bottom = [...indices].reverse().map((index) => `L${x(index).toFixed(2)} ${y(lower[index]!).toFixed(2)}`).join("");
-  return `${top}${bottom}Z`;
+  // One closed shape per unbroken run, so a gap is not bridged.
+  const runs: number[][] = [];
+  upper.forEach((value, index) => {
+    if (value == null || lower[index] == null) return;
+    const run = runs[runs.length - 1];
+    if (run && run[run.length - 1] === index - 1) run.push(index); else runs.push([index]);
+  });
+  return runs.filter((run) => run.length > 1).map((run) => {
+    const top = run.map((index, position) => `${position ? "L" : "M"}${x(index).toFixed(2)} ${y(upper[index]!).toFixed(2)}`).join("");
+    const bottom = [...run].reverse().map((index) => `L${x(index).toFixed(2)} ${y(lower[index]!).toFixed(2)}`).join("");
+    return `${top}${bottom}Z`;
+  }).join("");
 }
 
 /** A lower pane's height before the reader drags it (app/io.css). */

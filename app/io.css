@@ -2088,8 +2088,14 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .study-cloud-edge { fill: none; stroke-width: 1; stroke-opacity: .7; }
 .study-vwap { stroke-dasharray: 5 3; }
 .study-compare { stroke-width: 1.6; }
-.study-profile rect { fill: var(--ink-3); fill-opacity: .18; }
-.study-profile .study-profile-poc { fill: #e8a33d; fill-opacity: .35; }
+/* The volume profile: volume on rising bars and on falling ones, the value area brighter, the point of control in red. */
+.study-profile .study-profile-up { fill: #4c8dff; fill-opacity: .2; }
+.study-profile .study-profile-down { fill: #e8a33d; fill-opacity: .2; }
+.study-profile g[data-area] .study-profile-up { fill-opacity: .42; }
+.study-profile g[data-area] .study-profile-down { fill-opacity: .42; }
+.study-profile .study-profile-poc { stroke-width: 1; stroke-dasharray: 4 3; }
+.study-profile .study-profile-edge { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 2 3; }
+.study-notes .study-profile-note { color: var(--ink-3); }
 .study-notes .study-pattern {
   transform: translate(-50%, -100%); padding: 0 2px; font-size: 9px; font-weight: 600; line-height: 1.1;
   color: var(--ink-2); background: color-mix(in srgb, var(--bg) 70%, transparent);
@@ -2752,3 +2758,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-up .candle-fill { fill: var(--gain); }
 .candle-down .candle-wick { fill: none; stroke: var(--loss); stroke-width: 1; }
 .candle-down .candle-fill { fill: var(--loss); }
+/* The title line a chart picture carries (components/io/chart-export.ts). */
+.candle-export-head { display: flex; align-items: baseline; gap: 10px; padding: 6px 4px 8px; font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
+.candle-export-head b { color: var(--amber, #f4e74c); font-size: 15px; letter-spacing: .02em; }
+.candle-export-head .candle-export-source { margin-left: auto; color: var(--ink-3); font-size: 11px; }

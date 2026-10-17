@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ichimoku, patternsAt, sma, stochastic, volumeProfile, vwap, type Bars } from "@/lib/io/indicators";
+import { ichimoku, patternsAt, sma, stochastic, valueArea, volumeProfile, volumeSources, vwap, type Bars } from "@/lib/io/indicators";
 
 const bars = (rows: Array<[number, number, number, number, number?]>, start = 0, step = 86_400): Bars => ({
   t: rows.map((_, index) => start + index * step),
@@ -17,14 +17,19 @@ describe("stochastic", () => {
 });
 
 describe("Ichimoku", () => {
-  it("plots the cloud 26 bars ahead of the lines it comes from", () => {
+  it("moves the cloud 26 bars on, counting its own bar (25 places), past the last candle, and the close as far back", () => {
     const series = bars(Array.from({ length: 90 }, (_, index) => [index, index + 2, index - 2, index] as [number, number, number, number]));
     const cloud = ichimoku(series);
     const at = 60;
-    expect(cloud.spanA[at]).toBeCloseTo((cloud.tenkan[at - 26]! + cloud.kijun[at - 26]!) / 2);
+    expect(cloud.shift).toBe(25);
+    expect(cloud.spanA[at]).toBeCloseTo((cloud.tenkan[at - 25]! + cloud.kijun[at - 25]!) / 2);
     expect(cloud.spanA[30]).toBeNull();
-    expect(cloud.spanB[76]).toBeNull();
-    expect(cloud.spanB[77]).not.toBeNull();
+    expect(cloud.spanB[75]).toBeNull();
+    expect(cloud.spanB[76]).not.toBeNull();
+    expect(cloud.spanA).toHaveLength(90 + 25);
+    expect(cloud.spanA[114]).not.toBeNull();
+    expect(cloud.lagging[10]).toBe(series.c[35]);
+    expect(cloud.lagging[70]).toBeNull();
   });
 });
 
@@ -44,6 +49,24 @@ describe("volume profile", () => {
   it("spreads each bar's volume across the bins its range covers", () => {
     const profile = volumeProfile(bars([[1, 2, 0, 1, 100], [3, 4, 3, 3.5, 40]]), 0, 4, 4);
     expect(profile.map((bin) => Math.round(bin.volume))).toEqual([50, 50, 0, 40]);
+    // The first bar closed where it opened, so it counts as up; the second closed above its open.
+    expect(profile.map((bin) => Math.round(bin.up))).toEqual([50, 50, 0, 40]);
+  });
+
+  it("finds the point of control and the value area holding 70% of the volume", () => {
+    const rows = (volumes: number[]) => volumes.map((volume, index) => ({ low: index, high: index + 1, volume, up: 0 }));
+    // 100 + 30 above is already 70% of 165.
+    expect(valueArea(rows([10, 20, 100, 30, 5]))).toEqual({ poc: 2, from: 2, to: 3 });
+    // The side with more grows first: 100 + 40 below is 70% of 185.
+    expect(valueArea(rows([10, 40, 100, 30, 5]))).toEqual({ poc: 2, from: 1, to: 2 });
+  });
+
+  it("reads the finest bars where they reach, and the coarser ones only before them", () => {
+    const hours = bars([[1, 1, 1, 1, 10], [1, 1, 1, 1, 10]], 100, 10);
+    const days = bars([[1, 1, 1, 1, 50], [1, 1, 1, 1, 60], [1, 1, 1, 1, 70]], 0, 100);
+    const read = volumeSources([hours, days], 0, 300);
+    // The hours cover from 100 to the end; before them, the day at 0 is read and the days they cover are not.
+    expect(read.v).toEqual([10, 10, 50]);
   });
 });
 
