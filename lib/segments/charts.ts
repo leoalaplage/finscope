@@ -105,6 +105,12 @@ function chart(series: Array<{ spec: SeriesSpec; values: Array<number | null> }>
     kept = kept.filter((entry) => !holed(entry));
     if (kept.length < Math.min(2, series.length)) return null;
   }
+  // Nor periods no line has a value for yet: a growth's first year, whose year before was never reported.
+  const lead = Math.max(0, Math.min(...kept.map((entry) => entry.values.findIndex((value) => value != null)).filter((index) => index >= 0)));
+  if (lead > 0 && shown.length - lead >= 2) {
+    shown = shown.slice(lead);
+    kept = kept.map((entry) => ({ ...entry, values: entry.values.slice(lead) }));
+  }
   return {
     labels: shown.map((end) => labelOf(end, frequency).replace(/^TTM /, "")),
     names: shown.map((end) => labelOf(end, frequency)),
