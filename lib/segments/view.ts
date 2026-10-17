@@ -63,7 +63,9 @@ const RENAME: Record<string, Record<string, string>> = {
 const OPENS_ON: Record<string, string> = { NVDA: "product", AAPL: "product" };
 
 export function displayLabel(ticker: string, label: string): string {
-  return RENAME[ticker.toUpperCase()]?.[label] ?? label;
+  // A label read from a linkbase can keep its HTML entities: Walmart's "Sam's&#160;Club U.S.".
+  const plain = label.replace(/&#160;|&nbsp;|&#xa0;/gi, " ").replace(/&amp;/g, "&").replace(/&#8217;|&rsquo;/g, "’").replace(/&#39;|&apos;/g, "'");
+  return RENAME[ticker.toUpperCase()]?.[plain] ?? RENAME[ticker.toUpperCase()]?.[label] ?? plain;
 }
 
 const DAY = 86_400_000;
@@ -221,4 +223,35 @@ export function backlogCards(data: SegmentData): BacklogCard[] {
     // The company's own figure first, then its segments, largest first; a line no filing has stated for a year is history.
     .filter((card) => Date.parse(card.latest.end) >= Date.parse(newest) - 400 * DAY)
     .sort((left, right) => Number(right.id.includes(":total:")) - Number(left.id.includes(":total:")) || right.latest.value - left.latest.value);
+}
+
+export interface RevenueCut {
+  id: string;
+  title: string;
+  /** The lines that add up to the period's revenue, largest first; "Not allocated to a line" where they fall just short. */
+  lines: Array<{ id: string; label: string; value: number }>;
+  total: number;
+}
+
+/**
+ * The ways one period's revenue is cut that add up to it — by segment, by product, by region — for a flow that
+ * starts from where the revenue came from. Only cuts the filing reconciles at that period's end, and none with a
+ * negative line (an elimination cannot be drawn as money coming in).
+ */
+export function revenueCuts(data: SegmentData, end: string, periodicity: SegmentPeriodicity): RevenueCut[] {
+  const cuts: RevenueCut[] = [];
+  for (const view of segmentViews(data).filter((candidate) => !candidate.parent)) {
+    const stack = data.stacks.find((candidate) => candidate.measure === "revenue" && candidate.axis === view.axis && candidate.parent == null
+      && candidate.periodicity === periodicity && Math.abs(Date.parse(candidate.end) - Date.parse(end)) <= 7 * DAY);
+    if (!stack || stack.residual < 0) continue;
+    const lines = stack.ids.flatMap((id) => {
+      const line = data.series.find((series) => series.id === id);
+      const point = line?.[periodicity].find((candidate) => candidate.end === stack.end);
+      return line && point ? [{ id, label: displayLabel(data.ticker, line.label), value: point.value }] : [];
+    });
+    if (stack.residual > 0) lines.push({ id: RESIDUAL_ID, label: "Not allocated to a line", value: stack.residual });
+    if (lines.length < 2 || lines.some((line) => line.value < 0)) continue;
+    cuts.push({ id: view.id, title: view.title, lines: lines.sort((left, right) => right.value - left.value), total: stack.total });
+  }
+  return cuts;
 }

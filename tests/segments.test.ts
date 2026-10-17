@@ -6,7 +6,7 @@ import { KNOWN_SUCCESSORS, PREDECESSORS, UNIVERSE, universeMember } from "@/lib/
 import { FILED_NAMES } from "@/lib/universe-names";
 import { buildCustomers, customerKind, matchCompany, parseCustomerFacts, type CustomerFact } from "@/lib/segments/customers";
 import { edgesOf, suppliersFrom, type Edge } from "@/lib/segments/relations";
-import { backlogCards, segmentChart, segmentRows, segmentViews } from "@/lib/segments/view";
+import { backlogCards, revenueCuts, segmentChart, segmentRows, segmentViews } from "@/lib/segments/view";
 import { segmentCharts } from "@/lib/segments/charts";
 
 const filing = { accession: "0001652044-26-000071", filed: "2026-07-24", form: "10-Q" };
@@ -502,5 +502,27 @@ describe("customers across renamed members", () => {
     expect(customers[0].member).toBe("ball:TheCocaColaCompanyMember");
     // A year filed twice takes the later filing's figure.
     expect(customers[0].annual.map((point) => [point.end.slice(0, 4), point.share])).toEqual([["2021", 0.1], ["2022", 0.13], ["2024", 0.14]]);
+  });
+});
+
+describe("the cuts a period's revenue flows from", () => {
+  const point = (end: string, value: number) => ({ start: null, end, value, accession: "a" });
+  const line = (id: string, label: string, axis: "business" | "geography", value: number) => ({
+    id, measure: "revenue", axis, member: id, label, parent: null, parentLabel: null, quarterly: [point("2026-06-30", value)], annual: [], instant: [],
+  });
+  const stack = (axis: "business" | "geography", ids: string[], total: number, residual: number) => ({
+    measure: "revenue", axis, parent: null, periodicity: "quarterly", start: "2026-04-01", end: "2026-06-30", total, ids, residual,
+  });
+
+  it("gives each cut the filing reconciles at that quarter, its lines largest first and its entities decoded", () => {
+    const data = {
+      ticker: "WMT", series: [line("us", "Walmart U.S.", "business", 126), line("sams", "Sam's&#160;Club U.S.", "business", 26), line("intl", "Walmart International", "business", 36),
+        line("dom", "U.S.", "geography", 150), line("for", "Other countries", "geography", 39)],
+      stacks: [stack("business", ["us", "sams", "intl"], 188, 0), stack("geography", ["dom", "for"], 188, -1)],
+    } as never;
+    const cuts = revenueCuts(data, "2026-06-30", "quarterly");
+    expect(cuts.map((cut) => cut.title)).toEqual(["By segment"]);
+    expect(cuts[0].lines.map((entry) => entry.label)).toEqual(["Walmart U.S.", "Walmart International", "Sam's Club U.S."]);
+    expect(revenueCuts(data, "2025-06-30", "quarterly")).toEqual([]);
   });
 });

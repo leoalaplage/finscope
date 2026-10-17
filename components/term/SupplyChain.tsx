@@ -51,8 +51,9 @@ export function SupplyChain({ ticker, frame = (body) => body }: {
 
   if (answer === null) return frame(<p className="t-empty">Reading the customers named in the company&apos;s filings…</p>);
   if (answer === "failed") return frame(<p className="t-empty">Customers and suppliers are unavailable just now.</p>);
-  // Most companies name no customer of a tenth of their revenue: nothing to show is no panel.
-  if (!answer.customers.length && !answer.suppliers.length && !answer.pending) return null;
+  // Most companies name no customer of a tenth of their revenue: nothing to show is no panel, while the reports are
+  // still being read as well.
+  if (!answer.customers.length && !answer.suppliers.length) return null;
   const latest = (customer: Customer) => [...customer.annual].reverse().find((point) => point.share != null) ?? null;
 
   return frame(

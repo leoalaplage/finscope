@@ -37,6 +37,8 @@ export interface SankeyOptions {
    * with the labels of the column before it.
    */
   labelRoom?: number;
+  /** Room kept clear to the left of the first column, for labels drawn on that side of it (a revenue's segments). */
+  leftRoom?: number;
   /**
    * Vertical ordering inside a column, drawn top to bottom by ascending rank.
    * Equal ranks keep the order the caller declared them in.
@@ -62,7 +64,7 @@ export interface SankeyOptions {
  * ribbons inside the box that anchors them rather than spilling past it.
  */
 export function layoutSankey(flows: SankeyFlow[], options: SankeyOptions): SankeyLayout {
-  const { width, height, nodeWidth = 14, nodePadding = 10, margin = 4, labelRoom = 0, rank } = options;
+  const { width, height, nodeWidth = 14, nodePadding = 10, margin = 4, labelRoom = 0, leftRoom = 0, rank } = options;
   const usable = flows.filter((flow) => Number.isFinite(flow.value) && flow.value > 0);
   if (!usable.length) return { nodes: [], links: [], width, height };
 
@@ -125,8 +127,8 @@ export function layoutSankey(flows: SankeyFlow[], options: SankeyOptions): Sanke
   }
   if (!Number.isFinite(scale) || scale <= 0) return { nodes: [], links: [], width, height };
 
-  const span = Math.max(0, width - 2 * margin - nodeWidth - labelRoom);
-  const columnX = (level: number) => maxDepth === 0 ? margin : margin + (level / maxDepth) * span;
+  const span = Math.max(0, width - 2 * margin - nodeWidth - labelRoom - leftRoom);
+  const columnX = (level: number) => maxDepth === 0 ? margin + leftRoom : margin + leftRoom + (level / maxDepth) * span;
 
   const nodes: SankeyNodeLayout[] = [];
   for (const [level, declared] of [...columns.entries()].sort((a, b) => a[0] - b[0])) {
