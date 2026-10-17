@@ -252,9 +252,11 @@ export function TermCompany({ ticker }: { ticker: string }) {
         <Panel code="SEG" title="Segments" area="seg">
           <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
         </Panel>
-        <Panel code="KPI" title="Operating KPIs" area="kpi">
-          <div className="t-panel-pad"><OperatingKpis key={`kpi-${company.ticker}`} ticker={company.ticker} cik={company.cik} /></div>
-        </Panel>
+        {/* Only where the company's documents prove a figure: most companies print none the reader can trust. */}
+        <OperatingKpis
+          key={`kpi-${company.ticker}`} ticker={company.ticker} cik={company.cik}
+          frame={(body) => <Panel code="KPI" title="Operating KPIs" area="kpi"><div className="t-panel-pad">{body}</div></Panel>}
+        />
         {/* The figures and their growth side by side, one height: twelve small multiples fill the figures' half as the growth table fills its own. */}
         <Panel code="FA" area="fa" className="t-fill t-fa">
           <Multiples view={view} selected={selectedMetrics} onSelect={selectMetric} range="MAX" frequency="ttm" collapsedCount={12} />

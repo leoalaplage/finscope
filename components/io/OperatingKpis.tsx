@@ -64,7 +64,11 @@ function Bars({ kpi }: { kpi: OperatingKpi }) {
  * in its releases and its 10-Qs — each figure proven against the same row a
  * year later (lib/operating-kpis.ts).
  */
-export function OperatingKpis({ ticker, cik }: { ticker: string; cik: string }) {
+export function OperatingKpis({ ticker, cik, frame = (body) => body }: {
+  ticker: string; cik: string;
+  /** The panel around it: left out altogether when the company's documents prove no figure. */
+  frame?: (body: React.ReactNode) => React.ReactNode;
+}) {
   const [answer, setAnswer] = useState<{ key: string; data: Kpis | null; failed: boolean } | null>(null);
   const [attempt, setAttempt] = useState(0);
   const key = `${ticker}:${cik}`;
@@ -78,14 +82,14 @@ export function OperatingKpis({ ticker, cik }: { ticker: string; cik: string }) 
   }, [key, ticker, cik, attempt]);
 
   const current = answer?.key === key ? answer : null;
-  if (!current) return <p className="t-empty">Reading the releases and the 10-Qs of the last two years… the first reading takes a few seconds.</p>;
+  if (!current) return frame(<p className="t-empty">Reading the releases and the 10-Qs of the last two years… the first reading takes a few seconds.</p>);
   if (current.failed || !current.data) {
-    return <p className="t-empty">EDGAR is temporarily unavailable. <button type="button" className="segments-retry" onClick={() => setAttempt((count) => count + 1)}>Try again</button></p>;
+    return frame(<p className="t-empty">EDGAR is temporarily unavailable. <button type="button" className="segments-retry" onClick={() => setAttempt((count) => count + 1)}>Try again</button></p>);
   }
   const { kpis, early } = current.data;
-  if (!kpis.length) return <p className="t-empty">No operating figure in this company&apos;s releases and 10-Qs could be proven against the same table a year apart.</p>;
+  if (!kpis.length) return null;
 
-  return (
+  return frame(
     <div className="kpi">
       {early ? (
         <p className="kpi-early">The {quarterLabel(early.end)} quarter is read from the release filed {shortDate(early.filed)}, before its 10-Q. <a href={early.url} target="_blank" rel="noreferrer">The release ↗</a></p>

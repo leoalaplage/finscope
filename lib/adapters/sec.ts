@@ -266,6 +266,13 @@ const US_GAAP_CONCEPTS: Record<Exclude<MetricKey, "freeCashFlow" | "netShareRepu
   // which is what makes JPMorgan's 64.8bn belong beside its 435.2bn.
   shortTermBorrowings: { namespace: "us-gaap", tags: ["ShortTermBorrowings", "OtherShortTermBorrowings"], unit: "currency" },
   financeLeaseLiability: { namespace: "us-gaap", tags: ["FinanceLeaseLiability"], unit: "currency" },
+  // Leases are capital the business runs on, as borrowing is: invested capital counts them (lib/finance.ts). The
+  // total where it is filed; many filers state only the two halves, or the total once a year.
+  financeLeaseLiabilityCurrent: { namespace: "us-gaap", tags: ["FinanceLeaseLiabilityCurrent"], unit: "currency" },
+  financeLeaseLiabilityNoncurrent: { namespace: "us-gaap", tags: ["FinanceLeaseLiabilityNoncurrent"], unit: "currency" },
+  operatingLeaseLiability: { namespace: "us-gaap", tags: ["OperatingLeaseLiability"], unit: "currency" },
+  operatingLeaseLiabilityCurrent: { namespace: "us-gaap", tags: ["OperatingLeaseLiabilityCurrent"], unit: "currency" },
+  operatingLeaseLiabilityNoncurrent: { namespace: "us-gaap", tags: ["OperatingLeaseLiabilityNoncurrent"], unit: "currency" },
   currentAssets: { namespace: "us-gaap", tags: ["AssetsCurrent"], unit: "currency" },
   // Including noncontrolling interests as a fallback: Visa reports almost only
   // that form, and invested capital wants the whole financing base anyway.

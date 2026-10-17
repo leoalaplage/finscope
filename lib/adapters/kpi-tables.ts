@@ -79,6 +79,8 @@ function cellNumber(cell: string): KpiCell | null {
 const NOT_THE_FIGURE = /chang|variance|fav|unfav|increase|decrease|growth|adjust|non-?gaap|constant|fx|currency|%|percent|\bbps\b|\bpts?\b|y\/y|yoy|vs\.?/i;
 
 const SCALE = /\b(?:in |\()?(millions|thousands|billions)\b/i;
+/** A count of people, never an amount. */
+const HEADCOUNT = /\b(?:employees|headcount|full-time equivalents?|workforce)\b/i;
 
 /** A figure that is an amount of money by its name, whether or not its row prints the dollar sign. */
 const PRICED = /\barp[ua]\b|\barm\b|revpar|\badr\b|average daily rate|(?:revenue|price|win|sales|spend|ticket|fare) per\b|average (?:selling )?price|average ticket/i;
@@ -164,12 +166,15 @@ export function kpiRows(html: string): KpiRow[] {
       // "Systemwide", "Consolidated": the whole company, not the region printed above it (McDonald's).
       if (/^(?:systemwide|system-wide|consolidated|total company|worldwide|global|company-wide)\s+\S/i.test(label)) section = null;
       let unit: KpiUnit = rate ? "percent" : currency || PRICED.test(label) ? "currency" : "count";
+      // People are counted, whatever the table's "$ in millions" says (Amazon prints its employees in that table).
+      const people = HEADCOUNT.test(label) && !rate;
       // Only under a heading that is itself a measure, and only from a rate to an amount or back: a property's or a
       // region's name heads all its rows, and a "$" printed on the first row only does not change what is counted.
       if (section && sectionUnit && (unit === "percent") !== (sectionUnit === "percent") && OPERATING.test(section)) section = null;
       // A statement prints its "$" on a block's first row only: the rows below it under one heading are amounts too.
       const inherited = section != null && sectionUnit === "currency" && unit === "count" && !SCALE.test(label);
-      if (inherited) unit = "currency";
+      if (inherited && !people) unit = "currency";
+      if (people) unit = "count";
       if (section && !sectionUnit) sectionUnit = unit;
       // "Comparable sales increase" one year, "increase/(decrease)" the next: the same row.
       const keyed = (text: string) => normalise(text).replace(/\b(?:increase|decrease|growth|change)\b|\//g, " ").replace(/\s+/g, " ").trim();
@@ -230,7 +235,7 @@ const OPERATING = new RegExp([
 const STATEMENT = /\brevenues?\b(?! per\b)|^(?:total )?(?:net )?sales\b(?! per\b)|propert(?:y|ies),? (?:plant|and equipment)|purchases? of|fees?\b|\bstock\b|\brsus?\b|awards?\b|options?\b|additions? to|acquisitions? of|proceeds|obligation|reconciliation|\brent\b|maintenance|repairs|salaries|wages|compensation|\b(?:net )?income\b|expenses?\b|\bcost of\b|\bcosts?\b(?! per\b)|\bmargin\b|earnings|\beps\b|\bprofit\b|\btax|depreciation|amortization|ebitda|\bebit\b|cash\b|\bassets\b(?! under)|liabilit|equity|\bdebt\b|borrowing|dividend|\bshares?\b|weighted|diluted|basic|interest|impairment|restructuring|\bgains?\b|\bloss(?:es)?\b(?! ratio)|provision|receivable|payable|inventor|goodwill|capital expenditure|free cash|operating activities|investing|financing|guidance|outlook|\bbps\b|effective/i;
 
 /** Plainly operating, wherever it is printed: a figure per unit of something, a count in stated units, a rate the business is run by. */
-const STRONG = /\bper (?:available|paying|member|membership|user|subscriber|customer|unit|account|occupied|passenger|square|room|gallon|trip|order|transaction|vehicle|store|restaurant|location|daily)|\((?:in )?(?:000s|thousands|millions|cents)\)|\bin (?:thousands|millions)\b|comparable|same[- ]store|occupanc|load factor|retention|churn|available seat|revpar|average daily rate|paid members|subscribers|deliveries|backlog|systemwide|system-wide|daily active|monthly active/i;
+const STRONG = /\bemployees\b|\bheadcount\b|\bper (?:available|paying|member|membership|user|subscriber|customer|unit|account|occupied|passenger|square|room|gallon|trip|order|transaction|vehicle|store|restaurant|location|daily)|\((?:in )?(?:000s|thousands|millions|cents)\)|\bin (?:thousands|millions)\b|comparable|same[- ]store|occupanc|load factor|retention|churn|available seat|revpar|average daily rate|paid members|subscribers|deliveries|backlog|systemwide|system-wide|daily active|monthly active/i;
 const ADJUSTED = /adjusted|non-?gaap|excluding|\bex-|-ex\b|pro forma|see note/i;
 
 export const isOperating = (row: Pick<KpiRow, "label" | "section" | "financial" | "unit">) => {
@@ -267,14 +272,19 @@ export function anchorRow(newer: KpiRow, older: KpiRow): KpiReading | null {
     const measure = newer.group ?? (heading && !PERIOD.test(heading) && !/millions|thousands|billions|dollars|unaudited|\$/i.test(heading) && /[a-z]{3}/i.test(heading) ? heading : null);
     return { key: newer.key, label: newer.label, section: newer.section, unit: newer.unit, scale: newer.scale ?? older.scale, measure, current, yearAgo };
   };
-  // Five quarters side by side (Chipotle, the banks): the year-ago quarter is the last column, newest first, or
-  // the first, oldest first — and it is the older document's own quarter at the other end.
+  // Five quarters or more side by side (Chipotle and the banks five, Amazon six): the year-ago quarter is four
+  // columns from the newest, newest first or oldest first — and the older document prints it as its own newest.
   const newerFigures = figures(newer), olderFigures = figures(older);
-  if (newerFigures.length === 5 && olderFigures.join() === newerFigures.join()) {
-    const [first, , , , last] = newerFigures;
+  if (newerFigures.length >= 5 && olderFigures.join() === newerFigures.join()) {
+    const count = newerFigures.length;
+    const first = newerFigures[0], last = newerFigures[count - 1];
     const cell = (row: KpiRow, index: number) => row.values[index]!;
-    if (equal(cell(newer, last), cell(older, first)) && precise(cell(older, first), older.unit)) return reading(cell(newer, first), cell(newer, last), first);
-    if (equal(cell(newer, first), cell(older, last)) && precise(cell(older, last), older.unit)) return reading(cell(newer, last), cell(newer, first), last);
+    // Newest first: the quarter is the first column, the year before it the fifth.
+    const fifth = newerFigures[4];
+    if (equal(cell(newer, fifth), cell(older, first)) && precise(cell(older, first), older.unit)) return reading(cell(newer, first), cell(newer, fifth), first);
+    // Oldest first: the quarter is the last column, the year before it four to its left.
+    const back = newerFigures[count - 5];
+    if (equal(cell(newer, back), cell(older, last)) && precise(cell(older, last), older.unit)) return reading(cell(newer, last), cell(newer, back), last);
     return null;
   }
   const olderColumns = olderFigures.slice(0, 2);

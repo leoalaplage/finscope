@@ -205,7 +205,9 @@ export function assembleKpis(pairs: Array<{ newer: KpiDocument; older: KpiDocume
   // The heading is always named: "Postpaid phone customers" under "Net customer additions" is not a count of customers.
   return kept.slice(0, MAX_SERIES).map((entry) => {
     const { label, section, measure, unit, scale } = entry.reading;
-    const name = `${section ? `${section} · ` : ""}${label}${measure ? ` · ${measure}` : ""}`;
+    // A heading that says nothing of what is counted ("Other", "Supplemental") is left off.
+    const named = section && !/^(?:other|others|all other|supplemental(?: information)?|additional information|key metrics|metrics|operating (?:data|metrics|statistics)|statistics)$/i.test(section.trim()) ? section : null;
+    const name = `${named ? `${named} · ` : ""}${label}${measure ? ` · ${measure}` : ""}`;
     return {
       id: `${entry.family}|${entry.reading.key}|${measure ?? ""}`,
       name, unit, scale,
@@ -231,7 +233,8 @@ async function paced(): Promise<void> {
 
 async function filingRows(filing: KpiFiling, release: boolean): Promise<{ rows: KpiRow[]; url: string } | null> {
   const cache = datasetCache();
-  const key = `kpi-rows:v2:${filing.accession}`;
+  // v3: headcounts are operating rows and counts (kept rows are filtered by isOperating before they are stored).
+  const key = `kpi-rows:v3:${filing.accession}`;
   const stored = await cache?.get<{ rows: StoredRow[]; url: string }>(key, "json").catch(() => null);
   if (stored) return { url: stored.url, rows: stored.rows.map((row) => ({ ...row, excluded: new Set(row.excluded) })) };
   const headers = { "User-Agent": SEC_AGENT() };
@@ -285,7 +288,8 @@ export async function operatingKpis(cik: string): Promise<OperatingKpis> {
   });
   const { documents, filedEnds } = JSON.parse(listed) as { documents: KpiDocument[]; filedEnds: string[] };
   const basis = documents.map((document) => document.accession.slice(-8)).join("");
-  const { body } = await cachedJson(`operating-kpis:v2:${padded}:${basis.length > 200 ? basis.slice(0, 200) : basis}`, 30 * 86_400, async (): Promise<OperatingKpis> => {
+  // v5: tables of six quarters and more, and headcounts printed under a "$ in millions" heading (Amazon's employees), and no "Other ·" before a name.
+  const { body } = await cachedJson(`operating-kpis:v5:${padded}:${basis.length > 200 ? basis.slice(0, 200) : basis}`, 30 * 86_400, async (): Promise<OperatingKpis> => {
     const pairs = yearApart(documents);
     const needed = [...new Map(pairs.flat().map((document) => [document.accession, document])).values()];
     const read = new Map<string, { rows: KpiRow[]; url: string }>();

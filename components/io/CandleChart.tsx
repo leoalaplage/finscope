@@ -16,6 +16,7 @@ import {
 import { paramsOf, studyName, type StudyParams } from "@/lib/io/study-params";
 import { useChartEvents } from "./chart-events";
 import { canAlert } from "./line-alerts";
+import { openRelease, ReleaseCard } from "./release-card";
 import { publishCross, releaseCross, useSharedCross } from "./crosshair-sync";
 import { setPaneHeight, usePaneHeights } from "./pane-heights";
 import { clampViewport, panBy, rightMargin, shiftRange, stretchRange, ticksFor, windowOf, zoomAround, type Viewport } from "@/lib/io/chart-view";
@@ -924,8 +925,10 @@ export function CandleChart({
   const paneExtra = resizable ? panes.reduce((sum, pane) => sum + ((paneHeights[pane] ?? PANE_DEFAULT_PX) - PANE_DEFAULT_PX), 0) : 0;
 
   const companyEvents = useChartEvents(candles?.symbol ?? "", !compact && (studies.has("earnings") || studies.has("dividends")));
+  // Monthly candles hold a quarter's release every third candle, a dividend as often: too close to read. Weekly and finer only.
+  const eventsShown = interval !== "1mo";
   const markers = useMemo(() => {
-    if (!candles || !view || !companyEvents.length) return [];
+    if (!candles || !view || !companyEvents.length || !eventsShown) return [];
     const daily = interval === "1d";
     const found: Array<{ key: string; kind: "earnings" | "dividend"; local: number; date: string; note: string; tone?: "good" | "bad" }> = [];
     for (const event of companyEvents) {
@@ -949,9 +952,12 @@ export function CandleChart({
       }
     }
     return found;
-  }, [candles, view, companyEvents, studies, interval]);
+  }, [candles, view, companyEvents, studies, interval, eventsShown]);
   const [markedKey, setMarked] = useState<string | null>(null);
   const marked = markers.find((item) => item.key === markedKey) ?? null;
+  // The moves around a release are read on daily closes, whatever the chart's interval: loaded once a marker is pointed at.
+  const dailyForRelease = useCandles(candles?.symbol ?? "", "1d", marked?.kind === "earnings" && interval !== "1d");
+  const releaseBars = interval === "1d" ? candles : dailyForRelease.candles;
 
   return (
   <figure
@@ -1341,17 +1347,30 @@ export function CandleChart({
         {view && markers.length ? (
           <div className="candle-events">
             {markers.map((item) => (
-              <span
-                key={item.key} className="candle-event" data-kind={item.kind} style={{ left: pct(view.x(item.local), W) }}
-                onPointerEnter={() => setMarked(item.key)} onPointerLeave={() => setMarked(null)}
-                aria-label={`${item.note}, ${item.date}`} role="img"
-              >
-                {item.kind === "earnings" ? "E" : "D"}
-              </span>
+              item.kind === "earnings" ? (
+                <button
+                  type="button" key={item.key} className="candle-event" data-kind={item.kind} style={{ left: pct(view.x(item.local), W) }}
+                  onPointerEnter={() => setMarked(item.key)} onPointerLeave={() => setMarked(null)} onFocus={() => setMarked(item.key)} onBlur={() => setMarked(null)}
+                  onPointerDown={(event) => event.stopPropagation()} onClick={() => { if (candles?.symbol) openRelease(candles.symbol, item.date); }}
+                  aria-label={`Earnings release filed ${item.date}: open its reaction`}
+                >
+                  E
+                </button>
+              ) : (
+                <span
+                  key={item.key} className="candle-event" data-kind={item.kind} style={{ left: pct(view.x(item.local), W) }}
+                  onPointerEnter={() => setMarked(item.key)} onPointerLeave={() => setMarked(null)}
+                  aria-label={`${item.note}, ${item.date}`} role="img"
+                >
+                  D
+                </span>
+              )
             ))}
             {marked ? (
-              <span className="candle-event-card" data-tone={marked.tone} style={{ left: `clamp(130px, ${pct(view.x(marked.local), W)}, calc(100% - 130px))` }}>
-                <b>{dateText(Date.parse(`${marked.date}T12:00:00Z`) / 1000, "1d")}</b> {marked.note}
+              <span className="candle-event-card" data-kind={marked.kind} data-tone={marked.kind === "dividend" ? undefined : marked.tone} style={{ left: `clamp(130px, ${pct(view.x(marked.local), W)}, calc(100% - 130px))` }}>
+                {marked.kind === "earnings" && candles?.symbol
+                  ? <ReleaseCard ticker={candles.symbol} date={marked.date} daily={releaseBars} />
+                  : <><b>{dateText(Date.parse(`${marked.date}T12:00:00Z`) / 1000, "1d")}</b> {marked.note}</>}
               </span>
             ) : null}
           </div>

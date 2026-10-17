@@ -29,7 +29,7 @@ export function ValuationCharts({ view, quote }: { view: IoCompanyView; quote: I
   const dates = useMemo(() => monthEnds(today), [today]);
   const key = `${ticker}|${dates[0]}`;
   const [answer, setAnswer] = useState<PriceAnswer | null>(null);
-  const [span, setSpan] = useState<(typeof WINDOWS)[number]["id"]>("10Y");
+  const [span, setSpan] = useState<(typeof WINDOWS)[number]["id"]>("5Y");
   const [wide, setWide] = useState<MultipleKey | null>(null);
 
   useEffect(() => {

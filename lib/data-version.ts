@@ -341,7 +341,11 @@
 // v47: borrowings a balance sheet states only by line of business (Caterpillar,
 // General Motors) are summed from the filings, and a company's own non-current
 // debt line is read where no standard one is filed (Deere).
-export const KEY_VERSION = "v47";
+// v48: operating and finance lease liabilities are read (total, or current and
+// non-current), and invested capital is debt + leases + equity with the cash
+// left in, as the reference platforms measure it: Amazon's ROIC read 21%
+// against their 10–12%, a cash-rich company's capital having been netted down.
+export const KEY_VERSION = "v48";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

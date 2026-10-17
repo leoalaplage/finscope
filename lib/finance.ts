@@ -10,7 +10,7 @@ export const FORMULAS = {
   freeCashFlowAfterSbc: "Operating cash flow − |Capital expenditures| − Stock-based compensation",
   freeCashFlowAfterSbcPerShare: "Free cash flow after stock-based compensation / Diluted weighted average shares",
   freeCashFlowAfterSbcMargin: "Free cash flow after stock-based compensation / Revenue",
-  investedCapital: "Total debt + Total equity − Cash and short-term investments",
+  investedCapital: "Total debt + Lease liabilities + Total equity",
   nopat: "Operating income × (1 − Effective tax rate)",
   roic: "NOPAT / Average invested capital (opening and closing)",
   cashReturnOnCapital: "Free cash flow / Invested capital",
@@ -310,24 +310,52 @@ export function valueOf(period: FinancialPeriod, key: MetricKey) {
 }
 
 /**
- * The financing view of invested capital: what the providers of capital put in,
- * net of the cash the business is not using. Preferred over the operating view
- * because a full operating build-up would need fixed assets and intangibles
- * that several filers omit.
+ * A balance filed as a total, or as its current and non-current halves; the
+ * non-current half alone where only it is filed (the larger part by far).
+ */
+function totalOrHalves(period: FinancialPeriod, total: MetricKey, current: MetricKey, noncurrent: MetricKey): number | null {
+  const whole = valueOf(period, total);
+  if (whole != null) return whole;
+  const near = valueOf(period, current); const far = valueOf(period, noncurrent);
+  if (near != null && far != null) return near + far;
+  return far;
+}
+
+/**
+ * The leases a business runs on: operating and finance lease liabilities, the
+ * finance ones only where total debt has not already counted them (a filer
+ * whose debt line is "long-term debt and finance lease obligations"). Null
+ * where none is filed: most filers with leases state them, and a company that
+ * leases nothing files nothing.
+ */
+export function leaseLiabilities(period: FinancialPeriod): number | null {
+  const operating = totalOrHalves(period, "operatingLeaseLiability", "operatingLeaseLiabilityCurrent", "operatingLeaseLiabilityNoncurrent");
+  const debt = period.facts.totalDebt;
+  const debtHasLeases = /lease/i.test(`${debt?.provenance.concept ?? ""} ${debt?.provenance.formula ?? ""}`);
+  const finance = debtHasLeases ? null : totalOrHalves(period, "financeLeaseLiability", "financeLeaseLiabilityCurrent", "financeLeaseLiabilityNoncurrent");
+  if (operating == null && finance == null) return null;
+  return (operating ?? 0) + (finance ?? 0);
+}
+
+/**
+ * Invested capital, as the reference platforms measure it (S&P Capital IQ's
+ * return on capital, Morningstar, Fiscal.ai): everything the providers of
+ * capital have put in — borrowing, the leases the business runs on, and
+ * equity — with the cash left in. Netting the cash out made a cash-rich
+ * company's capital look small and its return large: Amazon, with $123bn of
+ * cash and investments and $110bn of leases, read 21% where the platforms
+ * read 10–12%.
  *
- * All three balances are required. Treating an unmapped debt concept as zero
+ * Debt and equity are required. Treating an unmapped debt concept as zero
  * understates the capital base, and understating the denominator of a return
  * overstates the return — which is how a company with 90bn of borrowings once
  * showed a 247% return on invested capital. A missing balance is unknown, and
- * unknown capital earns an unknown return.
+ * unknown capital earns an unknown return. Leases are added where filed.
  */
 export function investedCapital(period: FinancialPeriod): number | null {
-  // Cash and short-term investments, as net debt nets them: Copart moving its
-  // cash into treasury bills each quarter otherwise swung its invested capital
-  // by billions, and its return on it between 21% and 33%, quarter to quarter.
-  const debt = valueOf(period, "totalDebt"); const equity = valueOf(period, "totalEquity"); const liquid = liquidAssets(period);
-  if (debt == null || equity == null || liquid == null) return null;
-  const capital = debt + equity - liquid;
+  const debt = valueOf(period, "totalDebt"); const equity = valueOf(period, "totalEquity");
+  if (debt == null || equity == null) return null;
+  const capital = debt + (leaseLiabilities(period) ?? 0) + equity;
   return capital > 0 ? capital : null;
 }
 
@@ -358,7 +386,7 @@ export function capitalAYearEarlier(
  * Return on invested capital, one definition for the screener and the company
  * page: NOPAT over the capital employed through the year — the average of the
  * opening and closing balances where an opening one exists, the closing one
- * otherwise. Capital is total debt + equity − cash and short-term investments.
+ * otherwise. Capital is total debt + lease liabilities + equity (investedCapital).
  */
 export function returnOnAverageCapital(
   nopatValue: number | null | undefined,

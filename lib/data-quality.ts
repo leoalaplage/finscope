@@ -14,9 +14,9 @@ export const METRIC_DEPENDENCIES: Record<string, MetricKey[]> = {
   stockBasedCompensationToRevenue: ["stockBasedCompensation", "revenue"], stockBasedCompensationToFcf: ["stockBasedCompensation", "operatingCashFlow", "capitalExpenditures"],
   cashConversion: ["operatingCashFlow", "capitalExpenditures", "netIncome"], effectiveTaxRate: ["incomeTaxExpense", "incomeBeforeTax"],
   netDebt: ["totalDebt", "cashAndEquivalents"],
-  investedCapital: ["totalDebt", "totalEquity", "cashAndEquivalents"],
+  investedCapital: ["totalDebt", "totalEquity"],
   nopat: ["operatingIncome", "incomeBeforeTax", "incomeTaxExpense"],
-  roic: ["operatingIncome", "incomeBeforeTax", "incomeTaxExpense", "totalDebt", "totalEquity", "cashAndEquivalents"],
+  roic: ["operatingIncome", "incomeBeforeTax", "incomeTaxExpense", "totalDebt", "totalEquity"],
   capitalIntensity: ["capitalExpenditures", "revenue"], netWorkingCapital: ["currentAssets", "currentLiabilities", "cashAndEquivalents"],
 };
 

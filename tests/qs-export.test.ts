@@ -89,17 +89,17 @@ describe("the watchlist as the screener's table", () => {
     const opening = period("annual", "2024-12-31", { ...business, totalDebt: 100, totalEquity: 500, cashAndEquivalents: 100 });
     const closing = period("annual", "2025-12-31", { ...business, totalDebt: 300, totalEquity: 700, cashAndEquivalents: 200 });
     const row = qsRow(dataset([opening, closing]), null).values;
-    // NOPAT is 300 × (1 − 21%) = 237. Invested capital averages 500 and 800.
-    expect(row["ROIC"]).toBeCloseTo(237 / 650 * 100, 8);
+    // NOPAT is 300 × (1 − 21%) = 237. Invested capital (debt + equity, the cash left in) averages 600 and 1,000.
+    expect(row["ROIC"]).toBeCloseTo(237 / 800 * 100, 8);
   });
 
-  it("gives the company page the screener's ROIC: average capital, net of short-term investments", () => {
+  it("gives the company page the screener's ROIC: average capital, cash and short-term investments left in", () => {
     const opening = period("annual", "2024-12-31", { ...business, totalDebt: 100, totalEquity: 500, cashAndEquivalents: 60, shortTermInvestments: 40 });
     const closing = period("annual", "2025-12-31", { ...business, totalDebt: 300, totalEquity: 700, cashAndEquivalents: 150, shortTermInvestments: 50 });
     const company = dataset([opening, closing]);
     const row = qsRow(company, null).values;
     const page = companyView(company).annual.at(-1)!.values.roic!;
-    expect(row["ROIC"]).toBeCloseTo(237 / 650 * 100, 8);
+    expect(row["ROIC"]).toBeCloseTo(237 / 800 * 100, 8);
     expect(page * 100).toBeCloseTo(Number(row["ROIC"]), 8);
   });
 

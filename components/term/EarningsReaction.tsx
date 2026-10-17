@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { shortDate } from "@/components/io/format";
 import type { Candles } from "@/lib/adapters/candles";
 import { reactions, summarise } from "@/lib/term/reaction";
+import { RELEASE_EVENT } from "@/components/io/release-card";
 
 /**
  * ERX: how the stock took its last twelve earnings releases — the move across
@@ -34,9 +35,30 @@ export function EarningsReaction({ ticker, cik }: { ticker: string; cik: string 
     return () => controller.abort();
   }, [key, ticker, cik]);
 
+  /*
+   * The release a chart's marker was clicked on: picked out here, and listed
+   * even when it is older than the last twelve. Arrives as an event on this
+   * page, or as ?release= from the chart page.
+   */
+  const [picked, setPicked] = useState<string | null>(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("release")));
+  useEffect(() => {
+    const onRelease = (event: Event) => setPicked((event as CustomEvent<string>).detail);
+    window.addEventListener(RELEASE_EVENT, onRelease);
+    return () => window.removeEventListener(RELEASE_EVENT, onRelease);
+  }, []);
+
   const current = data?.key === key ? data : null;
-  const rows = useMemo(() => (current?.dates && current.candles ? reactions(current.dates, current.candles) : []), [current]);
-  const summary = summarise(rows);
+  const rows = useMemo(() => {
+    if (!current?.dates || !current.candles) return [];
+    const reach = picked ? current.dates.filter((date) => date >= picked).length : 0;
+    return reactions(current.dates, current.candles, Math.max(12, reach));
+  }, [current, picked]);
+  // The summary stays on the last twelve, whatever was picked further back.
+  const summary = summarise(rows.slice(0, 12));
+  useEffect(() => {
+    if (!picked || !rows.some((row) => row.date === picked)) return;
+    document.querySelector(`.t-erx tr[data-picked]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [picked, rows]);
 
   if (!current) return <p className="t-empty">Reading the releases…</p>;
   // A refused request is not a company without releases, and says so.
@@ -55,7 +77,7 @@ export function EarningsReaction({ ticker, cik }: { ticker: string; cik: string 
           <thead><tr><th className="key">Filed</th><th>Across the release</th><th>+5 sessions</th><th>+20 sessions</th></tr></thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.date}>
+              <tr key={row.date} data-picked={row.date === picked || undefined}>
                 <td className="key">{shortDate(row.date)}</td>
                 <td data-dir={dir(row.day)} style={heat(row.day, 0.1)}>{pct(row.day)}</td>
                 <td data-dir={dir(row.week)}>{pct(row.week)}</td>

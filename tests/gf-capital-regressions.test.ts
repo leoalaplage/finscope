@@ -36,13 +36,14 @@ describe("GF for cash-rich operating companies", () => {
     expect(chart.series.find((entry) => entry.spec.id === "ebitda")!.values.slice(-10).every((value) => value != null)).toBe(true);
   });
 
-  it("draws ROIC on the average positive capital even when cash makes the base small", () => {
+  it("draws ROIC on the capital put in, the cash left in: a cash-rich company no longer reads a return of hundreds of per cent", () => {
     const latest = view.trailing.at(-1)!;
-    expect(latest.values.roic).toBeCloseTo(3.7377169164434436);
+    // Netting the cash out gave 373%; debt and equity give 11%.
+    expect(latest.values.roic).toBeCloseTo(0.11059381694374436);
     const chart = buildPreset(preset("returns"), view, "quarterly", "5Y", new Map())!;
     expect(chart.series.find((entry) => entry.spec.id === "roic")!.values.at(-1)).toBe(latest.values.roic);
-    // Equity less liquid assets is negative in April; keep that real gap.
-    expect(view.trailing.find((period) => period.end === "2026-04-30")!.values.roic).toBeNull();
+    // Equity less liquid assets went negative in April, and the return with it; with the cash left in, the capital is real.
+    expect(view.trailing.find((period) => period.end === "2026-04-30")!.values.roic).not.toBeNull();
     expect(returnOnAverageCapital(100, 20, 30)).toBe(4);
     expect(returnOnAverageCapital(100, 0, 30)).toBeNull();
   });

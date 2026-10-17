@@ -1,4 +1,4 @@
-import { cagrForPeriods, capitalAYearEarlier, derivedValue, earningsToCommon, liquidAssets, reportedDebt, returnOnAverageCapital, valueOf } from "./finance";
+import { cagrForPeriods, capitalAYearEarlier, derivedValue, earningsToCommon, leaseLiabilities, liquidAssets, reportedDebt, returnOnAverageCapital, valueOf } from "./finance";
 import { shareCount, type SharesBasis } from "./market-basis";
 import { balanceSheetHealth } from "./statement-flows";
 import type { CompanyDataset, FinancialPeriod } from "./types";
@@ -153,8 +153,8 @@ function scoreRoic(dataset: CompanyDataset, current: FinancialPeriod | null): nu
   const capital = (period: FinancialPeriod) => {
     const debt = scoreDebt(dataset, period);
     const equity = valueOf(period, "totalEquity");
-    const liquid = liquidAssets(period);
-    const invested = debt == null || equity == null || liquid == null ? null : debt + equity - liquid;
+    // Debt, leases and equity, the cash left in (lib/finance.ts, investedCapital).
+    const invested = debt == null || equity == null ? null : debt + (leaseLiabilities(period) ?? 0) + equity;
     return invested != null && invested > 0 ? invested : null;
   };
   return returnOnAverageCapital(

@@ -203,7 +203,8 @@ describe("verified economic classification", () => {
     expect(annual.facts.longTermDebtCurrent?.provenance.concept).toBe("us-gaap:DebtCurrent");
     expect(annual.facts.totalDebt?.value).toBe(6_210);
     expect(annual.facts.totalDebt?.provenance.formula).toBe("Reported long-term debt, with current debt filed as zero");
-    expect(derivedValue(annual, "roic")).toBeCloseTo(.5731, 3);
+    // Over debt and equity, the cash left in (lib/finance.ts, investedCapital).
+    expect(derivedValue(annual, "roic")).toBeCloseTo(.3985, 3);
   });
 
   it("never adds a current line to a long-term figure that already contains it", () => {

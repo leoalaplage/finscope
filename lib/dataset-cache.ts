@@ -40,6 +40,8 @@ const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [
    * before, and without them every company not yet rebuilt showed blank
    * filing columns in both screeners.
    */
+  // v48 reads lease liabilities and measures invested capital with them and the cash left in; a v47 copy, without the
+  // operating leases, reads a ROIC between the old and the new for the hour a company waits to be rebuilt.
   // v47 reads split and own-named borrowings from the filings; v46 is what was on screen.
   /* s14 adds a lender's book and earnings inputs; an s13 digest of this data version is everything else unchanged. */
   { version: "v47", shape: "s13" },

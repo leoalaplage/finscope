@@ -59,7 +59,7 @@ export const COMPANY_COLUMNS: CompanyColumn[] = [
   { key: "fcfConsistency5", label: "FCF consistency 5Y", format: "score", hint: "R² of a log-linear fit: 1.00 is perfectly steady compounding." },
   { key: "fcfConsistency10", label: "FCF consistency 10Y", format: "score", hint: "The same over ten years." },
   { key: "operatingMargin", label: "Operating Margin", format: "percent", hint: "Operating income as a share of revenue." },
-  { key: "roic", label: "ROIC", format: "percent", hint: "Operating profit after tax over debt plus equity less cash." },
+  { key: "roic", label: "ROIC", format: "percent", hint: "Operating profit after tax over the capital put in: debt, leases and equity." },
   { key: "cashRoC", label: "Cash RoC", format: "percent", hint: "Free cash flow over the same capital base as ROIC, with no tax assumption in the numerator." },
   { key: "cashRoCvsAverage", label: "Cash RoC vs 5Y", format: "points", hint: "How far the latest Cash RoC sits from its own five-year average. Negative means the business is earning less on its capital than it recently did." },
   { key: "roiic5", label: "Incremental ROIC 5Y", format: "percent", hint: "What the last five years of growth cost: change in profit over change in capital." },

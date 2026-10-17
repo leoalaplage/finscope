@@ -1667,3 +1667,6 @@ html.t-noscroll, html.t-noscroll body { overflow: hidden; }
 /* At the toolbar's right end, above the panel it hides. */
 .t-ind-toggle { margin-left: auto; font-weight: 700; white-space: nowrap; }
 .term .t-tool-options button[data-copied="done"] { color: var(--gain); }
+/* The release a chart marker was clicked on. */
+.t-erx tr[data-picked] td { box-shadow: inset 0 1px 0 var(--amber), inset 0 -1px 0 var(--amber); }
+.t-erx tr[data-picked] td.key { color: var(--amber); font-weight: 700; }

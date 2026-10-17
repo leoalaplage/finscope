@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   if (!CIK.test(cik)) return NextResponse.json({ error: "A valid SEC CIK is required." }, { status: 400 });
   const padded = cik.padStart(10, "0");
   try {
-    const { body } = await cachedJson(`backlog:v1:${padded}`, 12 * 3600, () => fetchBacklog(padded));
+    const { body } = await cachedJson(`backlog:v2:${padded}`, 12 * 3600, () => fetchBacklog(padded));
     return new Response(body, {
       headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=600, s-maxage=3600" },
     });

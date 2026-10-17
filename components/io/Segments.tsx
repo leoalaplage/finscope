@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type PointerEvent as 
 import type { SegmentData } from "@/lib/segments/build";
 import { RESIDUAL_ID, backlogCards, segmentChart, segmentRows, segmentViews, periodLabel, type SegmentChart, type SegmentPeriodicity } from "@/lib/segments/view";
 import { useWidth } from "@/components/term/use-width";
-import { ABSENT, edgarUrl, money, shortDate } from "./format";
+import { ABSENT, money, shortDate } from "./format";
 
 /**
  * The company in slices, as its filings state them (lib/segments): revenue by
@@ -20,7 +20,7 @@ const pct = (value: number | null, places = 1) => (value == null || !Number.isFi
 const share = (value: number | null) => (value == null ? ABSENT : `${(value * 100).toFixed(1)}%`);
 const dir = (value: number | null) => (value == null || value === 0 ? undefined : value > 0 ? "up" : "down");
 
-export function Segments({ ticker, cik }: { ticker: string; cik?: string }) {
+export function Segments({ ticker }: { ticker: string; cik?: string }) {
   const [answer, setAnswer] = useState<{ ticker: string; data: SegmentData | null; failed?: boolean } | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [viewId, setViewId] = useState<string | null>(null);
@@ -128,14 +128,6 @@ export function Segments({ ticker, cik }: { ticker: string; cik?: string }) {
           </tbody>
         </table>
       </div>
-      <p className="stat-note">
-        As filed with the SEC, read from the XBRL of the last {data.filings.length} reports ({data.filings.at(-1) ? shortDate(data.filings.at(-1)!.reportDate) : ""} to {data.filings[0] ? shortDate(data.filings[0].reportDate) : ""}
-        {cik && data.filings[0] && edgarUrl(cik, data.filings[0].accession) ? <>, latest <a href={edgarUrl(cik, data.filings[0].accession)!} target="_blank" rel="noreferrer">on EDGAR</a></> : null}).{" "}
-        {revenue?.reconciled
-          ? "Bars stack only the lines that add up to the reported total for that period — any sliver of the total no line carries is drawn in grey — and the lines below the rule are other cuts of the same revenue."
-          : "These lines do not add up to the reported total (a managed basis, or eliminations between segments), so they are drawn side by side, not stacked."}
-        {" "}A fourth quarter is the year less the three quarters before it. Backlog is the remaining performance obligation the company states.
-      </p>
     </section>
   );
 }

@@ -2762,3 +2762,14 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-export-head { display: flex; align-items: baseline; gap: 10px; padding: 6px 4px 8px; font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
 .candle-export-head b { color: var(--amber, #f4e74c); font-size: 15px; letter-spacing: .02em; }
 .candle-export-head .candle-export-source { margin-left: auto; color: var(--ink-3); font-size: 11px; }
+/* An earnings marker: a button to the company's Earnings reaction, and its card. */
+button.candle-event { padding: 0; border: 0; cursor: pointer; }
+.candle-event-card[data-kind="earnings"] { display: grid; gap: 3px; min-width: 230px; padding: 7px 9px; white-space: normal; }
+.candle-event-card .release-title { color: var(--ink); font-size: var(--fs-xs, 12px); }
+.candle-event-card .release-filed { color: var(--ink-3); }
+.candle-event-card .release-grid { display: grid; grid-template-columns: auto auto; gap: 2px 14px; margin-top: 3px; }
+.candle-event-card .release-grid > span { color: var(--ink-3); }
+.candle-event-card .release-grid > b { text-align: right; font-weight: 600; color: var(--ink); margin: 0; }
+.candle-event-card .release-grid > b[data-tone="good"] { color: var(--gain); }
+.candle-event-card .release-grid > b[data-tone="bad"] { color: var(--loss); }
+.candle-event-card .release-hint { margin-top: 3px; color: var(--amber, #f4e74c); font-size: 10px; }

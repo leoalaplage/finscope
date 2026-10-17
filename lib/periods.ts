@@ -18,7 +18,7 @@ export const FLOW_METRICS: MetricKey[] = [
   "dilutedEpsReported",
 ];
 export const WEIGHTED_SHARE_METRICS: MetricKey[] = ["basicShares", "dilutedShares"];
-export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities", "totalEquity", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt", "debtInstrumentCarryingAmount", "shortTermBorrowings", "financeLeaseLiability", "totalLiabilities", "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable", "shortTermInvestments", "longTermInvestments", "retainedEarnings", "minorityInterest", "liabilitiesAndEquity", "temporaryEquity", "heldToMaturitySecurities", "heldToMaturityNoncurrent"];
+export const POINT_METRICS: MetricKey[] = ["sharesOutstanding", "sharesIssued", "treasuryShares", "cashAndEquivalents", "totalDebt", "currentAssets", "currentLiabilities", "totalEquity", "totalAssets", "goodwill", "intangibleAssets", "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt", "debtInstrumentCarryingAmount", "shortTermBorrowings", "financeLeaseLiability", "financeLeaseLiabilityCurrent", "financeLeaseLiabilityNoncurrent", "operatingLeaseLiability", "operatingLeaseLiabilityCurrent", "operatingLeaseLiabilityNoncurrent", "totalLiabilities", "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable", "shortTermInvestments", "longTermInvestments", "retainedEarnings", "minorityInterest", "liabilitiesAndEquity", "temporaryEquity", "heldToMaturitySecurities", "heldToMaturityNoncurrent"];
 const SPLIT_ADJUSTED_METRICS: MetricKey[] = [...WEIGHTED_SHARE_METRICS, "sharesOutstanding", "sharesIssued", "treasuryShares"];
 /** Per-share amounts move the other way: a split divides them. */
 const SPLIT_DIVIDED_METRICS: MetricKey[] = ["dilutedEpsReported", "dividendsPerShare"];
@@ -301,6 +301,7 @@ const NEVER_NEGATIVE = new Set<MetricKey>([
   "totalAssets", "goodwill", "intangibleAssets", "totalLiabilities",
   "longTermDebtCurrent", "longTermDebtNoncurrent", "longTermDebtAndLeases", "otherLongTermDebt",
   "debtInstrumentCarryingAmount", "shortTermBorrowings", "financeLeaseLiability",
+  "financeLeaseLiabilityCurrent", "financeLeaseLiabilityNoncurrent", "operatingLeaseLiability", "operatingLeaseLiabilityCurrent", "operatingLeaseLiabilityNoncurrent",
   "propertyPlantAndEquipment", "inventory", "accountsReceivable", "accountsPayable",
   "shortTermInvestments", "longTermInvestments",
 ]);

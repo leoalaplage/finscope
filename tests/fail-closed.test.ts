@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { companyStatistics } from "../lib/company-statistics";
-import { derivedValue, investedCapital, netDebt } from "../lib/finance";
+import { derivedValue, investedCapital, leaseLiabilities, netDebt } from "../lib/finance";
 import { marketBasis, multipleOf, shareCount } from "../lib/market-basis";
 import { valuationSnapshot } from "../lib/valuation-history";
 import type { CompanyDataset, FinancialPeriod, MetricKey, PricePoint } from "../lib/types";
@@ -64,7 +64,8 @@ describe("a missing balance is unknown, not zero", () => {
 
   it("withholds invested capital, and the returns on it, when debt is unreported", () => {
     const noDebt = without(complete, "totalDebt");
-    expect(investedCapital(period(complete))).toBe(1_000);
+    // Debt and equity, the cash left in.
+    expect(investedCapital(period(complete))).toBe(1_100);
     expect(investedCapital(period(noDebt))).toBeNull();
     // Understating the capital base overstates every return computed on it,
     // which is how a company with 90bn of borrowings once showed 247% ROIC.
@@ -187,5 +188,21 @@ describe("the statistics panel says why, not just nothing", () => {
     const reported = companyStatistics(dataset(complete), priceIn("USD"))
       .find((group) => group.title === "Returns on Capital")!.stats.find((item) => item.label === "ROIC")!;
     expect(reported.formula).not.toContain("assumed");
+  });
+});
+
+describe("leases in invested capital", () => {
+  it("counts operating and finance leases, from the total or from its two halves", () => {
+    expect(leaseLiabilities(period({ operatingLeaseLiability: 90, financeLeaseLiability: 12 }))).toBe(102);
+    expect(leaseLiabilities(period({ operatingLeaseLiabilityCurrent: 10, operatingLeaseLiabilityNoncurrent: 80 }))).toBe(90);
+    expect(leaseLiabilities(period({ operatingLeaseLiabilityNoncurrent: 80 }))).toBe(80);
+    expect(leaseLiabilities(period({ totalDebt: 300 }))).toBeNull();
+    expect(investedCapital(period({ ...complete, operatingLeaseLiability: 90 }))).toBe(1_190);
+  });
+
+  it("does not count finance leases twice where total debt already holds them", () => {
+    const withLeases = period({ ...complete, financeLeaseLiability: 12, operatingLeaseLiability: 90 });
+    withLeases.facts.totalDebt = { ...withLeases.facts.totalDebt!, provenance: { ...withLeases.facts.totalDebt!.provenance, concept: "us-gaap:LongTermDebtAndCapitalLeaseObligations" } };
+    expect(leaseLiabilities(withLeases)).toBe(90);
   });
 });
