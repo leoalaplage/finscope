@@ -314,11 +314,12 @@ async function paced(): Promise<void> {
 
 async function filingRows(filing: KpiFiling, release: boolean): Promise<{ rows: KpiRow[]; url: string } | null> {
   const cache = datasetCache();
+  // v7: a roll-forward of anything but what the business counts is dropped (NVIDIA's warranty "Utilization").
   // v6: a table's scale is said of its dollars only before "except" (Uber's MAPCs), and exhibit headers are no caption.
   // v5: each row carries its table's caption (the heading above it), and a change with no subject takes the row above's.
   // v4: measures under their own column heading, figures stated in sentences, quarterly trends tables, constant-currency
   // growth and business metrics printed in statement tables (kept rows are filtered by isOperating before they are stored).
-  const key = `kpi-rows:v6:${filing.accession}`;
+  const key = `kpi-rows:v7:${filing.accession}`;
   const stored = await cache?.get<{ rows: StoredRow[]; url: string }>(key, "json").catch(() => null);
   if (stored) return { url: stored.url, rows: stored.rows.map((row) => ({ ...row, excluded: new Set(row.excluded) })) };
   const headers = { "User-Agent": SEC_AGENT() };
@@ -424,8 +425,8 @@ export async function operatingKpis(cik: string): Promise<OperatingKpis> {
   });
   const { documents, filedEnds } = JSON.parse(listed) as { documents: KpiDocument[]; filedEnds: string[] };
   const basis = documents.map((document) => document.accession.slice(-8)).join("");
-  // v11: the rows of kpi-rows v6. v10: ten years of quarters, and a series read twice keeps the scale its table states. v9: names, units and suffixes from lib/kpi-names.ts, and rows told apart by their table's caption. v8: a quarter is "before its 10-Q" only after the last one filed. v7: two overlapping quarters prove a table of six and more, and names are tidied. v6: the readings of kpi-rows v4 (sentences, measure columns, quarterly trends). v5: tables of six quarters and more, and headcounts printed under a "$ in millions" heading (Amazon's employees), and no "Other ·" before a name.
-  const { body } = await cachedJson(`operating-kpis:v11:${padded}:${basis.length > 200 ? basis.slice(0, 200) : basis}`, 30 * 86_400, async (): Promise<OperatingKpis> => {
+  // v12: kpi-rows v7, amounts named by a line of business alone dropped, prices read as rates read as prices. v11: the rows of kpi-rows v6. v10: ten years of quarters, and a series read twice keeps the scale its table states. v9: names, units and suffixes from lib/kpi-names.ts, and rows told apart by their table's caption. v8: a quarter is "before its 10-Q" only after the last one filed. v7: two overlapping quarters prove a table of six and more, and names are tidied. v6: the readings of kpi-rows v4 (sentences, measure columns, quarterly trends). v5: tables of six quarters and more, and headcounts printed under a "$ in millions" heading (Amazon's employees), and no "Other ·" before a name.
+  const { body } = await cachedJson(`operating-kpis:v12:${padded}:${basis.length > 200 ? basis.slice(0, 200) : basis}`, 30 * 86_400, async (): Promise<OperatingKpis> => {
     const pairs = yearApart(documents);
     const needed = [...new Map(pairs.flat().map((document) => [document.accession, document])).values()];
     const read = new Map<string, { rows: KpiRow[]; url: string }>();

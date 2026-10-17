@@ -228,6 +228,7 @@ export function backlogCards(data: SegmentData): BacklogCard[] {
 export interface RevenueCut {
   id: string;
   title: string;
+  axis: SegmentView["axis"];
   /** The lines that add up to the period's revenue, largest first; "Not allocated to a line" where they fall just short. */
   lines: Array<{ id: string; label: string; value: number }>;
   total: number;
@@ -251,7 +252,7 @@ export function revenueCuts(data: SegmentData, end: string, periodicity: Segment
     });
     if (stack.residual > 0) lines.push({ id: RESIDUAL_ID, label: "Not allocated to a line", value: stack.residual });
     if (lines.length < 2 || lines.some((line) => line.value < 0)) continue;
-    cuts.push({ id: view.id, title: view.title, lines: lines.sort((left, right) => right.value - left.value), total: stack.total });
+    cuts.push({ id: view.id, title: view.title, axis: view.axis, lines: lines.sort((left, right) => right.value - left.value), total: stack.total });
   }
   return cuts;
 }

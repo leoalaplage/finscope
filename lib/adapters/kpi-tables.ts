@@ -140,6 +140,12 @@ export function tableCaption(before: string): string | null {
   return null;
 }
 
+/** The opening line of a roll-forward table. */
+const ROLL_FORWARD = /^(?:balances?|liability|accrual|reserve|allowance)\b[^,]{0,40}\b(?:at |as of )?(?:the )?(?:beginning|start|opening)\b|^(?:beginning|opening) (?:balance|of (?:the )?(?:period|year|quarter))|^balance,? (?:at |as of )?(?:the )?(?:beginning|start)/i;
+
+/** What a business counts or manages: a roll-forward of it is a KPI. */
+const COUNTED_STOCK = /\baum\b|\bauc\b|assets under|client assets|\bflows\b|customers|subscribers|members|accounts\b|stores|restaurants|properties|rooms|units\b|connections|lines\b|homes|communities|employees|headcount|backlog|policies|aircraft|vessels|rigs|wells\b/i;
+
 /** A unit of volume or energy printed in a column of its own. */
 const PHYSICAL_UNIT = /^(?:mb\/?d|m{0,2}boe(?:d|\/d|pd)?|m{0,2}bbls?(?:d|\/d)?|bpd|m{0,2}cf(?:e|d|\/d)?|bcfe?|mmbtus?|[kmg]whs?|mw|(?:metric )?tons|tonnes)$/i;
 
@@ -313,7 +319,13 @@ export function kpiRows(html: string): KpiRow[] {
     // A table of adjustments: its headings say so, or a third of its rows are adjusted (an adjusted row on its own is
     // left out by isOperating, its table kept: Delta prints "TRASM, adjusted" among its statistics).
     const reconciliation = /reconcil/i.test(words) || ADJUSTED.test(words) || (labelled > 0 && adjusted / labelled >= 1 / 3);
-    if ((cumulative >= 0 && (quarterly < 0 || cumulative < quarterly)) || reconciliation) rows.splice(start);
+    // A roll-forward — a balance at the start, what was added and used, the balance at the end (NVIDIA's warranty
+    // accrual, whose "Utilization" is dollars consumed) — holds no operating figure, whatever its rows are called.
+    // A roll-forward of what the business counts — assets under management and their flows, stores opened and
+    // closed, subscribers added — is itself the KPI, and stays.
+    const rollForward = rows.slice(start).some((row) => ROLL_FORWARD.test(row.label))
+      && !rows.slice(start).some((row) => COUNTED_STOCK.test(`${row.section ?? ""} ${row.label}`)) && !COUNTED_STOCK.test(words);
+    if ((cumulative >= 0 && (quarterly < 0 || cumulative < quarterly)) || reconciliation || rollForward) rows.splice(start);
     else for (let index = start; index < rows.length; index++) {
       rows[index].financial = financial;
       rows[index].quarterly = quarterly >= 0;

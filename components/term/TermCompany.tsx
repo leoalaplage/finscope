@@ -276,11 +276,11 @@ export function TermCompany({ ticker }: { ticker: string }) {
         </Panel>
 
         <Chapter area="c-res" number={3} title="Results" />
-        <Panel code="EE" title="Latest quarter" area="ee">
-          <EarningsBoard key={`ee-${company.ticker}`} view={view} lastFiled={lastFiled ? { label: lastFiled.label, filingDate: lastFiled.filingDate } : null} />
-        </Panel>
         <Panel code="FLOW" title="Money flow" area="flow">
           <div className="t-panel-pad"><MoneyFlow key={`flow-${company.ticker}`} view={view} /></div>
+        </Panel>
+        <Panel code="EE" title="Latest quarter" area="ee">
+          <EarningsBoard key={`ee-${company.ticker}`} view={view} lastFiled={lastFiled ? { label: lastFiled.label, filingDate: lastFiled.filingDate } : null} />
         </Panel>
         <Panel code="EST" title="Estimates" area="est">
           <Estimates key={`est-${company.ticker}`} ticker={company.ticker} price={quote?.price ?? null} currency={quote?.currency ?? company.currency} />

@@ -37,8 +37,8 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   { code: "GR", name: "Growth", chapter: 2 },
   { code: "GF", name: "Fundamental charts", chapter: 2 },
   // 3 · The results
-  { code: "EE", name: "Latest quarter", chapter: 3 },
   { code: "FLOW", name: "Money flow", chapter: 3 },
+  { code: "EE", name: "Latest quarter", chapter: 3 },
   { code: "EST", name: "Estimates", chapter: 3 },
   { code: "RPT", name: "Quarterly history", chapter: 3 },
   { code: "ERX", name: "Earnings reaction", chapter: 3 },

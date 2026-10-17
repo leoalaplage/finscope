@@ -61,3 +61,32 @@ describe("the heading above a table", () => {
     expect(new Set(transactions.map((row) => row.key)).size).toBe(2);
   });
 });
+
+describe("a title that does not say what it measures", () => {
+  it("shows no card for an amount named by its line of business alone", () => {
+    expect(named({ label: "Subscription", unit: "currency", scale: "millions" })).toBeNull();
+    expect(named({ section: "Aerospace", label: "Aircraft manufacturing", unit: "currency" })).toBeNull();
+    expect(named({ label: "Occupancy", unit: "percent", values: [72, 75.5] })?.name).toBe("Occupancy");
+  });
+
+  it("shows no rate the figures cannot be, and reads a price printed as a rate as a price", () => {
+    expect(named({ label: "Utilization", unit: "percent", values: [-401, -156] })).toBeNull();
+    expect(named({ label: "Net yield", unit: "percent", values: [341.89, 278.7] })).toMatchObject({ unit: "currency" });
+    expect(named({ label: "Average daily rate", unit: "percent", values: [254, 261] })).toMatchObject({ name: "Average daily rate", unit: "currency" });
+  });
+});
+
+describe("a roll-forward table", () => {
+  it("holds no operating figure, whatever its lines are called", () => {
+    const html = `<table><tr><td></td><td>Three Months Ended</td></tr><tr><td></td><td>Jul 26, 2026</td><td>Jul 27, 2025</td></tr>
+      <tr><td>Balance at beginning of period</td><td>$</td><td>2,948</td><td>$</td><td>2,080</td></tr>
+      <tr><td>Additions</td><td>391</td><td>220</td></tr><tr><td>Utilization</td><td>(401)</td><td>(156)</td></tr></table>`;
+    expect(kpiRows(html)).toEqual([]);
+  });
+
+  it("is the KPI where it rolls forward what the business counts", () => {
+    const html = `<table><tr><td></td><td>Three Months Ended</td></tr><tr><td></td><td>Aug 1, 2026</td><td>Aug 2, 2025</td></tr>
+      <tr><td>Stores at beginning of period</td><td>2,240</td><td>2,180</td></tr><tr><td>Stores opened</td><td>40</td><td>30</td></tr><tr><td>Stores at end of period</td><td>2,280</td><td>2,210</td></tr></table>`;
+    expect(kpiRows(html).map((row) => row.label)).toContain("Stores opened");
+  });
+});

@@ -41,16 +41,16 @@ describe("where the revenue came from", () => {
   })!);
 
   it("flows from each line of a cut that adds up to the revenue, into the revenue", () => {
-    const drawn = withSources(diagram, { id: "business|", title: "By segment", total: 100, lines: [{ id: "a", label: "Walmart U.S.", value: 67 }, { id: "b", label: "Sam's Club U.S.", value: 33 }] });
+    const drawn = withSources(diagram, { id: "business|", title: "By segment", axis: "business", total: 100, lines: [{ id: "a", label: "Walmart U.S.", value: 67 }, { id: "b", label: "Sam's Club U.S.", value: 33 }] });
     expect(drawn.flows.filter((flow) => flow.target === "revenue")).toEqual([{ source: "source:a", target: "revenue", value: 67 }, { source: "source:b", target: "revenue", value: 33 }]);
     expect(drawn.nodes[0]).toMatchObject({ label: "Walmart U.S.", tone: "revenue" });
   });
 
   it("sums the smallest lines past seven, and leaves out a cut that does not add up to the revenue", () => {
     const lines = Array.from({ length: 10 }, (_, index) => ({ id: `l${index}`, label: `Line ${index}`, value: 10 }));
-    const drawn = withSources(diagram, { id: "geography|", title: "By region", total: 100, lines });
+    const drawn = withSources(diagram, { id: "geography|", title: "By region", axis: "geography", total: 100, lines });
     expect(drawn.nodes.filter((node) => node.id.startsWith("source:")).map((node) => node.label)).toEqual(["Line 0", "Line 1", "Line 2", "Line 3", "Line 4", "Line 5", "Other"]);
     expect(drawn.values["source:other"]).toBe(40);
-    expect(withSources(diagram, { id: "x", title: "By segment", total: 120, lines: [{ id: "a", label: "A", value: 60 }, { id: "b", label: "B", value: 60 }] })).toBe(diagram);
+    expect(withSources(diagram, { id: "x", title: "By segment", axis: "business", total: 120, lines: [{ id: "a", label: "A", value: 60 }, { id: "b", label: "B", value: 60 }] })).toBe(diagram);
   });
 });

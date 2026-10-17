@@ -64,7 +64,7 @@ const GEOGRAPHY = /\b(?:u\.s\.|us|usa|united states|north america|south america|
 const STRONG_MEASURE = /comparable|\bcomps?\b|same[- ]store|like[- ]for[- ]like|\bsales\b|revenue|transactions?|traffic|ticket|customers?|subscribers?|members(?:hip)?\b|users?\b|accounts?\b|stores\b|restaurants\b|warehouses\b|locations\b|\bunits\b|unit counts?|\bcount\b|deliveries|orders\b|bookings?\b|backlog|premiums?|\bratios?\b|\brate\b|yield|margin|occupanc|revpar|\badr\b|average daily rate|\barp[ua]\b|volumes?\b|production|shipments|\baum\b|assets under|client assets|\bflows\b|square f(?:ee|oo)t|footage|\bsq\.? ?ft\b|\brsf\b|employees|headcount|capacity|load factor|seat miles|\b(?:asms?|rpms?|trasm|prasm|casm|rasm)\b|passengers?|nights\b|\bprice\b|prices\b|cost per|spend(?:ing)?\b|penetration|churn|retention|closings?|closed\b|\blots\b|\bgmv\b|gross merchandise|billed business|loans\b|deposits\b|policies|in force|claims\b|prescriptions|scripts|admissions|visits|procedures|requisitions?|gallons|barrels|\bboe\b|\bmcf\b|\bkwh\b|\bgwh\b|\bmwh\b|carloads|\btrips\b|rides\b|impressions|daily active|monthly active|\bdau\b|\bmau\b|\bdap\b|growth|organic|net (?:additions|adds)|openings|closures|apartment|cardholders|buyers|sellers|visitors|headcount|dwell|throughput|utili[sz]ation|generation\b|purchased power|\bdarts\b|\bbalances?\b|factor\b|lines\b(?=.*\b(?:mobile|wireless|access|total)\b)|\bmix\b|performance\b/i;
 
 /** Measured in money, whatever the table's own unit. */
-const MONEY = /\$|\bdollars?\b|\bsales\b|revenue|\bprices?\b|spend(?:ing)?\b|premiums?|bookings?\b|billed business|gross merchandise|\bgmv\b|payments? volume|purchase volume|network volumes?|transaction volume|\btpv\b|\bgtv\b|\baum\b|assets\b|loans\b|deposits\b|balances?\b|\bvalue\b|\bincome\b|\bcosts?\b|\bfees?\b|\barp[ua]\b|revpar|\badr\b|average daily rate|\bper\b|backlog|\bflows\b|ticket|commitments|receivables/i;
+const MONEY = /\$|\bdollars?\b|\bauc\b|\barr\b|annual(?:ized)? recurring|recurring revenue|\bsales\b|revenue|\bprices?\b|spend(?:ing)?\b|premiums?|bookings?\b|billed business|gross merchandise|\bgmv\b|payments? volume|purchase volume|network volumes?|transaction volume|\btpv\b|\bgtv\b|\baum\b|assets\b|loans\b|deposits\b|balances?\b|\bvalue\b|\bincome\b|\bcosts?\b|\bfees?\b|\barp[ua]\b|revpar|\badr\b|average daily rate|\bper\b|backlog|\bflows\b|ticket|commitments|receivables/i;
 
 /** Counted, never an amount of money. */
 const COUNTED = /customers?\b|consumers\b|memberships\b|net (?:membership )?(?:additions|adds)\b|subscribers?|members\b|membership\b|buyers|sellers|users\b|employees|headcount|stores\b|restaurants\b|\bunits?\b|unit counts?|homes\b|\blots\b|deliveries|\bdarts\b|trades\b|orders\b|trips\b|nights\b|passengers|accounts\b|policies|lines\b|connections|production|volumes?\b|barrels|gallons|\bboe\b|\bmcf\b|\bkwh\b|\bgwh\b|\bmwh\b|carloads|\bcars\b|shipments|visitors|transactions\b|contracts\b|cases\b|claims\b|prescriptions|scripts|admissions|visits|procedures|properties|rooms\b|beds\b|wells\b|rigs\b|locations\b|branch(?:es)?\b|cardholders|\bcards\b|inputs\b|\bdays\b|impressions/i;
@@ -329,9 +329,16 @@ export function describeKpi(parts: KpiParts): KpiDescription | null {
   // A count is not in the trillions: the table's "in millions" was said of its amounts (Arch's policies in force).
   if (unit === "count" && scale && suffix !== "sq ft" && values.some((value) => Math.abs(value) * ({ thousands: 1e3, millions: 1e6, billions: 1e9 }[scale!] ?? 1) > 5e10)) scale = null;
   if (unit === "percent") scale = null;
+  // A price read as a rate: a hotel's average daily rate of $254, Norwegian's net yield of $341 a day.
+  if (unit === "percent" && values.length > 0 && values.every((value) => value > 200) && (MONEY.test(main) || /\byield\b/i.test(main))) { unit = "currency"; scale = null; }
+  // A rate the figures cannot be: NVIDIA's warranty "Utilization" of (401).
+  if (unit === "percent" && (values.some((value) => Math.abs(value) > 200) || (LEVEL.test(main) && !/ratio|margin/i.test(main) && values.some((value) => value < 0)))) return null;
   if (unit === "count" && !suffix) suffix = NOUNS.find(([pattern]) => pattern.test(numerator))?.[1] ?? null;
   // Places are not counted in millions: PNC's 2,302 branches under a table "in millions".
   if (unit === "count" && (scale === "millions" || scale === "billions") && /^(?:stores|restaurants|warehouses|clubs|branches|properties|rooms)$/.test(suffix ?? "") && !notes.ownScale) scale = null;
+  // An amount must say what it is: "Subscription", "Aircraft manufacturing" or "Client and gaming" alone is a line of
+  // business, its revenue the SEG panel's and not a KPI.
+  if (unit === "currency" && !STRONG_MEASURE.test(measure) && !MONEY.test(measure)) return null;
   // Revenue is the statements' figure; its growth by a named line of business, at constant currency or organic is not.
   if (PLAIN_REVENUE.test(main) && (unit !== "percent" || ((!scope || scope === "Total") && !qualifiers.includes("constant currency")))) return null;
   if (unit === "currency" && /^(?:revenues?|sales)\b/i.test(main) && !COMPARABLE.test(main) && !/\bper\b/i.test(main)) return null;

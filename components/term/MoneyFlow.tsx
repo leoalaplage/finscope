@@ -120,6 +120,12 @@ function Diagram({ diagram, base, width }: { diagram: StatementDiagram; base: st
   if (!layout.nodes.length) return <p className="t-empty">This filing does not carry enough lines to draw the flow.</p>;
   return (
     <svg className="t-flow-svg" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${diagram.periodLabel}: where the money came from and went`}>
+      {/* The watermark, as on every chart: Tenqay faint across the flow and its mark in the corner, under the ribbons' notice. */}
+      <g className="t-flow-wmark" aria-hidden="true">
+        <text x={width / 2} y={height / 2} textAnchor="middle" dominantBaseline="middle" fontSize={Math.round(Math.min(120, width / 9))}>TENQAY</text>
+        <image href="/favicon.svg" x={width - 74} y={height - 17} width={11} height={11} />
+        <text className="t-flow-wmark-logo" x={width - 59} y={height - 8}>TENQAY</text>
+      </g>
       <g>
         {layout.links.map((link) => {
           const active = hovered === link.source || hovered === link.target;
@@ -176,7 +182,8 @@ export function MoneyFlow({ view }: { view: IoCompanyView }) {
   const period = (filing === "quarter" ? quarter : year) ?? quarter ?? year;
   const shown = period === quarter ? "quarter" : "year";
   const cuts = useMemo(() => (segments && period ? revenueCuts(segments, period.end, shown === "quarter" ? "quarterly" : "annual") : []), [segments, period, shown]);
-  const cut = statement === "income" ? cuts.find((candidate) => candidate.id === cutId) ?? cuts[0] ?? null : null;
+  // By product first, where the filing cuts its revenue that way: what a reader asks of a flow is what sells.
+  const cut = statement === "income" ? cuts.find((candidate) => candidate.id === cutId) ?? cuts.find((candidate) => candidate.axis === "product") ?? cuts[0] ?? null : null;
   const diagram = useMemo(() => {
     if (!period) return null;
     const drawn = statement === "income" ? incomeStatementDiagram(reader(period)) : cashFlowDiagram(reader(period));
