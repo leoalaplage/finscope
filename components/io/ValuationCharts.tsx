@@ -16,7 +16,7 @@ import { ABSENT } from "./format";
  * where it trades now.
  */
 
-const WINDOWS = [{ id: "5Y", years: 5 }, { id: "10Y", years: 10 }] as const;
+const WINDOWS = [{ id: "3Y", years: 3 }, { id: "5Y", years: 5 }, { id: "10Y", years: 10 }] as const;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const short = (date: string) => `${MONTHS[Number(date.slice(5, 7)) - 1]} ${date.slice(2, 4)}`;
 const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
@@ -115,7 +115,6 @@ export function ValuationCharts({ view, quote }: { view: IoCompanyView; quote: I
                   <li key={entry.spec.id} data-kind="line" style={{ "--key": entry.spec.color } as CSSProperties}><i aria-hidden="true" />{entry.spec.label}</li>
                 ))}
               </ul>
-              <p className="t-gf-note">{spec.formula}. Percentile: where today sits among the {span} of month-ends.</p>
             </figure>
           ))}
         </div>

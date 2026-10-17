@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { hueOf } from "@/lib/io/hue";
 
 /**
@@ -37,6 +37,23 @@ function extentOf(values: Array<number | null>, includeZero: boolean): Extent | 
 const xOf = (index: number, length: number) => (length < 2 ? W / 2 : (index / (length - 1)) * W);
 const yOf = (value: number, extent: Extent) => H - ((value - extent.min) / (extent.max - extent.min)) * H;
 
+/**
+ * An area's fill: its line's colour (the `--plot` of the series, app/io.css) at
+ * the line, fading to nothing at the foot, so the shape reads without a block
+ * of colour under it.
+ */
+function Fade({ id }: { id: string }) {
+  return (
+    <defs>
+      <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" className="plot-fade-top" />
+        <stop offset="1" className="plot-fade-foot" />
+      </linearGradient>
+    </defs>
+  );
+}
+const fadeId = (raw: string) => `fade-${raw.replace(/[^a-zA-Z0-9_-]/g, "")}`;
+
 /** One `M…L…` run per unbroken stretch, so a gap in the data is a gap in the line. */
 function segments(values: Array<number | null>, extent: Extent, at?: number[]): string {
   const parts: string[] = [];
@@ -52,6 +69,7 @@ function segments(values: Array<number | null>, extent: Extent, at?: number[]): 
 }
 
 export function Line({ values, area = false, extent: given }: { values: Array<number | null>; area?: boolean; extent?: Extent }) {
+  const fill = fadeId(useId());
   const extent = given ?? extentOf(values, false);
   if (!extent) return null;
   const path = segments(values, extent);
@@ -61,10 +79,13 @@ export function Line({ values, area = false, extent: given }: { values: Array<nu
   return (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
       {area ? (
-        <path
-          className="plot-area"
-          d={`${path} L${xOf(last, values.length).toFixed(2)} ${H} L${xOf(first, values.length).toFixed(2)} ${H} Z`}
-        />
+        <>
+          <Fade id={fill} />
+          <path
+            className="plot-area plot-area-fade" style={{ fill: `url(#${fill})` }}
+            d={`${path} L${xOf(last, values.length).toFixed(2)} ${H} L${xOf(first, values.length).toFixed(2)} ${H} Z`}
+          />
+        </>
       ) : null}
       <path className="plot-line" d={path} vectorEffect="non-scaling-stroke" />
     </svg>
@@ -127,6 +148,7 @@ export function Figure({
   projectedFrom?: number;
 }) {
   const frame = useRef<HTMLDivElement>(null);
+  const fill = fadeId(useId());
   const [cursor, setCursor] = useState<number | null>(null);
   const values = useMemo(() => points.map((point) => point.value), [points]);
   // Bars stand on zero; an area is free to crop to the band the values occupy.
@@ -164,7 +186,8 @@ export function Figure({
           <BarMarks values={values} extent={extent} active={cursor} projectedFrom={projectedFrom} />
         ) : (
           <>
-            <path className="plot-area" d={`${segments(values, extent)} L${W} ${H} L0 ${H} Z`} />
+            <Fade id={fill} />
+            <path className="plot-area plot-area-fade" style={{ fill: `url(#${fill})` }} d={`${segments(values, extent)} L${W} ${H} L0 ${H} Z`} />
             <path className="plot-line" d={segments(values, extent)} vectorEffect="non-scaling-stroke" />
           </>
         )}
@@ -273,6 +296,7 @@ export function MultiLine({
   onHover: (index: number | null) => void;
 }) {
   const frame = useRef<HTMLDivElement>(null);
+  const fadeBase = fadeId(useId());
   const [cursor, setCursor] = useState<number | null>(null);
 
   const placed = useMemo(
@@ -307,12 +331,15 @@ export function MultiLine({
           const length = placed[index].length;
           const first = placed[index].findIndex((value) => value != null);
           const last = length - 1 - [...placed[index]].reverse().findIndex((value) => value != null);
+          const fill = `${fadeBase}-${index}`;
           return (
-            <path
-              key={`${entry.label}-area`}
-              className="plot-area"
-              d={`${path} L${xOf(last, length).toFixed(2)} ${H} L${xOf(first, length).toFixed(2)} ${H} Z`}
-            />
+            <g key={`${entry.label}-area`} data-hue={hueOf(entry.label)}>
+              <Fade id={fill} />
+              <path
+                className="plot-area plot-area-fade" style={{ fill: `url(#${fill})` }}
+                d={`${path} L${xOf(last, length).toFixed(2)} ${H} L${xOf(first, length).toFixed(2)} ${H} Z`}
+              />
+            </g>
           );
         })}
         {series.map((entry, index) => (

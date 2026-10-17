@@ -102,11 +102,6 @@ export function Reports({ view, besideEarnings = false }: { view: IoCompanyView;
           </tbody>
         </table>
       </div>
-      <p className="stat-note">
-        Revenue and EPS as filed with the SEC; EPS is diluted GAAP. The consensus and the adjusted EPS it is measured against are Zacks&apos;, via Nasdaq,
-        for the last four quarters it lists. The release is the earnings 8-K; the move runs from the close before it to the third session after, so it holds the
-        reaction whether the release came before the open or after the close.
-      </p>
     </section>
   );
 }

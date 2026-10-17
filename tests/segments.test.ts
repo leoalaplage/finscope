@@ -256,3 +256,68 @@ describe("a segment chart with a quarter missing a year back", () => {
     }
   });
 });
+
+describe("operating income whose unallocated line stops being tagged", () => {
+  // Broadcom: Infrastructure Software, Semiconductor Solutions and Unallocated
+  // expenses up to August 2025; the last one only in the table's text after.
+  const quarters = [["2025-02-03", "2025-05-04"], ["2025-05-05", "2025-08-03"], ["2025-08-04", "2025-11-02"], ["2025-11-03", "2026-02-01"]];
+  const M = 1_000_000;
+  const income = (member: string | null, start: string, end: string, value: number) => ({ ...fact("operatingIncome", member, start, end, value * M), concept: "us-gaap:OperatingIncomeLoss" });
+  const facts: SegmentFact[] = quarters.flatMap(([start, end], index) => [
+    fact("revenue", "avgo:InfrastructureSoftwareMember", start, end, 6_600 * M), fact("revenue", "avgo:SemiconductorSolutionsMember", start, end, 8_400 * M), fact("revenue", null, start, end, 15_000 * M),
+    income("avgo:InfrastructureSoftwareMember", start, end, 5_000), income("avgo:SemiconductorSolutionsMember", start, end, 5_000 + index * 1_000),
+    ...(index < 2 ? [income("avgo:UnallocatedExpensesMember", start, end, -4_000)] : []),
+    income(null, start, end, 6_000 + index * 1_000 - (index < 2 ? 0 : 500)),
+  ]);
+  const data = buildSegments({ ticker: "AVGO", cik: "1", facts, labels: new Map(), filings: [] });
+  const view = segmentViews(data).find((entry) => entry.axis === "business" && !entry.parent)!;
+
+  it("stacks the segments still, the gap to operating income as the residual", () => {
+    const stacks = data.stacks.filter((stack) => stack.measure === "operatingIncome" && stack.periodicity === "quarterly");
+    expect(stacks.map((stack) => stack.residual)).toEqual([0, 0, -4_500 * M, -4_500 * M]);
+  });
+  it("draws the unallocated line on through the residual, negative", () => {
+    const chart = segmentChart(data, view, "quarterly", "operatingIncome")!;
+    expect(chart.reconciled).toBe(true);
+    expect(chart.series.find((line) => line.label.startsWith("Unallocated"))?.values).toEqual([-4_000 * M, -4_000 * M, -4_500 * M, -4_500 * M]);
+    expect(chart.series.some((line) => line.id === "residual")).toBe(false);
+  });
+  it("leaves revenue as it was", () => {
+    expect(data.stacks.filter((stack) => stack.measure === "revenue").every((stack) => stack.residual === 0)).toBe(true);
+  });
+});
+
+describe("a seasonal fourth quarter", () => {
+  // Reality Labs: headsets sell at Christmas, the fourth quarter near four times the three before it.
+  const M = 1_000_000;
+  const years = [[2022, [695, 452, 285], 2_159], [2023, [339, 276, 210], 1_896]] as const;
+  const facts: SegmentFact[] = years.flatMap(([year, quarters, total]) => [
+    ...quarters.map((value, index) => fact("revenue", "meta:RealityLabsMember", `${year}-${String(index * 3 + 1).padStart(2, "0")}-01`, `${year}-${["03-31", "06-30", "09-30"][index]}`, value * M)),
+    fact("revenue", "meta:RealityLabsMember", `${year}-01-01`, `${year}-12-31`, total * M, `${year + 1}-02-01`),
+  ]);
+  const line = buildSegments({ ticker: "META", cik: "1", facts, labels: new Map(), filings: [] }).series.find((entry) => entry.label === "Reality Labs")!;
+  it("is kept when it stands near the same quarter a year earlier", () => {
+    expect(line.quarterly.filter((quarter) => quarter.derived).map((quarter) => [quarter.end, quarter.value / M])).toEqual([["2022-12-31", 727], ["2023-12-31", 1_071]]);
+  });
+});
+
+describe("one segment within the loose match of operating income", () => {
+  // NVIDIA, July 2025: Compute & Networking alone within 0.4% of operating income, once Corporate stops being tagged.
+  const M = 1_000_000;
+  const quarters = [["2025-01-27", "2025-04-27"], ["2025-04-28", "2025-07-27"]];
+  const income = (member: string | null, start: string, end: string, value: number) => ({ ...fact("operatingIncome", member, start, end, value * M), concept: "us-gaap:OperatingIncomeLoss" });
+  const facts: SegmentFact[] = [
+    ...quarters.flatMap(([start, end]) => [fact("revenue", "nvda:ComputeMember", start, end, 40_000 * M), fact("revenue", "nvda:GraphicsMember", start, end, 4_000 * M), fact("revenue", null, start, end, 44_000 * M)]),
+    income("nvda:ComputeMember", ...quarters[0] as [string, string], 22_054), income("nvda:GraphicsMember", ...quarters[0] as [string, string], 1_640),
+    income("us-gaap:CorporateNonSegmentMember", ...quarters[0] as [string, string], -2_056), income(null, ...quarters[0] as [string, string], 21_638),
+    income("nvda:ComputeMember", ...quarters[1] as [string, string], 28_363), income("nvda:GraphicsMember", ...quarters[1] as [string, string], 2_242),
+    income(null, ...quarters[1] as [string, string], 28_440),
+  ];
+  const data = buildSegments({ ticker: "NVDA", cik: "1", facts, labels: new Map(), filings: [] });
+  it("stacks both segments and the corporate line as the residual", () => {
+    const view = segmentViews(data).find((entry) => entry.axis === "business" && !entry.parent)!;
+    const chart = segmentChart(data, view, "quarterly", "operatingIncome")!;
+    expect(chart.labels).toHaveLength(2);
+    expect(chart.series.find((line) => /corporate/i.test(line.label))?.values.map((value) => value! / M)).toEqual([-2_056, -2_165]);
+  });
+});

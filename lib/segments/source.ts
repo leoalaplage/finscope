@@ -6,12 +6,14 @@ import { parseLabels, parseSegmentFacts, type SegmentFact } from "./xbrl";
  * A company's segments read from its last periodic reports on EDGAR.
  *
  * For each report: the filing's index, then its XBRL instance and its label
- * linkbase. Twelve reports reach back three years, and each states its
- * comparative period too, so the quarters run about four years. A report
+ * linkbase. Twenty-four reports reach back six years, and each states its
+ * comparative period too, so the quarters run about seven years and a
+ * trailing year's growth about five — twelve left GF's segment growth starting
+ * in late 2024 for every company. A report
  * that cannot be read is skipped, never filled in; the reports read are
  * listed with the result.
  *
- * Heavy for a request — some forty fetches and a few megabytes of XML each —
+ * Heavy for a request — some seventy-five fetches and a few megabytes of XML each —
  * so it runs from the scheduled job and the result is stored.
  */
 
@@ -81,7 +83,7 @@ async function text(url: string): Promise<string | null> {
   return response.text();
 }
 
-export async function fetchSegments(ticker: string, cik: string, limit = 12): Promise<SegmentData> {
+export async function fetchSegments(ticker: string, cik: string, limit = 24): Promise<SegmentData> {
   const padded = cik.replace(/^0+/, "");
   const reports = await periodicReports(cik, limit);
   const facts: SegmentFact[] = [];

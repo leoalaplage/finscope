@@ -75,11 +75,6 @@ export function Estimates({ ticker, price, currency }: { ticker: string; price: 
           <ConsensusTable title="By fiscal year" rows={estimates.yearly} currency={currency} />
         </div>
       </div>
-      <p className="stat-note">
-        Analysts&apos; forecasts, not filed figures — {estimates.source}, read {shortDate(estimates.asOf)}. Forward P/E is the price over the sum of the next four
-        quarters&apos; consensus EPS; PEG divides it by the growth expected from this fiscal year to the next. Revisions count the estimates raised and cut over the last
-        four weeks.
-      </p>
     </section>
   );
 }

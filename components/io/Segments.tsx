@@ -37,7 +37,7 @@ export function Segments({ ticker }: { ticker: string; cik?: string }) {
   const data = answer?.ticker === ticker ? answer.data : undefined;
   const views = useMemo(() => (data ? segmentViews(data) : []), [data]);
   const backlog = useMemo(() => (data ? backlogCards(data) : []), [data]);
-  if (data === undefined) return <section className="section segments"><p className="stat-note">Reading the segments from the company&apos;s last twelve filings… the first reading takes a few seconds.</p></section>;
+  if (data === undefined) return <section className="section segments"><p className="stat-note">Reading the segments from the company&apos;s recent filings… the first reading takes a few seconds.</p></section>;
   if (!data && answer?.failed) {
     return (
       <section className="section segments">

@@ -127,9 +127,27 @@ export function segmentChart(data: SegmentData, view: SegmentView, periodicity: 
       .map((id) => ({ id, label: displayLabel(data.ticker, byId.get(id)!.label), values: stacks.map((stack) => (stack.ids.includes(id) ? valueAt(id, stack.end) : null)) }))
       // The largest at the bottom of each bar.
       .sort((left, right) => (right.values.at(-1) ?? 0) - (left.values.at(-1) ?? 0));
+    /*
+     * An unallocated line the filings leave untagged carries on as the
+     * residual: Broadcom's "Unallocated expenses" up to August 2025, the gap
+     * between its segments and its operating income after; NVIDIA's
+     * "Corporate and unallocated", tagged in some quarters and not others.
+     * One line, not two colours taking turns. Only a cost line, only where it
+     * is missing and the gap is a cost.
+     */
+    const residuals = stacks.map((stack) => stack.residual);
+    if (measure === "operatingIncome") {
+      const handed = series.find((line) => /unallocated|corporate|reconciling|all other/i.test(line.label)
+        && line.values.every((value) => value == null || value <= 0)
+        && residuals.every((value, index) => value === 0 || line.values[index] == null));
+      if (handed) {
+        handed.values = handed.values.map((value, index) => (value == null && residuals[index] < 0 ? residuals[index] : value));
+        residuals.forEach((value, index) => { if (value < 0 && handed.values[index] === value) residuals[index] = 0; });
+      }
+    }
     // The sliver of the total no line carries, drawn so each bar reaches the figure reported.
-    if (stacks.some((stack) => stack.residual !== 0)) {
-      series.push({ id: RESIDUAL_ID, label: "Not allocated to a line", values: stacks.map((stack) => (stack.residual !== 0 ? stack.residual : null)) });
+    if (residuals.some((value) => value !== 0)) {
+      series.push({ id: RESIDUAL_ID, label: measure === "operatingIncome" ? "Unallocated and reconciling items" : "Not allocated to a line", values: residuals.map((value) => (value !== 0 ? value : null)) });
     }
     return {
       labels: stacks.map((stack) => periodLabel(stack.end, periodicity)),

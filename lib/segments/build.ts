@@ -73,8 +73,10 @@ export interface SegmentData {
 
 /**
  * 2: fourth quarters on their quarters' basis, renamed lines joined.
+ * 3: operating income stacked on its segments when the unallocated line stops being tagged;
+ *    a seasonal fourth quarter checked against the year before; six years of reports.
  */
-export const SEGMENTS_BUILD = 2;
+export const SEGMENTS_BUILD = 3;
 
 const DAY = 86_400_000;
 const days = (start: string, end: string) => Math.round((Date.parse(end) - Date.parse(start)) / DAY) + 1;
@@ -160,7 +162,10 @@ export function buildSegments(input: {
    * stand as first filed, and the difference made Intelligent Cloud's fourth
    * quarter $9bn against $21bn in each of the three before it. Revenue still
    * has to look like a quarter of the same business: between 40% and 250% of
-   * the three quarters' average.
+   * the three quarters' average, or, for a seasonal one, between half and
+   * twice the same quarter a year earlier — Reality Labs sells its headsets at
+   * Christmas, a fourth quarter near four times the three before it, and the
+   * first rule alone left a hole in every year of Meta's segment history.
    */
   const filedOf = new Map(input.facts.map((fact) => [fact.accession, fact.filed]));
   for (const line of joined) {
@@ -176,7 +181,9 @@ export function buildSegments(input: {
       const basis = versions[0] ?? { value: year.value, accession: year.accession };
       const value = basis.value - inside.reduce((sum, quarter) => sum + quarter.value, 0);
       const average = inside.reduce((sum, quarter) => sum + quarter.value, 0) / 3;
-      if (line.measure === "revenue" && (value < 0 || (average > 0 && (value < average * 0.4 || value > average * 2.5)))) continue;
+      const yearAgo = line.quarterly.find((quarter) => Math.abs(Date.parse(quarter.end) - (Date.parse(year.end) - 365 * DAY)) <= 21 * DAY)?.value;
+      const seasonal = yearAgo != null && yearAgo > 0 && value >= yearAgo * 0.5 && value <= yearAgo * 2;
+      if (line.measure === "revenue" && (value < 0 || (average > 0 && (value < average * 0.4 || value > average * 2.5) && !seasonal))) continue;
       const start = new Date(Date.parse(`${lastEnd}T00:00:00Z`) + DAY).toISOString().slice(0, 10);
       if (days(start, year.end) < 55 || days(start, year.end) > 125) continue;
       line.quarterly.push({ start, end: year.end, value, accession: basis.accession, derived: true });
@@ -299,17 +306,36 @@ function stacksOf(series: SegmentSeries[]): SegmentStack[] {
       : series.find((line) => line.measure === measure && line.axis === "total");
     if (!whole) continue;
     for (const periodicity of ["quarterly", "annual"] as const) {
-      for (const target of whole[periodicity]) {
+      // The lines of the last period that added up exactly, for the rule below.
+      let reconciled: Set<string> | null = null;
+      for (const target of [...whole[periodicity]].sort((left, right) => left.end.localeCompare(right.end))) {
         const present = lines
           .map((line) => ({ line, point: line[periodicity].find((point) => point.start === target.start && point.end === target.end) }))
           .filter((entry): entry is { line: SegmentSeries; point: SegmentPoint } => entry.point != null)
           .sort((left, right) => Math.abs(right.point.value) - Math.abs(left.point.value))
           .slice(0, MAX_LINES);
         const values = present.map((entry) => entry.point.value);
-        const chosen = largestPartition(values, target.value) ?? largestPartition(values, target.value, near);
+        let chosen = largestPartition(values, target.value) ?? largestPartition(values, target.value, near);
+        /*
+         * Operating income whose segments no longer reach the company's figure:
+         * the unallocated line stopped being tagged. Broadcom's 10-Qs since
+         * November 2025 tag Infrastructure Software, Semiconductor Solutions and
+         * their sum, and leave "Unallocated expenses" (−$4.1B a quarter) to the
+         * table's text, so the segments overshoot operating income and nothing
+         * stacked. Where the same lines added up exactly in an earlier period,
+         * they are the breakdown still, and the gap is the reconciling line the
+         * filing states: drawn as the residual, total less the segments. Also
+         * where one segment alone comes within the loose match of the total
+         * (NVIDIA's Compute & Networking, within 0.4% of operating income in
+         * July 2025): one line is not the breakdown the others say it is.
+         */
+        if ((!chosen || chosen.length < 2) && measure === "operatingIncome" && reconciled && present.length >= 2 && present.every((entry) => reconciled!.has(entry.line.id))) {
+          chosen = present.map((_, index) => index);
+        }
         // A single line equal to the whole is not a breakdown.
         if (!chosen || chosen.length < 2) continue;
         const sum = chosen.reduce((total, index) => total + values[index], 0);
+        if (close(sum, target.value, chosen.length)) reconciled = new Set(chosen.map((index) => present[index].line.id));
         stacks.push({
           measure, axis, parent: parentLabel, periodicity, start: target.start!, end: target.end, total: target.value,
           ids: chosen.map((index) => present[index].line.id),

@@ -7,11 +7,13 @@ import { fetchSegments } from "./source";
 /**
  * Where a company's segments are kept (lib/segments/build.ts).
  *
- * A build reads a dozen filings — some forty requests to EDGAR — so it is done
- * once and stored, then read back for three days. An older copy is served at
- * once and rebuilt behind it. The half-hourly timer builds two members of the
- * index a run, largest first, each in an invocation of its own through the
- * service binding, so a reader rarely waits for one.
+ * A build reads up to two dozen filings — some seventy-five requests to EDGAR,
+ * forty seconds — so it is done once and stored, then read back for three
+ * days. The half-hourly timer builds two members of the index a run, largest
+ * first, each in an invocation of its own through the service binding, on six
+ * years of reports. A reader's build is the short one, twelve reports: it has
+ * to finish inside the half-minute a Worker keeps running after its answer,
+ * and it does not replace a long build less than ten days old.
  */
 
 const segmentsKey = (ticker: string) => `segments:v1:${ticker.toUpperCase()}`;
@@ -19,6 +21,11 @@ const CURSOR_KEY = "segments-cursor:v1";
 const FRESH_MS = 3 * 86_400_000;
 /** A build that missed a report is served, and tried again a quarter of an hour later. */
 const RETRY_MS = 15 * 60_000;
+/** Reports read by the timer's build and by a reader's (lib/segments/source.ts). */
+const FULL_REPORTS = 24;
+const QUICK_REPORTS = 12;
+/** How long a long build stands against a shorter one: the timer comes round in about five days. */
+const LONG_STANDS_MS = 10 * 86_400_000;
 /** Kept a month at most: a company that stops filing should not show segments forever. */
 const KEEP_SECONDS = 30 * 86_400;
 
@@ -33,15 +40,17 @@ async function cikOf(ticker: string): Promise<string | null> {
   return found?.cik ?? null;
 }
 
-export async function buildAndStore(ticker: string): Promise<SegmentData | null> {
+export async function buildAndStore(ticker: string, reports = FULL_REPORTS): Promise<SegmentData | null> {
   const cik = await cikOf(ticker);
   if (!cik) return null;
-  const data = await fetchSegments(ticker, cik);
+  const data = await fetchSegments(ticker, cik, reports);
   // A build that read no filing is a failed read, not a company without segments.
   if (!data.filings.length) throw new Error("EDGAR did not answer.");
+  const held = await datasetCache()?.get<SegmentData>(segmentsKey(ticker), "json").catch(() => null);
   // Nor does a partial build replace a complete one.
-  const held = data.complete === false ? await datasetCache()?.get<SegmentData>(segmentsKey(ticker), "json").catch(() => null) : null;
-  if (held && held.complete !== false && held.filings.length >= data.filings.length) return held;
+  if (data.complete === false && held && held.complete !== false && held.filings.length >= data.filings.length) return held;
+  // Nor a reader's short build the timer's long one, while that is recent and built on the same rules.
+  if (held && (held.build ?? 1) >= SEGMENTS_BUILD && held.filings.length > data.filings.length && Date.now() - Date.parse(held.builtAt) < LONG_STANDS_MS) return held;
   await datasetCache()?.put(segmentsKey(ticker), JSON.stringify(data), { expirationTtl: KEEP_SECONDS }).catch(() => undefined);
   return data;
 }
@@ -51,11 +60,12 @@ export async function getSegments(ticker: string, rebuild = false): Promise<Segm
     const stored = await datasetCache()?.get<SegmentData>(segmentsKey(ticker), "json").catch(() => null);
     if (stored) {
       const outdated = (stored.build ?? 1) < SEGMENTS_BUILD;
-      if (outdated || Date.now() - Date.parse(stored.builtAt) > (stored.complete === false ? RETRY_MS : FRESH_MS)) keepAlive(buildAndStore(ticker));
+      if (outdated || Date.now() - Date.parse(stored.builtAt) > (stored.complete === false ? RETRY_MS : FRESH_MS)) keepAlive(buildAndStore(ticker, QUICK_REPORTS));
       return stored;
     }
+    return buildAndStore(ticker, QUICK_REPORTS);
   }
-  return buildAndStore(ticker);
+  return buildAndStore(ticker, FULL_REPORTS);
 }
 
 /** The timer's share: the next two companies, each rebuilt in an invocation of its own. */

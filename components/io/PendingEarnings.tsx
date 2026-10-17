@@ -298,7 +298,6 @@ export function EpsChart({ history, pending, currency }: {
         {bars.some((bar) => bar.state === "pending") ? <li data-kind="bar" style={{ "--key": "var(--chart-amber, var(--amber))" } as CSSProperties}><i aria-hidden="true" />Just released (GAAP)</li> : null}
         <li data-kind="line" style={{ "--key": "var(--c5)" } as CSSProperties}><i aria-hidden="true" />Surprise</li>
       </ul>
-      <p className="t-study-note">Reported EPS as Zacks scores it (adjusted), against the consensus before the release, as Nasdaq publishes both. The last bar is the coming quarter&apos;s consensus.</p>
     </>
   );
 }
@@ -349,7 +348,6 @@ function AnnualEpsChart({ view, history, currency }: { view: IoCompanyView; hist
         <li data-kind="bar" style={{ "--key": "var(--ink-3)" } as CSSProperties}><i aria-hidden="true" />Consensus (adjusted)</li>
         <li data-kind="line" style={{ "--key": "var(--c5)" } as CSSProperties}><i aria-hidden="true" />On a year</li>
       </ul>
-      <p className="t-study-note">Filed diluted EPS from each 10-K, then the analysts&apos; consensus for the years ahead (Zacks, via Nasdaq). Filed figures are GAAP; the consensus is on adjusted earnings.</p>
     </>
   );
 }

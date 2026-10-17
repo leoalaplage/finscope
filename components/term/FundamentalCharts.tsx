@@ -78,7 +78,6 @@ export function FundamentalCharts({ view }: { view: IoCompanyView }) {
                 </li>
               ))}
             </ul>
-            {preset.note ? <p className="t-gf-note">{preset.note}</p> : null}
           </figure>
         ))}
       </div>

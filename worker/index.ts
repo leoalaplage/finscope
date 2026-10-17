@@ -214,8 +214,8 @@ const worker = {
         const emails = await emailAlertsSlice(origin).catch((error) => { console.log(`[email alerts] ${error instanceof Error ? error.message : String(error)}`); return null; });
         if (emails && (emails.sent || emails.skipped)) console.log(`[email alerts] sent ${emails.sent}; nothing new or not sent ${emails.skipped}`);
         /*
-         * Two companies' segments, each built in an invocation of its own — a
-         * dozen filings read apiece — largest first (lib/segments/store.ts).
+         * Two companies' segments, each built in an invocation of its own — six
+         * years of filings read apiece — largest first (lib/segments/store.ts).
          */
         const segments = await primeSegmentsSlice(origin).catch(() => []);
         if (segments.length) console.log(`[segments] built ${segments.join(",")}`);
