@@ -33,6 +33,9 @@ import { KEY_VERSION, SUMMARY_SHAPE } from "./data-version";
  * "Building financials…" until the warm-up has been round the watchlist.
  */
 const SERVEABLE_WHILE_BUILDING: Array<{ version: string; shape: string }> = [
+  // v50 only fills a blank: debt read as zero where a company filed it as zero and has borrowed nothing since. A v49
+  // copy shows "—" where v50 shows 0, nothing different.
+  { version: "v49", shape: "s14" },
   // v49 corrects D&A and adds operating-capital coverage. Existing research
   // stays visible during the rebuild, but the IO route explicitly marks a
   // bridged view so the new DCF never values an old normalization.

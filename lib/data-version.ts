@@ -346,7 +346,9 @@
 // left in, as the reference platforms measure it: Amazon's ROIC read 21%
 // against their 10–12%, a cash-rich company's capital having been netted down.
 /** v49: separate tangible depreciation / intangible amortization and operating-WC coverage for the DCF. */
-export const KEY_VERSION = "v49";
+// v50: a company that filed its debt as zero and has borrowed nothing since is debt-free, not blank (Palantir,
+// Chipotle, Williams-Sonoma, Erie; 18 of the S&P 500 over their history) — lib/adapters/debt-free.ts.
+export const KEY_VERSION = "v50";
 
 /**
  * What the digest itself contains, versioned apart from the dataset.

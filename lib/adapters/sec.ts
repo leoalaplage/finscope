@@ -7,7 +7,7 @@ import { companySector } from "../sector";
 import type { BusinessType, CompanyDataset, FinancialPeriod, MetricKey, NormalizedFact, RawFinancialFact } from "../types";
 import { KNOWN_SUCCESSORS, universeMember } from "../universe";
 import { balanceSheetDebt, COMPANY_NONCURRENT_DEBT_TAG, companyCapexLine, filingIsAhead, instanceDocument, investingLines, mergeFactTrees, parseXbrlInstance, quotedClassShares, type FactTree, type FilingFact } from "./xbrl-instance";
-import { debtFromReconciledLiabilities, OPERATING_LIABILITY_GROUPS } from "./debt-free";
+import { debtFreeSinceFiledZero, debtFromReconciledLiabilities, NAMES_A_BORROWING, OPERATING_LIABILITY_GROUPS } from "./debt-free";
 
 type FilingFactLike = FilingFact;
 
@@ -535,14 +535,26 @@ function extractFacts(
     cashFlow("CashProvidedByUsedInOperatingActivitiesDiscontinuedOperations"),
   ));
   const liability = (tag: string) => factsUnder(namespaces, "us-gaap", tag, "totalDebt", "currency", cik, currency, retrievedAt);
-  if (inferOperatingDebt) output.push(...debtFromReconciledLiabilities(
-    liability("Liabilities"), liability("LiabilitiesCurrent"),
-    OPERATING_LIABILITY_GROUPS.map((tags) => tags.flatMap(liability)),
-    Object.keys(namespaces["us-gaap"] ?? {})
-      .filter((tag) => /^(?:LongTermDebt|ShortTermBorrowings|OtherShortTermBorrowings|CommercialPaper|NotesPayable|DebtCurrent|DebtInstrument|FinanceLeaseLiability|ConvertibleNotesPayable|DebtLongtermAndShorttermCombinedAmount)/.test(tag))
-      .flatMap(liability),
-    liability("OperatingLeaseLiability"),
-  ));
+  const borrowing = Object.keys(namespaces["us-gaap"] ?? {})
+    .filter((tag) => /^(?:LongTermDebt|ShortTermBorrowings|OtherShortTermBorrowings|CommercialPaper|NotesPayable|DebtCurrent|DebtInstrument|FinanceLeaseLiability|ConvertibleNotesPayable|DebtLongtermAndShorttermCombinedAmount)/.test(tag))
+    .flatMap(liability);
+  if (inferOperatingDebt) {
+    const reconciled = debtFromReconciledLiabilities(
+      liability("Liabilities"), liability("LiabilitiesCurrent"),
+      OPERATING_LIABILITY_GROUPS.map((tags) => tags.flatMap(liability)),
+      borrowing, liability("OperatingLeaseLiability"),
+    );
+    output.push(...reconciled);
+    // Where the liabilities do not reconcile line by line (Palantir's customer deposits are its own tag), a debt
+    // filed as zero and nothing borrowed since still prove none.
+    const shown = new Set(reconciled.map((fact) => `${fact.end}|${fact.accession}`));
+    const named = Object.entries(namespaces).flatMap(([space, concepts]) => Object.keys(concepts ?? {})
+      .filter((tag) => NAMES_A_BORROWING.test(tag))
+      .flatMap((tag) => factsUnder(namespaces, space, tag, "totalDebt", "currency", cik, currency, retrievedAt)));
+    const interest = ["InterestExpense", "InterestExpenseNonoperating", "InterestExpenseDebt", "InterestPaidNet", "InterestPaid"].flatMap((tag) => factsUnder(namespaces, "us-gaap", tag, "interestExpense", "currency", cik, currency, retrievedAt));
+    output.push(...debtFreeSinceFiledZero(liability("Liabilities"), borrowing, named, interest, liability("Assets"))
+      .filter((fact) => !shown.has(`${fact.end}|${fact.accession}`)));
+  }
   return anchorCoverPageShares(output);
 }
 

@@ -26,6 +26,17 @@ export function DebtMaturities({ view }: { view: IoCompanyView }) {
   }, [key, ticker, cik]);
 
   const current = answer?.key === key ? answer : null;
+  // A balance sheet that proves no borrowing (lib/adapters/debt-free.ts) has nothing falling due.
+  const balance = [...view.quarterly, ...view.annual].filter((period) => period.values.totalDebt != null).sort((left, right) => left.end.localeCompare(right.end)).at(-1);
+  if (balance?.values.totalDebt === 0) {
+    const liquid = (balance.values.cashAndEquivalents ?? 0) + Math.max(0, balance.values.shortTermInvestments ?? 0);
+    return (
+      <p className="t-empty">
+        No borrowings: {view.company.name} files no debt at {shortDate(balance.end)} ({balance.label}), so nothing falls due.
+        {liquid > 0 ? ` It holds ${money(liquid, view.company.currency)} in cash and short-term investments.` : ""}
+      </p>
+    );
+  }
   if (!current) return <p className="t-empty">Reading the latest 10-K…</p>;
   if (current.failed) return <p className="t-empty">The filing is temporarily unavailable.</p>;
   const schedule = current.schedule;
