@@ -315,3 +315,6 @@
 .dcf-table input[type="number"]:focus { outline: 1px solid var(--amber); outline-offset: 1px; }
 .dcf-methodology { margin: 8px 0; padding: 6px 8px; border: 1px solid var(--line); font-size: var(--fs-xs); }
 .dcf-methodology summary { color: var(--ink-2); cursor: pointer; }
+.dcf-sens th.key { min-width: 9ch; width: 9ch; white-space: normal; }
+.stats.dcf-strip { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+.dcf-strip .stat-value, .dcf-strip .stat .label { white-space: normal; overflow: visible; overflow-wrap: anywhere; }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState, useSyncExternalStore, type CSSProperties } from "react";
 import type { IoCompanyView } from "@/lib/io/view";
 import type { IoQuote } from "./quote";
 import type { BusinessType } from "@/lib/types";
@@ -33,6 +33,10 @@ const dir = (value: number | null | undefined) => (value == null || value === 0 
 
 type Overrides = Partial<Drivers>;
 interface Saved { scenario: Scenario; overrides: Overrides }
+const freshModel: Saved = { scenario: "base", overrides: {} };
+const subscribeHydration = () => () => {};
+const clientReady = () => true;
+const serverReady = () => false;
 const storeKey = (ticker: string) => `finscope.dcf.v3.${ticker.toUpperCase()}`;
 function readSaved(ticker: string): Saved {
   try {
@@ -56,15 +60,19 @@ export function DcfModel({ view, quote, fullPage = false }: { view: IoCompanyVie
 
   if (lender) return <LenderModel view={view} price={price} currency={currency} costOfEquity={coe.value?.rate ?? null} settled={coe.settled} />;
   if (!foundation) return <section className="section dcf"><p className="stat-note">A DCF is unavailable until the latest period supplies: {dcfMissingInputs(view).join(", ")}. Missing values are never treated as zero.</p></section>;
-  return <Workbench key={ticker} view={view} foundation={foundation} price={price} currency={currency} coe={coe} fullPage={fullPage} />;
+  return <Workbench key={ticker} view={view} foundation={foundation} price={price} quoteAsOf={matchingQuote?.asOf ?? null} currency={currency} coe={coe} fullPage={fullPage} />;
 }
 
-function Workbench({ view, foundation, price, currency, coe, fullPage }: {
-  view: IoCompanyView; foundation: DcfFoundation; price: number | null; currency: string;
+function Workbench({ view, foundation, price, quoteAsOf, currency, coe, fullPage }: {
+  view: IoCompanyView; foundation: DcfFoundation; price: number | null; quoteAsOf: string | null; currency: string;
   coe: ReturnType<typeof useCostOfEquity>; fullPage: boolean;
 }) {
   const ticker = view.company.ticker;
-  const [saved, setSaved] = useState<Saved>(() => readSaved(ticker));
+  // Match the server during hydration, then restore device-local assumptions.
+  // Reading localStorage in the state initializer mismatches saved research cases.
+  const hydrated = useSyncExternalStore(subscribeHydration, clientReady, serverReady);
+  const [sessionSaved, setSaved] = useState<Saved | null>(null);
+  const saved = useMemo(() => sessionSaved ?? (hydrated ? readSaved(ticker) : freshModel), [sessionSaved, hydrated, ticker]);
   const update = (next: Saved) => { setSaved(next); writeSaved(ticker, next); };
   const marketCap = price != null ? price * foundation.base.dilutedShares : null;
   const riskFree = coe.riskFree;
@@ -84,7 +92,7 @@ function Workbench({ view, foundation, price, currency, coe, fullPage }: {
   const set = (key: keyof Drivers, next: number | string) => update({ scenario: "base", overrides: {
     ...saved.overrides,
     ...(saved.scenario !== "base" ? { growthStart: drivers.growthStart, growthEnd: drivers.growthEnd, marginTarget: drivers.marginTarget, salesToCapital: drivers.salesToCapital, ...(drivers.research ? { research: drivers.research } : {}) } : {}),
-    [key]: next,
+    [key]: key === "fadeYears" && typeof next === "number" ? Math.round(Math.max(1, Math.min(15, next))) : next,
   } });
   const record = foundation.record;
   const edited = Object.keys(saved.overrides).length > 0;
@@ -98,7 +106,7 @@ function Workbench({ view, foundation, price, currency, coe, fullPage }: {
   ].filter((v): v is string => v != null);
   const warnings = [...foundation.issues, ...capitalIssues, ...result.warnings];
   const exportModel = () => {
-    const blob = new Blob([JSON.stringify({ ticker, modelVersion: 3, exportedAt: new Date().toISOString(), case: saved.scenario, basePeriod: foundation.basePeriod, base: foundation.base, shareBasis: foundation.shareNote, quote: { price, currency }, drivers, assumptions, result, reconciliation: foundation.reconciliation, warnings, costOfCapital: { ...coe, methodology: "CAPM with aligned adjusted weekly returns; any index-implied premium is an estimate" } }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ ticker, modelVersion: 3, exportedAt: new Date().toISOString(), case: saved.scenario, basePeriod: foundation.basePeriod, base: foundation.base, shareBasis: foundation.shareNote, quote: { price, currency, asOf: quoteAsOf }, drivers, assumptions, result, reconciliation: foundation.reconciliation, warnings, costOfCapital: { ...coe, methodology: "CAPM with aligned adjusted weekly returns; any index-implied premium is an estimate" } }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob), link = document.createElement("a");
     link.href = url; link.download = `${ticker}-dcf.json`; link.click(); URL.revokeObjectURL(url);
   };
@@ -117,10 +125,10 @@ function Workbench({ view, foundation, price, currency, coe, fullPage }: {
       <p className="stat-note" role="status">{research ? "Research assumptions" : "Automatic screening assumptions"} · {result.intrinsicValuePerShare == null ? "Model unavailable: resolve the checks below" : warnings.length ? "Review required: assumptions and data limitations below" : "Model calculated; forecasts still require investment judgment"}. Stock compensation remains an operating expense. <button type="button" className="t-chip" onClick={exportModel}>Export model</button></p>
       <div className="grid-ruled stats dcf-strip">
         <Figure label={`Indicative value · ${saved.scenario}`} value={value == null ? ABSENT : writePrice(value, currency)} note={price != null ? `Price ${writePrice(price, currency)}` : "No price"} big />
-        <Figure label="The price asks for" value={implied == null ? ABSENT : `${pct(implied)} growth a year`} tone={implied == null || record.growth5 == null ? undefined : implied <= record.growth5 ? "up" : "down"} note={`Revenue, years 1–5, everything else as set · delivered ${pct(record.growth5)} a year over 5 years`} />
+        <Figure label="The price asks for" value={implied == null ? ABSENT : `${pct(implied)} growth a year`} tone={implied == null || record.growth5 == null ? undefined : implied <= record.growth5 ? "up" : "down"} note={implied == null ? "No unique supported growth rate within the searched range; review capital efficiency and the other assumptions" : `Revenue, years 1–5, everything else as set · delivered ${pct(record.growth5)} a year over 5 years`} />
         <Figure label="Against the price" value={signed(upside)} tone={dir(upside)} note={upside == null ? undefined : upside >= 0 ? "Value above the price, on these assumptions" : "Price above the value, on these assumptions"} />
         <Figure label="Bear · base · bull" value={[cases.bear, cases.base, cases.bull].map((entry) => (entry == null ? ABSENT : writePrice(entry, currency))).join(" · ")} note="Business stresses: growth, margin and capital efficiency; common WACC and terminal assumptions" />
-        <Figure label="Discount rate (WACC)" value={pct(drivers.wacc)} note={"wacc" in saved.overrides ? "User assumption" : coe.value ? `Equity ${pct(coe.value.rate)} = Treasury ${pct(coe.value.riskFree, 2)} + β ${coe.value.appliedBeta.toFixed(2)} × ${pct(coe.value.premium, 1)} · ${coe.premiumSource ?? "premium estimate"} · ${coe.observations} matched weeks` : coe.settled ? `Assumed 9% equity cost · ${coe.unavailableReason}` : "Provisional 9% equity cost; measuring market inputs…"} />
+        <Figure label="Discount rate (WACC)" value={pct(drivers.wacc)} note={"wacc" in saved.overrides ? "User assumption" : coe.value ? `Equity ${pct(coe.value.rate)} = Treasury ${pct(coe.value.riskFree, 2)} + β ${coe.value.appliedBeta.toFixed(2)} × ${pct(coe.value.premium, 1)} · ${coe.premiumSource === "long-run-assumption" ? "historical premium assumption" : "index-implied premium estimate"} · ${coe.observations} matched weeks` : coe.settled ? `Assumed 9% equity cost · ${coe.unavailableReason}` : "Provisional 9% equity cost; measuring market inputs…"} />
         <Figure label="Terminal value" value={pct(result.terminalValueWeight, 0)} note={`Share of enterprise value after year ${years}`} tone={result.terminalValueWeight != null && result.terminalValueWeight > 0.75 ? "down" : undefined} />
       </div>
 
@@ -152,7 +160,7 @@ function Workbench({ view, foundation, price, currency, coe, fullPage }: {
               <Lever label="Discount rate (WACC)" value={drivers.wacc} onChange={(next) => set("wacc", next)} hint={`Debt ${pct(record.costOfDebt)} before tax`} edited={"wacc" in saved.overrides} />
               <Lever label="Competitive fade, years" value={drivers.fadeYears} integer onChange={(next) => set("fadeYears", next)} hint="After five explicit years; 1–15 years until the mature state" edited={"fadeYears" in saved.overrides} />
               <Lever label="Terminal return above WACC" value={drivers.terminalExcessReturn} onChange={(next) => set("terminalExcessReturn", next)} hint={`0 points assumes competitive equilibrium. Terminal return ${pct(drivers.wacc + drivers.terminalExcessReturn)}; a permanent advantage needs explicit support.`} edited={"terminalExcessReturn" in saved.overrides} />
-              <Lever label="Other equity claims" value={drivers.otherClaims} amount onChange={(next) => set("otherClaims", next)} hint="Currency units: reported minority interests / temporary equity, plus additional preferred, pension or option claims you identify" edited={"otherClaims" in saved.overrides} />
+              <Lever label="Other equity claims (millions)" value={drivers.otherClaims} amount onChange={(next) => set("otherClaims", next)} hint="Millions of reporting currency: reported minority interests / temporary equity, plus additional preferred, pension or option claims you identify" edited={"otherClaims" in saved.overrides} />
               <tr>
                 <th scope="row">Terminal value</th>
                 <td colSpan={2}>
@@ -222,8 +230,9 @@ function Workbench({ view, foundation, price, currency, coe, fullPage }: {
         <p className="stat-note">Growth, margins, taxes, capital efficiency and the duration of competitive advantage are valuation assumptions. This model does not automatically forecast future acquisitions or issuance proceeds, capitalize R&D, or value all outstanding options. Review the claims input and source filings.</p>
       </details>
       <p className="stat-note">
-        Filed base: {foundation.basePeriod.label} as filed — revenue {money(foundation.base.revenue, currency)}, cash and short-term investments {money(foundation.base.cash, currency)}, debt {money(foundation.base.debt, currency)}, {(foundation.base.dilutedShares / 1e6).toFixed(0)}M diluted shares.
+        Filed base: {foundation.basePeriod.label} · period ended {foundation.basePeriod.end} · filed {foundation.basePeriod.filingDate} — revenue {money(foundation.base.revenue, currency)}, cash and short-term investments {money(foundation.base.cash, currency)}, debt {money(foundation.base.debt, currency)}, {(foundation.base.dilutedShares / 1e6).toFixed(0)}M diluted shares.
         Forecast FCFF is normalized operating profit after tax less net reinvestment, discounted at the WACC over {years} years. Losses receive no automatic cash-tax refund. Operating cash flow reported by the company and modeled FCFF have different financing, tax and compensation boundaries.
+        {foundation.basePeriod.sourceUrl ? <> <a href={foundation.basePeriod.sourceUrl} target="_blank" rel="noreferrer">SEC filing ↗</a></> : null}
         {fullPage ? null : <> <a href={`/t/dcf?s=${encodeURIComponent(view.company.ticker)}`}>Open the model full screen →</a></>}
       </p>
     </section>
@@ -243,7 +252,7 @@ function Figure({ label, value, note, tone, big }: { label: string; value: strin
 /** One lever: a number in percent (or times), stepped by half a point, with the record beside it. */
 function Lever({ label, value, onChange, hint, edited, multiple = false, integer = false, amount = false }: { label: string; value: number; onChange: (next: number) => void; hint: string; edited: boolean; multiple?: boolean; integer?: boolean; amount?: boolean }) {
   const raw = multiple || integer || amount;
-  const shown = Number((raw ? value : value * 100).toFixed(amount ? 0 : 2));
+  const shown = Number((amount ? value / 1e6 : raw ? value : value * 100).toFixed(amount ? 0 : 2));
   const step = integer ? 1 : amount ? 1000000 : multiple ? .1 : .005;
   return (
     <tr data-edited={edited || undefined}>
@@ -251,9 +260,9 @@ function Lever({ label, value, onChange, hint, edited, multiple = false, integer
       <td>
         <span className="dcf-input">
           <button type="button" aria-label={`Lower ${label}`} onClick={() => onChange(value - step)}>−</button>
-          <input type="number" step={raw ? step : .5} value={shown} aria-label={label}
-            onChange={(event) => { const next = Number(event.target.value); if (Number.isFinite(next) && event.target.value !== "") onChange(raw ? next : next / 100); }} />
-          <span>{amount ? "" : integer ? "yr" : multiple ? "×" : "%"}</span>
+          <input type="number" step={amount ? 1 : raw ? step : .5} value={shown} aria-label={label}
+            onChange={(event) => { const next = Number(event.target.value); if (Number.isFinite(next) && event.target.value !== "") onChange(amount ? next * 1e6 : raw ? next : next / 100); }} />
+          <span>{amount ? "M" : integer ? "yr" : multiple ? "×" : "%"}</span>
           <button type="button" aria-label={`Raise ${label}`} onClick={() => onChange(value + step)}>+</button>
         </span>
       </td>

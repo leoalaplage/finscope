@@ -101,6 +101,13 @@ describe("DCF operating forecasts and competitive equilibrium", () => {
     expect(a.operatingMargin[19]).toBe(.3);
     expect(scenarioDrivers(drivers, "bear").research!.growth[0]).toBeLessThan(.3);
   });
+  it("preserves all cases when switching an unchanged automatic path into research mode", () => {
+    const a = assumptionsFrom(d, f);
+    const research = { ...d, research: { growth: a.revenueGrowth.slice(0, 5), margin: a.operatingMargin.slice(0, 5) } };
+    for (const scenario of ["bear", "base", "bull"] as const) {
+      expect(valueWith(f, scenarioDrivers(research, scenario)).intrinsicValuePerShare).toBeCloseTo(valueWith(f, scenarioDrivers(d, scenario)).intrinsicValuePerShare!, 8);
+    }
+  });
   it("holds WACC and perpetual growth constant across business stresses", () => {
     expect(scenarioDrivers(d, "bear").wacc).toBe(d.wacc);
     expect(scenarioDrivers(d, "bull").terminalGrowth).toBe(d.terminalGrowth);

@@ -26,7 +26,7 @@ export interface Drivers {
 }
 export interface DcfFoundation {
   base: DcfBase;
-  basePeriod: { label: string; end: string };
+  basePeriod: { label: string; end: string; filingDate: string; accession: string; sourceUrl: string | null };
   startMargin: number;
   marginNote: string | null;
   shareNote: string;
@@ -169,7 +169,9 @@ export function dcfFoundation(view: IoCompanyView): DcfFoundation | null {
   const cashFlowProxy = known(ocf) && known(sbc) && known(interest) ? ocf - capex - Math.abs(sbc) + Math.abs(interest) * (1 - (tax ?? .21)) : null;
   return {
     base: { revenue, operatingMargin: startMargin, freeCashFlow: at(p, "freeCashFlow") ?? 0, dilutedShares: shares, cash, debt },
-    basePeriod: { label: p.label, end: p.end }, startMargin, shareNote, issues, amortization, otherClaims,
+    basePeriod: { label: p.label, end: p.end, filingDate: p.filingDate, accession: p.accession,
+      sourceUrl: /^\d{10}-\d{2}-\d{6}$/.test(p.accession) && /^\d+$/.test(view.company.cik) ? `https://www.sec.gov/Archives/edgar/data/${Number(view.company.cik)}/${p.accession.replaceAll("-", "")}/` : null },
+    startMargin, shareNote, issues, amortization, otherClaims,
     marginNote: known(amortization) ? "Before separately reported intangible amortization; employee stock compensation remains an expense. No future amortization tax shield is assumed." : operating.derived ? "Operating income derived from pre-tax income less the aggregate nonoperating result." : null,
     reconciliation: { modeled, cashFlowProxy, residual: cashFlowProxy == null ? null : modeled - cashFlowProxy, note: "Diagnostic bridge only: CFO − capex − SBC + interest after assumed tax, versus normalized operating FCFF. Cash/deferred taxes, leases, other noncash items and actual working-capital movements explain differences; this is not a certified tie-out." },
     now: { growth: previousRevenue! > 0 ? revenue / previousRevenue! - 1 : null, capex: capex / revenue, depreciation: ofRevenue("depreciationAndAmortization", true) },
@@ -210,12 +212,13 @@ export function scenarioDrivers(base: Drivers, scenario: Scenario): Drivers {
   if (scenario === "base") return base;
   const sign = scenario === "bull" ? 1 : -1;
   const growthStep = Math.max(.03, Math.abs(base.growthStart) * .2);
+  const endStep = Math.max(.02, Math.abs(base.growthEnd) * .2);
   const marginStep = Math.max(.005, Math.min(.03, Math.abs(base.marginTarget) * .2));
-  return { ...base, growthStart: base.growthStart + sign * growthStep, growthEnd: base.growthEnd + sign * Math.max(.02, Math.abs(base.growthEnd) * .2),
+  return { ...base, growthStart: base.growthStart + sign * growthStep, growthEnd: base.growthEnd + sign * endStep,
     marginTarget: base.marginTarget + sign * marginStep,
     // Business cases share financing assumptions. Rate and terminal uncertainties have their own sensitivity grid.
     salesToCapital: base.salesToCapital * (1 + sign * .1),
-    research: base.research ? { growth: base.research.growth.map(g => g + sign * growthStep), margin: base.research.margin.map(m => m + sign * marginStep) } : undefined };
+    research: base.research ? { growth: base.research.growth.map((g, i) => g + sign * (growthStep + (endStep - growthStep) * i / 4)), margin: base.research.margin.map((m, i) => m + sign * marginStep * (i + 1) / 5) } : undefined };
 }
 export function forecastYears(d: Drivers): number { return STAGE_ONE + Math.round(clamp(d.fadeYears, 1, 15)); }
 export function assumptionsFrom(d: Drivers, f: DcfFoundation): DcfAssumptions {
