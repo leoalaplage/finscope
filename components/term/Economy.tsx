@@ -228,7 +228,7 @@ export function EconomyScreen() {
   );
 }
 
-const COLORS = { blue: "var(--c1, #4c8dff)", amber: "var(--amber, #f4e74c)", teal: "var(--c3, #2bb3a3)", violet: "var(--c4, #9a7bff)" };
+const COLORS = { blue: "var(--c1, #4c8dff)", amber: "var(--amber, #f5c451)", teal: "var(--c3, #2bb3a3)", violet: "var(--c4, #9a7bff)" };
 
 function EconCharts({ series }: { series: EconSeries[] }) {
   const find = (id: string) => series.find((entry) => entry.id === id);
@@ -301,7 +301,7 @@ function EconHistory({ name, events, onClose }: { name: string; events: EconEven
   const values = points.map((point) => point.value);
   const format = (value: number | null | undefined) => (value == null ? "—" : percent ? `${value.toFixed(2)}%` : series?.unit === "index" ? value.toFixed(1) : series?.id === "JTS000000000000000JOL" ? `${(value / 1000).toFixed(2)}M` : `${value >= 0 ? "+" : "−"}${Math.abs(Math.round(value)).toLocaleString("en-US")}K`);
   const kind: "bar" | "line" = spec && (spec.transform === "mom" || spec.transform === "diff" || quarterly) ? "bar" : "line";
-  const chartSpec = { id: id ?? "series", label: spec?.label ?? name, kind, axis: "left" as const, color: "var(--amber, #f4e74c)", value: () => null };
+  const chartSpec = { id: id ?? "series", label: spec?.label ?? name, kind, axis: "left" as const, color: "var(--amber, #f5c451)", value: () => null };
   const preset: Preset = { id: `history-${id}`, title: spec?.label ?? name, left: percent ? "percent" : "shares", series: [chartSpec] };
   const data: ChartData = {
     labels: points.map((point) => periodLabel(point.period)),

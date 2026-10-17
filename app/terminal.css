@@ -39,15 +39,15 @@
   --page: none;
   --radius: 0;
 
-  --bg: #0d1012;
-  --raise: #12161a;
-  --fill: #1a1f24;
-  --line: #1c2126;
-  --line-strong: #2c3238;
-  --ink: #e9edf2;
-  --ink-2: #a1a8b0;
-  --ink-3: #6b737c;
-  --inverse: #0d1012;
+  --bg: #0a1222;
+  --raise: #0e1729;
+  --fill: #142036;
+  --line: #18243a;
+  --line-strong: #26354f;
+  --ink: #e8edf6;
+  --ink-2: #a3aec2;
+  --ink-3: #6c7891;
+  --inverse: #0a1222;
   /*
    * Charts keep the colours they had from the start, whatever the accent of
    * the day: a plot is blue by default, a price green or red by which way it
@@ -65,18 +65,18 @@
   --c6: #38bdf8;
   --c7: #e879f9;
   --c8: #a3e635;
-  --shade: rgba(244, 231, 76, .06);
+  --shade: rgba(245, 196, 81, .06);
   --gain: #2ed47d;
   --loss: #ff5149;
 
   --chart-amber: #ffa028;
   --chart-amber-dim: rgba(255, 160, 40, .55);
-  /* The accent, Tenqay's identity: acid yellow (the names stay: every interface rule reads --amber). */
-  --amber: #f4e74c;
-  --amber-ink: #0d1012;
+  /* The accent, Tenqay's identity: gold on navy (the names stay: every interface rule reads --amber). */
+  --amber: #f5c451;
+  --amber-ink: #0a1222;
   --amber-dim: color-mix(in srgb, var(--amber) 55%, transparent);
   --cyan: #5ec8ff;
-  --head: #111519;
+  --head: #0c1426;
 
   color-scheme: dark;
   font-size: var(--fs-md);
@@ -86,8 +86,8 @@
 }
 
 /* The page behind the page, whatever the document site's theme says. */
-:root:has(.io.term), :root[data-theme]:has(.io.term) { background: var(--page-bg, #0d1012); }
-body:has(.io.term) { background: var(--page-bg, #0d1012); }
+:root:has(.io.term), :root[data-theme]:has(.io.term) { background: #0a1222; }
+body:has(.io.term) { background: #0a1222; }
 
 .term ::selection { background: var(--amber); color: var(--amber-ink); }
 .term :focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; border-radius: 0; }
@@ -1013,7 +1013,6 @@ body:has(.io.term) { background: var(--page-bg, #0d1012); }
 /* --- Settings (SET) ------------------------------------------------------- */
 
 .t-settings { align-items: start; grid-template-areas:
-  "palette palette palette palette palette palette palette palette palette palette palette palette"
   "display display display display display display start start start start start start"
   "alerts alerts alerts alerts alerts alerts account account account account account account"
   "kept kept kept kept kept kept kept kept kept kept kept kept"
@@ -1037,7 +1036,7 @@ body:has(.io.term) { background: var(--page-bg, #0d1012); }
 .t-about p { color: var(--ink-2); margin-bottom: 8px; }
 .t-about code { color: var(--amber); font: inherit; }
 .t-about a { color: var(--amber); }
-@media (max-width: 1100px) { .t-settings { grid-template-areas: "palette" "display" "start" "alerts" "account" "kept" "keys" "about"; grid-template-columns: minmax(0, 1fr); } .t-set-sample { margin-left: 0; } }
+@media (max-width: 1100px) { .t-settings { grid-template-areas: "display" "start" "alerts" "account" "kept" "keys" "about"; grid-template-columns: minmax(0, 1fr); } .t-set-sample { margin-left: 0; } }
 
 /*
  * A finger is not a pointer: on a touch screen the tape, the function keys,
@@ -1514,8 +1513,8 @@ body:has(.io.term) { background: var(--page-bg, #0d1012); }
 .t-keystats-notes .stat-note { margin: 4px 0 0; }
 
 /* TOUR · the welcome tour (components/term/Welcome.tsx): on black, without the terminal's frame; each step a live screenshot. */
-:root body .io.term.t-tour { --bg: #000; --raise: #0a0a0b; --fill: #141416; --head: #060607; --line: #1a1a1d; --line-strong: #2a2a2e; min-height: 100vh; background: #000; }
-:root:has(.t-tour), :root[data-theme]:has(.t-tour), body:has(.t-tour) { background: #000; }
+:root body .io.term.t-tour { min-height: 100vh; background: var(--bg); }
+:root:has(.t-tour), :root[data-theme]:has(.t-tour), body:has(.t-tour) { background: #0a1222; }
 .t-wel { width: 100%; max-width: 1240px; min-height: 100vh; margin: 0 auto; padding: 22px 20px 28px; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 14px; }
 .t-wel-progress { height: 3px; background: var(--line-strong); }
 .t-wel-progress > span { display: block; height: 100%; background: var(--amber); transition: width .25s ease; }
@@ -1679,15 +1678,3 @@ html.t-noscroll, html.t-noscroll body { overflow: hidden; }
 .t-keystats [data-drawable]:hover dd { text-decoration: underline dotted; text-underline-offset: 2px; }
 .t-keystats [data-drawable][aria-pressed="true"] { background: color-mix(in srgb, var(--amber) 14%, transparent); }
 .t-keystats [data-drawable][aria-pressed="true"] dt { color: var(--amber); }
-
-/* The palettes on trial (SET): each a small terminal in its own colours. */
-.t-palettes { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
-.t-palette { display: grid; gap: 4px; padding: 0 0 8px; text-align: left; font: inherit; border: 2px solid; cursor: pointer; }
-.t-palette[aria-checked="true"] { box-shadow: 0 0 0 1px var(--amber); }
-.t-palette-bar { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-bottom: 1px solid; font-size: var(--fs-micro); }
-.t-palette-bar b { padding: 0 4px; font-weight: 700; }
-.t-palette-bar i, .t-palette-bar em { font-style: normal; font-weight: 600; }
-.t-palette-body { display: grid; gap: 4px; margin: 2px 6px; padding: 6px; border: 1px solid; }
-.t-palette-body i { display: block; height: 6px; }
-.t-palette-name { padding: 0 8px; font-size: var(--fs-xs); font-weight: 700; }
-.t-palette-note { padding: 0 8px; font-size: var(--fs-micro); line-height: 1.3; }

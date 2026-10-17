@@ -85,7 +85,7 @@ export interface Drawing {
   locked?: boolean;
 }
 
-export const DRAWING_COLORS = ["#4c8dff", "#f4e74c", "#26a69a", "#ef5350", "#ff9800", "#ab47bc", "#e9edf2", "#9aa3ad"];
+export const DRAWING_COLORS = ["#4c8dff", "#f5c451", "#26a69a", "#ef5350", "#ff9800", "#ab47bc", "#e9edf2", "#9aa3ad"];
 export const DEFAULT_DRAWING_COLOR = DRAWING_COLORS[0];
 
 /** Drawn with a press alone; the others are drawn by dragging, or by a click at each end. */

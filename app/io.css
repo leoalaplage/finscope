@@ -2692,7 +2692,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-plot:hover .candle-nav, .candle-nav:focus-within { opacity: 1; }
 .candle-nav button, .candle-latest, .candle-auto {
   min-width: 24px; height: 22px; padding: 0 6px; font: inherit; font-family: var(--mono); font-size: 12px; line-height: 1;
-  color: var(--ink); background: color-mix(in srgb, var(--bg, #0d1012) 86%, transparent); border: 1px solid var(--line-strong); border-radius: 3px; cursor: pointer;
+  color: var(--ink); background: color-mix(in srgb, var(--bg, #0a1222) 86%, transparent); border: 1px solid var(--line-strong); border-radius: 3px; cursor: pointer;
 }
 .candle-nav button:hover, .candle-latest:hover, .candle-auto:hover { border-color: var(--ink-3); }
 .candle-latest { position: absolute; right: 10px; bottom: 10px; z-index: 4; }
@@ -2702,20 +2702,20 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .drawing-position { fill-opacity: .17; stroke: none; }
 .study-notes .drawing-handle {
   width: 9px; height: 9px; padding: 0; transform: translate(-50%, -50%);
-  background: var(--bg, #0d1012); border: 1.5px solid var(--draw, #4c8dff); border-radius: 50%;
+  background: var(--bg, #0a1222); border: 1.5px solid var(--draw, #4c8dff); border-radius: 50%;
 }
 .study-notes .drawing-label {
   transform: translate(-50%, 4px); padding: 2px 5px; border-radius: 2px; white-space: nowrap;
-  color: var(--ink); background: color-mix(in srgb, var(--bg, #0d1012) 82%, transparent);
+  color: var(--ink); background: color-mix(in srgb, var(--bg, #0a1222) 82%, transparent);
 }
 .study-notes .drawing-label-left { transform: none; margin-left: 2px; }
 .study-notes .drawing-label[data-tone="good"] { color: var(--gain); }
 .study-notes .drawing-label[data-tone="bad"] { color: var(--loss); }
-.study-notes .drawing-text { transform: translateY(-100%); font-family: var(--sans, inherit); font-weight: 600; white-space: pre; text-shadow: 0 0 3px var(--bg, #0d1012); }
+.study-notes .drawing-text { transform: translateY(-100%); font-family: var(--sans, inherit); font-weight: 600; white-space: pre; text-shadow: 0 0 3px var(--bg, #0a1222); }
 .drawing-bar {
   position: absolute; top: 6px; left: 50%; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: calc(100% - 12px);
   padding: 4px 6px; transform: translateX(-50%); font-size: var(--fs-micro, 10px);
-  background: color-mix(in srgb, var(--bg, #0d1012) 94%, transparent); border: 1px solid var(--line-strong); border-radius: 3px; cursor: default;
+  background: color-mix(in srgb, var(--bg, #0a1222) 94%, transparent); border: 1px solid var(--line-strong); border-radius: 3px; cursor: default;
 }
 .drawing-bar > button { height: 22px; padding: 0 7px; font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line-strong); border-radius: 2px; cursor: pointer; }
 .drawing-bar > button[aria-pressed="true"] { color: var(--inverse, #000); background: var(--ink); }
@@ -2731,14 +2731,14 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-events { position: absolute; left: 0; right: 0; bottom: 0; height: 0; z-index: 3; pointer-events: none; }
 .candle-event {
   position: absolute; bottom: 4px; display: grid; place-items: center; width: 15px; height: 15px; transform: translateX(-50%);
-  font-family: var(--mono); font-size: 9px; font-weight: 700; line-height: 1; color: #0d1012; border-radius: 50%; pointer-events: auto; cursor: default;
+  font-family: var(--mono); font-size: 9px; font-weight: 700; line-height: 1; color: #0a1222; border-radius: 50%; pointer-events: auto; cursor: default;
 }
 .candle-event[data-kind="earnings"] { background: #ffa028; }
 .candle-event[data-kind="dividend"] { bottom: 22px; background: #26a69a; }
 .candle-event:hover { outline: 2px solid var(--ink); outline-offset: 1px; }
 .candle-event-card {
   position: absolute; bottom: 42px; transform: translateX(-50%); padding: 4px 7px; white-space: nowrap; pointer-events: none;
-  font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink); background: var(--bg, #0d1012); border: 1px solid var(--line-strong); border-radius: 2px;
+  font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink); background: var(--bg, #0a1222); border: 1px solid var(--line-strong); border-radius: 2px;
 }
 .candle-event-card b { font-weight: 600; margin-right: 4px; }
 .candle-event-card[data-tone="good"] { border-color: var(--gain); }
@@ -2751,7 +2751,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-plot[data-tool="pick"] { cursor: col-resize; }
 .candle-pick-note {
   position: absolute; top: 8px; left: 50%; z-index: 5; transform: translateX(-50%); padding: 3px 8px; pointer-events: none;
-  font-size: var(--fs-micro); color: var(--inverse, #000); background: var(--amber, #f4e74c); border-radius: 2px;
+  font-size: var(--fs-micro); color: var(--inverse, #000); background: var(--amber, #f5c451); border-radius: 2px;
 }
 /* The candles drawn as paths (CandlePaths in components/io/CandleChart.tsx). */
 .candle-up .candle-wick { fill: none; stroke: var(--gain); stroke-width: 1; }
@@ -2760,7 +2760,7 @@ body:has(.io) { margin: 0; background: var(--bg, #fff); }
 .candle-down .candle-fill { fill: var(--loss); }
 /* The title line a chart picture carries (components/io/chart-export.ts). */
 .candle-export-head { display: flex; align-items: baseline; gap: 10px; padding: 6px 4px 8px; font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
-.candle-export-head b { color: var(--amber, #f4e74c); font-size: 15px; letter-spacing: .02em; }
+.candle-export-head b { color: var(--amber, #f5c451); font-size: 15px; letter-spacing: .02em; }
 .candle-export-head .candle-export-source { margin-left: auto; color: var(--ink-3); font-size: 11px; }
 /* An earnings marker: a button to the company's Earnings reaction, and its card. */
 button.candle-event { padding: 0; border: 0; cursor: pointer; }
@@ -2772,4 +2772,4 @@ button.candle-event { padding: 0; border: 0; cursor: pointer; }
 .candle-event-card .release-grid > b { text-align: right; font-weight: 600; color: var(--ink); margin: 0; }
 .candle-event-card .release-grid > b[data-tone="good"] { color: var(--gain); }
 .candle-event-card .release-grid > b[data-tone="bad"] { color: var(--loss); }
-.candle-event-card .release-hint { margin-top: 3px; color: var(--amber, #f4e74c); font-size: 10px; }
+.candle-event-card .release-hint { margin-top: 3px; color: var(--amber, #f5c451); font-size: 10px; }

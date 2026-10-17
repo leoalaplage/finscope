@@ -26,7 +26,7 @@ async function renderChart(figure: HTMLElement, title: { symbol: string; detail:
   // appendChild and insertBefore: the Worker's types give append and prepend another meaning.
   for (const part of [symbol, detail, source]) head.appendChild(part);
   figure.insertBefore(head, figure.firstChild);
-  const background = getComputedStyle(figure.closest(".term") ?? document.body).getPropertyValue("--bg").trim() || "#0d1012";
+  const background = getComputedStyle(figure.closest(".term") ?? document.body).getPropertyValue("--bg").trim() || "#0a1222";
   const blob = await toBlob(figure, {
     pixelRatio: 2,
     backgroundColor: background,

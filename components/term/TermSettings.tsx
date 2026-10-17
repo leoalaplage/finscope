@@ -8,7 +8,6 @@ import { SYNC_EVENT, syncStatus } from "@/components/io/AccountSync";
 import { parseRules, RULES_KEY } from "@/lib/alert-rules";
 import { COMPANY_FUNCTIONS, GLOBAL_FUNCTIONS } from "@/lib/term/command";
 import { START_SCREENS, useTermPrefs, writePrefs, type Clock, type Density, type UpDown } from "./prefs";
-import { PALETTES } from "@/lib/term/palettes";
 import { Panel } from "./Panel";
 
 /**
@@ -130,34 +129,6 @@ export function TermSettings() {
   return (
     <div className="t-grid t-settings">
       {message ? <p className="t-set-message" role="status">{message} <button type="button" className="t-alrt-link" onClick={() => setMessage(null)}>Dismiss</button></p> : null}
-
-      {/* The palettes on trial: the one kept will become Tenqay's own, and this choice will go. */}
-      <Panel code="SET" title="Colour palette · trial" area="palette">
-        <div className="t-panel-pad">
-          <div className="t-palettes" role="radiogroup" aria-label="Colour palette">
-            {PALETTES.map((palette) => (
-              <button
-                key={palette.id} type="button" role="radio" aria-checked={prefs.palette === palette.id}
-                className="t-palette" onClick={() => writePrefs({ palette: palette.id })}
-                style={{ background: palette.bg, borderColor: prefs.palette === palette.id ? palette.accent : palette.lineStrong, color: palette.ink }}
-              >
-                <span className="t-palette-bar" style={{ background: palette.head, borderBottomColor: palette.line }}>
-                  <b style={{ background: palette.accent, color: palette.accentInk }}>TQ</b>
-                  <i style={{ color: palette.accent }}>AAPL</i>
-                  <em style={{ color: palette.ink2 }}>GP</em>
-                </span>
-                <span className="t-palette-body" style={{ background: palette.raise, borderColor: palette.line }}>
-                  <i style={{ background: palette.fill }} />
-                  <i style={{ background: palette.fill, width: "60%" }} />
-                </span>
-                <span className="t-palette-name">{palette.name}</span>
-                <span className="t-palette-note" style={{ color: palette.ink3 }}>{palette.note}</span>
-              </button>
-            ))}
-          </div>
-          <p className="t-study-note">Applied at once to the whole terminal; the charts keep their own colours. Kept on this device.</p>
-        </div>
-      </Panel>
 
       <Panel code="SET" title="Display" area="display">
         <div className="t-panel-pad t-set-body">
