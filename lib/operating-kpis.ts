@@ -161,6 +161,9 @@ interface Building { family: KpiSource; reading: KpiReading; points: Map<string,
  */
 export function assembleKpis(pairs: Array<{ newer: KpiDocument; older: KpiDocument; readings: KpiReading[]; url: (document: KpiDocument) => string }>, filedEnds: Set<string>): OperatingKpi[] {
   const series = new Map<string, Building>();
+  // Read before its 10-Q: a quarter after the last one filed. One the filer's index no longer reaches (JPMorgan's,
+  // a year deep) was filed long ago, whether or not the index still lists it.
+  const lastFiled = [...filedEnds].sort().at(-1) ?? "";
   for (const { newer, older, readings, url } of pairs) {
     for (const reading of readings) {
       const id = `${newer.form}|${reading.key}|${reading.measure ?? ""}`;
@@ -174,7 +177,7 @@ export function assembleKpis(pairs: Array<{ newer: KpiDocument; older: KpiDocume
         if (held && held.source === "release") return;
         entry.points.set(document.end, {
           end: document.end, value: cell.value, decimals: cell.decimals, source: document.form, url: url(document), filed: document.filed,
-          early: document.form === "release" && !filedEnds.has(document.end),
+          early: document.form === "release" && !filedEnds.has(document.end) && document.end > lastFiled,
         });
       };
       add(newer, reading.current);
@@ -383,8 +386,8 @@ export async function operatingKpis(cik: string): Promise<OperatingKpis> {
   });
   const { documents, filedEnds } = JSON.parse(listed) as { documents: KpiDocument[]; filedEnds: string[] };
   const basis = documents.map((document) => document.accession.slice(-8)).join("");
-  // v7: two overlapping quarters prove a table of six and more, and names are tidied. v6: the readings of kpi-rows v4 (sentences, measure columns, quarterly trends). v5: tables of six quarters and more, and headcounts printed under a "$ in millions" heading (Amazon's employees), and no "Other ·" before a name.
-  const { body } = await cachedJson(`operating-kpis:v7:${padded}:${basis.length > 200 ? basis.slice(0, 200) : basis}`, 30 * 86_400, async (): Promise<OperatingKpis> => {
+  // v8: a quarter is "before its 10-Q" only after the last one filed. v7: two overlapping quarters prove a table of six and more, and names are tidied. v6: the readings of kpi-rows v4 (sentences, measure columns, quarterly trends). v5: tables of six quarters and more, and headcounts printed under a "$ in millions" heading (Amazon's employees), and no "Other ·" before a name.
+  const { body } = await cachedJson(`operating-kpis:v8:${padded}:${basis.length > 200 ? basis.slice(0, 200) : basis}`, 30 * 86_400, async (): Promise<OperatingKpis> => {
     const pairs = yearApart(documents);
     const needed = [...new Map(pairs.flat().map((document) => [document.accession, document])).values()];
     const read = new Map<string, { rows: KpiRow[]; url: string }>();
