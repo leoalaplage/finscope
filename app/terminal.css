@@ -312,7 +312,7 @@ body:has(.io.term) { background: #0a1222; }
 .t-splc-title .t-dim { text-transform: none; letter-spacing: 0; font-weight: 400; }
 .t-splc .sheet table { width: 100%; }
 /* A customer's name wraps; the figures beside it never leave the panel. */
-.term .t-splc .sheet td.key { white-space: normal; overflow-wrap: anywhere; min-width: 12ch; }
+.term .t-splc .sheet :is(th, td).key { white-space: normal; overflow-wrap: anywhere; min-width: 12ch; }
 .term .t-splc .sheet td:not(.key), .term .t-splc .sheet th:not(.key) { white-space: nowrap; width: 1%; }
 .t-splc-note { grid-column: 1 / -1; margin: 4px 0 0; font-size: var(--fs-micro); }
 @media (max-width: 900px) { .t-splc { grid-template-columns: minmax(0, 1fr); } }

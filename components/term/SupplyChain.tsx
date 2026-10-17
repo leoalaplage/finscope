@@ -57,7 +57,7 @@ export function SupplyChain({ ticker }: { ticker: string }) {
           <div className="sheet">
             <table>
               <thead>
-                <tr><th className="key">Customer</th><th title="The customer's share of the company's revenue, latest fiscal year stated">Share of revenue</th><th>Year</th><th title="The customer's share of the company's receivables at the latest balance-sheet date stated">Share of receivables</th></tr>
+                <tr><th className="key">Customer</th><th title="The customer's share of the company's revenue, latest fiscal year stated">% revenue</th><th>Year</th><th title="The customer's share of the company's receivables at the latest balance-sheet date stated">% receivables</th></tr>
               </thead>
               <tbody>
                 {answer.customers.map((customer) => {
@@ -88,7 +88,7 @@ export function SupplyChain({ ticker }: { ticker: string }) {
           <div className="sheet">
             <table>
               <thead>
-                <tr><th className="key">Supplier</th><th title={`${answer.ticker}'s share of the supplier's revenue, latest fiscal year stated`}>{answer.ticker}&apos;s share of its revenue</th><th>Year</th><th title={`${answer.ticker}'s share of the supplier's receivables`}>Share of receivables</th></tr>
+                <tr><th className="key">Supplier</th><th title={`${answer.ticker}'s share of the supplier's revenue, latest fiscal year stated`}>% its revenue</th><th>Year</th><th title={`${answer.ticker}'s share of the supplier's receivables`}>% receivables</th></tr>
               </thead>
               <tbody>
                 {answer.suppliers.map((supplier) => (
