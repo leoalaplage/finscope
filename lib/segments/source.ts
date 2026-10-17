@@ -29,7 +29,16 @@ const pause = () => new Promise((resolve) => setTimeout(resolve, SPACING_MS));
 
 const HEADERS = () => ({ "User-Agent": process.env.SEC_USER_AGENT || "Tenqay research application contact@example.com" });
 
-interface IndexItem { name: string }
+interface IndexItem { name: string; size?: number | string }
+
+/**
+ * The twelve latest reports are always read; older ones only while the XML read
+ * stays under this. A bank's instance runs to 15 MB — JPMorgan's two dozen
+ * reports are some 380 MB, and the build ran out of the Worker's memory — where
+ * most companies' are one to five.
+ */
+const ALWAYS_READ = 12;
+const OLDER_BUDGET_BYTES = 160_000_000;
 
 /**
  * The instance and labels of one filing: the inline filing's extracted
@@ -89,15 +98,22 @@ export async function fetchSegments(ticker: string, cik: string, limit = 24): Pr
   const facts: SegmentFact[] = [];
   const labels = new Map<string, string>();
   const read: SegmentFiling[] = [];
+  let attempted = 0;
+  let bytes = 0;
   // Newest first, so a member keeps the name the company gives it now.
-  for (const report of reports) {
+  for (const [position, report] of reports.entries()) {
     const folder = `https://www.sec.gov/Archives/edgar/data/${padded}/${report.accession.replace(/-/g, "")}`;
+    attempted++;
     try {
       await pause();
       const index = await secFetch(`${folder}/index.json`, { headers: { ...HEADERS(), Accept: "application/json" } }, PATIENT);
       if (!index.ok) { await index.body?.cancel(); continue; }
       const items = ((await index.json()) as { directory?: { item?: IndexItem[] } }).directory?.item ?? [];
       const documents = pickDocuments(items.map((item) => item.name));
+      const size = items.filter((item) => item.name === documents.instance || item.name === documents.labels).reduce((sum, item) => sum + (Number(item.size) || 0), 0);
+      // Past the budget the older reports are not missed, they are not asked for.
+      if (position >= ALWAYS_READ && bytes + size > OLDER_BUDGET_BYTES) { attempted--; break; }
+      bytes += size;
       if (!documents.instance) continue;
       const instance = await text(`${folder}/${documents.instance}`);
       if (!instance) continue;
@@ -112,5 +128,5 @@ export async function fetchSegments(ticker: string, cik: string, limit = 24): Pr
       // A report that cannot be read is left out; the list of reports read says so.
     }
   }
-  return { ...buildSegments({ ticker, cik, facts, labels, filings: read }), complete: read.length === reports.length };
+  return { ...buildSegments({ ticker, cik, facts, labels, filings: read }), complete: read.length === attempted };
 }
