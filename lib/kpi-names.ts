@@ -49,7 +49,7 @@ export interface KpiDescription {
 type Basis = "y/y" | "q/q" | "end of quarter";
 
 /** Not an operating figure, whatever table it sits in: roll-forwards, hedges, maturities, reconciliations. */
-const NOT_A_KPI = /\bthereafter\b|^note \d+\b|\b(?:beginning|opening|ending) balance\b|\bbeginning of (?:the )?(?:year|period)\b|^outstanding\b|related part(?:y|ies)|\(deduct\)|\bdeduct\b|^balance (?:at|as of)\b|^(?:beginning|opening)\b|^change in fund value|\bmaturit(?:y|ies)\b|next \d+ months|derivative|\bhedg|forward contracts?|notional|allowance for|purchase accounting|warranty|claims (?:settled|paid)|fair value|\bpurchases?\b(?! volume)|purchase price|distributions on|\badjustments?\b|\bnoi\b|\bffo\b|funds from operations|general and administrative|net real estate|leasing commissions|portfolio investment|premise equipment|performance allocations|partnership units|guaranteed minimum|well[- ]?capitali[sz]ed|loans modified|^reductions?\b|^(?:less|add|plus)\b|add \(subtract\)|total capital|repurchase|dividend|reconciliation|impairment|restructuring|goodwill|capital expenditure|\bcapex\b|depreciation|amortization|construction in progress|\bnet income\b|\bnotes to\b.*\bstatements\b|\bto adjusted\b|^future projects|\bdev\/ ?redev\b|full[- ]year|for the full year|year[- ]to[- ]date|\bytd\b|guidance|outlook/i;
+const NOT_A_KPI = /\bthereafter\b|^note \d+\b|\b(?:beginning|opening|ending) balance\b|\bbeginning of (?:the )?(?:year|period)\b|^outstanding\b|related part(?:y|ies)|\(deduct\)|\bdeduct\b|^balance (?:at|as of)\b|^(?:beginning|opening)\b|^change in fund value|\bmaturit(?:y|ies)\b|next \d+ months|derivative|\bhedg|forward contracts?|notional|allowance for|purchase accounting|warranty|claims (?:settled|paid)|fair value|\bpurchases?\b(?! volume)|purchase price|distributions on|\badjustments?\b|\bnoi\b|\bffo\b|funds from operations|general and administrative|net real estate|leasing commissions|portfolio investment|premise equipment|performance allocations|partnership units|guaranteed minimum|well[- ]?capitali[sz]ed|loans modified|^reductions?\b|^(?:less|add|plus)\b|add \(subtract\)|total capital|repurchase|dividend|reconciliation|impairment|restructuring|goodwill|capital expenditure|\bcapex\b|depreciation|amortization|construction in progress|\boperating income\b|two-year stack|\bnet income\b|\bnotes to\b.*\bstatements\b|\bto adjusted\b|^future projects|\bdev\/ ?redev\b|full[- ]year|for the full year|year[- ]to[- ]date|\bytd\b|guidance|outlook/i;
 
 /** Headings that say a table holds figures, not which. */
 const CONTAINER = /^(?:other|others|all other|supplemental\b.*|additional (?:information|metrics|data)|key (?:operating )?(?:metrics|statistics|data|performance indicators)|kpis?|metrics|operating (?:data|metrics|statistics|results|highlights|information)|operational (?:metrics|data)|statistics|statistical (?:data|information)|business (?:metrics|highlights|data)|selected (?:operating |performance |financial )?(?:metrics|data|statistics|information)(?: and ratios)?|selected (?:financial|operating)\b.*|financial (?:highlights|data)|(?:consolidated )?results(?: of operations)?|summary(?: of .*)?|highlights|(?:first|second|third|fourth) quarter highlights|unit sales information|(?:regional|geographic|segment) (?:breakdown|information|data|results)|breakdown|unit of measure|ratios|operating ratios|underwriting ratios|amount|amounts|value|values|as reported|reported|gaap|non-gaap|operating|operations|operating statistics and related information|segment (?:results|information|data)|segments?|by segment|change from|percentage of (?:net )?(?:sales|revenues?)|as a percentage of .*|% of (?:net )?(?:sales|revenues?)|in (?:millions|thousands|billions)|unaudited)$/i;
@@ -67,7 +67,7 @@ const STRONG_MEASURE = /comparable|\bcomps?\b|same[- ]store|like[- ]for[- ]like|
 const MONEY = /\$|\bdollars?\b|\bsales\b|revenue|\bprices?\b|spend(?:ing)?\b|premiums?|bookings?\b|billed business|gross merchandise|\bgmv\b|payments? volume|purchase volume|network volumes?|transaction volume|\btpv\b|\bgtv\b|\baum\b|assets\b|loans\b|deposits\b|balances?\b|\bvalue\b|\bincome\b|\bcosts?\b|\bfees?\b|\barp[ua]\b|revpar|\badr\b|average daily rate|\bper\b|backlog|\bflows\b|ticket|commitments|receivables/i;
 
 /** Counted, never an amount of money. */
-const COUNTED = /customers?\b|consumers\b|subscribers?|members\b|membership\b|buyers|sellers|users\b|employees|headcount|stores\b|restaurants\b|\bunits?\b|unit counts?|homes\b|\blots\b|deliveries|\bdarts\b|trades\b|orders\b|trips\b|nights\b|passengers|accounts\b|policies|lines\b|connections|production|volumes?\b|barrels|gallons|\bboe\b|\bmcf\b|\bkwh\b|\bgwh\b|\bmwh\b|carloads|\bcars\b|shipments|visitors|transactions\b|contracts\b|cases\b|claims\b|prescriptions|scripts|admissions|visits|procedures|properties|rooms\b|beds\b|wells\b|rigs\b|locations\b|branch(?:es)?\b|cardholders|\bcards\b|inputs\b|\bdays\b|impressions/i;
+const COUNTED = /customers?\b|consumers\b|memberships\b|net (?:membership )?(?:additions|adds)\b|subscribers?|members\b|membership\b|buyers|sellers|users\b|employees|headcount|stores\b|restaurants\b|\bunits?\b|unit counts?|homes\b|\blots\b|deliveries|\bdarts\b|trades\b|orders\b|trips\b|nights\b|passengers|accounts\b|policies|lines\b|connections|production|volumes?\b|barrels|gallons|\bboe\b|\bmcf\b|\bkwh\b|\bgwh\b|\bmwh\b|carloads|\bcars\b|shipments|visitors|transactions\b|contracts\b|cases\b|claims\b|prescriptions|scripts|admissions|visits|procedures|properties|rooms\b|beds\b|wells\b|rigs\b|locations\b|branch(?:es)?\b|cardholders|\bcards\b|inputs\b|\bdays\b|impressions/i;
 
 /** A rate, however it is printed. */
 const RATE = /\byield\b|\brate\b|ratio\b|margin\b|factor\b|occupanc|utili[sz]ation|penetration|load factor|retention|churn|\bmix\b|% of\b|percentage of|share of|\bshare\b|performance\b/i;
@@ -104,7 +104,7 @@ const NOUNS: Array<[RegExp, string]> = [
   [/square f(?:ee|oo)t|footage|\bsq\.? ?ft\b|\brsf\b/i, "sq ft"],
   [/\bunit counts?\b|\bunits\b/i, "units"],
   [/\bstores\b/i, "stores"], [/\brestaurants\b/i, "restaurants"], [/\bwarehouses\b/i, "warehouses"], [/\bclubs\b/i, "clubs"],
-  [/\bsubscribers\b/i, "subscribers"], [/\bcardholders\b/i, "cardholders"], [/\bmembers\b/i, "members"], [/\bcustomers\b/i, "customers"],
+  [/\bsubscribers\b/i, "subscribers"], [/\bmemberships\b/i, "memberships"], [/\bcardholders\b/i, "cardholders"], [/\bmembers\b/i, "members"], [/\bcustomers\b/i, "customers"],
   [/\bemployees\b|\bheadcount\b/i, "employees"], [/\bhomes\b/i, "homes"], [/\bvehicles?\b/i, "vehicles"], [/\bdeliveries\b/i, "deliveries"],
   [/\bpolicies\b/i, "policies"], [/\baccounts\b/i, "accounts"], [/\bbranch(?:es)?\b/i, "branches"], [/\bproperties\b/i, "properties"],
   [/\brooms\b/i, "rooms"], [/\blines\b/i, "lines"], [/\borders\b/i, "orders"], [/\bpassengers\b/i, "passengers"],
@@ -206,13 +206,14 @@ function strip(text: string, notes: Notes, percent: boolean): string {
   if (/^(?:change|net change|increase|decrease|% change|change from)$/i.test(whole) && !percent) notes.drop = true;
   // Sentences: "In Mexico, comp sales", "Compared to last year's fourth quarter, revenues", "Herradura's net sales".
   const inPlace = /^In ([A-Z][\w&.' -]{1,40}?),\s+(.+)$/.exec(part);
-  if (inPlace) { notes.scopes.push(inPlace[1]); part = inPlace[2]; }
-  part = part.replace(/^(?:compared (?:to|with)|versus|vs\.?) [^,]+,\s*/i, "").replace(/^(?:for|in) the (?:first|second|third|fourth) quarter,?\s*/i, "")
+  if (inPlace) { notes.scopes.push(inPlace[1].replace(/^the\s+/i, "")); part = inPlace[2]; }
+  part = part.replace(/^(?:first|second|third|fourth)[- ]quarter\s+/i, "").replace(/^(?:compared (?:to|with)|versus|vs\.?) [^,]+,\s*/i, "").replace(/^(?:for|in) the (?:first|second|third|fourth) quarter,?\s*/i, "")
     .replace(/^(?:first|second|third|fourth) quarter(?:'s)?\s+/i, "").replace(/\s+in the (?:first|second|third|fourth) quarter$/i, "").replace(/^q[1-4]\s+/i, "")
     .replace(/^on a [^,]+ basis,\s*/i, "");
   const owner = /^([A-Z][\w&.-]*(?:\s+[A-Za-z][\w&.-]*){0,4})['’]s\s+(.+)$/.exec(part);
   // Only when what follows is a measure: "Sam's Club U.S." is a name, not Sam's.
-  if (owner && !STRONG_MEASURE.test(owner[1]) && STRONG_MEASURE.test(owner[2])) { notes.scopes.push(owner[1]); part = owner[2]; }
+  // And not when a capital follows: "Sam's Club comparable sales" is Sam's Club's.
+  if (owner && !STRONG_MEASURE.test(owner[1]) && STRONG_MEASURE.test(owner[2]) && !/^[A-Z][a-z]/.test(owner[2])) { notes.scopes.push(owner[1]); part = owner[2]; }
   part = part.replace(/^number of\s+/i, "").replace(/\breported\s+(?=sales|revenue)/i, "");
   // A heading printed in parentheses, left once its change is taken off: "Growth Rate (Square Footage)".
   return clean(clean(part).replace(/^\(([^()]+)\)$/, "$1"));

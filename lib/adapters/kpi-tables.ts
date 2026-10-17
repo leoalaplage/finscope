@@ -122,7 +122,7 @@ const QUARTERLY = /\b(?:three|thirteen|twelve|sixteen|13|12|16)[- ](?:months|wee
 const STATEMENT_ROW = /^total (?:net )?(?:operating )?(?:revenues?|sales)$|^(?:net )?revenues?$|^net sales$|^operating (?:income|loss|profit)|^income (?:\(loss\) )?from operations|^net (?:income|earnings|loss)\b|^total (?:costs and )?(?:operating )?(?:costs and )?expenses?\b|^total assets$|^total liabilities|^net cash (?:provided|used|from)|^gross (?:profit|margin)$|^cost of (?:sales|revenues?|goods)|^income before|^(?:provision for|benefit from) income taxes|^total current (?:assets|liabilities)/i;
 
 /** A line above a table that only says the units or the period, not what the table is about. */
-const CAPTION_NOTE = /^\(?(?:\$|(?:(?:u\.s\. )?dollars?|amounts?|in|figures)\b).*\b(?:millions|thousands|billions)\b|^\(?unaudited\)?$|^\(?continued\)?$|^\(?in (?:millions|thousands|billions)|\bended\b|^as of\b|^table of contents$|^page \d+$|^\d{1,3}$|^(?:np|n\/m|nm)\b.*not (?:provided|meaningful)/i;
+const CAPTION_NOTE = /\.html?\b|^ex-\d|^exhibit \d|^\(?(?:\$|(?:(?:u\.s\. )?dollars?|amounts?|in|figures)\b).*\b(?:millions|thousands|billions)\b|^\(?unaudited\)?$|^\(?continued\)?$|^\(?in (?:millions|thousands|billions)|\bended\b|^as of\b|^table of contents$|^page \d+$|^\d{1,3}$|^(?:np|n\/m|nm)\b.*not (?:provided|meaningful)/i;
 
 /**
  * The heading printed just above a table, where it is one: a short line, not a sentence of the text. The lines that
@@ -188,7 +188,8 @@ export function kpiRows(html: string): KpiRow[] {
         if (scaled) {
           const note = raw.join(" ");
           tableScale = scaled[1].toLowerCase();
-          dollarScale = /\$|dollars?\b|amounts/i.test(note);
+          // Said of what comes before "except": "(In millions, except per share amounts)" scales more than dollars.
+          dollarScale = /\$|dollars?\b|amounts/i.test(note.split(/\bexcept\b/i)[0]);
           // "In millions, except percentages": its counts are in millions too, unless it excepts them ("except store data").
           countsScaled = !dollarScale && !/except\b.*\b(?:stores?|units?|employees|members|data|counts?|numbers?|statistics|operating|square|locations|restaurants|customers|subscribers|accounts)\b/i.test(note);
         }

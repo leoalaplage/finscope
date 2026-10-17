@@ -36,6 +36,7 @@ import { FundamentalCharts } from "./FundamentalCharts";
 import { Estimates } from "@/components/io/Estimates";
 import { Segments } from "@/components/io/Segments";
 import { OperatingKpis } from "@/components/io/OperatingKpis";
+import { MoneyFlow } from "@/components/term/MoneyFlow";
 import { Reports } from "@/components/io/Reports";
 import { Panel } from "./Panel";
 import { Seasonality } from "./Seasonality";
@@ -253,12 +254,11 @@ export function TermCompany({ ticker }: { ticker: string }) {
         <Panel code="SEG" title="Segments" area="seg">
           <Segments key={`seg-${company.ticker}`} ticker={company.ticker} cik={company.cik} />
         </Panel>
-        <Panel code="SPLC" title="Customers and suppliers" area="splc">
-          <div className="t-panel-pad"><SupplyChain key={`splc-${company.ticker}`} ticker={company.ticker} /></div>
-        </Panel>
-        <Panel code="SPLC" title="Customers and suppliers" area="splc">
-          <div className="t-panel-pad"><SupplyChain key={`splc-${company.ticker}`} ticker={company.ticker} /></div>
-        </Panel>
+        {/* Only where a customer is named, in its filings or a supplier's. */}
+        <SupplyChain
+          key={`splc-${company.ticker}`} ticker={company.ticker}
+          frame={(body) => <Panel code="SPLC" title="Customers and suppliers" area="splc"><div className="t-panel-pad">{body}</div></Panel>}
+        />
         {/* Only where the company's documents prove a figure: most companies print none the reader can trust. */}
         <OperatingKpis
           key={`kpi-${company.ticker}`} ticker={company.ticker} cik={company.cik}
@@ -278,6 +278,9 @@ export function TermCompany({ ticker }: { ticker: string }) {
         <Chapter area="c-res" number={3} title="Results" />
         <Panel code="EE" title="Latest quarter" area="ee">
           <EarningsBoard key={`ee-${company.ticker}`} view={view} lastFiled={lastFiled ? { label: lastFiled.label, filingDate: lastFiled.filingDate } : null} />
+        </Panel>
+        <Panel code="FLOW" title="Money flow" area="flow">
+          <div className="t-panel-pad"><MoneyFlow key={`flow-${company.ticker}`} view={view} /></div>
         </Panel>
         <Panel code="EST" title="Estimates" area="est">
           <Estimates key={`est-${company.ticker}`} ticker={company.ticker} price={quote?.price ?? null} currency={quote?.currency ?? company.currency} />

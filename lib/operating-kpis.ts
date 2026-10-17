@@ -20,8 +20,10 @@ import { datasetCache } from "./runtime-env";
 
 const SEC_AGENT = () => process.env.SEC_USER_AGENT || "Tenqay research application contact@example.com";
 const DAY = 86_400_000;
-const RELEASES = 9;
-const QUARTERLIES = 7;
+/** Ten years of quarters, as far as the documents still print the same rows: the releases and 10-Qs of each. */
+const RELEASES = 40;
+const QUARTERLIES = 30;
+const YEARS_BACK = 10;
 const MAX_SERIES = 24;
 
 export type KpiSource = "release" | "10-Q";
@@ -68,6 +70,32 @@ export interface OperatingKpis {
 }
 
 interface Recent { form: string[]; filingDate: string[]; reportDate: string[]; accessionNumber: string[]; items?: string[]; primaryDocument?: string[] }
+
+/** An older page of the filer's index added after the recent one, filing by filing. */
+export function appendFilings(recent: Recent, page: Partial<Recent>): void {
+  const count = page.accessionNumber?.length ?? 0;
+  for (let index = 0; index < count; index++) {
+    recent.form.push(page.form?.[index] ?? ""); recent.filingDate.push(page.filingDate?.[index] ?? ""); recent.reportDate.push(page.reportDate?.[index] ?? "");
+    recent.accessionNumber.push(page.accessionNumber![index]); recent.items?.push(page.items?.[index] ?? ""); recent.primaryDocument?.push(page.primaryDocument?.[index] ?? "");
+  }
+}
+
+/**
+ * The index's recent page holds a year or a thousand filings: three years for Walmart, whose officers file Form 4s
+ * all year. Its older pages, newest first, are read until ten years are covered.
+ */
+async function withOlderFilings(recent: Recent, files: Array<{ name: string }>): Promise<void> {
+  const horizon = iso(Date.now() - YEARS_BACK * 365.25 * DAY);
+  for (const file of files.slice(0, 4)) {
+    const oldest = recent.filingDate.reduce((earliest, date) => (date && date < earliest ? date : earliest), "9999");
+    if (oldest <= horizon) return;
+    try {
+      const response = await secFetch(`https://data.sec.gov/submissions/${file.name}`, { headers: { "User-Agent": SEC_AGENT(), Accept: "application/json" } });
+      if (!response.ok) { await response.body?.cancel(); return; }
+      appendFilings(recent, await response.json() as Partial<Recent>);
+    } catch { return; }
+  }
+}
 
 const iso = (time: number) => new Date(time).toISOString().slice(0, 10);
 const days = (later: string, earlier: string) => (Date.parse(later) - Date.parse(earlier)) / DAY;
@@ -212,18 +240,28 @@ export function assembleKpis(pairs: Array<{ newer: KpiDocument; older: KpiDocume
     const renamed = twin ? null : kept.find((other) => core(other) === core(entry) && [...entry.points].every(([end, point]) => !other.points.has(end) || other.points.get(end)!.value === point.value));
     const into = twin ?? renamed;
     if (!into) { kept.push(entry); continue; }
+    // The same figures read from a sentence and from a table: the table says their scale (Uber's MAPCs "in millions").
+    if (!into.reading.scale && entry.reading.scale && !entry.reading.dollarScale) into.reading = { ...into.reading, scale: entry.reading.scale };
     if (renamed) for (const end of entry.proofs) renamed.proofs.add(end);
     for (const [end, point] of entry.points) if (!into.points.has(end) && !into.disputed.has(end)) into.points.set(end, point);
   }
   // Named the same way for every company; a figure whose text says nothing of what it measures is not shown.
   const described: Array<{ entry: Building; description: NonNullable<ReturnType<typeof describeKpi>> }> = [];
+  // A measure the company stopped printing a year or more before its latest filing is history, not a KPI (Apple's
+  // iPhone units, last printed in 2018).
+  const newest = kept.reduce((latest, entry) => [...entry.points.keys()].reduce((at, end) => (end > at ? end : at), latest), lastFiled);
   for (const entry of kept) {
+    const last = [...entry.points.keys()].sort().at(-1) ?? "";
+    if (newest && days(newest, last) > 370) continue;
     const { label, section, caption, measure, unit, scale, dollarScale } = entry.reading;
     const description = describeKpi({ caption, section, label, measure, unit, scale, dollarScale, values: [...entry.points.values()].map((point) => point.value) });
     if (!description) continue;
     // Two rows that come out under one name are one measure printed twice (a release and its supplement): one card.
-    const same = described.find((other) => other.description.name === description.name && other.description.unit === description.unit);
+    // A measure that came to be printed "at period end" from one year to the next is the same measure.
+    const plain = (name: string) => name.replace(/ · end of quarter$/, "");
+    const same = described.find((other) => plain(other.description.name) === plain(description.name) && other.description.unit === description.unit);
     if (same) {
+      if (!same.description.scale && description.scale) same.description = { ...same.description, scale: description.scale };
       if (![...entry.points].some(([end, point]) => same.entry.points.has(end) && same.entry.points.get(end)!.value !== point.value)) {
         for (const [end, point] of entry.points) if (!same.entry.points.has(end)) same.entry.points.set(end, point);
       }
@@ -372,18 +410,21 @@ export { tidyName } from "./kpi-names";
 /** A company's operating figures, rebuilt when it files a release or a 10-Q and kept until then. */
 export async function operatingKpis(cik: string): Promise<OperatingKpis> {
   const padded = cik.padStart(10, "0");
-  const { body: listed } = await cachedJson(`kpi-documents:v2:${padded}`, 1800, async () => {
+  // v3: ten years of documents, from the index's older pages where its recent one is shorter.
+  const { body: listed } = await cachedJson(`kpi-documents:v3:${padded}`, 1800, async () => {
     const response = await secFetch(`https://data.sec.gov/submissions/CIK${padded}.json`, { headers: { "User-Agent": SEC_AGENT(), Accept: "application/json" } });
     if (!response.ok) throw new Error(`SEC returned ${response.status}.`);
-    const recent = (await response.json() as { filings: { recent: Recent } }).filings.recent;
+    const { filings } = await response.json() as { filings: { recent: Recent; files?: Array<{ name: string }> } };
+    const recent = filings.recent;
+    await withOlderFilings(recent, filings.files ?? []);
     await withEarlierReleases(recent, padded);
     const filedEnds = recent.form.flatMap((form, index) => ((form === "10-Q" || form === "10-K") && recent.reportDate[index] ? [recent.reportDate[index]] : []));
     return { documents: kpiDocuments(recent, padded), filedEnds };
   });
   const { documents, filedEnds } = JSON.parse(listed) as { documents: KpiDocument[]; filedEnds: string[] };
   const basis = documents.map((document) => document.accession.slice(-8)).join("");
-  // v9: names, units and suffixes from lib/kpi-names.ts, and rows told apart by their table's caption. v8: a quarter is "before its 10-Q" only after the last one filed. v7: two overlapping quarters prove a table of six and more, and names are tidied. v6: the readings of kpi-rows v4 (sentences, measure columns, quarterly trends). v5: tables of six quarters and more, and headcounts printed under a "$ in millions" heading (Amazon's employees), and no "Other ·" before a name.
-  const { body } = await cachedJson(`operating-kpis:v9:${padded}:${basis.length > 200 ? basis.slice(0, 200) : basis}`, 30 * 86_400, async (): Promise<OperatingKpis> => {
+  // v10: ten years of quarters, and a series read twice keeps the scale its table states. v9: names, units and suffixes from lib/kpi-names.ts, and rows told apart by their table's caption. v8: a quarter is "before its 10-Q" only after the last one filed. v7: two overlapping quarters prove a table of six and more, and names are tidied. v6: the readings of kpi-rows v4 (sentences, measure columns, quarterly trends). v5: tables of six quarters and more, and headcounts printed under a "$ in millions" heading (Amazon's employees), and no "Other ·" before a name.
+  const { body } = await cachedJson(`operating-kpis:v10:${padded}:${basis.length > 200 ? basis.slice(0, 200) : basis}`, 30 * 86_400, async (): Promise<OperatingKpis> => {
     const pairs = yearApart(documents);
     const needed = [...new Map(pairs.flat().map((document) => [document.accession, document])).values()];
     const read = new Map<string, { rows: KpiRow[]; url: string }>();

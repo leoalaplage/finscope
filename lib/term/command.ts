@@ -7,7 +7,7 @@
  * where to go, this decides what was meant.
  */
 
-export type CompanyFunction = "DES" | "GP" | "EVT" | "NOTE" | "FA" | "GR" | "GF" | "SEG" | "SPLC" | "KPI" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "PEER" | "DCF" | "DVD" | "DDIS" | "FS" | "COMP";
+export type CompanyFunction = "DES" | "GP" | "FLOW" | "EVT" | "NOTE" | "FA" | "GR" | "GF" | "SEG" | "SPLC" | "KPI" | "RPT" | "EST" | "EE" | "ERX" | "SEAS" | "VAL" | "HDS" | "INS" | "PEER" | "DCF" | "DVD" | "DDIS" | "FS" | "COMP";
 export type GlobalFunction = "HOME" | "MKT" | "SCRN" | "PORT" | "CHART" | "BT" | "ECAL" | "ECO" | "INSB" | "ALRT" | "ACCT" | "SET" | "TOUR" | "HELP";
 
 export interface FunctionSpec<Code extends string> {
@@ -38,6 +38,7 @@ export const COMPANY_FUNCTIONS: FunctionSpec<CompanyFunction>[] = [
   { code: "GF", name: "Fundamental charts", chapter: 2 },
   // 3 · The results
   { code: "EE", name: "Latest quarter", chapter: 3 },
+  { code: "FLOW", name: "Money flow", chapter: 3 },
   { code: "EST", name: "Estimates", chapter: 3 },
   { code: "RPT", name: "Quarterly history", chapter: 3 },
   { code: "ERX", name: "Earnings reaction", chapter: 3 },
@@ -94,6 +95,7 @@ const ALIASES: Record<string, CompanyFunction | GlobalFunction> = {
   HDS: "HDS", HOLD: "HDS",
   COMPARE: "COMP", RV: "COMP",
   KPIS: "KPI", METRICS: "KPI", OPERATING: "KPI",
+  SANKEY: "FLOW", FLOWS: "FLOW", MONEY: "FLOW",
   SEGMENTS: "SEG", SEGMENT: "SEG", PGEO: "SEG",
   SUPPLY: "SPLC", SUPPLIERS: "SPLC", SUPPLIER: "SPLC", CUSTOMERS: "SPLC", CUSTOMER: "SPLC", CHAIN: "SPLC",
   REPORTS: "RPT", SURP: "RPT", EM: "RPT",

@@ -34,7 +34,11 @@ function history(customer: Customer): string {
   return customer.annual.filter((point) => point.share != null).map((point) => `${point.end.slice(0, 4)}: ${percent(point.share)}${point.derived ? " (worked out)" : ""}`).join(" · ");
 }
 
-export function SupplyChain({ ticker }: { ticker: string }) {
+export function SupplyChain({ ticker, frame = (body) => body }: {
+  ticker: string;
+  /** The panel around it: left out altogether when the filings name no customer and no member names the company. */
+  frame?: (body: React.ReactNode) => React.ReactNode;
+}) {
   const [answer, setAnswer] = useState<Answer | null | "failed">(null);
   useEffect(() => {
     const controller = new AbortController();
@@ -45,11 +49,13 @@ export function SupplyChain({ ticker }: { ticker: string }) {
     return () => controller.abort();
   }, [ticker]);
 
-  if (answer === null) return <p className="t-empty">Reading the customers named in the company&apos;s filings…</p>;
-  if (answer === "failed") return <p className="t-empty">Customers and suppliers are unavailable just now.</p>;
+  if (answer === null) return frame(<p className="t-empty">Reading the customers named in the company&apos;s filings…</p>);
+  if (answer === "failed") return frame(<p className="t-empty">Customers and suppliers are unavailable just now.</p>);
+  // Most companies name no customer of a tenth of their revenue: nothing to show is no panel.
+  if (!answer.customers.length && !answer.suppliers.length && !answer.pending) return null;
   const latest = (customer: Customer) => [...customer.annual].reverse().find((point) => point.share != null) ?? null;
 
-  return (
+  return frame(
     <div className="t-splc">
       <section className="t-splc-side">
         <h3 className="t-splc-title">Customers <span className="t-dim">named in {answer.ticker}&apos;s reports</span></h3>

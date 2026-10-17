@@ -16,6 +16,26 @@ export interface StatementDiagram {
   periodEnd: string;
 }
 
+/**
+ * A period as the diagrams read it: a filed period, or a period of the company's view (lib/io/view.ts), whose
+ * figures are already keyed by measure.
+ */
+export interface StatementReader {
+  value: (metric: MetricKey) => number | null;
+  freeCashFlow: () => number | null;
+  currency: string;
+  periodLabel: string;
+  periodEnd: string;
+}
+
+function readerOf(source: FinancialPeriod | StatementReader): StatementReader {
+  if (!("facts" in source)) return source;
+  return {
+    value: (metric) => valueOf(source, metric), freeCashFlow: () => derivedValue(source, "freeCashFlow"),
+    currency: source.currency, periodLabel: source.label, periodEnd: source.periodEnd,
+  };
+}
+
 const positive = (value: number | null | undefined) => value != null && Number.isFinite(value) && value > 0 ? value : 0;
 
 /**
@@ -43,8 +63,9 @@ function residual(total: number, parts: number[], threshold = .001) {
  * are not a slice of operating income at all, so they enter as their own source
  * rather than being netted silently against something else.
  */
-export function incomeStatementDiagram(period: FinancialPeriod): StatementDiagram | null {
-  const value = (metric: MetricKey) => valueOf(period, metric);
+export function incomeStatementDiagram(source: FinancialPeriod | StatementReader): StatementDiagram | null {
+  const period = readerOf(source);
+  const value = period.value;
   const revenue = positive(value("revenue"));
   if (!revenue) return null;
 
@@ -116,7 +137,7 @@ export function incomeStatementDiagram(period: FinancialPeriod): StatementDiagra
     notes.push("The filer tags no operating income, so pre-tax income is taken as net income plus tax and the remaining costs are grouped.");
   } else {
     notes.push("Neither operating income nor net income is positive in this period, so the diagram stops at gross profit.");
-    return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.label, periodEnd: period.periodEnd };
+    return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.periodLabel, periodEnd: period.periodEnd };
   }
 
   // The identity below is: profit before non-operating items, plus net
@@ -154,7 +175,7 @@ export function incomeStatementDiagram(period: FinancialPeriod): StatementDiagra
     notes.push("Net income is not positive in this period, so no profit flow is drawn.");
   }
 
-  return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.label, periodEnd: period.periodEnd };
+  return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.periodLabel, periodEnd: period.periodEnd };
 }
 
 /**
@@ -284,8 +305,9 @@ export function balanceSheetDiagram(period: FinancialPeriod): StatementDiagram |
  * application computes, and every other ribbon is a filed line or a subtraction
  * from one.
  */
-export function cashFlowDiagram(period: FinancialPeriod): StatementDiagram | null {
-  const value = (metric: MetricKey) => valueOf(period, metric);
+export function cashFlowDiagram(source: FinancialPeriod | StatementReader): StatementDiagram | null {
+  const period = readerOf(source);
+  const value = period.value;
   const operating = positive(value("operatingCashFlow"));
   if (!operating) return null;
 
@@ -346,10 +368,10 @@ export function cashFlowDiagram(period: FinancialPeriod): StatementDiagram | nul
 
   nodes.push({ id: "operatingCashFlow", label: "Operating cash flow", tone: "profit" });
 
-  const freeCashFlow = derivedValue(period, "freeCashFlow");
+  const freeCashFlow = period.freeCashFlow();
   if (freeCashFlow == null) {
     notes.push("The filer tags no capital expenditure, so free cash flow cannot be separated from operating cash flow.");
-    return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.label, periodEnd: period.periodEnd };
+    return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.periodLabel, periodEnd: period.periodEnd };
   }
 
   const capex = Math.max(0, operating - freeCashFlow);
@@ -360,7 +382,7 @@ export function cashFlowDiagram(period: FinancialPeriod): StatementDiagram | nul
   }
   if (freeCashFlow <= 0) {
     notes.push("Capital expenditure exceeded operating cash flow in this period, so there is no free cash flow to draw.");
-    return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.label, periodEnd: period.periodEnd };
+    return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.periodLabel, periodEnd: period.periodEnd };
   }
   nodes.push({ id: "freeCashFlow", label: "Free cash flow", tone: "profit" });
   flows.push({ source: "operatingCashFlow", target: "freeCashFlow", value: freeCashFlow });
@@ -376,7 +398,7 @@ export function cashFlowDiagram(period: FinancialPeriod): StatementDiagram | nul
   const returned = returns.reduce((total, item) => total + item.amount, 0);
   const factor = returned > freeCashFlow ? freeCashFlow / returned : 1;
   if (returned > freeCashFlow) {
-    notes.push(`Dividends and buybacks came to ${(returned / freeCashFlow).toFixed(2)}× the year's free cash flow: the difference came from cash already held or from borrowing, so the ribbons are scaled to the cash the year produced.`);
+    notes.push(`Dividends and buybacks came to ${(returned / freeCashFlow).toFixed(2)}× the period's free cash flow: the difference came from cash already held or from borrowing, so the ribbons are scaled to the cash the period produced.`);
   }
   for (const item of returns) {
     nodes.push({ id: item.id, label: item.label, tone: "equity" });
@@ -390,7 +412,7 @@ export function cashFlowDiagram(period: FinancialPeriod): StatementDiagram | nul
     values.retainedCash = retained;
   }
 
-  return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.label, periodEnd: period.periodEnd };
+  return { flows, nodes, values, notes, currency: period.currency, periodLabel: period.periodLabel, periodEnd: period.periodEnd };
 }
 
 export interface BalanceSheetHealth {

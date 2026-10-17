@@ -131,7 +131,7 @@ export function OperatingKpis({ ticker, cik, frame = (body) => body }: {
   }, [key, ticker, cik, attempt]);
 
   const current = answer?.key === key ? answer : null;
-  if (!current) return frame(<p className="t-empty">Reading the releases and the 10-Qs of the last two years… the first reading takes a few seconds.</p>);
+  if (!current) return frame(<p className="t-empty">Reading ten years of releases and 10-Qs… the first reading of a company takes up to half a minute.</p>);
   if (current.failed || !current.data) {
     return frame(<p className="t-empty">EDGAR is temporarily unavailable. <button type="button" className="segments-retry" onClick={() => setAttempt((count) => count + 1)}>Try again</button></p>);
   }
@@ -148,7 +148,7 @@ export function OperatingKpis({ ticker, cik, frame = (body) => body }: {
     <div className="kpi">
 
       {early ? (
-        <p className="kpi-early">The {quarterLabel(early.end)} quarter is read from the release filed {shortDate(early.filed)}, before its 10-Q. <a href={early.url} target="_blank" rel="noreferrer">The release ↗</a></p>
+        <p className="kpi-early">The {quarterLabel(early.end)} quarter is read from the release filed {shortDate(early.filed)}, before its 10-Q.</p>
       ) : null}
       <div className="kpi-grid">
         {shown.map((kpi) => {
@@ -163,7 +163,6 @@ export function OperatingKpis({ ticker, cik, frame = (body) => body }: {
                 <span className="t-dim">{quarterLabel(latest.end)}{latest.early ? " · release" : ""}</span>
               </div>
               <KpiChart kpi={kpi} color={colorOf(kpi)} />
-              <a className="kpi-source" href={latest.url} target="_blank" rel="noreferrer">{latest.source === "release" ? "Release" : "10-Q"} {shortDate(latest.filed)} ↗</a>
             </figure>
           );
         })}

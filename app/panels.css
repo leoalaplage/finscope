@@ -285,7 +285,6 @@
 .kpi-bars rect { fill: var(--ink-3); opacity: .45; }
 .kpi-bars rect[data-latest] { fill: var(--ink); opacity: 1; }
 .kpi-bars rect[data-early] { fill: none; opacity: 1; stroke: var(--ink); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.kpi-source { justify-self: start; color: var(--ink-3); font-size: var(--fs-micro, 10px); }
 
 /* A fund's charts, read under the pointer (components/io/Etf.tsx, EtfAnalytics.tsx). */
 .etf-readout { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; margin: 0 0 4px; min-height: 1.4em; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--ink-2); }
@@ -318,3 +317,18 @@
 .dcf-sens th.key { min-width: 9ch; width: 9ch; white-space: normal; }
 .stats.dcf-strip { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
 .dcf-strip .stat-value, .dcf-strip .stat .label { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+
+/* A function whose panel the company does not have (no KPI proven, no customer named) is not offered in the bar. */
+body:has(.t-panel#fa):not(:has(.t-panel#kpi)) .t-fn a[href$="#kpi"],
+body:has(.t-panel#fa):not(:has(.t-panel#splc)) .t-fn a[href$="#splc"] { display: none; }
+
+/* FLOW: the latest 10-Q's and 10-K's money drawn as widths (components/term/MoneyFlow.tsx). */
+.t-flow { display: grid; gap: 8px; }
+.t-flow-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: var(--fs-xs); }
+.t-flow-scroll { overflow-x: auto; }
+.t-flow-svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.t-flow-svg path { transition: opacity .12s ease; }
+.t-flow-label { font-size: 12px; fill: var(--ink); pointer-events: none; }
+.t-flow-name { font-weight: 600; }
+.t-flow-value { fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+.t-flow-notes { margin: 0; padding-left: 16px; font-size: var(--fs-micro); }

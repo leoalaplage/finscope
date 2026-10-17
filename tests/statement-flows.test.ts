@@ -421,3 +421,14 @@ describe("cash flow diagram", () => {
     expect(cashFlowDiagram(period({ netIncome: 100 }))).toBeNull();
   });
 });
+
+describe("a period of the company's view", () => {
+  it("draws the same income flow from figures keyed by measure", () => {
+    const figures: Record<string, number> = { revenue: 100, costOfRevenue: 60, grossProfit: 40, operatingIncome: 15, incomeTaxExpense: 3, netIncome: 12 };
+    const diagram = incomeStatementDiagram({
+      value: (metric) => figures[metric] ?? null, freeCashFlow: () => null, currency: "USD", periodLabel: "Q2 FY2027", periodEnd: "2026-07-31",
+    });
+    expect(diagram?.values).toMatchObject({ revenue: 100, costOfRevenue: 60, grossProfit: 40, operatingIncome: 15, tax: 3, netIncome: 12 });
+    expect(diagram?.periodLabel).toBe("Q2 FY2027");
+  });
+});
